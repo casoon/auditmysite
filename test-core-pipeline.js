@@ -3,10 +3,11 @@
 /**
  * Test script for CoreAuditPipeline v2.0
  * 
- * This script demonstrates the new simplified pipeline:
- * 1. Clean JSON export
- * 2. Simplified options
- * 3. Optional HTML generation
+ * This script demonstrates Sprint 2 achievements:
+ * 1. Strict TypeScript types (FullAuditResult)
+ * 2. JSON-first architecture (HTML reads JSON)
+ * 3. Unified HTML generator with modern design
+ * 4. Consistent data structure across CLI/HTML/API
  */
 
 const { CoreAuditPipeline } = require('./dist/core/pipeline');

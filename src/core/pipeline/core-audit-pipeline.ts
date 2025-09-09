@@ -1,6 +1,17 @@
 import { SitemapParser } from '@core/parsers';
 import { AccessibilityChecker } from '@core/accessibility';
 import { TestOptions, TestSummary, AccessibilityResult } from '@core/types';
+import { 
+  FullAuditResult, 
+  AuditMetadata, 
+  AuditConfig,
+  SitemapResult, 
+  PageAuditResult, 
+  AuditSummary,
+  StructuredIssue,
+  calculateGrade,
+  calculateOverallScore
+} from '../../types/audit-results';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
@@ -31,52 +42,8 @@ export interface CoreAuditOptions {
   includeWarnings?: boolean;
 }
 
-/**
- * Core Audit Result - Consistent JSON structure for Electron App
- */
-export interface CoreAuditResult {
-  metadata: {
-    timestamp: string;
-    version: string;
-    sitemapUrl: string;
-    duration: number;
-    toolVersion: string;
-  };
-  summary: {
-    totalPages: number;
-    testedPages: number;
-    passedPages: number;
-    failedPages: number;
-    crashedPages: number;
-    totalErrors: number;
-    totalWarnings: number;
-  };
-  pages: PageAuditResult[];
-  issues: AuditIssue[];
-}
-
-export interface PageAuditResult {
-  url: string;
-  title?: string;
-  passed: boolean;
-  crashed?: boolean;
-  errors: string[];
-  warnings: string[];
-  duration: number;
-  // Optional enhanced data
-  performanceMetrics?: any;
-  enhancedSEO?: any;
-  contentWeight?: any;
-}
-
-export interface AuditIssue {
-  type: 'accessibility' | 'performance' | 'seo';
-  severity: 'error' | 'warning' | 'notice';
-  message: string;
-  url: string;
-  selector?: string;
-  code?: string;
-}
+// Types are now imported from shared audit-results.ts
+// This ensures consistency across CLI JSON, HTML reports, and API
 
 /**
  * 🚀 Core Audit Pipeline v2.0
@@ -98,17 +65,17 @@ export class CoreAuditPipeline {
   /**
    * Main pipeline execution
    */
-  async run(options: CoreAuditOptions): Promise<CoreAuditResult> {
+  async run(options: CoreAuditOptions): Promise<FullAuditResult> {
     const startTime = Date.now();
     
     console.log('🎯 AuditMySite v2.0 - Core Pipeline');
     console.log(`📄 Analyzing: ${options.sitemapUrl}`);
     
-    // 1. Parse and filter sitemap URLs
-    const urls = await this.parseSitemap(options.sitemapUrl);
-    const filteredUrls = this.filterAndLimitUrls(urls, options);
+    // 1. Parse sitemap and create SitemapResult
+    const sitemapResult = await this.parseSitemap(options.sitemapUrl, options);
+    const urls = sitemapResult.urls;
     
-    console.log(`🔍 Testing ${filteredUrls.length} pages (max: ${options.maxPages || 20})`);
+    console.log(`🔍 Testing ${urls.length} pages (filtered: ${sitemapResult.filteredUrls} excluded)`);
     
     // 2. Initialize browser manager (single instance)
     const browserManager = await this.initializeBrowserPool();
@@ -116,24 +83,24 @@ export class CoreAuditPipeline {
     try {
       // 3. Run audit (simplified to 2 modes)
       const results = options.useEnhancedAnalysis
-        ? await this.runEnhancedAudit(filteredUrls, browserManager, options)
-        : await this.runStandardAudit(filteredUrls, browserManager, options);
+        ? await this.runEnhancedAudit(urls, browserManager, options)
+        : await this.runStandardAudit(urls, browserManager, options);
       
-      // 4. Create core audit result (JSON structure)
-      const coreResult = this.buildCoreAuditResult(results, options, startTime);
+      // 4. Create full audit result (JSON structure)
+      const fullResult = this.buildFullAuditResult(results, sitemapResult, options, startTime);
       
       // 5. Export JSON (CORE FUNCTIONALITY)
-      await this.exportToJSON(coreResult, options);
+      const jsonPath = await this.exportToJSON(fullResult, options);
       
-      // 6. Optional: Generate HTML report
+      // 6. Optional: Generate HTML report (reads JSON)
       if (options.generateHTML) {
-        await this.generateHTMLReport(coreResult, options);
+        await this.generateHTMLReport(jsonPath, options);
       }
       
       const duration = Date.now() - startTime;
       console.log(`✅ Audit completed in ${Math.round(duration/1000)}s`);
       
-      return coreResult;
+      return fullResult;
       
     } finally {
       // 7. Cleanup browser resources
@@ -142,33 +109,35 @@ export class CoreAuditPipeline {
   }
   
   /**
-   * Parse sitemap and extract URLs
+   * Parse sitemap and return structured result
    */
-  private async parseSitemap(sitemapUrl: string): Promise<string[]> {
+  private async parseSitemap(sitemapUrl: string, options: CoreAuditOptions): Promise<SitemapResult> {
     const parser = new SitemapParser();
-    const urls = await parser.parseSitemap(sitemapUrl);
-    console.log(`📋 Sitemap loaded: ${urls.length} URLs found`);
-    return urls.map((url: any) => url.loc || url);
-  }
-  
-  /**
-   * Filter and limit URLs based on options
-   */
-  private filterAndLimitUrls(urls: string[], options: CoreAuditOptions): string[] {
-    const parser = new SitemapParser();
+    const rawUrls = await parser.parseSitemap(sitemapUrl);
+    const allUrls = rawUrls.map((url: any) => url.loc || url);
     
-    // Apply basic filters (remove demo/test URLs)
+    console.log(`📄 Sitemap loaded: ${allUrls.length} URLs found`);
+    
+    // Apply filters and limits
     const filterPatterns = ['[...slug]', '[category]', '/demo/', '/test/'];
     const filteredUrls = parser.filterUrls(
-      urls.map(url => ({ loc: url })), 
+      allUrls.map(url => ({ loc: url })), 
       { filterPatterns }
     );
     
     // Limit to maxPages
     const maxPages = options.maxPages || 20;
     const limitedUrls = filteredUrls.slice(0, maxPages);
+    const finalUrls = limitedUrls.map((url: any) => url.loc);
     
-    return limitedUrls.map((url: any) => url.loc);
+    return {
+      sourceUrl: sitemapUrl,
+      urls: finalUrls,
+      parsedAt: new Date().toISOString(),
+      totalUrls: allUrls.length,
+      filteredUrls: allUrls.length - filteredUrls.length,
+      filterPatterns
+    };
   }
   
   /**
@@ -251,14 +220,29 @@ export class CoreAuditPipeline {
   }
   
   /**
-   * Build consistent JSON result structure
+   * Build full audit result with strict typing
    */
-  private buildCoreAuditResult(
+  private buildFullAuditResult(
     results: AccessibilityResult[], 
+    sitemapResult: SitemapResult,
     options: CoreAuditOptions, 
     startTime: number
-  ): CoreAuditResult {
+  ): FullAuditResult {
     const duration = Date.now() - startTime;
+    const pages = results.map(r => this.mapToPageAuditResult(r));
+    
+    // Calculate summary statistics
+    const passedPages = pages.filter(p => p.status === 'passed').length;
+    const failedPages = pages.filter(p => p.status === 'failed').length;
+    const crashedPages = pages.filter(p => p.status === 'crashed').length;
+    const totalErrors = pages.reduce((sum, p) => sum + p.accessibility.errors.length, 0);
+    const totalWarnings = pages.reduce((sum, p) => sum + p.accessibility.warnings.length, 0);
+    
+    // Calculate average scores
+    const accessibilityScores = pages.map(p => p.accessibility.score).filter(s => s !== undefined);
+    const avgAccessibilityScore = accessibilityScores.length > 0 
+      ? Math.round(accessibilityScores.reduce((a, b) => a + b, 0) / accessibilityScores.length) 
+      : 0;
     
     return {
       metadata: {
@@ -266,92 +250,182 @@ export class CoreAuditPipeline {
         version: '2.0',
         sitemapUrl: options.sitemapUrl,
         duration,
-        toolVersion: require('../../../package.json').version
+        toolVersion: require('../../../package.json').version,
+        config: {
+          maxPages: options.maxPages || 20,
+          useEnhancedAnalysis: options.useEnhancedAnalysis || false,
+          pa11yStandard: options.pa11yStandard || 'WCAG2AA',
+          analysisTypes: {
+            accessibility: true,
+            performance: options.collectPerformanceMetrics || false,
+            seo: options.useEnhancedAnalysis || false,
+            contentWeight: options.useEnhancedAnalysis || false
+          }
+        }
       },
+      sitemap: sitemapResult,
+      pages,
       summary: {
-        totalPages: results.length,
-        testedPages: results.length,
-        passedPages: results.filter(r => r.passed).length,
-        failedPages: results.filter(r => !r.passed && !r.crashed).length,
-        crashedPages: results.filter(r => r.crashed === true).length,
-        totalErrors: results.reduce((sum, r) => sum + (r.errors?.length || 0), 0),
-        totalWarnings: results.reduce((sum, r) => sum + (r.warnings?.length || 0), 0)
-      },
-      pages: results.map(this.mapPageResult),
-      issues: this.extractAllIssues(results)
+        totalPages: sitemapResult.totalUrls,
+        testedPages: pages.length,
+        passedPages,
+        failedPages,
+        crashedPages,
+        totalErrors,
+        totalWarnings,
+        averageScores: {
+          accessibility: avgAccessibilityScore
+        },
+        overallGrades: {
+          accessibility: calculateGrade(avgAccessibilityScore)
+        }
+      }
     };
   }
   
   /**
-   * Map result to consistent page structure
+   * Map legacy AccessibilityResult to typed PageAuditResult
    */
-  private mapPageResult(result: AccessibilityResult): PageAuditResult {
+  private mapToPageAuditResult(result: AccessibilityResult): PageAuditResult {
+    // Determine status
+    let status: 'passed' | 'failed' | 'crashed' = 'passed';
+    if (result.crashed) {
+      status = 'crashed';
+    } else if (!result.passed) {
+      status = 'failed';
+    }
+    
+    // Map accessibility data to new structure
+    const accessibilityResult: import('../../types/audit-results').AccessibilityResult = {
+      passed: result.passed,
+      wcagLevel: 'AA', // Default, could be enhanced based on actual analysis
+      score: this.calculateAccessibilityScore(result),
+      errors: (result.errors || []).map(error => ({
+        severity: 'error' as const,
+        message: error,
+        code: 'a11y-error'
+      })),
+      warnings: (result.warnings || []).map(warning => ({
+        severity: 'warning' as const,
+        message: warning,
+        code: 'a11y-warning'
+      })),
+      pa11yResults: {
+        totalIssues: (result.errors?.length || 0) + (result.warnings?.length || 0),
+        runner: 'pa11y@9.0.0'
+      }
+    };
+    
     return {
       url: result.url,
       title: result.title,
-      passed: result.passed,
-      crashed: result.crashed,
-      errors: result.errors || [],
-      warnings: result.warnings || [],
+      status,
       duration: result.duration || 0,
-      // Enhanced data (optional)
-      performanceMetrics: result.performanceMetrics,
-      enhancedSEO: (result as any).enhancedSEO,
-      contentWeight: (result as any).contentWeight
+      auditedAt: new Date().toISOString(),
+      accessibility: accessibilityResult,
+      // Optional enhanced data (if available)
+      performance: result.performanceMetrics ? this.mapPerformanceResult(result.performanceMetrics) : undefined,
+      seo: (result as any).enhancedSEO ? this.mapSEOResult((result as any).enhancedSEO) : undefined,
+      contentWeight: (result as any).contentWeight ? this.mapContentWeightResult((result as any).contentWeight) : undefined
     };
   }
   
   /**
-   * Extract all issues for easy processing in Electron app
+   * Calculate accessibility score from legacy result
    */
-  private extractAllIssues(results: AccessibilityResult[]): AuditIssue[] {
-    const issues: AuditIssue[] = [];
+  private calculateAccessibilityScore(result: AccessibilityResult): number {
+    const errors = result.errors?.length || 0;
+    const warnings = result.warnings?.length || 0;
     
-    results.forEach(result => {
-      // Accessibility errors
-      result.errors?.forEach(error => {
-        issues.push({
-          type: 'accessibility',
-          severity: 'error',
-          message: error,
-          url: result.url,
-          code: 'a11y-error'
-        });
-      });
-      
-      // Accessibility warnings
-      result.warnings?.forEach(warning => {
-        issues.push({
-          type: 'accessibility',
-          severity: 'warning',
-          message: warning,
-          url: result.url,
-          code: 'a11y-warning'
-        });
-      });
-      
-      // Performance issues (if available)
-      if (result.performanceMetrics) {
-        const metrics = result.performanceMetrics;
-        if (metrics.largestContentfulPaint > 2500) {
-          issues.push({
-            type: 'performance',
-            severity: 'warning',
-            message: `LCP too slow: ${metrics.largestContentfulPaint}ms (should be < 2500ms)`,
-            url: result.url,
-            code: 'lcp-slow'
-          });
-        }
-      }
-    });
+    if (errors === 0 && warnings === 0) return 100;
     
-    return issues;
+    // Deduct points for issues (errors are weighted more heavily)
+    const score = Math.max(0, 100 - (errors * 10) - (warnings * 2));
+    return Math.round(score);
   }
   
   /**
-   * Export to JSON (CORE FUNCTIONALITY)
+   * Map legacy performance data to PerformanceResult (stub)
    */
-  private async exportToJSON(result: CoreAuditResult, options: CoreAuditOptions): Promise<void> {
+  private mapPerformanceResult(metrics: any): import('../../types/audit-results').PerformanceResult | undefined {
+    if (!metrics) return undefined;
+    
+    return {
+      score: 75, // Placeholder
+      grade: 'C',
+      coreWebVitals: {
+        largestContentfulPaint: metrics.largestContentfulPaint || 0,
+        firstContentfulPaint: metrics.firstContentfulPaint || 0,
+        cumulativeLayoutShift: metrics.cumulativeLayoutShift || 0,
+        timeToFirstByte: metrics.timeToFirstByte || 0
+      },
+      metrics: {
+        domContentLoaded: metrics.domContentLoaded || 0,
+        loadComplete: metrics.loadTime || 0
+      },
+      issues: []
+    };
+  }
+  
+  /**
+   * Map legacy SEO data to SEOResult (stub)
+   */
+  private mapSEOResult(seoData: any): import('../../types/audit-results').SEOResult | undefined {
+    if (!seoData) return undefined;
+    
+    return {
+      score: 80, // Placeholder
+      grade: 'B',
+      metaTags: {
+        title: seoData.title ? {
+          content: seoData.title,
+          length: seoData.title.length,
+          optimal: seoData.title.length >= 10 && seoData.title.length <= 60
+        } : undefined,
+        openGraph: {},
+        twitterCard: {}
+      },
+      headings: {
+        h1: [],
+        h2: [],
+        h3: [],
+        issues: []
+      },
+      images: {
+        total: 0,
+        missingAlt: 0,
+        emptyAlt: 0
+      },
+      issues: []
+    };
+  }
+  
+  /**
+   * Map legacy content weight data to ContentWeightResult (stub)
+   */
+  private mapContentWeightResult(contentData: any): import('../../types/audit-results').ContentWeightResult | undefined {
+    if (!contentData) return undefined;
+    
+    return {
+      score: 85, // Placeholder
+      grade: 'B',
+      totalSize: contentData.totalSize || 0,
+      resources: {
+        html: { size: 0 },
+        css: { size: 0, files: 0 },
+        javascript: { size: 0, files: 0 },
+        images: { size: 0, files: 0 },
+        other: { size: 0, files: 0 }
+      },
+      optimizations: []
+    };
+  }
+
+  
+  /**
+   * Export to JSON (CORE FUNCTIONALITY) - returns file path for HTML generator
+   */
+  private async exportToJSON(result: FullAuditResult, options: CoreAuditOptions): Promise<string> {
     const outputDir = options.outputDir || './reports';
     await fs.mkdir(outputDir, { recursive: true });
     
@@ -363,22 +437,19 @@ export class CoreAuditPipeline {
     await fs.writeFile(filePath, jsonContent, 'utf8');
     
     console.log(`📄 JSON exported: ${filePath}`);
+    return filePath;
   }
   
   /**
-   * Generate HTML report (optional)
+   * Generate HTML report from JSON file (Sprint 2 architecture)
    */
-  private async generateHTMLReport(result: CoreAuditResult, options: CoreAuditOptions): Promise<void> {
-    console.log('🌐 Generating HTML report...');
+  private async generateHTMLReport(jsonPath: string, options: CoreAuditOptions): Promise<void> {
+    console.log('🌐 Generating HTML report from JSON...');
     
-    // TODO: Implement unified HTML generator in Sprint 2
-    // For now, use existing system
-    const { generateHtmlReport } = require('../../reports/html-report');
-    const { prepareOutputData } = require('@generators/output-generator');
-    
-    const outputOptions = { includeDetails: true, summaryOnly: false };
-    const htmlData = prepareOutputData(this.convertToLegacyFormat(result), result.metadata.timestamp, outputOptions);
-    const htmlContent = generateHtmlReport(htmlData);
+    // Use new UnifiedHTMLGenerator that reads JSON directly
+    const { UnifiedHTMLGenerator } = require('../../reports/unified/unified-html-generator');
+    const generator = new UnifiedHTMLGenerator();
+    const htmlContent = await generator.generateFromJSON(jsonPath);
     
     const outputDir = options.outputDir || './reports';
     const dateOnly = new Date().toISOString().split('T')[0];
@@ -389,11 +460,30 @@ export class CoreAuditPipeline {
   }
   
   /**
-   * Convert new format to legacy format (temporary compatibility)
+   * Convert FullAuditResult to legacy format (temporary compatibility)
    */
-  private convertToLegacyFormat(result: CoreAuditResult): any {
+  private convertToLegacyFormat(result: FullAuditResult): any {
     return {
-      summary: result.summary,
+      summary: {
+        totalPages: result.summary.totalPages,
+        testedPages: result.summary.testedPages,
+        passedPages: result.summary.passedPages,
+        failedPages: result.summary.failedPages,
+        crashedPages: result.summary.crashedPages,
+        totalErrors: result.summary.totalErrors,
+        totalWarnings: result.summary.totalWarnings,
+        totalDuration: result.metadata.duration,
+        results: result.pages.map(page => ({
+          url: page.url,
+          title: page.title,
+          passed: page.accessibility.passed,
+          crashed: page.status === 'crashed',
+          errors: page.accessibility.errors.map(e => e.message),
+          warnings: page.accessibility.warnings.map(w => w.message),
+          duration: page.duration,
+          performanceMetrics: page.performance?.coreWebVitals
+        }))
+      },
       pages: result.pages,
       metadata: result.metadata
     };
