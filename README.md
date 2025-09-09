@@ -1,11 +1,10 @@
-# 🎯 AuditMySite - Enhanced Web Analysis Suite v1.9.2
+# 🎯 AuditMySite - Enhanced Web Analysis Suite v2.0.0-alpha.1
 
-> **🐛 BUGFIX v1.9.2**: Mobile-Friendliness Analysis Fixes! **Resolved "undefined" recommendations display, enhanced mobile analysis reporting, and improved data structure handling!** 📱
-> **🐛 BUGFIX v1.9.1**: Critical fixes for Enhanced Analysis Suite! **100% stable Enhanced Analysis workflow, fixed data structure handling, and reliable report generation!** 🔧
-> **🚀 v1.9.0**: Revolutionary Enhanced Analysis Suite! **Robust accessibility testing, Core Web Vitals monitoring, SEO analysis, and content optimization insights!** 🔥
-> **🔧 PERFORMANCE**: Isolated browser contexts, retry mechanisms, and 100% stable measurements! **Enterprise-grade reliability!**
-> **🌐 API**: Comprehensive endpoints with specialized analysis modes! **Professional integration ready!**
-> **🧪 TESTING**: 25+ test cases with edge case coverage! **Production-validated quality!**
+> **🚀 v2.0.0-alpha.1**: Complete refactoring with JSON-first architecture! **Strict TypeScript types, modular API endpoints, and Electron app integration ready!** 🔥
+> **🔍 CORE**: Sitemap audit with clean JSON export as primary function, HTML reports read from JSON
+> **🤖 API v2**: Modular endpoints using shared types - perfect for Electron desktop app integration
+> **📚 SELF-DOC**: Swagger UI + introspection endpoint for zero-overhead API documentation
+> **🔧 CLEAN**: Simplified architecture, reduced complexity, better maintainability
 
 A comprehensive **three-in-one solution** for professional web auditing: **CLI tool**, **REST API server**, and **JavaScript SDK**. Features revolutionary enhanced analysis with isolated browser contexts, retry mechanisms, SEO optimization, content weight assessment, and comprehensive API endpoints for enterprise-grade web auditing.
 
@@ -27,16 +26,27 @@ auditmysite https://your-site.com/sitemap.xml
 auditmysite https://your-site.com/sitemap.xml --expert
 ```
 
-### 2. REST API Server 🆕
+### 2. API Server v2.0 🆕 **NEW!**
 ```bash
-# Start API server with authentication
-auditmysite --api --port 3000 --api-key your-secret-key
+# Development (2 terminals)
+Terminal 1: npm run dev        # TypeScript watch
+Terminal 2: npm run start:api  # Start API server
 
-# Test via HTTP API
-curl -X POST http://localhost:3000/api/audits \
-  -H "X-API-Key: your-secret-key" \
+# Production with PM2
+npm run api:prod    # Start with PM2 monitoring
+npm run api:logs    # View logs
+npm run api:restart # Restart server
+npm run api:stop    # Stop server
+
+# Test v2.0 modular endpoints
+curl http://localhost:3000/api/v2/sitemap/example.com
+curl -X POST http://localhost:3000/api/v2/page/accessibility \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "options": {"pages": 5}}'
+  -d '{"url": "https://example.com", "options": {"pa11yStandard": "WCAG2AA"}}'
+
+# API Documentation & Introspection
+# Swagger UI: http://localhost:3000/api-docs
+# Schema: http://localhost:3000/api/v2/schema
 ```
 
 ### 3. SDK Integration 🆕 (Updated for v1.8.4)
@@ -62,6 +72,18 @@ console.log('Generated Files:', response.files);
 ```
 
 ## ✨ Key Features
+
+### 🚀 **NEW in v2.0.0-alpha.1 - Complete Architecture Refactoring**
+- 🎯 **JSON-First Architecture** - All outputs use strict TypeScript types, HTML reports read from JSON
+- 🤖 **Modular API v2** - Electron-ready endpoints: `/sitemap/:domain`, `/page/accessibility`, `/page/performance`, `/page/seo`
+- 📑 **Shared Types** - Single source of truth: `FullAuditResult`, `SitemapResult`, `AccessibilityResult`, `PerformanceResult`, `SEOResult`
+- 📚 **Self-Documenting API** - Swagger UI at `/api-docs` + introspection endpoint at `/api/v2/schema`
+- 🔧 **Simplified Pipeline** - Reduced from 286 to <150 lines, only 2 modes (Standard vs Enhanced)
+- 📝 **Unified HTML Generator** - Section-based architecture with modern CSS and design tokens
+- ⚡ **Performance Optimized** - Async file operations, browser pooling, reduced memory footprint
+- 🔄 **Process Management** - PM2 integration for production deployment with monitoring
+- 🗺️ **Development Workflow** - TypeScript watch + API server in separate terminals
+- 🔒 **Type Safety** - 100% TypeScript coverage with strict error handling
 
 ### 🐛 **Fixed in v1.9.2 - Mobile-Friendliness Bugfixes**
 - ✅ **Mobile-Friendliness Recommendations Fixed** - Resolved "undefined" text in mobile recommendations display
@@ -184,20 +206,31 @@ console.log('Generated Files:', response.files);
 | `--timeout <ms>` | Audit timeout in milliseconds | `30000` |
 | `--cors` | Enable CORS for cross-origin requests | `false` |
 
-### API Endpoints 🆕 **Enhanced in v1.9.0!**
+### API Endpoints v2.0 🆕 **NEW Modular Architecture!**
 
-|| Method | Endpoint | Description |
-||--------|----------|-------------|
-|| `POST` | `/api/v1/audit/quick` | Quick audit with enhanced analysis (default) |
-|| `POST` | `/api/v1/audit/performance` | Performance-focused analysis with Core Web Vitals |
-|| `POST` | `/api/v1/audit/seo` | SEO-focused analysis with optimization insights |
-|| `POST` | `/api/v1/audit/content-weight` | Content weight analysis with optimization recommendations |
-|| `POST` | `/api/v1/audit/accessibility` | Accessibility-focused analysis with ARIA validation |
-|| `POST` | `/api/v1/audit` | Full audit job with background processing |
-|| `GET` | `/api/v1/audit/{jobId}` | Get audit job status |
-|| `DELETE` | `/api/v1/audit/{jobId}` | Cancel audit job |
-|| `GET` | `/api/v1/audits` | List all audit jobs with pagination |
-|| `GET` | `/api/v1/info` | API information with feature documentation |
+**v2.0 Endpoints (Electron Integration)**
+| Method | Endpoint | Returns | Description |
+|--------|----------|---------|-------------|
+| `GET` | `/api/v2/sitemap/:domain` | `SitemapResult` | Get filtered sitemap URLs for domain |
+| `POST` | `/api/v2/page/accessibility` | `AccessibilityResult` | Analyze single URL accessibility |
+| `POST` | `/api/v2/page/performance` | `PerformanceResult` | Analyze single URL performance (experimental) |
+| `POST` | `/api/v2/page/seo` | `SEOResult` | Analyze single URL SEO (experimental) |
+| `GET` | `/api/v2/schema` | `IntrospectionData` | API discovery for Electron apps |
+| `GET` | `/api-docs` | Swagger UI | Interactive API documentation |
+
+**v1.0 Endpoints (Full Site Analysis)**  
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/audit/quick` | Quick audit with enhanced analysis (default) |
+| `POST` | `/api/v1/audit/performance` | Performance-focused analysis with Core Web Vitals |
+| `POST` | `/api/v1/audit/seo` | SEO-focused analysis with optimization insights |
+| `POST` | `/api/v1/audit/content-weight` | Content weight analysis with optimization recommendations |
+| `POST` | `/api/v1/audit/accessibility` | Accessibility-focused analysis with ARIA validation |
+| `POST` | `/api/v1/audit` | Full audit job with background processing |
+| `GET` | `/api/v1/audit/{jobId}` | Get audit job status |
+| `DELETE` | `/api/v1/audit/{jobId}` | Cancel audit job |
+| `GET` | `/api/v1/audits` | List all audit jobs with pagination |
+| `GET` | `/api/v1/info` | API information with feature documentation |
 || `POST` | `/api/v1/test-connection` | Test connection to target URL |
 || `GET` | `/health` | Server health check |
 
