@@ -1,6 +1,6 @@
 {
   "name": "@casoon/auditmysite",
-  "version": "1.9.2",
+  "version": "2.0.0-alpha.1",
   "description": "Professional website analysis suite with robust accessibility testing, Core Web Vitals performance monitoring, SEO analysis, and content optimization insights. Features isolated browser contexts, retry mechanisms, and comprehensive API endpoints for professional web auditing.",
   "main": "dist/index.js",
   "bin": {
