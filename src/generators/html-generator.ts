@@ -1,26 +1,39 @@
 export class HtmlGenerator {
   generateAccessibilitySection(data: any): string {
-    return `<div class="table-container">
-      <div class="table-header">
-        <div>
-          <!-- Description removed to avoid duplication with template -->
-        </div>
-      </div>
+    return `
       <div class="table-wrapper">
         <table class="data-table">
         <thead><tr><th>Page</th><th>Errors</th><th>Warnings</th><th>Pa11y Score</th></tr></thead>
         <tbody>
           ${data.pages.map((page: any) => {
             // Debug: Check multiple possible locations for pa11yScore
-            const pa11yScore = page.issues?.pa11yScore ?? page.pa11yScore ?? 'N/A';
+            // Standard path: page.pa11yScore (from AccessibilityChecker)
+            // Enhanced Analysis path: page.issues?.pa11yScore 
+            // Alternative: Calculated from pa11yIssues if available
+            let pa11yScore = page.pa11yScore ?? page.issues?.pa11yScore ?? 'N/A';
+            
+            // If we still don't have a score, try to calculate from pa11yIssues
+            if (pa11yScore === 'N/A' && (page.pa11yIssues || page.issues?.pa11yIssues)) {
+              const issues = page.pa11yIssues || page.issues?.pa11yIssues || [];
+              if (issues.length === 0) {
+                pa11yScore = 100;
+              } else {
+                const errorIssues = issues.filter((issue: any) => issue.type === 'error').length;
+                const totalIssues = issues.length;
+                pa11yScore = Math.max(0, 100 - (errorIssues * 10) - (totalIssues - errorIssues) * 2);
+              }
+            }
+            
             const formattedScore = pa11yScore !== 'N/A' && typeof pa11yScore === 'number' ? 
               `${Math.round(pa11yScore)}/100` : pa11yScore;
             
             // Debug logging (can be removed in production)
             if (pa11yScore === 'N/A') {
               console.debug(`Pa11y score not found for ${page.url}. Available data:`, {
-                hasIssues: !!page.issues,
-                issuesKeys: page.issues ? Object.keys(page.issues) : [],
+                hasDirectScore: page.pa11yScore !== undefined,
+                hasIssuesScore: page.issues?.pa11yScore !== undefined,
+                hasPa11yIssues: !!(page.pa11yIssues || page.issues?.pa11yIssues),
+                pa11yIssuesCount: (page.pa11yIssues || page.issues?.pa11yIssues || []).length,
                 pageKeys: Object.keys(page)
               });
             }
@@ -34,8 +47,7 @@ export class HtmlGenerator {
           }).join('')}
         </tbody>
         </table>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   generatePerformanceSection(data: any): string {
@@ -76,13 +88,12 @@ export class HtmlGenerator {
           }).join('')}
         </tbody>
         </table>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   generateSeoSection(data: any): string {
-    // Check if we have enhanced SEO data
-    const hasEnhancedData = data.pages.some((page: any) => page.enhancedSeo);
+    // Check if we have enhanced SEO data (note: field is enhancedSEO not enhancedSeo)
+    const hasEnhancedData = data.pages.some((page: any) => page.enhancedSEO || page.enhancedSeo);
     
     if (hasEnhancedData) {
       return this.generateEnhancedSeoSection(data);
@@ -117,8 +128,7 @@ export class HtmlGenerator {
           }).join('')}
         </tbody>
         </table>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   private getPageName(url: string): string {
@@ -172,8 +182,13 @@ export class HtmlGenerator {
         issues: {
           errors: page.errors,
           warnings: page.warnings,
-          passed: page.passed
+          passed: page.passed,
+          pa11yScore: page.pa11yScore,
+          pa11yIssues: page.pa11yIssues
         },
+        // Also add pa11yScore directly to page level for backward compatibility
+        pa11yScore: page.pa11yScore,
+        pa11yIssues: page.pa11yIssues,
         enhancedPerformance: page.enhancedPerformance,
         enhancedSeo: page.enhancedSEO, 
         contentWeight: page.contentWeight,
@@ -187,8 +202,13 @@ export class HtmlGenerator {
         issues: {
           errors: results.errors?.length || 0,
           warnings: results.warnings?.length || 0,
-          passed: results.passed
+          passed: results.passed,
+          pa11yScore: results.pa11yScore,
+          pa11yIssues: results.pa11yIssues
         },
+        // Also add pa11yScore directly to page level for backward compatibility
+        pa11yScore: results.pa11yScore,
+        pa11yIssues: results.pa11yIssues,
         enhancedPerformance: results.enhancedPerformance,
         enhancedSeo: results.enhancedSEO,
         contentWeight: results.contentWeight,
@@ -222,7 +242,7 @@ export class HtmlGenerator {
 
   private generateEnhancedSeoSection(data: any): string {
     // Check if we have enhanced SEO data
-    const hasEnhancedData = data.pages.some((page: any) => page.enhancedSeo);
+    const hasEnhancedData = data.pages.some((page: any) => page.enhancedSEO || page.enhancedSeo);
     
     if (hasEnhancedData) {
       return this.generateEnhancedSeoHtml(data);
@@ -641,7 +661,17 @@ export class HtmlGenerator {
   generateEnhancedPerformanceHtml(data: any): string {
     // Performance Overview with KPIs
     const pagesWithPerformance = data.pages.filter((page: any) => page.enhancedPerformance);
+    
+    // Debug logging to see what data we have
+    console.log('DEBUG: Enhanced Performance Data Check:', {
+      totalPages: data.pages.length,
+      pagesWithPerformance: pagesWithPerformance.length,
+      firstPageKeys: data.pages.length > 0 ? Object.keys(data.pages[0]) : [],
+      firstPagePerformance: data.pages.length > 0 ? data.pages[0].enhancedPerformance : null
+    });
+    
     if (pagesWithPerformance.length === 0) {
+      console.log('DEBUG: No enhanced performance data found, falling back to basic');
       return this.generateBasicPerformanceSection(data);
     }
 
@@ -821,12 +851,15 @@ export class HtmlGenerator {
   }
 
   generateEnhancedSeoHtml(data: any): string {
-    const pagesWithSeo = data.pages.filter((page: any) => page.enhancedSeo);
+    const pagesWithSeo = data.pages.filter((page: any) => page.enhancedSEO || page.enhancedSeo);
     if (pagesWithSeo.length === 0) {
-      return this.generateBasicSeoSection(data);
+      return this.generateSeoSection(data);
     }
 
-    const avgSeoScore = pagesWithSeo.reduce((sum: number, page: any) => sum + (page.enhancedSeo.score || 0), 0) / pagesWithSeo.length;
+    const avgSeoScore = pagesWithSeo.reduce((sum: number, page: any) => {
+      const seoData = page.enhancedSEO || page.enhancedSeo;
+      return sum + (seoData.score || 0);
+    }, 0) / pagesWithSeo.length;
     
     const getScoreClass = (score: number) => {
       if (score >= 90) return 'excellent';
@@ -853,11 +886,23 @@ export class HtmlGenerator {
     html += `<div class="metric-grade ${getGrade(avgSeoScore)}">${getGrade(avgSeoScore)}</div>`;
     html += '</div>';
     
-    // Count pages with essential SEO elements
-    const pagesWithTitle = pagesWithSeo.filter((page: any) => page.enhancedSeo.metaData?.title && page.enhancedSeo.metaData.title.length > 0).length;
-    const pagesWithDescription = pagesWithSeo.filter((page: any) => page.enhancedSeo.metaData?.description && page.enhancedSeo.metaData.description.length > 0).length;
-    const pagesWithOg = pagesWithSeo.filter((page: any) => page.enhancedSeo.socialTags?.openGraph && page.enhancedSeo.socialTags.openGraph > 0).length;
-    const httpsPages = pagesWithSeo.filter((page: any) => page.enhancedSeo.technicalSEO && page.enhancedSeo.technicalSEO.internalLinks >= 0).length;
+    // Count pages with essential SEO elements  
+    const pagesWithTitle = pagesWithSeo.filter((page: any) => {
+      const seoData = page.enhancedSEO || page.enhancedSeo;
+      return seoData.metaData?.title && seoData.metaData.title.length > 0;
+    }).length;
+    const pagesWithDescription = pagesWithSeo.filter((page: any) => {
+      const seoData = page.enhancedSEO || page.enhancedSeo;
+      return seoData.metaData?.description && seoData.metaData.description.length > 0;
+    }).length;
+    const pagesWithOg = pagesWithSeo.filter((page: any) => {
+      const seoData = page.enhancedSEO || page.enhancedSeo;
+      return seoData.socialTags?.openGraph && seoData.socialTags.openGraph > 0;
+    }).length;
+    const httpsPages = pagesWithSeo.filter((page: any) => {
+      const seoData = page.enhancedSEO || page.enhancedSeo;
+      return seoData.technicalSEO && seoData.technicalSEO.internalLinks >= 0;
+    }).length;
     
     html += `<div class="metric-card ${pagesWithTitle === pagesWithSeo.length ? 'excellent' : 'needs-improvement'}">`;
     html += '<div class="metric-label">Pages with Title</div>';
@@ -887,7 +932,7 @@ export class HtmlGenerator {
     html += '<tbody>';
     
     data.pages.forEach((page: any) => {
-      const seo = page.enhancedSeo;
+      const seo = page.enhancedSEO || page.enhancedSeo;
       if (!seo) return;
       
       const pageName = this.getPageName(page.url);
@@ -915,7 +960,7 @@ export class HtmlGenerator {
     html += '<tbody>';
     
     data.pages.forEach((page: any) => {
-      const seo = page.enhancedSeo;
+      const seo = page.enhancedSEO || page.enhancedSeo;
       if (!seo || !seo.contentAnalysis) return;
       
       const pageName = this.getPageName(page.url);
@@ -942,18 +987,24 @@ export class HtmlGenerator {
     html += '<tbody>';
     
     data.pages.forEach((page: any) => {
-      const seo = page.enhancedSeo;
-      if (!seo || !seo.technicalSeo) return;
+      const seo = page.enhancedSEO || page.enhancedSeo;
+      if (!seo) return;
       
       const pageName = this.getPageName(page.url);
       const tech = seo.technicalSEO || {};
       
       html += '<tr>';
       html += `<td>${pageName}</td>`;
-      html += `<td><span class="status-indicator status-pass"></span>Yes</td>`; // Default to HTTPS
-      html += `<td><span class="status-indicator status-warning"></span>Unknown</td>`; // Mobile friendly unknown
-      html += `<td><span class="status-indicator status-fail"></span>None</td>`; // Schema markup not tracked
-      html += `<td><span class="status-indicator status-warning"></span>None</td>`; // Canonical not tracked
+      // HTTPS Status from technical SEO data
+      html += `<td>${tech.httpsEnabled ? '✅ Yes' : '❌ No'}</td>`;
+      // Mobile Friendly from technical SEO data  
+      html += `<td>${tech.mobileFriendly ? '✅ Yes' : '❌ No'}</td>`;
+      // Schema Markup from technical SEO data
+      const schemaCount = tech.schemaMarkup?.length || 0;
+      html += `<td>${schemaCount > 0 ? `✅ ${schemaCount} found` : '❌ None'}</td>`;
+      // Canonical URL (check if canonical URL is present in meta tags)
+      const canonical = seo.metaTags?.canonical || seo.metaData?.canonical;
+      html += `<td>${canonical?.present ? '✅ Present' : '❌ Missing'}</td>`;
       html += '</tr>';
     });
     
@@ -1328,6 +1379,230 @@ export class HtmlGenerator {
     </section>`;
   }
 
+  generateMobileFriendlinessSection(data: any): string {
+    // Check if we have mobile-friendliness data
+    const pagesWithMobile = data.pages.filter((page: any) => page.mobileFriendliness);
+    
+    if (pagesWithMobile.length === 0) {
+      return `<div class="no-data">
+        <h3>📱 Mobile-Friendliness Data Not Available</h3>
+        <p>Mobile-friendliness analysis requires enhanced analysis mode. Run with enhanced features to get detailed mobile usability insights including touch targets, viewport configuration, and responsive design analysis.</p>
+      </div>`;
+    }
 
+    const avgMobileScore = pagesWithMobile.reduce((sum: number, page: any) => {
+      return sum + (page.mobileFriendliness.overallScore || page.mobileFriendliness.score || 0);
+    }, 0) / pagesWithMobile.length;
+    
+    const getScoreClass = (score: number) => {
+      if (score >= 90) return 'excellent';
+      if (score >= 75) return 'good';
+      if (score >= 50) return 'needs-improvement';
+      return 'poor';
+    };
+    
+    const getGrade = (score: number) => {
+      if (score >= 90) return 'A';
+      if (score >= 80) return 'B';
+      if (score >= 70) return 'C';
+      if (score >= 60) return 'D';
+      return 'F';
+    };
+
+    let html = '<div class="mobile-friendliness-overview">';
+    
+    // Mobile-Friendliness Overview metrics
+    html += '<div class="metrics-grid">';
+    html += `<div class="metric-card ${getScoreClass(avgMobileScore)}">`;
+    html += '<div class="metric-label">Mobile Score</div>';
+    html += `<div class="metric-value">${Math.round(avgMobileScore)}</div>`;
+    html += `<div class="metric-grade ${getGrade(avgMobileScore)}">${getGrade(avgMobileScore)}</div>`;
+    html += '</div>';
+    
+    // Calculate mobile metrics averages if available
+    if (pagesWithMobile.some((page: any) => page.mobileFriendliness.scores)) {
+      const avgViewportScore = pagesWithMobile.reduce((sum: number, page: any) => {
+        return sum + (page.mobileFriendliness.scores?.viewport || 0);
+      }, 0) / pagesWithMobile.length;
+      
+      const avgTouchScore = pagesWithMobile.reduce((sum: number, page: any) => {
+        return sum + (page.mobileFriendliness.scores?.touchTargets || 0);
+      }, 0) / pagesWithMobile.length;
+      
+      const avgTypographyScore = pagesWithMobile.reduce((sum: number, page: any) => {
+        return sum + (page.mobileFriendliness.scores?.typography || 0);
+      }, 0) / pagesWithMobile.length;
+      
+      const avgNavigationScore = pagesWithMobile.reduce((sum: number, page: any) => {
+        return sum + (page.mobileFriendliness.scores?.navigation || 0);
+      }, 0) / pagesWithMobile.length;
+      
+      html += `<div class="metric-card ${getScoreClass(avgViewportScore)}">`;
+      html += '<div class="metric-label">Viewport & Layout</div>';
+      html += `<div class="metric-value">${Math.round(avgViewportScore)}</div>`;
+      html += `<div class="metric-grade">${getGrade(avgViewportScore)}</div>`;
+      html += '</div>';
+      
+      html += `<div class="metric-card ${getScoreClass(avgTouchScore)}">`;
+      html += '<div class="metric-label">Touch Targets</div>';
+      html += `<div class="metric-value">${Math.round(avgTouchScore)}</div>`;
+      html += `<div class="metric-grade">${getGrade(avgTouchScore)}</div>`;
+      html += '</div>';
+      
+      html += `<div class="metric-card ${getScoreClass(avgTypographyScore)}">`;
+      html += '<div class="metric-label">Typography</div>';
+      html += `<div class="metric-value">${Math.round(avgTypographyScore)}</div>`;
+      html += `<div class="metric-grade">${getGrade(avgTypographyScore)}</div>`;
+      html += '</div>';
+    }
+    
+    html += '</div>'; // End metrics-grid
+    
+    // Mobile-Friendliness Analysis Table
+    html += '<div class="analysis-section">';
+    html += '<div class="analysis-title">Mobile Usability by Page</div>';
+    html += '<table class="mobile-analysis-table">';
+    html += '<thead><tr><th>Page</th><th>Overall Score</th><th>Grade</th><th>Issues</th></tr></thead>';
+    html += '<tbody>';
+    
+    data.pages.forEach((page: any) => {
+      const mobile = page.mobileFriendliness;
+      if (!mobile) return;
+      
+      const pageName = this.getPageName(page.url);
+      const score = mobile.overallScore || mobile.score || 0;
+      const issues = mobile.issues?.length || 0;
+      
+      html += '<tr>';
+      html += `<td>${pageName}</td>`;
+      html += `<td class="score-cell score-${getScoreClass(score)}">${Math.round(score)}</td>`;
+      html += `<td><span class="grade-badge ${getGrade(score)}">${getGrade(score)}</span></td>`;
+      html += `<td>${issues}</td>`;
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    html += '</div>'; // End analysis-section
+    
+    // Desktop vs Mobile Comparison (if available)
+    const pagesWithComparison = data.pages.filter((page: any) => page.mobileFriendliness?.desktopComparison);
+    if (pagesWithComparison.length > 0) {
+      html += '<div class="comparison-section">';
+      html += '<div class="comparison-title">🖥️📱 Desktop vs Mobile Comparison</div>';
+      
+      pagesWithComparison.forEach((page: any) => {
+        const comparison = page.mobileFriendliness.desktopComparison;
+        const pageName = this.getPageName(page.url);
+        
+        html += '<div class="comparison-analysis">';
+        html += `<h4>${pageName}</h4>`;
+        
+        // Comparison metrics table
+        html += '<table class="comparison-table">';
+        html += '<thead><tr><th>Metric</th><th>🖥️ Desktop</th><th>📱 Mobile</th><th>Impact</th></tr></thead>';
+        html += '<tbody>';
+        
+        // Usability Score
+        html += '<tr>';
+        html += '<td><strong>Usability Score</strong></td>';
+        html += `<td class="score-cell score-${this.getScoreClass(comparison.desktop.usabilityScore)}">${comparison.desktop.usabilityScore}</td>`;
+        html += `<td class="score-cell score-${this.getScoreClass(comparison.mobile.usabilityScore)}">${comparison.mobile.usabilityScore}</td>`;
+        html += `<td>${Math.abs(comparison.differences.usabilityGap)} point difference</td>`;
+        html += '</tr>';
+        
+        // Touch Targets
+        html += '<tr>';
+        html += '<td>Touch/Click Targets</td>';
+        html += `<td>${comparison.desktop.touchTargets.averageSize.toFixed(1)}px avg</td>`;
+        html += `<td>${comparison.mobile.touchTargets.averageSize.toFixed(1)}px avg</td>`;
+        html += `<td>${comparison.mobile.touchTargets.averageSize < 48 ? '⚠️ Too small for mobile' : '✅ Adequate'}</td>`;
+        html += '</tr>';
+        
+        // Typography
+        html += '<tr>';
+        html += '<td>Font Size</td>';
+        html += `<td>${comparison.desktop.typography.baseFontSize}px</td>`;
+        html += `<td>${comparison.mobile.typography.baseFontSize}px</td>`;
+        html += `<td>${comparison.mobile.typography.baseFontSize < 16 ? '⚠️ Too small for mobile' : '✅ Mobile-friendly'}</td>`;
+        html += '</tr>';
+        
+        // Performance
+        html += '<tr>';
+        html += '<td>LCP Performance</td>';
+        html += `<td>${Math.round(comparison.desktop.performance.lcp)}ms</td>`;
+        html += `<td>${Math.round(comparison.mobile.performance.lcp)}ms</td>`;
+        html += `<td>${comparison.differences.performanceImpact > 500 ? '⚠️ Mobile slower' : '✅ Similar performance'}</td>`;
+        html += '</tr>';
+        
+        html += '</tbody></table>';
+        
+        // Critical Issues
+        if (comparison.differences.criticalIssues.length > 0) {
+          html += '<div class="critical-issues">';
+          html += '<h5>🚨 Critical Issues</h5>';
+          html += '<ul>';
+          comparison.differences.criticalIssues.forEach((issue: string) => {
+            html += `<li class="critical-issue">${issue}</li>`;
+          });
+          html += '</ul>';
+          html += '</div>';
+        }
+        
+        // Comparison Recommendations
+        if (comparison.recommendations && comparison.recommendations.length > 0) {
+          html += '<div class="comparison-recommendations">';
+          html += '<h5>💡 Desktop vs Mobile Recommendations</h5>';
+          html += '<div class="recommendations-grid">';
+          
+          comparison.recommendations.slice(0, 3).forEach((rec: any) => {
+            html += '<div class="comparison-rec-card">';
+            html += `<div class="rec-priority priority-${rec.priority}">${rec.priority.toUpperCase()}</div>`;
+            html += `<div class="rec-issue">${rec.issue}</div>`;
+            html += `<div class="rec-mobile"><strong>📱 Mobile:</strong> ${rec.mobileRecommendation}</div>`;
+            html += `<div class="rec-desktop"><strong>🖥️ Desktop:</strong> ${rec.desktopRecommendation}</div>`;
+            html += `<div class="rec-impact"><em>${rec.impact}</em></div>`;
+            html += '</div>';
+          });
+          
+          html += '</div></div>'; // End comparison-recommendations
+        }
+        
+        html += '</div>'; // End comparison-analysis
+      });
+      
+      html += '</div>'; // End comparison-section
+    }
+    
+    // Mobile-Friendliness Recommendations
+    const allMobileRecommendations: any[] = [];
+    data.pages.forEach((page: any) => {
+      if (page.mobileFriendliness && page.mobileFriendliness.recommendations) {
+        allMobileRecommendations.push(...page.mobileFriendliness.recommendations);
+      }
+    });
+    
+    if (allMobileRecommendations.length > 0) {
+      const uniqueMobileRecommendations = allMobileRecommendations
+        .filter((rec, index, self) => self.findIndex(r => (r.recommendation || r.description) === (rec.recommendation || rec.description)) === index)
+        .slice(0, 5); // Limit to top 5
+      
+      html += '<div class="recommendations-section">';
+      html += '<div class="recommendations-title">Mobile-Friendliness Recommendations</div>';
+      html += '<ul class="recommendations-list">';
+      
+      uniqueMobileRecommendations.forEach((rec: any) => {
+        html += '<li class="recommendation-item">';
+        html += `<div class="recommendation-priority ${rec.priority || 'medium'}">${(rec.priority || 'medium').toUpperCase()}</div>`;
+        html += `<div class="recommendation-text">${rec.recommendation || rec.description || 'Mobile-friendliness recommendation'}</div>`;
+        html += '</li>';
+      });
+      
+      html += '</ul></div>'; // End recommendations-section
+    }
+    
+    html += '</div>'; // End mobile-friendliness-overview
+    
+    return html;
+  }
 
 }

@@ -40,13 +40,6 @@ Transform AuditMySite from a solid accessibility testing tool into an **intellig
 
 *📖 See [DEVELOPMENT-MODE-CONCEPT.md](./DEVELOPMENT-MODE-CONCEPT.md) for detailed specifications*
 
-### 📦 Batch Processing
-- **Multiple Sitemaps** - Process multiple websites in a single run
-- **Concurrent Domain Testing** - Parallel processing with resource management  
-- **Bulk Reports** - Consolidated reporting for agencies and enterprise users
-- **Site Comparison** - Side-by-side analysis of multiple domains
-- **CLI Batch Mode** - `--batch sitemap1.xml sitemap2.xml sitemap3.xml` support
-- **Configuration Inheritance** - Apply same settings across multiple sites
 
 ### 📈 Enhanced Reporting
 - **Historical Data Storage** - Track accessibility improvements over time  

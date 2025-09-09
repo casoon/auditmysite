@@ -8,6 +8,7 @@ export function generateHtmlReport(data: any): string {
   const performanceSection = generator.generatePerformanceSection(data);
   const seoSection = generator.generateSeoSection(data);
   const securitySection = generator.generateSecuritySection(data);
+  const mobileFriendlinessSection = generator.generateMobileFriendlinessSection(data);
 
   // Extract domain from first page URL if available
   const domain = data.pages && data.pages.length > 0 
@@ -68,6 +69,7 @@ export function generateHtmlReport(data: any): string {
     .replace('{{performance}}', performanceSection)
     .replace('{{seo}}', seoSection)
     .replace('{{security}}', securitySection)
+    .replace('{{mobileFriendliness}}', mobileFriendlinessSection)
     .replace('{{accessibility}}', accessibilitySection)
     .replace('{{issues}}', accessibilitySection)
     // Replace dashboard variables

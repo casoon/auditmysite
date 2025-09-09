@@ -7,7 +7,8 @@ import { WebVitalsCollector } from '@core/performance';
 import { ContentWeightAnalyzer } from '../../analyzers/content-weight-analyzer';
 import { EnhancedPerformanceCollector } from '../../analyzers/enhanced-performance-collector';
 import { EnhancedSEOAnalyzer } from '../../analyzers/enhanced-seo-analyzer';
-import { ContentWeight, ContentAnalysis, EnhancedPerformanceMetrics, EnhancedSEOMetrics } from '../../types/enhanced-metrics';
+import { MobileFriendlinessAnalyzer } from '../../analyzers/mobile-friendliness-analyzer';
+import { ContentWeight, ContentAnalysis, EnhancedPerformanceMetrics, EnhancedSEOMetrics, MobileFriendlinessMetrics } from '../../types/enhanced-metrics';
 import { BrowserManager } from '../browser';
 
 /**
@@ -29,7 +30,11 @@ export interface EnhancedTestOptions extends TestOptions {
   contentWeightAnalysis?: boolean;
   enhancedPerformanceAnalysis?: boolean;
   enhancedSeoAnalysis?: boolean;
+  mobileFriendlinessAnalysis?: boolean;
   enhancedAnalysis?: boolean; // Enable all enhanced features
+  
+  // NEW: Desktop vs Mobile Comparison
+  includeDesktopMobileComparison?: boolean;
 }
 
 /**
@@ -50,6 +55,7 @@ export interface EnhancedAccessibilityResult extends AccessibilityResult {
   contentAnalysis?: ContentAnalysis;
   enhancedPerformance?: EnhancedPerformanceMetrics;
   enhancedSeo?: EnhancedSEOMetrics;
+  mobileFriendliness?: MobileFriendlinessMetrics;
   
   // Enhanced recommendations
   enhancedRecommendations?: string[];
@@ -74,6 +80,7 @@ export class EnhancedAccessibilityChecker {
   private contentWeightAnalyzer: ContentWeightAnalyzer;
   private enhancedPerformanceCollector: EnhancedPerformanceCollector;
   private enhancedSeoAnalyzer: EnhancedSEOAnalyzer;
+  private mobileFriendlinessAnalyzer: MobileFriendlinessAnalyzer;
   private browserManager?: BrowserManager;
 
   constructor() {
@@ -86,6 +93,7 @@ export class EnhancedAccessibilityChecker {
     this.contentWeightAnalyzer = new ContentWeightAnalyzer();
     this.enhancedPerformanceCollector = new EnhancedPerformanceCollector();
     this.enhancedSeoAnalyzer = new EnhancedSEOAnalyzer();
+    this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer();
   }
 
   /**
@@ -298,6 +306,46 @@ export class EnhancedAccessibilityChecker {
         }
       }
 
+      // NEW: Mobile-Friendliness Analysis
+      if (options.mobileFriendlinessAnalysis || options.enhancedAnalysis) {
+        try {
+          // Check if desktop comparison is requested
+          const includeDesktopComparison = options.includeDesktopMobileComparison || false;
+          const mobileFriendlinessData = await this.mobileFriendlinessAnalyzer.analyzeMobileFriendliness(page, url, includeDesktopComparison);
+          result.mobileFriendliness = mobileFriendlinessData;
+          
+          // Add mobile-friendliness-based warnings
+          if (mobileFriendlinessData.overallScore < 70) {
+            result.warnings.push(`Mobile-friendliness score (${mobileFriendlinessData.overallScore}) below recommended threshold`);
+          }
+          
+          // Add specific mobile issues
+          if (!mobileFriendlinessData.viewport.hasViewportTag) {
+            result.errors.push('Mobile: Missing viewport meta tag');
+          }
+          
+          if (mobileFriendlinessData.viewport.hasHorizontalScroll) {
+            result.warnings.push('Mobile: Horizontal scrolling detected');
+          }
+          
+          if (mobileFriendlinessData.touchTargets.violations.length > 0) {
+            result.warnings.push(`Mobile: ${mobileFriendlinessData.touchTargets.violations.length} touch targets too small`);
+          }
+          
+          if (!mobileFriendlinessData.typography.isAccessibleFontSize) {
+            result.warnings.push('Mobile: Font size too small for mobile devices');
+          }
+          
+          // Add mobile-friendliness as a modern feature if score is good
+          if (mobileFriendlinessData.overallScore >= 80) {
+            result.modernFeaturesDetected?.push('Mobile-Optimized Design');
+          }
+          
+        } catch (error) {
+          result.warnings.push('Mobile-friendliness analysis failed: ' + String(error));
+        }
+      }
+
       // Generate Enhanced Recommendations
       result.enhancedRecommendations = this.generateEnhancedRecommendations(result, options);
 
@@ -379,6 +427,12 @@ export class EnhancedAccessibilityChecker {
         maxScore += 5;
         score += 5;
       }
+    }
+
+    // NEW: Mobile-friendliness contribution
+    if (result.mobileFriendliness) {
+      maxScore += 10;
+      score += (result.mobileFriendliness.overallScore / 100) * 10;
     }
 
     return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
@@ -485,6 +539,15 @@ export class EnhancedAccessibilityChecker {
       });
     }
 
+    // NEW: Mobile-friendliness recommendations
+    if (result.mobileFriendliness) {
+      result.mobileFriendliness.recommendations.slice(0, 3).forEach((rec) => {
+        if (rec.priority === 'high' || rec.priority === 'medium') {
+          recommendations.push(`Mobile: ${rec.recommendation}`);
+        }
+      });
+    }
+
     // Future readiness recommendations
     if ((result.futureReadiness || 0) < 70) {
       recommendations.push('Consider upgrading to modern HTML5 and ARIA patterns for better future compatibility');
@@ -584,6 +647,7 @@ export class EnhancedAccessibilityChecker {
       contentWeightAnalysis: options.contentWeightAnalysis !== false,
       enhancedPerformanceAnalysis: options.enhancedPerformanceAnalysis !== false,
       enhancedSeoAnalysis: options.enhancedSeoAnalysis !== false,
+      mobileFriendlinessAnalysis: options.mobileFriendlinessAnalysis !== false,
       semanticAnalysis: true
     };
 
@@ -592,6 +656,7 @@ export class EnhancedAccessibilityChecker {
     console.log(`   📦 Content Weight Analysis: ${enhancedOptions.contentWeightAnalysis ? 'Yes' : 'No'}`);
     console.log(`   ⚡ Enhanced Performance: ${enhancedOptions.enhancedPerformanceAnalysis ? 'Yes' : 'No'}`);
     console.log(`   🔍 Enhanced SEO: ${enhancedOptions.enhancedSeoAnalysis ? 'Yes' : 'No'}`);
+    console.log(`   📱 Mobile-Friendliness: ${enhancedOptions.mobileFriendlinessAnalysis ? 'Yes' : 'No'}`);
     console.log(`   🧠 Semantic Analysis: ${enhancedOptions.semanticAnalysis ? 'Yes' : 'No'}`);
 
     for (let i = 0; i < urls.length; i++) {

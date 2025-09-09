@@ -1,3 +1,5 @@
+import { MobileFriendlinessMetrics } from './types/enhanced-metrics';
+
 export interface Pa11yIssue {
   code: string;
   message: string;
@@ -49,6 +51,8 @@ export interface AccessibilityResult {
   // 🆕 Lighthouse results
   lighthouseScores?: LighthouseScores;
   lighthouseMetrics?: LighthouseMetrics;
+  // 🆕 Mobile-Friendliness results
+  mobileFriendliness?: MobileFriendlinessMetrics;
 }
 
 export interface TestOptions {

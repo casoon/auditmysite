@@ -2,12 +2,14 @@ import { AccessibilityChecker } from './core/accessibility/accessibility-checker
 import { ContentWeightAnalyzer } from './analyzers/content-weight-analyzer';
 import { EnhancedPerformanceCollector } from './analyzers/enhanced-performance-collector';
 import { EnhancedSEOAnalyzer } from './analyzers/enhanced-seo-analyzer';
+import { MobileFriendlinessAnalyzer } from './analyzers/mobile-friendliness-analyzer';
 import { 
     AccessibilityResult
 } from './types';
 import {
     EnhancedPerformanceMetrics,
     EnhancedSEOMetrics,
+    MobileFriendlinessMetrics,
     ContentWeight,
     ContentAnalysis,
     QualityAnalysisOptions
@@ -15,9 +17,9 @@ import {
 import { chromium, Browser, Page } from 'playwright';
 
 /**
- * Enhanced result interface combining all analysis types
+ * Complete result interface combining all analysis types
  */
-export interface EnhancedAccessibilityResult extends AccessibilityResult {
+export interface AccessibilityAnalysisResult extends AccessibilityResult {
     contentWeight?: {
         contentScore: number;
         grade: string;
@@ -83,6 +85,7 @@ export interface EnhancedAccessibilityResult extends AccessibilityResult {
             altTextCoverage: number;
         };
     };
+    mobileFriendliness?: MobileFriendlinessMetrics;
     qualityScore?: {
         score: number;
         grade: string;
@@ -91,19 +94,21 @@ export interface EnhancedAccessibilityResult extends AccessibilityResult {
             seo: number;
             accessibility: number;
             content: number;
+            mobile: number;
         };
     };
 }
 
 /**
- * Enhanced Accessibility Checker that combines standard accessibility analysis
+ * Main Accessibility Checker that combines accessibility analysis
  * with performance, SEO, and content weight analysis
  */
-export class EnhancedAccessibilityChecker {
+export class MainAccessibilityChecker {
     private accessibilityChecker: AccessibilityChecker;
     private contentWeightAnalyzer: ContentWeightAnalyzer;
     private performanceCollector: EnhancedPerformanceCollector;
     private seoAnalyzer: EnhancedSEOAnalyzer;
+    private mobileFriendlinessAnalyzer: MobileFriendlinessAnalyzer;
     private browser: Browser | null = null;
 
     constructor(options: QualityAnalysisOptions = {}) {
@@ -111,6 +116,7 @@ export class EnhancedAccessibilityChecker {
         this.contentWeightAnalyzer = new ContentWeightAnalyzer(options);
         this.performanceCollector = new EnhancedPerformanceCollector(options);
         this.seoAnalyzer = new EnhancedSEOAnalyzer(options);
+        this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer();
     }
 
     /**
@@ -118,7 +124,7 @@ export class EnhancedAccessibilityChecker {
      */
     async initialize(): Promise<void> {
         try {
-            // Launch browser for enhanced analysis
+            // Launch browser for analysis
             this.browser = await chromium.launch({ 
                 headless: true,
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -128,7 +134,7 @@ export class EnhancedAccessibilityChecker {
             await this.accessibilityChecker.initialize();
 
         } catch (error) {
-            console.error('Error initializing enhanced accessibility checker:', error);
+            console.error('Error initializing accessibility checker:', error);
             throw error;
         }
     }
@@ -136,46 +142,54 @@ export class EnhancedAccessibilityChecker {
     /**
      * Run comprehensive analysis including accessibility, performance, SEO, and content weight
      */
-    async analyze(html: string, url: string): Promise<EnhancedAccessibilityResult> {
+    async analyze(html: string, url: string | any): Promise<AccessibilityAnalysisResult> {
         if (!this.browser) {
-            throw new Error('Enhanced accessibility checker not initialized. Call initialize() first.');
+            throw new Error('Accessibility checker not initialized. Call initialize() first.');
         }
 
         try {
-            console.log('Running enhanced accessibility analysis...');
+            // Extract URL string from object if needed
+            const urlString = typeof url === 'string' ? url : (url?.loc || url?.url || String(url));
+            console.log(`🔍 Testing: ${JSON.stringify(url)}`);
+            
+            console.log('Running accessibility analysis...');
 
             // For HTML content analysis, we'll use a data URI
             const dataUri = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 
-            // Run standard accessibility analysis using the HTML content directly
-            const accessibilityResults = await this.accessibilityChecker.testPage(url, {
+            // Run standard accessibility analysis using the extracted URL string
+            const accessibilityResults = await this.accessibilityChecker.testPage(urlString, {
                 verbose: true,
                 collectPerformanceMetrics: false,
                 usePa11y: true
             });
 
-            // Create a page for enhanced analysis
+            // Create a page for analysis
             const page = await this.browser.newPage();
 
             try {
                 // Set content and wait for page to be ready
                 await page.setContent(html, { waitUntil: 'domcontentloaded' });
 
-                // Run enhanced analyses
+                // Run analyses using the extracted URL string
                 console.log('Running content weight analysis...');
-                const contentWeight = await this.analyzeContentWeight(page, url);
+                const contentWeight = await this.analyzeContentWeight(page, urlString);
 
-                console.log('Running enhanced performance analysis...');
-                const enhancedPerformance = await this.analyzePerformance(page, url);
+                console.log('Running performance analysis...');
+                const enhancedPerformance = await this.analyzePerformance(page, urlString);
 
-                console.log('Running enhanced SEO analysis...');
-                const enhancedSEO = await this.analyzeSEO(page, url);
+                console.log('Running SEO analysis...');
+                const enhancedSEO = await this.analyzeSEO(page, urlString);
+
+                console.log('Running mobile-friendliness analysis...');
+                const mobileFriendliness = await this.analyzeMobileFriendliness(page, urlString);
 
                 console.log('Calculating quality score...');
                 const qualityScore = this.calculateQualityScore(
                     contentWeight,
                     enhancedPerformance,
                     enhancedSEO,
+                    mobileFriendliness,
                     accessibilityResults
                 );
 
@@ -184,6 +198,7 @@ export class EnhancedAccessibilityChecker {
                     contentWeight,
                     enhancedPerformance,
                     enhancedSEO,
+                    mobileFriendliness: mobileFriendliness || undefined,
                     qualityScore
                 };
 
@@ -192,7 +207,7 @@ export class EnhancedAccessibilityChecker {
             }
 
         } catch (error) {
-            console.error('Error during enhanced analysis:', error);
+            console.error('Error during analysis:', error);
             throw error;
         }
     }
@@ -200,7 +215,7 @@ export class EnhancedAccessibilityChecker {
     /**
      * Analyze content weight using the ContentWeightAnalyzer
      */
-    private async analyzeContentWeight(page: Page, url: string): Promise<EnhancedAccessibilityResult['contentWeight']> {
+    private async analyzeContentWeight(page: Page, url: string): Promise<AccessibilityAnalysisResult['contentWeight']> {
         try {
             const { contentWeight, contentAnalysis } = await this.contentWeightAnalyzer.analyzeContentWeight(page, url);
             
@@ -230,9 +245,9 @@ export class EnhancedAccessibilityChecker {
     }
 
     /**
-     * Analyze performance using the EnhancedPerformanceCollector
+     * Analyze performance using the PerformanceCollector
      */
-    private async analyzePerformance(page: Page, url: string): Promise<EnhancedAccessibilityResult['enhancedPerformance']> {
+    private async analyzePerformance(page: Page, url: string): Promise<AccessibilityAnalysisResult['enhancedPerformance']> {
         try {
             const metrics = await this.performanceCollector.collectEnhancedMetrics(page, url);
             
@@ -253,7 +268,7 @@ export class EnhancedAccessibilityChecker {
                 }
             };
         } catch (error) {
-            console.warn('Enhanced performance analysis failed:', error);
+            console.warn('Performance analysis failed:', error);
             return this.getDefaultPerformanceResult();
         }
     }
@@ -261,7 +276,7 @@ export class EnhancedAccessibilityChecker {
     /**
      * Analyze SEO using the EnhancedSEOAnalyzer
      */
-    private async analyzeSEO(page: Page, url: string): Promise<EnhancedAccessibilityResult['enhancedSEO']> {
+    private async analyzeSEO(page: Page, url: string): Promise<AccessibilityAnalysisResult['enhancedSEO']> {
         try {
             const seoMetrics = await this.seoAnalyzer.analyzeSEO(page, url);
             
@@ -305,36 +320,52 @@ export class EnhancedAccessibilityChecker {
     }
 
     /**
+     * Analyze mobile-friendliness using the MobileFriendlinessAnalyzer
+     */
+    private async analyzeMobileFriendliness(page: Page, url: string): Promise<MobileFriendlinessMetrics | null> {
+        try {
+            return await this.mobileFriendlinessAnalyzer.analyzeMobileFriendliness(page, url);
+        } catch (error) {
+            console.warn('Mobile-friendliness analysis failed:', error);
+            return null;
+        }
+    }
+
+    /**
      * Calculate overall quality score based on all analysis results
      */
     private calculateQualityScore(
-        contentWeight: EnhancedAccessibilityResult['contentWeight'],
-        performance: EnhancedAccessibilityResult['enhancedPerformance'],
-        seo: EnhancedAccessibilityResult['enhancedSEO'],
+        contentWeight: AccessibilityAnalysisResult['contentWeight'],
+        performance: AccessibilityAnalysisResult['enhancedPerformance'],
+        seo: AccessibilityAnalysisResult['enhancedSEO'],
+        mobileFriendliness: MobileFriendlinessMetrics | null,
         accessibility: AccessibilityResult
-    ): EnhancedAccessibilityResult['qualityScore'] {
+    ): AccessibilityAnalysisResult['qualityScore'] {
         // Calculate individual scores (0-100)
         const contentScore = contentWeight?.contentScore || 0;
         const performanceScore = performance?.performanceScore || 0;
         const seoScore = seo?.seoScore || 0;
+        const mobileScore = mobileFriendliness?.overallScore || 0;
         
         // Calculate accessibility score from errors
         const accessibilityIssues = accessibility.errors?.length || 0;
         const accessibilityScore = Math.max(0, 100 - (accessibilityIssues * 10));
 
-        // Weighted average calculation
+        // Weighted average calculation (including mobile-friendliness)
         const weights = {
-            performance: 0.3,
-            seo: 0.25,
+            performance: 0.25,
+            seo: 0.2,
             accessibility: 0.25,
-            content: 0.2
+            content: 0.15,
+            mobile: 0.15
         };
 
         const combinedScore = Math.round(
             performanceScore * weights.performance +
             seoScore * weights.seo +
             accessibilityScore * weights.accessibility +
-            contentScore * weights.content
+            contentScore * weights.content +
+            mobileScore * weights.mobile
         );
 
         // Determine grade
@@ -351,7 +382,8 @@ export class EnhancedAccessibilityChecker {
                 performance: performanceScore,
                 seo: seoScore,
                 accessibility: accessibilityScore,
-                content: contentScore
+                content: contentScore,
+                mobile: mobileScore
             }
         };
     }
@@ -400,7 +432,7 @@ export class EnhancedAccessibilityChecker {
     /**
      * Get default content weight result for fallback
      */
-    private getDefaultContentWeightResult(): EnhancedAccessibilityResult['contentWeight'] {
+    private getDefaultContentWeightResult(): AccessibilityAnalysisResult['contentWeight'] {
         return {
             contentScore: 0,
             grade: 'N/A',
@@ -422,7 +454,7 @@ export class EnhancedAccessibilityChecker {
     /**
      * Get default performance result for fallback
      */
-    private getDefaultPerformanceResult(): EnhancedAccessibilityResult['enhancedPerformance'] {
+    private getDefaultPerformanceResult(): AccessibilityAnalysisResult['enhancedPerformance'] {
         return {
             performanceScore: 0,
             grade: 'N/A',
@@ -444,7 +476,7 @@ export class EnhancedAccessibilityChecker {
     /**
      * Get default SEO result for fallback
      */
-    private getDefaultSEOResult(): EnhancedAccessibilityResult['enhancedSEO'] {
+    private getDefaultSEOResult(): AccessibilityAnalysisResult['enhancedSEO'] {
         return {
             seoScore: 0,
             grade: 'N/A',

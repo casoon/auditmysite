@@ -136,41 +136,4 @@ export class AccessibilityService {
     return `# Security Report\n\nSecurity scanning not yet implemented.`;
   }
 
-  async runBatchTests(urls: string[], options: TestOptions): Promise<TestSummary> {
-    const results: AccessibilityResult[] = [];
-    let totalErrors = 0;
-    let totalWarnings = 0;
-    let passedPages = 0;
-    let failedPages = 0;
-    
-    for (const url of urls) {
-      try {
-        const result = await this.checker.runTest(url, options);
-        results.push(result);
-        
-        if (result.issues.length === 0) {
-          passedPages++;
-        } else {
-          failedPages++;
-          totalErrors += result.issues.filter((issue: any) => issue.severity === 'error').length;
-          totalWarnings += result.issues.filter((issue: any) => issue.severity === 'warning').length;
-        }
-      } catch (error) {
-        console.error(`Error testing ${url}:`, error);
-        failedPages++;
-      }
-    }
-    
-    return {
-      totalErrors,
-      totalWarnings,
-      passedPages,
-      failedPages,
-      crashedPages: 0, // 🆕 No crashes tracked in batch tests yet
-      testedPages: urls.length,
-      totalPages: urls.length, // Add missing property
-      results,
-      totalDuration: 0 // TODO: Implement actual duration tracking
-    };
-  }
 } 

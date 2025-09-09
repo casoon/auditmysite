@@ -54,63 +54,39 @@ export const htmlReportTemplate = `<!DOCTYPE html>
             transition: background-color 0.3s ease;
         }
 
-        /* Header */
+        /* Header - Only Filter Badges */
         .report-header {
             background: #f8fafc;
             color: #1e293b;
-            padding: 1rem 0;
+            padding: 0.75rem 0;
             box-shadow: var(--shadow-lg);
             position: sticky;
             top: 0;
             z-index: 100;
             border-bottom: 1px solid #e2e8f0;
-            height: 80px;
+            height: 60px;
         }
 
-        .report-nav {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            height: 100%;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 1.5rem;
-            font-weight: 600;
-            height: 100%;
-        }
-        
-        .logo-svg {
-            height: calc(100% - 20px);
-            width: auto;
-            flex-shrink: 0;
-            max-height: 60px;
-        }
-        
-        .logo span {
-            color: #1e293b;
-            font-weight: 600;
-            font-size: 1.25rem;
-        }
-
-        /* Filter Section */
+        /* Filter Section - Now the main content */
         .filter-section {
             background: var(--surface-color);
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem 0;
-            box-shadow: var(--shadow);
+            padding: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
         }
         
         .filter-container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 1rem;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
         }
         
         .filter-badges {
@@ -215,12 +191,10 @@ export const htmlReportTemplate = `<!DOCTYPE html>
             color: var(--error-color);
         }
 
-        /* Table Styles */
+        /* Table Styles - Simplified without borders */
         .table-container {
             background: var(--surface-color);
             border-radius: 0.75rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
             margin-bottom: 2rem;
             overflow: hidden;
         }
@@ -331,10 +305,9 @@ export const htmlReportTemplate = `<!DOCTYPE html>
         }
 
         .section-content {
-            background: var(--surface-color);
+            /* Removed background and border to avoid nesting */
             border-radius: 0.75rem;
             overflow: hidden;
-            border: 1px solid var(--border-color);
         }
 
         .section-title {
@@ -1049,59 +1022,18 @@ export const htmlReportTemplate = `<!DOCTYPE html>
 </head>
 <body>
     <header class="report-header">
-        <nav class="report-nav">
-            <div class="logo">
-                <svg class="logo-svg" viewBox="0 0 4858.1 3982" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <style>
-                        .st0{fill:#f8b221;}.st1{fill:#4c84ad;}.st2{fill:#fff;}.st3{fill:#9ed9f1;}.st4{fill:none;stroke:#fff;stroke-linecap:round;stroke-linejoin:round;}.st5{fill:#3fc952;}
-                        </style>
-                    </defs>
-                    <g>
-                        <rect class="st3" x="1657.3" y="266.3" width="1887.2" height="104.8" rx="32.7" ry="32.7"/>
-                        <path class="st2" d="M1183.4,346.9c21.5,0,39-17.5,39-39s-17.5-39-39-39-39,17.5-39,39,17.5,39,39,39Z"/>
-                        <path class="st2" d="M4173.9,2710.2V552.9H703.9v2157.3c0,12.6,10.2,22.9,22.9,22.9h3424.2c12.6,0,22.9-10.3,22.9-22.9ZM2587.8,892.3c-11.7-9.8-13.3-27.2-3.6-39,9.8-11.7,27.2-13.4,39-3.6l207.3,172.5c6.3,5.3,10,13,10,21.3s-3.7,16-10,21.3l-207.3,172.5c-5.2,4.3-11.5,6.4-17.7,6.4s-15.8-3.4-21.3-10c-9.8-11.7-8.2-29.2,3.6-39l181.7-151.2-181.7-151.2ZM2313.3,1272.1l114.5-468.2c3.6-14.9,18.6-23.9,33.4-20.3,14.8,3.6,23.9,18.6,20.3,33.4l-114.5,468.2c-3.1,12.6-14.4,21.1-26.9,21.1s-4.4-.3-6.6-.8c-14.8-3.6-23.9-18.6-20.3-33.4ZM1979,1022.3l207.3-172.5c11.8-9.8,29.2-8.2,39,3.6,9.8,11.7,8.2,29.2-3.6,39l-181.7,151.2,181.7,151.2c11.7,9.8,13.3,27.2,3.6,39-5.5,6.6-13.3,10-21.3,10s-12.5-2.1-17.7-6.4l-207.3-172.5c-6.3-5.3-10-13-10-21.3s3.7-16,10-21.3ZM1848.5,1613.8h220.9v55.3h-220.9v-55.3ZM2260.1,1840.5h0v27.7h-410v-55.3h410v27.7h0ZM1247.9,2143.4h0v-27.7h561.8v55.3h-561.8v-27.7h0ZM1774.3,1669.1h-535.3v-27.7h0v-27.7h535.3v55.3ZM1048.2,1460.2h190.8v55.3h-190.8v-27.7h0v-27.7ZM1239,2015.3h-190.8v-27.7h0v-27.7h190.8v55.3ZM1239,1840.5h0v-27.7h535.3v55.3h-535.3v-27.7h0ZM1561.7,2361.5h-313.8v-27.7h0v-27.7h313.8v55.3ZM1892.4,2361.5h-249.7v-27.7h0v-27.7h249.7v55.3ZM2103.2,2171.1h-225.3v-27.7h0,0v-27.7h225.3v27.7h0v27.7ZM2563.8,2171.1h-393.2v-27.7h0v-27.7h393.2v27.7h0v27.7ZM2523.3,1840.5h0v27.7h-202.4v-55.3h202.4v27.7h0ZM2611,1669.1h-445.4v-27.7h0,0v-27.7h445.4v55.3ZM2935.4,2171.1h-318.5v-27.7h0,0v-27.7h318.5v27.7h0v27.7ZM4070.3,2532.1l-53.6,53.8c-10,10-23.2,15.5-37.3,15.5s-27.3-5.5-37.3-15.5l-349.8-351c-20.5-20.5-20.5-54,0-74.5l10.6-10.6-48.6-48.8c-74.5,53.8-165.7,85.5-264.2,85.5-202.6,0-374.6-134-432.6-318.3h-240.5v-27.7h0,0v-27.7h227c-4.8-26.4-7.4-53.5-7.4-81.3s1.6-42,4.4-62.5h-155.7v-55.3h166.8c51.9-193.9,228.5-337.1,438-337.1s453.5,204.1,453.5,454.9-59.3,256.9-153.1,340.3l45,45.1,10.5-10.5c19.9-19.9,54.6-20,74.6,0l349.8,350.9c20.5,20.5,20.5,54,0,74.5Z"/>
-                        <path class="st2" d="M1432.5,346.9c21.5,0,39-17.5,39-39s-17.5-39-39-39-39,17.5-39,39,17.5,39,39,39Z"/>
-                        <path class="st2" d="M926.6,346.9c21.5,0,39-17.5,39-39s-17.5-39-39-39-39,17.5-39,39,17.5,39,39,39Z"/>
-                        <path class="st2" d="M4173.9,497.6V166.9c0-12.6-10.3-22.9-22.9-22.9H726.7c-12.6,0-22.9,10.3-22.9,22.9v330.6h3470ZM3878.4,309.3l-59.1-69.3c-4.2-5-.7-12.6,5.8-12.6h52c2.2,0,4.3,1,5.8,2.7l30,35.2c3,3.6,8.5,3.6,11.6,0l30-35.2c1.5-1.7,3.6-2.7,5.8-2.7h52c6.5,0,10,7.6,5.8,12.6l-59.1,69.3c-2.4,2.9-2.4,7.1,0,9.9l59.1,69.3c4.2,5,.7,12.6-5.8,12.6h-52c-2.2,0-4.3-1-5.8-2.7l-30-35.2c-3-3.6-8.5-3.6-11.6,0l-30.1,35.2c-1.4,1.7-3.5,2.6-5.7,2.7l-52.8.9c-6.6.1-10.2-7.6-5.9-12.6l59.9-70.3c2.4-2.9,2.4-7.1,0-9.9ZM1611.2,299.1c0-43.5,35.4-78.9,78.9-78.9h1821.7c43.5,0,78.9,35.4,78.9,78.9v39.3c0,43.5-35.4,78.9-78.9,78.9h-1821.7c-43.5,0-78.9-35.4-78.9-78.9v-39.3ZM1432.5,213.6c52,0,94.4,42.3,94.4,94.4s-42.3,94.4-94.4,94.4-94.4-42.3-94.4-94.4,42.3-94.4,94.4-94.4ZM1183.4,213.6c52,0,94.4,42.3,94.4,94.4s-42.3,94.4-94.4,94.4-94.4-42.3-94.4-94.4,42.3-94.4,94.4-94.4ZM926.6,213.6c52,0,94.4,42.3,94.4,94.4s-42.3,94.4-94.4,94.4-94.4-42.3-94.4-94.4,42.3-94.4,94.4-94.4Z"/>
-                        <path class="st0" d="M2587.8,1194.8c-11.7,9.8-13.3,27.2-3.6,39,5.5,6.6,13.3,10,21.3,10s12.5-2.1,17.7-6.4l207.3-172.5c6.3-5.3,10-13,10-21.3s-3.7-16-10-21.3l-207.3-172.5c-11.8-9.8-29.2-8.2-39,3.6-9.8,11.7-8.2,29.2,3.6,39l181.7,151.2-181.7,151.2Z"/>
-                        <path class="st0" d="M2186.3,1237.3c5.2,4.3,11.5,6.4,17.7,6.4s15.8-3.4,21.3-10c9.8-11.7,8.2-29.2-3.6-39l-181.7-151.2,181.7-151.2c11.7-9.8,13.3-27.2,3.6-39-9.8-11.7-27.2-13.4-39-3.6l-207.3,172.5c-6.3,5.3-10,13-10,21.3s3.7,16,10,21.3l207.3,172.5Z"/>
-                        <path class="st0" d="M2333.6,1305.5c2.2.5,4.4.8,6.6.8,12.4,0,23.8-8.5,26.9-21.1l114.5-468.2c3.6-14.8-5.5-29.8-20.3-33.4-14.8-3.6-29.8,5.4-33.4,20.3l-114.5,468.2c-3.6,14.8,5.5,29.8,20.3,33.4Z"/>
-                        <path class="st1" d="M3818.4,389.5c-4.3,5-.6,12.7,5.9,12.6l52.8-.9c2.2,0,4.2-1,5.7-2.7l30.1-35.2c3-3.6,8.5-3.6,11.6,0l30,35.2c1.5,1.7,3.6,2.7,5.8,2.7h52c6.5,0,10-7.6,5.8-12.6l-59.1-69.3c-2.4-2.9-2.4-7.1,0-9.9l59.1-69.3c4.2-5,.7-12.6-5.8-12.6h-52c-2.2,0-4.3,1-5.8,2.7l-30,35.2c-3,3.6-8.5,3.6-11.6,0l-30-35.2c-1.4-1.7-3.6-2.7-5.8-2.7h-52c-6.5,0-10,7.6-5.8,12.6l59.1,69.3c2.4,2.9,2.4,7.1,0,9.9l-59.9,70.3Z"/>
-                        <path class="st1" d="M1690,417.2h1821.7c43.5,0,78.9-35.4,78.9-78.9v-39.3c0-43.5-35.4-78.9-78.9-78.9h-1821.7c-43.5,0-78.9,35.4-78.9,78.9v39.3c0,43.5,35.4,78.9,78.9,78.9ZM1657.3,299.1c0-18.1,14.7-32.7,32.7-32.7h1821.7c18,0,32.7,14.7,32.7,32.7v39.3c0,18.1-14.7,32.7-32.7,32.7h-1821.7c-18,0-32.7-14.7-32.7-32.7v-39.3Z"/>
-                        <path class="st1" d="M926.6,402.3c52,0,94.4-42.3,94.4-94.4s-42.3-94.4-94.4-94.4-94.4,42.3-94.4,94.4,42.3,94.4,94.4,94.4ZM926.6,268.9c21.5,0,39,17.5,39,39s-17.5,39-39,39-39-17.5-39-39,17.5-39,39-39Z"/>
-                        <path class="st1" d="M1183.4,402.3c52,0,94.4-42.3,94.4-94.4s-42.3-94.4-94.4-94.4-94.4,42.3-94.4,94.4,42.3,94.4,94.4,94.4ZM1183.4,268.9c21.5,0,39,17.5,39,39s-17.5,39-39,39-39-17.5-39-39,17.5-39,39-39Z"/>
-                        <path class="st1" d="M1432.5,402.3c52,0,94.4-42.3,94.4-94.4s-42.3-94.4-94.4-94.4-94.4-42.3-94.4-94.4,42.3-94.4,94.4-94.4ZM1432.5,268.9c21.5,0,39,17.5,39,39s-17.5,39-39,39-39-17.5-39-39,17.5-39,39-39Z"/>
-                        <path class="st1" d="M3720.5,2106.6c-19.9-20-54.7-19.9-74.6,0l-10.5,10.5-45-45.1c93.8-83.4,153.1-205,153.1-340.3,0-250.8-203.4-454.9-453.5-454.9s-386.1,143.2-438,337.1h-166.8v55.3h155.7c-2.8,20.4-4.4,41.3-4.4,62.5s2.6,54.9,7.4,81.3h-227v55.3h240.5c58,184.3,229.9,318.3,432.6,318.3s189.8-31.8,264.2-85.5l48.6,48.8-10.6,10.6c-20.5,20.6-20.5,54,0,74.5l349.8,351c10,10,23.2,15.5,37.3,15.5s27.3-5.5,37.3-15.5l53.6-53.8c20.5-20.6,20.5-54,0-74.5l-349.8-350.9Z"/>
-                        <path class="st3" d="M3688.2,1731.6c0-220.3-178.6-399.6-398.2-399.6s-398.2,179.2-398.2,399.6,178.6,399.6,398.2,399.6,398.2-179.2,398.2-399.6ZM3290.1,2080.2c-192.2,0-348.6-156.4-348.6-348.6s156.4-348.6,348.6-348.6,348.6,156.4,348.6,348.6-156.4,348.6-348.6,348.6Z"/>
-                        <path class="st1" d="M3290.1,1383c-192.2,0-348.6,156.4-348.6,348.6s156.4,348.6,348.6,348.6,348.6-156.4,348.6-348.6-156.4-348.6-348.6-348.6ZM3290.1,1429.1c166.8,0,302.5,135.7,302.5,302.5s-135.7,302.5-302.5,302.5-302.5-135.7-302.5-302.5,135.7-302.5,302.5-302.5Z"/>
-                        <path class="st5" d="M3171.5,1715.3c-11.3-10.2-28.8-9.4-39.1,1.9-10.3,11.3-9.4,28.8,1.9,39.1l103.3,93.8c7.8,7.1,17.7,10.6,27.5,10.6s20.8-3.9,28.7-11.8l168.8-249c8.6-12.7,5.2-29.9-7.4-38.4-12.7-8.5-29.9-5.2-38.4,7.4l-154.5,228.8-90.7-82.4Z"/>
-                        <path class="st1" d="M4229.2,2710.2V166.9c0-43.1-35.1-78.2-78.2-78.2H726.7c-43.1,0-78.2,35.1-78.2,78.2v2543.3c0,43.1,35.1,78.2,78.2,78.2h3424.2c43.1,0,78.2-35.1,78.2-78.2Z"/>
-                    </g>
-                    <g>
-                        <path class="st1" d="M69.4,3765.7v-49.5l42.4-5.9,200-516.8h66.4l196.5,516.8,42,5.9v49.5h-164.3v-49.5l43.2-7.5-37.7-105.3h-229.1l-38.9,105.3,43.2,7.5v49.5H69.4ZM252.9,3538.6h181.6l-84.1-232.6-4.7-13h-2.4l-4.7,13-85.7,232.6Z"/>
-                        <path class="st1" d="M860.4,3774c-46.1,0-82.1-14.8-108.1-44.4-25.9-29.6-38.9-75.7-38.9-138.3v-189.8l-48.7-11v-49.9h126.1v251.5c0,45.3,6.7,76.5,20,93.5,13.4,17,34.2,25.5,62.5,25.5s50.2-5.6,68.2-16.7c17.9-11.1,31.5-26.9,40.7-47.4v-245.6l-57-11v-49.9h134.4v364.7l48.7,11v49.5h-118.3l-5.1-62.9c-13.4,22.8-30.6,40.3-51.7,52.7-21.1,12.3-45.4,18.5-72.9,18.5Z"/>
-                        <path class="st1" d="M1329.7,3774c-34.6,0-64.3-8.6-89-25.7-24.8-17.2-43.7-41.1-56.8-71.7-13.1-30.7-19.6-66.4-19.6-107.3v-8.3c0-45.6,6.5-85.5,19.6-119.9,13.1-34.3,32.1-61,57-80,24.9-19,54.8-28.5,89.6-28.5s47.4,4.7,66.6,14c19.3,9.3,35.7,22.7,49.3,40.3v-173.3l-64.1-11v-49.9h141.5v552.5l64.1,11v49.5h-131.3l-6.3-50.7c-13.9,19.4-30.8,34.1-50.9,44-20,10-43.3,14.9-69.8,14.9ZM1349.3,3711.1c23.1,0,42.4-5.2,58.2-15.7,15.7-10.5,28.7-25.3,38.9-44.4v-197.3c-10-17.8-22.9-32-38.9-42.4-16-10.5-35.1-15.7-57.4-15.7s-44.9,7-60.9,21c-16,14-27.9,33.4-35.8,58.2-7.9,24.8-11.8,53.5-11.8,86.3v8.3c0,42.7,8.8,77,26.3,103,17.5,25.9,44.7,38.9,81.3,38.9Z"/>
-                        <path class="st1" d="M1638.6,3765.7v-49.5l64.1-11v-303.8l-64.1-11v-49.9h141.5v364.7l64.1,11v49.5h-205.5ZM1698.7,3235.6v-82.9h81.3v82.9h-81.3Z"/>
-                        <path class="st1" d="M2047.7,3772.4c-31.4,0-56.4-9.2-74.9-27.7-18.5-18.5-27.7-48-27.7-88.6v-258.2h-67.2v-57.4h67.2v-102.6h77.4v102.6h92.4v57.4h-92.4v258.2c0,20.4,4.1,35.5,12.2,45.2,8.1,9.7,19,14.5,32.6,14.5s19.4-.8,30.7-2.6c11.3-1.7,20-3.2,26.3-4.5l10.6,50.7c-11.3,3.4-25.1,6.4-41.5,9-16.4,2.6-31.6,3.9-45.8,3.9Z"/>
-                        <path class="st1" d="M2192.3,3765.7v-49.5l64.1-11v-450.8l-64.1-11v-49.9h167.4l184.3,434.2h2.4l178.4-434.2h172.5v49.9l-64.1,11v450.8l64.1,11v49.5h-205.5v-49.5l67.6-11v-406l-2-.4-185.9,446.4h-51.5l-192.2-445.6-2,.4,2.8,239.3v165.8l69.2,11v49.5h-205.5Z"/>
-                        <path class="st1" d="M3055.7,3937.5c-6,0-13.9-.7-23.6-2.2-9.7-1.4-17.2-2.8-22.4-4.1l7.9-60.9c4.5.5,10.6,1,18.5,1.4,7.9.4,13.2.6,16.1.6,16.5,0,29.9-6.3,40.3-18.9,10.3-12.6,20-29.7,28.9-51.5l18.5-44.8-150.5-360.4-45.6-6.3v-49.9h178.4v49.9l-51.5,7.9,82.9,212.6,20,55.4h2.4l98.2-268-54.2-7.9v-49.9h174.9v49.9l-44,6.3-167.4,434.3c-7.9,20.4-17.4,38.7-28.5,54.8-11.1,16.1-24.8,28.7-40.9,37.9-16.1,9.2-35.6,13.8-58.4,13.8Z"/>
-                        <path class="st1" d="M3640.8,3774c-34.8,0-68.4-5.1-100.6-15.3-32.2-10.2-63-25.9-92.4-47.2v-122.2h60.1l13,90c17,10.5,35.5,18.6,55.4,24.4,19.9,5.8,41.4,8.6,64.5,8.6s48.4-4,66.6-12c18.2-8,32.2-19.1,41.9-33.2,9.7-14.1,14.5-30.7,14.5-49.5s-4.2-33-12.6-46.4c-8.4-13.4-22.2-25.1-41.5-35.2-19.3-10.1-45.5-18.9-78.8-26.5-39.3-9.2-72.5-21.4-99.6-36.7-27.1-15.3-47.7-33.9-61.7-55.8-14-21.9-21-47-21-75.3s7.9-56.6,23.8-80.2c15.8-23.6,37.9-42.2,66.2-55.8,28.3-13.6,61.3-20.4,99-20.4s75.5,6.1,106.3,18.3c30.8,12.2,56.1,26.9,76,44.2v114.4h-60.1l-13-81.7c-11.8-9.4-26.5-17.3-44-23.6-17.6-6.3-39.3-9.4-65.2-9.4s-41.4,3.9-58.2,11.6c-16.8,7.7-29.9,18.5-39.3,32.4-9.4,13.9-14.1,30.3-14.1,49.1s4.3,30.9,12.8,43.2c8.5,12.3,22.4,23.1,41.7,32.4,19.3,9.3,45,18,77.2,26.1,60.3,14.9,105.9,37,137,66.2,31,29.2,46.6,65.3,46.6,108.3s-8.3,57.8-24.8,81.5c-16.5,23.7-39.8,42.2-69.8,55.6-30,13.4-65.3,20-105.9,20Z"/>
-                        <path class="st1" d="M3902.9,3765.7v-49.5l64.1-11v-303.8l-64.1-11v-49.9h141.5v364.7l64.1,11v49.5h-205.5ZM3963.1,3235.6v-82.9h81.3v82.9h-81.3Z"/>
-                        <path class="st1" d="M4312,3772.4c-31.4,0-56.4-9.2-74.9-27.7-18.5-18.5-27.7-48-27.7-88.6v-258.2h-67.2v-57.4h67.2v-102.6h77.4v102.6h92.4v57.4h-92.4v258.2c0,20.4,4.1,35.5,12.2,45.2,8.1,9.7,19,14.5,32.6,14.5s19.4-.8,30.7-2.6c11.3-1.7,20-3.2,26.3-4.5l10.6,50.7c-11.3,3.4-25.1,6.4-41.5,9-16.4,2.6-31.6,3.9-45.8,3.9Z"/>
-                        <path class="st1" d="M4642.5,3774c-39.3,0-73.5-9-102.6-26.9-29.1-17.9-51.5-42.9-67.4-74.9-15.9-32-23.8-68.9-23.8-110.8v-17.3c0-40.3,8.3-76.4,25-108.3,16.6-31.8,38.8-57,66.4-75.5,27.6-18.5,57.8-27.7,90.6-27.7s70.3,7.9,96.1,23.6c25.8,15.7,45.3,37.8,58.4,66.2,13.1,28.4,19.6,61.9,19.6,100.4v48.3h-275.9l-1.2,2c.5,27.3,5.3,51.4,14.3,72.5,9,21.1,22.1,37.7,39.1,49.7,17,12.1,37.5,18.1,61.3,18.1s49.2-3.7,69-11.2c19.8-7.5,36.9-17.7,51.3-30.8l30.3,50.3c-15.2,14.7-35.3,27.1-60.3,37.1-25,10.1-55.1,15.1-90.2,15.1ZM4531.3,3510.7h196.1v-10.2c0-20.4-3.6-38.7-10.8-54.8-7.2-16.1-17.9-28.8-32.2-38.1-14.3-9.3-32.2-14-53.6-14s-33,5-47.2,15.1c-14.1,10.1-25.8,23.8-35,41.1-9.2,17.3-15.2,36.9-18.1,58.9l.8,2Z"/>
-                    </g>
-                </svg>
-            </div>
-        </nav>
         <div class="filter-section">
             <div class="filter-container">
-                <div class="filter-badges">
-                    <span class="filter-badge active" data-section="summary">Summary</span>
-                    <span class="filter-badge active" data-section="accessibility">Accessibility</span>
-                    <span class="filter-badge" data-section="performance">Performance</span>
-                    <span class="filter-badge" data-section="seo">SEO</span>
-                    <span class="filter-badge" data-section="detailed-issues">Detailed Issues</span>
+                <div class="header-content">
+                    <!-- Filter badges centered -->
+                    <div class="filter-badges">
+                        <span class="filter-badge" data-section="summary">Summary</span>
+                        <span class="filter-badge" data-section="accessibility">Accessibility</span>
+                        <span class="filter-badge" data-section="performance">Performance</span>
+                        <span class="filter-badge" data-section="seo">SEO</span>
+                        <span class="filter-badge" data-section="mobile-friendliness">Mobile-Friendliness</span>
+                        <span class="filter-badge" data-section="detailed-issues">Detailed Issues</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1168,6 +1100,17 @@ export const htmlReportTemplate = `<!DOCTYPE html>
             </div>
         </section>
 
+        <!-- Mobile-Friendliness Section -->
+        <section id="mobile-friendliness" class="report-section">
+            <div class="section-header">
+                <h2 class="section-title">Mobile-Friendliness Analysis</h2>
+                <p class="section-description">Mobile usability and responsive design analysis</p>
+            </div>
+            <div class="section-content">
+                {{mobileFriendliness}}
+            </div>
+        </section>
+
         <!-- Detailed Issues Section - LAST -->
         <section id="detailed-issues" class="report-section">
             <div class="section-header">
@@ -1180,14 +1123,10 @@ export const htmlReportTemplate = `<!DOCTYPE html>
         </section>
     </main>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="toast">
-        <span id="toast-message">Copied to clipboard!</span>
-    </div>
 
     <!-- JavaScript für Interaktivität -->
     <script>
-        // Copy to Clipboard Funktion
+        // Copy to Clipboard Funktion (silent - no toast)
         function copyToClipboard(tableId) {
             const table = document.getElementById(tableId);
             if (!table) return;
@@ -1200,25 +1139,12 @@ export const htmlReportTemplate = `<!DOCTYPE html>
             
             try {
                 document.execCommand('copy');
-                showToast('Daten in Zwischenablage kopiert!');
+                // Silent copy - no notification
             } catch (err) {
-                showToast('Fehler beim Kopieren!');
+                console.log('Copy failed');
             }
             
             document.body.removeChild(textarea);
-        }
-
-        // Toast Notification
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toast-message');
-            
-            toastMessage.textContent = message;
-            toast.classList.add('show');
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
         }
 
         // Smooth Scrolling für Navigation
@@ -1252,7 +1178,7 @@ export const htmlReportTemplate = `<!DOCTYPE html>
         // Filter Badge System
         function initFilterSystem() {
             const badges = document.querySelectorAll('.filter-badge');
-            const sections = document.querySelectorAll('.issues-section, .dashboard');
+            const sections = document.querySelectorAll('.report-section, .dashboard');
             
             badges.forEach(badge => {
                 badge.addEventListener('click', function() {
@@ -1278,20 +1204,15 @@ export const htmlReportTemplate = `<!DOCTYPE html>
                 });
             });
             
-            // Initialize: Show only summary and accessibility by default, hide others
+            // Initialize: Set all badges as active and show all sections by default
+            // (User can hide sections they don't want to see)
+            badges.forEach(function(badge) {
+                badge.classList.add('active');
+            });
+            
             sections.forEach(function(section) {
-                const sectionId = section.id;
-                const badge = document.querySelector('[data-section="' + sectionId + '"]');
-                
-                if (sectionId === 'summary' || sectionId === 'accessibility') {
-                    section.classList.remove('hidden');
-                    section.style.display = 'block';
-                    if (badge) badge.classList.add('active');
-                } else {
-                    section.classList.add('hidden');
-                    section.style.display = 'none';
-                    if (badge) badge.classList.remove('active');
-                }
+                section.classList.remove('hidden');
+                section.style.display = 'block';
             });
         }
         
@@ -1327,9 +1248,9 @@ export const htmlReportTemplate = `<!DOCTYPE html>
             
             try {
                 document.execCommand('copy');
-                showToast('Issue copied to clipboard!');
+                // Silent copy - no notification
             } catch (err) {
-                showToast('Failed to copy issue!');
+                console.log('Failed to copy issue');
             }
             
             document.body.removeChild(textarea);
@@ -1365,10 +1286,9 @@ export const htmlReportTemplate = `<!DOCTYPE html>
             
             try {
                 document.execCommand('copy');
-                const categoryName = categoryTitle ? categoryTitle.textContent : 'this category';
-                showToast('Copied ' + issues.length + ' issues from ' + categoryName + ' to clipboard!');
+                // Silent copy - no notification
             } catch (err) {
-                showToast('Failed to copy category issues!');
+                console.log('Failed to copy category issues');
             }
             
             document.body.removeChild(textarea);

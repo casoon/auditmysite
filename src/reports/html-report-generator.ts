@@ -68,6 +68,9 @@ export class HtmlReportGenerator {
     
     // Ersetze SEO-Placeholder
     html = html.replace('{{seo}}', this.generateSeoTable(summary.results, options));
+    
+    // Ersetze Mobile-Friendliness-Placeholder
+    html = html.replace('{{mobileFriendliness}}', this.generateMobileFriendlinessTable(summary.results, options));
 
     return html;
   }
@@ -206,6 +209,110 @@ export class HtmlReportGenerator {
         <p>SEO-Analyse wird in einer zukünftigen Version verfügbar sein.</p>
       </div>
     `;
+  }
+
+  private generateMobileFriendlinessTable(results: AccessibilityResult[], options: HtmlReportOptions): string {
+    // Check for mobile-friendliness data in results
+    const mobileResults = results.filter(r => r.mobileFriendliness && typeof r.mobileFriendliness === 'object');
+    
+    // Check for mobile-friendliness data in results
+    
+    if (mobileResults.length === 0) {
+      return `
+        <div class="no-data">
+          <h3>📱 Keine Mobile-Friendliness-Daten verfügbar</h3>
+          <p>Mobile-Friendliness-Analyse wurde nicht durchgeführt oder Daten sind nicht verfügbar.</p>
+        </div>
+      `;
+    }
+
+    let overviewHtml = this.generateMobileOverview(mobileResults);
+    let detailsHtml = this.generateMobileDetails(mobileResults);
+    
+    return overviewHtml + detailsHtml;
+  }
+
+  private generateMobileOverview(results: AccessibilityResult[]): string {
+    // Berechne Durchschnittswerte
+    const totalScore = results.reduce((sum, r) => sum + (r.mobileFriendliness?.overallScore || 0), 0);
+    const averageScore = results.length > 0 ? totalScore / results.length : 0;
+    
+    const gradeClass = this.getScoreClass(averageScore);
+    const grade = this.getScoreGrade(averageScore);
+    
+    return `
+      <div class="mobile-overview">
+        <h3>📱 Mobile-Friendliness Overview</h3>
+        <div class="metrics-grid">
+          <div class="metric-card ${gradeClass}">
+            <div class="metric-label">Overall Score</div>
+            <div class="metric-value">${averageScore.toFixed(1)}/100</div>
+            <div class="metric-grade ${grade}">${grade}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private generateMobileDetails(results: AccessibilityResult[]): string {
+    let tableRows = '';
+    
+    results.forEach(result => {
+      const mobile = result.mobileFriendliness!;
+      const gradeClass = this.getScoreClass(mobile.overallScore);
+      const grade = this.getScoreGrade(mobile.overallScore);
+      
+      tableRows += `
+        <tr>
+          <td>${this.escapeHtml(this.getPageName(result.url))}</td>
+          <td class="score-cell ${gradeClass}">${mobile.overallScore.toFixed(1)}</td>
+          <td class="score-cell">${mobile.viewport.score.toFixed(1)}</td>
+          <td class="score-cell">${mobile.typography.score.toFixed(1)}</td>
+          <td class="score-cell">${mobile.touchTargets.score.toFixed(1)}</td>
+          <td class="score-cell">${mobile.navigation.score.toFixed(1)}</td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="table-container" style="margin-top: 2rem;">
+        <div class="table-header">
+          <h3>📊 Mobile-Friendliness Details (${results.length} pages)</h3>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Overall Score</th>
+                <th>Viewport</th>
+                <th>Typography</th>
+                <th>Touch Targets</th>
+                <th>Navigation</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  private getScoreClass(score: number): string {
+    if (score >= 90) return 'excellent';
+    if (score >= 75) return 'good';
+    if (score >= 50) return 'needs-improvement';
+    return 'poor';
+  }
+
+  private getScoreGrade(score: number): string {
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
   }
 
   private getPageName(url: string): string {

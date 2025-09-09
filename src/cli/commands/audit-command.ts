@@ -29,11 +29,11 @@ export interface AuditCommandArgs extends CommandArgs {
   inpBudget?: number;
   ttfbBudget?: number;
   unifiedQueue?: boolean;
-  // 🆕 Enhanced Analysis Options
-  enhanced?: boolean;               // Enable enhanced analysis with performance, SEO, and content weight
-  enhancedPerformance?: boolean;    // Enable enhanced performance metrics only
-  enhancedSeo?: boolean;           // Enable enhanced SEO analysis only
-  contentWeight?: boolean;         // Enable content weight analysis only
+  // 🆕 Analysis Options - all enabled by default
+  noPerformance?: boolean;         // Disable performance analysis
+  noSeo?: boolean;                 // Disable SEO analysis
+  noContentWeight?: boolean;       // Disable content weight analysis
+  noMobile?: boolean;              // Disable mobile-friendliness analysis
 }
 
 export class AuditCommand extends BaseCommand {
@@ -87,7 +87,7 @@ export class AuditCommand extends BaseCommand {
 
       // Show header
       const packageJson = require('../../../package.json');
-      this.logProgress(`AuditMySite v${packageJson.version} - Enhanced Accessibility Testing`);
+      this.logProgress(`AuditMySite v${packageJson.version} - Professional Accessibility Testing`);
       this.logProgress(`Sitemap: ${args.sitemapUrl}`);
 
       // Determine configuration
@@ -144,7 +144,12 @@ export class AuditCommand extends BaseCommand {
       // generateSecurityReport: false, // Not in StandardPipelineOptions
       // usePa11y: true, // Not in StandardPipelineOptions
       collectPerformanceMetrics: true,
-      useUnifiedQueue: args.unifiedQueue || false // NEW: Use unified queue system
+      useUnifiedQueue: args.unifiedQueue || false, // NEW: Use unified queue system
+      // 🚀 NEW: Enable all analysis features by default
+      useEnhancedAnalysis: true,
+      contentWeightAnalysis: true,
+      enhancedPerformanceAnalysis: true,
+      enhancedSeoAnalysis: true
     };
     
     // Store all formats for unified report system
@@ -152,12 +157,15 @@ export class AuditCommand extends BaseCommand {
       (baseConfig as any).outputFormats = args.format;
     }
 
-    // Enhanced Analysis configuration from CLI args
-    if (args.enhanced || args.enhancedPerformance || args.enhancedSeo || args.contentWeight) {
-      (baseConfig as any).enhanced = true;
-      (baseConfig as any).enhancedPerformance = args.enhanced || args.enhancedPerformance;
-      (baseConfig as any).enhancedSeo = args.enhanced || args.enhancedSeo;
-      (baseConfig as any).contentWeight = args.enhanced || args.contentWeight;
+    // Analysis configuration from CLI args - disable specific features
+    if (args.noPerformance) {
+      (baseConfig as any).enhancedPerformanceAnalysis = false;
+    }
+    if (args.noSeo) {
+      (baseConfig as any).enhancedSeoAnalysis = false;
+    }
+    if (args.noContentWeight) {
+      (baseConfig as any).contentWeightAnalysis = false;
     }
 
     // Expert mode - interactive configuration

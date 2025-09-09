@@ -80,7 +80,7 @@ describe('Compiled CLI Integration', () => {
       const result = await runCLI(['--version']);
       
       expect(result.stderr).not.toMatch(/Cannot find module/);
-      expect(result.stdout).toMatch(/1\.8\.[0-9]+/); // Match version pattern
+      expect(result.stdout).toMatch(/1\.9\.[0-9]+/); // Match version pattern
       expect(result.code).toBe(0);
     });
 
