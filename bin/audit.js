@@ -352,7 +352,7 @@ program
         // Use the unified HTML generator
         let htmlContent;
         try {
-          const { UnifiedHTMLGenerator } = require('../dist/src/reports/unified/unified-html-generator');
+          const { UnifiedHTMLGenerator } = require('../dist/reports/unified/unified-html-generator');
           const generator = new UnifiedHTMLGenerator();
           
           // Prepare data in unified FullAuditResult format
@@ -417,7 +417,7 @@ program
         require('fs').writeFileSync(reportPath, htmlContent);
         
         // 📝 Generate detailed accessibility issues markdown report
-        const { DetailedIssueMarkdownReport } = require('../dist/src/reports/detailed-issue-markdown');
+        const { DetailedIssueMarkdownReport } = require('../dist/reports/detailed-issue-markdown');
         
         // Extract all pa11y issues and convert to DetailedIssue format
         const detailedIssues = [];
