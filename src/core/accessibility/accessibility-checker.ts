@@ -2,32 +2,57 @@ import { chromium, Browser, Page } from "playwright";
 import pa11y from "pa11y";
 import { AccessibilityResult, TestOptions, Pa11yIssue } from '../types';
 import { BrowserManager } from '../browser';
+import { BrowserPoolManager } from '../browser/browser-pool-manager';
 import { WebVitalsCollector } from '../performance';
 import { ParallelTestManager, ParallelTestManagerOptions, ParallelTestResult } from './index';
 import { Queue, QueueConfig, QueueEventCallbacks } from '../queue';
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface AccessibilityCheckerOptions {
+  /** Use browser pooling for better performance with multiple pages */
+  usePooling?: boolean;
+  /** Pool manager to use (only if usePooling is true) */
+  poolManager?: BrowserPoolManager;
+  /** Browser manager options */
+  browserOptions?: {
+    headless?: boolean;
+    port?: number;
+  };
+}
+
 export class AccessibilityChecker {
   public browserManager: BrowserManager | null = null;
+  private poolManager: BrowserPoolManager | null = null;
   private webVitalsCollector: WebVitalsCollector;
   private parallelTestManager: ParallelTestManager | null = null;
+  private usePooling: boolean;
 
-  constructor() {
+  constructor(options: AccessibilityCheckerOptions = {}) {
     this.webVitalsCollector = new WebVitalsCollector();
+    this.usePooling = options.usePooling || false;
+    this.poolManager = options.poolManager || null;
   }
 
-  async initialize(): Promise<void> {
-    // 🆕 Browser Manager for shared browser
-    this.browserManager = new BrowserManager({
-      headless: true,
-      port: 9222
-    });
+  async initialize(options: AccessibilityCheckerOptions = {}): Promise<void> {
+    // Merge with constructor options
+    const finalOptions = { ...options, usePooling: options.usePooling ?? this.usePooling };
     
-    await this.browserManager.initialize();
-    
-    // 🆕 Lighthouse Integration - Removed
-    // this.lighthouseIntegration = new LighthouseIntegration(this.browserManager);
+    if (finalOptions.usePooling && (finalOptions.poolManager || this.poolManager)) {
+      // Use existing or provided pool manager
+      this.poolManager = finalOptions.poolManager || this.poolManager;
+      this.usePooling = true;
+      console.log('🏊 AccessibilityChecker initialized with browser pooling');
+    } else {
+      // Use standard browser manager
+      this.browserManager = new BrowserManager({
+        headless: finalOptions.browserOptions?.headless ?? true,
+        port: finalOptions.browserOptions?.port ?? 9222
+      });
+      
+      await this.browserManager.initialize();
+      console.log('🔧 AccessibilityChecker initialized with standard browser manager');
+    }
   }
 
   async cleanup(): Promise<void> {
@@ -41,8 +66,13 @@ export class AccessibilityChecker {
     options: TestOptions = {},
   ): Promise<AccessibilityResult> {
     if (options.verbose) console.log('🔍 Testing:', url);
+    
+    if (this.usePooling && this.poolManager) {
+      return this.testPageWithPool(url, options);
+    }
+    
     if (!this.browserManager) {
-      throw new Error("Browser Manager not initialized");
+      throw new Error("AccessibilityChecker not initialized - call initialize() first");
     }
 
     const startTime = Date.now();
@@ -60,80 +90,14 @@ export class AccessibilityChecker {
     };
 
     try {
-      if (options.verbose) console.log(`   🔧 Configuring page...`);
-      // 🆕 Extended page configuration
-      await this.configurePage(page, options);
-
       if (options.verbose) console.log(`   🌐 Navigating to page...`);
       await page.goto(url, {
         waitUntil: options.waitUntil || "domcontentloaded",
         timeout: options.timeout || 10000,
       });
 
-      // 🆕 Collect performance metrics
-      if (options.collectPerformanceMetrics) {
-        if (options.verbose) console.log(`   📊 Collecting performance metrics...`);
-        await this.collectPerformanceMetrics(page, result, options);
-      }
-
-      // Check page title
-      if (options.verbose) console.log(`   📋 Extracting page title...`);
-      result.title = await page.title();
-
-      // Images without alt attribute
-      if (options.verbose) console.log(`   🖼️  Checking images for alt attributes...`);
-      result.imagesWithoutAlt = await page.locator("img:not([alt])").count();
-      if (result.imagesWithoutAlt > 0) {
-        result.warnings.push(
-          `${result.imagesWithoutAlt} images without alt attribute`,
-        );
-      }
-      // if (options.verbose) console.log('DEBUG: Nach Alt-Check', {url: result.url, errors: result.errors.length, warnings: result.warnings.length}); // Hidden - use --verbose for debug logs
-
-      // Buttons without aria-label
-      if (options.verbose) console.log(`   🔘 Checking buttons for aria labels...`);
-      result.buttonsWithoutLabel = await page
-        .locator("button:not([aria-label])")
-        .filter({ hasText: "" })
-        .count();
-      if (result.buttonsWithoutLabel > 0) {
-        result.warnings.push(
-          `${result.buttonsWithoutLabel} buttons without aria-label`,
-        );
-      }
-      // if (options.verbose) console.log('DEBUG: Nach Button-Label-Check', {url: result.url, errors: result.errors.length, warnings: result.warnings.length}); // Hidden - use --verbose for debug logs
-
-      // Heading hierarchy
-      if (options.verbose) console.log(`   📝 Checking heading hierarchy...`);
-      result.headingsCount = await page
-        .locator("h1, h2, h3, h4, h5, h6")
-        .count();
-      if (result.headingsCount === 0) {
-        result.errors.push("No headings found");
-      }
-      // if (options.verbose) console.log('DEBUG: Nach Heading-Check', {url: result.url, errors: result.errors.length, warnings: result.warnings.length}); // Hidden - use --verbose for debug logs
-
-      // 🆕 Extended accessibility tests
-      if (options.testKeyboardNavigation) {
-        if (options.verbose) console.log(`   ⌨️  Testing keyboard navigation...`);
-        await this.testKeyboardNavigation(page, result, options);
-      }
-
-      if (options.testColorContrast) {
-        if (options.verbose) console.log(`   🎨 Testing color contrast...`);
-        await this.testColorContrast(page, result, options);
-      }
-
-      if (options.testFocusManagement) {
-        if (options.verbose) console.log(`   🎯 Testing focus management...`);
-        await this.testFocusManagement(page, result, options);
-      }
-
-      // 🆕 Screenshots
-      if (options.captureScreenshots) {
-        if (options.verbose) console.log(`   📸 Capturing screenshots...`);
-        await this.captureScreenshots(page, url, result, options);
-      }
+      // Use shared test logic
+      await this.runPageTests(page, result, options);
 
       // Run pa11y accessibility tests
       if (options.verbose) console.log(`   🔍 Running pa11y accessibility tests...`);
@@ -779,6 +743,225 @@ export class AccessibilityChecker {
     } catch (error) {
       if (options.verbose) {
         console.log(`Screenshot capture failed: ${error}`);
+      }
+    }
+  }
+
+  /**
+   * Test page using browser pool for better performance
+   */
+  private async testPageWithPool(url: string, options: TestOptions = {}): Promise<AccessibilityResult> {
+    const startTime = Date.now();
+    
+    const result: AccessibilityResult = {
+      url,
+      title: "",
+      imagesWithoutAlt: 0,
+      buttonsWithoutLabel: 0,
+      headingsCount: 0,
+      errors: [],
+      warnings: [],
+      passed: true,
+      duration: 0,
+    };
+
+    // Acquire browser from pool
+    const { browser, context, release } = await this.poolManager!.acquire();
+
+    try {
+      const page = await context.newPage();
+
+      try {
+        // Configure page with minimal setup
+        await page.setDefaultTimeout(options.timeout || 10000);
+
+        if (options.verbose) console.log(`   🌐 Navigating...`);
+        await page.goto(url, {
+          waitUntil: options.waitUntil || "domcontentloaded",
+          timeout: options.timeout || 10000,
+        });
+
+        // Use same test logic as standard testPage
+        await this.runPageTests(page, result, options);
+
+      } finally {
+        await page.close();
+      }
+    } catch (error) {
+      result.errors.push(`Navigation error: ${error}`);
+      result.passed = false;
+    } finally {
+      // Always release browser back to pool
+      await release();
+      result.duration = Date.now() - startTime;
+    }
+
+    return result;
+  }
+
+  /**
+   * Shared test logic for both standard and pooled testing
+   */
+  private async runPageTests(page: Page, result: AccessibilityResult, options: TestOptions): Promise<void> {
+    // Extract the core testing logic from testPage
+    if (options.verbose) console.log(`   🔧 Configuring page...`);
+    await this.configurePage(page, options);
+
+    // Collect performance metrics
+    if (options.collectPerformanceMetrics) {
+      if (options.verbose) console.log(`   📊 Collecting performance metrics...`);
+      await this.collectPerformanceMetrics(page, result, options);
+    }
+
+    // Check page title
+    if (options.verbose) console.log(`   📋 Extracting page title...`);
+    result.title = await page.title();
+
+    // Basic accessibility checks
+    if (options.verbose) console.log(`   🖼️  Checking images for alt attributes...`);
+    result.imagesWithoutAlt = await page.locator("img:not([alt])").count();
+    if (result.imagesWithoutAlt > 0) {
+      result.warnings.push(`${result.imagesWithoutAlt} images without alt attribute`);
+    }
+
+    if (options.verbose) console.log(`   🔘 Checking buttons for aria labels...`);
+    result.buttonsWithoutLabel = await page
+      .locator("button:not([aria-label])")
+      .filter({ hasText: "" })
+      .count();
+    if (result.buttonsWithoutLabel > 0) {
+      result.warnings.push(`${result.buttonsWithoutLabel} buttons without aria-label`);
+    }
+
+    if (options.verbose) console.log(`   📝 Checking heading hierarchy...`);
+    result.headingsCount = await page.locator("h1, h2, h3, h4, h5, h6").count();
+    if (result.headingsCount === 0) {
+      result.errors.push("No headings found");
+    }
+
+    // Extended accessibility tests
+    if (options.testKeyboardNavigation) {
+      if (options.verbose) console.log(`   ⌨️  Testing keyboard navigation...`);
+      await this.testKeyboardNavigation(page, result, options);
+    }
+
+    if (options.testColorContrast) {
+      if (options.verbose) console.log(`   🎨 Testing color contrast...`);
+      await this.testColorContrast(page, result, options);
+    }
+
+    if (options.testFocusManagement) {
+      if (options.verbose) console.log(`   🎯 Testing focus management...`);
+      await this.testFocusManagement(page, result, options);
+    }
+
+    // Screenshots
+    if (options.captureScreenshots) {
+      if (options.verbose) console.log(`   📸 Capturing screenshots...`);
+      await this.captureScreenshots(page, result.url, result, options);
+    }
+
+    // Run pa11y accessibility tests
+    if (options.verbose) console.log(`   🔍 Running pa11y accessibility tests...`);
+    await this.runPa11yTests(result, options);
+
+    // Determine pass/fail status
+    result.passed = result.errors.length === 0;
+  }
+
+  /**
+   * Extract pa11y test logic for reuse
+   */
+  private async runPa11yTests(result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      const pa11yResult = await pa11y(result.url, {
+        timeout: options.timeout || 15000,
+        wait: options.wait || (this.usePooling ? 1000 : 2000), // Shorter wait for pooled
+        standard: options.pa11yStandard || 'WCAG2AA',
+        hideElements: options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
+        includeNotices: options.includeNotices !== false,
+        includeWarnings: options.includeWarnings !== false,
+        runners: options.runners || (this.usePooling ? ['axe'] : ['axe', 'htmlcs']),
+        chromeLaunchConfig: {
+          ...options.chromeLaunchConfig,
+          args: [
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            ...(this.usePooling ? [] : [
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding'
+            ])
+          ]
+        },
+        log: options.verbose ? console : undefined,
+      });
+
+      // Convert pa11y results
+      pa11yResult.issues.forEach((issue) => {
+        const detailedIssue: Pa11yIssue = {
+          code: issue.code,
+          message: issue.message,
+          type: issue.type as 'error' | 'warning' | 'notice',
+          selector: issue.selector,
+          context: issue.context,
+          impact: (issue as any).impact,
+          help: (issue as any).help,
+          helpUrl: (issue as any).helpUrl
+        };
+        
+        result.pa11yIssues = result.pa11yIssues || [];
+        result.pa11yIssues.push(detailedIssue);
+        
+        // For compatibility
+        const message = `${issue.code}: ${issue.message}`;
+        if (issue.type === 'error') {
+          result.errors.push(message);
+        } else if (issue.type === 'warning') {
+          result.warnings.push(message);
+        } else if (issue.type === 'notice') {
+          result.warnings.push(`Notice: ${message}`);
+        }
+      });
+
+      // Calculate pa11y score
+      if (pa11yResult.issues && pa11yResult.issues.length > 0) {
+        const errorCount = pa11yResult.issues.filter((issue: any) => issue.type === 'error').length;
+        const warningCount = pa11yResult.issues.length - errorCount;
+        result.pa11yScore = Math.max(0, 100 - (errorCount * 10) - (warningCount * 2));
+      } else {
+        result.pa11yScore = 100;
+      }
+
+      // Additional pa11y metrics
+      if (pa11yResult.documentTitle) {
+        result.title = pa11yResult.documentTitle;
+      }
+
+    } catch (pa11yError) {
+      // Fallback score calculation
+      const errorMessage = pa11yError instanceof Error ? pa11yError.message : String(pa11yError);
+      
+      if (options.verbose && !errorMessage.includes('timeout')) {
+        console.log(`   ⚠️  pa11y warning: ${errorMessage}`);
+        result.warnings.push(`pa11y test issue: ${errorMessage}`);
+      }
+      
+      let fallbackScore = 100;
+      fallbackScore -= result.errors.length * 15;
+      fallbackScore -= result.warnings.length * 5;
+      fallbackScore -= result.imagesWithoutAlt * 3;
+      fallbackScore -= result.buttonsWithoutLabel * 5;
+      if (result.headingsCount === 0) fallbackScore -= 20;
+      
+      result.pa11yScore = Math.max(0, fallbackScore);
+      
+      if (options.verbose) {
+        console.log(`   🔢 Calculated fallback pa11y score: ${result.pa11yScore}/100`);
       }
     }
   }

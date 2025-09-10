@@ -10,7 +10,7 @@
 
 import { CoreAuditPipeline, CoreAuditOptions } from '../../src/core/pipeline/core-audit-pipeline';
 import { BrowserPoolManager } from '../../src/core/browser/browser-pool-manager';
-import { PooledAccessibilityChecker } from '../../src/core/accessibility/pooled-accessibility-checker';
+import { AccessibilityChecker } from '../../src/core/accessibility/accessibility-checker';
 import { EventDrivenQueue } from '../../src/core/pipeline/event-driven-queue';
 
 // Test configuration
@@ -57,7 +57,7 @@ describe('Memory Usage Performance Tests', () => {
         const memoryBeforeTests = process.memoryUsage();
 
         // Run multiple batches to test reuse
-        const checker = new PooledAccessibilityChecker(poolManager);
+      const checker = new AccessibilityChecker({ usePooling: true, poolManager });
         
         for (let batch = 0; batch < 3; batch++) {
           await checker.testMultiplePages(TEST_URLS.slice(0, 2), {
@@ -249,7 +249,7 @@ describe('Memory Usage Performance Tests', () => {
           });
           
           await poolManager.warmUp(1);
-          const checker = new PooledAccessibilityChecker(poolManager);
+    const checker = new AccessibilityChecker({ usePooling: true, poolManager });
           
           await checker.testMultiplePages(TEST_URLS.slice(0, 2), {
             timeout: 5000,

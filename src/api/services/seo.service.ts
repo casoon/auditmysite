@@ -43,8 +43,8 @@ export class SEOService {
     
     try {
       // Use pooled browser for SEO analysis
-      const { PooledAccessibilityChecker } = require('../../core/accessibility/pooled-accessibility-checker');
-      const checker = new PooledAccessibilityChecker(this.poolManager);
+    const { AccessibilityChecker } = require('../../core/accessibility/accessibility-checker');
+    const checker = new AccessibilityChecker({ usePooling: true, poolManager: this.poolManager });
       
       const results = await checker.testMultiplePages([url], {
         enhancedSeoAnalysis: true,

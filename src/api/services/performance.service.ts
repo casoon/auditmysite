@@ -44,8 +44,8 @@ export class PerformanceService {
     
     try {
       // Use pooled browser for performance analysis
-      const { PooledAccessibilityChecker } = require('../../core/accessibility/pooled-accessibility-checker');
-      const checker = new PooledAccessibilityChecker(this.poolManager);
+    const { AccessibilityChecker } = require('../../core/accessibility/accessibility-checker');
+    const checker = new AccessibilityChecker({ usePooling: true, poolManager: this.poolManager });
       
       const results = await checker.testMultiplePages([url], {
         enhancedPerformanceAnalysis: true,

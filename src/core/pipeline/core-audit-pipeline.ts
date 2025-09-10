@@ -181,8 +181,9 @@ export class CoreAuditPipeline {
     console.log('🔧 Running Accessibility Audit with Full Features...');
     
     // Use new pooled accessibility checker
-    const { PooledAccessibilityChecker } = require('../accessibility/pooled-accessibility-checker');
-    const checker = new PooledAccessibilityChecker(poolManager);
+    const { AccessibilityChecker } = require('../accessibility/accessibility-checker');
+    const accessibilityChecker = new AccessibilityChecker({ usePooling: true, poolManager });
+    // No need to call initialize() for pooled checker - pool is already initialized
     
     const testOptions: TestOptions = {
       maxPages: options.maxPages || 20,
@@ -196,11 +197,7 @@ export class CoreAuditPipeline {
     };
     
     // Direct pool-based testing (no complex queue system)
-    const results = await checker.testMultiplePages(urls, testOptions);
-    
-    // Log pool efficiency
-    const poolStatus = checker.getPoolStatus();
-    console.log(`🌐 Browser pool efficiency: ${poolStatus.metrics.efficiency.toFixed(1)}%`);
+    const results = await accessibilityChecker.testMultiplePages(urls, testOptions);
     
     return results;
   }
