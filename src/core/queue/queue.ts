@@ -1,7 +1,7 @@
 /**
- * 🔧 Unified Queue System
+ * 🔧 Queue System
  * 
- * Main class that provides a unified interface for all queue types.
+ * Main class that provides a consistent interface for all queue operations.
  * Uses the Adapter Pattern to provide consistent API regardless of implementation.
  */
 
@@ -9,7 +9,7 @@ import { QueueAdapter } from './queue-adapter';
 import { QueueFactory } from './queue-factory';
 import { QueueType, QueueConfig, QueueStatistics, QueueProcessor, QueueResult, QueueEventCallbacks } from './types';
 
-export class UnifiedQueue<T = any> {
+export class Queue<T = any> {
   private adapter: QueueAdapter<T>;
   private type: QueueType;
   private config: QueueConfig;
@@ -37,9 +37,9 @@ export class UnifiedQueue<T = any> {
     type: QueueType = 'parallel',
     customConfig: Partial<QueueConfig> = {},
     callbacks?: QueueEventCallbacks<T>
-  ): UnifiedQueue<T> {
+  ): Queue<T> {
     const adapter = QueueFactory.createForAccessibilityTesting<T>(type, customConfig, callbacks);
-    const instance = Object.create(UnifiedQueue.prototype);
+    const instance = Object.create(Queue.prototype);
     instance.adapter = adapter;
     instance.type = type;
     instance.config = adapter.getConfiguration();

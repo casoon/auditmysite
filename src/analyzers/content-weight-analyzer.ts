@@ -15,21 +15,66 @@ import {
   ResourceTiming, 
   QualityAnalysisOptions 
 } from '../types/enhanced-metrics';
+import {
+  BaseAnalyzer,
+  BaseAnalysisResult,
+  BaseAnalysisOptions,
+  BaseRecommendation,
+  Grade,
+  CertificateLevel,
+  calculateGrade,
+  calculateCertificateLevel
+} from '../types/base-types';
 
-export class ContentWeightAnalyzer {
+// Content Weight specific result interface
+interface ContentWeightAnalysisResult extends BaseAnalysisResult {
+  contentWeight: ContentWeight;
+  contentAnalysis: ContentAnalysis;
+  resourceTimings: ResourceTiming[];
+  recommendations: BaseRecommendation[];
+}
+
+// Content Weight specific options interface
+interface ContentWeightAnalysisOptions extends BaseAnalysisOptions {
+  includeResourceAnalysis?: boolean;
+  analysisTimeout?: number;
+}
+
+export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysisResult, ContentWeightAnalysisOptions> {
   private resourceTimings: ResourceTiming[] = [];
   private responses: Response[] = [];
 
-  constructor(private options: QualityAnalysisOptions = {}) {}
+  constructor() {}
+
+  // BaseAnalyzer interface implementations
+  getName(): string {
+    return 'ContentWeightAnalyzer';
+  }
+
+  getVersion(): string {
+    return '2.0.0';
+  }
+
+  getScore(result: ContentWeightAnalysisResult): number {
+    return result.overallScore;
+  }
+
+  getGrade(score: number): Grade {
+    return calculateGrade(score);
+  }
+
+  getCertificateLevel(score: number): CertificateLevel {
+    return calculateCertificateLevel(score);
+  }
+
+  getRecommendations(result: ContentWeightAnalysisResult): BaseRecommendation[] {
+    return result.recommendations;
+  }
 
   /**
-   * Analyze content weight and composition of a webpage
+   * Main analyze method implementing BaseAnalyzer interface
    */
-  async analyzeContentWeight(page: Page, url: string): Promise<{
-    contentWeight: ContentWeight;
-    contentAnalysis: ContentAnalysis;
-    resourceTimings: ResourceTiming[];
-  }> {
+  async analyze(page: Page, url: string, options: ContentWeightAnalysisOptions = {}): Promise<ContentWeightAnalysisResult> {
     console.log(`🔍 Analyzing content weight for: ${url}`);
 
     // Set up response tracking
@@ -47,7 +92,7 @@ export class ContentWeightAnalyzer {
       if (!isContentSet && !isDataUri) {
         await page.goto(url, { 
           waitUntil: 'networkidle',
-          timeout: this.options.analysisTimeout || 30000 
+          timeout: options.analysisTimeout || 30000 
         });
       } else {
         console.log(`📄 Using pre-set page content (${currentUrl})`);
@@ -61,16 +106,34 @@ export class ContentWeightAnalyzer {
       // Collect resource data
       const contentWeight = await this.calculateContentWeight(page);
       const contentAnalysis = await this.analyzeContentComposition(page);
-      const resourceTimings = await this.extractResourceTimings(page);
+      const resourceTimings = options.includeResourceAnalysis ? await this.extractResourceTimings(page) : [];
+      
+      const duration = Date.now() - startTime;
+      
+      // Calculate overall score based on content weight metrics
+      const overallScore = this.calculateOverallScore(contentWeight, contentAnalysis);
+      const grade = calculateGrade(overallScore);
+      const certificate = calculateCertificateLevel(overallScore);
+      
+      // Generate recommendations
+      const recommendations = this.generateRecommendations(contentWeight, contentAnalysis);
 
-      console.log(`✅ Content weight analysis completed in ${Date.now() - startTime}ms`);
+      console.log(`✅ Content weight analysis completed in ${duration}ms`);
       console.log(`📏 Total page weight: ${this.formatBytes(contentWeight.total)}`);
       console.log(`📊 Text-to-code ratio: ${(contentAnalysis.textToCodeRatio * 100).toFixed(1)}%`);
+      console.log(`🏆 Content weight score: ${overallScore}/100 (${grade})`);
 
       return {
+        overallScore,
+        grade,
+        certificate,
+        analyzedAt: new Date().toISOString(),
+        duration,
+        status: 'completed' as const,
         contentWeight,
         contentAnalysis,
-        resourceTimings
+        resourceTimings,
+        recommendations
       };
 
     } catch (error) {
@@ -192,9 +255,6 @@ export class ContentWeightAnalyzer {
    * Extract detailed resource timing information
    */
   private async extractResourceTimings(page: Page): Promise<ResourceTiming[]> {
-    if (!this.options.includeResourceAnalysis) {
-      return [];
-    }
 
     const resourceTimings: ResourceTiming[] = [];
 
@@ -334,6 +394,94 @@ export class ContentWeightAnalyzer {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  /**
+   * Calculate overall score from content weight and analysis data
+   */
+  private calculateOverallScore(contentWeight: ContentWeight, contentAnalysis: ContentAnalysis): number {
+    let score = 100;
+
+    // Size scoring (50% weight)
+    const totalSizeMB = contentWeight.total / (1024 * 1024);
+    if (totalSizeMB > 5) score -= 30;
+    else if (totalSizeMB > 3) score -= 20;
+    else if (totalSizeMB > 1.5) score -= 10;
+    else if (totalSizeMB < 0.5) score += 10;
+
+    // Compression scoring (20% weight)
+    const compressionScore = (contentWeight.compressionRatio || 1) < 0.7 ? 15 : 0;
+    score += compressionScore;
+
+    // Content quality scoring (30% weight)
+    score = Math.round(score * 0.7 + contentAnalysis.contentQualityScore * 0.3);
+
+    return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * Generate optimization recommendations
+   */
+  private generateRecommendations(contentWeight: ContentWeight, contentAnalysis: ContentAnalysis): BaseRecommendation[] {
+    const recommendations: BaseRecommendation[] = [];
+
+    // Large image recommendations
+    if (contentWeight.images > 1024 * 1024) { // > 1MB images
+      recommendations.push({
+        id: 'optimize-images',
+        priority: 'high',
+        category: 'Performance',
+        issue: 'Large image files detected',
+        recommendation: 'Optimize images by compressing, using modern formats (WebP/AVIF), and implementing responsive images',
+        impact: 'Reduce page load time and bandwidth usage',
+        effort: 4,
+        scoreImprovement: 15
+      });
+    }
+
+    // Large JavaScript bundles
+    if (contentWeight.javascript > 500 * 1024) { // > 500KB JS
+      recommendations.push({
+        id: 'optimize-javascript',
+        priority: 'medium',
+        category: 'Performance',
+        issue: 'Large JavaScript bundles detected',
+        recommendation: 'Split JavaScript into smaller chunks, remove unused code, and implement code splitting',
+        impact: 'Improve initial page load time and reduce bundle size',
+        effort: 6,
+        scoreImprovement: 10
+      });
+    }
+
+    // Poor compression
+    if ((contentWeight.compressionRatio || 1) > 0.8) {
+      recommendations.push({
+        id: 'enable-compression',
+        priority: 'medium',
+        category: 'Performance',
+        issue: 'Poor or missing text compression',
+        recommendation: 'Enable gzip/brotli compression on your web server for text resources',
+        impact: 'Significantly reduce transferred file sizes',
+        effort: 2,
+        scoreImprovement: 8
+      });
+    }
+
+    // Low text-to-code ratio
+    if (contentAnalysis.textToCodeRatio < 0.2) {
+      recommendations.push({
+        id: 'improve-content-ratio',
+        priority: 'low',
+        category: 'Content Quality',
+        issue: 'Low text-to-code ratio detected',
+        recommendation: 'Increase meaningful text content or reduce excessive markup and scripts',
+        impact: 'Improve content quality and user experience',
+        effort: 3,
+        scoreImprovement: 5
+      });
+    }
+
+    return recommendations;
   }
 
   /**

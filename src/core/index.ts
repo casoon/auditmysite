@@ -3,12 +3,11 @@ export { AccessibilityChecker } from './accessibility';
 export { StandardPipeline } from './pipeline';
 export { BrowserManager } from './browser';
 export { ConfigManager } from './config';
-export { ResourceMonitor } from './browser';
+export { ResourceMonitor } from './resource-monitor';
 export { NetworkThrottler } from './browser';
 
-// Pipeline & Queue Systems
-export { PriorityQueue } from './pipeline';
+// Pipeline Systems
 export { WorkerPool } from './pipeline';
 
-// New Unified Queue System
-export { UnifiedQueue, QueueFactory, QueueType, QueueConfig, QueueStatistics } from './queue';
+// Queue System
+export { Queue, QueueFactory, QueueType, QueueConfig, QueueStatistics } from './queue';

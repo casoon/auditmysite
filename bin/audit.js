@@ -19,7 +19,7 @@ program
   
   // ✅ Core Options (4)
   .option('--max-pages <number>', 'Maximum number of pages to test (default: 5)', (value) => parseInt(value))
-  .option('--format <type>', 'Report format: html or markdown', 'html')
+  .option('--format <type>', 'Report format: html (default, with detailed issues MD) or json (complete data)', 'html')
   .option('--output-dir <dir>', 'Output directory for reports', './reports')
   .option('--budget <template>', 'Performance budget: default, ecommerce, blog, corporate', 'default')
   
@@ -92,8 +92,8 @@ program
           name: 'format',
           message: '📄 Report format?',
           choices: [
-            { name: '🌐 HTML - Professional reports for stakeholders', value: 'html' },
-            { name: '📝 Markdown - Developer-friendly, version control', value: 'markdown' }
+            { name: '🌐 HTML - Professional reports (includes detailed issues MD)', value: 'html' },
+            { name: '📊 JSON - Complete typed data object for further processing', value: 'json' }
           ],
           default: 'html'
         },
@@ -259,13 +259,13 @@ program
         
         console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${limitedUrls.length}`);
         
-        // Initialize Main Accessibility Checker with BASIC features (Enhanced temporarily disabled due to stack overflow)
+        // Initialize Main Accessibility Checker with Enhanced features enabled for proper report generation
         const checker = new MainAccessibilityChecker({
-          includeResourceAnalysis: false, // Disabled temporarily
-          includeSocialAnalysis: false,   // Disabled temporarily  
-          includeReadabilityAnalysis: false, // Disabled temporarily
-          includeTechnicalSEO: false,     // Disabled temporarily
-          includeMobileFriendliness: false, // Disabled temporarily
+          includeResourceAnalysis: true,  // Enable for content weight analysis
+          includeSocialAnalysis: false,   // Keep disabled 
+          includeReadabilityAnalysis: true, // Enable for SEO readability
+          includeTechnicalSEO: true,      // Enable for SEO analysis
+          includeMobileFriendliness: true, // Enable for mobile analysis
           analysisTimeout: 30000
         });
         
@@ -287,6 +287,8 @@ program
           try {
             const result = await checker.analyze('', url);
             
+            
+            
             results.push({
               url: url,
               title: result.title || 'N/A',
@@ -299,8 +301,8 @@ program
               // Pa11y data - store directly for markdown report
               pa11yScore: result.pa11yScore,
               pa11yIssues: result.pa11yIssues,
-              performance: result.performance,
-              seo: result.seo,
+              performance: result.enhancedPerformance, // Use correct property name
+              seo: result.enhancedSEO, // Use correct property name  
               contentWeight: result.contentWeight,
               mobileFriendliness: result.mobileFriendliness, // Add Mobile-Friendliness data
               qualityScore: result.qualityScore,
@@ -349,112 +351,146 @@ program
         
         console.log('\n📝 Generating comprehensive HTML report...');
         
-        // Use the unified HTML generator
-        let htmlContent;
-        try {
-          const { UnifiedHTMLGenerator } = require('../dist/reports/unified/unified-html-generator');
-          const generator = new UnifiedHTMLGenerator();
-          
-          // Prepare data in unified FullAuditResult format
-          const unifiedData = {
-            metadata: {
-              version: '1.0.0',
-              timestamp: new Date().toISOString(),
-              sitemapUrl: finalSitemapUrl,
-              toolVersion: '2.0.0-alpha.1',
-              duration: Date.now() - startTime
-            },
-            summary: {
-              totalPages: urls.length,
-              testedPages: results.length,
-              passedPages: successCount,
-              failedPages: results.length - successCount,
-              crashedPages: results.filter(r => r.crashed).length,
-              totalErrors: errorCount,
-              totalWarnings: warningCount
-            },
-            pages: results.map(page => ({
-              url: page.url,
-              title: page.title,
-              status: page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed'),
-              duration: page.loadTime || 0,
-              accessibility: {
-                score: page.pa11yScore || 0,
-                errors: page.pa11yIssues?.filter(i => i.type === 'error') || [],
-                warnings: page.pa11yIssues?.filter(i => i.type === 'warning') || [],
-                notices: page.pa11yIssues?.filter(i => i.type === 'notice') || []
-              },
-              performance: page.performance ? {
-                coreWebVitals: {
-                  largestContentfulPaint: page.performance.metrics?.lcp || 0,
-                  firstInputDelay: page.performance.metrics?.fid || 0,
-                  cumulativeLayoutShift: page.performance.metrics?.cls || 0
-                }
-              } : null,
-              seo: page.seo || null,
-              contentWeight: page.contentWeight || null,
-              mobileFriendliness: page.mobileFriendliness || null
-            }))
-          };
-          
-          htmlContent = await generator.generate(unifiedData);
-        } catch (e) {
-          console.warn('Using fallback HTML template:', e.message);
-          // Fallback to the comprehensive template if new generator fails
-          htmlContent = generateComprehensiveHtmlReport(results, {
-            timestamp: new Date().toLocaleString(),
+        // Prepare typed audit data structure
+        const auditData = {
+          metadata: {
+            version: '1.0.0',
+            timestamp: new Date().toISOString(),
             sitemapUrl: finalSitemapUrl,
+            toolVersion: '2.0.0-alpha.1',
+            duration: Date.now() - startTime
+          },
+          summary: {
             totalPages: urls.length,
             testedPages: results.length,
             passedPages: successCount,
             failedPages: results.length - successCount,
+            crashedPages: results.filter(r => r.crashed).length,
             totalErrors: errorCount,
             totalWarnings: warningCount
-          });
-        }
+          },
+          pages: results.map(page => ({
+            url: page.url,
+            title: page.title,
+            status: page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed'),
+            duration: page.loadTime || 0,
+            accessibility: {
+              score: page.pa11yScore || 0,
+              errors: page.pa11yIssues?.filter(i => i.type === 'error') || [],
+              warnings: page.pa11yIssues?.filter(i => i.type === 'warning') || [],
+              notices: page.pa11yIssues?.filter(i => i.type === 'notice') || []
+            },
+            performance: page.performance ? {
+              score: page.performance.performanceScore || 0,
+              grade: page.performance.grade || 'F',
+              coreWebVitals: {
+                largestContentfulPaint: page.performance.coreWebVitals?.lcp?.value || page.performance.coreWebVitals?.lcp || 0,
+                firstContentfulPaint: page.performance.coreWebVitals?.fcp?.value || page.performance.coreWebVitals?.fcp || 0,
+                cumulativeLayoutShift: page.performance.coreWebVitals?.cls?.value || page.performance.coreWebVitals?.cls || 0,
+                interactionToNextPaint: page.performance.coreWebVitals?.inp?.value || page.performance.coreWebVitals?.inp || 0,
+                timeToFirstByte: page.performance.metrics?.ttfb?.value || page.performance.metrics?.ttfb || 0
+              },
+              metrics: {
+                domContentLoaded: page.performance.metrics?.domContentLoaded || 0,
+                loadComplete: page.performance.metrics?.loadComplete || 0,
+                firstPaint: page.performance.metrics?.firstPaint || 0
+              },
+              issues: page.performance.issues || []
+            } : undefined,
+            seo: page.seo ? {
+              score: page.seo.seoScore || page.seo.overallScore || page.seo.overallSEOScore || page.seo.score || 0,
+              grade: page.seo.grade || page.seo.seoGrade || 'F',
+              metaTags: page.seo.metaData || page.seo.metaTags || {},
+              headings: page.seo.headingStructure || page.seo.headings || { h1: [], h2: [], h3: [], issues: [] },
+              images: page.seo.images || { total: 0, missingAlt: 0, emptyAlt: 0 },
+              issues: page.seo.issues || []
+            } : undefined,
+            contentWeight: page.contentWeight ? {
+              score: page.contentWeight.contentScore || page.contentWeight.score || page.contentWeight.contentQualityScore || 0,
+              grade: page.contentWeight.grade || 'F', 
+              totalSize: page.contentWeight.contentMetrics?.totalSize || page.contentWeight.totalSize || page.contentWeight.total || 0,
+              resources: {
+                html: { size: page.contentWeight.resourceAnalysis?.html?.size || page.contentWeight.resources?.html?.size || 0 },
+                css: { size: page.contentWeight.resourceAnalysis?.css?.size || page.contentWeight.resources?.css?.size || 0, files: page.contentWeight.resourceAnalysis?.css?.count || page.contentWeight.resources?.css?.files || 0 },
+                javascript: { size: page.contentWeight.resourceAnalysis?.javascript?.size || page.contentWeight.resources?.javascript?.size || 0, files: page.contentWeight.resourceAnalysis?.javascript?.count || page.contentWeight.resources?.javascript?.files || 0 },
+                images: { size: page.contentWeight.resourceAnalysis?.images?.size || page.contentWeight.resources?.images?.size || 0, files: page.contentWeight.resourceAnalysis?.images?.count || page.contentWeight.resources?.images?.files || 0 },
+                other: { size: page.contentWeight.resourceAnalysis?.other?.size || page.contentWeight.resources?.other?.size || 0, files: page.contentWeight.resourceAnalysis?.other?.count || page.contentWeight.resources?.other?.files || 0 }
+              },
+              optimizations: page.contentWeight.optimizations || []
+            } : undefined,
+            mobileFriendliness: page.mobileFriendliness ? {
+              overallScore: page.mobileFriendliness.overallScore || 0,
+              grade: page.mobileFriendliness.grade || 'F',
+              recommendations: page.mobileFriendliness.recommendations || []
+            } : undefined
+          }))
+        };
         
-        const reportPath = path.join(subDir, `accessibility-report-${dateOnly}.html`);
-        require('fs').writeFileSync(reportPath, htmlContent);
-        
-        // 📝 Generate detailed accessibility issues markdown report
-        const { DetailedIssueMarkdownReport } = require('../dist/reports/detailed-issue-markdown');
-        
-        // Extract all pa11y issues and convert to DetailedIssue format
-        const detailedIssues = [];
-        results.forEach((page, index) => {
-          if (page.pa11yIssues && Array.isArray(page.pa11yIssues) && page.pa11yIssues.length > 0) {
-            page.pa11yIssues.forEach(issue => {
-              detailedIssues.push({
-                type: issue.type || 'accessibility',
-                severity: issue.type || 'error',
-                message: issue.message || 'Unknown accessibility issue',
-                code: issue.code,
-                selector: issue.selector,
-                context: issue.context,
-                htmlSnippet: issue.context,
-                pageUrl: page.url,
-                pageTitle: page.title || 'Untitled Page',
-                source: 'pa11y',
-                help: issue.help,
-                helpUrl: issue.helpUrl,
-                lineNumber: null,
-                recommendation: issue.help || 'Please refer to WCAG guidelines',
-                resource: null,
-                score: null,
-                metric: null
-              });
-            });
-          }
-        });
-        
-        // Generate detailed issues markdown if there are issues
-        if (detailedIssues.length > 0) {
-          const detailedMarkdown = DetailedIssueMarkdownReport.generate(detailedIssues);
-          const detailedPath = path.join(subDir, `detailed-issues-${dateOnly}.md`);
-          require('fs').writeFileSync(detailedPath, detailedMarkdown);
-          outputFiles = [reportPath, detailedPath];
+        // Generate reports based on format
+        if (config.format === 'json') {
+          // JSON format: Complete typed data object
+          console.log('\n📊 Generating JSON report with complete data...');
+          const { JsonGenerator } = require('../dist/generators/json-generator');
+          const jsonGenerator = new JsonGenerator();
+          
+          const jsonContent = jsonGenerator.generateJson(auditData);
+          const jsonPath = path.join(subDir, `audit-${dateOnly}.json`);
+          require('fs').writeFileSync(jsonPath, jsonContent);
+          
+          outputFiles = [jsonPath];
+          console.log('✅ JSON report generated with complete typed audit data');
         } else {
-          outputFiles = [reportPath];
+          // HTML format (default): Professional report + detailed issues MD
+          console.log('\n📝 Generating HTML report with HTMLGenerator...');
+          const { HTMLGenerator } = require('../dist/generators/html-generator');
+          const generator = new HTMLGenerator();
+          
+          const htmlContent = await generator.generate(auditData);
+          const reportPath = path.join(subDir, `accessibility-report-${dateOnly}.html`);
+          require('fs').writeFileSync(reportPath, htmlContent);
+          
+          // Always generate detailed issues markdown with HTML reports
+          console.log('📄 Generating detailed issues markdown...');
+          const { DetailedIssueMarkdownReport } = require('../dist/reports/detailed-issue-markdown');
+          
+          // Extract all pa11y issues
+          const detailedIssues = [];
+          results.forEach((page, index) => {
+            if (page.pa11yIssues && Array.isArray(page.pa11yIssues) && page.pa11yIssues.length > 0) {
+              page.pa11yIssues.forEach(issue => {
+                detailedIssues.push({
+                  type: issue.type || 'accessibility',
+                  severity: issue.type || 'error',
+                  message: issue.message || 'Unknown accessibility issue',
+                  code: issue.code,
+                  selector: issue.selector,
+                  context: issue.context,
+                  htmlSnippet: issue.context,
+                  pageUrl: page.url,
+                  pageTitle: page.title || 'Untitled Page',
+                  source: 'pa11y',
+                  help: issue.help,
+                  helpUrl: issue.helpUrl,
+                  lineNumber: null,
+                  recommendation: issue.help || 'Please refer to WCAG guidelines',
+                  resource: null,
+                  score: null,
+                  metric: null
+                });
+              });
+            }
+          });
+          
+          if (detailedIssues.length > 0) {
+            const detailedMarkdown = DetailedIssueMarkdownReport.generate(detailedIssues);
+            const detailedPath = path.join(subDir, `detailed-issues-${dateOnly}.md`);
+            require('fs').writeFileSync(detailedPath, detailedMarkdown);
+            outputFiles = [reportPath, detailedPath];
+            console.log('✅ HTML report + detailed issues markdown generated');
+          } else {
+            outputFiles = [reportPath];
+            console.log('✅ HTML report generated (no detailed issues found)');
+          }
         }
         
         const totalTime = Math.round((Date.now() - startTime) / 1000);
@@ -768,213 +804,7 @@ async function runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pip
   return { summary, outputFiles, totalTime };
 }
 
-// Comprehensive HTML Report Generator with Filter System and Detailed Issues
-function generateComprehensiveHtmlReport(results, summary) {
-  const domain = results.length > 0 ? new URL(results[0].url).hostname : 'unknown';
-  const successRate = Math.round((summary.passedPages / summary.testedPages) * 100) || 0;
-  
-  // Calculate total pa11y issues for detailed section
-  const allDetailedIssues = [];
-  results.forEach(page => {
-    if (page.pa11yIssues && Array.isArray(page.pa11yIssues)) {
-      page.pa11yIssues.forEach(issue => {
-        allDetailedIssues.push({
-          ...issue,
-          pageUrl: page.url,
-          pageTitle: page.title,
-          source: 'pa11y',
-          category: getIssueCategory(issue.code || issue.type)
-        });
-      });
-    }
-  });
-  
-  return generateFullHtmlTemplate({
-    domain,
-    summary,
-    results,
-    allDetailedIssues,
-    timestamp: summary.timestamp || new Date().toLocaleString(),
-    successRate
-  });
-}
+// Legacy report generators removed - using UnifiedHTMLGenerator exclusively
 
-// Helper function for Simple Report Generation (fallback)
-function generateSimpleHtmlReport(results, summary) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accessibility Analysis Report</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
-        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 20px 0; }
-        .metric { background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; }
-        .metric-value { font-size: 2em; font-weight: bold; color: #2563eb; }
-        .metric-label { font-size: 0.9em; color: #64748b; margin-top: 5px; }
-        .results-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .results-table th, .results-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-        .results-table th { background: #f1f5f9; font-weight: 600; }
-        .grade { padding: 4px 8px; border-radius: 4px; color: white; font-weight: bold; }
-        .grade-A { background: #10b981; }
-        .grade-B { background: #3b82f6; }
-        .grade-C { background: #f59e0b; }
-        .grade-D { background: #ef4444; }
-        .grade-F { background: #991b1b; }
-        .analysis-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.9em; }
-        .analysis-metric { background: #f8fafc; padding: 8px; border-radius: 4px; text-align: center; }
-        .pa11y-info { background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 Accessibility Analysis Report</h1>
-        
-        <div class="summary">
-            <div class="metric">
-                <div class="metric-value">${summary.testedPages}</div>
-                <div class="metric-label">Pages Tested</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value">${summary.passedPages}</div>
-                <div class="metric-label">Passed</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value">${summary.failedPages}</div>
-                <div class="metric-label">Failed</div>
-            </div>
-            <div class="metric">
-                <div class="metric-value">${Math.round((summary.passedPages / summary.testedPages) * 100)}%</div>
-                <div class="metric-label">Success Rate</div>
-            </div>
-        </div>
-        
-        <div class="pa11y-info">
-          <h3>📝 Detailed Accessibility Issues</h3>
-          <p>The detailed accessibility issues found by Pa11y have been saved to a separate markdown file for easier review and integration into your development workflow.</p>
-          <p><strong>Look for:</strong> detailed-issues-${new Date().toISOString().split('T')[0]}.md</p>
-        </div>
-        
-        <h2>Detailed Results</h2>
-        <table class="results-table">
-            <thead>
-                <tr>
-                    <th>Page</th>
-                    <th>Status</th>
-                    <th>Pa11y Issues</th>
-                    <th>Quality Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${results.map((page) => `
-                    <tr>
-                        <td>
-                            <strong>${page.title}</strong><br>
-                            <small style="color: #64748b;">${page.url}</small>
-                        </td>
-                        <td>
-                            ${page.passed ? '✅ Passed' : '❌ Failed'}
-                            ${page.errors ? `<br><small>${page.errors} errors</small>` : ''}
-                            ${page.warnings ? `<br><small>${page.warnings} warnings</small>` : ''}
-                        </td>
-                        <td>
-                            ${page.pa11yIssues && Array.isArray(page.pa11yIssues) ? 
-                                `<strong>${page.pa11yIssues.length} issues</strong><br><small>Score: ${page.pa11yScore}/100</small>` : 
-                                'No data'
-                            }
-                        </td>
-                        <td>
-                            ${page.qualityScore ? 
-                                `<span class="grade grade-${page.qualityScore.grade}">${page.qualityScore.score}/100 (${page.qualityScore.grade})</span>` : 'N/A'
-                            }
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        
-        <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b;">
-            <p>Generated by AuditMySite - ${summary.timestamp}</p>
-            <p><em>Note: Full HTML report generation temporarily disabled due to large issue count. Check the detailed-issues markdown file for complete accessibility findings.</em></p>
-        </footer>
-    </div>
-</body>
-</html>`;
-}
-
-// Helper functions for issue categorization and HTML generation
-function getIssueCategory(codeOrType) {
-  if (!codeOrType) return 'General';
-  
-  const code = codeOrType.toLowerCase();
-  
-  if (code.includes('color') || code.includes('contrast')) return 'Color & Contrast';
-  if (code.includes('aria') || code.includes('role')) return 'ARIA & Semantics';
-  if (code.includes('form') || code.includes('label')) return 'Forms & Labels';
-  if (code.includes('image') || code.includes('alt')) return 'Images & Media';
-  if (code.includes('heading') || code.includes('structure')) return 'Document Structure';
-  if (code.includes('keyboard') || code.includes('focus')) return 'Keyboard & Focus';
-  if (code.includes('link') || code.includes('anchor')) return 'Links & Navigation';
-  if (code.includes('table')) return 'Tables';
-  if (code.includes('landmark')) return 'Page Landmarks';
-  
-  return 'General Accessibility';
-}
-
-function escapeHtml(text) {
-  return (text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function getPageName(url) {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    return pathname === '/' ? 'Home' : pathname.split('/').pop() || pathname;
-  } catch {
-    return url;
-  }
-}
-
-function generateFullHtmlTemplate(data) {
-  const { domain, summary, results, allDetailedIssues, timestamp, successRate } = data;
-  
-  // Group issues by category for detailed section
-  const groupedIssues = {};
-  allDetailedIssues.forEach(issue => {
-    const category = issue.category || 'General';
-    if (!groupedIssues[category]) {
-      groupedIssues[category] = [];
-    }
-    groupedIssues[category].push(issue);
-  });
-  
-  const errorCount = allDetailedIssues.filter(i => i.type === 'error').length;
-  const warningCount = allDetailedIssues.filter(i => i.type === 'warning').length;
-  const noticeCount = allDetailedIssues.filter(i => i.type === 'notice').length;
-
-  return getComprehensiveHtmlTemplate({ 
-    domain, 
-    summary, 
-    results, 
-    allDetailedIssues, 
-    groupedIssues, 
-    timestamp, 
-    successRate, 
-    errorCount, 
-    warningCount, 
-    noticeCount 
-  });
-}
-
-// Load comprehensive HTML template functions
-const { getComprehensiveHtmlTemplate } = require('./comprehensive-html-template.js');
 
 program.parse();

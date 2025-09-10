@@ -18,16 +18,6 @@ import { AuditAPIServer } from '../api/server';
 // Complete type definitions
 export * from './types';
 
-// Convenience exports for common use cases
-export {
-  // Report system
-  UnifiedReportSystem,
-  type ReportFormat,
-  type ReportData,
-  type ReportOptions,
-  type GeneratedReport as ReportResult
-} from '../reports/unified';
-
 // Configuration management
 export { ConfigManager } from '../core/config/config-manager';
 

@@ -1,17 +1,17 @@
 /**
- * 🔧 UnifiedQueue Example & Test
+ * 🔧 Queue Example & Test
  * 
- * Example usage of the new unified queue system.
+ * Example usage of the queue system.
  * Shows different queue types and configurations.
  */
 
-import { UnifiedQueue, QueueEventCallbacks } from './index';
+import { Queue, QueueEventCallbacks } from './index';
 
 // Example: Simple sequential processing
 async function exampleSimpleQueue() {
   console.log('\n📋 Simple Queue Example:');
   
-  const queue = new UnifiedQueue<string>('simple', {
+  const queue = new Queue<string>('simple', {
     maxRetries: 2,
     timeout: 5000
   });
@@ -54,7 +54,7 @@ async function exampleParallelQueue() {
     }
   };
 
-  const queue = new UnifiedQueue<string>('parallel', {
+  const queue = new Queue<string>('parallel', {
     maxConcurrent: 2,
     maxRetries: 3,
     timeout: 8000,
@@ -98,7 +98,7 @@ async function exampleParallelQueue() {
 async function examplePriorityQueue() {
   console.log('\n⭐ Priority Queue Example:');
   
-  const queue = new UnifiedQueue<string>('priority', {
+  const queue = new Queue<string>('priority', {
     maxConcurrent: 2,
     priorityPatterns: [
       { pattern: '/home', priority: 10 },
@@ -136,7 +136,7 @@ async function exampleAccessibilityQueue() {
   console.log('\n♿ Accessibility Testing Queue:');
   
   // Use factory method for accessibility-optimized settings
-  const queue = UnifiedQueue.forAccessibilityTesting<string>('parallel', {
+  const queue = Queue.forAccessibilityTesting<string>('parallel', {
     maxConcurrent: 2, // Conservative for browser testing
     timeout: 30000    // Longer timeout for accessibility scans
   });
@@ -169,7 +169,7 @@ async function exampleAccessibilityQueue() {
 
 // Run all examples
 export async function runQueueExamples() {
-  console.log('🔧 UnifiedQueue System Examples\n');
+  console.log('🔧 Queue System Examples\\n');
   
   try {
     await exampleSimpleQueue();
@@ -178,7 +178,7 @@ export async function runQueueExamples() {
     await exampleAccessibilityQueue();
     
     console.log('\n✅ All queue examples completed successfully!');
-    console.log('🎯 The UnifiedQueue system provides:');
+    console.log('🎯 The Queue system provides:');
     console.log('   - Consistent API across all queue types');
     console.log('   - Automatic retry and error handling');
     console.log('   - Real-time progress reporting');

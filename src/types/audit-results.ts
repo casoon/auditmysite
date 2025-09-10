@@ -101,6 +101,8 @@ export interface PageAuditResult {
   seo?: SEOResult;
   /** Content weight analysis (optional) */
   contentWeight?: ContentWeightResult;
+  /** Mobile friendliness analysis (optional) */
+  mobileFriendliness?: MobileFriendlinessResult;
 }
 
 /**
@@ -367,6 +369,34 @@ export type AuditResultTypes = SitemapResult | AccessibilityResult | Performance
  * Helper type for grading scores
  */
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'F';
+
+/**
+ * Mobile friendliness audit result
+ */
+export interface MobileFriendlinessResult {
+  /** Overall mobile friendliness score (0-100) */
+  overallScore: number;
+  /** Mobile friendliness grade (A-F) */
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  /** Mobile optimization recommendations */
+  recommendations: MobileFriendlinessRecommendation[];
+}
+
+/**
+ * Mobile friendliness recommendation
+ */
+export interface MobileFriendlinessRecommendation {
+  /** Recommendation category */
+  category: 'viewport' | 'typography' | 'touchTargets' | 'navigation' | 'media' | 'performance' | 'forms' | 'ux';
+  /** Recommendation priority */
+  priority: 'high' | 'medium' | 'low';
+  /** Issue description */
+  issue: string;
+  /** Recommended action */
+  recommendation: string;
+  /** Expected impact */
+  impact: string;
+}
 
 /**
  * Helper function to calculate grade from score

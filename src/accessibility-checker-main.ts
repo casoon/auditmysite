@@ -113,7 +113,7 @@ export class MainAccessibilityChecker {
 
     constructor(options: QualityAnalysisOptions = {}) {
         this.accessibilityChecker = new AccessibilityChecker();
-        this.contentWeightAnalyzer = new ContentWeightAnalyzer(options);
+        this.contentWeightAnalyzer = new ContentWeightAnalyzer();
         this.performanceCollector = new PerformanceCollector(options);
         this.seoAnalyzer = new SEOAnalyzer(options);
         this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer();
@@ -256,7 +256,8 @@ export class MainAccessibilityChecker {
      */
     private async analyzeContentWeight(page: Page, url: string): Promise<AccessibilityAnalysisResult['contentWeight']> {
         try {
-            const { contentWeight, contentAnalysis } = await this.contentWeightAnalyzer.analyzeContentWeight(page, url);
+            const result = await this.contentWeightAnalyzer.analyze(page, url);
+            const { contentWeight, contentAnalysis } = result;
             
             const score = this.calculateContentScore(contentWeight, contentAnalysis);
             const grade = this.calculateGrade(score);

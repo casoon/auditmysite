@@ -5,7 +5,8 @@
  * Provides type safety and IntelliSense for all SDK operations.
  */
 
-import { ReportFormat } from '../reports/unified';
+// Local ReportFormat definition
+export type ReportFormat = 'html' | 'json' | 'markdown' | 'csv';
 import { TestSummary } from '../core/types';
 
 // =============================================================================

@@ -23,7 +23,7 @@ export class PerformanceCollector {
   private contentAnalyzer: ContentWeightAnalyzer;
 
   constructor(private options: QualityAnalysisOptions = {}) {
-    this.contentAnalyzer = new ContentWeightAnalyzer(options);
+    this.contentAnalyzer = new ContentWeightAnalyzer();
   }
 
   /**
@@ -61,7 +61,7 @@ export class PerformanceCollector {
       ] = await Promise.all([
         this.collectCoreWebVitals(page),
         this.collectTimingMetrics(page),
-        this.contentAnalyzer.analyzeContentWeight(page, url)
+        this.contentAnalyzer.analyze(page, url)
       ]);
 
       // Calculate derived metrics

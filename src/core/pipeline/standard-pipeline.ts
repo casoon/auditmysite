@@ -42,8 +42,7 @@ export interface StandardPipelineOptions {
   useSequentialTesting?: boolean;
   // 🆕 Output format option
   outputFormat?: 'markdown' | 'html';
-  // 🔧 NEW: Use unified queue system
-  useUnifiedQueue?: boolean;
+  // Queue system is now the default and only option
   // 🆕 NEW: Enhanced analysis options
   useEnhancedAnalysis?: boolean;
   contentWeightAnalysis?: boolean;
@@ -182,21 +181,15 @@ export class StandardPipeline {
         enhancedTestOptions
       );
     } else {
-      // Regular accessibility tests with queue systems
-      if (options.useUnifiedQueue) {
-        console.log('🔧 Use NEW Unified Queue System (Recommended)...');
-        results = await checker.testMultiplePagesUnified(
-          limitedUrls.map((url: any) => url.loc),
-          testOptions
-        );
-      } else if (options.useSequentialTesting) {
+      // Regular accessibility tests with modern queue system
+      if (options.useSequentialTesting) {
         console.log('📋 Use sequential tests (Legacy mode)...');
         results = await checker.testMultiplePages(
           limitedUrls.map((url: any) => url.loc),
           testOptions
         );
       } else {
-        console.log('🚀 Use integrated queue processing with short status updates (Legacy Event-driven)...');
+        console.log('🔧 Use Queue System (Recommended)...');
         results = await checker.testMultiplePagesWithQueue(
           limitedUrls.map((url: any) => url.loc),
           testOptions
@@ -248,13 +241,43 @@ export class StandardPipeline {
 
     // Choose between Markdown and HTML output
     if (options.outputFormat === 'html') {
-      console.log('   🌐 Generating HTML report...');
-      const { prepareOutputData } = require('@generators/output-generator');
-      const { generateHtmlReport } = require('../../reports/html-report');
-      const outputOptions = { includeDetails: true, summaryOnly: false };
-      const timestamp = new Date().toISOString();
-      const htmlData = prepareOutputData(summary, timestamp, outputOptions);
-      const htmlContent = generateHtmlReport(htmlData);
+      console.log('   🌐 Generating HTML report with modern HTMLGenerator...');
+      const { HTMLGenerator } = require('../../reports/unified/generators/html-generator');
+      const generator = new HTMLGenerator();
+      
+      // Prepare audit data structure (similar to CLI format)
+      const auditData = {
+        metadata: {
+          version: '1.0.0',
+          timestamp: new Date().toISOString(),
+          sitemapUrl: options.sitemapUrl,
+          toolVersion: '2.0.0-alpha.1',
+          duration: summary.totalDuration
+        },
+        summary: {
+          totalPages: summary.totalPages,
+          testedPages: summary.testedPages,
+          passedPages: summary.passedPages,
+          failedPages: summary.failedPages,
+          crashedPages: summary.crashedPages,
+          totalErrors: summary.totalErrors,
+          totalWarnings: summary.totalWarnings
+        },
+        pages: summary.results.map(result => ({
+          url: result.url,
+          title: result.title,
+          status: result.passed ? 'passed' : (result.crashed ? 'crashed' : 'failed'),
+          duration: result.duration || 0,
+          accessibility: {
+            score: result.pa11yScore || 0,
+            errors: result.errors || [],
+            warnings: result.warnings || [],
+            notices: result.pa11yIssues?.filter(issue => issue.type === 'notice') || []
+          }
+        }))
+      };
+      
+      const htmlContent = await generator.generate(auditData);
       const htmlPath = path.join(outputDir, `accessibility-report-${dateOnly}.html`);
       fs.writeFileSync(htmlPath, htmlContent, 'utf8');
       outputFiles.push(htmlPath);

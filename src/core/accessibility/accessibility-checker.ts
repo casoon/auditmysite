@@ -3,19 +3,15 @@ import pa11y from "pa11y";
 import { AccessibilityResult, TestOptions, Pa11yIssue } from '../types';
 import { BrowserManager } from '../browser';
 import { WebVitalsCollector } from '../performance';
-import { SimpleQueue } from '../pipeline';
 import { ParallelTestManager, ParallelTestManagerOptions, ParallelTestResult } from './index';
-import { EventDrivenQueue, ProcessOptions } from './index';
-import { UnifiedQueue, QueueConfig, QueueEventCallbacks } from '../queue';
+import { Queue, QueueConfig, QueueEventCallbacks } from '../queue';
 import * as fs from 'fs';
 import * as path from 'path';
 
 export class AccessibilityChecker {
   public browserManager: BrowserManager | null = null;
   private webVitalsCollector: WebVitalsCollector;
-  private testQueue: SimpleQueue | null = null;
   private parallelTestManager: ParallelTestManager | null = null;
-  private eventDrivenQueue: EventDrivenQueue | null = null;
 
   constructor() {
     this.webVitalsCollector = new WebVitalsCollector();
@@ -203,11 +199,15 @@ export class AccessibilityChecker {
           result.title = pa11yResult.documentTitle;
         }
 
-        // Calculate pa11y score
+        // Calculate pa11y score (improved formula - less strict)
         if (pa11yResult.issues.length > 0) {
           const totalIssues = pa11yResult.issues.length;
           const errorIssues = pa11yResult.issues.filter(issue => issue.type === 'error').length;
-          result.pa11yScore = Math.max(0, 100 - (errorIssues * 10) - (totalIssues - errorIssues) * 2);
+          const warningIssues = pa11yResult.issues.filter(issue => issue.type === 'warning').length;
+          const noticeIssues = pa11yResult.issues.filter(issue => issue.type === 'notice').length;
+          
+          // More balanced scoring: errors -5, warnings -2, notices -1 points each
+          result.pa11yScore = Math.max(10, 100 - (errorIssues * 5) - (warningIssues * 2) - (noticeIssues * 1));
         } else {
           result.pa11yScore = 100;
         }
@@ -281,53 +281,18 @@ export class AccessibilityChecker {
     const maxPages = options.maxPages || urls.length;
     const pagesToTest = urls.slice(0, maxPages);
 
-    // Simple queue
-    this.testQueue = new SimpleQueue({
-      maxRetries: 3,
-      maxConcurrent: 1,
-      priorityPatterns: [
-        { pattern: '/home', priority: 1 },
-        { pattern: '/', priority: 2 },
-        { pattern: '/about', priority: 3 },
-        { pattern: '/contact', priority: 3 },
-        { pattern: '/blog', priority: 4 },
-        { pattern: '/products', priority: 4 }
-      ]
-    });
-
-    // Add URLs to queue
-    this.testQueue.addUrls(pagesToTest);
+    console.log(`🔄 Sequential testing of ${pagesToTest.length} pages...`);
     
-    console.log(`🦪 Testing ${pagesToTest.length} pages using queue system...`);
-    this.testQueue.showStats();
-
-    let completedCount = 0;
-    const maxAttempts = pagesToTest.length * 3; // Sicherheitsgrenze
-    let attempts = 0;
-
-    while (completedCount < pagesToTest.length && attempts < maxAttempts) {
-      attempts++;
-      
-      // Next URL from queue
-      const queuedUrl = this.testQueue.getNextUrl();
-      if (!queuedUrl) {
-        // Keine URLs mehr in der Queue
-        break;
-      }
-
+    for (let i = 0; i < pagesToTest.length; i++) {
+      const url = pagesToTest[i];
       const startTime = Date.now();
-      console.log(`\n📄 Testing page ${completedCount + 1}/${pagesToTest.length}: ${queuedUrl.url}`);
-      console.log(`   ⏱️  Starting test (attempt ${queuedUrl.attempts})...`);
+      console.log(`\n📄 Testing page ${i + 1}/${pagesToTest.length}: ${url}`);
       
       try {
-        const result = await this.testPage(queuedUrl.url, options);
+        const result = await this.testPage(url, options);
         const duration = Date.now() - startTime;
         result.duration = duration;
         results.push(result);
-        
-        // URL als abgeschlossen markieren
-        this.testQueue.markCompleted(queuedUrl.url, result);
-        completedCount++;
         
         console.log(`   ✅ Test completed in ${duration}ms`);
         
@@ -337,21 +302,13 @@ export class AccessibilityChecker {
           console.log(`   🎯 Result: FAILED (${result.errors.length} errors, ${result.warnings.length} warnings)`);
         }
         
-        // Show status every 5 URLs
-        if (completedCount % 5 === 0) {
-          this.testQueue.showStats();
-        }
-        
       } catch (error) {
         const duration = Date.now() - startTime;
         console.error(`   💥 Error testing page after ${duration}ms: ${error}`);
         
-        // URL als fehlgeschlagen markieren
-        this.testQueue.markFailed(queuedUrl.url, String(error));
-        
         // Error-Result erstellen
         const errorResult: AccessibilityResult = {
-          url: queuedUrl.url,
+          url: url,
           title: "",
           imagesWithoutAlt: 0,
           buttonsWithoutLabel: 0,
@@ -363,13 +320,8 @@ export class AccessibilityChecker {
           duration,
         };
         results.push(errorResult);
-        completedCount++;
       }
     }
-
-    // Final statistics
-    console.log('\n📊 Final Queue Statistics:');
-    this.testQueue.showStats();
 
     return results;
   }
@@ -491,84 +443,17 @@ export class AccessibilityChecker {
     }
   }
 
+  // Legacy EventDrivenQueue method removed - using modern Queue system only
+
   /**
-   * 🚀 Integrated queue processing with short status updates
-   * This method uses the event-driven queue directly for maximum efficiency
+   * 🔧 Test multiple pages with the modern Queue System
+   * This is the recommended approach for concurrent testing
    */
   async testMultiplePagesWithQueue(
     urls: string[],
     options: TestOptions = {},
   ): Promise<AccessibilityResult[]> {
-    console.log(`🚀 Starting integrated queue processing for ${urls.length} URLs`);
-    
-    // Initialize browser
-    if (!this.browserManager) {
-      this.browserManager = new BrowserManager({
-        headless: true,
-        port: 9222
-      });
-      await this.browserManager.initialize();
-    }
-
-    // Create Event-Driven Queue
-    this.eventDrivenQueue = new EventDrivenQueue({
-      maxConcurrent: options.maxConcurrent || 3,
-      maxRetries: options.maxRetries || 3,
-      retryDelay: options.retryDelay || 2000,
-      enableShortStatus: true,
-      statusUpdateInterval: 5000,
-      eventCallbacks: {
-        onShortStatus: (status: string) => {
-          // Clear line and write status (prevents duplicate lines)
-          process.stdout.write(`\r\x1b[K${status}`);
-        },
-        onUrlCompleted: (url: string, result: any, duration: number) => {
-          const shortUrl = url.split('/').pop() || url;
-          console.log(`\n✅ ${shortUrl} (${duration}ms)`);
-        },
-        onUrlFailed: (url: string, error: string, attempts: number) => {
-          const shortUrl = url.split('/').pop() || url;
-          console.log(`\n❌ ${shortUrl} (Attempt ${attempts})`);
-        }
-      }
-    });
-
-    // Define the processor for each URL
-    const processOptions: ProcessOptions = {
-      processor: async (url: string) => {
-        return await this.testPage(url, options);
-      },
-      onResult: (url: string, result: AccessibilityResult) => {
-        // Optional: additional processing after successful test
-      },
-      onError: (url: string, error: string) => {
-        console.error(`\n💥 Error for ${url}: ${error}`);
-      }
-    };
-
-    try {
-      // Process all URLs with the queue
-      const results = await this.eventDrivenQueue.processUrls(urls, processOptions);
-      
-      console.log(`\n🎉 Queue processing completed!`);
-      console.log(`📊 Results: ${results.length} URLs tested`);
-      
-      return results as AccessibilityResult[];
-    } finally {
-      // Cleanup
-      this.eventDrivenQueue = null;
-    }
-  }
-
-  /**
-   * 🔧 NEW: Test multiple pages with the Unified Queue System
-   * This replaces the legacy queue implementations with a single, consistent API
-   */
-  async testMultiplePagesUnified(
-    urls: string[],
-    options: TestOptions = {},
-  ): Promise<AccessibilityResult[]> {
-    console.log(`🔧 Starting Unified Queue processing for ${urls.length} URLs`);
+    console.log(`🔧 Starting Queue processing for ${urls.length} URLs`);
     
     // Initialize browser
     if (!this.browserManager) {
@@ -601,8 +486,8 @@ export class AccessibilityChecker {
       }
     };
 
-    // Create unified queue optimized for accessibility testing
-    const queue = UnifiedQueue.forAccessibilityTesting<string>('parallel', {
+    // Create queue optimized for accessibility testing
+    const queue = Queue.forAccessibilityTesting<string>('parallel', {
       maxConcurrent: options.maxConcurrent || 2,
       maxRetries: options.maxRetries || 3,
       retryDelay: options.retryDelay || 2000,
@@ -612,7 +497,7 @@ export class AccessibilityChecker {
     }, callbacks);
 
     try {
-      // Process all URLs with unified queue
+      // Process all URLs with queue
       const result = await queue.processWithProgress(urls, async (url: string) => {
         return await this.testPage(url, options);
       }, {
@@ -639,7 +524,7 @@ export class AccessibilityChecker {
         });
       });
 
-      console.log(`📊 Unified Queue Results: ${result.completed.length} completed, ${result.failed.length} failed`);
+      console.log(`📊 Queue Results: ${result.completed.length} completed, ${result.failed.length} failed`);
       const metrics = queue.getPerformanceMetrics();
       console.log(`📈 Performance: ${metrics.efficiency.toFixed(1)}% efficiency, ${metrics.throughput.toFixed(2)} pages/sec`);
       
