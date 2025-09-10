@@ -349,43 +349,55 @@ program
         
         console.log('\n📝 Generating comprehensive HTML report...');
         
-        // Use the new enhanced HTML generator with proper data mapping
+        // Use the unified HTML generator
         let htmlContent;
         try {
-          const { generateHtmlReport } = require('../dist/src/reports/html-report');
+          const { UnifiedHTMLGenerator } = require('../dist/src/reports/unified/unified-html-generator');
+          const generator = new UnifiedHTMLGenerator();
           
-          // Prepare data in format expected by the new HtmlGenerator
-          const htmlData = {
+          // Prepare data in unified FullAuditResult format
+          const unifiedData = {
             metadata: {
+              version: '1.0.0',
               timestamp: new Date().toISOString(),
-              tool: '@casoon/auditmysite',
-              version: '2.0.0-alpha.1'
+              sitemapUrl: finalSitemapUrl,
+              toolVersion: '2.0.0-alpha.1',
+              duration: Date.now() - startTime
             },
             summary: {
+              totalPages: urls.length,
               testedPages: results.length,
               passedPages: successCount,
               failedPages: results.length - successCount,
+              crashedPages: results.filter(r => r.crashed).length,
               totalErrors: errorCount,
-              totalWarnings: warningCount,
-              totalDuration: Date.now() - startTime
+              totalWarnings: warningCount
             },
             pages: results.map(page => ({
               url: page.url,
               title: page.title,
-              errors: page.errors,
-              warnings: page.warnings,
-              pa11yScore: page.pa11yScore,
-              pa11yIssues: page.pa11yIssues,
-              enhancedPerformance: page.performance,
-              enhancedSEO: page.seo,
-              contentWeight: page.contentWeight,
-              mobileFriendliness: page.mobileFriendliness,
-              qualityScore: page.qualityScore,
-              issues: page.issues
+              status: page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed'),
+              duration: page.loadTime || 0,
+              accessibility: {
+                score: page.pa11yScore || 0,
+                errors: page.pa11yIssues?.filter(i => i.type === 'error') || [],
+                warnings: page.pa11yIssues?.filter(i => i.type === 'warning') || [],
+                notices: page.pa11yIssues?.filter(i => i.type === 'notice') || []
+              },
+              performance: page.performance ? {
+                coreWebVitals: {
+                  largestContentfulPaint: page.performance.metrics?.lcp || 0,
+                  firstInputDelay: page.performance.metrics?.fid || 0,
+                  cumulativeLayoutShift: page.performance.metrics?.cls || 0
+                }
+              } : null,
+              seo: page.seo || null,
+              contentWeight: page.contentWeight || null,
+              mobileFriendliness: page.mobileFriendliness || null
             }))
           };
           
-          htmlContent = generateHtmlReport(htmlData);
+          htmlContent = await generator.generate(unifiedData);
         } catch (e) {
           console.warn('Using fallback HTML template:', e.message);
           // Fallback to the comprehensive template if new generator fails
@@ -405,7 +417,7 @@ program
         require('fs').writeFileSync(reportPath, htmlContent);
         
         // 📝 Generate detailed accessibility issues markdown report
-        const { DetailedIssueMarkdownReport } = require('../dist/reports/detailed-issue-markdown');
+        const { DetailedIssueMarkdownReport } = require('../dist/src/reports/detailed-issue-markdown');
         
         // Extract all pa11y issues and convert to DetailedIssue format
         const detailedIssues = [];

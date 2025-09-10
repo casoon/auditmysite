@@ -2,11 +2,11 @@
 export * from './types/report-export';
 export * from './exporters/unified-export';
 
-// Legacy exports for backwards compatibility (DEPRECATED)
+// Core components for backward compatibility only
 export * from './detailed-issue-markdown';
 export * from './report-utils';
-export * from './performance-issue-markdown';
 export * from './unified';
 
-// ⚠️ IMPORTANT: New code should ONLY use types from './types/report-export'
-// The legacy exports above will be removed in a future version
+// ⚠️ IMPORTANT: New code should ONLY use:
+// - UnifiedHTMLGenerator from './unified/unified-html-generator'
+// - Types from './types/report-export'
