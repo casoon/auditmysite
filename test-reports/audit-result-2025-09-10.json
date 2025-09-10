@@ -1,0 +1,126 @@
+{
+  "metadata": {
+    "timestamp": "2025-09-10T02:50:46.091Z",
+    "version": "2.0",
+    "sitemapUrl": "https://example.com/sitemap.xml",
+    "duration": 20,
+    "toolVersion": "2.0.0-alpha.1",
+    "config": {
+      "maxPages": 3,
+      "fullAnalysis": true,
+      "pa11yStandard": "WCAG2AA",
+      "analysisTypes": {
+        "accessibility": true,
+        "performance": false,
+        "seo": true,
+        "contentWeight": true
+      }
+    }
+  },
+  "sitemap": {
+    "sourceUrl": "https://example.com/sitemap.xml",
+    "urls": [
+      "https://example.com/",
+      "https://example.com/page1",
+      "https://example.com/page2"
+    ],
+    "parsedAt": "2025-09-10T02:50:46.071Z",
+    "totalUrls": 3,
+    "filteredUrls": 0,
+    "filterPatterns": [
+      "[...slug]",
+      "[category]",
+      "/demo/",
+      "/test/"
+    ]
+  },
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "title": "Mock Title",
+      "status": "failed",
+      "duration": 2,
+      "auditedAt": "2025-09-10T02:50:46.091Z",
+      "accessibility": {
+        "passed": false,
+        "wcagLevel": "AA",
+        "score": 90,
+        "errors": [
+          {
+            "severity": "error",
+            "message": "No headings found",
+            "code": "a11y-error"
+          }
+        ],
+        "warnings": [],
+        "pa11yResults": {
+          "totalIssues": 1,
+          "runner": "pa11y@9.0.0"
+        }
+      }
+    },
+    {
+      "url": "https://example.com/page1",
+      "title": "Mock Title",
+      "status": "failed",
+      "duration": 2,
+      "auditedAt": "2025-09-10T02:50:46.091Z",
+      "accessibility": {
+        "passed": false,
+        "wcagLevel": "AA",
+        "score": 90,
+        "errors": [
+          {
+            "severity": "error",
+            "message": "No headings found",
+            "code": "a11y-error"
+          }
+        ],
+        "warnings": [],
+        "pa11yResults": {
+          "totalIssues": 1,
+          "runner": "pa11y@9.0.0"
+        }
+      }
+    },
+    {
+      "url": "https://example.com/page2",
+      "title": "Mock Title",
+      "status": "failed",
+      "duration": 1,
+      "auditedAt": "2025-09-10T02:50:46.091Z",
+      "accessibility": {
+        "passed": false,
+        "wcagLevel": "AA",
+        "score": 90,
+        "errors": [
+          {
+            "severity": "error",
+            "message": "No headings found",
+            "code": "a11y-error"
+          }
+        ],
+        "warnings": [],
+        "pa11yResults": {
+          "totalIssues": 1,
+          "runner": "pa11y@9.0.0"
+        }
+      }
+    }
+  ],
+  "summary": {
+    "totalPages": 3,
+    "testedPages": 3,
+    "passedPages": 0,
+    "failedPages": 3,
+    "crashedPages": 0,
+    "totalErrors": 3,
+    "totalWarnings": 0,
+    "averageScores": {
+      "accessibility": 90
+    },
+    "overallGrades": {
+      "accessibility": "A"
+    }
+  }
+}

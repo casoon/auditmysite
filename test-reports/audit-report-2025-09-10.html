@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AuditMySite Report</title>
+  <style>
+      :root {
+        --color-bg: #f8fafc;
+        --color-card: #ffffff;
+        --color-text: #1f2937;
+        --color-subtle: #6b7280;
+        --primary: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --radius: 10px;
+        --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      }
+      body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background: var(--color-bg); color: var(--color-text); margin: 0; }
+      .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+      .card { background: var(--color-card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px; }
+      .header h1 { margin: 0 0 8px; color: var(--primary); }
+      .subtitle { color: var(--color-subtle); }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+      .metric { border: 1px solid #e5e7eb; border-radius: var(--radius); padding: 16px; text-align: center; }
+      .metric .value { font-size: 28px; font-weight: 700; }
+      .metric .label { color: var(--color-subtle); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+      .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+      .badge.success { background: #ecfdf5; color: #065f46; }
+      .badge.warning { background: #fffbeb; color: #92400e; }
+      .badge.error { background: #fef2f2; color: #991b1b; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+      th { background: #f3f4f6; font-weight: 600; color: #374151; }
+      .page-status { font-weight: 700; }
+      .status-passed { color: var(--success); }
+      .status-failed { color: var(--error); }
+      .status-crashed { color: var(--warning); }
+    </style>
+</head>
+<body>
+  <div class="container">
+    
+      <div class="card header">
+        <h1>AuditMySite Report</h1>
+        <div class="subtitle">
+          <div>Sitemap: https://example.com/sitemap.xml</div>
+          <div>Generated: 9/10/2025, 4:50:46 AM</div>
+          <div>Version: 2.0.0-alpha.1 • Format v2.0</div>
+        </div>
+      </div>
+    
+    
+      <div class="card">
+        <div class="grid">
+          <div class="metric">
+            <div class="value">3/3</div>
+            <div class="label">Pages Tested</div>
+          </div>
+          <div class="metric">
+            <div class="value">0</div>
+            <div class="label">Passed</div>
+          </div>
+          <div class="metric">
+            <div class="value">3</div>
+            <div class="label">Failed</div>
+          </div>
+          <div class="metric">
+            <div class="value">0</div>
+            <div class="label">Crashed</div>
+          </div>
+          <div class="metric">
+            <div class="value">3</div>
+            <div class="label">Total Errors</div>
+          </div>
+          <div class="metric">
+            <div class="value">0</div>
+            <div class="label">Total Warnings</div>
+          </div>
+        </div>
+      </div>
+    
+    
+      <div class="card">
+        <h2>Pages</h2>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Page</th>
+                <th>Status</th>
+                <th>Errors</th>
+                <th>Warnings</th>
+                <th>A11y Score</th>
+                <th>LCP</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+        <tr>
+          <td><div><strong>Mock Title</strong><br/><small>https://example.com/</small></div></td>
+          <td class="page-status status-failed">FAILED</td>
+          <td>1</td>
+          <td>0</td>
+          <td>90</td>
+          <td>—</td>
+          <td>2ms</td>
+        </tr>
+      
+        <tr>
+          <td><div><strong>Mock Title</strong><br/><small>https://example.com/page1</small></div></td>
+          <td class="page-status status-failed">FAILED</td>
+          <td>1</td>
+          <td>0</td>
+          <td>90</td>
+          <td>—</td>
+          <td>2ms</td>
+        </tr>
+      
+        <tr>
+          <td><div><strong>Mock Title</strong><br/><small>https://example.com/page2</small></div></td>
+          <td class="page-status status-failed">FAILED</td>
+          <td>1</td>
+          <td>0</td>
+          <td>90</td>
+          <td>—</td>
+          <td>1ms</td>
+        </tr>
+      
+            </tbody>
+          </table>
+        </div>
+      </div>
+    
+    
+      <div class="card" style="text-align:center; color:#6b7280;">
+        Generated by AuditMySite • Duration: 0s
+      </div>
+    
+  </div>
+</body>
+</html>

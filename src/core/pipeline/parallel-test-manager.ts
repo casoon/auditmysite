@@ -145,7 +145,7 @@ export class ParallelTestManager {
   private async processNextUrl(): Promise<void> {
     if (!this.isRunning) return;
 
-    const queuedUrl = this.queue.getNextUrl();
+    const queuedUrl = await this.queue.getNextUrl();
     if (!queuedUrl) return;
 
     try {

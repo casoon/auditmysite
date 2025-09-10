@@ -12,7 +12,7 @@
 
 import { Page, Response } from 'playwright';
 import { 
-  EnhancedSEOMetrics, 
+  SEOMetrics,
   MetaTagAnalysis,
   HeadingStructure,
   SocialMetaTags,
@@ -20,13 +20,13 @@ import {
   QualityAnalysisOptions 
 } from '../types/enhanced-metrics';
 
-export class EnhancedSEOAnalyzer {
+export class SEOAnalyzer {
   constructor(private options: QualityAnalysisOptions = {}) {}
 
   /**
    * Perform comprehensive SEO analysis of a webpage
    */
-  async analyzeSEO(page: Page, url: string): Promise<EnhancedSEOMetrics> {
+  async analyzeSEO(page: Page, url: string): Promise<SEOMetrics> {
     console.log(`🔍 Analyzing SEO for: ${url}`);
     
     const startTime = Date.now();
@@ -89,7 +89,7 @@ export class EnhancedSEOAnalyzer {
         ...contentMetrics
       });
 
-      const seoMetrics: EnhancedSEOMetrics = {
+      const seoMetrics: SEOMetrics = {
         metaTags,
         headingStructure,
         socialTags,

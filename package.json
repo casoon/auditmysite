@@ -27,6 +27,8 @@
     "test:e2e": "jest tests/e2e",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "test:verbose": "TEST_VERBOSE=1 jest --verbose",
+    "test:performance": "jest tests/performance --testTimeout=90000 --verbose",
+    "test:memory": "node --expose-gc --max-old-space-size=4096 ./node_modules/.bin/jest tests/performance/memory-usage.test.ts --testTimeout=120000",
     "test:legacy": "node test/run-tests.js",
     "test:legacy-mock-server": "node test/mock-server/server.js",
     "test:legacy-suite": "node test/test-suite.js",

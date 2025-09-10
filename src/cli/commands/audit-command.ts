@@ -145,7 +145,7 @@ export class AuditCommand extends BaseCommand {
       // usePa11y: true, // Not in StandardPipelineOptions
       collectPerformanceMetrics: true,
       useUnifiedQueue: args.unifiedQueue || false, // NEW: Use unified queue system
-      // 🚀 NEW: Enable all analysis features by default
+      // 🚀 NEW: Enhanced analysis enabled (BrowserPoolManager fixed)
       useEnhancedAnalysis: true,
       contentWeightAnalysis: true,
       enhancedPerformanceAnalysis: true,

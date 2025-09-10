@@ -5,11 +5,12 @@ import { PerformanceService } from '../services/performance.service';
 import { SEOService } from '../services/seo.service';
 import { version as toolVersion } from '../../../package.json';
 
-// Services
+// Services - detect test mode
+const isTestMode = process.env.NODE_ENV === 'test';
 const sitemapService = new SitemapService();
 const accessibilityService = new AccessibilityService();
-const performanceService = new PerformanceService();
-const seoService = new SEOService();
+const performanceService = new PerformanceService(isTestMode);
+const seoService = new SEOService(isTestMode);
 
 // Cleanup handler for graceful shutdown
 let isShuttingDown = false;

@@ -1101,6 +1101,7 @@ export class HtmlGenerator {
   }
 
 
+
   generateDetailedIssuesSection(data: any): string {
     if (!data.pages || data.pages.length === 0) {
       return `<div class="no-data">

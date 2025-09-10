@@ -10,97 +10,53 @@ const packageJson = require('../package.json');
 
 const program = new Command();
 
-// 🎯 SIMPLIFIED CLI - Only 6 essential options!
+// 🎯 SIMPLIFIED CLI - Only 11 essential parameters!
 program
   .name('auditmysite')
-  .description('🎯 Simple accessibility testing - just works!')
+  .description('🎯 Professional accessibility testing - clean and simple!')
   .version(packageJson.version)
   .argument('<sitemapUrl>', 'URL of the sitemap.xml to test')
   
-  // ✅ Only these 7 ESSENTIAL options:
-  .option('--full', 'Test all pages instead of just 5 (default: 5 pages)')
-  .option('--max-pages <number>', 'Maximum number of pages to test (overrides --full)', (value) => parseInt(value))
-  .option('--expert', 'Interactive expert mode with custom settings')
+  // ✅ Core Options (4)
+  .option('--max-pages <number>', 'Maximum number of pages to test (default: 5)', (value) => parseInt(value))
   .option('--format <type>', 'Report format: html or markdown', 'html')
   .option('--output-dir <dir>', 'Output directory for reports', './reports')
+  .option('--budget <template>', 'Performance budget: default, ecommerce, blog, corporate', 'default')
+  
+  // ✅ User Experience (3)
+  .option('--expert', 'Interactive expert mode with advanced settings')
   .option('--non-interactive', 'Skip prompts for CI/CD (use defaults)')
   .option('-v, --verbose', 'Show detailed progress information')
   
-  // 📊 Performance Budget Options
-  .option('--budget <template>', 'Performance budget template: ecommerce, blog, corporate, or default', 'default')
-  .option('--lcp-budget <ms>', 'Custom LCP budget in milliseconds (good threshold)')
-  .option('--cls-budget <score>', 'Custom CLS budget score (good threshold)')
-  .option('--fcp-budget <ms>', 'Custom FCP budget in milliseconds (good threshold)')
-  .option('--inp-budget <ms>', 'Custom INP budget in milliseconds (good threshold)')
-  .option('--ttfb-budget <ms>', 'Custom TTFB budget in milliseconds (good threshold)')
-  
-// 🚀 Tauri Integration Options
-  .option('--stream', 'Enable streaming output for desktop integration')
-  .option('--session-id <id>', 'Session ID for tracking (required with --stream)')
-  .option('--chunk-size <size>', 'Chunk size for large reports', '1000')
-  
-  // 🔧 NEW: Unified Queue System Options
-  .option('--unified-queue', 'Use the new unified queue system (EXPERIMENTAL)')
-  
-  // 🎯 Analysis Features - all included by default
+  // ✅ Analysis Control (4) - Opt-out instead of opt-in
   .option('--no-performance', 'Disable performance analysis')
   .option('--no-seo', 'Disable SEO analysis')
   .option('--no-content-weight', 'Disable content weight analysis')
   .option('--no-mobile', 'Disable mobile-friendliness analysis')
   
   .action(async (sitemapUrl, options) => {
-    // 🚀 Tauri Integration: Streaming Mode
-    if (options.stream) {
-      if (!options.sessionId) {
-        console.error('Error: --session-id is required when using --stream mode');
-        process.exit(1);
-      }
-      await runStreamingAudit(sitemapUrl, options);
-      return;
-    }
     
     console.log(`🚀 AuditMySite v${packageJson.version} - Professional Accessibility Testing`);
     console.log(`📄 Sitemap: ${sitemapUrl}`);
     
-    // 🎯 SMART DEFAULTS - All analysis features are standard!
+    // 🎯 SMART DEFAULTS - Clean and simple!
     const QUICK_DEFAULTS = {
-      maxPages: options.maxPages || (options.full ? 1000 : 5),
+      maxPages: options.maxPages || 5,
       standard: 'WCAG2AA',
       format: options.format || 'html',
       outputDir: options.outputDir || './reports',
+      budget: options.budget || 'default',
       timeout: 10000,
       maxConcurrent: 2,
-      generateDetailedReport: true,
-      generatePerformanceReport: true,
-      generateSeoReport: false,        // ❌ Removed 
-      generateSecurityReport: false,   // ❌ Removed
-      usePa11y: true,
-      lighthouse: false,               // ❌ Removed Lighthouse
-      captureScreenshots: false,      // ❌ Removed
       verbose: options.verbose || false,
-      // 🚀 All Analysis Features are STANDARD
-      performanceAnalysis: true,       // ✅ Performance metrics standard
-      seoAnalysis: true,               // ✅ SEO analysis standard
-      contentWeight: true,             // ✅ Content weight standard
-      mobileFriendliness: true         // ✅ Mobile-friendliness standard
+      // 🚀 All Analysis Features ENABLED by default (opt-out model)
+      performanceAnalysis: !options.noPerformance,
+      seoAnalysis: !options.noSeo,
+      contentWeight: !options.noContentWeight,
+      mobileFriendliness: !options.noMobile
     };
     
     let config = { ...QUICK_DEFAULTS };
-    
-    // 🚀 Override Analysis Features from CLI arguments
-    if (options.noPerformance) {
-      config.performanceAnalysis = false;
-    }
-    if (options.noSeo) {
-      config.seoAnalysis = false;
-    }
-    if (options.noContentWeight) {
-      config.contentWeight = false;
-    }
-    if (options.noMobile) {
-      config.mobileFriendliness = false;
-    }
-    // Note: All features enabled by default unless explicitly disabled
     
     // 🔧 EXPERT MODE - Interactive wizard
     if (options.expert && !options.nonInteractive) {
@@ -165,215 +121,61 @@ program
           default: false
         },
         {
-          type: 'confirm',
-          name: 'modernHtml5',
-          message: '🔥 Enable modern HTML5 elements testing (details, dialog, semantic)?',
-          default: true
-        },
-        {
-          type: 'confirm',
-          name: 'ariaAdvanced',
-          message: '⚡ Enable advanced ARIA analysis with impact scoring?',
-          default: true
-        },
-        {
-          type: 'confirm',
-          name: 'chrome135Features',
-          message: '🚀 Enable Chrome 135 specific features and optimizations?',
-          default: true
-        },
-        {
-          type: 'confirm',
-          name: 'semanticAnalysis',
-          message: '📊 Enable semantic structure analysis and recommendations?',
-          default: true
-        },
-        {
-          type: 'confirm',
-          name: 'captureScreenshots',
-          message: '📸 Capture desktop and mobile screenshots of pages?',
-          default: false
-        },
-        {
-          type: 'confirm',
-          name: 'testKeyboardNavigation',
-          message: '⌨️  Test keyboard navigation and focusable elements?',
-          default: false
-        },
-        {
-          type: 'confirm',
-          name: 'testColorContrast',
-          message: '🎨 Test color contrast ratios (basic analysis)?',
-          default: false
-        },
-        {
-          type: 'confirm',
-          name: 'testFocusManagement',
-          message: '🎯 Test focus management and indicators?',
-          default: false
-        },
-        {
-          type: 'confirm',
-          name: 'allFeatures',
-          message: '🚀 Keep all analysis features enabled? (Performance, SEO, Content Weight)',
-          default: true
-        },
-        {
           type: 'checkbox',
-          name: 'analysisComponents',
-          message: '🔍 Which analysis components? (select multiple)',
+          name: 'analysisFeatures',
+          message: '🔍 Which analysis features to enable?',
           choices: [
-            { name: '⚡ Performance - Core Web Vitals, advanced metrics', value: 'performance' },
-            { name: '🔍 SEO - Meta tags, content quality, readability', value: 'seo' },
-            { name: '📏 Content Weight - Resource analysis, text-to-code ratio', value: 'contentWeight' }
+            { name: '⚡ Performance Analysis - Core Web Vitals, loading metrics', value: 'performance', checked: true },
+            { name: '🔍 SEO Analysis - Meta tags, content quality, structure', value: 'seo', checked: true },
+            { name: '📏 Content Weight Analysis - Resource optimization', value: 'contentWeight', checked: true },
+            { name: '📱 Mobile-Friendliness Analysis - Touch targets, responsive', value: 'mobile', checked: true }
           ],
-          when: (answers) => answers.allFeatures,
-          validate: (answer) => {
-            if (answer.length === 0) {
-              return 'Please select at least one analysis component';
-            }
-            return true;
-          }
+          default: ['performance', 'seo', 'contentWeight', 'mobile']
         },
         {
           type: 'list',
-          name: 'budgetTemplate',
+          name: 'budget',
           message: '📈 Performance budget template?',
           choices: [
-            { name: '🏢 Corporate - Professional standards (stricter thresholds)', value: 'corporate' },
-            { name: '🏬 E-commerce - Conversion-focused (very strict for revenue)', value: 'ecommerce' },
-            { name: '📝 Blog - Content-focused (standard Google thresholds)', value: 'blog' },
             { name: '⚙️ Default - Google Web Vitals standard thresholds', value: 'default' },
-            { name: '🔧 Custom - Set individual thresholds manually', value: 'custom' }
+            { name: '🏬 E-commerce - Conversion-focused (stricter for revenue)', value: 'ecommerce' },
+            { name: '🏢 Corporate - Professional standards (balanced)', value: 'corporate' },
+            { name: '📝 Blog - Content-focused (relaxed for reading)', value: 'blog' }
           ],
           default: 'default'
         }
       ]);
       
-      // If custom budget selected, ask for individual thresholds
-      if (answers.budgetTemplate === 'custom') {
-        const customBudget = await inquirer.prompt([
-          {
-            type: 'number',
-            name: 'lcpBudget',
-            message: '📈 LCP (Largest Contentful Paint) good threshold in ms?',
-            default: 2500,
-            validate: (value) => value > 0 && value < 10000 ? true : 'Please enter a value between 0 and 10000ms'
-          },
-          {
-            type: 'input',
-            name: 'clsBudget',
-            message: '📈 CLS (Cumulative Layout Shift) good threshold (e.g. 0.1)?',
-            default: '0.1',
-            validate: (value) => {
-              const num = parseFloat(value);
-              return num >= 0 && num <= 1 ? true : 'Please enter a value between 0 and 1';
-            }
-          },
-          {
-            type: 'number',
-            name: 'fcpBudget',
-            message: '📈 FCP (First Contentful Paint) good threshold in ms?',
-            default: 1800,
-            validate: (value) => value > 0 && value < 10000 ? true : 'Please enter a value between 0 and 10000ms'
-          },
-          {
-            type: 'number',
-            name: 'inpBudget',
-            message: '📈 INP (Interaction to Next Paint) good threshold in ms?',
-            default: 200,
-            validate: (value) => value >= 0 && value < 5000 ? true : 'Please enter a value between 0 and 5000ms'
-          },
-          {
-            type: 'number',
-            name: 'ttfbBudget',
-            message: '📈 TTFB (Time to First Byte) good threshold in ms?',
-            default: 400,
-            validate: (value) => value > 0 && value < 5000 ? true : 'Please enter a value between 0 and 5000ms'
-          }
-        ]);
-        
-        answers.customBudgetValues = {
-          lcp: customBudget.lcpBudget,
-          cls: parseFloat(customBudget.clsBudget),
-          fcp: customBudget.fcpBudget,
-          inp: customBudget.inpBudget,
-          ttfb: customBudget.ttfbBudget
-        };
-      }
+      // Update config with analysis feature selections
+      config.performanceAnalysis = answers.analysisFeatures.includes('performance');
+      config.seoAnalysis = answers.analysisFeatures.includes('seo');
+      config.contentWeight = answers.analysisFeatures.includes('contentWeight');
+      config.mobileFriendliness = answers.analysisFeatures.includes('mobile');
       
       config = { ...config, ...answers };
     }
     
-    // 🐎 Create performance budget
+    // 🐎 Create performance budget from template
     const { BUDGET_TEMPLATES } = require('../dist/core/performance/web-vitals-collector');
-    let performanceBudget;
-    
-    // Priority: CLI options > Expert mode > Default template
-    if (options.lcpBudget || options.clsBudget || options.fcpBudget || options.inpBudget || options.ttfbBudget) {
-      // Custom CLI budget
-      const defaultBudget = BUDGET_TEMPLATES[options.budget || 'default'];
-      performanceBudget = {
-        lcp: { 
-          good: parseInt(options.lcpBudget) || defaultBudget.lcp.good, 
-          poor: (parseInt(options.lcpBudget) || defaultBudget.lcp.good) * 1.6 
-        },
-        cls: { 
-          good: parseFloat(options.clsBudget) || defaultBudget.cls.good, 
-          poor: (parseFloat(options.clsBudget) || defaultBudget.cls.good) * 2.5 
-        },
-        fcp: { 
-          good: parseInt(options.fcpBudget) || defaultBudget.fcp.good, 
-          poor: (parseInt(options.fcpBudget) || defaultBudget.fcp.good) * 1.7 
-        },
-        inp: { 
-          good: parseInt(options.inpBudget) || defaultBudget.inp.good, 
-          poor: (parseInt(options.inpBudget) || defaultBudget.inp.good) * 2.5 
-        },
-        ttfb: { 
-          good: parseInt(options.ttfbBudget) || defaultBudget.ttfb.good, 
-          poor: (parseInt(options.ttfbBudget) || defaultBudget.ttfb.good) * 2 
-        }
-      };
-    } else if (config.budgetTemplate === 'custom' && config.customBudgetValues) {
-      // Expert mode custom budget
-      const custom = config.customBudgetValues;
-      performanceBudget = {
-        lcp: { good: custom.lcp, poor: custom.lcp * 1.6 },
-        cls: { good: custom.cls, poor: custom.cls * 2.5 },
-        fcp: { good: custom.fcp, poor: custom.fcp * 1.7 },
-        inp: { good: custom.inp, poor: custom.inp * 2.5 },
-        ttfb: { good: custom.ttfb, poor: custom.ttfb * 2 }
-      };
-    } else {
-      // Template budget
-      const template = config.budgetTemplate || options.budget || 'default';
-      performanceBudget = BUDGET_TEMPLATES[template] || BUDGET_TEMPLATES.default;
-    }
+    const template = config.budget || 'default';
+    const performanceBudget = BUDGET_TEMPLATES[template] || BUDGET_TEMPLATES.default;
     
     // 📈 Show configuration
-    console.log(`\\n📋 Configuration:`);
-    console.log(`   📄 Pages: ${config.maxPages === 1000 ? 'All' : config.maxPages}`);
+    console.log(`\n📋 Configuration:`);
+    console.log(`   📄 Pages: ${config.maxPages}`);
     console.log(`   📋 Standard: ${config.standard}`);
-    console.log(`   📈 Basic Performance: ${config.generatePerformanceReport ? 'Yes' : 'No'}`);
-    console.log(`   📈 Budget: ${config.budgetTemplate || options.budget || 'default'} (LCP: ${performanceBudget.lcp.good}ms, CLS: ${performanceBudget.cls.good})`);
+    console.log(`   📈 Budget: ${template} (LCP: ${performanceBudget.lcp.good}ms, CLS: ${performanceBudget.cls.good})`);
     console.log(`   📄 Format: ${config.format.toUpperCase()}`);
     console.log(`   📁 Output: ${config.outputDir}`);
     
     // Analysis Features Summary
-    console.log('\\n🚀 Analysis Features:');
-    if (config.performanceAnalysis) {
-      console.log('   ⚡ Performance: ✅ Core Web Vitals, loading metrics');
-    }
-    if (config.seoAnalysis) {
-      console.log('   🔍 SEO: ✅ Meta tags, content quality, readability');
-    }
-    if (config.contentWeight) {
-      console.log('   📏 Content Weight: ✅ Resource analysis, optimization');
-    }
-    if (config.mobileFriendliness) {
-      console.log('   📱 Mobile-Friendliness: ✅ Responsive design, touch targets');
-    }
+    console.log('\n🚀 Analysis Features:');
+    console.log(`   ⚡ Performance: ${config.performanceAnalysis ? '✅' : '❌'}`);
+    console.log(`   🔍 SEO: ${config.seoAnalysis ? '✅' : '❌'}`);
+    console.log(`   📏 Content Weight: ${config.contentWeight ? '✅' : '❌'}`);
+    console.log(`   📱 Mobile-Friendliness: ${config.mobileFriendliness ? '✅' : '❌'}`);
+    
+    console.log('\n✨ Simplified CLI - Only 11 parameters for better usability!');
     
     // Declare variables in outer scope for error handling
     let pipelineOptions;
@@ -404,29 +206,16 @@ program
         timeout: config.timeout,
         pa11yStandard: config.standard,
         outputDir: subDir,
-        generateDetailedReport: config.generateDetailedReport,
-        generatePerformanceReport: config.generatePerformanceReport,
-        generateSeoReport: false,           // ❌ Always false now
-        generateSecurityReport: false,      // ❌ Always false now
         outputFormat: config.format,
         maxConcurrent: config.maxConcurrent,
         verbose: config.verbose,
         timestamp: new Date().toISOString(),
-        // 🆕 Performance-Metriken aktivieren
-        collectPerformanceMetrics: true,    // ✅ Web Vitals immer aktiviert
-        captureScreenshots: config.captureScreenshots || false,
-        testKeyboardNavigation: config.testKeyboardNavigation || false,
-        testColorContrast: config.testColorContrast || false,
-        testFocusManagement: config.testFocusManagement || false,
         
-        // 🔥 Advanced v2.0 Features  
-        modernHtml5: config.modernHtml5 !== undefined ? config.modernHtml5 : true,
-        ariaAdvanced: config.ariaAdvanced !== undefined ? config.ariaAdvanced : true,
-        chrome135Features: config.chrome135Features !== undefined ? config.chrome135Features : true,
-        semanticAnalysis: config.semanticAnalysis !== undefined ? config.semanticAnalysis : true,
-        
-        // 🔧 NEW: Unified Queue System
-        useUnifiedQueue: options.unifiedQueue || false,
+        // 🚀 Analysis Features (opt-out model)
+        performanceAnalysis: config.performanceAnalysis,
+        seoAnalysis: config.seoAnalysis,
+        contentWeight: config.contentWeight,
+        mobileFriendliness: config.mobileFriendliness,
         
         // 📊 Performance Budget
         performanceBudget: performanceBudget
@@ -470,13 +259,13 @@ program
         
         console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${limitedUrls.length}`);
         
-        // Initialize Main Accessibility Checker with all features
+        // Initialize Main Accessibility Checker with BASIC features (Enhanced temporarily disabled due to stack overflow)
         const checker = new MainAccessibilityChecker({
-          includeResourceAnalysis: (config.analysisComponents && config.analysisComponents.includes('contentWeight')) || config.contentWeight,
-          includeSocialAnalysis: (config.analysisComponents && config.analysisComponents.includes('seo')) || config.seoAnalysis,
-          includeReadabilityAnalysis: (config.analysisComponents && config.analysisComponents.includes('seo')) || config.seoAnalysis,
-          includeTechnicalSEO: (config.analysisComponents && config.analysisComponents.includes('seo')) || config.seoAnalysis,
-          includeMobileFriendliness: config.mobileFriendliness,
+          includeResourceAnalysis: false, // Disabled temporarily
+          includeSocialAnalysis: false,   // Disabled temporarily  
+          includeReadabilityAnalysis: false, // Disabled temporarily
+          includeTechnicalSEO: false,     // Disabled temporarily
+          includeMobileFriendliness: false, // Disabled temporarily
           analysisTimeout: 30000
         });
         
@@ -507,11 +296,27 @@ program
               // Store actual error/warning arrays for detailed issues
               errorDetails: result.errors || [],
               warningDetails: result.warnings || [],
+              // Pa11y data - store directly for markdown report
+              pa11yScore: result.pa11yScore,
+              pa11yIssues: result.pa11yIssues,
               performance: result.performance,
               seo: result.seo,
               contentWeight: result.contentWeight,
               mobileFriendliness: result.mobileFriendliness, // Add Mobile-Friendliness data
-              qualityScore: result.qualityScore
+              qualityScore: result.qualityScore,
+              // Issues structure expected by HTML generator
+              issues: {
+                pa11yScore: result.pa11yScore,
+                pa11yIssues: result.pa11yIssues,
+                performanceMetrics: result.performance?.metrics,
+                imagesWithoutAlt: result.imagesWithoutAlt || 0,
+                buttonsWithoutLabel: result.buttonsWithoutLabel || 0,
+                headingsCount: result.headingsCount || 0,
+                keyboardNavigation: result.keyboardNavigation || [],
+                colorContrastIssues: result.colorContrastIssues || [],
+                focusManagementIssues: result.focusManagementIssues || [],
+                screenshots: result.screenshots
+              }
             });
             
             if (result.passed) successCount++;
@@ -542,31 +347,103 @@ program
         // Cleanup
         await checker.cleanup();
         
-        // Generate standard HTML report using the normal report generator
-        const { generateHtmlReport } = require('../dist/reports/html-report');
+        console.log('\n📝 Generating comprehensive HTML report...');
         
-        const reportData = {
-          summary: {
+        // Use the new enhanced HTML generator with proper data mapping
+        let htmlContent;
+        try {
+          const { generateHtmlReport } = require('../dist/src/reports/html-report');
+          
+          // Prepare data in format expected by the new HtmlGenerator
+          const htmlData = {
+            metadata: {
+              timestamp: new Date().toISOString(),
+              tool: '@casoon/auditmysite',
+              version: '2.0.0-alpha.1'
+            },
+            summary: {
+              testedPages: results.length,
+              passedPages: successCount,
+              failedPages: results.length - successCount,
+              totalErrors: errorCount,
+              totalWarnings: warningCount,
+              totalDuration: Date.now() - startTime
+            },
+            pages: results.map(page => ({
+              url: page.url,
+              title: page.title,
+              errors: page.errors,
+              warnings: page.warnings,
+              pa11yScore: page.pa11yScore,
+              pa11yIssues: page.pa11yIssues,
+              enhancedPerformance: page.performance,
+              enhancedSEO: page.seo,
+              contentWeight: page.contentWeight,
+              mobileFriendliness: page.mobileFriendliness,
+              qualityScore: page.qualityScore,
+              issues: page.issues
+            }))
+          };
+          
+          htmlContent = generateHtmlReport(htmlData);
+        } catch (e) {
+          console.warn('Using fallback HTML template:', e.message);
+          // Fallback to the comprehensive template if new generator fails
+          htmlContent = generateComprehensiveHtmlReport(results, {
+            timestamp: new Date().toLocaleString(),
+            sitemapUrl: finalSitemapUrl,
             totalPages: urls.length,
             testedPages: results.length,
             passedPages: successCount,
             failedPages: results.length - successCount,
-            crashedPages: results.filter(r => r.crashed).length,
             totalErrors: errorCount,
-            totalWarnings: warningCount,
-            totalDuration: Date.now() - startTime
-          },
-          pages: results,
-          metadata: {
-            timestamp: new Date().toLocaleString(),
-            sitemapUrl: finalSitemapUrl
-          }
-        };
-        
-        const htmlContent = generateHtmlReport(reportData);
+            totalWarnings: warningCount
+          });
+        }
         
         const reportPath = path.join(subDir, `accessibility-report-${dateOnly}.html`);
         require('fs').writeFileSync(reportPath, htmlContent);
+        
+        // 📝 Generate detailed accessibility issues markdown report
+        const { DetailedIssueMarkdownReport } = require('../dist/reports/detailed-issue-markdown');
+        
+        // Extract all pa11y issues and convert to DetailedIssue format
+        const detailedIssues = [];
+        results.forEach((page, index) => {
+          if (page.pa11yIssues && Array.isArray(page.pa11yIssues) && page.pa11yIssues.length > 0) {
+            page.pa11yIssues.forEach(issue => {
+              detailedIssues.push({
+                type: issue.type || 'accessibility',
+                severity: issue.type || 'error',
+                message: issue.message || 'Unknown accessibility issue',
+                code: issue.code,
+                selector: issue.selector,
+                context: issue.context,
+                htmlSnippet: issue.context,
+                pageUrl: page.url,
+                pageTitle: page.title || 'Untitled Page',
+                source: 'pa11y',
+                help: issue.help,
+                helpUrl: issue.helpUrl,
+                lineNumber: null,
+                recommendation: issue.help || 'Please refer to WCAG guidelines',
+                resource: null,
+                score: null,
+                metric: null
+              });
+            });
+          }
+        });
+        
+        // Generate detailed issues markdown if there are issues
+        if (detailedIssues.length > 0) {
+          const detailedMarkdown = DetailedIssueMarkdownReport.generate(detailedIssues);
+          const detailedPath = path.join(subDir, `detailed-issues-${dateOnly}.md`);
+          require('fs').writeFileSync(detailedPath, detailedMarkdown);
+          outputFiles = [reportPath, detailedPath];
+        } else {
+          outputFiles = [reportPath];
+        }
         
         const totalTime = Math.round((Date.now() - startTime) / 1000);
         console.log(`✅ Analysis completed: ${results.length} pages in ${formatTime(totalTime)}`);
@@ -580,7 +457,6 @@ program
           totalErrors: errorCount,
           totalWarnings: warningCount
         };
-        outputFiles = [reportPath];
         // startTime already set above, no need to recalculate
         
         // Continue to standard success output below...
@@ -847,101 +723,7 @@ function categorizeError(error) {
   };
 }
 
-// 🚀 Streaming Audit Function for Tauri Integration
-async function runStreamingAudit(sitemapUrl, options) {
-  const { StreamingReporter } = require('../dist/core/reporting/streaming-reporter');
-  const { StandardPipeline } = require('../dist/core');
-  
-  const streamingReporter = StreamingReporter.create(
-    options.sessionId,
-    process.stdout,
-    {
-      enabled: true,
-      chunkSize: parseInt(options.chunkSize) || 10,
-      bufferTimeout: 1000,
-      includeDetailedResults: true,
-      compressResults: false
-    }
-  );
-  
-  try {
-    // Initialize streaming session
-    streamingReporter.init(options.full ? 1000 : 5, {});
-    
-    // Report initial progress
-    streamingReporter.reportProgress({
-      current: 0,
-      total: options.full ? 1000 : 5,
-      currentUrl: sitemapUrl,
-      stage: 'parsing_sitemap'
-    });
-    
-    // Configure pipeline options
-    const config = {
-      maxPages: options.full ? 1000 : 5,
-      standard: 'WCAG2AA',
-      format: options.format || 'html',
-      outputDir: options.outputDir || './reports',
-      timeout: 30000,
-      generateDetailedReport: true,
-      generatePerformanceReport: true,
-      generateSeoReport: false,
-      generateSecurityReport: false,
-      outputFormat: options.format || 'html',
-      maxConcurrent: 2,
-      verbose: options.verbose || false,
-      timestamp: new Date().toISOString(),
-      collectPerformanceMetrics: true,
-      
-      // 🔥 Advanced v2.0 Features (all enabled by default for streaming)
-      modernHtml5: true,
-      ariaAdvanced: true,
-      chrome135Features: true,
-      semanticAnalysis: true
-    };
-    
-    const pipeline = new StandardPipeline();
-    
-    // Override pipeline progress reporting for streaming
-    const originalProgressCallback = config.progressCallback;
-    config.progressCallback = (current, total, currentUrl) => {
-      streamingReporter.reportProgress({
-        current,
-        total,
-        currentUrl: currentUrl || 'Processing...',
-        stage: 'testing_pages'
-      });
-      
-      if (originalProgressCallback) {
-        originalProgressCallback(current, total, currentUrl);
-      }
-    };
-    
-    const { summary, outputFiles } = await pipeline.run({
-      sitemapUrl,
-      ...config
-    });
-    
-    // Report completion
-    streamingReporter.complete(summary, summary.testedPages, summary.passedPages);
-    
-    // Clean exit for streaming mode
-    // Only exit with code 1 for technical crashes, not accessibility failures
-    process.exit(summary.crashedPages > 0 ? 1 : 0);
-    
-  } catch (error) {
-    streamingReporter.reportError(
-      error.message || String(error),
-      sitemapUrl,
-      'streaming_audit',
-      false
-    );
-    
-    process.exit(1);
-  } finally {
-    streamingReporter.cleanup();
-  }
-}
+// Streaming audit function removed in CLI simplification - no longer needed
 
 // Helper function to run standard pipeline (used as fallback)
 async function runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pipeline) {
@@ -974,10 +756,39 @@ async function runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pip
   return { summary, outputFiles, totalTime };
 }
 
-// Helper function for Report Generation
-function generateAccessibilityReport(result) {
-  const { summary, results } = result;
+// Comprehensive HTML Report Generator with Filter System and Detailed Issues
+function generateComprehensiveHtmlReport(results, summary) {
+  const domain = results.length > 0 ? new URL(results[0].url).hostname : 'unknown';
+  const successRate = Math.round((summary.passedPages / summary.testedPages) * 100) || 0;
   
+  // Calculate total pa11y issues for detailed section
+  const allDetailedIssues = [];
+  results.forEach(page => {
+    if (page.pa11yIssues && Array.isArray(page.pa11yIssues)) {
+      page.pa11yIssues.forEach(issue => {
+        allDetailedIssues.push({
+          ...issue,
+          pageUrl: page.url,
+          pageTitle: page.title,
+          source: 'pa11y',
+          category: getIssueCategory(issue.code || issue.type)
+        });
+      });
+    }
+  });
+  
+  return generateFullHtmlTemplate({
+    domain,
+    summary,
+    results,
+    allDetailedIssues,
+    timestamp: summary.timestamp || new Date().toLocaleString(),
+    successRate
+  });
+}
+
+// Helper function for Simple Report Generation (fallback)
+function generateSimpleHtmlReport(results, summary) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1003,6 +814,7 @@ function generateAccessibilityReport(result) {
         .grade-F { background: #991b1b; }
         .analysis-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 0.9em; }
         .analysis-metric { background: #f8fafc; padding: 8px; border-radius: 4px; text-align: center; }
+        .pa11y-info { background: #e3f2fd; padding: 15px; border-left: 4px solid #2196f3; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -1028,13 +840,19 @@ function generateAccessibilityReport(result) {
             </div>
         </div>
         
+        <div class="pa11y-info">
+          <h3>📝 Detailed Accessibility Issues</h3>
+          <p>The detailed accessibility issues found by Pa11y have been saved to a separate markdown file for easier review and integration into your development workflow.</p>
+          <p><strong>Look for:</strong> detailed-issues-${new Date().toISOString().split('T')[0]}.md</p>
+        </div>
+        
         <h2>Detailed Results</h2>
         <table class="results-table">
             <thead>
                 <tr>
                     <th>Page</th>
                     <th>Status</th>
-                    <th>Analysis Metrics</th>
+                    <th>Pa11y Issues</th>
                     <th>Quality Score</th>
                 </tr>
             </thead>
@@ -1051,11 +869,10 @@ function generateAccessibilityReport(result) {
                             ${page.warnings ? `<br><small>${page.warnings} warnings</small>` : ''}
                         </td>
                         <td>
-                            <div class="analysis-metrics">
-                                ${page.seo ? `<div class="analysis-metric">SEO: ${page.seo.seoScore}/100</div>` : ''}
-                                ${page.contentWeight ? `<div class="analysis-metric">Content: ${page.contentWeight.contentScore}/100</div>` : ''}
-                                ${page.performance ? `<div class="analysis-metric">Performance: ${page.performance.performanceScore || 'N/A'}</div>` : ''}
-                            </div>
+                            ${page.pa11yIssues && Array.isArray(page.pa11yIssues) ? 
+                                `<strong>${page.pa11yIssues.length} issues</strong><br><small>Score: ${page.pa11yScore}/100</small>` : 
+                                'No data'
+                            }
                         </td>
                         <td>
                             ${page.qualityScore ? 
@@ -1068,11 +885,84 @@ function generateAccessibilityReport(result) {
         </table>
         
         <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b;">
-            <p>Generated by AuditMySite - ${new Date().toLocaleString()}</p>
+            <p>Generated by AuditMySite - ${summary.timestamp}</p>
+            <p><em>Note: Full HTML report generation temporarily disabled due to large issue count. Check the detailed-issues markdown file for complete accessibility findings.</em></p>
         </footer>
     </div>
 </body>
 </html>`;
 }
+
+// Helper functions for issue categorization and HTML generation
+function getIssueCategory(codeOrType) {
+  if (!codeOrType) return 'General';
+  
+  const code = codeOrType.toLowerCase();
+  
+  if (code.includes('color') || code.includes('contrast')) return 'Color & Contrast';
+  if (code.includes('aria') || code.includes('role')) return 'ARIA & Semantics';
+  if (code.includes('form') || code.includes('label')) return 'Forms & Labels';
+  if (code.includes('image') || code.includes('alt')) return 'Images & Media';
+  if (code.includes('heading') || code.includes('structure')) return 'Document Structure';
+  if (code.includes('keyboard') || code.includes('focus')) return 'Keyboard & Focus';
+  if (code.includes('link') || code.includes('anchor')) return 'Links & Navigation';
+  if (code.includes('table')) return 'Tables';
+  if (code.includes('landmark')) return 'Page Landmarks';
+  
+  return 'General Accessibility';
+}
+
+function escapeHtml(text) {
+  return (text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getPageName(url) {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    return pathname === '/' ? 'Home' : pathname.split('/').pop() || pathname;
+  } catch {
+    return url;
+  }
+}
+
+function generateFullHtmlTemplate(data) {
+  const { domain, summary, results, allDetailedIssues, timestamp, successRate } = data;
+  
+  // Group issues by category for detailed section
+  const groupedIssues = {};
+  allDetailedIssues.forEach(issue => {
+    const category = issue.category || 'General';
+    if (!groupedIssues[category]) {
+      groupedIssues[category] = [];
+    }
+    groupedIssues[category].push(issue);
+  });
+  
+  const errorCount = allDetailedIssues.filter(i => i.type === 'error').length;
+  const warningCount = allDetailedIssues.filter(i => i.type === 'warning').length;
+  const noticeCount = allDetailedIssues.filter(i => i.type === 'notice').length;
+
+  return getComprehensiveHtmlTemplate({ 
+    domain, 
+    summary, 
+    results, 
+    allDetailedIssues, 
+    groupedIssues, 
+    timestamp, 
+    successRate, 
+    errorCount, 
+    warningCount, 
+    noticeCount 
+  });
+}
+
+// Load comprehensive HTML template functions
+const { getComprehensiveHtmlTemplate } = require('./comprehensive-html-template.js');
 
 program.parse();

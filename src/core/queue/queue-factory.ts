@@ -9,6 +9,7 @@ import { QueueAdapter } from './queue-adapter';
 import { QueueType, QueueConfig, QueueEventCallbacks } from './types';
 import { SimpleQueueAdapter } from './adapters/simple-queue-adapter';
 import { ParallelQueueAdapter } from './adapters/parallel-queue-adapter';
+import { PersistentQueueAdapter } from './adapters/persistent-queue-adapter';
 
 export class QueueFactory {
   /**
@@ -41,11 +42,11 @@ export class QueueFactory {
         }, callbacks);
         
       case 'persistent':
-        // For now, use parallel adapter with persistence enabled
-        // TODO: Implement PersistentQueueAdapter later
-        return new ParallelQueueAdapter<T>({
+        // Use real PersistentQueueAdapter
+        return new PersistentQueueAdapter<T>({
           ...config,
-          enablePersistence: true
+          enableAutoSave: true,
+          autoSaveInterval: config.progressUpdateInterval || 30000
         }, callbacks);
         
       default:

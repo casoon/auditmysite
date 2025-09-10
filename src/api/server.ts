@@ -64,6 +64,7 @@ export class AuditAPIServer {
   private config: APIConfig;
   private jobManager: JobManager;
   private sdk: AuditSDK;
+  private server: any = null;
 
   constructor(config: Partial<APIConfig> = {}) {
     this.config = this.mergeConfig(config);
@@ -86,12 +87,12 @@ export class AuditAPIServer {
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const server = this.app.listen(this.config.port, this.config.host, () => {
+        this.server = this.app.listen(this.config.port, this.config.host, () => {
           console.log(`🚀 AuditMySite API Server running at http://${this.config.host}:${this.config.port}`);
           resolve();
         });
 
-        server.on('error', reject);
+        this.server.on('error', reject);
       } catch (error) {
         reject(error);
       }
@@ -103,6 +104,20 @@ export class AuditAPIServer {
    */
   getApp(): Express {
     return this.app;
+  }
+  
+  /**
+   * Shutdown server and clean up resources
+   */
+  async shutdown(): Promise<void> {
+    if (this.server) {
+      return new Promise((resolve) => {
+        this.server.close(() => {
+          this.server = null;
+          resolve();
+        });
+      });
+    }
   }
 
   private mergeConfig(config: Partial<APIConfig>): APIConfig {

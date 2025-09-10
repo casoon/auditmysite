@@ -25,8 +25,8 @@ export interface CoreAuditOptions {
   maxPages?: number;
   outputDir?: string;
   
-  // Analysis modes (simplified to 2 options)
-  useEnhancedAnalysis?: boolean;
+  // Analysis modes - all features integrated in AccessibilityChecker
+  // No need for separate "enhanced" mode
   
   // Optional features
   generateHTML?: boolean;
@@ -81,10 +81,8 @@ export class CoreAuditPipeline {
     const browserManager = await this.initializeBrowserPool();
     
     try {
-      // 3. Run audit (simplified to 2 modes)
-      const results = options.useEnhancedAnalysis
-        ? await this.runEnhancedAudit(urls, browserManager, options)
-        : await this.runStandardAudit(urls, browserManager, options);
+      // 3. Run audit (unified approach - all features in AccessibilityChecker)
+      const results = await this.runAccessibilityAudit(urls, browserManager, options);
       
       // 4. Create full audit result (JSON structure)
       const fullResult = this.buildFullAuditResult(results, sitemapResult, options, startTime);
@@ -141,83 +139,72 @@ export class CoreAuditPipeline {
   }
   
   /**
-   * Initialize browser pool (single instance for entire pipeline)
+   * Initialize browser pool (optimized for v2.0)
    */
   private async initializeBrowserPool(): Promise<any> {
-    // For now, use existing browser manager
-    // TODO: Implement optimized browser pool in Sprint 3
-    const { BrowserManager } = require('../browser');
-    const browserManager = new BrowserManager({ 
-      headless: true, 
-      port: 9222,
-      maxBrowsers: 3 // Limited for stability
+    console.log('🌐 Initializing optimized browser pool...');
+    
+    // Use optimized BrowserPoolManager instead of single browser
+    const { BrowserPoolManager } = require('../browser/browser-pool-manager');
+    const poolManager = new BrowserPoolManager({
+      maxConcurrent: 3, // Conservative for stability
+      maxIdleTime: 30000, // 30 seconds
+      browserType: 'chromium',
+      enableResourceOptimization: true,
+      launchOptions: {
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox', 
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--memory-pressure-off',
+          '--max_old_space_size=2048' // Reduced from 4GB to 2GB
+        ]
+      }
     });
-    await browserManager.initialize();
-    return browserManager;
+    
+    // Warm up the pool with 1 browser initially
+    await poolManager.warmUp(1);
+    
+    return poolManager;
   }
   
   /**
-   * Run standard audit (pa11y + basic performance)
+   * Run accessibility audit with all features - OPTIMIZED v2.0
    */
-  private async runStandardAudit(
+  private async runAccessibilityAudit(
     urls: string[], 
-    browserManager: any, 
+    poolManager: any, 
     options: CoreAuditOptions
   ): Promise<AccessibilityResult[]> {
-    console.log('🔧 Running Standard Audit...');
+    console.log('🔧 Running Accessibility Audit with Full Features...');
     
-    const checker = new AccessibilityChecker();
-    await checker.initialize();
+    // Use new pooled accessibility checker
+    const { PooledAccessibilityChecker } = require('../accessibility/pooled-accessibility-checker');
+    const checker = new PooledAccessibilityChecker(poolManager);
     
     const testOptions: TestOptions = {
       maxPages: options.maxPages || 20,
       timeout: options.timeout || 10000,
       waitUntil: 'domcontentloaded',
       pa11yStandard: options.pa11yStandard || 'WCAG2AA',
-      collectPerformanceMetrics: options.collectPerformanceMetrics || true,
       captureScreenshots: options.captureScreenshots || false,
-      includeWarnings: options.includeWarnings || false,
-      maxConcurrent: options.maxConcurrent || 3
+      includeWarnings: options.includeWarnings !== false,
+      maxConcurrent: options.maxConcurrent || 3,
+      verbose: false // Reduce console output for performance
     };
     
-    // Use unified queue (default in v2.0)
-    const results = await checker.testMultiplePagesUnified(urls, testOptions);
-    await checker.cleanup();
+    // Direct pool-based testing (no complex queue system)
+    const results = await checker.testMultiplePages(urls, testOptions);
+    
+    // Log pool efficiency
+    const poolStatus = checker.getPoolStatus();
+    console.log(`🌐 Browser pool efficiency: ${poolStatus.metrics.efficiency.toFixed(1)}%`);
     
     return results;
   }
   
-  /**
-   * Run enhanced audit (pa11y + performance + SEO + content weight)
-   */
-  private async runEnhancedAudit(
-    urls: string[], 
-    browserManager: any, 
-    options: CoreAuditOptions
-  ): Promise<AccessibilityResult[]> {
-    console.log('🆕 Running Enhanced Audit...');
-    
-    const { EnhancedAccessibilityChecker } = require('../accessibility/enhanced-accessibility-checker');
-    const enhancedChecker = new EnhancedAccessibilityChecker();
-    await enhancedChecker.initialize(browserManager);
-    
-    const enhancedOptions = {
-      maxPages: options.maxPages || 20,
-      timeout: options.timeout || 10000,
-      pa11yStandard: options.pa11yStandard || 'WCAG2AA',
-      enhancedAnalysis: true,
-      contentWeightAnalysis: true,
-      enhancedPerformanceAnalysis: true,
-      enhancedSeoAnalysis: true,
-      semanticAnalysis: true,
-      maxConcurrent: options.maxConcurrent || 3
-    };
-    
-    const results = await enhancedChecker.testMultiplePagesWithEnhancedAnalysis(urls, enhancedOptions);
-    await enhancedChecker.cleanup();
-    
-    return results;
-  }
   
   /**
    * Build full audit result with strict typing
@@ -253,13 +240,13 @@ export class CoreAuditPipeline {
         toolVersion: require('../../../package.json').version,
         config: {
           maxPages: options.maxPages || 20,
-          useEnhancedAnalysis: options.useEnhancedAnalysis || false,
+          fullAnalysis: true,
           pa11yStandard: options.pa11yStandard || 'WCAG2AA',
           analysisTypes: {
             accessibility: true,
             performance: options.collectPerformanceMetrics || false,
-            seo: options.useEnhancedAnalysis || false,
-            contentWeight: options.useEnhancedAnalysis || false
+            seo: true,
+            contentWeight: true
           }
         }
       },
@@ -492,9 +479,12 @@ export class CoreAuditPipeline {
   /**
    * Cleanup browser resources
    */
-  private async cleanupBrowserPool(browserManager: any): Promise<void> {
-    if (browserManager) {
-      await browserManager.cleanup();
+  private async cleanupBrowserPool(poolManager: any): Promise<void> {
+    if (poolManager) {
+      console.log('🧼 Shutting down browser pool...');
+      const metrics = poolManager.getMetrics();
+      console.log(`📊 Pool efficiency: ${metrics.efficiency.toFixed(1)}% (${metrics.reused}/${metrics.totalRequests} reused)`);
+      await poolManager.shutdown();
     }
   }
 }

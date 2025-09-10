@@ -33,6 +33,14 @@
 - **Memory Management**: Automatic cleanup and optimization
 - **TypeScript Support**: Full type safety throughout
 
+### 6. Adaptive Backpressure & Resource Management 🆕
+- **Smart Queue Management**: Automatic backpressure when system resources are constrained
+- **Resource Monitoring**: Real-time CPU, memory, and event loop monitoring
+- **Dynamic Worker Scaling**: Automatically adjust concurrency based on system health
+- **Garbage Collection Control**: Proactive memory management with forced GC
+- **System Health Scoring**: 0-100 resource health indicators
+- **Configurable Thresholds**: Fine-tune memory and CPU limits for your environment
+
 ## 🔧 Breaking Changes
 
 ### CLI Changes
@@ -42,6 +50,11 @@
   - `--no-seo`: Disable SEO analysis
   - `--no-mobile`: Disable mobile-friendliness analysis
   - `--no-content-weight`: Disable content weight analysis
+- **New resource management options**:
+  - `--enable-backpressure`: Enable adaptive backpressure control
+  - `--max-memory-mb <size>`: Set memory limit (default: auto-detected)
+  - `--enable-resource-monitoring`: Enable system resource monitoring
+  - `--resource-monitoring-interval <ms>`: Set monitoring frequency
 
 ### API Changes
 - All endpoints now return enhanced data by default
@@ -103,6 +116,57 @@ The new HTML reports include:
 - Responsive design
 - Print optimization
 
+### 6. 🆕 Adaptive Backpressure Testing
+```bash
+# Test with backpressure enabled
+auditmysite https://example.com/sitemap.xml --max-pages 10 --enable-backpressure --verbose
+
+# Test with custom memory limits
+auditmysite https://large-site.com/sitemap.xml --max-memory-mb 1024 --enable-resource-monitoring
+
+# Stress test with large sitemap
+auditmysite https://example.com/sitemap.xml --max-pages 50 --enable-backpressure
+```
+
+### 7. Resource Monitoring
+```javascript
+import { ResourceMonitor } from '@casoon/auditmysite';
+
+const monitor = new ResourceMonitor({
+  enabled: true,
+  memoryWarningThresholdMB: 1536,
+  memoryCriticalThresholdMB: 2048
+});
+
+monitor.on('resourceAlert', (alert) => {
+  console.log(`${alert.level}: ${alert.message}`);
+  if (alert.level === 'critical') {
+    // Take action - reduce concurrency, trigger GC, etc.
+  }
+});
+
+monitor.start();
+```
+
+### 8. Queue Management with Backpressure
+```javascript
+import { EnhancedParallelQueueAdapter } from '@casoon/auditmysite';
+
+const queue = new EnhancedParallelQueueAdapter({
+  maxConcurrent: 5,
+  enableBackpressure: true,
+  maxMemoryUsage: 2048,
+  enableResourceMonitoring: true
+}, {
+  onBackpressureActivated: (metrics) => {
+    console.log('Backpressure activated:', metrics.currentDelay + 'ms delay');
+  },
+  onResourceWarning: (snapshot) => {
+    console.log('Resource warning:', snapshot.rssMemoryMB + 'MB used');
+  }
+});
+```
+
 ## 🐛 Bug Fixes
 
 - Fixed Pa11y score calculation
@@ -143,6 +207,16 @@ The new HTML reports include:
     timeout: 30000
   },
   
+  // 🆕 Adaptive Backpressure Configuration
+  queue: {
+    enableBackpressure: true,
+    maxQueueSize: 1000,
+    maxMemoryUsage: 2048, // MB
+    backpressureThreshold: 0.8,
+    adaptiveDelay: true,
+    enableResourceMonitoring: true,
+    enableGarbageCollection: true
+  }
 }
 ```
 
@@ -198,6 +272,115 @@ console.log(`Pool efficiency: ${status.metrics.efficiency}%`);
 import { webhookManager } from '@casoon/auditmysite';
 
 const stats = webhookManager.getDeliveryStats();
+console.log(`Success rate: ${stats.successRate}%`);
+```
+
+## 🆕 Environment Variables for Resource Management
+
+You can configure backpressure and resource monitoring via environment variables:
+
+### Queue Configuration
+```bash
+# Core queue settings
+export QUEUE_MAX_CONCURRENT=5
+export QUEUE_MAX_RETRIES=3
+export QUEUE_TIMEOUT=30000
+export QUEUE_MAX_SIZE=1000
+
+# Backpressure settings
+export QUEUE_ENABLE_BACKPRESSURE=true
+export QUEUE_BACKPRESSURE_THRESHOLD=0.8
+export QUEUE_MAX_MEMORY_MB=2048
+export QUEUE_MIN_DELAY_MS=10
+export QUEUE_MAX_DELAY_MS=5000
+
+# Resource monitoring
+export QUEUE_ENABLE_RESOURCE_MONITORING=true
+export QUEUE_MEMORY_WARNING_MB=1536
+export QUEUE_MEMORY_CRITICAL_MB=2048
+export QUEUE_SAMPLING_INTERVAL_MS=2000
+
+# Performance tuning
+export QUEUE_ENABLE_ADAPTIVE_DELAY=true
+export QUEUE_ENABLE_GC=true
+export QUEUE_GC_INTERVAL=30000
+```
+
+### Production Configuration
+```bash
+# Recommended production settings
+export QUEUE_ENABLE_BACKPRESSURE=true
+export QUEUE_ENABLE_RESOURCE_MONITORING=true
+export QUEUE_MAX_MEMORY_MB=3072
+export QUEUE_MAX_CONCURRENT=4
+export QUEUE_ENABLE_GC=true
+export QUEUE_BACKPRESSURE_THRESHOLD=0.75
+```
+
+### CI/Test Configuration  
+```bash
+# Minimal settings for CI environments
+export NODE_ENV=test
+export QUEUE_ENABLE_BACKPRESSURE=false
+export QUEUE_ENABLE_RESOURCE_MONITORING=false
+export QUEUE_MAX_CONCURRENT=2
+export QUEUE_MAX_SIZE=50
+```
+
+## 📊 Backpressure Metrics
+
+### Understanding the Metrics
+```javascript
+import { AdaptiveBackpressureController } from '@casoon/auditmysite';
+
+const controller = new AdaptiveBackpressureController({ enabled: true });
+controller.updateQueueState(queueLength, concurrency, hasError);
+
+const metrics = controller.getMetrics();
+console.log({
+  isActive: metrics.isActive,              // Backpressure currently active
+  currentDelay: metrics.currentDelay,      // Current adaptive delay (ms)
+  memoryUsageMB: metrics.memoryUsageMB,    // Current memory usage
+  cpuUsagePercent: metrics.cpuUsagePercent,// Current CPU usage
+  errorRate: metrics.errorRate,            // Recent error rate (%)
+  activationCount: metrics.activationCount,// Total activations
+  peakMemoryMB: metrics.peakMemoryMB,      // Peak memory seen
+  gcCount: metrics.gcCount                 // Garbage collections triggered
+});
+```
+
+### Health Score Interpretation
+- **90-100**: Excellent system health
+- **70-89**: Good performance, minor pressure
+- **50-69**: Moderate pressure, backpressure may activate
+- **30-49**: High pressure, performance degraded
+- **0-29**: Critical state, aggressive backpressure active
+
+## 🔧 Troubleshooting Resource Issues
+
+### Memory Warnings
+```
+⚠️ RSS memory usage high: 1800.5MB
+```
+**Solution**: Enable backpressure or reduce maxConcurrent
+
+### Backpressure Activation
+```
+🔄 Backpressure activated: Memory/CPU pressure detected (250ms delay)
+```
+**Normal**: System is automatically managing load
+
+### Critical Memory Alerts
+```
+🔴 Heap usage critical: 92.3%
+```
+**Action**: Reduce queue size, enable GC, or increase memory limit
+
+### Worker Health Issues
+```
+⚠️ Worker health score low: 45% (worker_2)
+```
+**Solution**: Worker will be automatically replaced or scaled down
 console.log(`Success rate: ${stats.successRate}%`);
 ```
 

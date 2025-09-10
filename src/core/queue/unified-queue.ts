@@ -199,6 +199,19 @@ export class UnifiedQueue<T = any> {
   }
 
   /**
+   * Clean up queue resources
+   */
+  async cleanup(): Promise<void> {
+    // Clear all items
+    this.clear();
+    
+    // If the adapter has a cleanup method, call it
+    if (typeof (this.adapter as any).cleanup === 'function') {
+      await (this.adapter as any).cleanup();
+    }
+  }
+
+  /**
    * Create progress reporter that updates at regular intervals
    */
   createProgressReporter(interval: number = 2000): () => void {

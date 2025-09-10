@@ -148,12 +148,13 @@ export class BrowserManager {
       await this.browser.close();
     }
     
-    // Clean up user data directory
+    // Clean up user data directory (async)
     if (this.userDataDir) {
       try {
-        const fs = require('fs');
-        if (fs.existsSync(this.userDataDir)) {
-          fs.rmSync(this.userDataDir, { recursive: true, force: true });
+        const fs = require('fs/promises');
+        const { existsSync } = require('fs'); // Keep sync check for existence
+        if (existsSync(this.userDataDir)) {
+          await fs.rm(this.userDataDir, { recursive: true, force: true });
         }
       } catch (error) {
         console.warn('⚠️  Could not clean up browser user data directory:', error);

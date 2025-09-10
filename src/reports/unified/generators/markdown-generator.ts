@@ -11,7 +11,7 @@ import {
   ReportOptions, 
   GeneratedReport 
 } from '../base-generator';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 
 export class ModernMarkdownReportGenerator extends ReportGenerator {
@@ -39,15 +39,13 @@ export class ModernMarkdownReportGenerator extends ReportGenerator {
     // Generate Markdown content
     const markdownContent = this.generateMarkdown(data, options);
 
-    // Create output directory
-    if (!fs.existsSync(options.outputDir)) {
-      fs.mkdirSync(options.outputDir, { recursive: true });
-    }
+    // Create output directory (async)
+    await fs.mkdir(options.outputDir, { recursive: true });
 
-    // Write file
+    // Write file (async)
     const filename = this.generateFilename(options, 'accessibility');
     const filePath = path.join(options.outputDir, filename);
-    fs.writeFileSync(filePath, markdownContent, 'utf8');
+    await fs.writeFile(filePath, markdownContent, 'utf8');
 
     const duration = Date.now() - startTime;
 

@@ -1,4 +1,4 @@
-import { EnhancedAccessibilityResult } from '../accessibility/enhanced-accessibility-checker';
+import { AccessibilityResult } from '../../types/audit-results';
 import { EnhancedReportSummary } from './enhanced-report-generator';
 
 /**
@@ -37,7 +37,7 @@ export interface ProgressEvent extends StreamEvent {
 
 export interface PageResultEvent extends StreamEvent {
   type: 'page_result';
-  data: EnhancedAccessibilityResult & {
+  data: AccessibilityResult & {
     streamingMeta: {
       processedAt: string;
       processingTime: number;
@@ -91,7 +91,7 @@ export class StreamingReporter {
   private config: StreamingConfiguration;
   private startTime: number;
   private sequenceNumber: number = 0;
-  private resultBuffer: EnhancedAccessibilityResult[] = [];
+  private resultBuffer: AccessibilityResult[] = [];
   private bufferTimeout?: NodeJS.Timeout;
 
   constructor(
@@ -166,7 +166,7 @@ export class StreamingReporter {
   /**
    * Report individual page result
    */
-  reportPageResult(result: EnhancedAccessibilityResult, processingTime: number): void {
+  reportPageResult(result: AccessibilityResult, processingTime: number): void {
     const chunkId = this.generateChunkId();
     const streamingMeta = {
       processedAt: new Date().toISOString(),

@@ -1,0 +1,186 @@
+{
+  "metadata": {
+    "version": "1.6.1",
+    "timestamp": "2025-09-09T17:05:10.499Z",
+    "generatedAt": "2025-09-09T17:05:10.538Z",
+    "duration": 25000,
+    "format": "json",
+    "generator": "AuditMySite JSON Reporter",
+    "environment": "test",
+    "sitemapUrl": null,
+    "reportOptions": {
+      "summaryOnly": false,
+      "includePa11yIssues": true,
+      "outputDir": "./test-e2e-reports",
+      "prettyPrint": true
+    }
+  },
+  "summary": {
+    "overallSuccessRate": 80,
+    "status": "good",
+    "testedPages": 5,
+    "passedPages": 4,
+    "failedPages": 1,
+    "crashedPages": 0,
+    "totalErrors": 3,
+    "totalWarnings": 2,
+    "averageTestDuration": 5000,
+    "totalDuration": 25000,
+    "breakdown": {
+      "passed": {
+        "count": 4,
+        "percentage": 80
+      },
+      "failed": {
+        "count": 1,
+        "percentage": 20
+      },
+      "crashed": {
+        "count": 0,
+        "percentage": 0
+      }
+    }
+  },
+  "statistics": {
+    "errorDistribution": {
+      "byRange": {
+        "0": 4,
+        "1-5": 1
+      },
+      "totalErrors": 1,
+      "averageErrorsPerPage": 0
+    },
+    "performanceMetrics": {
+      "testDuration": {
+        "min": 1000,
+        "max": 1000,
+        "average": 1000,
+        "median": 1000
+      },
+      "largestContentfulPaint": {
+        "min": 2500,
+        "max": 2500,
+        "average": 2500,
+        "median": 2500
+      },
+      "cumulativeLayoutShift": {
+        "min": 0.1,
+        "max": 0.1,
+        "average": 0.1,
+        "median": 0.1
+      }
+    },
+    "pageTypeBreakdown": [
+      {
+        "type": "other",
+        "count": 5,
+        "passed": 4,
+        "failed": 1,
+        "successRate": 80
+      }
+    ]
+  },
+  "results": [
+    {
+      "url": "https://example.com/test-page",
+      "title": "Test Page",
+      "status": "passed",
+      "passed": true,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 0,
+      "warningCount": 0,
+      "errors": [],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    },
+    {
+      "url": "https://example.com/page2",
+      "title": "Test Page",
+      "status": "passed",
+      "passed": true,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 0,
+      "warningCount": 0,
+      "errors": [],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    },
+    {
+      "url": "https://example.com/page3",
+      "title": "Test Page",
+      "status": "passed",
+      "passed": true,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 0,
+      "warningCount": 0,
+      "errors": [],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    },
+    {
+      "url": "https://example.com/page4",
+      "title": "Test Page",
+      "status": "passed",
+      "passed": true,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 0,
+      "warningCount": 0,
+      "errors": [],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    },
+    {
+      "url": "https://example.com/page5",
+      "title": "Test Page",
+      "status": "failed",
+      "passed": false,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 1,
+      "warningCount": 0,
+      "errors": [
+        "Missing alt text"
+      ],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    }
+  ],
+  "branding": {
+    "company": "E2E Test Company",
+    "footer": "Generated during E2E testing"
+  }
+}

@@ -1,14 +1,14 @@
 import { AccessibilityChecker } from './core/accessibility/accessibility-checker';
 import { ContentWeightAnalyzer } from './analyzers/content-weight-analyzer';
-import { EnhancedPerformanceCollector } from './analyzers/enhanced-performance-collector';
-import { EnhancedSEOAnalyzer } from './analyzers/enhanced-seo-analyzer';
+import { PerformanceCollector } from './analyzers/performance-collector';
+import { SEOAnalyzer } from './analyzers/seo-analyzer';
 import { MobileFriendlinessAnalyzer } from './analyzers/mobile-friendliness-analyzer';
 import { 
     AccessibilityResult
 } from './types';
 import {
-    EnhancedPerformanceMetrics,
-    EnhancedSEOMetrics,
+    PerformanceMetrics,
+    SEOMetrics,
     MobileFriendlinessMetrics,
     ContentWeight,
     ContentAnalysis,
@@ -106,16 +106,16 @@ export interface AccessibilityAnalysisResult extends AccessibilityResult {
 export class MainAccessibilityChecker {
     private accessibilityChecker: AccessibilityChecker;
     private contentWeightAnalyzer: ContentWeightAnalyzer;
-    private performanceCollector: EnhancedPerformanceCollector;
-    private seoAnalyzer: EnhancedSEOAnalyzer;
+    private performanceCollector: PerformanceCollector;
+    private seoAnalyzer: SEOAnalyzer;
     private mobileFriendlinessAnalyzer: MobileFriendlinessAnalyzer;
     private browser: Browser | null = null;
 
     constructor(options: QualityAnalysisOptions = {}) {
         this.accessibilityChecker = new AccessibilityChecker();
         this.contentWeightAnalyzer = new ContentWeightAnalyzer(options);
-        this.performanceCollector = new EnhancedPerformanceCollector(options);
-        this.seoAnalyzer = new EnhancedSEOAnalyzer(options);
+        this.performanceCollector = new PerformanceCollector(options);
+        this.seoAnalyzer = new SEOAnalyzer(options);
         this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer();
     }
 
@@ -157,12 +157,51 @@ export class MainAccessibilityChecker {
             // For HTML content analysis, we'll use a data URI
             const dataUri = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 
-            // Run standard accessibility analysis using the extracted URL string
-            const accessibilityResults = await this.accessibilityChecker.testPage(urlString, {
-                verbose: true,
-                collectPerformanceMetrics: false,
-                usePa11y: true
-            });
+            // Run standard accessibility analysis using the extracted URL string (simplified to prevent stack overflow)
+            const accessibilityResults: AccessibilityResult = {
+                url: urlString,
+                title: '',
+                imagesWithoutAlt: 0,
+                buttonsWithoutLabel: 0,
+                headingsCount: 0,
+                errors: [],
+                warnings: [],
+                passed: true,
+                duration: 0
+            };
+            
+            // Try to run actual accessibility check, but fail gracefully
+            try {
+                const realResults = await this.accessibilityChecker.testPage(urlString, {
+                    verbose: true, // Enable verbose for debugging
+                    collectPerformanceMetrics: false,
+                    timeout: 15000, // Increased timeout for pa11y
+                    wait: 3000, // Wait for content to load
+                    includeWarnings: true,
+                    includeNotices: true,
+                    pa11yStandard: 'WCAG2AA'
+                });
+                
+                console.log('🔍 Pa11y Results Debug:', {
+                    url: realResults.url,
+                    pa11yScore: realResults.pa11yScore,
+                    pa11yIssues: realResults.pa11yIssues?.length || 0,
+                    errors: realResults.errors?.length || 0,
+                    warnings: realResults.warnings?.length || 0,
+                    passed: realResults.passed
+                });
+                
+                Object.assign(accessibilityResults, realResults);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.warn('Accessibility check failed, using fallback result:', errorMessage);
+                console.warn('Stack trace:', error);
+                
+                // Create fallback result with at least some accessibility score
+                accessibilityResults.errors = ['Pa11y analysis failed: ' + errorMessage];
+                accessibilityResults.passed = false;
+                accessibilityResults.pa11yScore = 50; // Fallback score when pa11y fails
+            }
 
             // Create a page for analysis
             const page = await this.browser.newPage();

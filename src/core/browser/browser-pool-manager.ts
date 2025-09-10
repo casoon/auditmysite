@@ -160,6 +160,11 @@ export class BrowserPoolManager {
                     browser = await chromium.launch(this.options.launchOptions);
             }
 
+            // Validate browser instance
+            if (!browser || typeof browser.newContext !== 'function') {
+                throw new Error(`Invalid browser instance: browser.newContext is not a function (type: ${typeof browser})`);
+            }
+
             // Create optimized browser context
             const context = await browser.newContext({
                 ignoreHTTPSErrors: true,

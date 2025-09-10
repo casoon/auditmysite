@@ -1,0 +1,3 @@
+URL,Page Title,Status,Passed,Crashed,Error Count,Warning Count,Duration (ms),Timestamp,Page Type,LCP (ms),CLS,FID (ms),TTI (ms),Errors,Warnings,Pa11y Issues,Pa11y Issue Types
+https://example.com/test-page,Test Page,Passed,TRUE,FALSE,0,0,1000,2023-01-01T00:00:00Z,Other,2000,0.05,,,,,,
+https://example.com/failing-page,Test Page,Failed,FALSE,FALSE,2,1,1000,2023-01-01T00:00:00Z,Other,2500,0.1,100,3000,Error 1; Error 2,Warning 1,,

@@ -1,79 +1,4 @@
-/**
- * 🔧 Modern HTML Report Generator
- * 
- * Generates comprehensive HTML reports with modern design.
- * Replaces the legacy HTML report generation.
- */
 
-import { 
-  ReportGenerator, 
-  ReportData, 
-  ReportOptions, 
-  GeneratedReport, 
-  ReportFormat 
-} from '../base-generator';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-
-export class ModernHTMLReportGenerator extends ReportGenerator {
-  constructor() {
-    super('html');
-  }
-
-  getExtension(): string {
-    return 'html';
-  }
-
-  getMimeType(): string {
-    return 'text/html';
-  }
-
-  async generate(data: ReportData, options: ReportOptions): Promise<GeneratedReport> {
-    const startTime = Date.now();
-
-    // Validate data
-    const validation = this.validateData(data);
-    if (!validation.valid) {
-      throw new Error(`Invalid report data: ${validation.errors.join(', ')}`);
-    }
-
-    // Generate HTML content
-    const htmlContent = this.generateHTML(data, options);
-
-    // Create output directory (async)
-    await fs.mkdir(options.outputDir, { recursive: true });
-
-    // Write file (async)
-    const filename = this.generateFilename(options, 'accessibility');
-    const filePath = path.join(options.outputDir, filename);
-    await fs.writeFile(filePath, htmlContent, 'utf8');
-
-    const duration = Date.now() - startTime;
-
-    return {
-      path: filePath,
-      format: this.format,
-      size: this.calculateFileSize(htmlContent),
-      metadata: {
-        generatedAt: new Date(),
-        duration
-      }
-    };
-  }
-
-  private generateHTML(data: ReportData, options: ReportOptions): string {
-    const { summary, issues, metadata, config } = data;
-    const successRate = this.calculateSuccessRate(summary);
-    
-    const branding = options.branding || {};
-    const colors = branding.colors || {
-      primary: '#007acc',
-      success: '#28a745',
-      warning: '#ffc107',
-      error: '#dc3545'
-    };
-
-    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,27 +6,7 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accessibility Audit Report</title>
     <style>
-        ${this.generateCSS(colors)}
-    </style>
-</head>
-<body>
-    <div class="container">
-        ${this.generateHeader(metadata, branding)}
-        ${this.generateSummarySection(summary, successRate)}
-        ${this.generateMetricsSection(summary)}
-        ${!options.summaryOnly ? this.generateDetailsSection(summary, issues, options) : ''}
-        ${this.generateFooter(metadata, branding)}
-    </div>
-    
-    <script>
-        ${this.generateJavaScript()}
-    </script>
-</body>
-</html>`;
-  }
-
-  private generateCSS(colors: any): string {
-    return `
+        
         * {
             margin: 0;
             padding: 0;
@@ -122,7 +27,7 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
         }
 
         .header {
-            background: linear-gradient(135deg, ${colors.primary}, #0056b3);
+            background: linear-gradient(135deg, #007acc, #0056b3);
             color: white;
             padding: 2rem;
             border-radius: 12px;
@@ -152,7 +57,7 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
             padding: 1.5rem;
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-left: 4px solid ${colors.primary};
+            border-left: 4px solid #007acc;
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
@@ -207,7 +112,7 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
         .section-title {
             font-size: 1.5rem;
             margin-bottom: 1.5rem;
-            color: ${colors.primary};
+            color: #007acc;
             border-bottom: 2px solid #e9ecef;
             padding-bottom: 0.5rem;
         }
@@ -221,17 +126,17 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
 
         .page-result.passed {
             background-color: #f8fff9;
-            border-color: ${colors.success};
+            border-color: #28a745;
         }
 
         .page-result.failed {
             background-color: #fff8f8;
-            border-color: ${colors.error};
+            border-color: #dc3545;
         }
 
         .page-result.crashed {
             background-color: #fff9e6;
-            border-color: ${colors.warning};
+            border-color: #ffc107;
         }
 
         .page-title {
@@ -252,17 +157,17 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
         }
 
         .status-passed {
-            background-color: ${colors.success};
+            background-color: #28a745;
             color: white;
         }
 
         .status-failed {
-            background-color: ${colors.error};
+            background-color: #dc3545;
             color: white;
         }
 
         .status-crashed {
-            background-color: ${colors.warning};
+            background-color: #ffc107;
             color: #333;
         }
 
@@ -278,11 +183,11 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
         }
 
         .issue-type-error {
-            border-left: 3px solid ${colors.error};
+            border-left: 3px solid #dc3545;
         }
 
         .issue-type-warning {
-            border-left: 3px solid ${colors.warning};
+            border-left: 3px solid #ffc107;
         }
 
         .footer {
@@ -317,132 +222,135 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
                 grid-template-columns: 1fr;
             }
         }
-    `;
-  }
-
-  private generateHeader(metadata: any, branding: any): string {
-    const company = branding.company || 'AuditMySite';
     
-    return `
+    </style>
+</head>
+<body>
+    <div class="container">
+        
         <header class="header">
             <h1>🎯 Accessibility Audit Report</h1>
             <div class="subtitle">
-                Generated on ${new Date(metadata.timestamp).toLocaleDateString()} 
-                ${metadata.sitemapUrl ? `• ${metadata.sitemapUrl}` : ''}
-                ${company !== 'AuditMySite' ? `• ${company}` : ''}
+                Generated on 1/1/2023 
+                • https://example.com/sitemap.xml
+                • Test Company
             </div>
         </header>
-    `;
-  }
-
-  private generateSummarySection(summary: any, successRate: number): string {
-    return `
+    
+        
         <div class="success-rate">
-            <div class="success-rate-circle" style="background: ${this.getSuccessRateColor(successRate)}">
-                ${successRate}%
+            <div class="success-rate-circle" style="background: #dc3545">
+                67%
             </div>
             <h2>Overall Success Rate</h2>
-            <p>${summary.passedPages} of ${summary.testedPages} pages passed accessibility tests</p>
+            <p>2 of 3 pages passed accessibility tests</p>
         </div>
-    `;
-  }
-
-  private generateMetricsSection(summary: any): string {
-    return `
+    
+        
         <div class="summary-grid">
             <div class="metric-card">
-                <div class="metric-value">${summary.testedPages}</div>
+                <div class="metric-value">3</div>
                 <div class="metric-label">Pages Tested</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value" style="color: #28a745">${summary.passedPages}</div>
+                <div class="metric-value" style="color: #28a745">2</div>
                 <div class="metric-label">Passed</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value" style="color: #dc3545">${summary.failedPages}</div>
+                <div class="metric-value" style="color: #dc3545">1</div>
                 <div class="metric-label">Failed</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value" style="color: #ffc107">${summary.crashedPages || 0}</div>
+                <div class="metric-value" style="color: #ffc107">0</div>
                 <div class="metric-label">Crashed</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${summary.totalErrors}</div>
+                <div class="metric-value">5</div>
                 <div class="metric-label">Total Errors</div>
             </div>
             <div class="metric-card">
-                <div class="metric-value">${summary.totalWarnings}</div>
+                <div class="metric-value">2</div>
                 <div class="metric-label">Warnings</div>
             </div>
         </div>
-    `;
-  }
-
-  private generateDetailsSection(summary: any, issues: any[], options: ReportOptions): string {
-    if (options.summaryOnly) return '';
-
-    let detailsHtml = `
+    
+        
         <div class="details-section">
             <h2 class="section-title">Detailed Results</h2>
-    `;
-
-    summary.results.forEach((result: any, index: number) => {
-      const statusClass = result.passed ? 'passed' : (result.crashed ? 'crashed' : 'failed');
-      const statusBadge = result.passed ? 'passed' : (result.crashed ? 'crashed' : 'failed');
-      const statusText = result.passed ? 'PASSED' : (result.crashed ? 'CRASHED' : 'FAILED');
-
-      detailsHtml += `
-            <div class="page-result ${statusClass}">
-                <div class="page-title expandable" onclick="toggleSection('result-${index}')">
-                    <span>${result.title || result.url}</span>
-                    <span class="status-badge status-${statusBadge}">${statusText}</span>
+    
+            <div class="page-result passed">
+                <div class="page-title expandable" onclick="toggleSection('result-0')">
+                    <span>Test Page</span>
+                    <span class="status-badge status-passed">PASSED</span>
                 </div>
-                <div class="page-url">${result.url}</div>
+                <div class="page-url">https://example.com/test-page</div>
                 
-                <div id="result-${index}" class="collapsed">
-                    ${result.errors.length > 0 ? this.generateIssueList(result.errors, 'error') : ''}
-                    ${result.warnings.length > 0 ? this.generateIssueList(result.warnings, 'warning') : ''}
+                <div id="result-0" class="collapsed">
+                    
+                    
                     
                     <div style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                        Duration: ${result.duration}ms
-                        ${result.performanceMetrics ? `• LCP: ${result.performanceMetrics.largestContentfulPaint}ms` : ''}
+                        Duration: 1000ms
+                        • LCP: 2500ms
                     </div>
                 </div>
             </div>
-        `;
-    });
-
-    detailsHtml += '</div>';
-    return detailsHtml;
-  }
-
-  private generateIssueList(issues: string[], type: 'error' | 'warning'): string {
-    return `
-        <div class="issue-list">
-            <h4>${type === 'error' ? 'Errors' : 'Warnings'} (${issues.length})</h4>
-            ${issues.map(issue => `
-                <div class="issue-item issue-type-${type}">
-                    ${issue}
+        
+            <div class="page-result passed">
+                <div class="page-title expandable" onclick="toggleSection('result-1')">
+                    <span>Test Page</span>
+                    <span class="status-badge status-passed">PASSED</span>
                 </div>
-            `).join('')}
+                <div class="page-url">https://example.com/page2</div>
+                
+                <div id="result-1" class="collapsed">
+                    
+                    
+                    
+                    <div style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                        Duration: 1000ms
+                        • LCP: 2500ms
+                    </div>
+                </div>
+            </div>
+        
+            <div class="page-result failed">
+                <div class="page-title expandable" onclick="toggleSection('result-2')">
+                    <span>Test Page</span>
+                    <span class="status-badge status-failed">FAILED</span>
+                </div>
+                <div class="page-url">https://example.com/page3</div>
+                
+                <div id="result-2" class="collapsed">
+                    
+        <div class="issue-list">
+            <h4>Errors (1)</h4>
+            
+                <div class="issue-item issue-type-error">
+                    Missing alt text
+                </div>
+            
         </div>
-    `;
-  }
-
-  private generateFooter(metadata: any, branding: any): string {
-    const company = branding.company || 'AuditMySite';
-    const footerText = branding.footer || `Generated by ${company} v${metadata.version}`;
     
-    return `
+                    
+                    
+                    <div style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                        Duration: 1000ms
+                        • LCP: 2500ms
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <footer class="footer">
-            <p>${footerText}</p>
-            <p>Report generated in ${this.formatDuration(metadata.duration)}</p>
+            <p>Test Footer</p>
+            <p>Report generated in 1m 0s</p>
         </footer>
-    `;
-  }
-
-  private generateJavaScript(): string {
-    return `
+    
+    </div>
+    
+    <script>
+        
         function toggleSection(id) {
             const element = document.getElementById(id);
             if (element) {
@@ -456,12 +364,7 @@ export class ModernHTMLReportGenerator extends ReportGenerator {
                 el.classList.remove('collapsed');
             });
         });
-    `;
-  }
-
-  private getSuccessRateColor(rate: number): string {
-    if (rate >= 90) return '#28a745'; // Green
-    if (rate >= 70) return '#ffc107'; // Yellow
-    return '#dc3545'; // Red
-  }
-}
+    
+    </script>
+</body>
+</html>

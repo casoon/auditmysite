@@ -11,7 +11,7 @@ import {
   ReportOptions, 
   GeneratedReport 
 } from '../base-generator';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 
 export class JSONReportGenerator extends ReportGenerator {
@@ -39,16 +39,14 @@ export class JSONReportGenerator extends ReportGenerator {
     // Generate JSON report
     const jsonReport = this.generateJSONReport(data, options);
 
-    // Create output directory
-    if (!fs.existsSync(options.outputDir)) {
-      fs.mkdirSync(options.outputDir, { recursive: true });
-    }
+    // Create output directory (async)
+    await fs.mkdir(options.outputDir, { recursive: true });
 
-    // Write file
+    // Write file (async)
     const filename = this.generateFilename(options, 'accessibility');
     const filePath = path.join(options.outputDir, filename);
     const jsonContent = JSON.stringify(jsonReport, null, options.prettyPrint ? 2 : undefined);
-    fs.writeFileSync(filePath, jsonContent, 'utf8');
+    await fs.writeFile(filePath, jsonContent, 'utf8');
 
     const duration = Date.now() - startTime;
 

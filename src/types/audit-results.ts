@@ -47,8 +47,8 @@ export interface AuditMetadata {
 export interface AuditConfig {
   /** Maximum number of pages audited */
   maxPages: number;
-  /** Whether enhanced analysis was used */
-  useEnhancedAnalysis: boolean;
+  /** Whether full analysis was used */
+  fullAnalysis: boolean;
   /** WCAG standard applied */
   pa11yStandard: 'WCAG2A' | 'WCAG2AA' | 'WCAG2AAA' | 'Section508';
   /** Analysis types enabled */

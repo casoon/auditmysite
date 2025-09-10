@@ -61,7 +61,7 @@ export interface ResourceTiming {
   cached: boolean;
 }
 
-export interface EnhancedPerformanceMetrics {
+export interface PerformanceMetrics {
   // Core Web Vitals
   /** Largest Contentful Paint in ms */
   lcp: number;
@@ -209,7 +209,7 @@ export interface TechnicalSEO {
   };
 }
 
-export interface EnhancedSEOMetrics {
+export interface SEOMetrics {
   /** Meta tag analysis */
   metaTags: MetaTagAnalysis;
   /** Heading structure analysis */
@@ -249,10 +249,10 @@ export interface PageQualityMetrics {
   url: string;
   /** Page title */
   title: string;
-  /** Enhanced performance metrics */
-  enhancedPerformance: EnhancedPerformanceMetrics;
-  /** Enhanced SEO metrics */
-  enhancedSEO: EnhancedSEOMetrics;
+  /** Performance metrics */
+  performance: PerformanceMetrics;
+  /** SEO metrics */
+  seo: SEOMetrics;
   /** Mobile-friendliness metrics */
   mobileFriendliness?: MobileFriendlinessMetrics;
   /** Overall quality score combining all metrics */

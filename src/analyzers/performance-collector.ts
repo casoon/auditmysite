@@ -11,7 +11,7 @@
 
 import { Page } from 'playwright';
 import { 
-  EnhancedPerformanceMetrics, 
+  PerformanceMetrics,
   ContentWeight, 
   ContentAnalysis, 
   ResourceTiming,
@@ -19,7 +19,7 @@ import {
 } from '../types/enhanced-metrics';
 import { ContentWeightAnalyzer } from './content-weight-analyzer';
 
-export class EnhancedPerformanceCollector {
+export class PerformanceCollector {
   private contentAnalyzer: ContentWeightAnalyzer;
 
   constructor(private options: QualityAnalysisOptions = {}) {
@@ -29,7 +29,7 @@ export class EnhancedPerformanceCollector {
   /**
    * Collect comprehensive performance metrics for a webpage
    */
-  async collectEnhancedMetrics(page: Page, url: string): Promise<EnhancedPerformanceMetrics> {
+  async collectEnhancedMetrics(page: Page, url: string): Promise<PerformanceMetrics> {
     console.log(`⚡ Collecting enhanced performance metrics for: ${url}`);
     
     const startTime = Date.now();
@@ -78,7 +78,7 @@ export class EnhancedPerformanceCollector {
         contentAnalysis
       );
 
-      const enhancedMetrics: EnhancedPerformanceMetrics = {
+      const enhancedMetrics: PerformanceMetrics = {
         // Core Web Vitals
         lcp: coreWebVitals.lcp,
         inp: coreWebVitals.inp,

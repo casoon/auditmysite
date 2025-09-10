@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "version": "1.6.1",
+    "timestamp": "2023-01-01T00:00:00Z",
+    "generatedAt": "2025-09-09T17:05:22.639Z",
+    "duration": 60000,
+    "format": "json",
+    "generator": "AuditMySite JSON Reporter",
+    "environment": "test",
+    "sitemapUrl": "https://example.com/sitemap.xml",
+    "reportOptions": {
+      "summaryOnly": false,
+      "includePa11yIssues": true,
+      "outputDir": "./test-reports",
+      "prettyPrint": true
+    }
+  },
+  "summary": {
+    "overallSuccessRate": 67,
+    "status": "fair",
+    "testedPages": 3,
+    "passedPages": 2,
+    "failedPages": 1,
+    "crashedPages": 0,
+    "totalErrors": 5,
+    "totalWarnings": 2,
+    "averageTestDuration": 20000,
+    "totalDuration": 60000,
+    "breakdown": {
+      "passed": {
+        "count": 2,
+        "percentage": 67
+      },
+      "failed": {
+        "count": 1,
+        "percentage": 33
+      },
+      "crashed": {
+        "count": 0,
+        "percentage": 0
+      }
+    }
+  },
+  "statistics": {
+    "errorDistribution": {
+      "byRange": {
+        "0": 2,
+        "1-5": 1
+      },
+      "totalErrors": 1,
+      "averageErrorsPerPage": 0
+    },
+    "performanceMetrics": {
+      "testDuration": {
+        "min": 1000,
+        "max": 1000,
+        "average": 1000,
+        "median": 1000
+      },
+      "largestContentfulPaint": {
+        "min": 2500,
+        "max": 2500,
+        "average": 2500,
+        "median": 2500
+      },
+      "cumulativeLayoutShift": {
+        "min": 0.1,
+        "max": 0.1,
+        "average": 0.1,
+        "median": 0.1
+      }
+    },
+    "pageTypeBreakdown": [
+      {
+        "type": "other",
+        "count": 3,
+        "passed": 2,
+        "failed": 1,
+        "successRate": 67
+      }
+    ]
+  },
+  "results": [
+    {
+      "url": "https://example.com/test-page",
+      "title": "Test Page",
+      "status": "passed",
+      "passed": true,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 0,
+      "warningCount": 0,
+      "errors": [],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    },
+    {
+      "url": "https://example.com/page2",
+      "title": "Test Page",
+      "status": "passed",
+      "passed": true,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 0,
+      "warningCount": 0,
+      "errors": [],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    },
+    {
+      "url": "https://example.com/page3",
+      "title": "Test Page",
+      "status": "failed",
+      "passed": false,
+      "crashed": false,
+      "duration": 1000,
+      "timestamp": "2023-01-01T00:00:00Z",
+      "errorCount": 1,
+      "warningCount": 0,
+      "errors": [
+        "Missing alt text"
+      ],
+      "warnings": [],
+      "performanceMetrics": {
+        "largestContentfulPaint": 2500,
+        "cumulativeLayoutShift": 0.1,
+        "firstInputDelay": 100,
+        "timeToInteractive": 3000
+      }
+    }
+  ],
+  "branding": {
+    "company": "Test Company",
+    "footer": "Test Footer"
+  }
+}
