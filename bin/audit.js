@@ -3,9 +3,9 @@
 const { Command } = require('commander');
 const { StandardPipeline } = require('../dist/core');
 const { SitemapDiscovery } = require('../dist/core/parsers');
+const { log } = require('../dist/core/logging');
 const inquirer = require('inquirer').default;
 const path = require('path');
-const ora = require('ora').default || require('ora');
 const packageJson = require('../package.json');
 
 const program = new Command();
@@ -709,6 +709,7 @@ program
           
           // Extract all pa11y issues
           const detailedIssues = [];
+          // Extract all pa11y issues
           results.forEach((page, index) => {
             if (page.pa11yIssues && Array.isArray(page.pa11yIssues) && page.pa11yIssues.length > 0) {
               page.pa11yIssues.forEach(issue => {

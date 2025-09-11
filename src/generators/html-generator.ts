@@ -708,7 +708,6 @@ export class HTMLGenerator {
     const avgFCP = safeAvg(performancePages.map(p => getNumericValue(p.performance.coreWebVitals?.firstContentfulPaint)));
     const avgCLS = safeAvg(performancePages.map(p => getNumericValue(p.performance.coreWebVitals?.cumulativeLayoutShift)));
     const avgTTFB = safeAvg(performancePages.map(p => getNumericValue(p.performance.coreWebVitals?.timeToFirstByte)));
-    const avgINP = safeAvg(performancePages.map(p => getNumericValue(p.performance.coreWebVitals?.interactionToNextPaint)));
     const avgDomContentLoaded = safeAvg(performancePages.map(p => getNumericValue(p.performance.metrics?.domContentLoaded)));
     const avgLoadComplete = safeAvg(performancePages.map(p => getNumericValue(p.performance.metrics?.loadComplete)));
     const totalPerformanceIssues = performancePages.reduce((sum, p) => sum + (p.performance.issues?.length || 0), 0);
@@ -743,12 +742,8 @@ export class HTMLGenerator {
               <div class="metric-label">Avg CLS</div>
             </div>
             <div class="metric-card">
-              <div class="metric-value ${avgINP > 0 ? (avgINP < 200 ? 'success' : avgINP < 500 ? 'warning' : 'error') : 'info'}">${isNaN(avgINP) || avgINP <= 0 ? '0ms' : Math.round(avgINP) + 'ms'}</div>
-              <div class="metric-label">Avg INP</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value ${avgINP > 0 ? (avgINP < 200 ? 'success' : avgINP < 500 ? 'warning' : 'error') : 'info'}">${avgINP > 0 ? Math.round(avgINP) + 'ms' : 'N/A'}</div>
-              <div class="metric-label">Avg INP</div>
+              <div class="metric-value info">${Math.round(avgTTFB)}ms</div>
+              <div class="metric-label">Avg TTFB</div>
             </div>
             <div class="metric-card">
               <div class="metric-value info">${Math.round(avgDomContentLoaded)}ms</div>
@@ -850,7 +845,7 @@ export class HTMLGenerator {
               <div class="metric-label">Pages Analyzed</div>
             </div>
           </div>
-          ${this.renderIssues(seoPages, 'seo')}
+          ${this.renderSEOAnalysis(seoPages)}
         </div>
       </section>
     `;
@@ -945,6 +940,155 @@ export class HTMLGenerator {
           ${this.renderContentWeightOptimizations(contentWeightPages)}
         </div>
       </section>
+    `;
+  }
+  
+  private renderSEOAnalysis(seoPages: any[]): string {
+    // First try to render actual issues if they exist
+    const hasActualIssues = seoPages.some(page => 
+      page.seo.issues && page.seo.issues.length > 0
+    );
+    
+    if (hasActualIssues) {
+      return this.renderIssues(seoPages, 'seo');
+    }
+    
+    // Generate synthetic issues based on SEO metrics
+    const seoIssues: any[] = [];
+    
+    seoPages.forEach(page => {
+      const seo = page.seo;
+      
+      // Title issues
+      if (!seo.metaTags?.title?.optimal) {
+        if (!seo.metaTags?.title?.content) {
+          seoIssues.push({
+            severity: 'error',
+            message: 'Missing page title',
+            context: 'No <title> tag found',
+            pageUrl: page.url,
+            type: 'title'
+          });
+        } else if (seo.metaTags.title.length < 30) {
+          seoIssues.push({
+            severity: 'warning', 
+            message: `Title too short (${seo.metaTags.title.length} characters)`,
+            context: seo.metaTags.title.content,
+            pageUrl: page.url,
+            type: 'title'
+          });
+        } else if (seo.metaTags.title.length > 60) {
+          seoIssues.push({
+            severity: 'warning',
+            message: `Title too long (${seo.metaTags.title.length} characters)`, 
+            context: seo.metaTags.title.content,
+            pageUrl: page.url,
+            type: 'title'
+          });
+        }
+      }
+      
+      // Description issues
+      if (!seo.metaTags?.description?.optimal) {
+        if (!seo.metaTags?.description?.content) {
+          seoIssues.push({
+            severity: 'error',
+            message: 'Missing meta description',
+            context: 'No meta description tag found',
+            pageUrl: page.url,
+            type: 'description'
+          });
+        } else if (seo.metaTags.description.length < 120) {
+          seoIssues.push({
+            severity: 'warning',
+            message: `Meta description too short (${seo.metaTags.description.length} characters)`,
+            context: seo.metaTags.description.content,
+            pageUrl: page.url,
+            type: 'description'
+          });
+        } else if (seo.metaTags.description.length > 160) {
+          seoIssues.push({
+            severity: 'warning',
+            message: `Meta description too long (${seo.metaTags.description.length} characters)`,
+            context: seo.metaTags.description.content,
+            pageUrl: page.url,
+            type: 'description'
+          });
+        }
+      }
+      
+      // H1 issues
+      const h1Count = seo.headings?.h1?.length || 0;
+      if (h1Count === 0) {
+        seoIssues.push({
+          severity: 'error',
+          message: 'Missing H1 heading',
+          context: 'No H1 heading found on page',
+          pageUrl: page.url,
+          type: 'heading'
+        });
+      } else if (h1Count > 1) {
+        seoIssues.push({
+          severity: 'warning',
+          message: `Multiple H1 headings found (${h1Count})`,
+          context: 'Page should have only one H1 heading',
+          pageUrl: page.url,
+          type: 'heading'
+        });
+      }
+    });
+    
+    if (seoIssues.length === 0) {
+      return '<div class="no-data">No significant SEO issues found</div>';
+    }
+    
+    // Group by severity 
+    const issueGroups = seoIssues.reduce((groups, issue) => {
+      const severity = issue.severity || 'info';
+      if (!groups[severity]) groups[severity] = [];
+      groups[severity].push(issue);
+      return groups;
+    }, {});
+    
+    const severityOrder = ['error', 'warning', 'info'];
+    const sortedSeverities = severityOrder.filter(sev => issueGroups[sev]);
+    
+    const groupSections = sortedSeverities.map(severity => {
+      const issues = issueGroups[severity];
+      const issueItems = issues.map((issue: any) => {
+        return `
+          <li class="issue-item ${severity}">
+            <strong>${this.escape(issue.message)}</strong>
+            ${issue.context ? `<br/><small style="color: #6b7280;">Details: ${this.escape(issue.context)}</small>` : ''}
+            <br/><small style="color: #6b7280;">Page: ${this.escape(issue.pageUrl)}</small>
+          </li>
+        `;
+      }).join('');
+      
+      const severityLabel = severity.charAt(0).toUpperCase() + severity.slice(1) + 's';
+      const totalCount = issues.length;
+      
+      return `
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            ${severityLabel} (${totalCount})
+          </h4>
+          <div>
+            <ul class="issue-list">
+              ${issueItems}
+            </ul>
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem;">SEO Issues Analysis</h3>
+        <div class="scrollable-issues-container">
+          ${groupSections}
+        </div>
+      </div>
     `;
   }
 
@@ -1061,8 +1205,8 @@ export class HTMLGenerator {
       const analysis = p[analysisType];
       if (!analysis) return [];
       
-      // Handle different issue structures
-      const issues = analysis.issues || analysis.errors || analysis.warnings || [];
+      // Handle different issue structures - include recommendations for mobile friendliness
+      const issues = analysis.issues || analysis.errors || analysis.warnings || analysis.recommendations || [];
       return Array.isArray(issues) ? issues.map(issue => ({...issue, pageUrl: p.url})) : [];
     });
 
@@ -1070,16 +1214,16 @@ export class HTMLGenerator {
       return '<div class="no-data">No issues found</div>';
     }
 
-    // Group by severity
+    // Group by severity - handle recommendations format
     const issueGroups = allIssues.reduce((groups, issue) => {
-      const severity = issue.severity || issue.type || 'info';
+      const severity = issue.severity || issue.priority || issue.type || 'info';
       if (!groups[severity]) groups[severity] = [];
       groups[severity].push(issue);
       return groups;
     }, {});
 
-    // Sort by severity priority
-    const severityOrder = ['error', 'critical', 'warning', 'notice', 'info'];
+    // Sort by severity priority - include recommendation priorities
+    const severityOrder = ['error', 'critical', 'high', 'warning', 'medium', 'notice', 'low', 'info'];
     const sortedSeverities = severityOrder.filter(sev => issueGroups[sev]);
 
     const groupSections = sortedSeverities.map(severity => {
@@ -1087,14 +1231,14 @@ export class HTMLGenerator {
       const maxIssues = severity === 'error' ? issueGroups[severity].length : 5;
       const issues = issueGroups[severity].slice(0, maxIssues);
       const issueItems = issues.map((issue: any) => {
-        const message = issue.message || issue.description || 'No description available';
-        const context = issue.context || issue.selector || '';
+        const message = issue.message || issue.issue || issue.recommendation || issue.description || 'No description available';
+        const context = issue.context || issue.selector || issue.impact || '';
         const pageUrl = issue.pageUrl || '';
         
         return `
           <li class="issue-item ${severity}">
             <strong>${this.escape(message)}</strong>
-            ${context ? `<br/><small style="color: #6b7280;">Element: ${this.escape(context)}</small>` : ''}
+            ${context ? `<br/><small style="color: #6b7280;">Details: ${this.escape(context)}</small>` : ''}
             ${pageUrl ? `<br/><small style="color: #6b7280;">Page: ${this.escape(pageUrl)}</small>` : ''}
           </li>
         `;
@@ -1446,7 +1590,7 @@ export class HTMLGenerator {
   }
 
   private renderContentWeightOptimizations(pages: any[]): string {
-    const allOptimizations = pages.flatMap(p => p.contentWeight?.optimizations || []);
+    const allOptimizations = pages.flatMap(p => p.contentWeight?.recommendations || p.contentWeight?.optimizations || []);
     
     if (allOptimizations.length === 0) {
       return '<div class="no-data" style="margin-top: 2rem;">No optimization suggestions available</div>';
@@ -1454,7 +1598,7 @@ export class HTMLGenerator {
 
     // Group by optimization type and calculate total savings
     const optimizationGroups = allOptimizations.reduce((groups, opt) => {
-      const type = opt.type || 'other';
+      const type = opt.id || opt.type || 'other';
       if (!groups[type]) {
         groups[type] = {
           type,
@@ -1465,9 +1609,10 @@ export class HTMLGenerator {
         };
       }
       groups[type].count++;
-      groups[type].totalSavings += opt.savings || 0;
-      if (opt.message && !groups[type].messages.includes(opt.message)) {
-        groups[type].messages.push(opt.message);
+      groups[type].totalSavings += opt.savings || opt.scoreImprovement || 0;
+      const message = opt.message || opt.recommendation || opt.issue || 'Optimization available';
+      if (message && !groups[type].messages.includes(message)) {
+        groups[type].messages.push(message);
       }
       return groups;
     }, {});

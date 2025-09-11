@@ -1,6 +1,7 @@
 import { EventDrivenQueue, EventDrivenQueueOptions, QueueStats } from './event-driven-queue';
 import { AccessibilityChecker } from '@core/accessibility';
 import { TestOptions, AccessibilityResult } from '../types';
+import { log } from '@core/logging';
 
 export interface ParallelTestManagerOptions extends EventDrivenQueueOptions {
   // Queue-specific options
@@ -14,9 +15,8 @@ export interface ParallelTestManagerOptions extends EventDrivenQueueOptions {
   // AccessibilityChecker instance (for comprehensive analysis support)
   accessibilityChecker?: AccessibilityChecker;
   
-  // Progress Reporting
-  enableProgressBar?: boolean;
-  progressUpdateInterval?: number;
+  // Logging options  
+  verbose?: boolean; // when true, emit detailed logs; default false keeps CLI quiet
   
   // Resource Management
   enableResourceMonitoring?: boolean;
@@ -59,13 +59,16 @@ export class ParallelTestManager {
       maxConcurrent: 3,
       maxRetries: 3,
       retryDelay: 1000,
-      enableProgressBar: true,
-      progressUpdateInterval: 1000,
+      // default to quiet unless explicitly verbose
+      verbose: false,
       enableResourceMonitoring: true,
       maxMemoryUsage: 512, // 512 MB
       maxCpuUsage: 80, // 80%
       ...options
     };
+    
+    // Configure logger
+    log.setVerbose(this.options.verbose || false);
 
     // Initialize Event-Driven Queue with persistence support
     this.queue = new EventDrivenQueue({
@@ -98,7 +101,7 @@ export class ParallelTestManager {
 
   async initialize(): Promise<void> {
     await this.accessibilityChecker.initialize();
-    console.log(`🚀 Parallel Test Manager initialized with ${this.options.maxConcurrent} concurrent workers`);
+    log.debug(`Parallel Test Manager initialized with ${this.options.maxConcurrent} concurrent workers`);
   }
   
   /**
@@ -114,7 +117,7 @@ export class ParallelTestManager {
         stateId: stateId || this.options.stateId!,
         skipCompleted: true 
       });
-      console.log(`✅ Successfully resumed from state: ${stateId || this.options.stateId}`);
+      log.success(`Resumed from saved state: ${stateId || this.options.stateId}`);
     } catch (error) {
       throw new Error(`Failed to resume from state: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -145,7 +148,8 @@ export class ParallelTestManager {
     this.startTime = new Date();
     this.activeTests.clear();
 
-    console.log(`🧪 Starting parallel tests for ${urls.length} URLs with ${this.options.maxConcurrent} workers`);
+    log.info(`Analyzing ${urls.length} pages with ${this.options.maxConcurrent} parallel workers`);
+    log.startProgress(urls.length, 'accessibility analysis');
 
     // Add URLs to queue
     this.queue.addUrls(urls);
@@ -229,103 +233,75 @@ export class ParallelTestManager {
     const cpuUsage = process.cpuUsage().user / 1000000; // Sekunden
 
     if (memoryUsage > this.options.maxMemoryUsage!) {
-      console.warn(`⚠️  High memory usage: ${memoryUsage.toFixed(2)} MB`);
+      log.warn(`High memory usage: ${memoryUsage.toFixed(2)} MB`);
       // Optional: Queue pausieren oder Worker reduzieren
     }
 
     if (cpuUsage > this.options.maxCpuUsage!) {
-      console.warn(`⚠️  High CPU usage: ${cpuUsage.toFixed(2)}s`);
+      log.warn(`High CPU usage: ${cpuUsage.toFixed(2)}s`);
       // Optional: Queue pausieren oder Worker reduzieren
     }
   }
 
-  // Event Handler
+  // Event Handler - Reduced logging for cleaner output
   private handleUrlAdded(url: string, priority: number): void {
-    console.log(`📋 Added URL to queue: ${url} (priority: ${priority})`);
+    // Silent - no logging needed
   }
 
   private handleUrlStarted(url: string): void {
-    console.log(`🚀 Started testing: ${url}`);
     this.options.onTestStart?.(url);
   }
 
   private handleUrlCompleted(url: string, result: AccessibilityResult, duration: number): void {
-    const status = result.passed ? '✅ PASSED' : '❌ FAILED';
-    console.log(`${status} ${url} (${duration}ms) - ${result.errors.length} errors, ${result.warnings.length} warnings`);
     this.options.onTestComplete?.(url, result);
   }
 
   private handleUrlFailed(url: string, error: string, attempts: number): void {
-    console.log(`💥 Failed ${url} (attempt ${attempts}): ${error}`);
     this.options.onTestError?.(url, error);
   }
 
   private handleUrlRetrying(url: string, attempts: number): void {
-    console.log(`🔄 Retrying ${url} (attempt ${attempts + 1}/${this.options.maxRetries})`);
+    // Silent retry - no logging needed for cleaner output
   }
 
   private handleQueueEmpty(): void {
-    console.log('🎉 All tests completed!');
+    log.completeProgress();
     this.options.onQueueEmpty?.();
   }
 
   private handleProgressUpdate(stats: QueueStats): void {
-    if (this.options.enableProgressBar) {
-      this.displayProgressBar(stats);
-    }
+    log.updateProgress(stats.completed, stats.failed);
     this.options.onProgressUpdate?.(stats);
   }
 
   private handleError(error: string): void {
-    console.error(`❌ Queue error: ${error}`);
+    log.error(`Queue error: ${error}`);
   }
 
   private setupEventListeners(): void {
     // Progress-Update-Interval
-    if (this.options.enableProgressBar) {
-      setInterval(() => {
-        const stats = this.queue.getStats();
-        this.handleProgressUpdate(stats);
-      }, this.options.progressUpdateInterval);
-    }
-  }
-
-  private displayProgressBar(stats: QueueStats): void {
-    const progress = Math.round(stats.progress);
-    const barLength = 30;
-    const filledLength = Math.round((progress / 100) * barLength);
-    const bar = '█'.repeat(filledLength) + '░'.repeat(barLength - filledLength);
-    
-    const eta = stats.estimatedTimeRemaining > 0 
-      ? `ETA: ${Math.round(stats.estimatedTimeRemaining / 1000)}s`
-      : '';
-    
-    const memory = `Memory: ${stats.memoryUsage}MB`;
-    const workers = `Workers: ${stats.activeWorkers}/${this.options.maxConcurrent}`;
-    
-    process.stdout.write(`\r🧪 Progress: [${bar}] ${progress}% | ${stats.completed}/${stats.total} | ${workers} | ${memory} | ${eta}`);
-    
-    if (stats.progress >= 100) {
-      process.stdout.write('\n');
-    }
+    setInterval(() => {
+      const stats = this.queue.getStats();
+      this.handleProgressUpdate(stats);
+    }, 5000); // Update every 5 seconds instead of every second
   }
 
   // Public API
   pause(): void {
     this.queue.pause();
-    console.log('⏸️  Tests paused');
+    log.info('Tests paused');
   }
 
   resume(): void {
     this.queue.resume();
-    console.log('▶️  Tests resumed');
+    log.info('Tests resumed');
     this.startWorkers();
   }
 
   stop(): void {
     this.isRunning = false;
     this.queue.clear();
-    console.log('⏹️  Tests stopped');
+    log.info('Tests stopped');
   }
 
   getStats(): QueueStats {
@@ -342,7 +318,7 @@ export class ParallelTestManager {
 
   setMaxConcurrent(max: number): void {
     this.queue.setMaxConcurrent(max);
-    console.log(`🔧 Max concurrent workers set to ${max}`);
+    log.debug(`Max concurrent workers set to ${max}`);
   }
 
   // Resource Management

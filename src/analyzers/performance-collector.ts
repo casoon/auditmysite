@@ -32,7 +32,6 @@ export class PerformanceCollector {
   async collectEnhancedMetrics(page: Page, url: string | { loc: string }): Promise<PerformanceMetrics> {
     // Extract URL string from URL object if needed
     const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
-    console.log(`⚡ Collecting enhanced performance metrics for: ${urlString}`);
     
     const startTime = Date.now();
 
@@ -42,14 +41,13 @@ export class PerformanceCollector {
       const isDataUri = currentUrl.startsWith('data:');
       const isContentSet = currentUrl !== 'about:blank' && currentUrl !== '';
       
-      // Only navigate if we don't already have content set
-      if (!isContentSet && !isDataUri) {
+      // Use already loaded content - navigation is handled by main test flow
+      // Only navigate if page is completely empty (about:blank)
+      if (currentUrl === 'about:blank' || currentUrl === '') {
         await page.goto(urlString, { 
           waitUntil: 'networkidle',
           timeout: this.options.analysisTimeout || 30000 
         });
-      } else {
-        console.log(`📄 Using pre-set page content for performance analysis (${currentUrl})`);
       }
 
       // Wait for potential lazy loading and interactions
@@ -113,9 +111,6 @@ export class PerformanceCollector {
         contentAnalysis
       };
 
-      console.log(`✅ Enhanced performance metrics collected in ${Date.now() - startTime}ms`);
-      console.log(`📊 Performance Score: ${performanceScore}/100 (Grade: ${performanceGrade})`);
-      console.log(`⚡ LCP: ${coreWebVitals.lcp}ms, CLS: ${coreWebVitals.cls}, INP: ${coreWebVitals.inp}ms`);
 
       return enhancedMetrics;
 

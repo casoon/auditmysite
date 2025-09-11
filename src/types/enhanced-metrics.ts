@@ -276,6 +276,8 @@ export interface QualityAnalysisOptions {
   includeMobileFriendliness?: boolean;
   /** Timeout for analysis in milliseconds */
   analysisTimeout?: number;
+  /** Enable verbose logging for debugging */
+  verbose?: boolean;
 }
 
 // Mobile-Friendliness Analysis Types

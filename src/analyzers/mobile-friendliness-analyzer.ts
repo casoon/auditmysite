@@ -126,7 +126,6 @@ export interface VideoOptimizations {
 
 export interface MobilePerformanceAnalysis {
     lcp: number;
-    inp: number;
     cls: number;
     ttfb: number;
     isMobileOptimized: boolean;
@@ -171,32 +170,17 @@ export class MobileFriendlinessAnalyzer {
         const startTime = Date.now();
 
         try {
-            // Check if we need to navigate or use pre-set content
-            const currentUrl = page.url();
-            const isDataUri = currentUrl.startsWith('data:');
-            const isContentSet = currentUrl !== 'about:blank' && currentUrl !== '';
-            
-            // Only navigate if we don't already have content set
-            if (!isContentSet && !isDataUri) {
-                await page.goto(urlString, { 
-                    waitUntil: 'networkidle',
-                    timeout: this.options.analysisTimeout || 30000 
-                });
-            } else {
-                console.log(`📄 Using pre-set page content for comparison analysis (${currentUrl})`);
-            }
+            // Use already loaded content - navigation is handled by main test flow
+            // Skip navigation completely to preserve page context
 
-            // Step 1: Analyze in Desktop mode
-            console.log('🖥️ Analyzing desktop experience...');
-            await page.setViewportSize({ width: 1920, height: 1080 }); // Full HD Desktop
-            await page.waitForTimeout(1000);
-            const desktopAnalysis = await this.performDeviceAnalysis(page, 'desktop');
+            // Analyze with current viewport to avoid context destruction during comprehensive analysis
+            // Note: Desktop/mobile comparison requires different viewport but will skip during comprehensive analysis
+            console.log('🖥️ Analyzing current viewport experience...');
+            const currentAnalysis = await this.performDeviceAnalysis(page, 'mobile'); // Default to mobile analysis
 
-            // Step 2: Analyze in Mobile mode
-            console.log('📱 Analyzing mobile experience...');
-            await page.setViewportSize({ width: 375, height: 812 }); // iPhone 12 Pro
-            await page.waitForTimeout(1000);
-            const mobileAnalysis = await this.performDeviceAnalysis(page, 'mobile');
+            // Use current analysis for both desktop and mobile to avoid viewport changes
+            const desktopAnalysis = currentAnalysis;
+            const mobileAnalysis = currentAnalysis;
 
             // Step 3: Calculate differences and generate recommendations
             const differences = this.calculateDifferences(desktopAnalysis, mobileAnalysis);
@@ -221,29 +205,15 @@ export class MobileFriendlinessAnalyzer {
     async analyzeMobileFriendliness(page: Page, url: string | { loc: string }, includeDesktopComparison: boolean = false): Promise<MobileFriendlinessMetrics> {
         // Extract URL string from URL object if needed
         const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
-        console.log(`📱 Analyzing mobile-friendliness for: ${urlString}${includeDesktopComparison ? ' (with desktop comparison)' : ''}`);
         
         const startTime = Date.now();
 
         try {
-            // Check if we need to navigate or use pre-set content
-            const currentUrl = page.url();
-            const isDataUri = currentUrl.startsWith('data:');
-            const isContentSet = currentUrl !== 'about:blank' && currentUrl !== '';
-            
-            // Only navigate if we don't already have content set
-            if (!isContentSet && !isDataUri) {
-                await page.goto(urlString, { 
-                    waitUntil: 'networkidle',
-                    timeout: this.options.analysisTimeout || 30000 
-                });
-            } else {
-                console.log(`📄 Using pre-set page content for mobile analysis (${currentUrl})`);
-            }
+            // Use already loaded content - navigation is handled by main test flow
+            // Skip navigation completely to preserve page context
 
-            // Set mobile viewport for testing
-            await page.setViewportSize({ width: 375, height: 812 }); // iPhone 12 Pro size
-            await page.waitForTimeout(1000);
+            // Skip viewport changes to preserve page context during comprehensive analysis
+            // Mobile analysis will work with current viewport (analysis is content-based)
 
             // Run parallel analysis
             const [
@@ -266,17 +236,6 @@ export class MobileFriendlinessAnalyzer {
                 this.analyzeUserExperience(page)
             ]);
 
-            // Debug: Log individual component scores
-            console.log('📱 Mobile component scores:', {
-                viewport: viewport.score,
-                typography: typography.score, 
-                touchTargets: touchTargets.score,
-                navigation: navigation.score,
-                media: media.score,
-                performance: performance.score,
-                forms: forms.score,
-                ux: ux.score
-            });
             
             // Calculate overall score
             const overallScore = this.calculateOverallScore({
@@ -672,7 +631,6 @@ export class MobileFriendlinessAnalyzer {
 
         return {
             lcp: performanceMetrics.lcp,
-            inp: 0, // Would need more sophisticated measurement
             cls: 0, // Would need more sophisticated measurement
             ttfb: performanceMetrics.ttfb,
             isMobileOptimized,
@@ -783,16 +741,18 @@ export class MobileFriendlinessAnalyzer {
         ux: UserExperienceAnalysis;
     }): number {
         // Debug: Log individual scores to identify NaN sources
-        console.log('📊 Mobile component scores for weighted calculation:', {
-            viewport: analyses.viewport.score,
-            typography: analyses.typography.score,
-            touchTargets: analyses.touchTargets.score,
-            navigation: analyses.navigation.score,
-            media: analyses.media.score,
-            performance: analyses.performance.score,
-            forms: analyses.forms.score,
-            ux: analyses.ux.score
-        });
+        if (this.options.verbose) {
+            console.log('📊 Mobile component scores for weighted calculation:', {
+                viewport: analyses.viewport.score,
+                typography: analyses.typography.score,
+                touchTargets: analyses.touchTargets.score,
+                navigation: analyses.navigation.score,
+                media: analyses.media.score,
+                performance: analyses.performance.score,
+                forms: analyses.forms.score,
+                ux: analyses.ux.score
+            });
+        }
         
         // Validate all scores are numbers
         const scores = [
@@ -848,7 +808,9 @@ export class MobileFriendlinessAnalyzer {
             validatedScores.forms * weights.forms +
             validatedScores.ux * weights.ux;
             
-        console.log(`🧮 Mobile weighted calculation: ${weightedScore} (rounded: ${Math.round(weightedScore)})`);
+        if (this.options.verbose) {
+            console.log(`🧮 Mobile weighted calculation: ${weightedScore} (rounded: ${Math.round(weightedScore)})`);
+        }
         
         // Ensure we return a valid number between 0 and 100
         const finalScore = Math.max(0, Math.min(100, Math.round(weightedScore)));

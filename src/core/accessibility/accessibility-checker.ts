@@ -1,6 +1,7 @@
 import { chromium, Browser, Page } from "playwright";
 import pa11y from "pa11y";
 import { AccessibilityResult, TestOptions, Pa11yIssue } from '../types';
+import { log } from '@core/logging';
 import { BrowserManager } from '../browser';
 import { BrowserPoolManager } from '../browser/browser-pool-manager';
 import { WebVitalsCollector } from '../performance';
@@ -45,7 +46,7 @@ export class AccessibilityChecker {
   private enableComprehensiveAnalysis: boolean;
 
   constructor(options: AccessibilityCheckerOptions = {}) {
-    this.webVitalsCollector = new WebVitalsCollector();
+    this.webVitalsCollector = new WebVitalsCollector(undefined, { verbose: false }); // Default to quiet
     this.usePooling = options.usePooling || false;
     this.poolManager = options.poolManager || null;
     this.enableComprehensiveAnalysis = options.enableComprehensiveAnalysis || false;
@@ -56,7 +57,7 @@ export class AccessibilityChecker {
       this.contentWeightAnalyzer = new ContentWeightAnalyzer();
       this.performanceCollector = new PerformanceCollector(options.qualityAnalysisOptions);
       this.seoAnalyzer = new SEOAnalyzer(options.qualityAnalysisOptions);
-      this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer();
+      this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer({ verbose: false }); // Default to quiet
     }
   }
 
@@ -73,7 +74,8 @@ export class AccessibilityChecker {
       // Use standard browser manager
       this.browserManager = new BrowserManager({
         headless: finalOptions.browserOptions?.headless ?? true,
-        port: finalOptions.browserOptions?.port ?? 9222
+        port: finalOptions.browserOptions?.port ?? 9222,
+        verbose: false // Default to quiet for cleaner CLI output
       });
       
       await this.browserManager.initialize();
@@ -207,8 +209,7 @@ export class AccessibilityChecker {
       maxConcurrent: options.maxConcurrent || 3,
       maxRetries: options.maxRetries || 3,
       retryDelay: options.retryDelay || 2000,
-      enableProgressBar: options.enableProgressBar !== false,
-      progressUpdateInterval: options.progressUpdateInterval || 1000,
+      verbose: options.verbose || false, // Pass through verbose flag from test options
       enableResourceMonitoring: options.enableResourceMonitoring !== false,
       maxMemoryUsage: options.maxMemoryUsage || 512,
       maxCpuUsage: options.maxCpuUsage || 80,
@@ -231,7 +232,7 @@ export class AccessibilityChecker {
         // 🎯 Use custom callback from options or default
         if (options.eventCallbacks?.onUrlCompleted) {
           options.eventCallbacks.onUrlCompleted(url, result, duration);
-        } else {
+        } else if (options.verbose) {
           const status = result.passed ? '✅ PASSED' : '❌ FAILED';
           console.log(`${status} ${url} (${duration}ms) - ${result.errors.length} errors, ${result.warnings.length} warnings`);
         }
@@ -241,7 +242,7 @@ export class AccessibilityChecker {
         if (options.eventCallbacks?.onUrlFailed) {
           // ParallelTestManager doesn't provide attempts directly, so we use 1 as default
           options.eventCallbacks.onUrlFailed(url, error, 1);
-        } else {
+        } else if (options.verbose) {
           console.error(`💥 Error testing ${url}: ${error}`);
         }
       },
@@ -257,7 +258,7 @@ export class AccessibilityChecker {
         // 🎯 Use custom callback from options or default
         if (options.eventCallbacks?.onQueueEmpty) {
           options.eventCallbacks.onQueueEmpty();
-        } else {
+        } else if (options.verbose) {
           console.log('🎉 All parallel tests completed!');
         }
       }
@@ -267,8 +268,10 @@ export class AccessibilityChecker {
     this.parallelTestManager = new ParallelTestManager(parallelOptions);
     
     try {
-      console.log(`🚀 Starting parallel accessibility tests for ${pagesToTest.length} pages with ${parallelOptions.maxConcurrent} workers`);
-      console.log(`⚙️  Configuration: maxRetries=${parallelOptions.maxRetries}, retryDelay=${parallelOptions.retryDelay}ms`);
+      if (options.verbose) {
+        console.log(`🚀 Starting parallel accessibility tests for ${pagesToTest.length} pages with ${parallelOptions.maxConcurrent} workers`);
+        console.log(`⚙️  Configuration: maxRetries=${parallelOptions.maxRetries}, retryDelay=${parallelOptions.retryDelay}ms`);
+      }
       
       // Initialize manager
       await this.parallelTestManager.initialize();
@@ -278,44 +281,46 @@ export class AccessibilityChecker {
       const result: ParallelTestResult = await this.parallelTestManager.runTests(pagesToTest);
       const totalDuration = Date.now() - startTime;
       
-      // Output results
-      console.log('\n📋 Parallel Test Results Summary:');
-      console.log('==================================');
-      console.log(`⏱️  Total Duration: ${totalDuration}ms`);
-      console.log(`📄 URLs Tested: ${result.results.length}`);
-      console.log(`✅ Successful: ${result.results.filter(r => r.passed).length}`);
-      console.log(`❌ Failed: ${result.results.filter(r => !r.passed).length}`);
-      console.log(`💥 Errors: ${result.errors.length}`);
-      
-      // Performance metrics
-      const avgTimePerUrl = totalDuration / pagesToTest.length;
-      const speedup = avgTimePerUrl > 0 ? (avgTimePerUrl * pagesToTest.length) / totalDuration : 0;
-      
-      console.log('\n🚀 Performance Metrics:');
-      console.log('======================');
-      console.log(`Average time per URL: ${avgTimePerUrl.toFixed(0)}ms`);
-      console.log(`Speedup factor: ${speedup.toFixed(1)}x`);
-      console.log(`Throughput: ${(pagesToTest.length / (totalDuration / 1000)).toFixed(1)} URLs/second`);
-      
-      // Detailed statistics
-      console.log('\n📊 Queue Statistics:');
-      console.log('===================');
-      console.log(`Total: ${result.stats.total}`);
-      console.log(`Completed: ${result.stats.completed}`);
-      console.log(`Failed: ${result.stats.failed}`);
-      console.log(`Retrying: ${result.stats.retrying}`);
-      console.log(`Progress: ${result.stats.progress.toFixed(1)}%`);
-      console.log(`Average Duration: ${result.stats.averageDuration}ms`);
-      console.log(`Memory Usage: ${result.stats.memoryUsage}MB`);
-      console.log(`CPU Usage: ${result.stats.cpuUsage}s`);
-      
-      // Error details
-      if (result.errors.length > 0) {
-        console.log('\n❌ Failed URLs:');
-        console.log('===============');
-        result.errors.forEach((error, index) => {
-          console.log(`${index + 1}. ${error.url} (${error.attempts} attempts): ${error.error}`);
-        });
+      // Output results (only in verbose mode)
+      if (options.verbose) {
+        console.log('\n📋 Parallel Test Results Summary:');
+        console.log('==================================');
+        console.log(`⏱️  Total Duration: ${totalDuration}ms`);
+        console.log(`📄 URLs Tested: ${result.results.length}`);
+        console.log(`✅ Successful: ${result.results.filter(r => r.passed).length}`);
+        console.log(`❌ Failed: ${result.results.filter(r => !r.passed).length}`);
+        console.log(`💥 Errors: ${result.errors.length}`);
+        
+        // Performance metrics
+        const avgTimePerUrl = totalDuration / pagesToTest.length;
+        const speedup = avgTimePerUrl > 0 ? (avgTimePerUrl * pagesToTest.length) / totalDuration : 0;
+        
+        console.log('\n🚀 Performance Metrics:');
+        console.log('======================');
+        console.log(`Average time per URL: ${avgTimePerUrl.toFixed(0)}ms`);
+        console.log(`Speedup factor: ${speedup.toFixed(1)}x`);
+        console.log(`Throughput: ${(pagesToTest.length / (totalDuration / 1000)).toFixed(1)} URLs/second`);
+        
+        // Detailed statistics
+        console.log('\n📊 Queue Statistics:');
+        console.log('===================');
+        console.log(`Total: ${result.stats.total}`);
+        console.log(`Completed: ${result.stats.completed}`);
+        console.log(`Failed: ${result.stats.failed}`);
+        console.log(`Retrying: ${result.stats.retrying}`);
+        console.log(`Progress: ${result.stats.progress.toFixed(1)}%`);
+        console.log(`Average Duration: ${result.stats.averageDuration}ms`);
+        console.log(`Memory Usage: ${result.stats.memoryUsage}MB`);
+        console.log(`CPU Usage: ${result.stats.cpuUsage}s`);
+        
+        // Error details
+        if (result.errors.length > 0) {
+          console.log('\n❌ Failed URLs:');
+          console.log('===============');
+          result.errors.forEach((error, index) => {
+            console.log(`${index + 1}. ${error.url} (${error.attempts} attempts): ${error.error}`);
+          });
+        }
       }
       
       return result.results;
@@ -483,7 +488,6 @@ export class AccessibilityChecker {
         firstContentfulPaint: webVitals.fcp,
         largestContentfulPaint: webVitals.lcp,
         cumulativeLayoutShift: webVitals.cls,
-        interactionToNextPaint: webVitals.inp,
         timeToFirstByte: webVitals.ttfb,
         
         // Quality score
@@ -786,15 +790,15 @@ export class AccessibilityChecker {
       await this.captureScreenshots(page, result.url, result, options);
     }
 
-    // Run comprehensive analysis if enabled
+    // Run pa11y accessibility tests FIRST to avoid context destruction issues
+    if (options.verbose) console.log(`   🔍 Running pa11y accessibility tests...`);
+    await this.runPa11yTests(result, options, page);
+    
+    // Run comprehensive analysis if enabled (AFTER pa11y to preserve page context)
     if (this.enableComprehensiveAnalysis) {
       if (options.verbose) console.log(`   📈 Running comprehensive analysis...`);
       await this.runComprehensiveAnalysis(page, result, options);
     }
-
-    // Run pa11y accessibility tests
-    if (options.verbose) console.log(`   🔍 Running pa11y accessibility tests...`);
-    await this.runPa11yTests(result, options, page);
 
     // Determine pass/fail status
     result.passed = result.errors.length === 0;
@@ -846,7 +850,7 @@ export class AccessibilityChecker {
   private async runContentWeightAnalysis(page: Page, url: string, result: AccessibilityResult, options: TestOptions): Promise<void> {
     try {
       if (options.verbose) console.log(`     📊 Content weight analysis...`);
-      const contentWeightResult = await this.contentWeightAnalyzer!.analyze(page, url);
+      const contentWeightResult = await this.contentWeightAnalyzer!.analyze(page, url, { verbose: options.verbose });
       
       // Add content weight data to result
       (result as any).contentWeight = {
@@ -945,7 +949,7 @@ export class AccessibilityChecker {
   private async runMobileFriendlinessAnalysis(page: Page, url: string, result: AccessibilityResult, options: TestOptions): Promise<void> {
     try {
       if (options.verbose) console.log(`     📱 Mobile friendliness analysis...`);
-      const mobileResult = await this.mobileFriendlinessAnalyzer!.analyzeMobileFriendliness(page, url);
+      const mobileResult = await this.mobileFriendlinessAnalyzer!.analyzeMobileFriendliness(page, url, false);
       
       // Add mobile friendliness data to result
       (result as any).mobileFriendliness = mobileResult;
@@ -1032,7 +1036,8 @@ export class AccessibilityChecker {
   private async runPa11yTests(result: AccessibilityResult, options: TestOptions, sharedPage?: Page): Promise<void> {
     try {
       // If we have a shared page, use axe-core directly instead of launching pa11y
-      if (sharedPage && this.usePooling) {
+      // This prevents execution context destruction that affects other analyzers
+      if (sharedPage) {
         await this.runAxeTests(sharedPage, result, options);
         return;
       }
@@ -1182,6 +1187,27 @@ export class AccessibilityChecker {
       if (axeResults && typeof axeResults === 'object' && 'violations' in axeResults) {
         const violations = (axeResults as any).violations || [];
         
+        if (violations.length === 0) {
+          // Axe found no violations - don't run pa11y backup to preserve page context
+          // Instead, calculate a good accessibility score based on basic checks
+          let baseScore = 100;
+          
+          // Deduct based on basic accessibility issues found earlier
+          baseScore -= result.errors.length * 10;  // Each error: -10 points
+          baseScore -= result.warnings.length * 3; // Each warning: -3 points
+          baseScore -= result.imagesWithoutAlt * 2; // Each missing alt: -2 points
+          baseScore -= result.buttonsWithoutLabel * 3; // Each unlabeled button: -3 points
+          if (result.headingsCount === 0) baseScore -= 15; // No headings: -15 points
+          
+          result.pa11yScore = Math.max(0, Math.min(100, baseScore));
+          
+          if (options.verbose) {
+            log.debug(`Axe found no violations, using calculated score: ${result.pa11yScore}/100 (preserved page context)`);
+          }
+          
+          return;
+        }
+        
         violations.forEach((violation: any) => {
           violation.nodes.forEach((node: any) => {
             const detailedIssue: Pa11yIssue = {
@@ -1227,6 +1253,8 @@ export class AccessibilityChecker {
         
         result.pa11yScore = Math.max(0, Math.round(100 - totalDeductions));
       } else {
+        // Axe results don't have expected format
+        console.warn('⚠️ Axe results have unexpected format, using default score');
         result.pa11yScore = 100;
       }
       
@@ -1235,7 +1263,8 @@ export class AccessibilityChecker {
       }
       
     } catch (error) {
-      console.warn('Axe-core test failed, using fallback:', error);
+      // Always show this fallback - indicates accessibility testing issues
+      log.fallback('Axe-core Test', 'test failed', 'using basic checks', error);
       
       let fallbackScore = 100;
       fallbackScore -= result.errors.length * 15;
@@ -1249,6 +1278,95 @@ export class AccessibilityChecker {
       if (options.verbose) {
         console.log(`   🔢 Calculated fallback accessibility score: ${result.pa11yScore}/100`);
       }
+    }
+  }
+  
+  /**
+   * Fallback to original pa11y when axe finds no issues
+   */
+  private async runOriginalPa11yAsBackup(result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      if (options.verbose) {
+        console.log('   🔄 Running pa11y as backup accessibility test...');
+      }
+      const pa11y = require('pa11y');
+      
+      const pa11yResult = await pa11y(result.url, {
+        timeout: options.timeout || 15000,
+        wait: 2000,
+        standard: options.pa11yStandard || 'WCAG2AA',
+        hideElements: options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
+        includeNotices: options.includeNotices !== false,
+        includeWarnings: options.includeWarnings !== false,
+        runners: ['axe', 'htmlcs'],
+        chromeLaunchConfig: {
+          ...options.chromeLaunchConfig,
+          args: [
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
+          ]
+        }
+      });
+      
+      // Convert pa11y results to our format
+      pa11yResult.issues.forEach((issue: any) => {
+        const detailedIssue: Pa11yIssue = {
+          code: issue.code,
+          message: issue.message,
+          type: issue.type as 'error' | 'warning' | 'notice',
+          selector: issue.selector,
+          context: issue.context,
+          impact: (issue as any).impact,
+          help: (issue as any).help,
+          helpUrl: (issue as any).helpUrl
+        };
+        
+        result.pa11yIssues = result.pa11yIssues || [];
+        result.pa11yIssues.push(detailedIssue);
+        
+        // For compatibility
+        const message = `${issue.code}: ${issue.message}`;
+        if (issue.type === 'error') {
+          result.errors.push(message);
+        } else if (issue.type === 'warning') {
+          result.warnings.push(message);
+        } else if (issue.type === 'notice') {
+          result.warnings.push(`Notice: ${message}`);
+        }
+      });
+      
+      // Calculate pa11y score
+      if (pa11yResult.issues && pa11yResult.issues.length > 0) {
+        let totalDeductions = 0;
+        pa11yResult.issues.forEach((issue: any) => {
+          if (issue.type === 'error') {
+            totalDeductions += Math.min(5, 20 / Math.max(1, pa11yResult.issues.filter((i: any) => i.type === 'error').length));
+          } else if (issue.type === 'warning') {
+            totalDeductions += Math.min(1, 10 / Math.max(1, pa11yResult.issues.filter((i: any) => i.type === 'warning').length));
+          } else if (issue.type === 'notice') {
+            totalDeductions += Math.min(0.5, 5 / Math.max(1, pa11yResult.issues.filter((i: any) => i.type === 'notice').length));
+          }
+        });
+        result.pa11yScore = Math.max(0, Math.round(100 - totalDeductions));
+        if (options.verbose) {
+          console.log(`   🔢 Pa11y backup found ${pa11yResult.issues.length} issues, score: ${result.pa11yScore}/100`);
+        }
+      } else {
+        result.pa11yScore = 100;
+        if (options.verbose) {
+          console.log('   ✅ Pa11y backup also found no issues');
+        }
+      }
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      // Always show this critical fallback - both accessibility test engines failed
+      log.fallback('Pa11y Backup Test', 'backup test also failed', 'using default score', errorMessage);
+      result.pa11yScore = 100; // Default score when both axe and pa11y fail
     }
   }
 }

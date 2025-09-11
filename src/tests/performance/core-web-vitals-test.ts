@@ -123,7 +123,7 @@ export class CoreWebVitalsTest extends BaseAccessibilityTest {
       // Map to our interface
       return {
         lcp: webVitalsMetrics.lcp,
-        fid: webVitalsMetrics.inp, // Use INP as replacement for deprecated FID
+        fid: 0, // FID not measured in automated tests
         cls: webVitalsMetrics.cls,
         fcp: webVitalsMetrics.fcp,
         tti: webVitalsMetrics.loadTime > 0 ? webVitalsMetrics.loadTime * 0.8 : 0, // Estimate TTI
@@ -149,7 +149,7 @@ export class CoreWebVitalsTest extends BaseAccessibilityTest {
     return await page.evaluate(() => {
       return new Promise<any>((resolve) => {
         const results: any = {
-          lcp: 0, cls: 0, fcp: 0, inp: 0, ttfb: 0,
+          lcp: 0, cls: 0, fcp: 0, ttfb: 0,
           loadTime: 0, domContentLoaded: 0
         };
         

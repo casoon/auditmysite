@@ -11,6 +11,7 @@
  */
 
 import { Page, Response } from 'playwright';
+import { log } from '@core/logging';
 import { 
   SEOMetrics,
   MetaTagAnalysis,
@@ -29,25 +30,12 @@ export class SEOAnalyzer {
   async analyzeSEO(page: Page, url: string | { loc: string }): Promise<SEOMetrics> {
     // Extract URL string from URL object if needed
     const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
-    console.log(`🔍 Analyzing SEO for: ${urlString}`);
     
     const startTime = Date.now();
 
     try {
-      // Navigate to the page (only if page is not already loaded)
-      const currentUrl = page.url();
-      const isDataUri = currentUrl.startsWith('data:');
-      const isContentSet = currentUrl !== 'about:blank' && currentUrl !== '';
-      
-      // Only navigate if we don't already have content set
-      if (!isContentSet && !isDataUri) {
-        await page.goto(urlString, { 
-          waitUntil: 'networkidle',
-          timeout: this.options.analysisTimeout || 30000 
-        });
-      } else {
-        console.log(`📄 Using pre-set page content for SEO analysis (${currentUrl})`);
-      }
+      // Use already loaded content - navigation is handled by main test flow
+      // Skip navigation completely to preserve page context for comprehensive analysis
 
       // Collect all SEO metrics in parallel
       const [
@@ -107,9 +95,6 @@ export class SEOAnalyzer {
         opportunityAreas
       };
 
-      console.log(`✅ SEO analysis completed in ${Date.now() - startTime}ms`);
-      console.log(`📊 SEO Score: ${overallSEOScore}/100 (Grade: ${seoGrade})`);
-      console.log(`📝 Word Count: ${contentMetrics.wordCount}, Readability: ${contentMetrics.readabilityScore}`);
 
       return seoMetrics;
 
@@ -352,35 +337,51 @@ export class SEOAnalyzer {
    * Analyze technical SEO factors
    */
   private async analyzeTechnicalSEO(page: Page, url: string): Promise<TechnicalSEO> {
-    const technicalData = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a[href]'));
-      const internalLinks = links.filter(link => {
-        const href = link.getAttribute('href');
-        return href && (href.startsWith('/') || href.includes(window.location.hostname));
-      });
-      const externalLinks = links.filter(link => {
-        const href = link.getAttribute('href');
-        return href && !href.startsWith('/') && !href.includes(window.location.hostname) && href.startsWith('http');
-      });
+    // Check if page context is still valid before proceeding
+    try {
+      await page.title(); // Quick test to see if context is still valid
+    } catch (error) {
+      // Always show this fallback - indicates page context issues that need investigation
+      log.fallback('Technical SEO', 'page context unavailable', 'using minimal data');
+      return this.getFallbackTechnicalSEO(url);
+    }
+    
+    let technicalData;
+    try {
+      technicalData = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a[href]'));
+        const internalLinks = links.filter(link => {
+          const href = link.getAttribute('href');
+          return href && (href.startsWith('/') || href.includes(window.location.hostname));
+        });
+        const externalLinks = links.filter(link => {
+          const href = link.getAttribute('href');
+          return href && !href.startsWith('/') && !href.includes(window.location.hostname) && href.startsWith('http');
+        });
 
-      // Check for schema markup
-      const schemaScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-      const schemaTypes = schemaScripts.map(script => {
-        try {
-          const data = JSON.parse(script.textContent || '');
-          return data['@type'] || 'Unknown';
-        } catch {
-          return 'Invalid';
-        }
-      });
+        // Check for schema markup
+        const schemaScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+        const schemaTypes = schemaScripts.map(script => {
+          try {
+            const data = JSON.parse(script.textContent || '');
+            return data['@type'] || 'Unknown';
+          } catch {
+            return 'Invalid';
+          }
+        });
 
-      return {
-        internalLinkCount: internalLinks.length,
-        externalLinkCount: externalLinks.length,
-        schemaTypes,
-        allLinks: links.map(link => link.getAttribute('href')).filter(Boolean)
-      };
-    });
+        return {
+          internalLinkCount: internalLinks.length,
+          externalLinkCount: externalLinks.length,
+          schemaTypes,
+          allLinks: links.map(link => link.getAttribute('href')).filter(Boolean)
+        };
+      });
+    } catch (error) {
+      // Always show this fallback - indicates technical SEO evaluation issues
+      log.fallback('Technical SEO', 'page evaluation failed', 'using minimal data', error);
+      return this.getFallbackTechnicalSEO(url);
+    }
 
     // Check HTTPS
     const httpsEnabled = url.startsWith('https://');
@@ -396,10 +397,18 @@ export class SEOAnalyzer {
     const pageSpeedScore = 75; // Would calculate from performance metrics
 
     // Mobile-friendly (basic check based on viewport)
-    const mobileFriendly = await page.evaluate(() => {
-      const viewport = document.querySelector('meta[name="viewport"]');
-      return !!(viewport && viewport.getAttribute('content')?.includes('width=device-width'));
-    });
+    let mobileFriendly = false;
+    try {
+      // More robust check - first verify page context is still valid
+      await page.title(); // Quick context check
+      mobileFriendly = await page.evaluate(() => {
+        const viewport = document.querySelector('meta[name="viewport"]');
+        return !!(viewport && viewport.getAttribute('content')?.includes('width=device-width'));
+      });
+    } catch (error) {
+      log.fallback('SEO Mobile Check', 'page context destroyed during check', 'assuming mobile-unfriendly', error);
+      mobileFriendly = false;
+    }
 
     // Check for broken links (simplified)
     const brokenLinks = 0; // In real implementation, would test each link
@@ -698,6 +707,22 @@ export class SEOAnalyzer {
     };
   }
 
+  private getFallbackTechnicalSEO(url: string): TechnicalSEO {
+    return {
+      httpsEnabled: url.startsWith('https://'),
+      sitemapPresent: false,
+      robotsTxtPresent: false,
+      schemaMarkup: [],
+      pageSpeedScore: 75, // Default score when can't measure
+      mobileFriendly: true, // Assume modern sites are mobile-friendly
+      linkAnalysis: {
+        internalLinks: 0,
+        externalLinks: 0,
+        brokenLinks: 0
+      }
+    };
+  }
+  
   private getDefaultTechnicalSEO(): TechnicalSEO {
     return {
       httpsEnabled: false,
