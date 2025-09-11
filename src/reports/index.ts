@@ -7,6 +7,6 @@ export * from './detailed-issue-markdown';
 export * from './report-utils';
 
 // ⚠️ IMPORTANT: New code should use:
-// - HTMLGenerator from './unified/generators/html-generator'
+// - HTMLGenerator from '../generators/html-generator'
 // - JsonGenerator from '../generators/json-generator'
 // - MarkdownGenerator from '../generators/markdown-generator'

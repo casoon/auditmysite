@@ -1,10 +1,14 @@
-import { DetailedIssue } from '@core/types';
+import { AuditIssue } from '@core/types';
 import { groupByPage, sortBySeverity, sortByType } from './report-utils';
 
 export class DetailedIssueMarkdownReport {
-  static generate(issues: DetailedIssue[]): string {
+  static generate(issues: AuditIssue[], options?: { verbose?: boolean }): string {
     if (!Array.isArray(issues)) issues = [];
-    // console.log('DEBUG detailed-issue-markdown: issues', issues); // Hidden - use --verbose for debug logs
+    
+    if (options?.verbose) {
+      console.log('DEBUG detailed-issue-markdown: processing', issues.length, 'issues');
+    }
+    
     const lines: string[] = [];
     lines.push('# Detailed Accessibility Error Report');
     lines.push(`Generated: ${new Date().toISOString()}`);
@@ -13,7 +17,10 @@ export class DetailedIssueMarkdownReport {
 
     // Gruppiere nach Seite
     const issuesByPage = groupByPage(issues) || {};
-    // console.log('DEBUG detailed-issue-markdown: issuesByPage', issuesByPage); // Hidden - use --verbose for debug logs
+    
+    if (options?.verbose) {
+      console.log('DEBUG detailed-issue-markdown: grouped by page', Object.keys(issuesByPage).length, 'pages');
+    }
     for (const [pageUrl, pageIssues] of Object.entries(issuesByPage)) {
       lines.push(`## Page: ${pageUrl}`);
       if (pageIssues[0]?.pageTitle) {

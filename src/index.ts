@@ -94,7 +94,7 @@ program
         pa11yStandard: options.standard,
       };
 
-      const results = await checker.testMultiplePages(
+      const results = await checker.testMultiplePagesParallel(
         localUrls.map((url) => url.loc),
         testOptions,
       );

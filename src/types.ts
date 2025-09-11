@@ -92,15 +92,22 @@ export interface TestOptions {
   enableResourceMonitoring?: boolean;  // Enable resource monitoring (default: true)
   maxMemoryUsage?: number;             // Max. memory usage in MB (default: 512)
   maxCpuUsage?: number;                // Max. CPU usage in % (default: 80)
-  useParallelTesting?: boolean;        // Enable parallel tests (default: false)
-  // 🆕 Legacy option for sequential tests (for compatibility only)
-  useSequentialTesting?: boolean;
+  useParallelTesting?: boolean;        // Enable parallel tests (default: true)
   // 🆕 Output format option
   outputFormat?: 'markdown' | 'html' | 'pdf';
   // 🆕 pa11y options
   usePa11y?: boolean;
   // 🆕 Lighthouse options
   lighthouse?: boolean;
+  
+  // 🎯 Event Callbacks for real-time JSON population
+  eventCallbacks?: {
+    onUrlStarted?: (url: string) => void;
+    onUrlCompleted?: (url: string, result: AccessibilityResult, duration: number) => void;
+    onUrlFailed?: (url: string, error: string, attempts: number) => void;
+    onProgressUpdate?: (stats: any) => void;
+    onQueueEmpty?: () => void;
+  };
 }
 
 export interface LighthouseScores {

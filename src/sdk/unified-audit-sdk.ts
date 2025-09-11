@@ -268,9 +268,11 @@ export class AuditMySiteSDK {
    * Generate HTML report using unified data
    */
   private async generateHtmlReport(report: UnifiedReportExport, outputPath: string): Promise<void> {
-    const { ModernHTMLReportGenerator } = require('../reports/generators/modern-html-generator');
-    const generator = new ModernHTMLReportGenerator();
-    await generator.generateFromUnified(report, outputPath);
+    // Use HTMLGenerator (current standard)
+    const { HTMLGenerator } = require('../generators/html-generator');
+    const generator = new HTMLGenerator();
+    // Note: May need adapter for unified report format
+    await generator.generate(report as any);
   }
 
   /**

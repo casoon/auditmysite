@@ -74,34 +74,44 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
   /**
    * Main analyze method implementing BaseAnalyzer interface
    */
-  async analyze(page: Page, url: string, options: ContentWeightAnalysisOptions = {}): Promise<ContentWeightAnalysisResult> {
-    console.log(`🔍 Analyzing content weight for: ${url}`);
+  async analyze(page: Page, url: string | { loc: string }, options: ContentWeightAnalysisOptions = {}): Promise<ContentWeightAnalysisResult> {
+    // Extract URL string from URL object if needed
+    const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
+    console.log(`🔍 Analyzing content weight for: ${urlString}`);
 
-    // Set up response tracking
-    this.setupResponseTracking(page);
-
-    // Navigate and wait for page to fully load (only if page is not already loaded)
     const startTime = Date.now();
     
     try {
+      // CRITICAL FIX: Set up response tracking BEFORE navigation or content loading
+      // This ensures we capture all network requests from the beginning
+      this.setupResponseTracking(page);
+      
       const currentUrl = page.url();
       const isDataUri = currentUrl.startsWith('data:');
       const isContentSet = currentUrl !== 'about:blank' && currentUrl !== '';
       
       // Only navigate if we don't already have content set
       if (!isContentSet && !isDataUri) {
-        await page.goto(url, { 
+        console.log(`🔄 Navigating to ${urlString} and tracking resources...`);
+        await page.goto(urlString, { 
           waitUntil: 'networkidle',
           timeout: options.analysisTimeout || 30000 
         });
       } else {
-        console.log(`📄 Using pre-set page content (${currentUrl})`);
-        // Wait a moment for any dynamic content
+        console.log(`📄 Using pre-set page content (${currentUrl}) - tracking additional resources`);
+        // Even with pre-set content, wait for any dynamic resources
         await page.waitForTimeout(1000);
       }
 
-      // Wait a bit more for any lazy-loaded content
-      await page.waitForTimeout(2000);
+      // Wait longer for any lazy-loaded content and final resource requests
+      await page.waitForTimeout(3000);
+      
+      console.log(`📊 Captured ${this.responses.length} network responses for analysis`);
+      
+      // If we still have no responses, this indicates a problem
+      if (this.responses.length === 0) {
+        console.warn('⚠️ No network responses captured - this may indicate a content loading issue');
+      }
 
       // Collect resource data
       const contentWeight = await this.calculateContentWeight(page);

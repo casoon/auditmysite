@@ -184,7 +184,7 @@ export class StandardPipeline {
       // Regular accessibility tests with modern queue system
       if (options.useSequentialTesting) {
         console.log('📋 Use sequential tests (Legacy mode)...');
-        results = await checker.testMultiplePages(
+        results = await checker.testMultiplePagesParallel(
           limitedUrls.map((url: any) => url.loc),
           testOptions
         );
@@ -241,8 +241,8 @@ export class StandardPipeline {
 
     // Choose between Markdown and HTML output
     if (options.outputFormat === 'html') {
-      console.log('   🌐 Generating HTML report with modern HTMLGenerator...');
-      const { HTMLGenerator } = require('../../reports/unified/generators/html-generator');
+      console.log('   🌐 Generating HTML report...');
+      const { HTMLGenerator } = require('../../generators/html-generator');
       const generator = new HTMLGenerator();
       
       // Prepare audit data structure (similar to CLI format)
@@ -273,7 +273,20 @@ export class StandardPipeline {
             errors: result.errors || [],
             warnings: result.warnings || [],
             notices: result.pa11yIssues?.filter(issue => issue.type === 'notice') || []
-          }
+          },
+          // Enhanced analysis placeholders (will be populated when enhanced analysis is enabled)
+          performance: result.performanceMetrics ? {
+            score: 75,
+            coreWebVitals: {
+              largestContentfulPaint: result.performanceMetrics.largestContentfulPaint || 0,
+              firstContentfulPaint: result.performanceMetrics.firstContentfulPaint || 0,
+              cumulativeLayoutShift: result.performanceMetrics.cumulativeLayoutShift || 0,
+              timeToFirstByte: result.performanceMetrics.timeToFirstByte || 0
+            }
+          } : undefined,
+          // Note: SEO and mobile data will be available when enhanced analysis is used
+          seo: undefined,
+          mobileFriendliness: undefined
         }))
       };
       

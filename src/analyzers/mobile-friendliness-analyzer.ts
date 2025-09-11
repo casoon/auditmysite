@@ -163,8 +163,10 @@ export class MobileFriendlinessAnalyzer {
     /**
      * Analyze desktop vs mobile differences for comprehensive comparison
      */
-    async analyzeDesktopMobileComparison(page: Page, url: string): Promise<DesktopMobileComparison> {
-        console.log(`🖥️📱 Running desktop vs mobile comparison analysis for: ${url}`);
+    async analyzeDesktopMobileComparison(page: Page, url: string | { loc: string }): Promise<DesktopMobileComparison> {
+        // Extract URL string from URL object if needed
+        const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
+        console.log(`🖥️📱 Running desktop vs mobile comparison analysis for: ${urlString}`);
         
         const startTime = Date.now();
 
@@ -176,7 +178,7 @@ export class MobileFriendlinessAnalyzer {
             
             // Only navigate if we don't already have content set
             if (!isContentSet && !isDataUri) {
-                await page.goto(url, { 
+                await page.goto(urlString, { 
                     waitUntil: 'networkidle',
                     timeout: this.options.analysisTimeout || 30000 
                 });
@@ -216,8 +218,10 @@ export class MobileFriendlinessAnalyzer {
         }
     }
 
-    async analyzeMobileFriendliness(page: Page, url: string, includeDesktopComparison: boolean = false): Promise<MobileFriendlinessMetrics> {
-        console.log(`📱 Analyzing mobile-friendliness for: ${url}${includeDesktopComparison ? ' (with desktop comparison)' : ''}`);
+    async analyzeMobileFriendliness(page: Page, url: string | { loc: string }, includeDesktopComparison: boolean = false): Promise<MobileFriendlinessMetrics> {
+        // Extract URL string from URL object if needed
+        const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
+        console.log(`📱 Analyzing mobile-friendliness for: ${urlString}${includeDesktopComparison ? ' (with desktop comparison)' : ''}`);
         
         const startTime = Date.now();
 
@@ -229,7 +233,7 @@ export class MobileFriendlinessAnalyzer {
             
             // Only navigate if we don't already have content set
             if (!isContentSet && !isDataUri) {
-                await page.goto(url, { 
+                await page.goto(urlString, { 
                     waitUntil: 'networkidle',
                     timeout: this.options.analysisTimeout || 30000 
                 });
@@ -262,6 +266,18 @@ export class MobileFriendlinessAnalyzer {
                 this.analyzeUserExperience(page)
             ]);
 
+            // Debug: Log individual component scores
+            console.log('📱 Mobile component scores:', {
+                viewport: viewport.score,
+                typography: typography.score, 
+                touchTargets: touchTargets.score,
+                navigation: navigation.score,
+                media: media.score,
+                performance: performance.score,
+                forms: forms.score,
+                ux: ux.score
+            });
+            
             // Calculate overall score
             const overallScore = this.calculateOverallScore({
                 viewport,
@@ -291,7 +307,7 @@ export class MobileFriendlinessAnalyzer {
             if (includeDesktopComparison) {
                 try {
                     console.log('\uD83D\uDDA5\uFE0F Running additional desktop comparison analysis...');
-                    desktopComparison = await this.analyzeDesktopMobileComparison(page, url);
+                    desktopComparison = await this.analyzeDesktopMobileComparison(page, urlString);
                 } catch (error) {
                     console.warn('\u26A0\uFE0F Desktop comparison analysis failed:', error);
                     // Continue without desktop comparison rather than failing entirely
@@ -766,6 +782,50 @@ export class MobileFriendlinessAnalyzer {
         forms: FormAnalysis;
         ux: UserExperienceAnalysis;
     }): number {
+        // Debug: Log individual scores to identify NaN sources
+        console.log('📊 Mobile component scores for weighted calculation:', {
+            viewport: analyses.viewport.score,
+            typography: analyses.typography.score,
+            touchTargets: analyses.touchTargets.score,
+            navigation: analyses.navigation.score,
+            media: analyses.media.score,
+            performance: analyses.performance.score,
+            forms: analyses.forms.score,
+            ux: analyses.ux.score
+        });
+        
+        // Validate all scores are numbers
+        const scores = [
+            analyses.viewport.score,
+            analyses.typography.score,
+            analyses.touchTargets.score,
+            analyses.navigation.score,
+            analyses.media.score,
+            analyses.performance.score,
+            analyses.forms.score,
+            analyses.ux.score
+        ];
+        
+        // Check for NaN values and replace with 0
+        const validatedScores = {
+            viewport: isNaN(analyses.viewport.score) ? 0 : analyses.viewport.score,
+            typography: isNaN(analyses.typography.score) ? 0 : analyses.typography.score,
+            touchTargets: isNaN(analyses.touchTargets.score) ? 0 : analyses.touchTargets.score,
+            navigation: isNaN(analyses.navigation.score) ? 0 : analyses.navigation.score,
+            media: isNaN(analyses.media.score) ? 0 : analyses.media.score,
+            performance: isNaN(analyses.performance.score) ? 0 : analyses.performance.score,
+            forms: isNaN(analyses.forms.score) ? 0 : analyses.forms.score,
+            ux: isNaN(analyses.ux.score) ? 0 : analyses.ux.score
+        };
+        
+        if (scores.some(score => isNaN(score))) {
+            console.warn('⚠️ Found NaN values in mobile analysis scores:', scores.map((score, i) => ({
+                component: ['viewport', 'typography', 'touchTargets', 'navigation', 'media', 'performance', 'forms', 'ux'][i],
+                score,
+                isNaN: isNaN(score)
+            })));
+        }
+        
         // Weighted scoring
         const weights = {
             viewport: 0.20,      // 20% - Critical for mobile
@@ -779,16 +839,26 @@ export class MobileFriendlinessAnalyzer {
         };
 
         const weightedScore = 
-            analyses.viewport.score * weights.viewport +
-            analyses.typography.score * weights.typography +
-            analyses.touchTargets.score * weights.touchTargets +
-            analyses.navigation.score * weights.navigation +
-            analyses.media.score * weights.media +
-            analyses.performance.score * weights.performance +
-            analyses.forms.score * weights.forms +
-            analyses.ux.score * weights.ux;
-
-        return Math.round(weightedScore);
+            validatedScores.viewport * weights.viewport +
+            validatedScores.typography * weights.typography +
+            validatedScores.touchTargets * weights.touchTargets +
+            validatedScores.navigation * weights.navigation +
+            validatedScores.media * weights.media +
+            validatedScores.performance * weights.performance +
+            validatedScores.forms * weights.forms +
+            validatedScores.ux * weights.ux;
+            
+        console.log(`🧮 Mobile weighted calculation: ${weightedScore} (rounded: ${Math.round(weightedScore)})`);
+        
+        // Ensure we return a valid number between 0 and 100
+        const finalScore = Math.max(0, Math.min(100, Math.round(weightedScore)));
+        
+        if (isNaN(finalScore)) {
+            console.error('❌ Final mobile score is NaN - returning 0');
+            return 0;
+        }
+        
+        return finalScore;
     }
 
     private calculateGrade(score: number): string {

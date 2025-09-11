@@ -430,9 +430,9 @@ export class CoreAuditPipeline {
   private async generateHTMLReport(jsonPath: string, options: CoreAuditOptions): Promise<void> {
     console.log('🌐 Generating HTML report from JSON...');
     
-    // Use new UnifiedHTMLGenerator that reads JSON directly
-    const { UnifiedHTMLGenerator } = require('../../reports/unified/unified-html-generator');
-    const generator = new UnifiedHTMLGenerator();
+    // Use HTMLGenerator (current standard)
+    const { HTMLGenerator } = require('../../generators/html-generator');
+    const generator = new HTMLGenerator();
     const htmlContent = await generator.generateFromJSON(jsonPath);
     
     const outputDir = options.outputDir || './reports';

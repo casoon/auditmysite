@@ -60,7 +60,7 @@ describe('Memory Usage Performance Tests', () => {
       const checker = new AccessibilityChecker({ usePooling: true, poolManager });
         
         for (let batch = 0; batch < 3; batch++) {
-          await checker.testMultiplePages(TEST_URLS.slice(0, 2), {
+          await checker.testMultiplePagesParallel(TEST_URLS.slice(0, 2), {
             timeout: 5000,
             maxConcurrent: 2,
             verbose: false
@@ -251,7 +251,7 @@ describe('Memory Usage Performance Tests', () => {
           await poolManager.warmUp(1);
     const checker = new AccessibilityChecker({ usePooling: true, poolManager });
           
-          await checker.testMultiplePages(TEST_URLS.slice(0, 2), {
+          await checker.testMultiplePagesParallel(TEST_URLS.slice(0, 2), {
             timeout: 5000,
             maxConcurrent: 2
           });

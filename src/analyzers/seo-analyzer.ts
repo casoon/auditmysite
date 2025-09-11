@@ -26,8 +26,10 @@ export class SEOAnalyzer {
   /**
    * Perform comprehensive SEO analysis of a webpage
    */
-  async analyzeSEO(page: Page, url: string): Promise<SEOMetrics> {
-    console.log(`🔍 Analyzing SEO for: ${url}`);
+  async analyzeSEO(page: Page, url: string | { loc: string }): Promise<SEOMetrics> {
+    // Extract URL string from URL object if needed
+    const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
+    console.log(`🔍 Analyzing SEO for: ${urlString}`);
     
     const startTime = Date.now();
 
@@ -39,7 +41,7 @@ export class SEOAnalyzer {
       
       // Only navigate if we don't already have content set
       if (!isContentSet && !isDataUri) {
-        await page.goto(url, { 
+        await page.goto(urlString, { 
           waitUntil: 'networkidle',
           timeout: this.options.analysisTimeout || 30000 
         });
@@ -58,7 +60,7 @@ export class SEOAnalyzer {
         this.analyzeMetaTags(page),
         this.analyzeHeadingStructure(page),
         this.options.includeSocialAnalysis ? this.analyzeSocialTags(page) : this.getDefaultSocialTags(),
-        this.options.includeTechnicalSEO ? this.analyzeTechnicalSEO(page, url) : this.getDefaultTechnicalSEO(),
+        this.options.includeTechnicalSEO ? this.analyzeTechnicalSEO(page, urlString) : this.getDefaultTechnicalSEO(),
         this.analyzeContentQuality(page)
       ]);
 
@@ -418,13 +420,21 @@ export class SEOAnalyzer {
   }
 
   /**
-   * Analyze content quality
+   * Analyze content quality including images and alt text
    */
   private async analyzeContentQuality(page: Page): Promise<{
     wordCount: number;
     readabilityScore: number;
     contentQuality: 'poor' | 'fair' | 'good' | 'excellent';
     contentUniqueness: number;
+    // NEW: Image analysis data
+    imageAnalysis?: {
+      totalImages: number;
+      imagesWithAlt: number;
+      imagesWithoutAlt: number;
+      emptyAltImages: number;
+      decorativeImages: number;
+    };
   }> {
     const contentData = await page.evaluate(() => {
       const bodyText = document.body.innerText || '';
@@ -437,6 +447,30 @@ export class SEOAnalyzer {
       
       // Calculate average syllables per word (simplified)
       const avgSyllablesPerWord = 1.5; // Simplified: average English word has ~1.5 syllables
+      
+      // NEW: Analyze images and alt text
+      const images = document.querySelectorAll('img');
+      let imagesWithAlt = 0;
+      let imagesWithoutAlt = 0;
+      let emptyAltImages = 0;
+      let decorativeImages = 0;
+      
+      images.forEach(img => {
+        const alt = img.getAttribute('alt');
+        if (alt === null) {
+          // No alt attribute at all
+          imagesWithoutAlt++;
+        } else if (alt.trim() === '') {
+          // Empty alt (decorative image)
+          emptyAltImages++;
+          decorativeImages++;
+        } else {
+          // Has meaningful alt text
+          imagesWithAlt++;
+        }
+      });
+      
+      console.log(`🖼️ SEO Image Analysis: ${images.length} total images, ${imagesWithAlt} with alt, ${imagesWithoutAlt} missing alt, ${emptyAltImages} empty alt`);
 
       return {
         wordCount: words.length,
@@ -444,7 +478,15 @@ export class SEOAnalyzer {
         paragraphCount: paragraphs.length,
         avgWordsPerSentence,
         avgSyllablesPerWord,
-        fullText: bodyText
+        fullText: bodyText,
+        // Image analysis results
+        imageAnalysis: {
+          totalImages: images.length,
+          imagesWithAlt,
+          imagesWithoutAlt,
+          emptyAltImages,
+          decorativeImages
+        }
       };
     });
 
@@ -473,7 +515,8 @@ export class SEOAnalyzer {
       wordCount: contentData.wordCount,
       readabilityScore,
       contentQuality,
-      contentUniqueness
+      contentUniqueness,
+      imageAnalysis: contentData.imageAnalysis
     };
   }
 

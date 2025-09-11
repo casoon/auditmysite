@@ -1,5 +1,15 @@
 import { AccessibilityResult } from '../../types/audit-results';
-import { EnhancedReportSummary } from './enhanced-report-generator';
+
+// Simple Enhanced Report Summary interface (replaces deleted enhanced-report-generator)
+interface EnhancedReportSummary {
+  testedPages: number;
+  passedPages: number;
+  failedPages: number;
+  totalErrors: number;
+  totalWarnings: number;
+  avgAccessibilityScore: number;
+  avgPerformanceScore: number;
+}
 
 /**
  * Stream Event Types for Tauri Integration

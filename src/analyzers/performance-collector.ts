@@ -29,8 +29,10 @@ export class PerformanceCollector {
   /**
    * Collect comprehensive performance metrics for a webpage
    */
-  async collectEnhancedMetrics(page: Page, url: string): Promise<PerformanceMetrics> {
-    console.log(`⚡ Collecting enhanced performance metrics for: ${url}`);
+  async collectEnhancedMetrics(page: Page, url: string | { loc: string }): Promise<PerformanceMetrics> {
+    // Extract URL string from URL object if needed
+    const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
+    console.log(`⚡ Collecting enhanced performance metrics for: ${urlString}`);
     
     const startTime = Date.now();
 
@@ -42,7 +44,7 @@ export class PerformanceCollector {
       
       // Only navigate if we don't already have content set
       if (!isContentSet && !isDataUri) {
-        await page.goto(url, { 
+        await page.goto(urlString, { 
           waitUntil: 'networkidle',
           timeout: this.options.analysisTimeout || 30000 
         });
@@ -61,7 +63,7 @@ export class PerformanceCollector {
       ] = await Promise.all([
         this.collectCoreWebVitals(page),
         this.collectTimingMetrics(page),
-        this.contentAnalyzer.analyze(page, url)
+        this.contentAnalyzer.analyze(page, urlString)
       ]);
 
       // Calculate derived metrics

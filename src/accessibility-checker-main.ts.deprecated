@@ -100,8 +100,35 @@ export interface AccessibilityAnalysisResult extends AccessibilityResult {
 }
 
 /**
- * Main Accessibility Checker that combines accessibility analysis
- * with performance, SEO, and content weight analysis
+ * @deprecated FULLY OBSOLETE - DO NOT USE
+ * 
+ * MainAccessibilityChecker has been REPLACED by enhanced AccessibilityChecker with comprehensive analysis.
+ * 
+ * ✅ NEW: Use AccessibilityChecker with enableComprehensiveAnalysis: true
+ * ❌ OLD: MainAccessibilityChecker (sequential, obsolete)
+ * 
+ * Migration:
+ * ```typescript
+ * // OLD (deprecated)
+ * const checker = new MainAccessibilityChecker(options);
+ * await checker.analyze(html, url);
+ * 
+ * // NEW (recommended)
+ * const checker = new AccessibilityChecker({
+ *   enableComprehensiveAnalysis: true,
+ *   qualityAnalysisOptions: options
+ * });
+ * await checker.testPage(url, testOptions);
+ * ```
+ * 
+ * The new enhanced AccessibilityChecker provides:
+ * - Event-driven parallel browser architecture
+ * - URL normalization (fixes sitemap parser issues)
+ * - All analyzers integrated (performance, SEO, content-weight, mobile)
+ * - Better error handling and resource management
+ * - Compatible with existing report generators
+ * 
+ * This class will be REMOVED in v3.0.0
  */
 export class MainAccessibilityChecker {
     private accessibilityChecker: AccessibilityChecker;
@@ -140,6 +167,8 @@ export class MainAccessibilityChecker {
     }
 
     /**
+     * @deprecated OBSOLETE: Sequential analysis pattern
+     * Use event-driven parallel browser processing instead
      * Run comprehensive analysis including accessibility, performance, SEO, and content weight
      */
     async analyze(html: string, url: string | any): Promise<AccessibilityAnalysisResult> {

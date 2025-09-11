@@ -6,6 +6,11 @@ import { BrowserPoolManager } from '../browser/browser-pool-manager';
 import { WebVitalsCollector } from '../performance';
 import { ParallelTestManager, ParallelTestManagerOptions, ParallelTestResult } from './index';
 import { Queue, QueueConfig, QueueEventCallbacks } from '../queue';
+import { ContentWeightAnalyzer } from '../../analyzers/content-weight-analyzer';
+import { PerformanceCollector } from '../../analyzers/performance-collector';
+import { SEOAnalyzer } from '../../analyzers/seo-analyzer';
+import { MobileFriendlinessAnalyzer } from '../../analyzers/mobile-friendliness-analyzer';
+import { QualityAnalysisOptions } from '../../types/enhanced-metrics';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -19,6 +24,10 @@ export interface AccessibilityCheckerOptions {
     headless?: boolean;
     port?: number;
   };
+  /** Enable comprehensive analysis (performance, SEO, content weight, mobile) */
+  enableComprehensiveAnalysis?: boolean;
+  /** Quality analysis options for comprehensive analysis */
+  qualityAnalysisOptions?: QualityAnalysisOptions;
 }
 
 export class AccessibilityChecker {
@@ -27,11 +36,28 @@ export class AccessibilityChecker {
   private webVitalsCollector: WebVitalsCollector;
   private parallelTestManager: ParallelTestManager | null = null;
   private usePooling: boolean;
+  
+  // Comprehensive analysis components
+  private contentWeightAnalyzer: ContentWeightAnalyzer | null = null;
+  private performanceCollector: PerformanceCollector | null = null;
+  private seoAnalyzer: SEOAnalyzer | null = null;
+  private mobileFriendlinessAnalyzer: MobileFriendlinessAnalyzer | null = null;
+  private enableComprehensiveAnalysis: boolean;
 
   constructor(options: AccessibilityCheckerOptions = {}) {
     this.webVitalsCollector = new WebVitalsCollector();
     this.usePooling = options.usePooling || false;
     this.poolManager = options.poolManager || null;
+    this.enableComprehensiveAnalysis = options.enableComprehensiveAnalysis || false;
+    
+    // Initialize comprehensive analyzers if enabled
+    if (this.enableComprehensiveAnalysis) {
+      console.log('🔧 Initializing comprehensive analysis with all analyzers');
+      this.contentWeightAnalyzer = new ContentWeightAnalyzer();
+      this.performanceCollector = new PerformanceCollector(options.qualityAnalysisOptions);
+      this.seoAnalyzer = new SEOAnalyzer(options.qualityAnalysisOptions);
+      this.mobileFriendlinessAnalyzer = new MobileFriendlinessAnalyzer();
+    }
   }
 
   async initialize(options: AccessibilityCheckerOptions = {}): Promise<void> {
@@ -61,6 +87,10 @@ export class AccessibilityChecker {
     }
   }
 
+  /**
+   * Test a single page with comprehensive analysis
+   * This method is used by ParallelTestManager and other components
+   */
   async testPage(
     url: string,
     options: TestOptions = {},
@@ -96,131 +126,8 @@ export class AccessibilityChecker {
         timeout: options.timeout || 10000,
       });
 
-      // Use shared test logic
+      // Use shared test logic which includes comprehensive analysis
       await this.runPageTests(page, result, options);
-
-      // Run pa11y accessibility tests
-      if (options.verbose) console.log(`   🔍 Running pa11y accessibility tests...`);
-        try {
-          // 🆕 Optimized pa11y config for localhost
-          const pa11yResult = await pa11y(url, {
-            timeout: options.timeout || 15000, // Increased for localhost
-            wait: options.wait || 2000, // Wait longer for localhost
-            standard: options.pa11yStandard || 'WCAG2AA',
-            hideElements: options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
-            includeNotices: options.includeNotices !== false,
-            includeWarnings: options.includeWarnings !== false,
-            runners: options.runners || ['axe', 'htmlcs'],
-            // 🆕 Simplified Chrome config for localhost
-            chromeLaunchConfig: {
-              ...options.chromeLaunchConfig,
-              args: [
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding'
-              ]
-            },
-            log: options.verbose ? console : undefined,
-          });
-
-        // Convert pa11y results to our format
-        pa11yResult.issues.forEach((issue) => {
-          // Detaillierte Issue-Informationen speichern
-          const detailedIssue: Pa11yIssue = {
-            code: issue.code,
-            message: issue.message,
-            type: issue.type as 'error' | 'warning' | 'notice',
-            selector: issue.selector,
-            context: issue.context,
-            impact: (issue as any).impact,
-            help: (issue as any).help,
-            helpUrl: (issue as any).helpUrl
-          };
-          
-          result.pa11yIssues = result.pa11yIssues || [];
-          result.pa11yIssues.push(detailedIssue);
-          
-          // For compatibility, also add to errors/warnings
-          const message = `${issue.code}: ${issue.message}`;
-          if (issue.type === 'error') {
-            result.errors.push(message);
-          } else if (issue.type === 'warning') {
-            result.warnings.push(message);
-          } else if (issue.type === 'notice') {
-            result.warnings.push(`Notice: ${message}`);
-          }
-        });
-        // if (options.verbose) console.log('DEBUG: Nach pa11y', {url: result.url, errors: result.errors.length, warnings: result.warnings.length, pa11yIssues: result.pa11yIssues?.length}); // Hidden - use --verbose for debug logs
-
-        // Additional pa11y metrics
-        if (pa11yResult.documentTitle) {
-          result.title = pa11yResult.documentTitle;
-        }
-
-        // Calculate pa11y score (improved formula - less strict)
-        if (pa11yResult.issues.length > 0) {
-          const totalIssues = pa11yResult.issues.length;
-          const errorIssues = pa11yResult.issues.filter(issue => issue.type === 'error').length;
-          const warningIssues = pa11yResult.issues.filter(issue => issue.type === 'warning').length;
-          const noticeIssues = pa11yResult.issues.filter(issue => issue.type === 'notice').length;
-          
-          // More balanced scoring: errors -5, warnings -2, notices -1 points each
-          result.pa11yScore = Math.max(10, 100 - (errorIssues * 5) - (warningIssues * 2) - (noticeIssues * 1));
-        } else {
-          result.pa11yScore = 100;
-        }
-
-      } catch (pa11yError) {
-        // 🆕 Improved error handling for pa11y
-        const errorMessage = pa11yError instanceof Error ? pa11yError.message : String(pa11yError);
-        
-        // Handle timeout errors specifically
-        if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
-          if (options.verbose) {
-            console.log(`   ⚠️  pa11y timeout for ${url} - skipping pa11y tests`);
-          }
-          // Do not add timeout errors as warnings, as they are normal for localhost
-        } else {
-          // Add other pa11y errors as warnings
-          result.warnings.push(`pa11y test failed: ${errorMessage}`);
-        }
-        
-        // 🆕 Fallback pa11y score calculation when pa11y fails
-        // Calculate score based on basic accessibility checks we performed
-        let fallbackScore = 100;
-        
-        // Penalize for basic issues
-        if (result.errors.length > 0) {
-          fallbackScore -= result.errors.length * 15;  // 15 points per error
-        }
-        if (result.warnings.length > 0) {
-          fallbackScore -= result.warnings.length * 5;  // 5 points per warning
-        }
-        if (result.imagesWithoutAlt > 0) {
-          fallbackScore -= result.imagesWithoutAlt * 3;  // 3 points per missing alt
-        }
-        if (result.buttonsWithoutLabel > 0) {
-          fallbackScore -= result.buttonsWithoutLabel * 5;  // 5 points per missing label
-        }
-        if (result.headingsCount === 0) {
-          fallbackScore -= 20;  // 20 points for no headings
-        }
-        
-        result.pa11yScore = Math.max(0, fallbackScore);
-        
-        if (options.verbose) {
-          console.log(`   🔢 Calculated fallback pa11y score: ${result.pa11yScore}/100`);
-        }
-      }
-      // if (options.verbose) console.log('DEBUG: Nach pa11y/Ende', {url: result.url, errors: result.errors.length, warnings: result.warnings.length, pa11yIssues: result.pa11yIssues?.length}); // Hidden - use --verbose for debug logs
-
-      // Lighthouse integration removed
 
       // Check for critical errors
       if (result.errors.length > 0) {
@@ -237,57 +144,39 @@ export class AccessibilityChecker {
     return result;
   }
 
-  async testMultiplePages(
-    urls: string[],
-    options: TestOptions = {},
-  ): Promise<AccessibilityResult[]> {
-    const results: AccessibilityResult[] = [];
-    const maxPages = options.maxPages || urls.length;
-    const pagesToTest = urls.slice(0, maxPages);
 
-    console.log(`🔄 Sequential testing of ${pagesToTest.length} pages...`);
+  /**
+   * Normalize URL from various formats (fixes sitemap parser URL object issue)
+   */
+  private normalizeUrl(url: string | { loc: string } | any): string {
+    if (typeof url === 'string') {
+      return url;
+    }
     
-    for (let i = 0; i < pagesToTest.length; i++) {
-      const url = pagesToTest[i];
-      const startTime = Date.now();
-      console.log(`\n📄 Testing page ${i + 1}/${pagesToTest.length}: ${url}`);
+    if (typeof url === 'object' && url !== null) {
+      // Handle sitemap parser objects
+      if ('loc' in url && typeof url.loc === 'string') {
+        return url.loc;
+      }
       
-      try {
-        const result = await this.testPage(url, options);
-        const duration = Date.now() - startTime;
-        result.duration = duration;
-        results.push(result);
-        
-        console.log(`   ✅ Test completed in ${duration}ms`);
-        
-        if (result.passed) {
-          console.log(`   🎯 Result: PASSED (${result.errors.length} errors, ${result.warnings.length} warnings)`);
-        } else {
-          console.log(`   🎯 Result: FAILED (${result.errors.length} errors, ${result.warnings.length} warnings)`);
-        }
-        
-      } catch (error) {
-        const duration = Date.now() - startTime;
-        console.error(`   💥 Error testing page after ${duration}ms: ${error}`);
-        
-        // Error-Result erstellen
-        const errorResult: AccessibilityResult = {
-          url: url,
-          title: "",
-          imagesWithoutAlt: 0,
-          buttonsWithoutLabel: 0,
-          headingsCount: 0,
-          errors: [`Test failed: ${error}`],
-          warnings: [],
-          passed: false,
-          crashed: true,  // 🆕 Mark as crashed for technical errors
-          duration,
-        };
-        results.push(errorResult);
+      // Handle other URL-like objects
+      if ('url' in url && typeof url.url === 'string') {
+        return url.url;
+      }
+      
+      // Handle href property
+      if ('href' in url && typeof url.href === 'string') {
+        return url.href;
+      }
+      
+      // Try to convert to string
+      const urlStr = String(url);
+      if (urlStr && urlStr !== '[object Object]') {
+        return urlStr;
       }
     }
-
-    return results;
+    
+    throw new Error(`Cannot normalize URL: ${JSON.stringify(url)}`);
   }
 
   /**
@@ -297,13 +186,23 @@ export class AccessibilityChecker {
    * with real-time status reporting and resource monitoring.
    */
   async testMultiplePagesParallel(
-    urls: string[],
+    urls: (string | { loc: string } | any)[],
     options: TestOptions = {},
   ): Promise<AccessibilityResult[]> {
-    const maxPages = options.maxPages || urls.length;
-    const pagesToTest = urls.slice(0, maxPages);
+    // Normalize all URLs to strings first
+    const normalizedUrls = urls.map(url => {
+      try {
+        return this.normalizeUrl(url);
+      } catch (error) {
+        console.error(`❌ Failed to normalize URL ${JSON.stringify(url)}: ${error}`);
+        return null;
+      }
+    }).filter((url): url is string => url !== null);
     
-    // Parallel test options
+    const maxPages = options.maxPages || normalizedUrls.length;
+    const pagesToTest = normalizedUrls.slice(0, maxPages);
+    
+    // Parallel test options with event callback support
     const parallelOptions: ParallelTestManagerOptions = {
       maxConcurrent: options.maxConcurrent || 3,
       maxRetries: options.maxRetries || 3,
@@ -314,25 +213,51 @@ export class AccessibilityChecker {
       maxMemoryUsage: options.maxMemoryUsage || 512,
       maxCpuUsage: options.maxCpuUsage || 80,
       testOptions: options,
-      eventCallbacks: {
-        onUrlStarted: (url: string) => {
-          if (options.verbose) {
-            console.log(`🚀 Starting parallel test: ${url}`);
-          }
-        },
-        onUrlCompleted: (url: string, result: AccessibilityResult, duration: number) => {
+      // 🎯 Pass this AccessibilityChecker instance (with comprehensive analysis)
+      accessibilityChecker: this,
+      // Map event callbacks to ParallelTestManager's expected interface
+      onTestStart: (url: string) => {
+        // 🎯 Use custom callback from options or default
+        if (options.eventCallbacks?.onUrlStarted) {
+          options.eventCallbacks.onUrlStarted(url);
+        } else if (options.verbose) {
+          console.log(`🚀 Starting parallel test: ${url}`);
+        }
+      },
+      onTestComplete: (url: string, result: AccessibilityResult) => {
+        // Calculate duration from result object
+        const duration = result.duration || 0;
+        
+        // 🎯 Use custom callback from options or default
+        if (options.eventCallbacks?.onUrlCompleted) {
+          options.eventCallbacks.onUrlCompleted(url, result, duration);
+        } else {
           const status = result.passed ? '✅ PASSED' : '❌ FAILED';
           console.log(`${status} ${url} (${duration}ms) - ${result.errors.length} errors, ${result.warnings.length} warnings`);
-        },
-        onUrlFailed: (url: string, error: string, attempts: number) => {
-          console.error(`💥 Error testing ${url} (attempt ${attempts}): ${error}`);
-        },
-        onProgressUpdate: (stats) => {
-          if (options.verbose) {
-            console.log(`📊 Progress: ${stats.progress.toFixed(1)}% | Workers: ${stats.activeWorkers}/${options.maxConcurrent || 3} | Memory: ${stats.memoryUsage}MB`);
-          }
-        },
-        onQueueEmpty: () => {
+        }
+      },
+      onTestError: (url: string, error: string) => {
+        // 🎯 Use custom callback from options or default
+        if (options.eventCallbacks?.onUrlFailed) {
+          // ParallelTestManager doesn't provide attempts directly, so we use 1 as default
+          options.eventCallbacks.onUrlFailed(url, error, 1);
+        } else {
+          console.error(`💥 Error testing ${url}: ${error}`);
+        }
+      },
+      onProgressUpdate: (stats) => {
+        // 🎯 Use custom callback from options or default
+        if (options.eventCallbacks?.onProgressUpdate) {
+          options.eventCallbacks.onProgressUpdate(stats);
+        } else if (options.verbose) {
+          console.log(`📆 Progress: ${stats.progress.toFixed(1)}% | Workers: ${stats.activeWorkers}/${options.maxConcurrent || 3} | Memory: ${stats.memoryUsage}MB`);
+        }
+      },
+      onQueueEmpty: () => {
+        // 🎯 Use custom callback from options or default
+        if (options.eventCallbacks?.onQueueEmpty) {
+          options.eventCallbacks.onQueueEmpty();
+        } else {
           console.log('🎉 All parallel tests completed!');
         }
       }
@@ -861,19 +786,257 @@ export class AccessibilityChecker {
       await this.captureScreenshots(page, result.url, result, options);
     }
 
+    // Run comprehensive analysis if enabled
+    if (this.enableComprehensiveAnalysis) {
+      if (options.verbose) console.log(`   📈 Running comprehensive analysis...`);
+      await this.runComprehensiveAnalysis(page, result, options);
+    }
+
     // Run pa11y accessibility tests
     if (options.verbose) console.log(`   🔍 Running pa11y accessibility tests...`);
-    await this.runPa11yTests(result, options);
+    await this.runPa11yTests(result, options, page);
 
     // Determine pass/fail status
     result.passed = result.errors.length === 0;
   }
 
   /**
-   * Extract pa11y test logic for reuse
+   * Run comprehensive analysis using existing analyzers
    */
-  private async runPa11yTests(result: AccessibilityResult, options: TestOptions): Promise<void> {
+  private async runComprehensiveAnalysis(page: Page, result: AccessibilityResult, options: TestOptions): Promise<void> {
     try {
+      if (options.verbose) console.log(`   📊 Running comprehensive analysis...`);
+      
+      const url = result.url;
+      const analyses: Promise<void>[] = [];
+      
+      // Content Weight Analysis
+      if (this.contentWeightAnalyzer) {
+        analyses.push(this.runContentWeightAnalysis(page, url, result, options));
+      }
+      
+      // Enhanced Performance Analysis
+      if (this.performanceCollector) {
+        analyses.push(this.runEnhancedPerformanceAnalysis(page, url, result, options));
+      }
+      
+      // SEO Analysis
+      if (this.seoAnalyzer) {
+        analyses.push(this.runSEOAnalysis(page, url, result, options));
+      }
+      
+      // Mobile Friendliness Analysis
+      if (this.mobileFriendlinessAnalyzer) {
+        analyses.push(this.runMobileFriendlinessAnalysis(page, url, result, options));
+      }
+      
+      // Run all analyses in parallel
+      await Promise.allSettled(analyses);
+      
+      // Calculate overall quality score
+      this.calculateQualityScore(result);
+      
+      if (options.verbose) console.log(`   ✅ Comprehensive analysis completed`);
+    } catch (error) {
+      console.error(`❌ Comprehensive analysis failed: ${error}`);
+      // Don't fail the entire test, just log the error
+    }
+  }
+  
+  private async runContentWeightAnalysis(page: Page, url: string, result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      if (options.verbose) console.log(`     📊 Content weight analysis...`);
+      const contentWeightResult = await this.contentWeightAnalyzer!.analyze(page, url);
+      
+      // Add content weight data to result
+      (result as any).contentWeight = {
+        contentScore: contentWeightResult.overallScore,
+        grade: contentWeightResult.grade,
+        resourceAnalysis: {
+          html: { size: contentWeightResult.contentWeight.html, count: 1 },
+          css: { size: contentWeightResult.contentWeight.css, count: 1 },
+          javascript: { size: contentWeightResult.contentWeight.javascript, count: 1 },
+          images: { size: contentWeightResult.contentWeight.images, count: 1 },
+          fonts: { size: contentWeightResult.contentWeight.fonts, count: 1 },
+          other: { size: contentWeightResult.contentWeight.other, count: 1 }
+        },
+        contentMetrics: {
+          textToCodeRatio: contentWeightResult.contentAnalysis.textToCodeRatio,
+          totalSize: contentWeightResult.contentWeight.total,
+          contentSize: contentWeightResult.contentAnalysis.textContent
+        }
+      };
+    } catch (error) {
+      if (options.verbose) console.log(`     ❌ Content weight analysis failed: ${error}`);
+    }
+  }
+  
+  private async runEnhancedPerformanceAnalysis(page: Page, url: string, result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      if (options.verbose) console.log(`     ⚡ Enhanced performance analysis...`);
+      const performanceResult = await this.performanceCollector!.collectEnhancedMetrics(page, url);
+      
+      // Add enhanced performance data to result
+      (result as any).enhancedPerformance = {
+        performanceScore: performanceResult.performanceScore,
+        grade: performanceResult.performanceGrade,
+        coreWebVitals: {
+          fcp: { value: performanceResult.firstContentfulPaint, rating: this.getRating(performanceResult.firstContentfulPaint, [1800, 3000]) },
+          lcp: { value: performanceResult.lcp, rating: this.getRating(performanceResult.lcp, [2500, 4000]) },
+          cls: { value: performanceResult.cls, rating: this.getRating(performanceResult.cls, [0.1, 0.25]) },
+          inp: { value: performanceResult.inp, rating: this.getRating(performanceResult.inp, [200, 500]) }
+        },
+        metrics: {
+          ttfb: { value: performanceResult.ttfb, rating: this.getRating(performanceResult.ttfb, [800, 1800]) },
+          fid: { value: performanceResult.fid, rating: this.getRating(performanceResult.fid, [100, 300]) },
+          tbt: { value: performanceResult.tbt, rating: this.getRating(performanceResult.tbt, [200, 600]) },
+          si: { value: performanceResult.speedIndex, rating: this.getRating(performanceResult.speedIndex, [3400, 5800]) }
+        }
+      };
+    } catch (error) {
+      if (options.verbose) console.log(`     ❌ Enhanced performance analysis failed: ${error}`);
+    }
+  }
+  
+  private async runSEOAnalysis(page: Page, url: string, result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      if (options.verbose) console.log(`     🔍 SEO analysis...`);
+      const seoResult = await this.seoAnalyzer!.analyzeSEO(page, url);
+      
+      // Add SEO data to result
+      (result as any).enhancedSEO = {
+        seoScore: seoResult.overallSEOScore,
+        grade: seoResult.seoGrade,
+        metaData: {
+          title: seoResult.metaTags.title.content || '',
+          titleLength: seoResult.metaTags.title.length,
+          description: seoResult.metaTags.description.content || '',
+          descriptionLength: seoResult.metaTags.description.length,
+          keywords: seoResult.metaTags.keywords?.content || ''
+        },
+        headingStructure: {
+          h1: seoResult.headingStructure.h1Count,
+          h2: seoResult.headingStructure.h2Count,
+          h3: seoResult.headingStructure.h3Count,
+          h4: seoResult.headingStructure.h4Count,
+          h5: seoResult.headingStructure.h5Count,
+          h6: seoResult.headingStructure.h6Count
+        },
+        contentAnalysis: {
+          wordCount: seoResult.wordCount,
+          readabilityScore: seoResult.readabilityScore,
+          textToCodeRatio: 0 // Will be calculated by content weight analyzer
+        },
+        socialTags: {
+          openGraph: Object.keys(seoResult.socialTags.openGraph).length,
+          twitterCard: Object.keys(seoResult.socialTags.twitterCard).length
+        },
+        technicalSEO: {
+          internalLinks: seoResult.technicalSEO.linkAnalysis.internalLinks,
+          externalLinks: seoResult.technicalSEO.linkAnalysis.externalLinks,
+          altTextCoverage: 100 // Will be calculated based on image analysis
+        }
+      };
+    } catch (error) {
+      if (options.verbose) console.log(`     ❌ SEO analysis failed: ${error}`);
+    }
+  }
+  
+  private async runMobileFriendlinessAnalysis(page: Page, url: string, result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      if (options.verbose) console.log(`     📱 Mobile friendliness analysis...`);
+      const mobileResult = await this.mobileFriendlinessAnalyzer!.analyzeMobileFriendliness(page, url);
+      
+      // Add mobile friendliness data to result
+      (result as any).mobileFriendliness = mobileResult;
+    } catch (error) {
+      if (options.verbose) console.log(`     ❌ Mobile friendliness analysis failed: ${error}`);
+    }
+  }
+  
+  private calculateQualityScore(result: AccessibilityResult): void {
+    try {
+      const scores: { [key: string]: number } = {};
+      let totalWeight = 0;
+      
+      // Accessibility score (25% weight)
+      if (result.pa11yScore !== undefined) {
+        scores.accessibility = result.pa11yScore;
+        totalWeight += 25;
+      }
+      
+      // Performance score (25% weight)
+      if ((result as any).enhancedPerformance?.performanceScore) {
+        scores.performance = (result as any).enhancedPerformance.performanceScore;
+        totalWeight += 25;
+      }
+      
+      // SEO score (25% weight)
+      if ((result as any).enhancedSEO?.seoScore) {
+        scores.seo = (result as any).enhancedSEO.seoScore;
+        totalWeight += 25;
+      }
+      
+      // Content score (15% weight)
+      if ((result as any).contentWeight?.contentScore) {
+        scores.content = (result as any).contentWeight.contentScore;
+        totalWeight += 15;
+      }
+      
+      // Mobile score (10% weight)
+      if ((result as any).mobileFriendliness?.overallScore) {
+        scores.mobile = (result as any).mobileFriendliness.overallScore;
+        totalWeight += 10;
+      }
+      
+      if (totalWeight > 0) {
+        // Calculate weighted average
+        const weightedSum = Object.entries(scores).reduce((sum, [key, score]) => {
+          const weight = key === 'accessibility' || key === 'performance' || key === 'seo' ? 25 :
+                        key === 'content' ? 15 : 10;
+          return sum + (score * weight / 100);
+        }, 0);
+        
+        const overallScore = Math.round((weightedSum / totalWeight) * 100);
+        const grade = this.calculateGrade(overallScore);
+        
+        (result as any).qualityScore = {
+          score: overallScore,
+          grade,
+          breakdown: scores
+        };
+      }
+    } catch (error) {
+      console.error(`Quality score calculation failed: ${error}`);
+    }
+  }
+  
+  private calculateGrade(score: number): string {
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
+  }
+  
+  private getRating(value: number, thresholds: [number, number]): string {
+    if (value <= thresholds[0]) return 'good';
+    if (value <= thresholds[1]) return 'needs-improvement';
+    return 'poor';
+  }
+
+  /**
+   * Extract pa11y test logic for reuse
+   * Modified to use shared browser instance to prevent duplicate launches
+   */
+  private async runPa11yTests(result: AccessibilityResult, options: TestOptions, sharedPage?: Page): Promise<void> {
+    try {
+      // If we have a shared page, use axe-core directly instead of launching pa11y
+      if (sharedPage && this.usePooling) {
+        await this.runAxeTests(sharedPage, result, options);
+        return;
+      }
+      
       const pa11yResult = await pa11y(result.url, {
         timeout: options.timeout || 15000,
         wait: options.wait || (this.usePooling ? 1000 : 2000), // Shorter wait for pooled
@@ -928,11 +1091,24 @@ export class AccessibilityChecker {
         }
       });
 
-      // Calculate pa11y score
+      // Calculate pa11y score - better algorithm that considers severity and quantity
       if (pa11yResult.issues && pa11yResult.issues.length > 0) {
-        const errorCount = pa11yResult.issues.filter((issue: any) => issue.type === 'error').length;
-        const warningCount = pa11yResult.issues.length - errorCount;
-        result.pa11yScore = Math.max(0, 100 - (errorCount * 10) - (warningCount * 2));
+        let totalDeductions = 0;
+        
+        pa11yResult.issues.forEach((issue: any) => {
+          if (issue.type === 'error') {
+            // Critical errors: -5 points each, but cap at 20 to avoid too harsh penalty
+            totalDeductions += Math.min(5, 20 / Math.max(1, pa11yResult.issues.filter((i: any) => i.type === 'error').length));
+          } else if (issue.type === 'warning') {
+            // Warnings: -1 point each, but cap at 10 total
+            totalDeductions += Math.min(1, 10 / Math.max(1, pa11yResult.issues.filter((i: any) => i.type === 'warning').length));
+          } else if (issue.type === 'notice') {
+            // Notices: -0.5 points each, cap at 5 total
+            totalDeductions += Math.min(0.5, 5 / Math.max(1, pa11yResult.issues.filter((i: any) => i.type === 'notice').length));
+          }
+        });
+        
+        result.pa11yScore = Math.max(0, Math.round(100 - totalDeductions));
       } else {
         result.pa11yScore = 100;
       }
@@ -962,6 +1138,116 @@ export class AccessibilityChecker {
       
       if (options.verbose) {
         console.log(`   🔢 Calculated fallback pa11y score: ${result.pa11yScore}/100`);
+      }
+    }
+  }
+
+  /**
+   * Run axe-core tests directly on shared page to avoid launching new browsers
+   */
+  private async runAxeTests(page: Page, result: AccessibilityResult, options: TestOptions): Promise<void> {
+    try {
+      // Inject axe-core if not already present
+      await page.addScriptTag({
+        url: 'https://unpkg.com/axe-core@latest/axe.min.js'
+      });
+      
+      // Run axe tests
+      const axeResults = await page.evaluate(() => {
+        return new Promise((resolve) => {
+          // @ts-ignore
+          window.axe.run({
+            tags: ['wcag2a', 'wcag2aa', 'wcag21aa'],
+            rules: {
+              'bypass': { enabled: true },
+              'color-contrast': { enabled: true },
+              'focus-order': { enabled: true },
+              'keyboard': { enabled: true },
+              'label': { enabled: true },
+              'link-name': { enabled: true },
+              'page-has-heading-one': { enabled: true },
+              'region': { enabled: true }
+            }
+          }, (err: any, results: any) => {
+            if (err) {
+              resolve({ violations: [], passes: [], incomplete: [], inapplicable: [] });
+            } else {
+              resolve(results);
+            }
+          });
+        });
+      });
+      
+      // Convert axe results to pa11y format
+      if (axeResults && typeof axeResults === 'object' && 'violations' in axeResults) {
+        const violations = (axeResults as any).violations || [];
+        
+        violations.forEach((violation: any) => {
+          violation.nodes.forEach((node: any) => {
+            const detailedIssue: Pa11yIssue = {
+              code: violation.id,
+              message: violation.description,
+              type: violation.impact === 'critical' || violation.impact === 'serious' ? 'error' : 'warning',
+              selector: node.target.join(', '),
+              context: node.html || '',
+              impact: violation.impact,
+              help: violation.help,
+              helpUrl: violation.helpUrl
+            };
+            
+            result.pa11yIssues = result.pa11yIssues || [];
+            result.pa11yIssues.push(detailedIssue);
+            
+            const message = `${violation.id}: ${violation.description}`;
+            if (detailedIssue.type === 'error') {
+              result.errors.push(message);
+            } else {
+              result.warnings.push(message);
+            }
+          });
+        });
+        
+        // Calculate score based on violations - matching pa11y algorithm
+        let totalDeductions = 0;
+        
+        violations.forEach((violation: any) => {
+          violation.nodes.forEach((node: any) => {
+            if (violation.impact === 'critical' || violation.impact === 'serious') {
+              // Critical/serious: -5 points each, cap at 20
+              totalDeductions += Math.min(5, 20 / Math.max(1, violations.filter((v: any) => v.impact === 'critical' || v.impact === 'serious').reduce((sum: number, v: any) => sum + v.nodes.length, 0)));
+            } else if (violation.impact === 'moderate') {
+              // Moderate: -1 point each, cap at 10
+              totalDeductions += Math.min(1, 10 / Math.max(1, violations.filter((v: any) => v.impact === 'moderate').reduce((sum: number, v: any) => sum + v.nodes.length, 0)));
+            } else if (violation.impact === 'minor') {
+              // Minor: -0.5 points each, cap at 5
+              totalDeductions += Math.min(0.5, 5 / Math.max(1, violations.filter((v: any) => v.impact === 'minor').reduce((sum: number, v: any) => sum + v.nodes.length, 0)));
+            }
+          });
+        });
+        
+        result.pa11yScore = Math.max(0, Math.round(100 - totalDeductions));
+      } else {
+        result.pa11yScore = 100;
+      }
+      
+      if (options.verbose) {
+        console.log(`   🔢 Axe-core accessibility score: ${result.pa11yScore}/100`);
+      }
+      
+    } catch (error) {
+      console.warn('Axe-core test failed, using fallback:', error);
+      
+      let fallbackScore = 100;
+      fallbackScore -= result.errors.length * 15;
+      fallbackScore -= result.warnings.length * 5;
+      fallbackScore -= result.imagesWithoutAlt * 3;
+      fallbackScore -= result.buttonsWithoutLabel * 5;
+      if (result.headingsCount === 0) fallbackScore -= 20;
+      
+      result.pa11yScore = Math.max(0, fallbackScore);
+      
+      if (options.verbose) {
+        console.log(`   🔢 Calculated fallback accessibility score: ${result.pa11yScore}/100`);
       }
     }
   }

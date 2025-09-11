@@ -195,9 +195,8 @@ describe('Build Artifact Validation', () => {
     const fs = require('fs');
     const requiredFiles = [
       'dist/cli/commands/audit-command.js',
-      'dist/reports/index.js',
-      'dist/reports/unified/index.js',
-      'dist/reports/unified/unified-report-system.js',
+      'dist/generators/enhanced-html-generator.js',
+      'dist/generators/markdown-generator.js',
     ];
 
     for (const file of requiredFiles) {
@@ -206,19 +205,17 @@ describe('Build Artifact Validation', () => {
     }
   });
 
-  it('should export UnifiedReportSystem from reports index', () => {
-    const reportsIndex = require('../../dist/reports/index.js');
-    expect(reportsIndex.UnifiedReportSystem).toBeDefined();
-    expect(typeof reportsIndex.UnifiedReportSystem).toBe('function');
+  it('should export EnhancedHTMLGenerator', () => {
+    const generatorsIndex = require('../../dist/generators/enhanced-html-generator.js');
+    expect(generatorsIndex.EnhancedHTMLGenerator).toBeDefined();
+    expect(typeof generatorsIndex.EnhancedHTMLGenerator).toBe('function');
   });
 
-  it('should export unified generators', () => {
-    const unifiedIndex = require('../../dist/reports/unified/index.js');
+  it('should export modern generators', () => {
+    const htmlGenerator = require('../../dist/generators/enhanced-html-generator.js');
+    const markdownGenerator = require('../../dist/generators/markdown-generator.js');
     
-    expect(unifiedIndex.UnifiedReportSystem).toBeDefined();
-    expect(unifiedIndex.ModernHTMLReportGenerator).toBeDefined();
-    expect(unifiedIndex.ModernMarkdownReportGenerator).toBeDefined();
-    expect(unifiedIndex.JSONReportGenerator).toBeDefined();
-    expect(unifiedIndex.CSVReportGenerator).toBeDefined();
+    expect(htmlGenerator.EnhancedHTMLGenerator).toBeDefined();
+    expect(markdownGenerator.MarkdownGenerator).toBeDefined();
   });
 });

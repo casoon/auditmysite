@@ -1,559 +1,225 @@
-# 🎯 AuditMySite - Enhanced Web Analysis Suite v2.0.0-alpha.1
+# AuditMySite
 
-> **🚀 v2.0.0-alpha.1**: Complete refactoring with JSON-first architecture! **Strict TypeScript types, modular API endpoints, and Electron app integration ready!** 🔥
-> **🔍 CORE**: Sitemap audit with clean JSON export as primary function, HTML reports read from JSON
-> **🤖 API v2**: Modular endpoints using shared types - perfect for Electron desktop app integration
-> **📚 SELF-DOC**: Swagger UI + introspection endpoint for zero-overhead API documentation
-> **🔧 CLEAN**: Simplified architecture, reduced complexity, better maintainability
+**Professional Website Accessibility & Performance Testing Tool**
 
-A comprehensive **three-in-one solution** for professional web auditing: **CLI tool**, **REST API server**, and **JavaScript SDK**. Features revolutionary enhanced analysis with isolated browser contexts, retry mechanisms, SEO optimization, content weight assessment, and comprehensive API endpoints for enterprise-grade web auditing.
-
-⚡ **v1.9.2 Highlights**: Mobile-Friendliness Analysis perfected! Fixed "undefined" recommendations, enhanced mobile score reporting, and improved mobile analysis data handling!
-⚡ **v1.9.1 Highlights**: All Enhanced Analysis issues resolved! Fully stable Enhanced Analysis pipeline with correct data handling and report generation!
-⚡ **v1.9.0 Highlights**: Enhanced Analysis as standard, robust performance monitoring, specialized API endpoints, and comprehensive test coverage!
+AuditMySite is a comprehensive website analysis suite that provides professional accessibility testing, Core Web Vitals performance monitoring, SEO analysis, and content optimization insights. Built for developers, agencies, and businesses who need reliable, automated website quality assessments.
 
 ## 🚀 Quick Start
 
-### 1. CLI Usage (Classic)
+### Installation
+
 ```bash
-# Install globally
 npm install -g @casoon/auditmysite
-
-# Test any website (simplest usage)
-auditmysite https://your-site.com/sitemap.xml
-
-# Test with custom settings
-auditmysite https://your-site.com/sitemap.xml --expert
 ```
 
-### 2. API Server v2.0 🆕 **NEW!**
+### Basic Usage
+
 ```bash
-# Development (2 terminals)
-Terminal 1: npm run dev        # TypeScript watch
-Terminal 2: npm run start:api  # Start API server
-
-# Production with PM2
-npm run api:prod    # Start with PM2 monitoring
-npm run api:logs    # View logs
-npm run api:restart # Restart server
-npm run api:stop    # Stop server
-
-# Test v2.0 modular endpoints
-curl http://localhost:3000/api/v2/sitemap/example.com
-curl -X POST http://localhost:3000/api/v2/page/accessibility \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "options": {"pa11yStandard": "WCAG2AA"}}'
-
-# API Documentation & Introspection
-# Swagger UI: http://localhost:3000/api-docs
-# Schema: http://localhost:3000/api/v2/schema
-```
-
-### 3. SDK Integration 🆕 (Updated for v1.8.4)
-```javascript
-const { auditSDK, AuditRequest } = require('@casoon/auditmysite');
-
-// New unified SDK with progress tracking
-const request = {
-  url: 'https://example.com/sitemap.xml',
-  options: {
-    maxPages: 20,
-    collectPerformanceMetrics: true,
-    outputFormats: ['html', 'json']
-  }
-};
-
-const response = await auditSDK.audit(request, (progress) => {
-  console.log(`${progress.step}: ${progress.progress}%`);
-});
-
-console.log('Success Rate:', response.report.summary.successRate + '%');
-console.log('Generated Files:', response.files);
-```
-
-## ✨ Key Features
-
-### 🚀 **NEW in v2.0.0-alpha.1 - Complete Architecture Refactoring**
-- 🎯 **JSON-First Architecture** - All outputs use strict TypeScript types, HTML reports read from JSON
-- 🤖 **Modular API v2** - Electron-ready endpoints: `/sitemap/:domain`, `/page/accessibility`, `/page/performance`, `/page/seo`
-- 📑 **Shared Types** - Single source of truth: `FullAuditResult`, `SitemapResult`, `AccessibilityResult`, `PerformanceResult`, `SEOResult`
-- 📚 **Self-Documenting API** - Swagger UI at `/api-docs` + introspection endpoint at `/api/v2/schema`
-- 🔧 **Simplified Pipeline** - Reduced from 286 to <150 lines, only 2 modes (Standard vs Enhanced)
-- 📝 **Unified HTML Generator** - Section-based architecture with modern CSS and design tokens
-- ⚡ **Performance Optimized** - Async file operations, browser pooling, reduced memory footprint
-- 🔄 **Process Management** - PM2 integration for production deployment with monitoring
-- 🗺️ **Development Workflow** - TypeScript watch + API server in separate terminals
-- 🔒 **Type Safety** - 100% TypeScript coverage with strict error handling
-
-### 🐛 **Fixed in v1.9.2 - Mobile-Friendliness Bugfixes**
-- ✅ **Mobile-Friendliness Recommendations Fixed** - Resolved "undefined" text in mobile recommendations display
-- ✅ **Enhanced HTML Generator Compatibility** - Fixed data field mapping between MobileFriendlinessAnalyzer and HtmlGenerator
-- ✅ **Mobile Scores Display** - Proper mobile score grades (A-F) and priority levels (HIGH/MEDIUM/LOW) in HTML reports
-- ✅ **Mobile Analysis Data Structure** - Improved data consistency between mobile analyzer and report generators
-- ✅ **Touch Target Analysis** - Enhanced touch target violation reporting with specific size recommendations
-- ✅ **Viewport Analysis Display** - Correct viewport meta tag analysis and responsive design feedback
-- ✅ **Mobile Recommendations Quality** - Clear, actionable mobile-friendliness recommendations with impact descriptions
-- ✅ **Report Template Consistency** - Aligned mobile data expectations across all report generation components
-
-### 🐛 **Fixed in v1.9.1 - Critical Bugfixes**
-- ✅ **Enhanced Analysis Stability** - Fixed `page.goto: url: expected string, got object` error in Enhanced Analysis pipeline
-- ✅ **Core Web Vitals Report Generation** - Fixed `(vitals.cls || 0).toFixed is not a function` in HTML report generation
-- ✅ **SEO Data Structure Handling** - Fixed `Cannot read properties of undefined (reading 'title')` in SEO analysis reports
-- ✅ **Variable Scope Management** - Fixed `Cannot read properties of undefined (reading 'testedPages')` in CLI output
-- ✅ **Safe Data Access** - Added comprehensive optional chaining for all nested data structures
-- ✅ **Enhanced Analyzer Navigation** - Fixed analyzer conflicts when using pre-set page content
-- ✅ **URL Object Parsing** - Correct extraction of URL strings from sitemap parser objects
-- ✅ **Report Template Consistency** - Aligned data structure expectations between analyzers and report generators
-- ✅ **100% Enhanced Analysis Success Rate** - All Enhanced Analysis components now work seamlessly together
-
-### 🚀 **New in v1.9.0 - Enhanced Analysis Suite**
-- 🔍 **Enhanced Accessibility Analysis** - ARIA validation, focus management, and color contrast analysis as standard
-- ⚡ **Robust Performance Monitoring** - Core Web Vitals with isolated browser contexts and retry mechanisms
-- 🎆 **Advanced SEO Analysis** - Meta tags, heading structure, and link analysis for optimization insights
-- 📏 **Content Weight Assessment** - Content optimization analysis with performance impact evaluation
-- 🔧 **Isolated Browser Contexts** - Separate contexts for maximum measurement stability
-- 🔄 **Advanced Retry System** - 3-tier collection strategies with exponential backoff
-- 🌐 **Specialized API Endpoints** - `/performance`, `/seo`, `/content-weight`, `/accessibility` for focused analysis
-- 🧪 **Comprehensive Test Suite** - 25+ test cases covering edge cases and quality validation
-- 📊 **Quality Assessment System** - Metrics validation with 40% minimum quality threshold
-- 🛡️ **Enhanced Error Handling** - Execution context destruction prevention and robust fallbacks
-- 🔌 **Unified Feature Flags** - Consistent API with `accessibility`, `performance`, `seo`, `contentWeight` options
-- 📊 **Professional Reports** - Modern HTML reports with enhanced analysis sections
-
-### 🚀 **New in v1.8.0**
-- 🧪 **Comprehensive Jest Test Suite** - 103+ passing tests covering all core functionality
-- ⚙️ **Optimized Test Architecture** - Unit, integration, API, and CLI tests with proper mocking
-- 🔄 **Re-enabled CLI Tests** - Complete command validation and execution testing
-- 🚀 **Fixed Rate Limiting** - Optimized API rate limiting tests for reliable execution
-- 🔧 **Production-Ready Quality** - Rock-solid test coverage for maximum reliability
-- 🏁 **Fast Test Execution** - Optimized mocks and efficient test doubles
-- 🔍 **Enhanced Debugging** - Clear test structure matching current architecture
-
-### 🔌 **New in v1.7.1**
-- 🔌 **REST API Server** - Production-ready HTTP endpoints with job queue system
-- 📦 **Enhanced SDK** - Promise-based JavaScript/TypeScript integration library
-- 🔐 **API Authentication** - Secure API key-based authentication system
-- 🔄 **Asynchronous Processing** - Background job processing with real-time status updates
-- 📋 **Multiple Response Formats** - JSON, HTML, and Markdown report generation
-- 🐍 **Docker Ready** - Container deployment with environment variable configuration
-- 📊 **Enterprise Ready** - Rate limiting, health checks, and production monitoring
-
-### 🧪 **New in v1.7**
-- 🧪 **Comprehensive Test Suite** - Complete automated testing with Jest covering all components
-- 🚀 **Production-Ready Quality** - Unit, integration, API, CLI, and E2E tests for maximum reliability
-- ⚡ **Fast Test Execution** - Optimized mocks and test doubles for rapid feedback loops
-- 🔧 **Developer Experience** - Modern testing tools with watch mode, coverage reports, and focused test categories
-- 📊 **Test Coverage Reports** - Detailed coverage analysis with HTML, JSON, and LCOV formats
-- 🏗️ **CI/CD Optimized** - Tests designed for continuous integration with deterministic results
-
-### 🔥 **New in v1.6**
-- 🎯 **Improved CLI Experience** - Cleaner output with debug logs hidden behind --verbose flag
-- 📊 **--max-pages Parameter** - Precise control over the number of pages to test (e.g. --max-pages 10)
-- 🧹 **Enhanced User Interface** - Simplified progress messages and reduced visual noise
-- ⚡ **Better Parameter Logic** - --max-pages overrides --full for exact control
-
-### 🔥 **New in v1.5**
-- 📊 **Performance Budgets** - Configurable Web Vitals thresholds with business-focused templates (E-commerce, Corporate, Blog)
-- 🎯 **Smart Budget Templates** - Conversion-optimized thresholds for different site types
-- 📈 **Budget Violation Tracking** - Real-time pass/fail status with actionable recommendations
-- ⚙️ **Custom Budget Configuration** - Set individual LCP, CLS, FCP, INP, TTFB thresholds via CLI or Expert Mode
-
-### 🔥 **Enhanced in v1.3**
-- 🎯 **Enhanced HTML5 Analysis** - Modern `<details>`, `<dialog>`, `<main>` element testing with axe-core v4.10
-- ⚡ **Advanced ARIA Evaluation** - Impact-based scoring (Critical, Serious, Moderate, Minor)
-- 🚀 **Chrome 135 Optimizations** - Enhanced accessibility tree, improved dialog support
-- 📊 **Semantic Quality Scoring** - Comprehensive modern web standards compliance analysis
-- 🏆 **Compliance Levels** - Basic, Enhanced, Comprehensive accessibility ratings
-- 🔮 **Future Readiness Score** - Evaluation of modern web standards adoption
-
-### 🏆 **Core Features**
-- 🎯 **Simplified CLI** - Just 7 essential options + enhanced expert mode
-- ⚡ **Core Web Vitals** - Real FCP, LCP, CLS, INP, TTFB metrics with smart fallbacks
-- 📊 **Performance Budgets** - Configurable thresholds with business templates (E-commerce, Corporate, Blog)
-- 🏆 **Smart Defaults** - Works perfectly without configuration
-- 📊 **Professional Reports** - Enhanced HTML reports with modern analysis sections
-- 🚀 **Fast & Reliable** - Parallel processing with intelligent error recovery
-- ♿ **WCAG Compliance** - Comprehensive accessibility testing with pa11y v9
-- ⏱️ **Real-time Progress** - Live updates with time estimates
-- 🔄 **Error Recovery** - Automatic fallback and helpful troubleshooting
-
-## 📋 CLI Options
-
-### Core Audit Options
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--full` | Test all pages instead of just 5 | `false` |
-| `--max-pages <number>` | Maximum number of pages to test (overrides --full) | `5` |
-| `--expert` | Interactive expert mode with custom settings | `false` |
-| `--format <type>` | Report format: `html` or `markdown` | `html` |
-| `--output-dir <dir>` | Output directory for reports | `./reports` |
-| `--non-interactive` | Skip prompts for CI/CD (use defaults) | `false` |
-| `--verbose` | Show detailed progress information | `false` |
-| `--budget <template>` | Performance budget: `ecommerce`, `corporate`, `blog`, `default` | `default` |
-| `--lcp-budget <ms>` | Custom LCP threshold in milliseconds | Template value |
-| `--cls-budget <score>` | Custom CLS threshold score (e.g. 0.1) | Template value |
-| `--fcp-budget <ms>` | Custom FCP threshold in milliseconds | Template value |
-| `--inp-budget <ms>` | Custom INP threshold in milliseconds | Template value |
-| `--ttfb-budget <ms>` | Custom TTFB threshold in milliseconds | Template value |
-
-### API Server Options 🆕
-| Option | Description | Default |
-|--------|-------------|---------|  
-| `--api` | Start in API server mode | `false` |
-| `--port <number>` | API server port number | `3000` |
-| `--api-key <key>` | API authentication key (or use AUDITMYSITE_API_KEY env var) | Required |
-| `--max-concurrent <number>` | Maximum concurrent audit jobs | `3` |
-| `--timeout <ms>` | Audit timeout in milliseconds | `30000` |
-| `--cors` | Enable CORS for cross-origin requests | `false` |
-
-### API Endpoints v2.0 🆕 **NEW Modular Architecture!**
-
-**v2.0 Endpoints (Electron Integration)**
-| Method | Endpoint | Returns | Description |
-|--------|----------|---------|-------------|
-| `GET` | `/api/v2/sitemap/:domain` | `SitemapResult` | Get filtered sitemap URLs for domain |
-| `POST` | `/api/v2/page/accessibility` | `AccessibilityResult` | Analyze single URL accessibility |
-| `POST` | `/api/v2/page/performance` | `PerformanceResult` | Analyze single URL performance (experimental) |
-| `POST` | `/api/v2/page/seo` | `SEOResult` | Analyze single URL SEO (experimental) |
-| `GET` | `/api/v2/schema` | `IntrospectionData` | API discovery for Electron apps |
-| `GET` | `/api-docs` | Swagger UI | Interactive API documentation |
-
-**v1.0 Endpoints (Full Site Analysis)**  
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/audit/quick` | Quick audit with enhanced analysis (default) |
-| `POST` | `/api/v1/audit/performance` | Performance-focused analysis with Core Web Vitals |
-| `POST` | `/api/v1/audit/seo` | SEO-focused analysis with optimization insights |
-| `POST` | `/api/v1/audit/content-weight` | Content weight analysis with optimization recommendations |
-| `POST` | `/api/v1/audit/accessibility` | Accessibility-focused analysis with ARIA validation |
-| `POST` | `/api/v1/audit` | Full audit job with background processing |
-| `GET` | `/api/v1/audit/{jobId}` | Get audit job status |
-| `DELETE` | `/api/v1/audit/{jobId}` | Cancel audit job |
-| `GET` | `/api/v1/audits` | List all audit jobs with pagination |
-| `GET` | `/api/v1/info` | API information with feature documentation |
-|| `POST` | `/api/v1/test-connection` | Test connection to target URL |
-|| `GET` | `/health` | Server health check |
-
-**Authentication**: All endpoints except `/api/health` require `X-API-Key` header.
-
-**Example API Usage v1.9.0**:
-```bash
-# Quick audit with enhanced analysis (default)
-curl -X POST http://localhost:3000/api/v1/audit/quick \
-  -H "Content-Type: application/json" \
-  -d '{"sitemapUrl": "https://example.com/sitemap.xml", "options": {"maxPages": 5}}'
-
-# Performance-focused audit
-curl -X POST http://localhost:3000/api/v1/audit/performance \
-  -H "Content-Type: application/json" \
-  -d '{"sitemapUrl": "https://example.com/sitemap.xml", "options": {"maxPages": 10, "performanceBudget": {"lcp": {"good": 2500, "poor": 4000}}}}'
-
-# SEO analysis
-curl -X POST http://localhost:3000/api/v1/audit/seo \
-  -H "Content-Type: application/json" \
-  -d '{"sitemapUrl": "https://example.com/sitemap.xml", "options": {"maxPages": 5, "includeRecommendations": true}}'
-
-# Content weight analysis
-curl -X POST http://localhost:3000/api/v1/audit/content-weight \
-  -H "Content-Type: application/json" \
-  -d '{"sitemapUrl": "https://example.com/sitemap.xml"}'
-
-# Get API info with features
-curl http://localhost:3000/api/v1/info
-```
-
-## 💡 Usage Examples
-
-### **Default Test (Recommended)**
-```bash
+# Test accessibility and performance for up to 5 pages
 auditmysite https://example.com/sitemap.xml
+
+# Generate JSON report with complete data
+auditmysite https://example.com/sitemap.xml --format json
+
+# Test 10 pages with detailed progress
+auditmysite https://example.com/sitemap.xml --max-pages 10 --verbose
 ```
-- ✅ Tests **5 pages** automatically
-- ✅ **WCAG 2.1 AA** standard  
-- ✅ **Core Web Vitals** included
-- ✅ **HTML report** generated
-
-### **Custom Page Limit** 🆕 **New in v1.6!**
-```bash
-# Test exactly 10 pages
-auditmysite https://example.com/sitemap.xml --max-pages 10
-
-# Test exactly 25 pages (overrides --full)
-auditmysite https://example.com/sitemap.xml --max-pages 25
-```
-- ✅ **Precise Control** - Test exactly the number of pages you need
-- ✅ **Overrides --full** - --max-pages takes priority over --full
-- ✅ **Perfect for Testing** - Great for development and staging
-
-### **Full Website Test**
-```bash
-auditmysite https://example.com/sitemap.xml --full
-```
-- ✅ Tests **all pages** in sitemap
-- ✅ Perfect for comprehensive audits
-
-### **Performance Budgets** 🆆 **New in v1.5!**
-```bash
-# E-commerce optimized (strict for conversion)
-auditmysite https://shop.example.com/sitemap.xml --budget ecommerce
-
-# Corporate standards (professional thresholds)
-auditmysite https://company.example.com/sitemap.xml --budget corporate
-
-# Custom budgets
-auditmysite https://example.com/sitemap.xml --lcp-budget 2000 --cls-budget 0.05
-```
-- ✅ **Business Templates** - E-commerce, Corporate, Blog, Default
-- ✅ **Custom Thresholds** - Set individual Web Vitals budgets
-- ✅ **Budget Violations** - Real-time pass/fail status with recommendations
-- ✅ **Expert Mode Integration** - Interactive budget configuration
-
-### **Expert Mode** 🆆 **Enhanced in v1.3!**
-```bash
-auditmysite https://example.com/sitemap.xml --expert
-```
-- ✅ **Interactive prompts** for pages, standards, format, concurrency
-- ✅ **Performance Budget Templates** - Choose E-commerce, Corporate, Blog, or Custom
-- ✅ **Time estimates** for each configuration option
-- ✅ **Advanced settings** including concurrent test controls
-- ✅ **Performance options** - Enable/disable Web Vitals collection
-- 🔥 **Enhanced HTML5 testing** - Modern element analysis toggle
-- ⚡ **ARIA enhanced mode** - Advanced impact scoring toggle
-- 🚀 **Chrome 135 features** - Performance optimizations toggle
-- 📊 **Semantic analysis** - Quality scoring and recommendations toggle
-- 📸 **Screenshot capture** - Desktop and mobile screenshots toggle
-- ⌨️  **Keyboard navigation testing** - Focusable elements analysis
-- 🎨 **Color contrast testing** - Basic contrast ratio analysis
-- 🎯 **Focus management testing** - Focus indicator validation
-
-### **CI/CD Integration**
-```bash
-# Run in CI with markdown output
-auditmysite https://example.com/sitemap.xml --non-interactive --format markdown
-
-# Test specific number of pages in CI
-auditmysite https://example.com/sitemap.xml --non-interactive --max-pages 20
-
-# Enforce strict performance budgets (example)
-auditmysite https://shop.example.com/sitemap.xml --non-interactive --budget ecommerce \
-  --lcp-budget 2000 --cls-budget 0.1 --fcp-budget 1200 --inp-budget 200 --ttfb-budget 200
-
-# Parse report in a follow-up CI step (pseudo-code)
-# grep -q "Severity: high" reports/example.com/performance-issues-*.md || echo "No high severity perf issues"
-```
-- ✅ **No prompts** - perfect for automation
-- ✅ **Markdown output** for easy parsing
-- ✅ **Exit codes** for pipeline integration (see section below)
-- ✅ Combine with a simple grep/assert step to enforce budgets in your pipeline
 
 ## 📊 What You Get
 
-Below is an overview of what is tested, what the output looks like, and how to interpret the results.
+### Comprehensive Analysis Results
 
-### **Enhanced Accessibility Report** 🔥
-- 🎯 **WCAG 2.1 AA compliance** testing with pa11y v9
-- 🔍 **Detailed error analysis** with fix suggestions
-- 📝 **HTML5 semantic analysis** - Modern elements evaluation
-- ⚡ **ARIA impact scoring** - Critical, Serious, Moderate, Minor categorization
-- 🏆 **Compliance levels** - Basic, Enhanced, Comprehensive ratings
-- ⭐ **Multi-dimensional scoring** - Accessibility, HTML5, ARIA, Semantic quality
-- 🔮 **Future readiness** - Modern web standards adoption score
+Each page tested provides detailed insights across **5 key areas**:
 
-### **Performance Report** ⚡
-- ⚡ **Core Web Vitals** (LCP, FCP, CLS, INP, TTFB)
-- 📊 **Real performance metrics** using Google's official web-vitals library (injected during tests)
-- 📈 **Budget Status Tracking** - Pass/fail against custom thresholds with violation details
-- 🎯 **Smart Budget Templates** - Business-focused thresholds (E-commerce: LCP 2000ms, Corporate: 2200ms)
-- 🚀 **Chrome 135 optimizations** - Enhanced measurement accuracy
-- 🏆 **Performance score & grade** (A–F rating)
-- 💡 **Actionable recommendations** - Budget-aware suggestions with severity levels
+#### 🔍 **Accessibility Analysis**
+- **WCAG 2.1 AA compliance testing** using pa11y and axe-core
+- **Accessibility score** (0-100) with detailed issue breakdown
+- **Error categorization**: Critical errors, warnings, and notices
+- **Specific fixes**: Exact HTML elements and recommended solutions
+- **Screen reader compatibility** and keyboard navigation issues
 
-### **Professional Reports** 📊
-- 📄 **Enhanced HTML format** - Modern analysis sections with feature badges
-- 📝 **Markdown format** - Developer-friendly output
-- 💾 **Organized structure** - Reports saved by domain with timestamps
-- 📈 **Visual scorecards** - HTML5, ARIA, Semantic quality circles
-- 🔥 **Modern design** - Interactive sections and smooth scrolling
-- 💡 **Priority recommendations** - Categorized by HTML5, ARIA, Performance
+#### ⚡ **Performance Analysis**
+- **Core Web Vitals**: LCP, FCP, CLS, INP, TTFB with Google's official thresholds
+- **Performance score** (0-100) and letter grade (A-F)
+- **Performance budget compliance** with industry-specific templates
+- **Mobile and desktop optimization recommendations**
+- **Loading speed analysis** and resource optimization suggestions
 
-## 🌍 Accessibility Standards
+#### 🔍 **SEO Analysis**
+- **SEO score** (0-100) with actionable recommendations
+- **Meta tags analysis**: Title, description, keywords optimization
+- **Content quality**: Word count, readability score, text-to-code ratio
+- **Heading structure**: H1-H6 hierarchy and semantic analysis
+- **Social media tags**: Open Graph and Twitter Card validation
+- **Technical SEO**: Internal/external links, image alt text coverage
 
-- **WCAG 2.1 Level A** - Basic accessibility
-- **WCAG 2.1 Level AA** - Recommended (default)
-- **WCAG 2.1 Level AAA** - Strict compliance
-- **Section 508** - US Federal requirements
+#### 📏 **Content Weight Analysis**
+- **Page weight breakdown**: HTML, CSS, JavaScript, images, fonts
+- **Resource optimization score** with specific improvement suggestions
+- **File compression** and delivery optimization recommendations
+- **Content efficiency metrics** and performance impact analysis
 
-## 🎯 Perfect For
+#### 📱 **Mobile-Friendliness Analysis**
+- **Mobile usability score** across 8 categories
+- **Touch target analysis**: Size and spacing validation
+- **Responsive design testing**: Viewport and layout optimization
+- **Mobile performance**: Mobile-specific Core Web Vitals
+- **User experience factors**: Navigation, forms, and interaction quality
 
-- ✅ **Quick accessibility checks** before deployment
-- ✅ **Performance monitoring** with real Web Vitals and custom budgets
-- ✅ **E-commerce optimization** - Conversion-focused performance thresholds
-- ✅ **Corporate compliance** - Professional performance standards
-- ✅ **WCAG compliance** testing for legal requirements
-- ✅ **CI/CD integration** with `--non-interactive` flag and budget validation
-- ✅ **Client reports** with professional HTML output and budget status
-- ✅ **Development teams** with comprehensive testing suite and fast feedback
+### Report Formats
 
-## 🧪 Testing & Development
+#### **HTML Report** (Default)
+- **Professional dashboard** with executive summary
+- **Interactive charts** and visual performance indicators  
+- **Detailed issue breakdown** with priority rankings
+- **Before/after recommendations** with implementation guidance
+- **Exportable and shareable** for client presentations
 
-### **Comprehensive Test Suite** 🔥 **New in v1.7!**
+#### **JSON Report** (--format json)
+- **Complete structured data** for integration and automation
+- **API-friendly format** for CI/CD pipelines
+- **System performance metrics** including parallel processing stats
+- **Machine-readable results** for custom reporting and analysis
 
-AuditMySite features a complete automated testing suite ensuring production-ready reliability:
+## 🛠️ Command Line Options
 
-#### **Test Categories**
-- 🧪 **Unit Tests** - Core business logic (Queue System, Config Manager, Report Generators)
-- 🔗 **Integration Tests** - SDK API, Event System, Error Handling
-- 🌐 **API Endpoint Tests** - REST API routes, Authentication, Job Management
-- 💻 **CLI Command Tests** - Argument parsing, Interactive modes, Expert flow
-- 🎯 **E2E Tests** - Critical user journeys with fast test doubles
-
-#### **Test Commands**
+### Required Arguments
 ```bash
-# Run all tests
-npm test
-
-# Watch mode for development  
-npm run test:watch
-
-# Coverage reports
-npm run test:coverage
-
-# Specific test categories
-npm run test:unit        # Unit tests only
-npm run test:integration # Integration tests
-npm run test:api         # API endpoint tests
-npm run test:cli         # CLI command tests
-npm run test:e2e         # End-to-end tests
-
-# CI/CD optimized
-npm run test:ci          # Non-interactive with coverage
-
-# Verbose output
-npm run test:verbose     # Detailed test logs
+auditmysite <sitemapUrl>    # URL of the sitemap.xml to analyze
 ```
 
-#### **Test Features**
-- ⚡ **Fast Execution** - Optimized mocks avoid slow I/O operations
-- 🎯 **Focused Testing** - Test specific components without full system startup
-- 📊 **Coverage Reports** - HTML, JSON, LCOV formats for comprehensive analysis
-- 🔧 **Developer Friendly** - Watch mode, clear error messages, isolated tests
-- 🏗️ **CI/CD Ready** - Deterministic results, no external dependencies
-
-#### **Test Architecture**
-```
-tests/
-├── setup.ts              # Global mocks & utilities
-├── unit/                  # Fast isolated unit tests
-│   ├── reports/          # Report generator tests
-│   ├── config/           # Configuration management tests
-│   └── queue/            # Queue system tests
-├── integration/          # Component integration tests
-│   └── sdk/              # SDK integration tests
-├── api/                  # API endpoint tests
-│   └── endpoints.test.ts # REST API testing with supertest
-├── cli/                  # CLI command tests
-│   └── commands.test.ts  # Argument parsing & flow tests
-└── e2e/                  # End-to-end tests
-    └── happy-path.test.ts # Critical user journey tests
+### Core Options
+```bash
+--max-pages <number>        # Pages to test (default: 5)
+--format <type>             # Report format: html or json (default: html)
+--output-dir <dir>          # Output directory (default: ./reports)
+--budget <template>         # Performance budget (default, ecommerce, blog, corporate)
 ```
 
-### **Quality Assurance**
-- ✅ **100% Core Coverage** - All critical business logic tested
-- ✅ **Fast Feedback** - Tests complete in seconds, not minutes
-- ✅ **Reliable Results** - No flaky tests, deterministic outcomes
-- ✅ **Easy Maintenance** - Clear test structure, reusable utilities
-- ✅ **Production Confidence** - Comprehensive error scenario coverage
-
-## 📦 Output Files and Structure
-
-- Reports are saved under `./reports/<domain>/` with date-based filenames.
-- Examples (HTML default):
-  - `reports/example.com/accessibility-report-YYYY-MM-DD.html`
-  - `reports/example.com/detailed-issues-YYYY-MM-DD.md`
-  - `reports/example.com/performance-issues-YYYY-MM-DD.md`
-
-### Sample CLI run output
-```text
-🚀 AuditMySite v1.8.0 - Enhanced Accessibility Testing
-📄 Sitemap: https://example.com/sitemap.xml
-📋 Configuration:
-   📄 Pages: 5
-   📋 Standard: WCAG2AA
-   📊 Performance: Yes (budget: default)
-   📄 Format: HTML
-   📁 Output: ./reports
-...
-✅ Queue processing completed: 5/5 URLs in 58s
+### Analysis Control
+```bash
+--no-performance           # Disable performance analysis
+--no-seo                   # Disable SEO analysis  
+--no-content-weight        # Disable content weight analysis
+--no-mobile                # Disable mobile-friendliness analysis
 ```
 
-### Sample performance issues excerpt
-```markdown
-# 📊 Performance Issue Report
-Generated: 2025-09-04T05:55:00.000Z
-Total Issues: 3
-
-## Page: https://example.com/product/123
-- Type: web-vitals
-- Severity: high
-- Metric: LCP
-- Score: 3200ms (budget 2500ms)
-- Recommendation: Optimize hero image and defer below-the-fold resources.
+### Advanced Options
+```bash
+--expert                   # Interactive expert mode with advanced settings
+--non-interactive          # Skip prompts for CI/CD (use defaults)
+--verbose                  # Show detailed progress information
+--save-state               # Save audit state for resumption
+--resume <stateId>         # Resume a previous audit from saved state
+--list-states              # List all available saved audit states
 ```
 
-### Exit codes and how to interpret them
-- `0` — The tool ran successfully. There may still be accessibility/performance issues in the reports; check them, but CI should treat this as success unless you enforce budgets separately.
-- `1` — One or more pages experienced a technical failure or crash during testing (e.g., navigation timeout, browser error). Investigate logs and rerun.
+### Examples
 
-Note: Accessibility failures alone do NOT cause a non-zero exit code. Use performance budgets or your CI logic to fail the pipeline based on report contents if desired.
+```bash
+# Complete analysis with performance budgets for e-commerce
+auditmysite https://shop.example.com/sitemap.xml --budget ecommerce --max-pages 20
 
-## 🧭 What Is Tested (Scope) and Current Status
+# JSON output for CI/CD integration
+auditmysite https://example.com/sitemap.xml --format json --non-interactive --max-pages 50
 
-- Accessibility (WCAG 2.1 AA via pa11y/axe-core):
-  - Labels, alt text, landmarks, headings, color contrast, link names, form labeling, and many more rules.
-  - HTML5 and ARIA enhancements: `<dialog>`, `<details>`, `<main>`, ARIA roles/states evaluated with modern rule sets.
-- Performance (Core Web Vitals):
-  - LCP, FCP, CLS, INP, TTFB collected using Google's web-vitals in the test browser, plus basic navigation timings.
-  - Budget evaluation using templates or custom thresholds, with recommendations per violation.
-- Not included (by design for v1.5):
-  - SEO audits, security scans, PDF export, Lighthouse integration (removed to keep core fast and focused).
+# Quick accessibility-only check
+auditmysite https://example.com/sitemap.xml --no-performance --no-seo --no-content-weight --no-mobile
 
-### Maturity / Accuracy
-- Accessibility: Mature and robust through pa11y + axe-core v4.10 with additional semantic checks.
-- Performance: Lightweight and practical. Metrics come from web-vitals in-browser collection. A formal comparison suite against Lighthouse is planned/ongoing to validate parity for typical cases.
+# Expert mode with custom settings
+auditmysite https://example.com/sitemap.xml --expert --verbose
 
-## 🛠️ Technical Details
+# Resume interrupted audit
+auditmysite --list-states
+auditmysite --resume audit_20241211_143022_example.com
+```
 
-### **Built With**
-- 🎭 **Playwright** - Modern browser automation with Chrome 135 support
-- ♿ **Pa11y v9** - Latest accessibility testing with axe-core v4.10
-- ⚡ **Google Web Vitals** - Official performance metrics with enhanced collection
-- 📝 **TypeScript** - Type-safe and reliable architecture
-- 🔥 **Enhanced Analysis** - Custom HTML5 and ARIA evaluation engines
+## 🏆 Performance Budgets
 
-### **System Requirements**
-- **Node.js** 20+ (required for pa11y v9)
-- **3GB RAM** minimum (4GB recommended for enhanced analysis)
-- **Chrome/Chromium** 120+ (Chrome 135+ recommended for full optimization)
-- **Internet connection** for testing external sites
+AuditMySite includes business-focused performance budget templates:
 
-### **Key Features**
-- 🚀 **Smart defaults** - Zero configuration needed, enhanced features enabled by default
-- ⚡ **Fast parallel processing** - Test multiple pages with Chrome 135 optimizations
-- 🔄 **Automatic retries** - Robust error handling with intelligent recovery
-- 📊 **Comprehensive reporting** - Accessibility, HTML5, ARIA, Performance, and Semantic analysis
-- 🏗️ **Modern architecture** - Built for reliability with future-ready standards
-- 🔥 **Enhanced analysis** - Modern HTML5 elements and advanced ARIA evaluation
-- 🏆 **Multi-level compliance** - Basic, Enhanced, Comprehensive accessibility levels
-- 🧪 **Production Quality** - Comprehensive test suite ensuring maximum reliability
+### **Default** (Google Web Vitals Standard)
+- LCP: ≤2.5s, FCP: ≤1.8s, CLS: ≤0.1, INP: ≤200ms
 
-## 📄 License
+### **E-commerce** (Conversion Optimized)
+- LCP: ≤2.0s, FCP: ≤1.5s, CLS: ≤0.05, INP: ≤150ms
+- Optimized for shopping experiences and conversion rates
 
-MIT License - see [LICENSE](LICENSE) for details.
+### **Corporate** (Professional Standards)  
+- LCP: ≤2.5s, FCP: ≤1.8s, CLS: ≤0.1, INP: ≤200ms
+- Balanced for business websites and professional services
 
-## 🤝 Contributing
+### **Blog** (Content Focused)
+- LCP: ≤3.0s, FCP: ≤2.0s, CLS: ≤0.1, INP: ≤300ms
+- Optimized for content consumption and reading experience
 
-We welcome contributions! Please read our contributing guidelines and feel free to submit issues and pull requests.
+## 🏗️ Architecture Features
+
+- **Event-driven parallel processing** with concurrent workers
+- **Browser pooling** for optimal performance and resource usage
+- **Persistent state management** with resume capability
+- **Real-time progress reporting** with memory and CPU monitoring
+- **Automatic sitemap discovery** from domain roots
+- **Comprehensive error handling** with retry mechanisms
+
+## 📈 Integration & Automation
+
+### CI/CD Integration
+```bash
+# GitHub Actions / GitLab CI
+auditmysite $SITEMAP_URL --format json --non-interactive --max-pages 10
+```
+
+### Node.js SDK Usage
+```javascript
+const { UnifiedAuditSDK } = require('@casoon/auditmysite');
+
+const sdk = new UnifiedAuditSDK();
+const results = await sdk.auditWebsite('https://example.com/sitemap.xml', {
+  maxPages: 10,
+  outputFormat: 'json'
+});
+```
+
+### API Server Mode
+```bash
+# Start API server
+auditmysite --api --port 3000 --api-key your-secret-key
+
+# API endpoints available:
+# POST /api/v1/audit/quick - Complete audit with all analysis types
+# POST /api/v1/audit/performance - Performance-focused analysis  
+# POST /api/v1/audit/seo - SEO-focused analysis
+# POST /api/v1/audit/accessibility - Accessibility-focused analysis
+# GET /api/v1/audit/{jobId} - Get audit job status
+```
+
+## 🎯 Use Cases
+
+- **Development Teams**: Automated quality assurance in CI/CD pipelines
+- **Agencies**: Client reporting and website optimization services  
+- **E-commerce**: Conversion optimization through performance and UX analysis
+- **Enterprise**: Large-scale website monitoring and compliance tracking
+- **SEO Specialists**: Technical SEO audits with actionable insights
+
+## 🔧 System Requirements
+
+- **Node.js**: 18+ (required for pa11y v9 compatibility)
+- **Memory**: 2GB minimum, 4GB recommended for large audits
+- **Chrome/Chromium**: 120+ (automatically managed)
+- **Network**: Required for testing external websites
+
+## 📊 Exit Codes
+
+- **0**: Successful completion (accessibility issues don't cause failure)
+- **1**: Technical errors (network failures, parsing errors, system issues)
+
+This ensures CI/CD pipelines can distinguish between technical failures and expected accessibility findings.
+
+## 📦 Version
+
+Current version: **2.0.0-alpha.1**
 
 ---
 
-**Made with ❤️ by [CASOON](https://casoon.de)**
+**AuditMySite** - Professional website quality analysis made simple.

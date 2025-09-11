@@ -11,6 +11,9 @@ export interface ParallelTestManagerOptions extends EventDrivenQueueOptions {
   // Test-specific options
   testOptions?: TestOptions;
   
+  // AccessibilityChecker instance (for comprehensive analysis support)
+  accessibilityChecker?: AccessibilityChecker;
+  
   // Progress Reporting
   enableProgressBar?: boolean;
   progressUpdateInterval?: number;
@@ -19,6 +22,14 @@ export interface ParallelTestManagerOptions extends EventDrivenQueueOptions {
   enableResourceMonitoring?: boolean;
   maxMemoryUsage?: number; // MB
   maxCpuUsage?: number; // Percent
+  
+  // Persistence options (inherited from EventDrivenQueueOptions)
+  enablePersistence?: boolean;
+  stateAdapter?: any;
+  autoSave?: boolean;
+  autoSaveInterval?: number;
+  stateId?: string;
+  resumable?: boolean;
   
   // Event Callbacks
   onTestStart?: (url: string) => void;
@@ -56,12 +67,19 @@ export class ParallelTestManager {
       ...options
     };
 
-    // Initialize Event-Driven Queue
+    // Initialize Event-Driven Queue with persistence support
     this.queue = new EventDrivenQueue({
       maxRetries: this.options.maxRetries,
       maxConcurrent: this.options.maxConcurrent,
       retryDelay: this.options.retryDelay,
       enableEvents: true,
+      // Pass persistence options through
+      enablePersistence: this.options.enablePersistence,
+      stateAdapter: this.options.stateAdapter,
+      autoSave: this.options.autoSave,
+      autoSaveInterval: this.options.autoSaveInterval,
+      stateId: this.options.stateId,
+      resumable: this.options.resumable,
       eventCallbacks: {
         onUrlAdded: this.handleUrlAdded.bind(this),
         onUrlStarted: this.handleUrlStarted.bind(this),
@@ -74,13 +92,48 @@ export class ParallelTestManager {
       }
     });
 
-    // Initialize Accessibility Checker
-    this.accessibilityChecker = new AccessibilityChecker();
+    // Initialize Accessibility Checker - use provided instance or create new one
+    this.accessibilityChecker = options.accessibilityChecker || new AccessibilityChecker();
   }
 
   async initialize(): Promise<void> {
     await this.accessibilityChecker.initialize();
     console.log(`🚀 Parallel Test Manager initialized with ${this.options.maxConcurrent} concurrent workers`);
+  }
+  
+  /**
+   * Resume tests from saved state
+   */
+  async resumeFromState(stateId?: string): Promise<void> {
+    if (!this.queue.isPersistenceEnabled()) {
+      throw new Error('Persistence is not enabled, cannot resume from state');
+    }
+    
+    try {
+      await this.queue.resumeFromState({ 
+        stateId: stateId || this.options.stateId!,
+        skipCompleted: true 
+      });
+      console.log(`✅ Successfully resumed from state: ${stateId || this.options.stateId}`);
+    } catch (error) {
+      throw new Error(`Failed to resume from state: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
+  /**
+   * Get the current state ID
+   */
+  getStateId(): string {
+    return this.queue.getStateId();
+  }
+  
+  /**
+   * Save current state
+   */
+  async saveState(): Promise<void> {
+    if (this.queue.isPersistenceEnabled()) {
+      await this.queue.saveState();
+    }
   }
 
   async runTests(urls: string[]): Promise<ParallelTestResult> {

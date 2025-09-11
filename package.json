@@ -7,7 +7,8 @@
     "auditmysite": "./bin/audit.js"
   },
   "scripts": {
-    "build": "npm run type-check && tsc && tsc-alias",
+    "build": "npm run type-check && tsc && tsc-alias && npm run copy-assets",
+    "copy-assets": "mkdir -p dist/assets && cp -r src/assets/* dist/assets/",
     "build:validate": "npm run build && node scripts/validate-build.js",
     "dev": "tsc --watch",
     "type-check": "tsc --noEmit",
