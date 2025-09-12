@@ -8,7 +8,10 @@
 import { BaseCommand, CommandArgs, CommandResult } from './base-command';
 import { StandardPipeline, StandardPipelineOptions } from '../../core/pipeline/standard-pipeline';
 import { SitemapDiscovery } from '../../core/parsers/sitemap-discovery';
-import { UnifiedReportSystem, ReportData, ReportOptions, ReportFormat } from '../../reports/unified';
+// Report system imports removed - using direct generators
+
+// Local type definitions
+type ReportFormat = 'html' | 'json' | 'markdown' | 'csv';
 import inquirer from 'inquirer';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -29,11 +32,11 @@ export interface AuditCommandArgs extends CommandArgs {
   inpBudget?: number;
   ttfbBudget?: number;
   unifiedQueue?: boolean;
-  // 🆕 Enhanced Analysis Options
-  enhanced?: boolean;               // Enable enhanced analysis with performance, SEO, and content weight
-  enhancedPerformance?: boolean;    // Enable enhanced performance metrics only
-  enhancedSeo?: boolean;           // Enable enhanced SEO analysis only
-  contentWeight?: boolean;         // Enable content weight analysis only
+  // 🆕 Analysis Options - all enabled by default
+  noPerformance?: boolean;         // Disable performance analysis
+  noSeo?: boolean;                 // Disable SEO analysis
+  noContentWeight?: boolean;       // Disable content weight analysis
+  noMobile?: boolean;              // Disable mobile-friendliness analysis
 }
 
 export class AuditCommand extends BaseCommand {
@@ -87,7 +90,7 @@ export class AuditCommand extends BaseCommand {
 
       // Show header
       const packageJson = require('../../../package.json');
-      this.logProgress(`AuditMySite v${packageJson.version} - Enhanced Accessibility Testing`);
+      this.logProgress(`AuditMySite v${packageJson.version} - Professional Accessibility Testing`);
       this.logProgress(`Sitemap: ${args.sitemapUrl}`);
 
       // Determine configuration
@@ -144,7 +147,12 @@ export class AuditCommand extends BaseCommand {
       // generateSecurityReport: false, // Not in StandardPipelineOptions
       // usePa11y: true, // Not in StandardPipelineOptions
       collectPerformanceMetrics: true,
-      useUnifiedQueue: args.unifiedQueue || false // NEW: Use unified queue system
+      // Queue system is now the default
+      // 🚀 NEW: Enhanced analysis enabled (BrowserPoolManager fixed)
+      useEnhancedAnalysis: true,
+      contentWeightAnalysis: true,
+      enhancedPerformanceAnalysis: true,
+      enhancedSeoAnalysis: true
     };
     
     // Store all formats for unified report system
@@ -152,12 +160,15 @@ export class AuditCommand extends BaseCommand {
       (baseConfig as any).outputFormats = args.format;
     }
 
-    // Enhanced Analysis configuration from CLI args
-    if (args.enhanced || args.enhancedPerformance || args.enhancedSeo || args.contentWeight) {
-      (baseConfig as any).enhanced = true;
-      (baseConfig as any).enhancedPerformance = args.enhanced || args.enhancedPerformance;
-      (baseConfig as any).enhancedSeo = args.enhanced || args.enhancedSeo;
-      (baseConfig as any).contentWeight = args.enhanced || args.contentWeight;
+    // Analysis configuration from CLI args - disable specific features
+    if (args.noPerformance) {
+      (baseConfig as any).enhancedPerformanceAnalysis = false;
+    }
+    if (args.noSeo) {
+      (baseConfig as any).enhancedSeoAnalysis = false;
+    }
+    if (args.noContentWeight) {
+      (baseConfig as any).contentWeightAnalysis = false;
     }
 
     // Expert mode - interactive configuration
@@ -264,7 +275,7 @@ export class AuditCommand extends BaseCommand {
       maxPages: answers.maxPages,
       pa11yStandard: answers.standard,
       outputFormat: (answers.formats[0] === 'markdown' ? 'markdown' : 'html') as 'markdown' | 'html',
-      useUnifiedQueue: answers.useUnifiedQueue,
+      // Queue system is default
       maxConcurrent: answers.maxConcurrent
     };
     
@@ -322,7 +333,7 @@ export class AuditCommand extends BaseCommand {
     console.log(`   📄 Pages: ${config.maxPages === 1000 ? 'All' : config.maxPages}`);
     console.log(`   📋 Standard: ${config.pa11yStandard}`);
     console.log(`   📈 Performance: ${config.generatePerformanceReport ? 'Yes' : 'No'}`);
-    console.log(`   🔧 Queue System: ${config.useUnifiedQueue ? 'Unified (NEW)' : 'Legacy'}`);
+    console.log(`   🔧 Queue System: Modern Queue`);
     console.log(`   📄 Format: ${config.outputFormat?.toUpperCase()}`);
     console.log(`   📁 Output: ${config.outputDir}`);
     
@@ -395,10 +406,7 @@ export class AuditCommand extends BaseCommand {
       outputDir: outputInfo.dir
     });
 
-    // Generate reports using the Unified Report System
-    if (config.outputFormat) {
-      await this.generateUnifiedReports(result, config, outputInfo);
-    }
+    // Report generation is handled by the pipeline
 
     const totalTime = Date.now() - startTime;
     const avgSpeed = result.summary.testedPages / (totalTime / 60000); // pages per minute
@@ -658,60 +666,7 @@ export class AuditCommand extends BaseCommand {
 </html>`;
   }
 
-  private async generateUnifiedReports(result: any, config: StandardPipelineOptions, outputInfo: any): Promise<void> {
-    try {
-      const reportSystem = new UnifiedReportSystem();
-      
-      // Prepare report data
-      const reportData: ReportData = {
-        summary: result.summary,
-        issues: result.issues || [],
-        metadata: {
-          timestamp: new Date().toISOString(),
-          version: require('../../../package.json').version,
-          duration: result.summary.totalDuration || 0,
-          sitemapUrl: result.sitemapUrl,
-          environment: process.env.NODE_ENV || 'development'
-        },
-        config: config
-      };
-
-      // Prepare report options
-      const reportOptions: ReportOptions = {
-        outputDir: outputInfo.dir,
-        includePa11yIssues: true,
-        summaryOnly: false,
-        prettyPrint: true,
-        branding: {
-          company: 'AuditMySite',
-          footer: 'Generated by AuditMySite - Professional Accessibility Testing'
-        }
-      };
-
-      // Determine formats to generate (from args or expert mode)
-      const formats: ReportFormat[] = (config as any).outputFormats || 
-        (config.outputFormat ? [config.outputFormat as ReportFormat] : ['html']);
-      
-      this.logProgress(`Generating reports in ${formats.join(', ')} format${formats.length > 1 ? 's' : ''}...`);
-      
-      // Generate all requested reports
-      const generatedReports = await reportSystem.generateMultipleReports(formats, reportData, reportOptions);
-      
-      // Log generated reports
-      generatedReports.forEach(report => {
-        const sizeKB = Math.round(report.size / 1024);
-        this.logSuccess(`Generated ${report.format.toUpperCase()} report: ${path.basename(report.path)} (${sizeKB}KB)`);
-      });
-      
-      // Add paths to result for legacy compatibility
-      result.outputFiles = result.outputFiles || [];
-      result.outputFiles.push(...generatedReports.map(r => r.path));
-      
-    } catch (error) {
-      this.logWarning(`Report generation failed: ${error}`);
-      this.logProgress('Audit results are still available, only report generation failed');
-    }
-  }
+  // generateUnifiedReports removed - using direct report generation in pipeline
 
   private showResults(result: any): void {
     const { summary, outputFiles } = result;

@@ -34,7 +34,7 @@ describe('AuditAPIServer', () => {
     // Set default mock behaviors
     mockQuickAudit.mockResolvedValue(createMockAuditResult());
     mockTestConnection.mockResolvedValue({ success: true });
-    mockGetVersion.mockReturnValue('1.7.0');
+    mockGetVersion.mockReturnValue('2.0.0-alpha.1');
     
     server = new AuditAPIServer({
       port: 0, // Use random port for tests
@@ -42,6 +42,13 @@ describe('AuditAPIServer', () => {
       maxConcurrentJobs: 2
     });
     app = server.getApp();
+  });
+  
+  afterEach(async () => {
+    // Clean up server resources to prevent open handles
+    if (server && typeof server.shutdown === 'function') {
+      await server.shutdown();
+    }
   });
 
   describe('Health and Info Endpoints', () => {
@@ -55,7 +62,7 @@ describe('AuditAPIServer', () => {
         data: {
           status: 'healthy',
           timestamp: expect.any(String),
-          version: '1.7.0',
+          version: '2.0.0-alpha.1',
           uptime: expect.any(Number),
           jobs: {
             total: 0,
@@ -74,8 +81,24 @@ describe('AuditAPIServer', () => {
         success: true,
         data: {
           name: 'AuditMySite API',
-          version: '1.7.0',
-          description: 'REST API for accessibility testing',
+          version: '1.8.8',
+          description: 'REST API for comprehensive website analysis with enhanced accessibility, performance, SEO, and content weight testing',
+          features: [
+            'Enhanced Accessibility Analysis (ARIA, Focus, Color Contrast)',
+            'Core Web Vitals Performance Metrics',
+            'Advanced SEO Analysis',
+            'Content Weight Assessment',
+            'Multiple Report Formats (HTML, JSON, CSV)'
+          ],
+          options: {
+            accessibility: 'Enable enhanced accessibility analysis (default: true)',
+            performance: 'Enable Core Web Vitals collection (default: true)',
+            seo: 'Enable SEO analysis (default: true)',
+            contentWeight: 'Enable content weight assessment (default: true)',
+            outputFormat: 'Output format: json, html, csv (default: json)',
+            reduced: 'Use reduced analysis mode (default: false)',
+            includeRecommendations: 'Include actionable recommendations (default: true)'
+          },
           endpoints: expect.any(Object),
           maxConcurrentJobs: 2
         }

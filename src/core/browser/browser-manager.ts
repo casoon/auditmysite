@@ -1,5 +1,6 @@
 import { chromium, Browser, BrowserContext } from 'playwright';
 import { TestOptions } from '@core/types';
+import { log } from '@core/logging';
 
 export interface BrowserConfig {
   headless?: boolean;
@@ -7,6 +8,7 @@ export interface BrowserConfig {
   devtools?: boolean;
   args?: string[];
   port?: number;
+  verbose?: boolean; // Controls browser initialization logging
 }
 
 export class BrowserManager {
@@ -21,17 +23,21 @@ export class BrowserManager {
   }
 
   async initialize(): Promise<void> {
-    console.log('🚀 Initializing shared browser instance...');
+    if (this.config.verbose) {
+      console.log('🚀 Initializing shared browser instance...');
+    }
     
     // Environment detection for better error handling
     const platform = process.platform;
     const isRoot = process.getuid?.() === 0;
     
-    if (isRoot) {
+    if (isRoot && this.config.verbose) {
       console.log('⚠️  Running as root user - will use no-sandbox mode');
     }
     
-    console.log(`ℹ️  Platform: ${platform}, User: ${process.env.USER || 'unknown'}`);
+    if (this.config.verbose) {
+      console.log(`ℹ️  Platform: ${platform}, User: ${process.env.USER || 'unknown'}`);
+    }
     
     
     // Browser mit Remote Debugging starten
@@ -85,7 +91,8 @@ export class BrowserManager {
     } catch (error: any) {
       // Handle permission errors with fallback configuration
       if (error.message?.includes('permission') || error.message?.includes('Operation not permitted') || error.message?.includes('userDataDir')) {
-        console.warn('⚠️  Browser launch failed, trying fallback without persistent context...');
+        // Always show this fallback - indicates browser permission issues
+        log.fallback('Browser Launch', 'launch failed due to permissions', 'using fallback without persistent context', error.message);
         
         const fallbackArgs = [
           '--headless=new',
@@ -107,7 +114,8 @@ export class BrowserManager {
           userAgent: 'auditmysite/1.5.0 (+https://github.com/casoon/AuditMySite)'
         });
         
-        console.log('✅ Browser launched with fallback configuration');
+        // Always show successful fallback recovery
+        log.success('Browser launched with fallback configuration (no persistent context)');
       } else {
         throw error;
       }
@@ -118,8 +126,10 @@ export class BrowserManager {
     // WebSocket Endpoint für pa11y/Lighthouse
     this.wsEndpoint = `ws://127.0.0.1:${this.port}`;
     
-    console.log(`✅ Shared browser ready on port ${this.port}`);
-    console.log(`ℹ️  WebSocket endpoint for internal use: ${this.wsEndpoint}`);
+    if (this.config.verbose) {
+      console.log(`✅ Shared browser ready on port ${this.port}`);
+      console.log(`ℹ️  WebSocket endpoint for internal use: ${this.wsEndpoint}`);
+    }
   }
 
   async getPage() {
@@ -148,19 +158,22 @@ export class BrowserManager {
       await this.browser.close();
     }
     
-    // Clean up user data directory
+    // Clean up user data directory (async)
     if (this.userDataDir) {
       try {
-        const fs = require('fs');
-        if (fs.existsSync(this.userDataDir)) {
-          fs.rmSync(this.userDataDir, { recursive: true, force: true });
+        const fs = require('fs/promises');
+        const { existsSync } = require('fs'); // Keep sync check for existence
+        if (existsSync(this.userDataDir)) {
+          await fs.rm(this.userDataDir, { recursive: true, force: true });
         }
       } catch (error) {
         console.warn('⚠️  Could not clean up browser user data directory:', error);
       }
     }
     
-    console.log('🧹 Shared browser cleaned up');
+    if (this.config.verbose) {
+      console.log('🧹 Shared browser cleaned up');
+    }
   }
 
   isInitialized(): boolean {

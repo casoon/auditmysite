@@ -9,13 +9,58 @@
 jest.mock('playwright', () => ({
   chromium: {
     launch: jest.fn(() => Promise.resolve({
-      newPage: jest.fn(() => Promise.resolve({
-        goto: jest.fn(),
-        content: jest.fn(() => Promise.resolve('<html><body>Mock page</body></html>')),
-        evaluate: jest.fn(),
+      // Real browser interface: browser.newContext() -> context -> context.newPage()
+      newContext: jest.fn(() => Promise.resolve({
+        newPage: jest.fn(() => Promise.resolve({
+          goto: jest.fn(),
+          content: jest.fn(() => Promise.resolve('<html><body>Mock page</body></html>')),
+          evaluate: jest.fn(),
+          close: jest.fn(),
+          title: jest.fn(() => Promise.resolve('Mock Title')),
+          locator: jest.fn(() => ({
+            count: jest.fn(() => Promise.resolve(0)),
+            filter: jest.fn(() => ({
+              count: jest.fn(() => Promise.resolve(0))
+            }))
+          })),
+          setDefaultTimeout: jest.fn(),
+          setDefaultNavigationTimeout: jest.fn()
+        })),
+        route: jest.fn(() => Promise.resolve()),
         close: jest.fn()
       })),
-      close: jest.fn()
+      close: jest.fn(),
+      isConnected: jest.fn(() => true)
+    }))
+  },
+  firefox: {
+    launch: jest.fn(() => Promise.resolve({
+      newContext: jest.fn(() => Promise.resolve({
+        newPage: jest.fn(() => Promise.resolve({
+          goto: jest.fn(),
+          close: jest.fn(),
+          title: jest.fn(() => Promise.resolve('Mock Title'))
+        })),
+        route: jest.fn(() => Promise.resolve()),
+        close: jest.fn()
+      })),
+      close: jest.fn(),
+      isConnected: jest.fn(() => true)
+    }))
+  },
+  webkit: {
+    launch: jest.fn(() => Promise.resolve({
+      newContext: jest.fn(() => Promise.resolve({
+        newPage: jest.fn(() => Promise.resolve({
+          goto: jest.fn(),
+          close: jest.fn(),
+          title: jest.fn(() => Promise.resolve('Mock Title'))
+        })),
+        route: jest.fn(() => Promise.resolve()),
+        close: jest.fn()
+      })),
+      close: jest.fn(),
+      isConnected: jest.fn(() => true)
     }))
   }
 }));

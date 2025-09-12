@@ -80,16 +80,15 @@ describe('Compiled CLI Integration', () => {
       const result = await runCLI(['--version']);
       
       expect(result.stderr).not.toMatch(/Cannot find module/);
-      expect(result.stdout).toMatch(/1\.8\.[0-9]+/); // Match version pattern
+      expect(result.stdout).toMatch(/2\.0\.[0-9a-z.-]+/); // Match version pattern
       expect(result.code).toBe(0);
     });
 
-    it('should load UnifiedReportSystem when using unified queue', async () => {
+    it('should load modules when processing sitemap', async () => {
       // Test with invalid URL to avoid actual network calls, 
       // but should still load the modules
       const result = await runCLI([
         'https://invalid-test-url-that-should-fail-validation',
-        '--unified-queue',
         '--max-pages', '1',
         '--non-interactive'
       ]);
@@ -156,7 +155,6 @@ describe('Compiled CLI Integration', () => {
       const result = await runCLI([
         'https://test.invalid',
         '--budget', 'ecommerce',
-        '--lcp-budget', '2000',
         '--non-interactive'
       ]);
       
@@ -169,28 +167,25 @@ describe('Compiled CLI Integration', () => {
   });
 
   describe('Advanced Features', () => {
-    it('should load streaming components without errors', async () => {
+    it('should handle verbose output without errors', async () => {
       const result = await runCLI([
         'https://test.invalid',
-        '--stream',
-        '--session-id', 'test-123',
-        '--non-interactive'
-      ]);
-      
-      expect(result.stderr).not.toMatch(/Cannot find module.*streaming/);
-      expect(result.stderr).not.toMatch(/StreamingReporter/);
-    });
-
-    it('should handle expert mode initialization', async () => {
-      // Expert mode in non-interactive should skip prompts
-      const result = await runCLI([
-        'https://test.invalid',
-        '--expert',
+        '--verbose',
         '--non-interactive'
       ]);
       
       expect(result.stderr).not.toMatch(/Cannot find module/);
-      expect(result.stderr).not.toMatch(/inquirer/);
+    });
+
+    it('should handle API mode initialization', async () => {
+      // Test API mode startup
+      const result = await runCLI([
+        '--api',
+        '--port', '0',
+        '--no-browser'
+      ], 2000); // Short timeout since we just want to test initialization
+      
+      expect(result.stderr).not.toMatch(/Cannot find module/);
     });
   });
 });
@@ -200,9 +195,8 @@ describe('Build Artifact Validation', () => {
     const fs = require('fs');
     const requiredFiles = [
       'dist/cli/commands/audit-command.js',
-      'dist/reports/index.js',
-      'dist/reports/unified/index.js',
-      'dist/reports/unified/unified-report-system.js',
+      'dist/generators/enhanced-html-generator.js',
+      'dist/generators/markdown-generator.js',
     ];
 
     for (const file of requiredFiles) {
@@ -211,19 +205,17 @@ describe('Build Artifact Validation', () => {
     }
   });
 
-  it('should export UnifiedReportSystem from reports index', () => {
-    const reportsIndex = require('../../dist/reports/index.js');
-    expect(reportsIndex.UnifiedReportSystem).toBeDefined();
-    expect(typeof reportsIndex.UnifiedReportSystem).toBe('function');
+  it('should export EnhancedHTMLGenerator', () => {
+    const generatorsIndex = require('../../dist/generators/enhanced-html-generator.js');
+    expect(generatorsIndex.EnhancedHTMLGenerator).toBeDefined();
+    expect(typeof generatorsIndex.EnhancedHTMLGenerator).toBe('function');
   });
 
-  it('should export unified generators', () => {
-    const unifiedIndex = require('../../dist/reports/unified/index.js');
+  it('should export modern generators', () => {
+    const htmlGenerator = require('../../dist/generators/enhanced-html-generator.js');
+    const markdownGenerator = require('../../dist/generators/markdown-generator.js');
     
-    expect(unifiedIndex.UnifiedReportSystem).toBeDefined();
-    expect(unifiedIndex.ModernHTMLReportGenerator).toBeDefined();
-    expect(unifiedIndex.ModernMarkdownReportGenerator).toBeDefined();
-    expect(unifiedIndex.JSONReportGenerator).toBeDefined();
-    expect(unifiedIndex.CSVReportGenerator).toBeDefined();
+    expect(htmlGenerator.EnhancedHTMLGenerator).toBeDefined();
+    expect(markdownGenerator.MarkdownGenerator).toBeDefined();
   });
 });

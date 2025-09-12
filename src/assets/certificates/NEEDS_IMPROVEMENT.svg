@@ -1,0 +1,8 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="#ef4444" stroke="#dc2626" stroke-width="3"/>
+  <circle cx="100" cy="100" r="75" fill="#f87171" stroke="#ef4444" stroke-width="2"/>
+  <text x="100" y="75" text-anchor="middle" fill="#7f1d1d" font-family="Arial, sans-serif" font-size="12" font-weight="bold">NEEDS</text>
+  <text x="100" y="95" text-anchor="middle" fill="#7f1d1d" font-family="Arial, sans-serif" font-size="12" font-weight="bold">IMPROVEMENT</text>
+  <text x="100" y="120" text-anchor="middle" fill="#7f1d1d" font-family="Arial, sans-serif" font-size="11">REQUIRES</text>
+  <text x="100" y="135" text-anchor="middle" fill="#7f1d1d" font-family="Arial, sans-serif" font-size="11">ATTENTION</text>
+</svg>

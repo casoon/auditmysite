@@ -5,7 +5,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { SitemapParser } from "./parsers";
 import { AccessibilityChecker } from "./core";
-import { OutputGenerator } from "./generators";
+import { JsonGenerator } from "./generators";
 import { TestOptions, TestSummary } from "./types";
 
 const program = new Command();
@@ -94,7 +94,7 @@ program
         pa11yStandard: options.standard,
       };
 
-      const results = await checker.testMultiplePages(
+      const results = await checker.testMultiplePagesParallel(
         localUrls.map((url) => url.loc),
         testOptions,
       );
@@ -117,23 +117,23 @@ program
       // Display results
       spinner.succeed("Tests completed!");
       
-      // Generate output file if requested
+      // Generate JSON output if requested
       if (options.output && options.output !== 'console') {
-        spinner.text = 'Generating output file...';
-        const outputGenerator = new OutputGenerator();
-        const outputOptions = {
-          format: options.output as 'json' | 'csv' | 'markdown' | 'html',
-          outputFile: options.outputFile,
-          includeDetails: options.includeDetails,
-          includePa11yIssues: options.includePa11y,
-          summaryOnly: options.summaryOnly
-        };
+        spinner.text = 'Generating JSON output...';
+        const jsonGenerator = new JsonGenerator();
         
         try {
-          const outputPath = await outputGenerator.generateOutput(summary, outputOptions);
-          spinner.succeed(`Output file created: ${outputPath}`);
+          const jsonData = {
+            metadata: { timestamp: new Date().toISOString(), toolVersion: '2.0.0-alpha.1' },
+            summary,
+            pages: summary.results
+          };
+          const jsonContent = jsonGenerator.generateJson(jsonData as any);
+          const outputPath = options.outputFile || `audit-${Date.now()}.json`;
+          require('fs').writeFileSync(outputPath, jsonContent);
+          spinner.succeed(`JSON output created: ${outputPath}`);
         } catch (error) {
-          spinner.warn(`Error creating output file: ${error}`);
+          spinner.warn(`Error creating JSON output: ${error}`);
         }
       }
       

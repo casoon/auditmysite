@@ -8,8 +8,18 @@
 import { Html5ElementsAnalysis } from '../core/accessibility/html5-elements-checker';
 import { AriaAnalysisResults } from '../core/accessibility/aria-rules-analyzer';
 import { PerformanceOptimizationResults } from '../core/performance/chrome135-optimizer';
-import { EnhancedReportSummary } from '../core/reporting/enhanced-report-generator';
 import { StreamEvent, StreamingConfiguration } from '../core/reporting/streaming-reporter';
+
+// Simple Enhanced Report Summary interface (replaces deleted enhanced-report-generator)
+interface EnhancedReportSummary {
+  testedPages: number;
+  passedPages: number;
+  failedPages: number;
+  totalErrors: number;
+  totalWarnings: number;
+  avgAccessibilityScore: number;
+  avgPerformanceScore: number;
+}
 
 // Re-export streaming types
 export * from '../core/reporting/streaming-reporter';

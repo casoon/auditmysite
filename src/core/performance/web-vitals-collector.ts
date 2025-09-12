@@ -1,11 +1,11 @@
 import { Page } from 'playwright';
+import { log } from '@core/logging';
 
 export interface CoreWebVitals {
   // Core Web Vitals (Google ranking factors)
   lcp: number;  // Largest Contentful Paint
   cls: number;  // Cumulative Layout Shift  
   fcp: number;  // First Contentful Paint
-  inp: number;  // Interaction to Next Paint (replaces FID)
   ttfb: number; // Time to First Byte
   
   // Additional metrics
@@ -26,7 +26,6 @@ export interface PerformanceBudget {
   lcp: { good: number; poor: number };
   cls: { good: number; poor: number };
   fcp: { good: number; poor: number };
-  inp: { good: number; poor: number };
   ttfb: { good: number; poor: number };
 }
 
@@ -50,28 +49,24 @@ export const BUDGET_TEMPLATES: Record<string, PerformanceBudget> = {
     lcp: { good: 2000, poor: 3000 }, // Stricter for conversion
     cls: { good: 0.05, poor: 0.15 },
     fcp: { good: 1500, poor: 2500 },
-    inp: { good: 150, poor: 300 },
     ttfb: { good: 300, poor: 600 }
   },
   blog: {
     lcp: { good: 2500, poor: 4000 }, // Standard thresholds
     cls: { good: 0.1, poor: 0.25 },
     fcp: { good: 1800, poor: 3000 },
-    inp: { good: 200, poor: 500 },
     ttfb: { good: 400, poor: 800 }
   },
   corporate: {
     lcp: { good: 2200, poor: 3500 }, // Professional standards
     cls: { good: 0.08, poor: 0.2 },
     fcp: { good: 1600, poor: 2800 },
-    inp: { good: 180, poor: 400 },
     ttfb: { good: 350, poor: 700 }
   },
   default: {
     lcp: { good: 2500, poor: 4000 }, // Google's standard thresholds
     cls: { good: 0.1, poor: 0.25 },
     fcp: { good: 1800, poor: 3000 },
-    inp: { good: 200, poor: 500 },
     ttfb: { good: 400, poor: 800 }
   }
 };
@@ -80,11 +75,13 @@ export class WebVitalsCollector {
   private budget: PerformanceBudget;
   private maxRetries: number;
   private retryDelay: number;
+  private verbose: boolean;
   
-  constructor(budget?: PerformanceBudget, options?: { maxRetries?: number; retryDelay?: number }) {
+  constructor(budget?: PerformanceBudget, options?: { maxRetries?: number; retryDelay?: number; verbose?: boolean }) {
     this.budget = budget || BUDGET_TEMPLATES.default;
     this.maxRetries = options?.maxRetries || 3;
     this.retryDelay = options?.retryDelay || 1000;
+    this.verbose = options?.verbose || false;
   }
   
   /**
@@ -114,7 +111,8 @@ export class WebVitalsCollector {
       };
       
     } catch (error) {
-      console.warn('Web Vitals collection failed, using fallback:', error);
+      // Always show fallback warnings, even in quiet mode - indicates potential implementation issues
+      log.fallback('Web Vitals Collection', 'collection failed', 'using basic navigation timing', error);
       return this.getFallbackMetrics();
     }
   }
@@ -124,44 +122,54 @@ export class WebVitalsCollector {
    * Each measurement runs in its own clean environment
    */
   async collectWithIsolatedContext(page: Page): Promise<any> {
-    const browser = page.context().browser();
-    if (!browser) {
-      console.warn('No browser available for isolated context, using existing page');
-      return this.collectWithRetry(page, this.maxRetries);
-    }
-    
-    // Create isolated context for performance measurement
-    const isolatedContext = await browser.newContext({
-      // Inherit viewport and user agent from original context
-      viewport: page.viewportSize(),
-      userAgent: await page.evaluate(() => navigator.userAgent),
-      // Disable unnecessary features for cleaner measurement
-      javaScriptEnabled: true,
-      // Keep similar conditions but isolated
-      ignoreHTTPSErrors: true,
-      bypassCSP: false
-    });
-    
     try {
-      const isolatedPage = await isolatedContext.newPage();
-      
-      // Navigate to the same URL as the original page
-      const currentUrl = page.url();
-      console.log(`🔄 Creating isolated context for: ${currentUrl}`);
-      
-      await isolatedPage.goto(currentUrl, { 
-        waitUntil: 'networkidle',
-        timeout: 30000
+      const browser = page.context().browser();
+      if (!browser) {
+        // Use shared page instead of failing
+        if (this.verbose) console.log('🔄 No browser for isolated context, using shared page');
+        return this.collectWithRetry(page, this.maxRetries);
+      }
+    
+      // Create isolated context for performance measurement with minimal config
+      const isolatedContext = await browser.newContext({
+        // Basic config only to avoid failures
+        viewport: page.viewportSize() || { width: 1280, height: 720 },
+        javaScriptEnabled: true,
+        ignoreHTTPSErrors: true
       });
+    
+      try {
+        const isolatedPage = await isolatedContext.newPage();
+        
+        // Navigate to the same URL as the original page
+        const currentUrl = page.url();
+        if (this.verbose) {
+          console.log(`🔄 Creating isolated context for: ${currentUrl}`);
+        }
+        
+        await isolatedPage.goto(currentUrl, { 
+          waitUntil: 'networkidle',
+          timeout: 30000
+        });
+        
+        // Collect metrics with enhanced retry mechanism
+        const metrics = await this.collectWithAdvancedRetry(isolatedPage);
+        
+        return metrics;
+        
+      } finally {
+        // Always clean up the isolated context
+        try {
+          await isolatedContext.close();
+        } catch (e) {
+          if (this.verbose) console.warn('Error closing isolated context:', e);
+        }
+      }
       
-      // Collect metrics with enhanced retry mechanism
-      const metrics = await this.collectWithAdvancedRetry(isolatedPage);
-      
-      return metrics;
-      
-    } finally {
-      // Always clean up the isolated context
-      await isolatedContext.close();
+    } catch (isolatedError) {
+      // If isolated context fails, fallback to shared page
+      if (this.verbose) console.log('🔄 Isolated context failed, using shared page:', isolatedError);
+      return this.collectWithRetry(page, this.maxRetries);
     }
   }
   
@@ -180,7 +188,9 @@ export class WebVitalsCollector {
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       for (const strategy of strategies) {
         try {
-          console.log(`🔍 Attempt ${attempt}/${this.maxRetries} using ${strategy.name}`);
+          if (this.verbose) {
+            console.log(`🔍 Attempt ${attempt}/${this.maxRetries} using ${strategy.name}`);
+          }
           
           // Ensure page stability before each attempt
           await page.waitForLoadState('networkidle');
@@ -190,15 +200,18 @@ export class WebVitalsCollector {
           
           // Validate metrics quality
           if (this.hasValidMetrics(metrics)) {
-            console.log(`✅ Success with ${strategy.name} on attempt ${attempt}`);
+            if (this.verbose) {
+              console.log(`✅ Success with ${strategy.name} on attempt ${attempt}`);
+            }
             return metrics;
-          } else {
+          } else if (this.verbose) {
             console.log(`⚠️ ${strategy.name} returned incomplete metrics`);
           }
           
         } catch (error) {
           lastError = error as Error;
-          console.warn(`❌ ${strategy.name} failed on attempt ${attempt}:`, error);
+          // Always show performance strategy failures - critical for debugging performance issues
+          log.fallback('Performance Strategy', `${strategy.name} failed on attempt ${attempt}`, 'trying next strategy', error);
         }
       }
       
@@ -210,7 +223,8 @@ export class WebVitalsCollector {
       }
     }
     
-    console.warn('All collection strategies exhausted, using basic navigation timing');
+    // Always show this critical fallback - indicates serious performance measurement issues
+    log.fallback('Performance Collection', 'all strategies exhausted', 'using basic navigation timing (least accurate)');
     return this.getNavigationTimingFallback(page);
   }
   
@@ -229,7 +243,9 @@ export class WebVitalsCollector {
           return metrics;
         }
         
-        console.log(`Attempt ${attempt} got incomplete metrics, retrying...`);
+        if (this.verbose) {
+          console.log(`Attempt ${attempt} got incomplete metrics, retrying...`);
+        }
         
         if (attempt < maxRetries) {
           // Wait before retry, with exponential backoff
@@ -238,7 +254,8 @@ export class WebVitalsCollector {
         
       } catch (error) {
         lastError = error as Error;
-        console.warn(`Performance collection attempt ${attempt} failed:`, error);
+        // Always show retry failures - helps identify patterns
+        log.fallback('Performance Collection', `attempt ${attempt} failed`, 'retrying with different strategy', error);
         
         if (attempt < maxRetries) {
           // Wait before retry
@@ -247,8 +264,8 @@ export class WebVitalsCollector {
       }
     }
     
-    // All retries failed, return fallback metrics
-    console.warn('All performance collection attempts failed, using navigation timing fallback');
+    // All retries failed, return fallback metrics - Always show this critical fallback
+    log.fallback('Performance Collection', 'all retry attempts failed', 'using navigation timing fallback');
     return this.getNavigationTimingFallback(page);
   }
   
@@ -292,13 +309,13 @@ export class WebVitalsCollector {
     return await page.evaluate(() => {
       return new Promise<any>((resolve, reject) => {
         const results: any = {
-          lcp: 0, cls: 0, fcp: 0, inp: 0, ttfb: 0,
+          lcp: 0, cls: 0, fcp: 0, ttfb: 0,
           loadTime: 0, domContentLoaded: 0, renderTime: 0
         };
         
         let resolved = false;
         let collectedMetrics = 0;
-        const expectedMetrics = 5; // LCP, CLS, FCP, INP, TTFB
+        const expectedMetrics = 4; // LCP, CLS, FCP, TTFB
         
         const finishCollection = (reason: string) => {
           if (!resolved) {
@@ -350,13 +367,6 @@ export class WebVitalsCollector {
             });
           } catch (e) { console.warn('FCP collection failed:', e); }
           
-          try {
-            webVitals.onINP((metric: any) => {
-              results.inp = metric.value || 0;
-              collectedMetrics++;
-              console.log(`INP: ${metric.value}ms`);
-            });
-          } catch (e) { console.warn('INP collection failed:', e); }
           
           try {
             webVitals.onTTFB((metric: any) => {
@@ -396,7 +406,7 @@ export class WebVitalsCollector {
     return await page.evaluate(() => {
       return new Promise<any>((resolve) => {
         const results: any = {
-          lcp: 0, cls: 0, fcp: 0, inp: 0, ttfb: 0,
+          lcp: 0, cls: 0, fcp: 0, ttfb: 0,
           loadTime: 0, domContentLoaded: 0, renderTime: 0
         };
         
@@ -477,7 +487,6 @@ export class WebVitalsCollector {
         lcp: fcp || navigation?.loadEventEnd || 0,
         cls: 0, // Can't measure without PerformanceObserver
         fcp: fcp,
-        inp: 0, // Can't measure without interaction
         ttfb: navigation ? navigation.responseStart - navigation.requestStart : 0,
         loadTime: navigation?.loadEventEnd || 0,
         domContentLoaded: navigation?.domContentLoadedEventEnd || 0,
@@ -587,8 +596,6 @@ export class WebVitalsCollector {
       console.log('CLS below threshold, normalized to 0');
     }
     
-    // INP Fallback: Pages without interaction get 0, which is normal
-    // (No logging needed - this is expected for static pages)
     
     // TTFB Fallback: Calculate from navigation timing if available
     if (enhanced.ttfb === 0 && enhanced.domContentLoaded > 0) {
@@ -622,13 +629,9 @@ export class WebVitalsCollector {
     if (metrics.cls > this.budget.cls.poor) score -= 25;
     else if (metrics.cls > this.budget.cls.good) score -= 15;
     
-    // FCP scoring (20% weight)
-    if (metrics.fcp > this.budget.fcp.poor) score -= 20;
-    else if (metrics.fcp > this.budget.fcp.good) score -= 10;
-    
-    // INP scoring (15% weight)
-    if (metrics.inp > this.budget.inp.poor) score -= 15;
-    else if (metrics.inp > this.budget.inp.good) score -= 8;
+    // FCP scoring (35% weight) - increased from 20%
+    if (metrics.fcp > this.budget.fcp.poor) score -= 35;
+    else if (metrics.fcp > this.budget.fcp.good) score -= 18;
     
     // TTFB scoring (15% weight)
     if (metrics.ttfb > this.budget.ttfb.poor) score -= 15;
@@ -666,11 +669,6 @@ export class WebVitalsCollector {
       recommendations.push(`${status}: FCP (${metrics.fcp}ms) exceeds budget (${this.budget.fcp.good}ms good, ${this.budget.fcp.poor}ms poor). Minimize CSS, optimize fonts, reduce JavaScript`);
     }
     
-    // INP recommendations
-    if (metrics.inp > this.budget.inp.good) {
-      const status = metrics.inp > this.budget.inp.poor ? 'CRITICAL' : 'WARNING';
-      recommendations.push(`${status}: INP (${metrics.inp}ms) exceeds budget (${this.budget.inp.good}ms good, ${this.budget.inp.poor}ms poor). Optimize JavaScript execution, reduce main thread work`);
-    }
     
     // TTFB recommendations
     if (metrics.ttfb > this.budget.ttfb.good) {
@@ -722,15 +720,6 @@ export class WebVitalsCollector {
       });
     }
     
-    if (metrics.inp > this.budget.inp.good) {
-      violations.push({
-        metric: 'inp',
-        actual: metrics.inp,
-        threshold: metrics.inp > this.budget.inp.poor ? this.budget.inp.poor : this.budget.inp.good,
-        severity: metrics.inp > this.budget.inp.poor ? 'error' : 'warning',
-        message: `INP ${metrics.inp}ms exceeds ${metrics.inp > this.budget.inp.poor ? 'poor' : 'good'} threshold`
-      });
-    }
     
     if (metrics.ttfb > this.budget.ttfb.good) {
       violations.push({
@@ -774,7 +763,7 @@ export class WebVitalsCollector {
     }
     
     return {
-      lcp: 0, cls: 0, fcp: 0, inp: 0, ttfb: 0,
+      lcp: 0, cls: 0, fcp: 0, ttfb: 0,
       loadTime: 0, domContentLoaded: 0, renderTime: 0,
       score: 0,
       grade: 'F',

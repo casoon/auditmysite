@@ -1,0 +1,7 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="#e5e7eb" stroke="#d1d5db" stroke-width="3"/>
+  <circle cx="100" cy="100" r="75" fill="#f3f4f6" stroke="#e5e7eb" stroke-width="2"/>
+  <text x="100" y="85" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="16" font-weight="bold">PLATINUM</text>
+  <text x="100" y="110" text-anchor="middle" fill="#6b7280" font-family="Arial, sans-serif" font-size="12">EXCEPTIONAL</text>
+  <text x="100" y="130" text-anchor="middle" fill="#6b7280" font-family="Arial, sans-serif" font-size="12">QUALITY</text>
+</svg>

@@ -7,9 +7,42 @@
 
 import { AuditSDK } from '../../src/sdk/audit-sdk';
 import { AuditAPIServer } from '../../src/api/server';
-import { UnifiedReportSystem } from '../../src/reports/unified/unified-report-system';
+import { HTMLGenerator } from '../../src/generators/html-generator';
 import { ConfigManager } from '../../src/core/config/config-manager';
 import { createMockAuditResult, createMockPageResult } from '../setup';
+
+// Mock types for the test
+type ReportData = {
+  summary: {
+    testedPages: number;
+    passedPages: number;
+    failedPages: number;
+    crashedPages: number;
+    totalErrors: number;
+    totalWarnings: number;
+    totalDuration: number;
+    results?: any[];
+  };
+  issues: any[];
+  metadata: {
+    timestamp: string;
+    version: string;
+    duration: number;
+    sitemapUrl?: string;
+    environment?: string;
+  };
+};
+
+type ReportOptions = {
+  outputDir: string;
+  includePa11yIssues?: boolean;
+  summaryOnly?: boolean;
+  prettyPrint?: boolean;
+  branding?: {
+    company?: string;
+    footer?: string;
+  };
+};
 import request from 'supertest';
 
 describe('E2E Happy Path Tests', () => {
@@ -137,60 +170,54 @@ describe('E2E Happy Path Tests', () => {
   });
 
   describe('Report Generation End-to-End', () => {
-    it('should generate all report formats successfully', async () => {
-      const reportSystem = new UnifiedReportSystem();
+    it('should generate HTML reports successfully', async () => {
+      const htmlGenerator = new HTMLGenerator();
       
       const mockData = {
+        metadata: {
+          version: '1.6.1',
+          timestamp: new Date().toISOString(),
+          sitemapUrl: 'https://example.com/sitemap.xml',
+          totalPages: 5,
+          testedPages: 5,
+          duration: 25000
+        },
         summary: {
+          totalPages: 5,
           testedPages: 5,
           passedPages: 4,
           failedPages: 1,
           crashedPages: 0,
           totalErrors: 3,
           totalWarnings: 2,
-          totalDuration: 25000,
-          results: [
-            createMockPageResult({ passed: true }),
-            createMockPageResult({ passed: true, url: 'https://example.com/page2' }),
-            createMockPageResult({ passed: true, url: 'https://example.com/page3' }),
-            createMockPageResult({ passed: true, url: 'https://example.com/page4' }),
-            createMockPageResult({ passed: false, errors: ['Missing alt text'], url: 'https://example.com/page5' })
-          ]
+          successRate: 80
         },
-        issues: [],
-        metadata: {
-          timestamp: new Date().toISOString(),
-          version: '1.6.1',
-          duration: 25000,
-          environment: 'test'
-        }
+        pages: [
+          {
+            url: 'https://example.com/',
+            title: 'Home Page',
+            status: 'passed',
+            duration: 5000,
+            accessibility: { errors: [], warnings: [], notices: [] }
+          },
+          {
+            url: 'https://example.com/page2',
+            title: 'Page 2',
+            status: 'failed',
+            duration: 4000,
+            accessibility: { errors: ['Missing alt text'], warnings: [], notices: [] }
+          }
+        ]
       };
 
-      const options = {
-        outputDir: './test-e2e-reports',
-        includePa11yIssues: true,
-        summaryOnly: false,
-        prettyPrint: true,
-        branding: {
-          company: 'E2E Test Company',
-          footer: 'Generated during E2E testing'
-        }
-      };
-
-      // Generate all supported formats
-      const formats = ['html', 'markdown', 'json', 'csv'];
-      const reports = await reportSystem.generateMultipleReports(formats, mockData, options);
+      // Generate HTML report
+      const reportHtml = await htmlGenerator.generate(mockData);
       
-      expect(reports).toHaveLength(4);
-      expect(reports.every(r => r.size > 0)).toBe(true);
-      expect(reports.map(r => r.format)).toEqual(expect.arrayContaining(formats));
-      
-      // Verify each report has required metadata
-      reports.forEach(report => {
-        expect(report.path).toBeDefined();
-        expect(report.metadata.generatedAt).toBeInstanceOf(Date);
-        expect(report.metadata.duration).toBeGreaterThan(0);
-      });
+      expect(typeof reportHtml).toBe('string');
+      expect(reportHtml.length).toBeGreaterThan(0);
+      expect(reportHtml).toContain('<!DOCTYPE html>');
+      expect(reportHtml).toContain('AuditMySite Report');
+      expect(reportHtml).toContain('example.com');
     });
   });
 

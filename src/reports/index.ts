@@ -1,13 +1,12 @@
-// 🎯 SINGLE SOURCE OF TRUTH - All report types are now unified
+// 🎯 SINGLE SOURCE OF TRUTH - Clean report system
 export * from './types/report-export';
 export * from './exporters/unified-export';
 
-// Legacy exports for backwards compatibility (DEPRECATED)
+// Core components for backward compatibility only
 export * from './detailed-issue-markdown';
 export * from './report-utils';
-export * from './performance-issue-markdown';
-export * from './html-report-generator';
-export * from './unified';
 
-// ⚠️ IMPORTANT: New code should ONLY use types from './types/report-export'
-// The legacy exports above will be removed in a future version
+// ⚠️ IMPORTANT: New code should use:
+// - HTMLGenerator from '../generators/html-generator'
+// - JsonGenerator from '../generators/json-generator'
+// - MarkdownGenerator from '../generators/markdown-generator'

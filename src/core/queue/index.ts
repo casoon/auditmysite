@@ -1,12 +1,12 @@
 /**
- * 🔧 Unified Queue System - Main Exports
+ * 🔧 Queue System - Main Exports
  * 
- * Centralized exports for the unified queue system.
+ * Centralized exports for the queue system.
  * Provides clean API for consumers.
  */
 
 // Main queue class
-export { UnifiedQueue } from './unified-queue';
+export { Queue } from './queue';
 
 // Factory for creating queues
 export { QueueFactory } from './queue-factory';

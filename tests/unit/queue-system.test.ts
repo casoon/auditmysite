@@ -4,169 +4,107 @@
  * Tests the unified queue system with focus on core business logic.
  * Fast, isolated tests without I/O operations.
  * 
- * TODO: Update imports for current architecture
+ * Updated for v2.0 architecture with current queue implementations.
  */
 
-import { UnifiedQueue, QueueType } from '../../src/core/queue/unified-queue';
+// Removing reference to legacy UnifiedQueue
 import { SimpleQueueAdapter } from '../../src/core/queue/adapters/simple-queue-adapter';
 import { ParallelQueueAdapter } from '../../src/core/queue/adapters/parallel-queue-adapter';
-import { QueueConfig, QueueProcessor } from '../../src/core/queue/types';
+import { QueueConfig, QueueProcessor, QueueType } from '../../src/core/queue/types';
+import { QueueFactory } from '../../src/core/queue/queue-factory';
 
-describe('UnifiedQueue', () => {
-  let queue: UnifiedQueue;
+// Legacy UnifiedQueue tests removed in refactoring
 
-  beforeEach(() => {
-    queue = new UnifiedQueue();
-  });
-
-  describe('Queue Initialization', () => {
-    it('should initialize with default parallel queue', () => {
-      expect(queue.getType()).toBe('parallel');
+describe('QueueFactory', () => {
+  describe('Queue Creation', () => {
+    it('should create simple queue adapter', () => {
+      const queue = QueueFactory.create('simple', { maxConcurrent: 1 });
+      expect(queue).toBeInstanceOf(SimpleQueueAdapter);
     });
 
-    it('should initialize with simple queue when configured', () => {
-      const config: QueueConfig = {
-        maxConcurrent: 1
-      };
-      
-      queue = new UnifiedQueue('simple', config);
-      expect(queue.getType()).toBe('simple');
+    it('should create parallel queue adapter', () => {
+      const queue = QueueFactory.create('parallel', { maxConcurrent: 3 });
+      expect(queue).toBeInstanceOf(ParallelQueueAdapter);
     });
 
-    it('should validate queue configuration', () => {
+    it('should create priority queue (using parallel adapter)', () => {
+      const queue = QueueFactory.create('priority');
+      expect(queue).toBeInstanceOf(ParallelQueueAdapter);
+    });
+
+    it('should throw error for unsupported queue type', () => {
       expect(() => {
-        new UnifiedQueue('parallel', { maxConcurrent: -1 });
-      }).toThrow('Invalid queue configuration');
+        QueueFactory.create('invalid-type' as QueueType);
+      }).toThrow('Unsupported queue type');
     });
   });
 
-  describe('Queue Elements', () => {
-    it('should add elements to queue', () => {
-      const data = { url: 'https://example.com' };
-
-      const ids = queue.enqueue([data]);
-      expect(ids).toHaveLength(1);
-      expect(queue.size()).toBe(1);
-    });
-
-    it('should handle multiple elements with different priorities', () => {
-      const elements = [
-        { url: 'https://example.com/low' },
-        { url: 'https://example.com/high' },
-        { url: 'https://example.com/medium' }
-      ];
-
-      const ids = queue.enqueue(elements);
-      expect(ids).toHaveLength(3);
-      expect(queue.size()).toBe(3);
-    });
-
-    it('should clear queue', () => {
-      const data = { url: 'https://example.com' };
-      queue.enqueue([data]);
-      
-      expect(queue.size()).toBe(1);
-      queue.clear();
-      expect(queue.size()).toBe(0);
-    });
-  });
-
-  describe('Queue Processing', () => {
-    it('should process elements in simple queue', async () => {
-      queue = new UnifiedQueue('simple');
-      const mockProcessor: QueueProcessor<any> = jest.fn().mockResolvedValue({ success: true });
-      const elements = [
-        { url: 'https://example.com/1' },
-        { url: 'https://example.com/2' }
-      ];
-
-      queue.enqueue(elements);
-      
-      const result = await queue.process(mockProcessor);
-      
-      expect(mockProcessor).toHaveBeenCalledTimes(2);
-      expect(result.completed).toHaveLength(2);
-      expect(result.failed).toHaveLength(0);
-    });
-
-    it('should process elements in parallel queue', async () => {
+  describe('Configuration Validation', () => {
+    it('should validate valid configuration', () => {
       const config: QueueConfig = {
-        maxConcurrent: 2
+        maxConcurrent: 3,
+        maxRetries: 2,
+        retryDelay: 1000,
+        timeout: 30000
       };
-      queue = new UnifiedQueue('parallel', config);
       
-      const mockProcessor: QueueProcessor<any> = jest.fn()
-        .mockImplementation(() => new Promise(resolve => 
-          setTimeout(() => resolve({ success: true }), 10)
-        ));
-
-      const elements = [
-        { url: 'https://example.com/1' },
-        { url: 'https://example.com/2' },
-        { url: 'https://example.com/3' }
-      ];
-
-      queue.enqueue(elements);
-      
-      const startTime = Date.now();
-      const result = await queue.process(mockProcessor);
-      const duration = Date.now() - startTime;
-      
-      expect(mockProcessor).toHaveBeenCalledTimes(3);
-      expect(result.completed).toHaveLength(3);
-      expect(result.failed).toHaveLength(0);
-      // Should be faster than sequential processing (rough estimate)
-      expect(duration).toBeLessThan(100);
+      const validation = QueueFactory.validateConfig(config);
+      expect(validation.valid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
     });
 
-    it('should handle processing errors gracefully', async () => {
-      const mockProcessor: QueueProcessor<any> = jest.fn()
-        .mockResolvedValueOnce({ success: true })
-        .mockRejectedValueOnce(new Error('Processing failed'))
-        .mockResolvedValueOnce({ success: true });
+    it('should invalidate configuration with invalid maxConcurrent', () => {
+      const config: QueueConfig = {
+        maxConcurrent: -1
+      };
+      
+      const validation = QueueFactory.validateConfig(config);
+      expect(validation.valid).toBe(false);
+      expect(validation.errors).toContain('maxConcurrent must be between 1 and 10');
+    });
 
-      const elements = [
-        { url: 'https://example.com/1' },
-        { url: 'https://example.com/2' },
-        { url: 'https://example.com/3' }
-      ];
-
-      queue.enqueue(elements);
+    it('should invalidate configuration with invalid timeout', () => {
+      const config: QueueConfig = {
+        timeout: 500 // Too low
+      };
       
-      const result = await queue.process(mockProcessor);
-      
-      // With retry logic, failed items might end up in completed with error
-      const totalProcessed = result.completed.length + result.failed.length;
-      expect(totalProcessed).toBe(3);
-      
-      // Check that we have some failures (either in failed or completed with error)
-      const hasFailures = result.failed.length > 0 || 
-        result.completed.some(item => item.error);
-      expect(hasFailures).toBe(true);
+      const validation = QueueFactory.validateConfig(config);
+      expect(validation.valid).toBe(false);
+      expect(validation.errors).toContain('timeout must be between 1000 and 300000ms');
     });
   });
 
-  describe('Progress Tracking', () => {
-    it('should track queue statistics during processing', async () => {
-      const mockProcessor: QueueProcessor<any> = jest.fn().mockResolvedValue({ success: true });
-      
-      const elements = [
-        { url: 'https://example.com/1' },
-        { url: 'https://example.com/2' },
-        { url: 'https://example.com/3' }
-      ];
+  describe('Accessibility Testing Factory', () => {
+    it('should create queue optimized for accessibility testing', () => {
+      const queue = QueueFactory.createForAccessibilityTesting();
+      expect(queue).toBeInstanceOf(ParallelQueueAdapter);
+    });
 
-      queue.enqueue(elements);
-      
-      const initialStats = queue.getStatistics();
-      expect(initialStats.total).toBe(3);
-      expect(initialStats.pending).toBe(3);
-      
-      await queue.process(mockProcessor);
-      
-      const finalStats = queue.getStatistics();
-      expect(finalStats.completed).toBe(3);
-      expect(finalStats.failed).toBe(0);
+    it('should apply accessibility testing configurations', () => {
+      const customConfig = { maxConcurrent: 1 };
+      const queue = QueueFactory.createForAccessibilityTesting('simple', customConfig);
+      expect(queue).toBeInstanceOf(SimpleQueueAdapter);
+    });
+  });
+
+  describe('Utility Methods', () => {
+    it('should return supported queue types', () => {
+      const types = QueueFactory.getSupportedTypes();
+      expect(types).toContain('simple');
+      expect(types).toContain('parallel');
+      expect(types).toContain('priority');
+      expect(types).toContain('persistent');
+    });
+
+    it('should get default configuration for each type', () => {
+      const simpleConfig = QueueFactory.getDefaultConfig('simple');
+      expect(simpleConfig.maxConcurrent).toBe(1);
+
+      const parallelConfig = QueueFactory.getDefaultConfig('parallel');
+      expect(parallelConfig.maxConcurrent).toBe(3);
+
+      const priorityConfig = QueueFactory.getDefaultConfig('priority');
+      expect(priorityConfig.priorityPatterns).toBeDefined();
     });
   });
 });

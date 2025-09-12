@@ -1,3 +1,3 @@
 export { BrowserManager } from './browser-manager';
 export { NetworkThrottler } from './network-throttler';
-export { ResourceMonitor } from './resource-monitor';
+// ResourceMonitor moved to '../resource-monitor' for unified implementation

@@ -1,0 +1,7 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="#92400e" stroke="#7c2d12" stroke-width="3"/>
+  <circle cx="100" cy="100" r="75" fill="#b45309" stroke="#92400e" stroke-width="2"/>
+  <text x="100" y="85" text-anchor="middle" fill="#fbbf24" font-family="Arial, sans-serif" font-size="18" font-weight="bold">BRONZE</text>
+  <text x="100" y="110" text-anchor="middle" fill="#fbbf24" font-family="Arial, sans-serif" font-size="12">BASIC</text>
+  <text x="100" y="130" text-anchor="middle" fill="#fbbf24" font-family="Arial, sans-serif" font-size="12">QUALITY</text>
+</svg>

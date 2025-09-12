@@ -61,7 +61,7 @@ export interface ResourceTiming {
   cached: boolean;
 }
 
-export interface EnhancedPerformanceMetrics {
+export interface PerformanceMetrics {
   // Core Web Vitals
   /** Largest Contentful Paint in ms */
   lcp: number;
@@ -209,7 +209,7 @@ export interface TechnicalSEO {
   };
 }
 
-export interface EnhancedSEOMetrics {
+export interface SEOMetrics {
   /** Meta tag analysis */
   metaTags: MetaTagAnalysis;
   /** Heading structure analysis */
@@ -242,6 +242,37 @@ export interface EnhancedSEOMetrics {
   searchVisibility: number;
   /** Key improvement opportunities */
   opportunityAreas: string[];
+  
+  // Advanced SEO Features
+  /** Semantic SEO analysis */
+  semanticSEO?: {
+    semanticScore: number;
+    topicClusters: string[];
+    contentDepthScore: number;
+    lsiKeywords: string[];
+    recommendations: string[];
+  };
+  /** Voice search optimization analysis */
+  voiceSearchOptimization?: {
+    voiceSearchScore: number;
+    questionPhrases: number;
+    conversationalContent: boolean;
+    recommendations: string[];
+  };
+  /** E-A-T (Expertise, Authoritativeness, Trustworthiness) analysis */
+  eatAnalysis?: {
+    eatScore: number;
+    authorPresence: boolean;
+    expertiseIndicators: string[];
+    trustSignals: string[];
+    recommendations: string[];
+  };
+  /** Core Web Vitals SEO impact analysis */
+  coreWebVitalsSEO?: {
+    seoImpactScore: number;
+    vitalsCritical: string[];
+    seoRecommendations: string[];
+  };
 }
 
 export interface PageQualityMetrics {
@@ -249,10 +280,12 @@ export interface PageQualityMetrics {
   url: string;
   /** Page title */
   title: string;
-  /** Enhanced performance metrics */
-  enhancedPerformance: EnhancedPerformanceMetrics;
-  /** Enhanced SEO metrics */
-  enhancedSEO: EnhancedSEOMetrics;
+  /** Performance metrics */
+  performance: PerformanceMetrics;
+  /** SEO metrics */
+  seo: SEOMetrics;
+  /** Mobile-friendliness metrics */
+  mobileFriendliness?: MobileFriendlinessMetrics;
   /** Overall quality score combining all metrics */
   overallQualityScore: number;
   /** Quality grade (A-F) */
@@ -270,8 +303,98 @@ export interface QualityAnalysisOptions {
   includeReadabilityAnalysis?: boolean;
   /** Include technical SEO checks */
   includeTechnicalSEO?: boolean;
+  /** Include mobile-friendliness analysis */
+  includeMobileFriendliness?: boolean;
   /** Timeout for analysis in milliseconds */
   analysisTimeout?: number;
+  /** Enable verbose logging for debugging */
+  verbose?: boolean;
+}
+
+// Mobile-Friendliness Analysis Types
+export interface MobileFriendlinessMetrics {
+  overallScore: number;
+  grade: string;
+  viewport: {
+    hasViewportTag: boolean;
+    viewportContent: string;
+    isResponsive: boolean;
+    hasHorizontalScroll: boolean;
+    breakpointCount: number;
+    hasSafeAreaInsets: boolean;
+    score: number;
+  };
+  typography: {
+    baseFontSize: number;
+    lineHeight: number;
+    maxLineLength: number;
+    isAccessibleFontSize: boolean;
+    contrastScore: number;
+    score: number;
+  };
+  touchTargets: {
+    compliantTargets: number;
+    totalTargets: number;
+    averageTargetSize: number;
+    minimumSpacing: number;
+    violations: {
+      selector: string;
+      currentSize: number;
+      requiredSize: number;
+      spacing: number;
+      recommendation: string;
+    }[];
+    score: number;
+  };
+  navigation: {
+    hasStickyHeader: boolean;
+    stickyHeaderHeight: number;
+    hasAccessibleNavigation: boolean;
+    supportsKeyboardNavigation: boolean;
+    hasVisibleFocusIndicators: boolean;
+    score: number;
+  };
+  media: {
+    hasResponsiveImages: boolean;
+    usesModernImageFormats: boolean;
+    hasLazyLoading: boolean;
+    videoOptimizations: {
+      hasPlaysinline: boolean;
+      hasPosterImage: boolean;
+      hasSubtitles: boolean;
+      noAutoplayAudio: boolean;
+    };
+    score: number;
+  };
+  performance: {
+    lcp: number;
+    inp: number;
+    cls: number;
+    ttfb: number;
+    isMobileOptimized: boolean;
+    score: number;
+  };
+  forms: {
+    hasProperInputTypes: boolean;
+    hasAutocomplete: boolean;
+    labelsAboveFields: boolean;
+    keyboardFriendly: boolean;
+    score: number;
+  };
+  ux: {
+    hasIntrusiveInterstitials: boolean;
+    hasProperErrorHandling: boolean;
+    isOfflineFriendly: boolean;
+    hasCumulativeLayoutShift: boolean;
+    score: number;
+  };
+  recommendations: {
+    category: string;
+    priority: 'high' | 'medium' | 'low';
+    issue: string;
+    recommendation: string;
+    impact: string;
+  }[];
 }
 
 export interface QualityBudgets {

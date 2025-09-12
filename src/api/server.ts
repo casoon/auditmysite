@@ -9,6 +9,7 @@ import express, { Express, Request, Response, NextFunction, RequestHandler, Erro
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditSDK } from '../sdk/audit-sdk';
 import {
@@ -63,6 +64,7 @@ export class AuditAPIServer {
   private config: APIConfig;
   private jobManager: JobManager;
   private sdk: AuditSDK;
+  private server: any = null;
 
   constructor(config: Partial<APIConfig> = {}) {
     this.config = this.mergeConfig(config);
@@ -85,12 +87,12 @@ export class AuditAPIServer {
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const server = this.app.listen(this.config.port, this.config.host, () => {
+        this.server = this.app.listen(this.config.port, this.config.host, () => {
           console.log(`🚀 AuditMySite API Server running at http://${this.config.host}:${this.config.port}`);
           resolve();
         });
 
-        server.on('error', reject);
+        this.server.on('error', reject);
       } catch (error) {
         reject(error);
       }
@@ -102,6 +104,20 @@ export class AuditAPIServer {
    */
   getApp(): Express {
     return this.app;
+  }
+  
+  /**
+   * Shutdown server and clean up resources
+   */
+  async shutdown(): Promise<void> {
+    if (this.server) {
+      return new Promise((resolve) => {
+        this.server.close(() => {
+          this.server = null;
+          resolve();
+        });
+      });
+    }
   }
 
   private mergeConfig(config: Partial<APIConfig>): APIConfig {
@@ -159,7 +175,7 @@ export class AuditAPIServer {
         data: {
           status: 'healthy',
           timestamp: new Date().toISOString(),
-          version: '1.8.0',
+          version: '2.0.0-alpha.1', // Updated for v2.0
           uptime: process.uptime(),
           jobs: {
             total: this.jobManager.jobs.size,
@@ -168,6 +184,80 @@ export class AuditAPIServer {
         }
       });
     });
+    
+    // v2.0 API Routes (no auth required for now)
+    const { createV2Router } = require('./routes/v2.routes');
+    this.app.use('/api/v2', createV2Router());
+    
+    // Swagger UI for v2.0 API documentation
+    if (this.config.enableSwagger) {
+      const swaggerSpec = {
+        openapi: '3.0.0',
+        info: {
+          title: 'AuditMySite API v2.0',
+          version: '2.0.0-alpha.1',
+          description: 'Modular API for website analysis using shared TypeScript types. Designed for Electron app integration.'
+        },
+        servers: [
+          { url: '/api/v2', description: 'v2.0 API (modular)' },
+          { url: '/api/v1', description: 'v1.0 API (full site analysis)' }
+        ],
+        paths: {
+          '/sitemap/{domain}': {
+            get: {
+              summary: 'Get sitemap URLs for domain',
+              parameters: [{ name: 'domain', in: 'path', required: true, schema: { type: 'string' } }],
+              responses: { 
+                '200': { description: 'SitemapResult with URLs and metadata' },
+                '500': { description: 'Sitemap parsing failed' }
+              }
+            }
+          },
+          '/page/accessibility': {
+            post: {
+              summary: 'Analyze accessibility for single URL',
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        url: { type: 'string', description: 'URL to analyze' },
+                        options: {
+                          type: 'object',
+                          properties: {
+                            pa11yStandard: { type: 'string', enum: ['WCAG2A', 'WCAG2AA', 'WCAG2AAA'] },
+                            includeWarnings: { type: 'boolean' }
+                          }
+                        }
+                      },
+                      required: ['url']
+                    }
+                  }
+                }
+              },
+              responses: { 
+                '200': { description: 'AccessibilityResult with score and issues' },
+                '400': { description: 'Invalid request' },
+                '500': { description: 'Analysis failed' }
+              }
+            }
+          },
+          '/schema': {
+            get: {
+              summary: 'API introspection for Electron app discovery',
+              responses: {
+                '200': { description: 'Available endpoints and type definitions' }
+              }
+            }
+          }
+        }
+      };
+      
+      this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+      console.log('📚 API documentation available at /api-docs');
+    }
     
     // Apply API Key authentication to API endpoints only
     if (this.config.apiKeyRequired) {

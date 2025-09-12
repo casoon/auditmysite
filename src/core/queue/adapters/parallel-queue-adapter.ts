@@ -7,6 +7,8 @@
 
 import { QueueAdapter } from '../queue-adapter';
 import { QueueItem, QueueConfig, QueueStatistics, QueueProcessor, QueueResult, QueueEventCallbacks } from '../types';
+import { AdaptiveBackpressureController, BackpressureConfig } from '../../backpressure-controller';
+import { ResourceMonitor, ResourceMonitorConfig } from '../../resource-monitor';
 
 interface Worker<T> {
   id: string;
@@ -20,10 +22,67 @@ export class ParallelQueueAdapter<T = any> extends QueueAdapter<T> {
   private workers: Map<string, Worker<T>> = new Map();
   private isPaused = false;
   private processingPromise?: Promise<QueueResult<T>>;
+  
+  // Backpressure and resource management
+  private backpressureController?: AdaptiveBackpressureController;
+  private resourceMonitor?: ResourceMonitor;
 
   constructor(config: QueueConfig, callbacks?: QueueEventCallbacks<T>) {
     super(config, callbacks);
     this.initializeWorkers();
+    this.setupBackpressure();
+    this.setupResourceMonitoring();
+  }
+
+  /**
+   * Setup backpressure controller
+   */
+  private setupBackpressure(): void {
+    if (this.config.enableBackpressure) {
+      const backpressureConfig: BackpressureConfig = {
+        enabled: true,
+        maxQueueSize: this.config.maxQueueSize || 1000,
+        backpressureThreshold: this.config.backpressureThreshold || 0.8,
+        maxMemoryUsageMB: this.config.maxMemoryUsage || 2048,
+        maxCpuUsagePercent: 85,
+        minDelayMs: 10,
+        maxDelayMs: 5000,
+        delayGrowthFactor: 1.5,
+        activationThreshold: 0.85,
+        deactivationThreshold: 0.65,
+        resourceSamplingIntervalMs: 2000,
+        maxErrorRatePercent: 15,
+        errorRateWindowSize: 20
+      };
+      
+      this.backpressureController = new AdaptiveBackpressureController(backpressureConfig);
+    }
+  }
+
+  /**
+   * Setup resource monitoring
+   */
+  private setupResourceMonitoring(): void {
+    if (this.config.enableResourceMonitoring) {
+      const resourceConfig: ResourceMonitorConfig = {
+        enabled: true,
+        samplingIntervalMs: this.config.metricsCollectionInterval || 3000,
+        historySize: 100,
+        memoryWarningThresholdMB: Math.floor((this.config.maxMemoryUsage || 2048) * 0.75),
+        memoryCriticalThresholdMB: this.config.maxMemoryUsage || 2048,
+        cpuWarningThresholdPercent: 70,
+        cpuCriticalThresholdPercent: 85,
+        heapUsageWarningPercent: 75,
+        heapUsageCriticalPercent: 90,
+        eventLoopWarningDelayMs: 50,
+        eventLoopCriticalDelayMs: 100,
+        enableGCMonitoring: this.config.enableGarbageCollection || false,
+        gcWarningFrequency: 60,
+        disableInCI: true
+      };
+      
+      this.resourceMonitor = new ResourceMonitor(resourceConfig);
+    }
   }
 
   enqueue(data: T[], options?: { priority?: number }): string[] {
