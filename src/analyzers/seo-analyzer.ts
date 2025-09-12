@@ -52,13 +52,31 @@ export class SEOAnalyzer {
         this.analyzeContentQuality(page)
       ]);
 
-      // Calculate SEO scores
+      // Get page content for advanced analysis
+      const pageContent = await page.evaluate(() => {
+        return {
+          textContent: document.body?.textContent || '',
+          title: document.title || ''
+        };
+      });
+
+      // Advanced SEO analysis
+      const semanticSEO = this.analyzeSemanticSEO(pageContent.textContent, pageContent.title);
+      const voiceSearchOptimization = this.analyzeVoiceSearchOptimization(pageContent.textContent, headingStructure);
+      const eatAnalysis = this.analyzeEAT(pageContent.textContent, metaTags);
+      const coreWebVitalsSEO = this.analyzeCoreWebVitalsSEOImpact(null); // Performance data would be passed if available
+
+      // Calculate SEO scores (including advanced metrics)
       const overallSEOScore = this.calculateOverallSEOScore({
         metaTags,
         headingStructure,
         socialTags,
         technicalSEO,
-        ...contentMetrics
+        ...contentMetrics,
+        semanticSEO,
+        voiceSearchOptimization,
+        eatAnalysis,
+        coreWebVitalsSEO
       });
 
       const seoGrade = this.calculateSEOGrade(overallSEOScore);
@@ -92,7 +110,12 @@ export class SEOAnalyzer {
         seoGrade,
         recommendations,
         searchVisibility,
-        opportunityAreas
+        opportunityAreas,
+        // Advanced SEO analysis results
+        semanticSEO,
+        voiceSearchOptimization,
+        eatAnalysis,
+        coreWebVitalsSEO
       };
 
 
@@ -374,7 +397,7 @@ export class SEOAnalyzer {
           internalLinkCount: internalLinks.length,
           externalLinkCount: externalLinks.length,
           schemaTypes,
-          allLinks: links.map(link => link.getAttribute('href')).filter(Boolean)
+          allLinks: links.map(link => link.getAttribute('href')).filter((href): href is string => href !== null)
         };
       });
     } catch (error) {
@@ -383,21 +406,66 @@ export class SEOAnalyzer {
       return this.getFallbackTechnicalSEO(url);
     }
 
-    // Check HTTPS
+    // Enhanced Technical SEO Analysis
     const httpsEnabled = url.startsWith('https://');
-
-    // Check for sitemap and robots.txt (simplified - would need actual HTTP requests)
     const domain = new URL(url).origin;
     
-    // Mock technical SEO data (in real implementation, would make HTTP requests)
-    const sitemapPresent = false; // Would check domain + '/sitemap.xml'
-    const robotsTxtPresent = false; // Would check domain + '/robots.txt'
+    // Analyze page structure and technical elements
+    const technicalAnalysis = await page.evaluate(() => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      const charset = document.querySelector('meta[charset]');
+      const language = document.documentElement.lang;
+      
+      // Check for duplicate content indicators
+      const canonicalLinks = Array.from(document.querySelectorAll('link[rel="canonical"]'));
+      const metaRobots = document.querySelector('meta[name="robots"]');
+      
+      // Analyze images
+      const images = Array.from(document.querySelectorAll('img'));
+      const imagesWithoutAlt = images.filter(img => !img.getAttribute('alt')).length;
+      const imagesWithoutTitle = images.filter(img => !img.getAttribute('title')).length;
+      
+      // Check for accessibility and SEO indicators
+      const hasSkipLinks = document.querySelectorAll('a[href^="#main"], a[href^="#content"]').length > 0;
+      const hasLangAttribute = !!language;
+      
+      // Analyze text-to-HTML ratio
+      const textContent = document.body.textContent || '';
+      const htmlContent = document.body.innerHTML || '';
+      const textToHtmlRatio = htmlContent.length > 0 ? (textContent.length / htmlContent.length) * 100 : 0;
+      
+      return {
+        hasViewport: !!viewport,
+        viewportContent: viewport?.getAttribute('content') || '',
+        hasCharset: !!charset,
+        charsetValue: charset?.getAttribute('charset') || '',
+        hasLang: hasLangAttribute,
+        langValue: language || '',
+        canonicalCount: canonicalLinks.length,
+        canonicalUrl: canonicalLinks[0]?.getAttribute('href') || '',
+        robotsDirective: metaRobots?.getAttribute('content') || '',
+        totalImages: images.length,
+        imagesWithoutAlt,
+        imagesWithoutTitle,
+        hasSkipLinks,
+        textToHtmlRatio: Math.round(textToHtmlRatio)
+      };
+    });
     
-    // Simple page speed score (based on performance metrics if available)
-    const pageSpeedScore = 75; // Would calculate from performance metrics
-
-    // Mobile-friendly (basic check based on viewport)
-    let mobileFriendly = false;
+    // Advanced schema markup analysis
+    const schemaAnalysis = this.analyzeSchemaMarkup(technicalData.schemaTypes);
+    
+    // Link analysis
+    const linkAnalysis = this.analyzeLinkStructure(
+      technicalData.internalLinkCount,
+      technicalData.externalLinkCount,
+      technicalData.allLinks
+    );
+    
+    // Page speed estimation (would be enhanced with actual metrics)
+    const pageSpeedScore = 75;
+    let mobileFriendly = technicalAnalysis.hasViewport && 
+      technicalAnalysis.viewportContent.includes('width=device-width');
     try {
       // More robust check - first verify page context is still valid
       await page.title(); // Quick context check
@@ -415,16 +483,12 @@ export class SEOAnalyzer {
 
     return {
       httpsEnabled,
-      sitemapPresent,
-      robotsTxtPresent,
-      schemaMarkup: technicalData.schemaTypes,
-      pageSpeedScore,
       mobileFriendly,
-      linkAnalysis: {
-        internalLinks: technicalData.internalLinkCount,
-        externalLinks: technicalData.externalLinkCount,
-        brokenLinks
-      }
+      pageSpeedScore,
+      schemaMarkup: technicalData.schemaTypes,
+      linkAnalysis,
+      sitemapPresent: false, // Would be enhanced with actual HTTP request
+      robotsTxtPresent: false // Would be enhanced with actual HTTP request
     };
   }
 
@@ -520,6 +584,10 @@ export class SEOAnalyzer {
     // Estimate content uniqueness (simplified - would need external API for real analysis)
     const contentUniqueness = Math.min(100, Math.max(60, 80 + Math.random() * 20));
 
+    // Add keyword analysis
+    const title = contentData.fullText.split('\n')[0] || ''; // Simple title extraction
+    const keywordAnalysis = this.analyzeKeywordDensity(contentData.fullText, title);
+    
     return {
       wordCount: contentData.wordCount,
       readabilityScore,
@@ -540,6 +608,10 @@ export class SEOAnalyzer {
     wordCount: number;
     readabilityScore: number;
     contentQuality: string;
+    semanticSEO?: any;
+    voiceSearchOptimization?: any;
+    eatAnalysis?: any;
+    coreWebVitalsSEO?: any;
   }): number {
     let score = 100;
 
@@ -567,6 +639,25 @@ export class SEOAnalyzer {
 
     if (seoData.readabilityScore < 30) score -= 10;
     else if (seoData.readabilityScore < 50) score -= 5;
+
+    // Advanced SEO features scoring (10%)
+    if (seoData.semanticSEO) {
+      // Add points for good semantic analysis
+      if (seoData.semanticSEO.semanticScore > 70) score += 3;
+      if (seoData.semanticSEO.contentDepthScore > 80) score += 2;
+    }
+
+    if (seoData.voiceSearchOptimization) {
+      // Add points for voice search optimization
+      if (seoData.voiceSearchOptimization.voiceSearchScore > 60) score += 2;
+      if (seoData.voiceSearchOptimization.conversationalContent) score += 1;
+    }
+
+    if (seoData.eatAnalysis) {
+      // Add points for E-A-T signals
+      if (seoData.eatAnalysis.eatScore > 70) score += 3;
+      if (seoData.eatAnalysis.authorPresence) score += 1;
+    }
 
     return Math.max(0, Math.min(100, score));
   }
@@ -643,6 +734,375 @@ export class SEOAnalyzer {
     return recommendations;
   }
 
+  /**
+   * Analyze schema markup in detail
+   */
+  private analyzeSchemaMarkup(schemaTypes: string[]): {
+    present: boolean;
+    types: string[];
+    score: number;
+    recommendations: string[];
+  } {
+    const recommendations: string[] = [];
+    let score = 0;
+    
+    if (schemaTypes.length === 0) {
+      recommendations.push('Add structured data (JSON-LD) for better search results');
+      score = 0;
+    } else {
+      score = Math.min(100, schemaTypes.length * 25);
+      
+      // Check for common schema types
+      const commonTypes = ['Organization', 'LocalBusiness', 'Product', 'Article', 'BlogPosting'];
+      const hasCommonTypes = schemaTypes.some(type => commonTypes.includes(type));
+      
+      if (!hasCommonTypes) {
+        recommendations.push('Consider adding common schema types like Organization, Article, or Product');
+      }
+    }
+    
+    return {
+      present: schemaTypes.length > 0,
+      types: schemaTypes,
+      score,
+      recommendations
+    };
+  }
+  
+  /**
+   * Analyze link structure for SEO
+   */
+  private analyzeLinkStructure(internalCount: number, externalCount: number, allLinks: string[]): {
+    internalLinks: number;
+    externalLinks: number;
+    linkRatio: number;
+    brokenLinks: number;
+    recommendations: string[];
+  } {
+    const recommendations: string[] = [];
+    const totalLinks = internalCount + externalCount;
+    const linkRatio = totalLinks > 0 ? (internalCount / totalLinks) * 100 : 0;
+    
+    if (internalCount === 0) {
+      recommendations.push('Add internal links to improve site structure and SEO');
+    } else if (internalCount < 3) {
+      recommendations.push('Consider adding more internal links for better navigation');
+    }
+    
+    if (externalCount > internalCount * 2) {
+      recommendations.push('Too many external links - consider reducing or adding more internal links');
+    }
+    
+    if (totalLinks === 0) {
+      recommendations.push('Add both internal and external links to provide value to users');
+    }
+    
+    return {
+      internalLinks: internalCount,
+      externalLinks: externalCount,
+      linkRatio: Math.round(linkRatio),
+      brokenLinks: 0, // Would be enhanced with actual link checking
+      recommendations
+    };
+  }
+  
+  /**
+   * Enhanced keyword density analysis
+   */
+  private analyzeKeywordDensity(text: string, title: string): {
+    topKeywords: Array<{ word: string; count: number; density: number }>;
+    titleKeywordOverlap: number;
+    recommendations: string[];
+  } {
+    const words = text.toLowerCase().split(/\s+/).filter(word => 
+      word.length > 3 && !/^\d+$/.test(word)
+    );
+    
+    const wordFrequency: {[key: string]: number} = {};
+    words.forEach(word => {
+      const cleanWord = word.replace(/[^a-zA-Z0-9]/g, '');
+      if (cleanWord.length > 3) {
+        wordFrequency[cleanWord] = (wordFrequency[cleanWord] || 0) + 1;
+      }
+    });
+    
+    const topKeywords = Object.entries(wordFrequency)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([word, count]) => ({
+        word,
+        count,
+        density: Math.round((count / words.length) * 10000) / 100
+      }));
+    
+    // Analyze title-content keyword overlap
+    const titleWords = title.toLowerCase().split(/\s+/);
+    const overlap = titleWords.filter(word => 
+      text.toLowerCase().includes(word) && word.length > 3
+    ).length;
+    const titleKeywordOverlap = titleWords.length > 0 ? (overlap / titleWords.length) * 100 : 0;
+    
+    const recommendations: string[] = [];
+    
+    if (titleKeywordOverlap < 30) {
+      recommendations.push('Improve keyword consistency between title and content');
+    }
+    
+    const highDensityKeywords = topKeywords.filter(kw => kw.density > 3);
+    if (highDensityKeywords.length > 0) {
+      recommendations.push('Some keywords may be over-optimized (density > 3%)');
+    }
+    
+    return {
+      topKeywords,
+      titleKeywordOverlap: Math.round(titleKeywordOverlap),
+      recommendations
+    };
+  }
+  
+  /**
+   * Analyze semantic SEO and content depth
+   */
+  private analyzeSemanticSEO(content: string, title: string): {
+    semanticScore: number;
+    topicClusters: string[];
+    contentDepthScore: number;
+    lsiKeywords: string[];
+    recommendations: string[];
+  } {
+    const words = content.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+    const recommendations: string[] = [];
+    
+    // Topic clustering (simplified)
+    const topicClusters = this.identifyTopicClusters(words);
+    
+    // LSI keyword detection
+    const lsiKeywords = this.extractLSIKeywords(words, title);
+    
+    // Content depth scoring
+    let contentDepthScore = 50;
+    if (words.length > 1500) contentDepthScore += 30;
+    if (topicClusters.length > 3) contentDepthScore += 10;
+    if (lsiKeywords.length > 8) contentDepthScore += 10;
+    
+    // Semantic relevance scoring
+    const semanticScore = this.calculateSemanticScore(words, title, topicClusters);
+    
+    // Recommendations
+    if (contentDepthScore < 60) {
+      recommendations.push('Add more comprehensive content to improve topic coverage');
+    }
+    if (lsiKeywords.length < 5) {
+      recommendations.push('Include more semantically related keywords (LSI)');
+    }
+    if (topicClusters.length < 2) {
+      recommendations.push('Expand content to cover related topics and subtopics');
+    }
+    
+    return {
+      semanticScore: Math.min(100, semanticScore),
+      topicClusters,
+      contentDepthScore: Math.min(100, contentDepthScore),
+      lsiKeywords,
+      recommendations
+    };
+  }
+  
+  /**
+   * Analyze Core Web Vitals SEO impact
+   */
+  private analyzeCoreWebVitalsSEOImpact(performanceData: any): {
+    seoImpactScore: number;
+    vitalsCritical: string[];
+    seoRecommendations: string[];
+  } {
+    const vitalsCritical: string[] = [];
+    const seoRecommendations: string[] = [];
+    let seoImpactScore = 100;
+    
+    // LCP impact on SEO
+    if (performanceData?.lcp > 2500) {
+      seoImpactScore -= 25;
+      vitalsCritical.push('LCP (Largest Contentful Paint)');
+      seoRecommendations.push('Optimize LCP for better search rankings - current: ' + performanceData.lcp + 'ms');
+    }
+    
+    // CLS impact on SEO
+    if (performanceData?.cls > 0.1) {
+      seoImpactScore -= 20;
+      vitalsCritical.push('CLS (Cumulative Layout Shift)');
+      seoRecommendations.push('Reduce layout shifts - current CLS: ' + performanceData.cls);
+    }
+    
+    // FCP impact
+    if (performanceData?.fcp > 1800) {
+      seoImpactScore -= 15;
+      seoRecommendations.push('Improve First Contentful Paint for better user experience');
+    }
+    
+    return {
+      seoImpactScore: Math.max(0, seoImpactScore),
+      vitalsCritical,
+      seoRecommendations
+    };
+  }
+  
+  /**
+   * Analyze voice search optimization potential
+   */
+  private analyzeVoiceSearchOptimization(content: string, headings: any): {
+    voiceSearchScore: number;
+    questionPhrases: number;
+    conversationalContent: boolean;
+    recommendations: string[];
+  } {
+    const recommendations: string[] = [];
+    let voiceSearchScore = 0;
+    
+    // Count question-based content
+    const questionWords = ['what', 'how', 'why', 'when', 'where', 'who'];
+    const questionPhrases = questionWords.reduce((count, word) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      return count + (content.match(regex) || []).length;
+    }, 0);
+    
+    // Check for conversational tone
+    const conversationalIndicators = ['you', 'your', 'we', 'our', 'let\'s', 'here\'s'];
+    const conversationalCount = conversationalIndicators.reduce((count, word) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      return count + (content.match(regex) || []).length;
+    }, 0);
+    
+    const conversationalContent = conversationalCount > content.split(' ').length * 0.02;
+    
+    // Calculate score
+    if (questionPhrases > 5) voiceSearchScore += 30;
+    if (conversationalContent) voiceSearchScore += 25;
+    if (headings?.h2?.length > 2) voiceSearchScore += 20; // FAQ-style headings
+    
+    // Recommendations
+    if (questionPhrases < 3) {
+      recommendations.push('Add more question-based content for voice search optimization');
+    }
+    if (!conversationalContent) {
+      recommendations.push('Use more conversational tone to match voice search queries');
+    }
+    
+    return {
+      voiceSearchScore: Math.min(100, voiceSearchScore),
+      questionPhrases,
+      conversationalContent,
+      recommendations
+    };
+  }
+  
+  /**
+   * Analyze E-A-T (Expertise, Authoritativeness, Trustworthiness)
+   */
+  private analyzeEAT(content: string, metaTags: any): {
+    eatScore: number;
+    authorPresence: boolean;
+    expertiseIndicators: string[];
+    trustSignals: string[];
+    recommendations: string[];
+  } {
+    const expertiseIndicators: string[] = [];
+    const trustSignals: string[] = [];
+    const recommendations: string[] = [];
+    let eatScore = 50;
+    
+    // Author presence
+    const authorPresence = content.toLowerCase().includes('author') || 
+                          content.toLowerCase().includes('by:') ||
+                          metaTags?.author !== undefined;
+    
+    if (authorPresence) {
+      eatScore += 20;
+      expertiseIndicators.push('Author attribution found');
+    } else {
+      recommendations.push('Add clear author attribution for better E-A-T');
+    }
+    
+    // Trust signals
+    const trustWords = ['research', 'study', 'expert', 'professional', 'certified', 'verified'];
+    trustWords.forEach(word => {
+      if (content.toLowerCase().includes(word)) {
+        trustSignals.push(word);
+        eatScore += 5;
+      }
+    });
+    
+    // Expertise indicators
+    const expertiseWords = ['years of experience', 'degree', 'certification', 'award', 'published'];
+    expertiseWords.forEach(word => {
+      if (content.toLowerCase().includes(word)) {
+        expertiseIndicators.push(word);
+        eatScore += 5;
+      }
+    });
+    
+    if (trustSignals.length === 0) {
+      recommendations.push('Add trust signals (research, certifications, awards)');
+    }
+    if (expertiseIndicators.length < 2) {
+      recommendations.push('Include more expertise indicators to establish authority');
+    }
+    
+    return {
+      eatScore: Math.min(100, eatScore),
+      authorPresence,
+      expertiseIndicators,
+      trustSignals,
+      recommendations
+    };
+  }
+  
+  // Helper methods for semantic analysis
+  private identifyTopicClusters(words: string[]): string[] {
+    // Simplified topic clustering using word co-occurrence
+    const wordFreq: {[key: string]: number} = {};
+    words.forEach(word => {
+      if (word.length > 4) { // Only meaningful words
+        wordFreq[word] = (wordFreq[word] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(wordFreq)
+      .filter(([, freq]) => freq > 2)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8)
+      .map(([word]) => word);
+  }
+  
+  private extractLSIKeywords(words: string[], title: string): string[] {
+    // Simplified LSI keyword extraction
+    const titleWords = title.toLowerCase().split(/\s+/);
+    const contextualWords = words.filter(word => {
+      return word.length > 4 && 
+             !titleWords.includes(word) && 
+             words.filter(w => w === word).length > 1;
+    });
+    
+    return [...new Set(contextualWords)].slice(0, 10);
+  }
+  
+  private calculateSemanticScore(words: string[], title: string, topicClusters: string[]): number {
+    let score = 50;
+    
+    // Title-content semantic alignment
+    const titleWords = title.toLowerCase().split(/\s+/);
+    const alignment = titleWords.filter(word => 
+      words.includes(word) || topicClusters.includes(word)
+    ).length / titleWords.length;
+    
+    score += alignment * 30;
+    
+    // Topic coverage depth
+    score += Math.min(20, topicClusters.length * 3);
+    
+    return Math.round(score);
+  }
+  
   /**
    * Estimate search visibility based on SEO score
    */

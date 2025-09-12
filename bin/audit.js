@@ -25,9 +25,10 @@ program
   .option('--output-dir <dir>', 'Output directory for reports', './reports')
   .option('--budget <template>', 'Performance budget: default, ecommerce, blog, corporate', 'default')
   
-  // ✅ User Experience (3)
+  // ✅ User Experience (4)
   .option('--expert', 'Interactive expert mode with advanced settings')
   .option('--non-interactive', 'Skip prompts for CI/CD (use defaults)')
+  .option('--quiet-deprecations', 'Suppress deprecation warnings (auto-detected in CI: CI=true, NODE_ENV=production)')
   .option('-v, --verbose', 'Show detailed progress information')
   
   // ✅ Analysis Control (4) - Opt-out instead of opt-in
@@ -223,6 +224,17 @@ program
     
     console.log('\n✨ Simplified CLI - Only 11 parameters for better usability!');
     
+    // 🔇 Configure deprecation warning suppression for CI/CD environments
+    const shouldSuppressDeprecations = 
+      options.quietDeprecations || 
+      process.env.CI === 'true' ||
+      process.env.NODE_ENV === 'production';
+    
+    if (shouldSuppressDeprecations) {
+      process.env.AUDITMYSITE_SUPPRESS_DEPRECATIONS = 'true';
+      if (config.verbose) console.log('🔇 Deprecation warnings suppressed for CI/CD environment');
+    }
+    
     // 💾 Handle persistence and resume options - enabled by default
     let resumeFromState = false;
     let persistenceConfig = {
@@ -278,9 +290,15 @@ program
     let startTime;
     
     try {
-      // Extract domain for report organization
-      const url = new URL(sitemapUrl);
-      const domain = url.hostname.replace(/\\./g, '-');
+      // Extract domain for report organization - handle both URL and local file paths
+      let domain;
+      if (sitemapUrl.startsWith('http://') || sitemapUrl.startsWith('https://')) {
+        const url = new URL(sitemapUrl);
+        domain = url.hostname.replace(/\\./g, '-');
+      } else {
+        // For local files, use filename as domain
+        domain = path.basename(sitemapUrl, path.extname(sitemapUrl)).replace(/[^a-zA-Z0-9-]/g, '-');
+      }
       const dateOnly = new Date().toLocaleDateString('en-CA');
       
       // Create domain subdirectory
@@ -354,6 +372,16 @@ program
         
         if (config.verbose) console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${limitedUrls.length}`);
         
+        // Check if we have any URLs to test
+        if (limitedUrls.length === 0) {
+          console.log('❌ No URLs found in sitemap or sitemap is empty');
+          console.log('💡 Please check:');
+          console.log('   - The sitemap URL is correct and accessible');
+          console.log('   - The sitemap contains valid URL entries');
+          console.log('   - The sitemap is properly formatted XML');
+          process.exit(1);
+        }
+        
         startTime = Date.now(); // Use outer scope variable
         
         // Show minimal progress for non-verbose mode
@@ -366,6 +394,7 @@ program
         let successCount = 0;
         let errorCount = 0;
         let warningCount = 0;
+        let redirectCount = 0;
         
         // 🚀 USE ENHANCED AccessibilityChecker with comprehensive analysis
         const { AccessibilityChecker } = require('../dist/core/accessibility');
@@ -442,10 +471,21 @@ program
               }
             };
             
+            // Check for redirects in error messages
+            const hasRedirectError = result.errors?.some(error => 
+              typeof error === 'string' && error.includes('HTTP 301 Redirect')
+            ) || false;
+            
             results.push(mappedResult);
-            if (result.passed) successCount++;
-            errorCount += result.errors?.length || 0;
-            warningCount += result.warnings?.length || 0;
+            
+            if (hasRedirectError) {
+              redirectCount++;
+              // Don't count redirects as passed or in error statistics
+            } else {
+              if (result.passed) successCount++;
+              errorCount += result.errors?.length || 0;
+              warningCount += result.warnings?.length || 0;
+            }
           },
           onUrlFailed: (url, error, attempts) => {
             const shortUrl = url.split('/').pop() || url.split('/').slice(-2).join('/');
@@ -554,10 +594,21 @@ program
               }
             };
             
+            // Check for redirects in fallback processing
+            const hasRedirectError = result.errors?.some(error => 
+              typeof error === 'string' && error.includes('HTTP 301 Redirect')
+            ) || false;
+            
             results.push(mappedResult);
-            if (result.passed) successCount++;
-            errorCount += result.errors?.length || 0;
-            warningCount += result.warnings?.length || 0;
+            
+            if (hasRedirectError) {
+              redirectCount++;
+              // Don't count redirects as passed or in error statistics
+            } else {
+              if (result.passed) successCount++;
+              errorCount += result.errors?.length || 0;
+              warningCount += result.warnings?.length || 0;
+            }
           });
         }
         
@@ -566,7 +617,7 @@ program
         // 🧹 COMPREHENSIVE CLEANUP to prevent hanging
         console.log('🧹 Cleaning up comprehensive analyzer resources...');
         try {
-          // Cleanup MainAccessibilityChecker
+          // Cleanup AccessibilityChecker resources
           if (checker) {
             await checker.cleanup();
           }
@@ -616,10 +667,11 @@ program
           },
           summary: {
             totalPages: urls.length,
-            testedPages: results.length,
+            testedPages: results.length - redirectCount, // Exclude redirects from tested count
             passedPages: successCount,
-            failedPages: results.length - successCount,
+            failedPages: results.length - successCount - redirectCount, // Exclude redirects from failed count
             crashedPages: results.filter(r => r.crashed).length,
+            redirectPages: redirectCount, // Add redirect count
             totalErrors: errorCount,
             totalWarnings: warningCount
           },
@@ -641,7 +693,6 @@ program
                 largestContentfulPaint: page.performance?.coreWebVitals?.lcp?.value || page.enhancedPerformance?.coreWebVitals?.lcp?.value || page.performance?.coreWebVitals?.lcp || page.enhancedPerformance?.coreWebVitals?.lcp || 0,
                 firstContentfulPaint: page.performance?.coreWebVitals?.fcp?.value || page.enhancedPerformance?.coreWebVitals?.fcp?.value || page.performance?.coreWebVitals?.fcp || page.enhancedPerformance?.coreWebVitals?.fcp || 0,
                 cumulativeLayoutShift: page.performance?.coreWebVitals?.cls?.value || page.enhancedPerformance?.coreWebVitals?.cls?.value || page.performance?.coreWebVitals?.cls || page.enhancedPerformance?.coreWebVitals?.cls || 0,
-                interactionToNextPaint: page.performance?.coreWebVitals?.inp?.value || page.enhancedPerformance?.coreWebVitals?.inp?.value || page.performance?.coreWebVitals?.inp || page.enhancedPerformance?.coreWebVitals?.inp || 0,
                 timeToFirstByte: page.performance?.metrics?.ttfb?.value || page.enhancedPerformance?.metrics?.ttfb?.value || page.performance?.metrics?.ttfb || page.enhancedPerformance?.metrics?.ttfb || 0
               },
               metrics: {
@@ -657,7 +708,16 @@ program
               metaTags: page.seo?.metaData || page.enhancedSEO?.metaData || page.seo?.metaTags || page.enhancedSEO?.metaTags || {},
               headings: page.seo?.headingStructure || page.enhancedSEO?.headingStructure || page.seo?.headings || page.enhancedSEO?.headings || { h1: [], h2: [], h3: [], issues: [] },
               images: page.seo?.images || page.enhancedSEO?.images || { total: 0, missingAlt: 0, emptyAlt: 0 },
-              issues: page.seo?.issues || page.enhancedSEO?.issues || []
+              issues: page.seo?.issues || page.enhancedSEO?.issues || [],
+              // Include advanced SEO features
+              overallSEOScore: page.enhancedSEO?.overallSEOScore || page.seo?.overallSEOScore,
+              seoGrade: page.enhancedSEO?.seoGrade || page.seo?.seoGrade,
+              url: page.url,
+              title: page.title,
+              semanticSEO: page.enhancedSEO?.semanticSEO,
+              voiceSearchOptimization: page.enhancedSEO?.voiceSearchOptimization,
+              eatAnalysis: page.enhancedSEO?.eatAnalysis,
+              coreWebVitalsSEO: page.enhancedSEO?.coreWebVitalsSEO
             } : undefined,
             contentWeight: page.contentWeight ? {
               score: page.contentWeight.contentScore || page.contentWeight.score || page.contentWeight.contentQualityScore || 0,
@@ -1095,9 +1155,23 @@ async function runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pip
     const { SitemapParser } = require('../dist/parsers/sitemap-parser');
     const parser = new SitemapParser();
     const urls = await parser.parseSitemap(finalSitemapUrl);
+    
+    // Check if we have any URLs to test
+    if (urls.length === 0) {
+      console.log('❌ No URLs found in sitemap or sitemap is empty');
+      console.log('💡 Please check:');
+      console.log('   - The sitemap URL is correct and accessible');
+      console.log('   - The sitemap contains valid URL entries');
+      console.log('   - The sitemap is properly formatted XML');
+      throw new Error('Empty sitemap');
+    }
+    
     actualPageCount = config.maxPages === 1000 ? urls.length : Math.min(urls.length, config.maxPages);
     console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${actualPageCount}`);
   } catch (error) {
+    if (error.message === 'Empty sitemap') {
+      process.exit(1);
+    }
     console.log('⚙️  Could not parse sitemap, using default page count');
   }
   

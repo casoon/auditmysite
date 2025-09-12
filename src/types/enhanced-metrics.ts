@@ -242,6 +242,37 @@ export interface SEOMetrics {
   searchVisibility: number;
   /** Key improvement opportunities */
   opportunityAreas: string[];
+  
+  // Advanced SEO Features
+  /** Semantic SEO analysis */
+  semanticSEO?: {
+    semanticScore: number;
+    topicClusters: string[];
+    contentDepthScore: number;
+    lsiKeywords: string[];
+    recommendations: string[];
+  };
+  /** Voice search optimization analysis */
+  voiceSearchOptimization?: {
+    voiceSearchScore: number;
+    questionPhrases: number;
+    conversationalContent: boolean;
+    recommendations: string[];
+  };
+  /** E-A-T (Expertise, Authoritativeness, Trustworthiness) analysis */
+  eatAnalysis?: {
+    eatScore: number;
+    authorPresence: boolean;
+    expertiseIndicators: string[];
+    trustSignals: string[];
+    recommendations: string[];
+  };
+  /** Core Web Vitals SEO impact analysis */
+  coreWebVitalsSEO?: {
+    seoImpactScore: number;
+    vitalsCritical: string[];
+    seoRecommendations: string[];
+  };
 }
 
 export interface PageQualityMetrics {

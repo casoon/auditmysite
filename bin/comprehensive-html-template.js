@@ -117,6 +117,7 @@ function getComprehensiveHtmlTemplate(data) {
             <thead>
               <tr>
                 <th>Page & Title</th>
+                <th>SEO Score</th>
                 <th>Meta Description</th>
                 <th>Headings</th>
                 <th>Grade</th>
@@ -125,7 +126,8 @@ function getComprehensiveHtmlTemplate(data) {
             <tbody>`;
 
     seoResults.forEach(result => {
-      const grade = result.grade || 'N/A';
+      const grade = result.grade || result.seoGrade || 'N/A';
+      const score = result.overallSEOScore || result.seoScore || 'N/A';
       const headingStructure = result.headings ? 
         `H1: ${result.headings.h1 || 0}, H2: ${result.headings.h2 || 0}` : 'N/A';
       
@@ -137,6 +139,7 @@ function getComprehensiveHtmlTemplate(data) {
               <div class="page-title">${result.title || 'No title'}</div>
             </div>
           </td>
+          <td><strong>${score}${typeof score === 'number' ? '/100' : ''}</strong></td>
           <td>${result.metaDescription ? 
             (result.metaDescription.length > 50 ? 
               result.metaDescription.substring(0, 50) + '...' : 
@@ -146,7 +149,57 @@ function getComprehensiveHtmlTemplate(data) {
         </tr>`;
     });
 
-    tableHTML += '</tbody></table></div></div>';
+    tableHTML += '</tbody></table></div>';
+    
+    // Add Advanced SEO Features Section
+    tableHTML += '<div class="advanced-seo-section" style="margin-top: 2rem;">';
+    tableHTML += '<h3 style="margin-bottom: 1rem;">🚀 Advanced SEO Analysis</h3>';
+    
+    seoResults.forEach(result => {
+      if (result.semanticSEO || result.voiceSearchOptimization || result.eatAnalysis) {
+        tableHTML += `<div class="advanced-seo-card" style="background: var(--surface-color); padding: 1.5rem; margin-bottom: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">`;
+        tableHTML += `<h4 style="color: var(--text-primary); margin-bottom: 1rem;">🌐 ${result.url || 'Unknown'}</h4>`;
+        
+        // Semantic SEO
+        if (result.semanticSEO) {
+          tableHTML += `<div class="seo-metric" style="margin-bottom: 1rem;">`;
+          tableHTML += `<h5 style="color: var(--text-secondary); margin-bottom: 0.5rem;">🧠 Semantic SEO</h5>`;
+          tableHTML += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">`;
+          tableHTML += `<div><strong>Semantic Score:</strong> ${result.semanticSEO.semanticScore}/100</div>`;
+          tableHTML += `<div><strong>Content Depth:</strong> ${result.semanticSEO.contentDepthScore}/100</div>`;
+          tableHTML += `<div><strong>Topic Clusters:</strong> ${result.semanticSEO.topicClusters.slice(0, 3).join(', ')}</div>`;
+          tableHTML += `<div><strong>LSI Keywords:</strong> ${result.semanticSEO.lsiKeywords.slice(0, 3).join(', ') || 'None'}</div>`;
+          tableHTML += `</div></div>`;
+        }
+        
+        // Voice Search Optimization
+        if (result.voiceSearchOptimization) {
+          tableHTML += `<div class="seo-metric" style="margin-bottom: 1rem;">`;
+          tableHTML += `<h5 style="color: var(--text-secondary); margin-bottom: 0.5rem;">🎤 Voice Search Optimization</h5>`;
+          tableHTML += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">`;
+          tableHTML += `<div><strong>Voice Score:</strong> ${result.voiceSearchOptimization.voiceSearchScore}/100</div>`;
+          tableHTML += `<div><strong>Question Phrases:</strong> ${result.voiceSearchOptimization.questionPhrases}</div>`;
+          tableHTML += `<div><strong>Conversational:</strong> ${result.voiceSearchOptimization.conversationalContent ? '✅ Yes' : '❌ No'}</div>`;
+          tableHTML += `</div></div>`;
+        }
+        
+        // E-A-T Analysis
+        if (result.eatAnalysis) {
+          tableHTML += `<div class="seo-metric" style="margin-bottom: 1rem;">`;
+          tableHTML += `<h5 style="color: var(--text-secondary); margin-bottom: 0.5rem;">🏆 E-A-T Analysis</h5>`;
+          tableHTML += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.875rem;">`;
+          tableHTML += `<div><strong>E-A-T Score:</strong> ${result.eatAnalysis.eatScore}/100</div>`;
+          tableHTML += `<div><strong>Author Present:</strong> ${result.eatAnalysis.authorPresence ? '✅ Yes' : '❌ No'}</div>`;
+          tableHTML += `<div><strong>Trust Signals:</strong> ${result.eatAnalysis.trustSignals.length}</div>`;
+          tableHTML += `<div><strong>Expertise Indicators:</strong> ${result.eatAnalysis.expertiseIndicators.length}</div>`;
+          tableHTML += `</div></div>`;
+        }
+        
+        tableHTML += '</div>';
+      }
+    });
+    
+    tableHTML += '</div></div>';
     return tableHTML;
   };
 

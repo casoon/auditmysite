@@ -4,6 +4,15 @@ import { ResourceMonitor, ResourceMonitorConfig } from '../resource-monitor';
 import { QueueState, QueueStateAdapter, QueueStateOptions, ResumeOptions, QueueStateError } from '../../types/queue-state';
 import { FileQueueStateAdapter } from '../queue/file-queue-state-adapter';
 
+/**
+ * @deprecated EventDrivenQueue is deprecated and will be removed in v3.0.0
+ * Use PageAnalysisEmitter instead for unified event handling across all analyzers
+ * 
+ * Migration Guide:
+ * - Replace EventDrivenQueue with PageAnalysisEmitter
+ * - Use UnifiedEventCallbacks instead of EventDrivenQueueOptions.eventCallbacks
+ * - Access via AccessibilityChecker.getUnifiedEmitter() for advanced usage
+ */
 export interface QueuedUrl {
   url: string;
   priority: number;
@@ -90,6 +99,24 @@ export interface ProcessOptions {
   onShortStatus?: (status: string) => void;
 }
 
+/**
+ * @deprecated EventDrivenQueue class is deprecated and will be removed in v3.0.0
+ * 
+ * Use PageAnalysisEmitter for unified event handling instead.
+ * This class is maintained for backward compatibility only.
+ * 
+ * MIGRATION PATH:
+ * ```typescript
+ * // OLD (deprecated)
+ * const queue = new EventDrivenQueue({ eventCallbacks: { ... } });
+ * 
+ * // NEW (recommended) 
+ * const emitter = new PageAnalysisEmitter({ callbacks: { ... } });
+ * // OR via AccessibilityChecker
+ * const checker = new AccessibilityChecker({ enableUnifiedEvents: true });
+ * checker.setUnifiedEventCallbacks({ ... });
+ * ```
+ */
 export class EventDrivenQueue extends EventEmitter {
   private queue: QueuedUrl[] = [];
   private completed: QueuedUrl[] = [];

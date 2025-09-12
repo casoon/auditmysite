@@ -1,13 +1,35 @@
 /**
- * 🔧 Page Analysis Event System
+ * 🔧 UNIFIED Page Analysis Event System
+ * 
+ * ✨ MAIN EVENT SYSTEM - Replaces multiple parallel event systems
  * 
  * Event-driven system where analyzers attach to page load events
- * and contribute their data to a unified result structure
+ * and contribute their data to a unified result structure.
+ * 
+ * 🎯 CONSOLIDATES:
+ * - AccessibilityChecker event callbacks
+ * - EventDrivenQueue callbacks  
+ * - ParallelTestManager events
+ * - Direct callback patterns in bin/audit.js
+ * 
+ * 📋 BACKWARD COMPATIBILITY:
+ * - Supports all existing callback patterns via adapters
+ * - Maintains existing APIs while using unified backend
+ * 
+ * 🚀 FEATURES:
+ * - Parallel analyzer execution
+ * - Resource monitoring integration
+ * - Backpressure control integration
+ * - Progress tracking
+ * - Error handling & fallbacks
+ * - State persistence
  */
 
 import { EventEmitter } from 'events';
 import { Page } from 'playwright';
-import { AccessibilityResult, TestOptions } from '../types';
+import { AccessibilityResult, TestOptions } from '../../types';
+import { AdaptiveBackpressureController } from '../backpressure-controller';
+import { ResourceMonitor } from '../resource-monitor';
 
 export interface PageAnalysisContext {
   url: string;
@@ -15,6 +37,95 @@ export interface PageAnalysisContext {
   options: TestOptions;
   result: PageAnalysisResult;
   startTime: number;
+  
+  // 🎯 Extended context for comprehensive analysis
+  retryCount?: number;
+  maxRetries?: number;
+  sessionId?: string;
+  batchId?: string;
+  priority?: number;
+  
+  // 🚀 Resource management context
+  memoryUsageMB?: number;
+  cpuUsagePercent?: number;
+  backpressureActive?: boolean;
+}
+
+/**
+ * 🎯 UNIFIED Event Callbacks - Supports ALL existing callback patterns
+ * 
+ * This interface consolidates all event patterns from:
+ * - TestOptions.eventCallbacks
+ * - EventDrivenQueueOptions.eventCallbacks  
+ * - ParallelTestManager callbacks
+ * - bin/audit.js direct callbacks
+ */
+export interface UnifiedEventCallbacks {
+  // 📋 Core page events (existing pattern)
+  onUrlAdded?: (url: string, priority?: number) => void;
+  onUrlStarted?: (url: string) => void;
+  onUrlCompleted?: (url: string, result: AccessibilityResult, duration: number) => void;
+  onUrlFailed?: (url: string, error: string, attempts: number) => void;
+  onUrlRetrying?: (url: string, attempts: number) => void;
+  
+  // 📈 Progress and queue events
+  onProgressUpdate?: (stats: ProgressStats) => void;
+  onQueueEmpty?: () => void;
+  onBatchComplete?: (results: PageAnalysisResult[]) => void;
+  
+  // 🚨 Error and resource events
+  onError?: (error: string, context?: any) => void;
+  onResourceWarning?: (usage: number, limit: number, type: 'memory' | 'cpu') => void;
+  onResourceCritical?: (usage: number, limit: number, type: 'memory' | 'cpu') => void;
+  onBackpressureActivated?: (reason: string) => void;
+  onBackpressureDeactivated?: () => void;
+  onGarbageCollection?: (beforeMB: number, afterMB?: number) => void;
+  
+  // 📋 Detailed analysis events (new for granular control)
+  onAnalyzerStart?: (analyzerName: string, url: string) => void;
+  onAnalyzerComplete?: (analyzerName: string, url: string, result: any) => void;
+  onAnalyzerError?: (analyzerName: string, url: string, error: string) => void;
+  
+  // 🚀 Status and monitoring
+  onShortStatus?: (status: string) => void;
+  onSystemMetrics?: (metrics: SystemMetrics) => void;
+}
+
+/**
+ * 📈 Unified progress statistics
+ */
+export interface ProgressStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  failed: number;
+  retrying: number;
+  progress: number; // 0-100
+  averageDuration: number;
+  estimatedTimeRemaining: number;
+  activeWorkers: number;
+  memoryUsage: number;
+  cpuUsage: number;
+  
+  // 📋 Batch information
+  batchId?: string;
+  batchSize?: number;
+  currentBatch?: number;
+  totalBatches?: number;
+}
+
+/**
+ * 🚀 System metrics for monitoring
+ */
+export interface SystemMetrics {
+  memoryUsageMB: number;
+  heapUsedMB: number;
+  cpuUsagePercent: number;
+  eventLoopDelayMs: number;
+  activeHandles: number;
+  gcCount: number;
+  uptimeSeconds: number;
 }
 
 export interface PageAnalysisResult {
@@ -108,21 +219,289 @@ export interface PageAnalysisResult {
   };
 }
 
+/**
+ * 🎯 UNIFIED PAGE ANALYSIS EMITTER - Main Event System
+ * 
+ * Replaces multiple parallel event systems with a single, comprehensive solution.
+ * Maintains backward compatibility while providing enhanced features.
+ */
 export class PageAnalysisEmitter extends EventEmitter {
   private analyzers: Map<string, AnalyzerFunction> = new Map();
+  private callbacks: UnifiedEventCallbacks = {};
+  private backpressureController?: AdaptiveBackpressureController;
+  private resourceMonitor?: ResourceMonitor;
+  private stats: ProgressStats;
+  private systemMetrics: SystemMetrics;
+  private sessionId: string;
+  private isInitialized = false;
   
-  /**
-   * Register an analyzer that will run when a page is loaded
-   */
-  registerAnalyzer(name: string, analyzer: AnalyzerFunction): void {
-    this.analyzers.set(name, analyzer);
-    console.log(`📋 Registered analyzer: ${name}`);
+  // 🚀 Configuration options
+  private options: {
+    enableResourceMonitoring: boolean;
+    enableBackpressure: boolean;
+    maxConcurrent: number;
+    maxRetries: number;
+    retryDelay: number;
+    verbose: boolean;
+  };
+  
+  constructor(options: Partial<{
+    enableResourceMonitoring: boolean;
+    enableBackpressure: boolean;
+    maxConcurrent: number;
+    maxRetries: number;
+    retryDelay: number;
+    verbose: boolean;
+    callbacks: UnifiedEventCallbacks;
+  }> = {}) {
+    super();
+    
+    this.sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    this.options = {
+      enableResourceMonitoring: options.enableResourceMonitoring ?? true,
+      enableBackpressure: options.enableBackpressure ?? true,
+      maxConcurrent: options.maxConcurrent ?? 3,
+      maxRetries: options.maxRetries ?? 3,
+      retryDelay: options.retryDelay ?? 2000,
+      verbose: options.verbose ?? false,
+      ...options
+    };
+    
+    this.callbacks = options.callbacks || {};
+    
+    // Initialize stats
+    this.stats = {
+      total: 0,
+      pending: 0,
+      inProgress: 0,
+      completed: 0,
+      failed: 0,
+      retrying: 0,
+      progress: 0,
+      averageDuration: 0,
+      estimatedTimeRemaining: 0,
+      activeWorkers: 0,
+      memoryUsage: 0,
+      cpuUsage: 0
+    };
+    
+    // Initialize system metrics
+    this.systemMetrics = {
+      memoryUsageMB: 0,
+      heapUsedMB: 0,
+      cpuUsagePercent: 0,
+      eventLoopDelayMs: 0,
+      activeHandles: 0,
+      gcCount: 0,
+      uptimeSeconds: 0
+    };
   }
   
   /**
-   * Analyze a single page by loading it and running all registered analyzers
+   * 🚀 Initialize the unified event system with integrated monitoring
    */
-  async analyzePage(url: string, page: Page, options: TestOptions = {}): Promise<PageAnalysisResult> {
+  async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    try {
+      // Setup resource monitoring
+      if (this.options.enableResourceMonitoring) {
+        this.setupResourceMonitoring();
+      }
+      
+      // Setup backpressure control
+      if (this.options.enableBackpressure) {
+        this.setupBackpressureControl();
+      }
+      
+      this.isInitialized = true;
+      
+      if (this.options.verbose) {
+        console.log(`🚀 Unified Page Analysis System initialized (${this.sessionId})`);
+        console.log(`   📊 Resource Monitoring: ${this.options.enableResourceMonitoring ? '✅' : '❌'}`);
+        console.log(`   🏃 Backpressure Control: ${this.options.enableBackpressure ? '✅' : '❌'}`);
+        console.log(`   🔄 Max Concurrent: ${this.options.maxConcurrent}`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Failed to initialize unified event system: ${error}`);
+      throw error;
+    }
+  }
+  
+  /**
+   * 📋 Register an analyzer that will run when a page is loaded
+   * 
+   * BACKWARD COMPATIBLE: Maintains existing analyzer registration pattern
+   */
+  registerAnalyzer(name: string, analyzer: AnalyzerFunction): void {
+    this.analyzers.set(name, analyzer);
+    
+    if (this.options.verbose) {
+      console.log(`📋 Registered analyzer: ${name} (total: ${this.analyzers.size})`);
+    }
+    
+    this.emit('analyzer-registered', { name, total: this.analyzers.size });
+  }
+  
+  /**
+   * 🎯 Set unified event callbacks
+   * 
+   * This replaces/consolidates:
+   * - TestOptions.eventCallbacks
+   * - EventDrivenQueueOptions.eventCallbacks
+   * - Direct callback patterns
+   */
+  setEventCallbacks(callbacks: UnifiedEventCallbacks): void {
+    this.callbacks = { ...this.callbacks, ...callbacks };
+    
+    if (this.options.verbose) {
+      const callbackNames = Object.keys(callbacks).join(', ');
+      console.log(`🎯 Event callbacks configured: ${callbackNames}`);
+    }
+  }
+  
+  /**
+   * 📊 Setup resource monitoring integration
+   */
+  private setupResourceMonitoring(): void {
+    try {
+      this.resourceMonitor = new ResourceMonitor({
+        enabled: true,
+        samplingIntervalMs: 2000,
+        memoryWarningThresholdMB: 1024,
+        memoryCriticalThresholdMB: 1536
+      });
+      
+      // Connect resource events to unified callbacks
+      this.resourceMonitor.on('memoryWarning', (data) => {
+        this.callbacks.onResourceWarning?.(data.current, data.threshold, 'memory');
+      });
+      
+      this.resourceMonitor.on('memoryCritical', (data) => {
+        this.callbacks.onResourceCritical?.(data.current, data.max, 'memory');
+      });
+      
+      this.resourceMonitor.on('cpuWarning', (data) => {
+        this.callbacks.onResourceWarning?.(data.current, data.threshold, 'cpu');
+      });
+      
+      // Update system metrics
+      this.resourceMonitor.on('metricsUpdate', (metrics) => {
+        this.systemMetrics = {
+          memoryUsageMB: metrics.rssMemoryMB,
+          heapUsedMB: metrics.heapUsedMB,
+          cpuUsagePercent: metrics.cpuUsagePercent,
+          eventLoopDelayMs: metrics.eventLoopDelayMs,
+          activeHandles: 0, // Would need additional monitoring
+          gcCount: metrics.gcCount || 0,
+          uptimeSeconds: metrics.uptimeSeconds
+        };
+        
+        this.callbacks.onSystemMetrics?.(this.systemMetrics);
+      });
+      
+      this.resourceMonitor.start();
+      
+    } catch (error) {
+      console.warn(`⚠️  Resource monitoring setup failed: ${error}`);
+    }
+  }
+  
+  /**
+   * 🏃 Setup backpressure control integration
+   */
+  private setupBackpressureControl(): void {
+    try {
+      this.backpressureController = new AdaptiveBackpressureController({
+        enabled: true,
+        maxMemoryUsageMB: 1536,
+        maxCpuUsagePercent: 85
+      });
+      
+      // Connect backpressure events to unified callbacks
+      this.backpressureController.on('backpressureActivated', (data) => {
+        this.callbacks.onBackpressureActivated?.(data.reason || 'Resource pressure detected');
+      });
+      
+      this.backpressureController.on('backpressureDeactivated', () => {
+        this.callbacks.onBackpressureDeactivated?.();
+      });
+      
+      this.backpressureController.on('gcTriggered', (data) => {
+        this.callbacks.onGarbageCollection?.(data.beforeMB, data.afterMB);
+      });
+      
+    } catch (error) {
+      console.warn(`⚠️  Backpressure control setup failed: ${error}`);
+    }
+  }
+  
+  /**
+   * 📈 Update and emit progress statistics
+   */
+  private updateProgress(): void {
+    // Calculate progress percentage
+    if (this.stats.total > 0) {
+      this.stats.progress = ((this.stats.completed + this.stats.failed) / this.stats.total) * 100;
+    }
+    
+    // Emit progress update
+    this.callbacks.onProgressUpdate?.(this.stats);
+    this.emit('progress-update', this.stats);
+  }
+  
+  /**
+   * 🎯 Get current progress statistics
+   */
+  getProgressStats(): ProgressStats {
+    return { ...this.stats };
+  }
+  
+  /**
+   * 🚀 Get system metrics
+   */
+  getSystemMetrics(): SystemMetrics {
+    return { ...this.systemMetrics };
+  }
+  
+  /**
+   * 🧪 Cleanup resources (enhanced version)
+   */
+  async cleanup(): Promise<void> {
+    try {
+      if (this.resourceMonitor) {
+        this.resourceMonitor.stop();
+      }
+      
+      if (this.backpressureController) {
+        // Cleanup backpressure controller if it has cleanup method
+      }
+      
+      this.emit('cleanup-complete');
+      
+      if (this.options.verbose) {
+        console.log(`🧪 Unified event system cleanup completed (${this.sessionId})`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error during cleanup: ${error}`);
+    }
+  }
+  
+  /**
+   * 🎯 UNIFIED PAGE ANALYSIS - Enhanced version with all features
+   * 
+   * BACKWARD COMPATIBLE: Maintains existing analyzePage signature
+   * ENHANCED: Integrates resource monitoring, backpressure, progress tracking
+   */
+  async analyzePage(
+    url: string, 
+    page: Page, 
+    options: TestOptions = {}, 
+    contextOptions: Partial<PageAnalysisContext> = {}
+  ): Promise<PageAnalysisResult> {
     const startTime = Date.now();
     
     // Initialize result structure
@@ -150,7 +529,8 @@ export class PageAnalysisEmitter extends EventEmitter {
       page,
       options,
       result,
-      startTime
+      startTime,
+      ...contextOptions
     };
     
     try {

@@ -959,66 +959,81 @@ export class HTMLGenerator {
     seoPages.forEach(page => {
       const seo = page.seo;
       
-      // Title issues
-      if (!seo.metaTags?.title?.optimal) {
-        if (!seo.metaTags?.title?.content) {
-          seoIssues.push({
-            severity: 'error',
-            message: 'Missing page title',
-            context: 'No <title> tag found',
-            pageUrl: page.url,
-            type: 'title'
-          });
-        } else if (seo.metaTags.title.length < 30) {
+      // Title issues - handle both enhanced SEO data structure and legacy format
+      const titleData = seo.metaTags?.title || seo.title;
+      const titleContent = titleData?.content || titleData || null;
+      const titlePresent = titleData?.present ?? !!titleContent;
+      const titleOptimal = titleData?.optimal ?? false;
+      
+      if (!titlePresent || !titleContent) {
+        seoIssues.push({
+          severity: 'error',
+          message: 'Missing page title',
+          context: 'No <title> tag found',
+          pageUrl: page.url,
+          type: 'title'
+        });
+      } else if (!titleOptimal) {
+        const titleLength = titleContent.length;
+        if (titleLength < 30) {
           seoIssues.push({
             severity: 'warning', 
-            message: `Title too short (${seo.metaTags.title.length} characters)`,
-            context: seo.metaTags.title.content,
+            message: `Title too short (${titleLength} characters)`,
+            context: titleContent,
             pageUrl: page.url,
             type: 'title'
           });
-        } else if (seo.metaTags.title.length > 60) {
+        } else if (titleLength > 60) {
           seoIssues.push({
             severity: 'warning',
-            message: `Title too long (${seo.metaTags.title.length} characters)`, 
-            context: seo.metaTags.title.content,
+            message: `Title too long (${titleLength} characters)`, 
+            context: titleContent,
             pageUrl: page.url,
             type: 'title'
           });
         }
       }
       
-      // Description issues
-      if (!seo.metaTags?.description?.optimal) {
-        if (!seo.metaTags?.description?.content) {
+      // Description issues - handle both enhanced SEO data structure and legacy format
+      const descriptionData = seo.metaTags?.description || seo.description;
+      const descriptionContent = descriptionData?.content || descriptionData || null;
+      const descriptionPresent = descriptionData?.present ?? !!descriptionContent;
+      const descriptionOptimal = descriptionData?.optimal ?? false;
+      
+      if (!descriptionPresent || !descriptionContent) {
+        seoIssues.push({
+          severity: 'error',
+          message: 'Missing meta description',
+          context: 'No meta description tag found',
+          pageUrl: page.url,
+          type: 'description'
+        });
+      } else if (!descriptionOptimal) {
+        const descriptionLength = descriptionContent.length;
+        if (descriptionLength < 120) {
           seoIssues.push({
-            severity: 'error',
-            message: 'Missing meta description',
-            context: 'No meta description tag found',
+            severity: 'warning',
+            message: `Meta description too short (${descriptionLength} characters)`,
+            context: descriptionContent,
             pageUrl: page.url,
             type: 'description'
           });
-        } else if (seo.metaTags.description.length < 120) {
+        } else if (descriptionLength > 160) {
           seoIssues.push({
             severity: 'warning',
-            message: `Meta description too short (${seo.metaTags.description.length} characters)`,
-            context: seo.metaTags.description.content,
-            pageUrl: page.url,
-            type: 'description'
-          });
-        } else if (seo.metaTags.description.length > 160) {
-          seoIssues.push({
-            severity: 'warning',
-            message: `Meta description too long (${seo.metaTags.description.length} characters)`,
-            context: seo.metaTags.description.content,
+            message: `Meta description too long (${descriptionLength} characters)`,
+            context: descriptionContent,
             pageUrl: page.url,
             type: 'description'
           });
         }
       }
       
-      // H1 issues
-      const h1Count = seo.headings?.h1?.length || 0;
+      // H1 issues - handle both enhanced SEO data structure and legacy format
+      const headingStructure = seo.headingStructure || seo.headings;
+      const h1Headings = headingStructure?.h1 || [];
+      const h1Count = Array.isArray(h1Headings) ? h1Headings.length : 0;
+      
       if (h1Count === 0) {
         seoIssues.push({
           severity: 'error',

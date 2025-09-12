@@ -3,6 +3,10 @@ import { AccessibilityChecker } from '@core/accessibility';
 import { TestOptions, AccessibilityResult } from '../types';
 import { log } from '@core/logging';
 
+/**
+ * @deprecated ParallelTestManagerOptions is deprecated and will be removed in v3.0.0
+ * Use AccessibilityChecker with unified event system instead
+ */
 export interface ParallelTestManagerOptions extends EventDrivenQueueOptions {
   // Queue-specific options
   maxConcurrent?: number;
@@ -46,6 +50,30 @@ export interface ParallelTestResult {
   errors: Array<{ url: string; error: string; attempts: number }>;
 }
 
+/**
+ * @deprecated ParallelTestManager is deprecated and will be removed in v3.0.0
+ * 
+ * This class is replaced by the unified PageAnalysisEmitter system integrated into AccessibilityChecker.
+ * The new system provides better performance, consistent event handling, and integrated resource monitoring.
+ * 
+ * MIGRATION GUIDE:
+ * ```typescript
+ * // OLD (deprecated)
+ * const manager = new ParallelTestManager({ 
+ *   maxConcurrent: 3,
+ *   onTestComplete: (url, result) => { ... }
+ * });
+ * await manager.runTests(urls);
+ * 
+ * // NEW (recommended)
+ * const checker = new AccessibilityChecker({ 
+ *   enableUnifiedEvents: true,
+ *   enableComprehensiveAnalysis: true 
+ * });
+ * checker.setUnifiedEventCallbacks({ onUrlCompleted: (url, result) => { ... } });
+ * await checker.testMultiplePagesParallel(urls, { maxConcurrent: 3 });
+ * ```
+ */
 export class ParallelTestManager {
   private queue: EventDrivenQueue;
   private accessibilityChecker: AccessibilityChecker;
