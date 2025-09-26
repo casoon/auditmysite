@@ -126,7 +126,6 @@ export class HTMLGenerator {
     const contentWeight = this.renderContentWeightSection(data);
     const mobileFriendliness = this.renderMobileFriendlinessSection(data);
     const pages = this.renderPagesSection(data);
-    const glossary = this.renderGlossarySection();
     const footer = this.renderFooter(data);
 
     return `<!DOCTYPE html>
@@ -149,7 +148,6 @@ export class HTMLGenerator {
       ${contentWeight}
       ${mobileFriendliness}
       ${pages}
-      ${glossary}
       ${footer}
     </div>
   </div>
@@ -161,41 +159,35 @@ export class HTMLGenerator {
   private generateCSS(): string {
     return `
       :root {
-        --color-bg: #0f172a; /* slate-900 */
-        --color-bg-gradient: linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(30,41,59,1) 50%, rgba(2,6,23,1) 100%);
-        --color-card: rgba(255, 255, 255, 0.08);
-        --color-text: #e5e7eb; /* gray-200 */
-        --color-subtle: #9ca3af; /* gray-400 */
-        --primary: #60a5fa; /* blue-400 */
-        --primary-accent: #3b82f6; /* blue-500 */
-        --success: #34d399; /* emerald-400 */
-        --warning: #f59e0b; /* amber-500 */
-        --error: #ef4444;   /* red-500 */
-        --radius: 14px;
-        --shadow: 0 10px 30px rgba(2,6,23,0.45);
-        --shadow-lg: 0 22px 60px rgba(2,6,23,0.55);
-        --glass-border: 1px solid rgba(255,255,255,0.16);
-        --glass-overlay: rgba(255,255,255,0.06);
+        --color-bg: #f8fafc;
+        --color-card: #ffffff;
+        --color-text: #1f2937;
+        --color-subtle: #6b7280;
+        --primary: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --radius: 12px;
+        --shadow: 0 4px 16px rgba(0,0,0,0.08);
+        --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
       }
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
       
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        background: var(--color-bg-gradient);
+        background: var(--color-bg);
         color: var(--color-text);
         line-height: 1.6;
       }
 
       .header {
-        background: linear-gradient(135deg, rgba(2,6,23,0.85) 0%, rgba(2,6,23,0.6) 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: white;
         padding: 2rem 0;
         box-shadow: var(--shadow-lg);
         position: relative;
         z-index: 50;
-        backdrop-filter: saturate(120%) blur(6px);
-        border-bottom: var(--glass-border);
       }
 
       .header-content {
@@ -240,11 +232,10 @@ export class HTMLGenerator {
 .sticky-nav {
         position: sticky;
         top: 0;
-        background: rgba(2,6,23,0.55);
-        border-bottom: var(--glass-border);
-        box-shadow: var(--shadow);
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         z-index: 40;
-        backdrop-filter: saturate(120%) blur(8px);
       }
         position: sticky;
         top: 0;
@@ -266,10 +257,10 @@ export class HTMLGenerator {
 
 .nav-link {
         display: inline-block;
-        padding: 1rem 1.25rem;
+        padding: 1rem 1.5rem;
         text-decoration: none;
         color: var(--color-subtle);
-        font-weight: 600;
+        font-weight: 500;
         border-bottom: 3px solid transparent;
         transition: all 0.2s ease;
       }
@@ -285,8 +276,7 @@ export class HTMLGenerator {
 .nav-link:hover,
       .nav-link.active {
         color: var(--primary);
-        border-bottom-color: var(--primary-accent);
-        text-shadow: 0 1px 6px rgba(96,165,250,0.45);
+        border-bottom-color: var(--primary);
       }
         color: var(--primary);
         border-bottom-color: var(--primary);
@@ -294,8 +284,6 @@ export class HTMLGenerator {
 
 .main-content {
         padding: 2rem 0;
-        background: radial-gradient(1200px 800px at 80% -10%, rgba(59,130,246,0.12), transparent 60%),
-                    radial-gradient(1000px 700px at -10% 110%, rgba(16,185,129,0.10), transparent 55%);
       }
         padding: 2rem 0;
       }
@@ -313,8 +301,6 @@ export class HTMLGenerator {
         margin-bottom: 2rem;
         overflow: hidden;
         scroll-margin-top: 120px;
-        backdrop-filter: blur(10px) saturate(110%);
-        border: var(--glass-border);
       }
         background: var(--color-card);
         border-radius: var(--radius);
@@ -325,9 +311,9 @@ export class HTMLGenerator {
       }
 
 .section-header {
-        background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
-        border-bottom: var(--glass-border);
-        padding: 1.25rem 1.5rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1.5rem;
         display: flex;
         align-items: center;
         gap: 0.75rem;
@@ -352,7 +338,7 @@ export class HTMLGenerator {
 
 .metrics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
       }
@@ -363,10 +349,10 @@ export class HTMLGenerator {
       }
 
 .metric-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
-        border: var(--glass-border);
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e5e7eb;
         border-radius: var(--radius);
-        padding: 1.25rem 1.5rem;
+        padding: 1.5rem;
         text-align: center;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
@@ -387,8 +373,8 @@ export class HTMLGenerator {
       }
 
 .metric-value {
-        font-size: 2.2rem;
-        font-weight: 800;
+        font-size: 2.5rem;
+        font-weight: 700;
         display: block;
         margin-bottom: 0.5rem;
       }
@@ -400,10 +386,10 @@ export class HTMLGenerator {
 
 .metric-label {
         color: var(--color-subtle);
-        font-size: 0.8rem;
-        font-weight: 700;
+        font-size: 0.875rem;
+        font-weight: 500;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.05em;
       }
         color: var(--color-subtle);
         font-size: 0.875rem;
@@ -439,9 +425,7 @@ export class HTMLGenerator {
         margin-top: 1rem;
         border-radius: var(--radius);
         overflow: hidden;
-        box-shadow: var(--shadow);
-        background: rgba(2,6,23,0.35);
-        backdrop-filter: blur(8px);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       }
         width: 100%;
         border-collapse: collapse;
@@ -455,7 +439,7 @@ export class HTMLGenerator {
       .data-table td {
         padding: 1rem;
         text-align: left;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+        border-bottom: 1px solid #f3f4f6;
       }
       .data-table td {
         padding: 1rem;
@@ -464,10 +448,10 @@ export class HTMLGenerator {
       }
 
 .data-table th {
-        background: rgba(255,255,255,0.06);
-        font-weight: 700;
+        background: #f8fafc;
+        font-weight: 600;
         color: var(--color-text);
-        border-bottom: 2px solid rgba(255,255,255,0.12);
+        border-bottom: 2px solid #e5e7eb;
       }
         background: #f8fafc;
         font-weight: 600;
@@ -476,7 +460,7 @@ export class HTMLGenerator {
       }
 
 .data-table tr:hover {
-        background: rgba(255,255,255,0.04);
+        background: #f9fafb;
       }
         background: #f9fafb;
       }
@@ -715,7 +699,7 @@ export class HTMLGenerator {
 
   private renderNavigation(): string {
     return `
-      <nav class="sticky-nav glass">
+      <nav class="sticky-nav">
         <div class="nav-container">
           <a href="#summary" class="nav-link">Summary</a>
           <a href="#accessibility" class="nav-link">Accessibility</a>
@@ -723,50 +707,11 @@ export class HTMLGenerator {
           <a href="#seo" class="nav-link">SEO</a>
           <a href="#contentweight" class="nav-link">Content Weight</a>
           <a href="#mobile" class="nav-link">Mobile</a>
-          <a href="#glossary" class="nav-link">Glossary</a>
         </div>
       </nav>
     `;
   }
 
-  private renderGlossarySection(): string {
-    const docsBase = 'https://github.com/casoon/AuditMySite/blob/main/docs';
-    const cards = [
-      { title: 'LCP', desc: 'Largest Contentful Paint – time to render the largest visual element.', link: `${docsBase}/performance.html#lcp` },
-      { title: 'CLS', desc: 'Cumulative Layout Shift – visual stability score.', link: `${docsBase}/performance.html#cls` },
-      { title: 'INP', desc: 'Interaction to Next Paint – latency of user interactions.', link: `${docsBase}/performance.html#inp` },
-      { title: 'TTFB', desc: 'Time To First Byte – server responsiveness.', link: `${docsBase}/performance.html#ttfb` },
-      { title: 'FCP', desc: 'First Contentful Paint – time to first content.', link: `${docsBase}/performance.html#fcp` },
-      { title: 'Content Weight', desc: 'Total decoded bytes of page resources.', link: `${docsBase}/content-weight.html` },
-      { title: 'Text-to-Code Ratio', desc: 'Proportion of text content to HTML code.', link: `${docsBase}/content-weight.html#text-to-code-ratio` },
-      { title: 'SEO Title', desc: 'Optimal length and duplication rules for titles.', link: `${docsBase}/seo.html#title` },
-      { title: 'Meta Description', desc: 'Best practices and duplication handling.', link: `${docsBase}/seo.html#description` },
-      { title: 'Accessibility', desc: 'WCAG principles and common issues.', link: `${docsBase}/accessibility.html` }
-    ];
-
-    const items = cards.map(c => `
-      <div class="metric-card">
-        <div class="metric-value" style="font-size:1.25rem;">${c.title}</div>
-        <div style="color: var(--color-subtle); font-size: 0.95rem; margin-top: 0.25rem;">${this.escape(c.desc)}</div>
-        <div style="margin-top: 0.5rem;">
-          <a href="${c.link}" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Learn more →</a>
-        </div>
-      </div>
-    `).join('');
-
-    return `
-      <section id="glossary" class="section">
-        <div class="section-header">
-          <h2>Glossary & Documentation</h2>
-        </div>
-        <div class="section-content">
-          <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-            ${items}
-          </div>
-        </div>
-      </section>
-    `;
-  }
 
   private renderSummary(data: EnhancedAuditResult): string {
     const s = data.summary;
