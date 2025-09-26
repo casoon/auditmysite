@@ -126,6 +126,7 @@ export class HTMLGenerator {
     const contentWeight = this.renderContentWeightSection(data);
     const mobileFriendliness = this.renderMobileFriendlinessSection(data);
     const pages = this.renderPagesSection(data);
+    const glossary = this.renderGlossarySection();
     const footer = this.renderFooter(data);
 
     return `<!DOCTYPE html>
@@ -148,6 +149,7 @@ export class HTMLGenerator {
       ${contentWeight}
       ${mobileFriendliness}
       ${pages}
+      ${glossary}
       ${footer}
     </div>
   </div>
@@ -159,35 +161,41 @@ export class HTMLGenerator {
   private generateCSS(): string {
     return `
       :root {
-        --color-bg: #f8fafc;
-        --color-card: #ffffff;
-        --color-text: #1f2937;
-        --color-subtle: #6b7280;
-        --primary: #2563eb;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --error: #ef4444;
-        --radius: 12px;
-        --shadow: 0 4px 16px rgba(0,0,0,0.08);
-        --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+        --color-bg: #0f172a; /* slate-900 */
+        --color-bg-gradient: linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(30,41,59,1) 50%, rgba(2,6,23,1) 100%);
+        --color-card: rgba(255, 255, 255, 0.08);
+        --color-text: #e5e7eb; /* gray-200 */
+        --color-subtle: #9ca3af; /* gray-400 */
+        --primary: #60a5fa; /* blue-400 */
+        --primary-accent: #3b82f6; /* blue-500 */
+        --success: #34d399; /* emerald-400 */
+        --warning: #f59e0b; /* amber-500 */
+        --error: #ef4444;   /* red-500 */
+        --radius: 14px;
+        --shadow: 0 10px 30px rgba(2,6,23,0.45);
+        --shadow-lg: 0 22px 60px rgba(2,6,23,0.55);
+        --glass-border: 1px solid rgba(255,255,255,0.16);
+        --glass-overlay: rgba(255,255,255,0.06);
       }
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
       
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        background: var(--color-bg);
+        background: var(--color-bg-gradient);
         color: var(--color-text);
         line-height: 1.6;
       }
 
       .header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        background: linear-gradient(135deg, rgba(2,6,23,0.85) 0%, rgba(2,6,23,0.6) 100%);
         color: white;
         padding: 2rem 0;
         box-shadow: var(--shadow-lg);
         position: relative;
         z-index: 50;
+        backdrop-filter: saturate(120%) blur(6px);
+        border-bottom: var(--glass-border);
       }
 
       .header-content {
@@ -229,7 +237,15 @@ export class HTMLGenerator {
         color: rgba(255, 255, 255, 0.9);
       }
 
-      .sticky-nav {
+.sticky-nav {
+        position: sticky;
+        top: 0;
+        background: rgba(2,6,23,0.55);
+        border-bottom: var(--glass-border);
+        box-shadow: var(--shadow);
+        z-index: 40;
+        backdrop-filter: saturate(120%) blur(8px);
+      }
         position: sticky;
         top: 0;
         background: white;
@@ -248,7 +264,15 @@ export class HTMLGenerator {
         white-space: nowrap;
       }
 
-      .nav-link {
+.nav-link {
+        display: inline-block;
+        padding: 1rem 1.25rem;
+        text-decoration: none;
+        color: var(--color-subtle);
+        font-weight: 600;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+      }
         display: inline-block;
         padding: 1rem 1.5rem;
         text-decoration: none;
@@ -258,13 +282,21 @@ export class HTMLGenerator {
         transition: all 0.2s ease;
       }
 
-      .nav-link:hover,
+.nav-link:hover,
       .nav-link.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary-accent);
+        text-shadow: 0 1px 6px rgba(96,165,250,0.45);
+      }
         color: var(--primary);
         border-bottom-color: var(--primary);
       }
 
-      .main-content {
+.main-content {
+        padding: 2rem 0;
+        background: radial-gradient(1200px 800px at 80% -10%, rgba(59,130,246,0.12), transparent 60%),
+                    radial-gradient(1000px 700px at -10% 110%, rgba(16,185,129,0.10), transparent 55%);
+      }
         padding: 2rem 0;
       }
 
@@ -274,7 +306,16 @@ export class HTMLGenerator {
         padding: 0 1rem;
       }
 
-      .section {
+.section {
+        background: var(--color-card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+        overflow: hidden;
+        scroll-margin-top: 120px;
+        backdrop-filter: blur(10px) saturate(110%);
+        border: var(--glass-border);
+      }
         background: var(--color-card);
         border-radius: var(--radius);
         box-shadow: var(--shadow);
@@ -283,7 +324,14 @@ export class HTMLGenerator {
         scroll-margin-top: 120px;
       }
 
-      .section-header {
+.section-header {
+        background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
+        border-bottom: var(--glass-border);
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         border-bottom: 1px solid #e5e7eb;
         padding: 1.5rem;
@@ -302,14 +350,26 @@ export class HTMLGenerator {
         padding: 1.5rem;
       }
 
-      .metrics-grid {
+.metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
       }
 
-      .metric-card {
+.metric-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
+        border: var(--glass-border);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.5rem;
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border: 1px solid #e5e7eb;
         border-radius: var(--radius);
@@ -318,19 +378,33 @@ export class HTMLGenerator {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .metric-card:hover {
+.metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
         transform: translateY(-2px);
         box-shadow: var(--shadow-lg);
       }
 
-      .metric-value {
+.metric-value {
+        font-size: 2.2rem;
+        font-weight: 800;
+        display: block;
+        margin-bottom: 0.5rem;
+      }
         font-size: 2.5rem;
         font-weight: 700;
         display: block;
         margin-bottom: 0.5rem;
       }
 
-      .metric-label {
+.metric-label {
+        color: var(--color-subtle);
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
         color: var(--color-subtle);
         font-size: 0.875rem;
         font-weight: 500;
@@ -359,7 +433,16 @@ export class HTMLGenerator {
       .error { color: var(--error); }
       .info { color: var(--primary); }
 
-      .data-table {
+.data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        background: rgba(2,6,23,0.35);
+        backdrop-filter: blur(8px);
+      }
         width: 100%;
         border-collapse: collapse;
         margin-top: 1rem;
@@ -368,21 +451,33 @@ export class HTMLGenerator {
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       }
 
-      .data-table th,
+.data-table th,
+      .data-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
       .data-table td {
         padding: 1rem;
         text-align: left;
         border-bottom: 1px solid #f3f4f6;
       }
 
-      .data-table th {
+.data-table th {
+        background: rgba(255,255,255,0.06);
+        font-weight: 700;
+        color: var(--color-text);
+        border-bottom: 2px solid rgba(255,255,255,0.12);
+      }
         background: #f8fafc;
         font-weight: 600;
         color: var(--color-text);
         border-bottom: 2px solid #e5e7eb;
       }
 
-      .data-table tr:hover {
+.data-table tr:hover {
+        background: rgba(255,255,255,0.04);
+      }
         background: #f9fafb;
       }
 
@@ -533,12 +628,12 @@ export class HTMLGenerator {
       /* N/A values styling */
       .perf-na { color: #9ca3af; font-style: italic; font-weight: 500; }
 
-      .footer {
+.footer {
         text-align: center;
         color: var(--color-subtle);
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         padding: 2rem 0;
-        border-top: 1px solid #e5e7eb;
+        border-top: var(--glass-border);
         margin-top: 2rem;
       }
 
@@ -620,7 +715,7 @@ export class HTMLGenerator {
 
   private renderNavigation(): string {
     return `
-      <nav class="sticky-nav">
+      <nav class="sticky-nav glass">
         <div class="nav-container">
           <a href="#summary" class="nav-link">Summary</a>
           <a href="#accessibility" class="nav-link">Accessibility</a>
@@ -628,8 +723,48 @@ export class HTMLGenerator {
           <a href="#seo" class="nav-link">SEO</a>
           <a href="#contentweight" class="nav-link">Content Weight</a>
           <a href="#mobile" class="nav-link">Mobile</a>
+          <a href="#glossary" class="nav-link">Glossary</a>
         </div>
       </nav>
+    `;
+  }
+
+  private renderGlossarySection(): string {
+    const docsBase = 'https://github.com/casoon/AuditMySite/blob/main/docs';
+    const cards = [
+      { title: 'LCP', desc: 'Largest Contentful Paint – time to render the largest visual element.', link: `${docsBase}/performance.html#lcp` },
+      { title: 'CLS', desc: 'Cumulative Layout Shift – visual stability score.', link: `${docsBase}/performance.html#cls` },
+      { title: 'INP', desc: 'Interaction to Next Paint – latency of user interactions.', link: `${docsBase}/performance.html#inp` },
+      { title: 'TTFB', desc: 'Time To First Byte – server responsiveness.', link: `${docsBase}/performance.html#ttfb` },
+      { title: 'FCP', desc: 'First Contentful Paint – time to first content.', link: `${docsBase}/performance.html#fcp` },
+      { title: 'Content Weight', desc: 'Total decoded bytes of page resources.', link: `${docsBase}/content-weight.html` },
+      { title: 'Text-to-Code Ratio', desc: 'Proportion of text content to HTML code.', link: `${docsBase}/content-weight.html#text-to-code-ratio` },
+      { title: 'SEO Title', desc: 'Optimal length and duplication rules for titles.', link: `${docsBase}/seo.html#title` },
+      { title: 'Meta Description', desc: 'Best practices and duplication handling.', link: `${docsBase}/seo.html#description` },
+      { title: 'Accessibility', desc: 'WCAG principles and common issues.', link: `${docsBase}/accessibility.html` }
+    ];
+
+    const items = cards.map(c => `
+      <div class="metric-card">
+        <div class="metric-value" style="font-size:1.25rem;">${c.title}</div>
+        <div style="color: var(--color-subtle); font-size: 0.95rem; margin-top: 0.25rem;">${this.escape(c.desc)}</div>
+        <div style="margin-top: 0.5rem;">
+          <a href="${c.link}" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">Learn more →</a>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <section id="glossary" class="section">
+        <div class="section-header">
+          <h2>Glossary & Documentation</h2>
+        </div>
+        <div class="section-content">
+          <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+            ${items}
+          </div>
+        </div>
+      </section>
     `;
   }
 
