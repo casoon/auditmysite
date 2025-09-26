@@ -21,6 +21,7 @@ export interface AccessibilityResult {
   warnings: string[];
   passed: boolean;
   crashed?: boolean;  // 🆕 Technical error (browser crash, network failure, etc.)
+  skipped?: boolean;  // 🆕 Skipped (redirected, not analyzed)
   duration: number;
   pa11yScore?: number;
   pa11yIssues?: any[];
@@ -53,6 +54,13 @@ export interface AccessibilityResult {
   lighthouseMetrics?: LighthouseMetrics;
   // 🆕 Mobile-Friendliness results
   mobileFriendliness?: MobileFriendlinessMetrics;
+  // 🆕 Redirect information (not treated as error)
+  redirectInfo?: {
+    status?: number;
+    originalUrl: string;
+    finalUrl: string;
+    type: 'http_redirect' | 'automatic_redirect';
+  };
 }
 
 export interface TestOptions {

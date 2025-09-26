@@ -30,7 +30,39 @@ export class SitemapParser {
     const parsed = this.parser.parse(xml);
     const urls: SitemapUrl[] = [];
 
-    // Fall 1: Standard sitemap.xml Struktur
+    // Fall 1: Sitemap Index (WordPress/multi-sitemap structure)
+    if (parsed.sitemapindex && parsed.sitemapindex.sitemap) {
+      console.log(`📋 Found sitemap index with ${Array.isArray(parsed.sitemapindex.sitemap) ? parsed.sitemapindex.sitemap.length : 1} sub-sitemaps`);
+      
+      const sitemaps = Array.isArray(parsed.sitemapindex.sitemap) 
+        ? parsed.sitemapindex.sitemap 
+        : [parsed.sitemapindex.sitemap];
+      
+      // Fetch URLs from each sub-sitemap (limit to first 10 for performance)
+      const sitemapsToProcess = sitemaps.slice(0, 10);
+      
+      for (const sitemap of sitemapsToProcess) {
+        try {
+          const subSitemapUrl = sitemap.loc;
+          if (subSitemapUrl && subSitemapUrl !== sitemapUrl) { // Avoid infinite loops
+            console.log(`  📄 Processing sub-sitemap: ${subSitemapUrl}`);
+            const subUrls = await this.parseSitemap(subSitemapUrl); // Recursive call
+            urls.push(...subUrls);
+          }
+        } catch (error) {
+          console.warn(`  ⚠️  Failed to process sub-sitemap ${sitemap.loc}: ${error}`);
+          // Continue with other sitemaps even if one fails
+        }
+      }
+      
+      if (sitemaps.length > 10) {
+        console.log(`  📊 Limited processing to first 10 of ${sitemaps.length} sub-sitemaps for performance`);
+      }
+      
+      return urls;
+    }
+
+    // Fall 2: Standard sitemap.xml Struktur
     if (parsed.urlset && parsed.urlset.url) {
       if (Array.isArray(parsed.urlset.url)) {
         urls.push(
@@ -51,7 +83,7 @@ export class SitemapParser {
       }
     }
 
-    // Fall 2: Falls die URLs im #text Feld sind (wie bei Astro)
+    // Fall 3: Falls die URLs im #text Feld sind (wie bei Astro)
     if (urls.length === 0 && parsed.urlset && parsed.urlset["#text"]) {
       const textContent = parsed.urlset["#text"];
       const urlMatches = textContent.match(/<loc>(.*?)<\/loc>/g);

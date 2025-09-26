@@ -309,6 +309,16 @@ export interface QualityAnalysisOptions {
   analysisTimeout?: number;
   /** Enable verbose logging for debugging */
   verbose?: boolean;
+  /** Enable PSI-like throttling profile */
+  psiProfile?: boolean;
+  /** CPU throttling rate (e.g., 4 = 4x slower) */
+  psiCPUThrottlingRate?: number;
+  /** Network emulation settings in kbps/ms */
+  psiNetwork?: {
+    latencyMs: number;
+    downloadKbps: number;
+    uploadKbps: number;
+  };
 }
 
 // Mobile-Friendliness Analysis Types
@@ -417,5 +427,271 @@ export interface QualityBudgets {
     minTextToCodeRatio: number;
     maxImageCount: number;
     maxDomElements: number;
+  };
+}
+
+// =============================================================================
+// SECURITY HEADERS ANALYSIS TYPES
+// =============================================================================
+
+/** Individual security header analysis */
+export interface SecurityHeader {
+  /** Header name */
+  name: string;
+  /** Header value if present */
+  value?: string;
+  /** Whether the header is present */
+  present: boolean;
+  /** Whether the header value is valid/secure */
+  valid: boolean;
+  /** Security score for this header (0-100) */
+  score: number;
+  /** Issues found with this header */
+  issues: string[];
+  /** Recommendations for improvement */
+  recommendations: string[];
+}
+
+/** Content Security Policy analysis */
+export interface CSPAnalysis {
+  /** Whether CSP header is present */
+  present: boolean;
+  /** CSP header value */
+  value?: string;
+  /** Parsed CSP directives */
+  directives: Record<string, string[]>;
+  /** CSP security score (0-100) */
+  score: number;
+  /** Security issues found */
+  issues: {
+    severity: 'critical' | 'high' | 'medium' | 'low';
+    directive?: string;
+    issue: string;
+    recommendation: string;
+  }[];
+  /** Whether unsafe directives are used */
+  hasUnsafeDirectives: boolean;
+  /** Whether inline scripts/styles are allowed */
+  allowsInlineScripts: boolean;
+  /** Whether eval() is allowed */
+  allowsEval: boolean;
+}
+
+/** Security headers analysis results */
+export interface SecurityHeadersMetrics {
+  /** Overall security score (0-100) */
+  overallScore: number;
+  /** Security grade (A-F) */
+  securityGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  
+  /** Individual header analyses */
+  headers: {
+    /** Content Security Policy */
+    csp: CSPAnalysis;
+    /** HTTP Strict Transport Security */
+    hsts: SecurityHeader;
+    /** X-Frame-Options */
+    xFrameOptions: SecurityHeader;
+    /** X-Content-Type-Options */
+    xContentTypeOptions: SecurityHeader;
+    /** X-XSS-Protection */
+    xXSSProtection: SecurityHeader;
+    /** Referrer-Policy */
+    referrerPolicy: SecurityHeader;
+    /** Permissions-Policy / Feature-Policy */
+    permissionsPolicy: SecurityHeader;
+  };
+  
+  /** HTTPS configuration analysis */
+  https: {
+    enabled: boolean;
+    httpsRedirect: boolean;
+    mixedContent: boolean;
+    certificate: {
+      valid: boolean;
+      issuer?: string;
+      expiresAt?: string;
+      daysUntilExpiry?: number;
+    };
+  };
+  
+  /** Cookie security analysis */
+  cookies: {
+    totalCookies: number;
+    secureCookies: number;
+    httpOnlyCookies: number;
+    sameSiteCookies: number;
+    issues: string[];
+  };
+  
+  /** Security recommendations */
+  recommendations: {
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    category: string;
+    issue: string;
+    recommendation: string;
+    impact: string;
+  }[];
+  
+  /** Vulnerability assessment */
+  vulnerabilities: {
+    clickjacking: 'protected' | 'vulnerable' | 'partially_protected';
+    xss: 'protected' | 'vulnerable' | 'partially_protected';
+    contentTypeSniffing: 'protected' | 'vulnerable';
+    referrerLeakage: 'protected' | 'vulnerable' | 'partially_protected';
+    mixedContent: 'protected' | 'vulnerable';
+  };
+}
+
+// =============================================================================
+// STRUCTURED DATA VALIDATION TYPES
+// =============================================================================
+
+/** Individual structured data item */
+export interface StructuredDataItem {
+  /** Data format (JSON-LD, Microdata, RDFa) */
+  format: 'JSON-LD' | 'Microdata' | 'RDFa';
+  /** Schema.org type */
+  type: string;
+  /** Location in the page */
+  location: 'head' | 'body';
+  /** CSS selector where found */
+  selector?: string;
+  /** Raw data content */
+  data: any;
+  /** Whether the structure is valid */
+  valid: boolean;
+  /** Validation errors */
+  errors: string[];
+  /** Validation warnings */
+  warnings: string[];
+  /** Schema.org compliance score (0-100) */
+  complianceScore: number;
+}
+
+/** Schema.org analysis by type */
+export interface SchemaTypeAnalysis {
+  /** Schema type name (e.g., 'Organization', 'Article') */
+  type: string;
+  /** Number of instances found */
+  count: number;
+  /** Required properties analysis */
+  requiredProperties: {
+    property: string;
+    present: boolean;
+    valid: boolean;
+    value?: string;
+  }[];
+  /** Recommended properties analysis */
+  recommendedProperties: {
+    property: string;
+    present: boolean;
+    benefit: string;
+  }[];
+  /** Completeness score (0-100) */
+  completenessScore: number;
+  /** Issues with this schema type */
+  issues: string[];
+}
+
+/** Rich snippets potential analysis */
+export interface RichSnippetsAnalysis {
+  /** Eligible for rich snippets */
+  eligible: boolean;
+  /** Supported snippet types found */
+  supportedTypes: string[];
+  /** Potential snippet types that could be added */
+  potentialTypes: string[];
+  /** Rich snippets score (0-100) */
+  richSnippetsScore: number;
+  /** Recommendations for rich snippet optimization */
+  recommendations: string[];
+}
+
+/** Knowledge Graph potential analysis */
+export interface KnowledgeGraphAnalysis {
+  /** Organization information completeness */
+  organization: {
+    present: boolean;
+    completeness: number;
+    missingProperties: string[];
+  };
+  /** Local business information completeness */
+  localBusiness: {
+    present: boolean;
+    completeness: number;
+    missingProperties: string[];
+  };
+  /** Article/content information completeness */
+  content: {
+    present: boolean;
+    completeness: number;
+    missingProperties: string[];
+  };
+  /** Knowledge Graph readiness score */
+  readinessScore: number;
+}
+
+/** Structured data validation results */
+export interface StructuredDataMetrics {
+  /** Overall structured data score (0-100) */
+  overallScore: number;
+  /** Structured data grade (A-F) */
+  structuredDataGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  
+  /** Summary statistics */
+  summary: {
+    totalItems: number;
+    validItems: number;
+    invalidItems: number;
+    jsonLdCount: number;
+    microdataCount: number;
+    rdfaCount: number;
+    uniqueTypes: string[];
+  };
+  
+  /** Individual structured data items */
+  items: StructuredDataItem[];
+  
+  /** Analysis by schema type */
+  schemaTypes: SchemaTypeAnalysis[];
+  
+  /** Rich snippets analysis */
+  richSnippets: RichSnippetsAnalysis;
+  
+  /** Knowledge Graph analysis */
+  knowledgeGraph: KnowledgeGraphAnalysis;
+  
+  /** SEO impact analysis */
+  seoImpact: {
+    searchVisibilityBoost: number;
+    clickThroughRateImpact: number;
+    rankingFactorScore: number;
+  };
+  
+  /** Validation issues */
+  issues: {
+    severity: 'error' | 'warning' | 'info';
+    type: string;
+    location: string;
+    message: string;
+    recommendation: string;
+  }[];
+  
+  /** Improvement recommendations */
+  recommendations: {
+    priority: 'high' | 'medium' | 'low';
+    category: string;
+    issue: string;
+    recommendation: string;
+    impact: string;
+    implementation: string;
+  }[];
+  
+  /** Testing and validation URLs */
+  testingUrls: {
+    googleRichResultsTest: string;
+    googleStructuredDataTest: string;
+    schemaMarkupValidator: string;
   };
 }

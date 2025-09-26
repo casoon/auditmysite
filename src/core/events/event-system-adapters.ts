@@ -20,6 +20,7 @@
 import { TestOptions } from '../../types';
 import { PageAnalysisEmitter, UnifiedEventCallbacks, ProgressStats } from './page-analysis-emitter';
 
+
 /**
  * 🔄 TestOptions Event Callbacks Adapter
  * 
@@ -38,23 +39,12 @@ export class TestOptionsEventAdapter {
       return {};
     }
 
-    // Log deprecation warning (unless suppressed for CI/CD environments)
-    const suppressWarnings = process.env.NODE_ENV === 'test' || 
-                             process.env.CI === 'true' ||
-                             process.env.NODE_ENV === 'production' ||
-                             process.env.AUDITMYSITE_SUPPRESS_DEPRECATIONS === 'true';
-    
-    if (!suppressWarnings) {
-      console.warn(`
-⚠️  DEPRECATION WARNING: TestOptions.eventCallbacks is deprecated
-📋 Current usage detected in your code
-🚀 Migration Guide:
-   Instead of: testOptions.eventCallbacks = { onUrlStarted: ... }
-   Use: unifiedEmitter.setEventCallbacks({ onUrlStarted: ... })
-
-🗓️  This will be removed in AuditMySite v3.0.0
-      `);
-    }
+    // Use centralized deprecation manager
+    DeprecationManager.warnOnce('TestOptions.eventCallbacks', 
+      'TestOptions.eventCallbacks is deprecated.\n' +
+      'Use AccessibilityChecker.setUnifiedEventCallbacks() instead for better performance and consistency.\n' +
+      'Your existing callbacks will continue to work via compatibility adapter.'
+    );
 
     const unified: UnifiedEventCallbacks = {};
 
@@ -124,23 +114,12 @@ export class EventDrivenQueueAdapter {
    * @deprecated This adapter will be removed in v3.0.0
    */
   static adaptEventDrivenQueueCallbacks(callbacks: LegacyEventDrivenQueueCallbacks): UnifiedEventCallbacks {
-    // Log deprecation warning (unless suppressed for CI/CD environments)
-    const suppressWarnings = process.env.NODE_ENV === 'test' || 
-                             process.env.CI === 'true' ||
-                             process.env.NODE_ENV === 'production' ||
-                             process.env.AUDITMYSITE_SUPPRESS_DEPRECATIONS === 'true';
-    
-    if (!suppressWarnings) {
-      console.warn(`
-⚠️  DEPRECATION WARNING: EventDrivenQueue callback pattern is deprecated
-📋 Legacy EventDrivenQueueOptions.eventCallbacks detected
-🚀 Migration Guide:
-   Replace EventDrivenQueue with PageAnalysisEmitter
-   Use unified callback interface instead of separate queue system
-
-🗓️  EventDrivenQueue will be removed in AuditMySite v3.0.0
-      `);
-    }
+    // Use centralized deprecation manager
+    DeprecationManager.warnOnce('EventDrivenQueue', 
+      'EventDrivenQueue callback pattern is deprecated.\n' +
+      'Replace EventDrivenQueue with PageAnalysisEmitter.\n' +
+      'Use unified callback interface instead of separate queue system.'
+    );
 
     const unified: UnifiedEventCallbacks = {};
 
@@ -199,23 +178,12 @@ export class ParallelTestManagerAdapter {
    * @deprecated This adapter will be removed in v3.0.0
    */
   static adaptParallelTestManagerCallbacks(callbacks: LegacyParallelTestManagerCallbacks): UnifiedEventCallbacks {
-    // Log deprecation warning (unless suppressed for CI/CD environments)
-    const suppressWarnings = process.env.NODE_ENV === 'test' || 
-                             process.env.CI === 'true' ||
-                             process.env.NODE_ENV === 'production' ||
-                             process.env.AUDITMYSITE_SUPPRESS_DEPRECATIONS === 'true';
-    
-    if (!suppressWarnings) {
-      console.warn(`
-⚠️  DEPRECATION WARNING: ParallelTestManager callback pattern is deprecated
-📋 Legacy ParallelTestManager callbacks detected
-🚀 Migration Guide:
-   Replace ParallelTestManager with PageAnalysisEmitter
-   Use unified event system for better performance and consistency
-
-🗓️  ParallelTestManager will be removed in AuditMySite v3.0.0
-      `);
-    }
+    // Use centralized deprecation manager
+    DeprecationManager.warnOnce('ParallelTestManager', 
+      'ParallelTestManager callback pattern is deprecated.\n' +
+      'Replace ParallelTestManager with PageAnalysisEmitter.\n' +
+      'Use unified event system for better performance and consistency.'
+    );
 
     const unified: UnifiedEventCallbacks = {};
 

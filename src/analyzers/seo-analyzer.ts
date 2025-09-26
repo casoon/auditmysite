@@ -166,7 +166,36 @@ export class SEOAnalyzer {
       } else if (metaData.title.length > 60) {
         titleAnalysis.issues.push('Title is too long (> 60 characters)');
       } else {
-        titleAnalysis.optimal = true;
+        // Length is fine, now check for redundancy/repetition (e.g., "Brand - Brand")
+        const rawTitle = metaData.title.trim();
+        const sepRegex = /\s*[-|:•·—–]\s*/; // common separators
+        const parts = rawTitle.split(sepRegex).map(p => p.trim()).filter(Boolean);
+        let hasRepetition = false;
+        let repeatedSegment = '';
+        if (parts.length >= 2) {
+          const norm = (s: string) => s.replace(/\s+/g, ' ').toLowerCase();
+          const seen = new Set<string>();
+          for (const p of parts) {
+            const n = norm(p);
+            if (seen.has(n)) {
+              hasRepetition = true;
+              repeatedSegment = p;
+              break;
+            }
+            seen.add(n);
+          }
+          // Special case: A - A (exact duplicate around a hyphen)
+          if (!hasRepetition && parts.length === 2 && norm(parts[0]) === norm(parts[1])) {
+            hasRepetition = true;
+            repeatedSegment = parts[0];
+          }
+        }
+        if (hasRepetition) {
+          titleAnalysis.issues.push(`Title contains repeated segment: "${repeatedSegment}"`);
+          titleAnalysis.optimal = false;
+        } else {
+          titleAnalysis.optimal = true;
+        }
       }
     }
 
@@ -430,8 +459,8 @@ export class SEOAnalyzer {
       const hasLangAttribute = !!language;
       
       // Analyze text-to-HTML ratio
-      const textContent = document.body.textContent || '';
-      const htmlContent = document.body.innerHTML || '';
+      const textContent = document.body?.textContent || '';
+      const htmlContent = document.body?.innerHTML || '';
       const textToHtmlRatio = htmlContent.length > 0 ? (textContent.length / htmlContent.length) * 100 : 0;
       
       return {
@@ -510,7 +539,7 @@ export class SEOAnalyzer {
     };
   }> {
     const contentData = await page.evaluate(() => {
-      const bodyText = document.body.innerText || '';
+      const bodyText = document.body?.innerText || '';
       const words = bodyText.trim().split(/\s+/).filter(word => word.length > 0);
       const sentences = bodyText.split(/[.!?]+/).filter(s => s.trim().length > 0);
       const paragraphs = bodyText.split(/\n\s*\n/).filter(p => p.trim().length > 0);

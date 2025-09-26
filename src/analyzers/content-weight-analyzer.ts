@@ -76,33 +76,51 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
    * Main analyze method implementing BaseAnalyzer interface
    */
   async analyze(page: Page, url: string | { loc: string }, options: ContentWeightAnalysisOptions = {}): Promise<ContentWeightAnalysisResult> {
+    return this.analyzeWithResponses(page, url, options, []);
+  }
+
+  /**
+   * Enhanced analyze method that accepts pre-captured network responses
+   * This fixes the issue where network monitoring starts after page load
+   */
+  async analyzeWithResponses(page: Page, url: string | { loc: string }, options: ContentWeightAnalysisOptions = {}, networkResponses: Response[] = []): Promise<ContentWeightAnalysisResult> {
     // Extract URL string from URL object if needed
     const urlString = (typeof url === 'object' && url.loc ? url.loc : url) as string;
 
     const startTime = Date.now();
+
+    // Use a separate analysis page when we must reload to capture all responses
+    let analysisPage: Page = page;
+    let tempPage: Page | null = null;
     
     try {
-      // CRITICAL FIX: Set up response tracking BEFORE navigation or content loading
-      // This ensures we capture all network requests from the beginning
-      this.setupResponseTracking(page);
-      
-      // Use already loaded content - navigation is handled by main test flow
-      // Skip navigation completely to preserve page context for comprehensive analysis
-      // Wait for any dynamic resources to load
-      await page.waitForTimeout(1000);
+      // 🔧 CRITICAL FIX: Use pre-captured network responses instead of setting up tracking
+      // This ensures we capture all network requests from the beginning of page load
+      if (networkResponses.length > 0) {
+        this.responses = networkResponses;
+        if (options.verbose) {
+          console.log(`📊 Using ${this.responses.length} pre-captured network responses for analysis`);
+        }
+      } else {
+        // Strict capture on an isolated page to avoid interfering with other analyzers
+        const context = page.context();
+        tempPage = await context.newPage();
+        analysisPage = tempPage;
 
-      // Wait longer for any lazy-loaded content and final resource requests
-      await page.waitForTimeout(3000);
-      
-      if (options.verbose) {
-        console.log(`📊 Captured ${this.responses.length} network responses for analysis`);
+        this.setupResponseTracking(analysisPage);
+        const tsParam = (urlString.includes('?') ? '&' : '?') + 'ams_nocache=' + Date.now();
+        const freshUrl = urlString + tsParam;
+        await analysisPage.goto(freshUrl, { waitUntil: 'networkidle', timeout: options.analysisTimeout || 30000 });
+        if (options.verbose) {
+          console.log(`📊 Captured ${this.responses.length} network responses for analysis`);
+        }
       }
       
 
-      // Collect resource data
-      const contentWeight = await this.calculateContentWeight(page);
-      const contentAnalysis = await this.analyzeContentComposition(page);
-      const resourceTimings = options.includeResourceAnalysis ? await this.extractResourceTimings(page) : [];
+      // Collect resource data from the analysis page
+      const contentWeight = await this.calculateContentWeight(analysisPage);
+      const contentAnalysis = await this.analyzeContentComposition(analysisPage);
+      const resourceTimings = options.includeResourceAnalysis ? await this.extractResourceTimings(analysisPage) : [];
       
       const duration = Date.now() - startTime;
       
@@ -114,8 +132,7 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
       // Generate recommendations
       const recommendations = this.generateRecommendations(contentWeight, contentAnalysis);
 
-
-      return {
+      const result: ContentWeightAnalysisResult = {
         overallScore,
         grade,
         certificate,
@@ -128,9 +145,15 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
         recommendations
       };
 
+      return result;
+
     } catch (error) {
       console.error('❌ Content weight analysis failed:', error);
       throw new Error(`Content weight analysis failed: ${error}`);
+    } finally {
+      if (tempPage) {
+        try { await tempPage.close(); } catch {}
+      }
     }
   }
 
@@ -186,9 +209,10 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
       }
     }
 
+
     // Calculate compression metrics
-    weights.gzipTotal = totalTransferSize;
-    weights.compressionRatio = weights.total > 0 ? totalTransferSize / weights.total : 0;
+    weights.gzipTotal = totalTransferSize || weights.gzipTotal || 0;
+    weights.compressionRatio = weights.total > 0 ? (weights.gzipTotal / weights.total) : 0;
 
     return weights;
   }
@@ -417,6 +441,7 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
   private generateRecommendations(contentWeight: ContentWeight, contentAnalysis: ContentAnalysis): BaseRecommendation[] {
     const recommendations: BaseRecommendation[] = [];
 
+
     // Large image recommendations
     if (contentWeight.images > 1024 * 1024) { // > 1MB images
       recommendations.push({
@@ -472,6 +497,7 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
         scoreImprovement: 5
       });
     }
+
 
     return recommendations;
   }

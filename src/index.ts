@@ -79,8 +79,21 @@ program
       const baseUrl = new URL(sitemapUrl).origin;
       const localUrls = parser.convertToLocalUrls(filteredUrls, baseUrl);
 
+      // Initialize browser pool manager for accessibility checker
+      const { BrowserPoolManager } = require('./core/browser/browser-pool-manager');
+      const poolManager = new BrowserPoolManager({
+        maxInstances: 3,
+        acquireTimeout: 30000,
+        destroyTimeout: 5000,
+        headless: true
+      });
+      await poolManager.initialize();
+      
       // Initialize accessibility checker
-      const checker = new AccessibilityChecker();
+      const checker = new AccessibilityChecker({ 
+        poolManager,
+        enableComprehensiveAnalysis: false // Basic CLI only needs basic accessibility
+      });
       await checker.initialize();
 
       spinner.text = "Running accessibility tests...";
@@ -94,10 +107,17 @@ program
         pa11yStandard: options.standard,
       };
 
-      const results = await checker.testMultiplePagesParallel(
-        localUrls.map((url) => url.loc),
-        testOptions,
+      const urlsToTest = localUrls.map((url) => url.loc).slice(0, parseInt(options.maxPages));
+      const multi = await checker.testMultiplePages(
+        urlsToTest,
+        {
+          timeout: parseInt(options.timeout),
+          pa11yStandard: options.standard,
+          verbose: options.verbose,
+          maxConcurrent: 3
+        }
       );
+      const results = multi.results.map(r => r.accessibilityResult);
 
       // Create summary
       const summary: TestSummary = {

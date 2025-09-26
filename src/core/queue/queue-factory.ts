@@ -61,7 +61,7 @@ export class QueueFactory {
     const baseConfig: QueueConfig = {
       maxRetries: 3,
       retryDelay: 1000,
-      timeout: 10000,
+      timeout: 30000, // Increased from 10000ms to 30000ms for complex analysis
       enableEvents: true,
       enableProgressReporting: true,
       progressUpdateInterval: 1000
@@ -121,7 +121,7 @@ export class QueueFactory {
       maxConcurrent: 2, // Conservative for browser testing
       maxRetries: 3,
       retryDelay: 2000, // Longer delay for browser recovery
-      timeout: 30000, // Longer timeout for accessibility scans
+      timeout: 90000, // Extended timeout for complex comprehensive accessibility scans
       enableEvents: true,
       enableProgressReporting: true,
       progressUpdateInterval: 2000,

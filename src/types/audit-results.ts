@@ -128,6 +128,78 @@ export interface AccessibilityResult {
     /** Pa11y runner version */
     runner: string;
   };
+  /** Basic accessibility checks with counts */
+  basicChecks?: {
+    /** Number of images without alt attribute */
+    imagesWithoutAlt: number;
+    /** Number of buttons without aria-label */
+    buttonsWithoutLabel: number;
+    /** Total number of headings found */
+    headingsCount: number;
+    /** Number of potential color contrast issues */
+    contrastIssues?: number;
+  };
+  /** Comprehensive WCAG 2.1 analysis results */
+  wcagAnalysis?: {
+    /** Perceivable principle compliance */
+    perceivable: {
+      colorContrast: { violations: number; score: number };
+      textAlternatives: { violations: number; score: number };
+      captions: { violations: number; score: number };
+      adaptable: { violations: number; score: number };
+    };
+    /** Operable principle compliance */
+    operable: {
+      keyboardAccessible: { violations: number; score: number };
+      seizures: { violations: number; score: number };
+      navigable: { violations: number; score: number };
+      inputModalities: { violations: number; score: number };
+    };
+    /** Understandable principle compliance */
+    understandable: {
+      readable: { violations: number; score: number };
+      predictable: { violations: number; score: number };
+      inputAssistance: { violations: number; score: number };
+    };
+    /** Robust principle compliance */
+    robust: {
+      compatible: { violations: number; score: number };
+      parsing: { violations: number; score: number };
+    };
+  };
+  /** ARIA implementation analysis */
+  ariaAnalysis?: {
+    /** Total ARIA violations */
+    totalViolations: number;
+    /** ARIA landmarks usage */
+    landmarks: { present: string[]; missing: string[]; score: number };
+    /** ARIA roles implementation */
+    roles: { correct: number; incorrect: number; missing: number; score: number };
+    /** ARIA properties and states */
+    properties: { correct: number; incorrect: number; missing: number; score: number };
+    /** Live regions implementation */
+    liveRegions: { present: number; appropriate: number; score: number };
+  };
+  /** Form accessibility analysis */
+  formAnalysis?: {
+    /** Total form elements analyzed */
+    totalElements: number;
+    /** Form labeling issues */
+    labeling: { proper: number; missing: number; inadequate: number; score: number };
+    /** Form validation and error handling */
+    validation: { accessible: number; inaccessible: number; score: number };
+    /** Form focus management */
+    focusManagement: { proper: number; issues: number; score: number };
+  };
+  /** Keyboard navigation analysis */
+  keyboardAnalysis?: {
+    /** Focus indicators */
+    focusIndicators: { visible: number; missing: number; score: number };
+    /** Tab order analysis */
+    tabOrder: { logical: number; problematic: number; score: number };
+    /** Keyboard traps */
+    keyboardTraps: { detected: number; score: number };
+  };
 }
 
 /**

@@ -303,7 +303,7 @@ export class Chrome135Optimizer {
                 (window as any).__chrome135CLS = ((window as any).__chrome135CLS || 0) + (entry as any).value;
               }
             });
-            clsObserver.observe({ type: 'layout-shift', buffered: true });
+            clsObserver.observe({ entryTypes: ['layout-shift'] });
           } catch (e) {
             console.debug('CLS observer failed:', e);
           }
@@ -315,7 +315,7 @@ export class Chrome135Optimizer {
               const lastEntry = entries[entries.length - 1];
               (window as any).__chrome135LCP = lastEntry.startTime;
             });
-            lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+            lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
           } catch (e) {
             console.debug('LCP observer failed:', e);
           }

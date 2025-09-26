@@ -1,16 +1,28 @@
 #!/usr/bin/env node
 
+/**
+ * 🚀 AuditMySite CLI - Clean & Straightforward
+ * 
+ * 100% Event-driven workflow:
+ * CLI → Config → Sitemap-Discovery → AccessibilityChecker → Reports → Done
+ * 
+ * No fallbacks, no "what-if" logic, no workarounds.
+ */
+
 const { Command } = require('commander');
-const { StandardPipeline } = require('../dist/core');
 const { SitemapDiscovery } = require('../dist/core/parsers');
-const { log } = require('../dist/core/logging');
+const { SitemapParser } = require('../dist/parsers/sitemap-parser');
+const { AccessibilityChecker } = require('../dist/core/accessibility');
+const { BrowserPoolManager } = require('../dist/core/browser/browser-pool-manager');
+const { HTMLGenerator } = require('../dist/generators/html-generator');
+const { JsonGenerator } = require('../dist/generators/json-generator');
+const { FileQueueStateAdapter } = require('../dist/core/queue/file-queue-state-adapter');
 const inquirer = require('inquirer').default;
 const path = require('path');
+const fs = require('fs');
 const packageJson = require('../package.json');
 
 const program = new Command();
-const { FileQueueStateAdapter } = require('../dist/core/queue/file-queue-state-adapter');
-const { EventDrivenQueue } = require('../dist/core/pipeline/event-driven-queue');
 
 // 🎯 SIMPLIFIED CLI - Only 11 essential parameters!
 program
@@ -283,8 +295,6 @@ program
     }
     
     // Declare variables in outer scope for error handling
-    let pipelineOptions;
-    let pipeline;
     let summary;
     let outputFiles;
     let startTime;
@@ -308,10 +318,8 @@ program
         fs.mkdirSync(subDir, { recursive: true });
       }
       
-      // 🚀 Run the pipeline with simplified options
-      pipeline = new StandardPipeline();
-      
-      pipelineOptions = {
+      // Configuration for modern architecture
+      const modernAnalysisConfig = {
         sitemapUrl,
         maxPages: config.maxPages,
         timeout: config.timeout,
@@ -367,13 +375,16 @@ program
         
         // Parse sitemap
         const parser = new SitemapParser();
-        const urls = await parser.parseSitemap(finalSitemapUrl);
-        const limitedUrls = urls.slice(0, config.maxPages || 5);
         
-        if (config.verbose) console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${limitedUrls.length}`);
+        let urls;
+        try {
+          urls = await parser.parseSitemap(finalSitemapUrl);
+        } catch (parseError) {
+          throw parseError;
+        }
         
         // Check if we have any URLs to test
-        if (limitedUrls.length === 0) {
+        if (!urls || urls.length === 0) {
           console.log('❌ No URLs found in sitemap or sitemap is empty');
           console.log('💡 Please check:');
           console.log('   - The sitemap URL is correct and accessible');
@@ -382,237 +393,347 @@ program
           process.exit(1);
         }
         
-        startTime = Date.now(); // Use outer scope variable
+        console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${config.maxPages || 5}`);
         
-        // Show minimal progress for non-verbose mode
-        if (!config.verbose) {
-          console.log(`\n🔍 Analyzing ${limitedUrls.length} pages...`);
+        // 🎯 SMART URL SAMPLING - Find good pages, skip redirects
+        console.log('🚀 Starting accessibility analysis...');
+        console.log('✅ Using modern event-driven parallel testing architecture');
+        
+        const { AccessibilityChecker } = require('../dist/core/accessibility/accessibility-checker');
+        const { BrowserPoolManager } = require('../dist/core/browser/browser-pool-manager');
+        const { SilentLogger } = require('../dist/core/logging/structured-logger');
+        
+        // Initialize accessibility checker for smart sampling
+        if (config.verbose) console.log('🚀 Initializing smart URL sampler with comprehensive analysis...');
+        
+        // Create browser pool manager for improved performance
+        const poolManager = new BrowserPoolManager({
+          maxBrowsers: config.maxConcurrent || 2,
+          maxPagesPerBrowser: 5,
+          verbose: config.verbose
+        });
+        
+        // Initialize pool manager if method exists
+        if (typeof poolManager.initialize === 'function') {
+          await poolManager.initialize();
+        } else {
+          console.log('⚠️  Pool manager auto-initialization');
         }
         
-        // 🚀 EVENT-DRIVEN BROWSER PARALLELIZATION (Standard Architecture)
-        const results = [];
-        let successCount = 0;
-        let errorCount = 0;
-        let warningCount = 0;
-        let redirectCount = 0;
-        
-        // 🚀 USE ENHANCED AccessibilityChecker with comprehensive analysis
-        const { AccessibilityChecker } = require('../dist/core/accessibility');
-        
-        if (config.verbose) console.log('🚀 Initializing enhanced accessibility checker with comprehensive analysis...');
+        const qualityOptions = {
+          includeResourceAnalysis: true,
+          includeSocialAnalysis: false,
+          includeReadabilityAnalysis: true,
+          includeTechnicalSEO: true,
+          includeMobileFriendliness: true,
+          analysisTimeout: 30000,
+          // PSI-like lab profile enabled per user request
+          psiProfile: true,
+          psiCPUThrottlingRate: 4,
+          psiNetwork: { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 }
+        };
         const checker = new AccessibilityChecker({
-          usePooling: true, // Enable browser pooling by default
+          poolManager: poolManager,
+          logger: new SilentLogger(),
           enableComprehensiveAnalysis: true,
-          qualityAnalysisOptions: {
-            includeResourceAnalysis: true,
-            includeSocialAnalysis: false,
-            includeReadabilityAnalysis: true,
-            includeTechnicalSEO: true,
-            includeMobileFriendliness: true,
-            analysisTimeout: 30000
-          }
+          analyzerTypes: ['performance', 'seo', 'content-weight', 'mobile-friendliness'],
+          qualityAnalysisOptions: qualityOptions
         });
         
         await checker.initialize();
-        if (config.verbose) console.log('✨ Enhanced accessibility checker with comprehensive analysis initialized');
+        if (config.verbose) console.log('🔧 Initializing comprehensive analysis with all analyzers');
         
-        // 📈 EVENT-DRIVEN PARALLEL TESTING WITH COMPREHENSIVE ANALYSIS
-        if (config.verbose) console.log(`🚀 Starting event-driven parallel comprehensive analysis: ${limitedUrls.length} pages`);
+        console.log('🎯 Testing pages with automatic redirect filtering');
+        const allNormalizedUrls = urls.map(urlObj => typeof urlObj === 'string' ? urlObj : urlObj.loc);
         
-        // Normalize URLs from sitemap objects to strings
-        const normalizedUrls = limitedUrls.map(urlObj => 
-          typeof urlObj === 'string' ? urlObj : urlObj.loc
-        );
+        // Determine homepage (ensure it's first)
+        let homepageUrl;
+        try {
+          const base = new URL(finalSitemapUrl);
+          homepageUrl = base.origin + '/';
+        } catch {
+          homepageUrl = allNormalizedUrls[0];
+        }
         
-        // Real-time event callbacks for live JSON population - minimal output
-        const eventCallbacks = {
-          onUrlStarted: (url) => {
-            const shortUrl = url.split('/').pop() || url.split('/').slice(-2).join('/');
-            if (config.verbose) console.log(`🔍 Analyzing: ${shortUrl}`);
-          },
-          onUrlCompleted: (url, result, duration) => {
-            const shortUrl = url.split('/').pop() || url.split('/').slice(-2).join('/');
-            const errors = result.errors?.length || 0;
-            const warnings = result.warnings?.length || 0;
-            if (config.verbose) {
-              const status = result.passed ? '✅' : '⚠️';
-              console.log(`${status} ${shortUrl} (${duration}ms) - ${errors} errors, ${warnings} warnings`);
-            }
-            
-            // IMMEDIATE JSON POPULATION (event-driven approach)
-            const mappedResult = {
-              url: result.url,
-              title: result.title || 'N/A',
-              errors: result.errors?.length || 0,
-              warnings: result.warnings?.length || 0,
-              passed: result.passed,
-              crashed: result.crashed || false,
-              errorDetails: result.errors || [],
-              warningDetails: result.warnings || [],
-              pa11yScore: result.pa11yScore,
-              pa11yIssues: result.pa11yIssues,
-              // Map comprehensive analysis results
-              performance: result.enhancedPerformance || result.performance,
-              seo: result.enhancedSEO || result.seo,
-              contentWeight: result.contentWeight,
-              mobileFriendliness: result.mobileFriendliness,
-              qualityScore: result.qualityScore,
-              issues: {
-                pa11yScore: result.pa11yScore,
-                pa11yIssues: result.pa11yIssues,
-                performanceMetrics: result.performance?.metrics,
-                imagesWithoutAlt: result.imagesWithoutAlt || 0,
-                buttonsWithoutLabel: result.buttonsWithoutLabel || 0,
-                headingsCount: result.headingsCount || 0,
-                keyboardNavigation: result.keyboardNavigation || [],
-                colorContrastIssues: result.colorContrastIssues || [],
-                focusManagementIssues: result.focusManagementIssues || [],
-                screenshots: result.screenshots
+        // Smart sampling: pick the next non-redirecting URLs until we reach (targetCount - 1) because homepage will be added first
+        const targetCount = config.maxPages || 5;
+        const urlsToTest = [];
+        const redirectSkips = [];
+        
+        // Exclude homepage from candidates to avoid duplication
+        const candidates = allNormalizedUrls.filter(u => u !== homepageUrl);
+        
+        // Parallel batch minimal checks respecting a safe concurrency limit
+        const samplingConcurrency = Math.max(1, config.maxConcurrent || 2);
+        let index = 0;
+        while (urlsToTest.length < (targetCount - 1) && index < candidates.length) {
+          const batch = candidates.slice(index, index + samplingConcurrency);
+          index += batch.length;
+          const batchResults = await Promise.all(
+            batch.map(async (candidate) => {
+              try {
+                const mini = await checker.testUrlMinimal(candidate, 8000);
+                return { candidate, mini, error: null };
+              } catch (error) {
+                return { candidate, mini: null, error };
               }
-            };
-            
-            // Check for redirects in error messages
-            const hasRedirectError = result.errors?.some(error => 
-              typeof error === 'string' && error.includes('HTTP 301 Redirect')
-            ) || false;
-            
-            results.push(mappedResult);
-            
-            if (hasRedirectError) {
-              redirectCount++;
-              // Don't count redirects as passed or in error statistics
+            })
+          );
+          for (const r of batchResults) {
+            if (urlsToTest.length >= (targetCount - 1)) break;
+            if (r.error) {
+              // On minimal test failure, include the URL for full testing
+              urlsToTest.push(r.candidate);
+            } else if (r.mini.skipped && (r.mini.errors || []).some(e => /Redirect/i.test(e))) {
+              redirectSkips.push(r.candidate);
             } else {
-              if (result.passed) successCount++;
-              errorCount += result.errors?.length || 0;
-              warningCount += result.warnings?.length || 0;
+              urlsToTest.push(r.candidate);
             }
-          },
-          onUrlFailed: (url, error, attempts) => {
-            const shortUrl = url.split('/').pop() || url.split('/').slice(-2).join('/');
-            if (config.verbose) console.log(`⚠️ Issues found in ${shortUrl} (attempt ${attempts})`);
-            
-            // Add failed result to results immediately
-            const failedResult = {
-              url: url,
-              title: 'Error',
-              errors: 1,
-              warnings: 0,
-              passed: false,
-              crashed: true,
-              errorDetails: [error],
-              warningDetails: [],
-              pa11yScore: 0,
-              pa11yIssues: [],
-              performance: null,
-              seo: null,
-              contentWeight: null,
-              mobileFriendliness: null,
-              qualityScore: 0,
-              issues: {
-                pa11yScore: 0,
-                pa11yIssues: [],
-                performanceMetrics: null,
-                imagesWithoutAlt: 0,
-                buttonsWithoutLabel: 0,
-                headingsCount: 0,
-                keyboardNavigation: [],
-                colorContrastIssues: [],
-                focusManagementIssues: [],
-                screenshots: []
-              }
-            };
-            
-            results.push(failedResult);
-            errorCount += 1;
-          },
-          onProgressUpdate: (stats) => {
-            // Show minimal progress updates
-            if (!config.verbose && stats.progress % 33 === 0 && stats.progress > 0) {
-              process.stdout.write(`\r🔍 Progress: ${Math.round(stats.progress)}% (${stats.completed}/${stats.total})`);
-              if (stats.progress >= 100) process.stdout.write('\n');
-            } else if (config.verbose && stats.progress % 25 === 0) {
-              console.log(`📈 Progress: ${stats.progress.toFixed(1)}% (${stats.completed}/${stats.total})`);
+          }
+        }
+        
+        // Build final ordered test set: homepage first, then sampled URLs
+        const finalUrlsToTest = [homepageUrl, ...urlsToTest].slice(0, targetCount);
+        
+        console.log(`📈 Testing ${finalUrlsToTest.length} URLs (requested: ${targetCount})`);
+        if (redirectSkips.length > 0) {
+          console.log(`↪️  Skipped ${redirectSkips.length} redirected URLs during sampling`);
+        }
+        if (finalUrlsToTest.length < targetCount) {
+          console.log(`⚠️  Only ${finalUrlsToTest.length} non-redirect URLs available in sitemap (homepage forced first)`);
+        }
+        
+        // Phase 1: Test homepage with redirects allowed (to always analyze the landing page)
+        startTime = Date.now();
+        const homepageResult = await checker.testPage(homepageUrl, {
+          skipRedirects: false,
+          verbose: config.verbose,
+          timeout: 30000,
+          maxConcurrent: 1,
+          enableComprehensiveAnalysis: true
+        });
+        
+        // Phase 2: Test remaining pages with redirect filtering enabled
+        const restUrls = finalUrlsToTest.filter(u => u !== homepageUrl);
+        let testResult = await checker.testMultiplePages(restUrls, {
+          skipRedirects: true,
+          verbose: config.verbose,
+          timeout: 30000,
+          maxConcurrent: config.maxConcurrent || 2,
+          enableComprehensiveAnalysis: true
+        });
+        
+        // Combine results with homepage and ensure uniqueness
+        let combinedPageResults = [homepageResult, ...testResult.results].filter((v, i, arr) => v && arr.findIndex(x => x.url === v.url) === i);
+        
+        // Top-up: ensure we have targetCount non-skipped pages by sampling more if needed
+        const isNonSkipped = (r) => !(r && r.accessibilityResult && r.accessibilityResult.skipped);
+        let nonSkippedCount = combinedPageResults.filter(isNonSkipped).length;
+        
+        while (nonSkippedCount < targetCount && index < candidates.length) {
+          const need = targetCount - nonSkippedCount;
+          const batch = candidates.slice(index, index + Math.max(need, samplingConcurrency));
+          index += batch.length;
+          // Minimal checks first
+          const miniResults = await Promise.all(batch.map(async (candidate) => {
+            try {
+              const mini = await checker.testUrlMinimal(candidate, 8000);
+              return { candidate, mini, error: null };
+            } catch (error) {
+              return { candidate, mini: null, error };
             }
-          },
-          onQueueEmpty: () => {
-            if (config.verbose) console.log('🎉 All parallel tests completed!');
+          }));
+          const additional = miniResults
+            .filter(r => !(r.mini && r.mini.skipped && (r.mini.errors || []).some(e => /Redirect/i.test(e))))
+            .map(r => r.candidate)
+            .filter(u => u !== homepageUrl);
+          // Remove already tested
+          const already = new Set(combinedPageResults.map(r => r.url));
+          const additionalRest = additional.filter(u => !already.has(u)).slice(0, need);
+          if (additionalRest.length === 0) {
+            continue;
+          }
+          // Test additional batch
+          const addResult = await checker.testMultiplePages(additionalRest, {
+            skipRedirects: true,
+            verbose: config.verbose,
+            timeout: 30000,
+            maxConcurrent: config.maxConcurrent || 2,
+            enableComprehensiveAnalysis: true
+          });
+          combinedPageResults = [...combinedPageResults, ...addResult.results].filter((v, i, arr) => v && arr.findIndex(x => x.url === v.url) === i);
+          nonSkippedCount = combinedPageResults.filter(isNonSkipped).length;
+        }
+        
+        const limitedUrls = combinedPageResults.map(r => r.url);
+        
+        if (config.verbose) {
+          console.log(`📊 Testing Results:`);
+          console.log(`   ✅ Successfully tested: ${combinedPageResults.length} (non-skipped: ${nonSkippedCount})`);
+          console.log(`   🎯 Total duration: ${Math.round((Date.now() - startTime) / 1000)}s`);
+        } else {
+          console.log(`✅ Completed testing ${combinedPageResults.length} URLs (non-skipped: ${nonSkippedCount})`);
+        }
+        
+        if (limitedUrls.length === 0) {
+          console.log('❌ No accessible URLs found for testing');
+          console.log('💡 Possible issues:');
+          console.log('   - All URLs in sitemap redirect to other pages');
+          console.log('   - URLs are returning 404 or other errors');
+          console.log('   - Network connectivity issues');
+          console.log(`   - Tried ${urlsToTest.length} URLs from sitemap`);
+          
+          // Cleanup before exit
+          await checker.cleanup();
+          await poolManager.cleanup();
+          process.exit(1);
+        }
+        
+        startTime = Date.now(); // Use outer scope variable
+        
+      // Convert test results to the expected format
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+      let warningCount = 0;
+      let redirectCount = testResult.skippedUrls.length;
+
+      // Helper: map comprehensive analysis results array to structured fields expected by reports
+      function mapComprehensiveToPageFields(comprehensive) {
+        if (!comprehensive || !Array.isArray(comprehensive.results)) return {};
+        const out = {};
+        const res = comprehensive.results;
+        const byType = {};
+        res.forEach(r => {
+          const t = r?.metadata?.analyzerType;
+          if (t) byType[t] = r;
+        });
+        // Performance
+        if (byType['performance']) {
+          const p = byType['performance'];
+          out.performance = {
+            score: p.performanceScore ?? p.score ?? 0,
+            grade: p.performanceGrade ?? p.grade ?? 'F',
+            coreWebVitals: {
+              largestContentfulPaint: p.lcp ?? p.coreWebVitals?.lcp ?? p.coreWebVitals?.largestContentfulPaint ?? 0,
+              firstContentfulPaint: p.firstContentfulPaint ?? p.coreWebVitals?.fcp ?? p.coreWebVitals?.firstContentfulPaint ?? 0,
+              cumulativeLayoutShift: p.cls ?? p.coreWebVitals?.cls ?? p.coreWebVitals?.cumulativeLayoutShift ?? 0,
+              timeToFirstByte: p.ttfb ?? p.coreWebVitals?.ttfb ?? p.coreWebVitals?.timeToFirstByte ?? 0
+            },
+            metrics: {
+              domContentLoaded: p.domContentLoaded ?? p.metrics?.domContentLoaded ?? 0,
+              loadComplete: p.loadComplete ?? p.metrics?.loadComplete ?? 0,
+              firstPaint: p.firstPaint ?? p.metrics?.firstPaint ?? 0,
+              requestCount: p.requestCount ?? p.metrics?.requestCount ?? (Array.isArray(p.resourceLoadTimes) ? p.resourceLoadTimes.length : 0),
+              transferSize: p.transferSize ?? p.metrics?.transferSize ?? p.contentWeight?.gzipTotal ?? p.contentWeight?.total ?? 0
+            },
+            recommendations: p.recommendations || [],
+            issues: p.issues || []
+          };
+        }
+        // SEO
+        if (byType['seo']) {
+          const s = byType['seo'];
+          out.seo = {
+            score: s.score || s.seoScore || s.overallSEOScore || s.overallScore || 0,
+            grade: s.grade || s.seoGrade || 'F',
+            metaTags: s.metaTags || s.metaData || {},
+            headingStructure: s.headingStructure || s.headings || { h1: [], h2: [], h3: [], issues: [] },
+            issues: s.issues || []
+          };
+        }
+        // Content Weight
+        if (byType['content-weight']) {
+          const c = byType['content-weight'];
+          const cw = c.contentWeight || {};
+          const resources = cw.resources || cw.resourceAnalysis || {};
+          out.contentWeight = {
+            score: c.overallScore || c.score || c.contentScore || cw.contentQualityScore || 0,
+            grade: c.grade || 'F',
+            totalSize: cw.total || cw.totalSize || 0,
+            resources: {
+              html: { size: (resources.html?.size ?? resources.html ?? cw.html ?? 0) },
+              css: { size: (resources.css?.size ?? resources.css ?? cw.css ?? 0), files: (resources.css?.files ?? resources.css?.count ?? 0) },
+              javascript: { size: (resources.javascript?.size ?? resources.js?.size ?? resources.javascript ?? resources.js ?? cw.javascript ?? 0), files: (resources.javascript?.files ?? resources.js?.files ?? resources.javascript?.count ?? resources.js?.count ?? 0) },
+              images: { size: (resources.images?.size ?? resources.images ?? cw.images ?? 0), files: (resources.images?.files ?? resources.images?.count ?? 0) },
+              fonts: { size: (resources.fonts?.size ?? resources.fonts ?? cw.fonts ?? 0) },
+              other: { size: (resources.other?.size ?? resources.other ?? cw.other ?? 0) }
+            },
+            optimizations: c.recommendations || c.optimizations || []
+          };
+        }
+        // Mobile Friendliness
+        if (byType['mobile-friendliness']) {
+          const m = byType['mobile-friendliness'];
+          out.mobileFriendliness = {
+            overallScore: m.score || m.overallScore || 0,
+            grade: m.grade || 'F',
+            recommendations: m.recommendations || []
+          };
+          if (m.performance) {
+            out.mobileFriendliness.performance = m.performance;
+          }
+        }
+        return out;
+      }
+      
+      for (const pageResult of combinedPageResults) {
+        const accessibilityResult = pageResult.accessibilityResult;
+        const comprehensiveFields = mapComprehensiveToPageFields(pageResult.comprehensiveAnalysis);
+        const status = accessibilityResult.skipped ? 'skipped' : (accessibilityResult.passed ? 'passed' : (accessibilityResult.crashed ? 'crashed' : 'failed'));
+        const mappedResult = {
+          url: accessibilityResult.url,
+          title: accessibilityResult.title || 'N/A',
+          errors: accessibilityResult.errors?.length || 0,
+          warnings: accessibilityResult.warnings?.length || 0,
+          passed: accessibilityResult.passed,
+          crashed: accessibilityResult.crashed || false,
+          status,
+          errorDetails: accessibilityResult.errors || [],
+          warningDetails: accessibilityResult.warnings || [],
+          pa11yScore: accessibilityResult.pa11yScore,
+          pa11yIssues: accessibilityResult.pa11yIssues,
+          // Comprehensive analysis mapped fields
+          ...comprehensiveFields,
+          issues: {
+            pa11yScore: accessibilityResult.pa11yScore,
+            pa11yIssues: accessibilityResult.pa11yIssues,
+            performanceMetrics: comprehensiveFields.performance?.metrics,
+            imagesWithoutAlt: accessibilityResult.imagesWithoutAlt || 0,
+            buttonsWithoutLabel: accessibilityResult.buttonsWithoutLabel || 0,
+            headingsCount: accessibilityResult.headingsCount || 0,
+            keyboardNavigation: [],
+            colorContrastIssues: [],
+            focusManagementIssues: [],
+            screenshots: []
           }
         };
         
-        // Use modern event-driven parallel testing
-        const parallelResults = await checker.testMultiplePagesParallel(
-          normalizedUrls,
-          {
-            verbose: config.verbose,
-            collectPerformanceMetrics: true,
-            timeout: 30000,
-            wait: 3000,
-            includeWarnings: true,
-            includeNotices: true,
-            pa11yStandard: 'WCAG2AA',
-            maxConcurrent: config.maxConcurrent || 2,
-            maxRetries: 3,
-            retryDelay: 2000,
-            // 🎯 Event callbacks embedded in TestOptions for real-time JSON population
-            eventCallbacks: eventCallbacks
-          }
-        );
+        results.push(mappedResult);
         
-        console.log(`✅ Event-driven parallel testing completed: ${results.length} results populated`);
+        if (accessibilityResult.passed) successCount++;
+        errorCount += accessibilityResult.errors?.length || 0;
+        warningCount += accessibilityResult.warnings?.length || 0;
+      }
         
-        // Validate that results were populated via events
-        if (results.length === 0 && parallelResults.length > 0) {
-          console.log('📋 Fallback: Processing results from parallel return value...');
-          parallelResults.forEach(result => {
-            const mappedResult = {
-              url: result.url,
-              title: result.title || 'N/A',
-              errors: result.errors?.length || 0,
-              warnings: result.warnings?.length || 0,
-              passed: result.passed,
-              crashed: result.crashed || false,
-              errorDetails: result.errors || [],
-              warningDetails: result.warnings || [],
-              pa11yScore: result.pa11yScore,
-              pa11yIssues: result.pa11yIssues,
-              performance: result.enhancedPerformance,
-              seo: result.enhancedSEO,
-              contentWeight: result.contentWeight,
-              mobileFriendliness: result.mobileFriendliness,
-              qualityScore: result.qualityScore,
-              issues: {
-                pa11yScore: result.pa11yScore,
-                pa11yIssues: result.pa11yIssues,
-                performanceMetrics: result.performance?.metrics,
-                imagesWithoutAlt: result.imagesWithoutAlt || 0,
-                buttonsWithoutLabel: result.buttonsWithoutLabel || 0,
-                headingsCount: result.headingsCount || 0,
-                keyboardNavigation: result.keyboardNavigation || [],
-                colorContrastIssues: result.colorContrastIssues || [],
-                focusManagementIssues: result.focusManagementIssues || [],
-                screenshots: result.screenshots
-              }
-            };
-            
-            // Check for redirects in fallback processing
-            const hasRedirectError = result.errors?.some(error => 
-              typeof error === 'string' && error.includes('HTTP 301 Redirect')
-            ) || false;
-            
-            results.push(mappedResult);
-            
-            if (hasRedirectError) {
-              redirectCount++;
-              // Don't count redirects as passed or in error statistics
-            } else {
-              if (result.passed) successCount++;
-              errorCount += result.errors?.length || 0;
-              warningCount += result.warnings?.length || 0;
-            }
-          });
+        const actualResults = results;
+        
+        console.log(`\u2705 Testing completed: ${actualResults.length} pages analyzed`);
+        
+        // DEBUG: Log actual data structure for first result
+        if (actualResults.length > 0 && config.verbose) {
+          const firstResult = actualResults[0];
+          console.log('🔍 First result data structure:');
+          console.log(`   URL: ${firstResult.url}`);
+          console.log(`   Title: ${firstResult.title}`);
+          console.log(`   Status: passed=${firstResult.passed}, crashed=${firstResult.crashed}`);
+          console.log(`   Performance: ${firstResult.performance ? 'Present' : 'Missing'}`);
+          console.log(`   SEO: ${firstResult.seo ? 'Present' : 'Missing'}`);
+          console.log(`   Content Weight: ${firstResult.contentWeight ? 'Present' : 'Missing'}`);
+          console.log(`   Mobile Friendliness: ${firstResult.mobileFriendliness ? 'Present' : 'Missing'}`);
+          console.log(`   Pa11y Score: ${firstResult.pa11yScore}`);
+          console.log(`   Pa11y Issues: ${firstResult.pa11yIssues ? firstResult.pa11yIssues.length : 0}`);
         }
-        
-        console.log(`✅ Completed ${results.length} pages successfully`);
         
         // 🧹 COMPREHENSIVE CLEANUP to prevent hanging
         console.log('🧹 Cleaning up comprehensive analyzer resources...');
@@ -620,6 +741,11 @@ program
           // Cleanup AccessibilityChecker resources
           if (checker) {
             await checker.cleanup();
+          }
+          
+          // Cleanup BrowserPoolManager resources
+          if (poolManager) {
+            await poolManager.cleanup();
           }
           
           console.log('✅ All analyzer resources cleaned up');
@@ -631,8 +757,8 @@ program
         
         // Prepare typed audit data structure with system performance metrics
         const totalDuration = Date.now() - startTime;
-        const avgTimePerPage = totalDuration / results.length;
-        const throughputPagesPerMinute = (results.length / (totalDuration / 1000)) * 60;
+        const avgTimePerPage = totalDuration / actualResults.length;
+        const throughputPagesPerMinute = (actualResults.length / (totalDuration / 1000)) * 60;
         const memoryUsageAtEnd = process.memoryUsage();
         const peakMemoryMB = Math.round(memoryUsageAtEnd.heapUsed / 1024 / 1024);
         
@@ -641,13 +767,13 @@ program
             version: '1.0.0',
             timestamp: new Date().toISOString(),
             sitemapUrl: finalSitemapUrl,
-            toolVersion: '2.0.0-alpha.1',
+            toolVersion: '2.0.0-alpha.2',
             duration: totalDuration
           },
           systemPerformance: {
             testCompletionTimeSeconds: Math.round(totalDuration / 1000),
             parallelProcessing: {
-              pagesProcessed: results.length,
+              pagesProcessed: actualResults.length,
               concurrentWorkers: config.maxConcurrent || 2,
               averageTimePerPageMs: Math.round(avgTimePerPage),
               throughputPagesPerMinute: Math.round(throughputPagesPerMinute * 10) / 10
@@ -662,43 +788,87 @@ program
               eventDrivenParallel: true,
               comprehensiveAnalysis: true,
               browserPooling: true, // Now enabled by default
-              persistenceEnabled: persistenceConfig.enablePersistence
+              persistenceEnabled: false
+            },
+            measurementSettings: {
+              psiProfile: qualityOptions.psiProfile,
+              cpuThrottlingRate: qualityOptions.psiCPUThrottlingRate,
+              network: qualityOptions.psiNetwork
             }
           },
           summary: {
             totalPages: urls.length,
-            testedPages: results.length - redirectCount, // Exclude redirects from tested count
-            passedPages: successCount,
-            failedPages: results.length - successCount - redirectCount, // Exclude redirects from failed count
-            crashedPages: results.filter(r => r.crashed).length,
-            redirectPages: redirectCount, // Add redirect count
-            totalErrors: errorCount,
-            totalWarnings: warningCount
+            testedPages: actualResults.length, // Pages that were successfully analyzed
+            passedPages: actualResults.filter(r => r.passed).length,
+            failedPages: actualResults.filter(r => !r.passed && !r.crashed && r.status !== 'skipped').length,
+            crashedPages: actualResults.filter(r => r.crashed).length,
+            redirectPages: actualResults.filter(r => r.status === 'skipped').length,
+            totalErrors: actualResults.reduce((sum, r) => sum + ((Array.isArray(r.errorDetails) ? r.errorDetails.length : 0) + ((r.pa11yIssues || []).filter(i => i.type === 'error').length)), 0),
+            totalWarnings: actualResults.reduce((sum, r) => sum + ((Array.isArray(r.warningDetails) ? r.warningDetails.length : 0) + ((r.pa11yIssues || []).filter(i => i.type === 'warning').length)), 0)
           },
-          pages: results.map(page => ({
+          pages: actualResults.map(page => ({
             url: page.url,
             title: page.title,
-            status: page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed'),
-            duration: page.loadTime || 0,
+            status: page.status || (page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed')),
+            duration: page.duration || 0,
             accessibility: {
               score: page.pa11yScore || 0,
-              errors: page.pa11yIssues?.filter(i => i.type === 'error') || [],
-              warnings: page.pa11yIssues?.filter(i => i.type === 'warning') || [],
-              notices: page.pa11yIssues?.filter(i => i.type === 'notice') || []
+              errors: [
+                ...(page.pa11yIssues?.filter(i => i.type === 'error') || []),
+                ...(Array.isArray(page.errorDetails) ? page.errorDetails.map(err => ({ message: err, type: 'error', code: 'accessibility-error' })) : [])
+              ],
+              warnings: [
+                ...(page.pa11yIssues?.filter(i => i.type === 'warning') || []),
+                ...(Array.isArray(page.warningDetails) ? page.warningDetails.map(warn => ({ message: warn, type: 'warning', code: 'accessibility-warning' })) : [])
+              ],
+              notices: page.pa11yIssues?.filter(i => i.type === 'notice') || [],
+              basicChecks: {
+                imagesWithoutAlt: page.imagesWithoutAlt || 0,
+                buttonsWithoutLabel: page.buttonsWithoutLabel || 0,
+                headingsCount: page.headingsCount || 0,
+                contrastIssues: (Array.isArray(page.warningDetails) ? page.warningDetails.filter(w => typeof w === 'string' && w.includes('contrast')).length : 0)
+              },
+              wcagAnalysis: page.wcagAnalysis || undefined,
+              ariaAnalysis: page.ariaAnalysis || undefined,
+              formAnalysis: page.formAnalysis || undefined,
+              keyboardAnalysis: page.keyboardAnalysis || undefined
             },
             performance: (page.performance || page.enhancedPerformance) ? {
-              score: page.performance?.performanceScore || page.enhancedPerformance?.performanceScore || 0,
+              score: page.performance?.performanceScore || page.enhancedPerformance?.performanceScore || page.performance?.score || 0,
               grade: page.performance?.grade || page.enhancedPerformance?.grade || 'F',
               coreWebVitals: {
-                largestContentfulPaint: page.performance?.coreWebVitals?.lcp?.value || page.enhancedPerformance?.coreWebVitals?.lcp?.value || page.performance?.coreWebVitals?.lcp || page.enhancedPerformance?.coreWebVitals?.lcp || 0,
-                firstContentfulPaint: page.performance?.coreWebVitals?.fcp?.value || page.enhancedPerformance?.coreWebVitals?.fcp?.value || page.performance?.coreWebVitals?.fcp || page.enhancedPerformance?.coreWebVitals?.fcp || 0,
-                cumulativeLayoutShift: page.performance?.coreWebVitals?.cls?.value || page.enhancedPerformance?.coreWebVitals?.cls?.value || page.performance?.coreWebVitals?.cls || page.enhancedPerformance?.coreWebVitals?.cls || 0,
-                timeToFirstByte: page.performance?.metrics?.ttfb?.value || page.enhancedPerformance?.metrics?.ttfb?.value || page.performance?.metrics?.ttfb || page.enhancedPerformance?.metrics?.ttfb || 0
+                largestContentfulPaint:
+                  page.performance?.coreWebVitals?.largestContentfulPaint ||
+                  page.performance?.coreWebVitals?.lcp?.value ||
+                  page.enhancedPerformance?.coreWebVitals?.lcp?.value ||
+                  page.performance?.coreWebVitals?.lcp ||
+                  page.enhancedPerformance?.coreWebVitals?.lcp || 0,
+                firstContentfulPaint:
+                  page.performance?.coreWebVitals?.firstContentfulPaint ||
+                  page.performance?.firstContentfulPaint ||
+                  page.performance?.coreWebVitals?.fcp?.value ||
+                  page.enhancedPerformance?.coreWebVitals?.fcp?.value ||
+                  page.performance?.coreWebVitals?.fcp ||
+                  page.enhancedPerformance?.coreWebVitals?.fcp || 0,
+                cumulativeLayoutShift:
+                  page.performance?.coreWebVitals?.cumulativeLayoutShift ||
+                  page.performance?.coreWebVitals?.cls?.value ||
+                  page.enhancedPerformance?.coreWebVitals?.cls?.value ||
+                  page.performance?.coreWebVitals?.cls ||
+                  page.enhancedPerformance?.coreWebVitals?.cls || 0,
+                timeToFirstByte:
+                  page.performance?.coreWebVitals?.timeToFirstByte ||
+                  page.performance?.ttfb ||
+                  page.enhancedPerformance?.metrics?.ttfb?.value ||
+                  page.performance?.metrics?.ttfb ||
+                  page.enhancedPerformance?.metrics?.ttfb || 0
               },
               metrics: {
                 domContentLoaded: page.performance?.metrics?.domContentLoaded || page.enhancedPerformance?.metrics?.domContentLoaded || 0,
                 loadComplete: page.performance?.metrics?.loadComplete || page.enhancedPerformance?.metrics?.loadComplete || 0,
-                firstPaint: page.performance?.metrics?.firstPaint || page.enhancedPerformance?.metrics?.firstPaint || 0
+                firstPaint: page.performance?.metrics?.firstPaint || page.enhancedPerformance?.metrics?.firstPaint || 0,
+                requestCount: page.performance?.metrics?.requestCount || page.enhancedPerformance?.metrics?.requestCount || page.performance?.requestCount || page.enhancedPerformance?.requestCount || (Array.isArray(page.performance?.resourceLoadTimes) ? page.performance.resourceLoadTimes.length : 0),
+                transferSize: page.performance?.metrics?.transferSize || page.enhancedPerformance?.metrics?.transferSize || page.performance?.transferSize || page.enhancedPerformance?.transferSize || page.contentWeight?.totalSize || 0
               },
               issues: page.performance?.issues || page.enhancedPerformance?.issues || []
             } : undefined,
@@ -726,7 +896,12 @@ program
               resources: {
                 html: { size: page.contentWeight.resourceAnalysis?.html?.size || page.contentWeight.resources?.html?.size || 0 },
                 css: { size: page.contentWeight.resourceAnalysis?.css?.size || page.contentWeight.resources?.css?.size || 0, files: page.contentWeight.resourceAnalysis?.css?.count || page.contentWeight.resources?.css?.files || 0 },
-                javascript: { size: page.contentWeight.resourceAnalysis?.javascript?.size || page.contentWeight.resources?.javascript?.size || 0, files: page.contentWeight.resourceAnalysis?.javascript?.count || page.contentWeight.resources?.javascript?.files || 0 },
+                javascript: { 
+                  size: page.contentWeight.resourceAnalysis?.javascript?.size || page.contentWeight.resources?.javascript?.size || 
+                        page.contentWeight.resourceAnalysis?.js?.size || page.contentWeight.resources?.js?.size || 0, 
+                  files: page.contentWeight.resourceAnalysis?.javascript?.count || page.contentWeight.resources?.javascript?.files || 
+                         page.contentWeight.resourceAnalysis?.js?.count || page.contentWeight.resources?.js?.files || 0 
+                },
                 images: { size: page.contentWeight.resourceAnalysis?.images?.size || page.contentWeight.resources?.images?.size || 0, files: page.contentWeight.resourceAnalysis?.images?.count || page.contentWeight.resources?.images?.files || 0 },
                 other: { size: page.contentWeight.resourceAnalysis?.other?.size || page.contentWeight.resources?.other?.size || 0, files: page.contentWeight.resourceAnalysis?.other?.count || page.contentWeight.resources?.other?.files || 0 }
               },
@@ -735,6 +910,7 @@ program
             mobileFriendliness: page.mobileFriendliness ? {
               overallScore: page.mobileFriendliness.overallScore || 0,
               grade: page.mobileFriendliness.grade || 'F',
+              performance: page.mobileFriendliness.performance || undefined,
               recommendations: page.mobileFriendliness.recommendations || []
             } : undefined
           }))
@@ -743,7 +919,7 @@ program
         // Generate reports based on format
         if (config.format === 'json') {
           // JSON format: Complete typed data object
-          console.log('\n📊 Generating JSON report with complete data...');
+          console.log('\\n📊 Generating JSON report with complete data...');
           const { JsonGenerator } = require('../dist/generators/json-generator');
           const jsonGenerator = new JsonGenerator();
           
@@ -769,9 +945,22 @@ program
           
           // Extract all pa11y issues
           const detailedIssues = [];
-          // Extract all pa11y issues
-          results.forEach((page, index) => {
-            if (page.pa11yIssues && Array.isArray(page.pa11yIssues) && page.pa11yIssues.length > 0) {
+          
+          actualResults.forEach((page, index) => {
+            // Skip detailed issues for pages skipped due to redirects
+            if ((page && page.status) && page.status === 'skipped') {
+              return;
+            }
+            // Debug: Log what data we have for each page
+            const hasIssues = page.pa11yIssues && Array.isArray(page.pa11yIssues) && page.pa11yIssues.length > 0;
+            const hasErrorDetails = page.errorDetails && Array.isArray(page.errorDetails) && page.errorDetails.length > 0;
+            const hasWarningDetails = page.warningDetails && Array.isArray(page.warningDetails) && page.warningDetails.length > 0;
+            const hasErrors = page.errors && page.errors.length > 0;
+            const hasWarnings = page.warnings && page.warnings.length > 0;
+            
+            
+            // Extract pa11y issues if available
+            if (hasIssues) {
               page.pa11yIssues.forEach(issue => {
                 detailedIssues.push({
                   type: issue.type || 'accessibility',
@@ -794,10 +983,85 @@ program
                 });
               });
             }
+            
+            // Extract errorDetails/warningDetails as detailed issues
+            if (hasErrorDetails) {
+              page.errorDetails.forEach(error => {
+                detailedIssues.push({
+                  type: 'error',
+                  severity: 'error',
+                  message: error,
+                  code: 'accessibility-error',
+                  selector: null,
+                  context: null,
+                  htmlSnippet: null,
+                  pageUrl: page.url,
+                  pageTitle: page.title || 'Untitled Page',
+                  source: 'accessibility-checker',
+                  help: 'Please refer to WCAG guidelines',
+                  helpUrl: 'https://www.w3.org/WAI/WCAG21/quickref/',
+                  lineNumber: null,
+                  recommendation: 'Please refer to WCAG guidelines',
+                  resource: null,
+                  score: null,
+                  metric: null
+                });
+              });
+            }
+            
+            if (hasWarningDetails) {
+              page.warningDetails.forEach(warning => {
+                detailedIssues.push({
+                  type: 'warning',
+                  severity: 'warning',
+                  message: warning,
+                  code: 'accessibility-warning',
+                  selector: null,
+                  context: null,
+                  htmlSnippet: null,
+                  pageUrl: page.url,
+                  pageTitle: page.title || 'Untitled Page',
+                  source: 'accessibility-checker',
+                  help: 'Consider fixing this issue to improve accessibility',
+                  helpUrl: 'https://www.w3.org/WAI/WCAG21/quickref/',
+                  lineNumber: null,
+                  recommendation: 'Consider fixing this issue to improve accessibility',
+                  resource: null,
+                  score: null,
+                  metric: null
+                });
+              });
+            }
+            
+            // For completely failed pages without any issue data, add a diagnostic issue
+            if (!page.passed && !hasIssues && !hasErrorDetails && !hasWarningDetails) {
+              detailedIssues.push({
+                type: 'error',
+                severity: 'error',
+                message: 'Page failed accessibility test but no specific issues were detected. This may indicate a technical problem during testing.',
+                code: 'test-failure',
+                selector: null,
+                context: null,
+                htmlSnippet: null,
+                pageUrl: page.url,
+                pageTitle: page.title || 'Untitled Page',
+                source: 'audit-system',
+                help: 'Rerun the test or check if the page is accessible and loads correctly',
+                helpUrl: null,
+                lineNumber: null,
+                recommendation: 'Investigate why the accessibility test failed for this page',
+                resource: null,
+                score: null,
+                metric: null
+              });
+            }
           });
           
+          
+          
           if (detailedIssues.length > 0) {
-            const detailedMarkdown = DetailedIssueMarkdownReport.generate(detailedIssues);
+            const skippedPages = actualResults.filter(p => p.status === 'skipped').map(p => ({ url: p.url, title: p.title, reason: 'HTTP Redirect' }));
+            const detailedMarkdown = DetailedIssueMarkdownReport.generate(detailedIssues, { skippedPages });
             const detailedPath = path.join(subDir, `detailed-issues-${dateOnly}.md`);
             require('fs').writeFileSync(detailedPath, detailedMarkdown);
             outputFiles = [reportPath, detailedPath];
@@ -807,93 +1071,28 @@ program
             console.log('✅ HTML report generated (no detailed issues found)');
           }
         }
-        
         const totalTime = Math.round((Date.now() - startTime) / 1000);
-        console.log(`✅ Analysis completed: ${results.length} pages in ${formatTime(totalTime)}`);
+        console.log(`\u2705 Analysis completed: ${actualResults.length} pages in ${formatTime(totalTime)}`);
         
         // Show results (using same format as standard pipeline)
         summary = {
-          testedPages: results.length,
-          passedPages: successCount,
-          failedPages: results.length - successCount,
-          crashedPages: results.filter(r => r.crashed).length,
-          totalErrors: errorCount,
-          totalWarnings: warningCount
+          testedPages: actualResults.length,
+          passedPages: actualResults.filter(r => r.passed).length,
+          failedPages: actualResults.filter(r => !r.passed && !r.crashed).length,
+          crashedPages: actualResults.filter(r => r.crashed).length,
+          totalErrors: actualResults.reduce((sum, r) => sum + (r.errors?.length || 0), 0),
+          totalWarnings: actualResults.reduce((sum, r) => sum + (r.warnings?.length || 0), 0)
         };
         // startTime already set above, no need to recalculate
         
         // Continue to standard success output below...
         
         } catch (analysisError) {
-          console.error(`\n⚠️  Enhanced Analysis failed: ${analysisError.message}`);
-          console.log('🔄 Falling back to standard accessibility analysis with HTMLGenerator...');
-          
-          // Fallback to standard pipeline BUT still use HTMLGenerator for report generation
-          const standardResult = await runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pipeline);
-          
-          // Override report generation to use HTMLGenerator
-          if (config.format !== 'json') {
-            console.log('📝 Generating HTML report (fallback mode)...');
-            const { HTMLGenerator } = require('../dist/generators/html-generator');
-            const generator = new HTMLGenerator();
-            
-            // Create compatible data structure for EnhancedHTMLGenerator
-            const fallbackAuditData = {
-              metadata: {
-                version: '1.0.0',
-                timestamp: new Date().toISOString(),
-                sitemapUrl: finalSitemapUrl,
-                toolVersion: '2.0.0-alpha.1',
-                duration: Date.now() - startTime
-              },
-              summary: {
-                totalPages: standardResult.summary.totalPages || urls?.length || 0,
-                testedPages: standardResult.summary.testedPages || 0,
-                passedPages: standardResult.summary.passedPages || 0,
-                failedPages: standardResult.summary.failedPages || 0,
-                crashedPages: standardResult.summary.crashedPages || 0,
-                totalErrors: standardResult.summary.totalErrors || 0,
-                totalWarnings: standardResult.summary.totalWarnings || 0,
-                overallScore: Math.max(0, 100 - ((standardResult.summary.totalErrors || 0) * 5) - ((standardResult.summary.totalWarnings || 0) * 2)),
-                overallGrade: calculateGrade(Math.max(0, 100 - ((standardResult.summary.totalErrors || 0) * 5) - ((standardResult.summary.totalWarnings || 0) * 2))),
-                certificateLevel: calculateCertificateLevel(Math.max(0, 100 - ((standardResult.summary.totalErrors || 0) * 5) - ((standardResult.summary.totalWarnings || 0) * 2)))
-              },
-              pages: (standardResult.results || []).map(page => ({
-                url: page.url,
-                title: page.title,
-                status: page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed'),
-                duration: page.duration || 0,
-                accessibility: {
-                  score: page.pa11yScore || 0,
-                  errors: page.errorDetails || page.errors || [],
-                  warnings: page.warningDetails || page.warnings || [],
-                  notices: []
-                },
-                performance: page.performance || undefined,
-                seo: page.seo || undefined,
-                contentWeight: page.contentWeight || undefined,
-                mobileFriendliness: page.mobileFriendliness || undefined
-              }))
-            };
-            
-            const htmlContent = await generator.generate(fallbackAuditData);
-            const reportPath = path.join(subDir, `accessibility-report-${dateOnly}.html`);
-            require('fs').writeFileSync(reportPath, htmlContent);
-            standardResult.outputFiles = [reportPath, ...standardResult.outputFiles];
-            console.log('✅ Fallback HTML report generated with HTMLGenerator');
-          }
-          
-          return standardResult;
+          console.error(`\n❌ Enhanced Analysis failed: ${analysisError.message}`);
+          console.error('No fallback available - modern architecture only');
+          throw analysisError;
         }
-        
-      } else {
-        // Use standard pipeline
-        const standardResult = await runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pipeline);
-        summary = standardResult.summary;
-        outputFiles = standardResult.outputFiles;
-        startTime = Date.now() - (standardResult.totalTime * 1000); // Reconstruct startTime
-      }
-      
+      } // End of useStandardAnalysis block
       const totalTime = Math.round((Date.now() - startTime) / 1000);
       console.log(`✅ Completed ${summary.testedPages} pages in ${formatTime(totalTime)}`);
       
@@ -951,65 +1150,10 @@ program
       const errorType = categorizeError(error);
       console.error(`\n❌ ${errorType.type}: ${errorType.message}`);
       
-      if (errorType.recoverable && !options.nonInteractive) {
-        console.log('\n🔄 Attempting automatic recovery...');
-        
-        try {
-          // Try with safer options
-          console.log('🔄 Retrying with conservative settings...');
-          
-          const saferOptions = {
-            ...(pipelineOptions || {}),
-            maxConcurrent: 1,
-            timeout: 20000,
-            collectPerformanceMetrics: false,
-            maxPages: Math.min((pipelineOptions?.maxPages || 10), 3)
-          };
-          
-          // Ensure pipeline is initialized
-          if (!pipeline) {
-            pipeline = new StandardPipeline();
-          }
-          
-          const { summary, outputFiles } = await pipeline.run(saferOptions);
-          
-          console.log('✅ Recovery successful with limited scope');
-          console.log('⚠️  Note: Test completed with reduced scope due to initial error');
-          
-          // Continue with success output but warn user
-          const successRate = summary.testedPages > 0 ? 
-            (summary.passedPages / summary.testedPages * 100).toFixed(1) : 0;
-          
-          console.log(`\n📊 Partial Results:`);
-          console.log(`   📄 Tested: ${summary.testedPages} pages (reduced from ${pipelineOptions?.maxPages || 'unknown'})`);
-          console.log(`   ✅ Passed: ${summary.passedPages}`);
-          console.log(`   ❌ Failed: ${summary.failedPages}`);
-          console.log(`   ⚠️  Success Rate: ${successRate}%`);
-          
-          if (outputFiles.length > 0) {
-            console.log(`\n📁 Generated reports:`);
-            outputFiles.forEach(file => {
-              const filename = path.basename(file);
-              if (filename.includes('detailed-issues')) {
-                console.log(`   📄 ${filename}`);
-              } else if (filename.includes('performance-issues')) {
-                console.log(`   📄 ${filename}`);
-              } else if (filename.includes('accessibility-report')) {
-                console.log(`   📄 ${filename}`);
-              } else {
-                console.log(`   📄 ${filename}`);
-              }
-            });
-          }
-          
-          console.log('\n💡 Recommendation: Try running with --expert mode for more control');
-          // Only exit with code 1 for technical crashes, not accessibility failures
-          process.exit(summary.crashedPages > 0 ? 1 : 0);
-          
-        } catch (recoveryError) {
-          console.error('❌ Recovery attempt failed:', categorizeError(recoveryError).message);
-        }
-      }
+      // Recovery system removed - modern architecture handles errors directly
+      console.log('\n⚠️  Error occurred during analysis - no automatic recovery available');
+      console.log('💡 Use --expert mode for custom settings or try with fewer pages');
+      console.log('🔍 Check the error details and suggestions below for guidance');
       
       // Show helpful suggestions
       console.log('\n💡 Troubleshooting suggestions:');
@@ -1145,50 +1289,7 @@ function categorizeError(error) {
 
 // Streaming audit function removed in CLI simplification - no longer needed
 
-// Helper function to run standard pipeline (used as fallback)
-async function runStandardPipeline(finalSitemapUrl, config, pipelineOptions, pipeline) {
-  console.log('\\n🎯 Starting standard accessibility test...');
-  
-  // Get actual page count from sitemap
-  let actualPageCount = config.maxPages;
-  try {
-    const { SitemapParser } = require('../dist/parsers/sitemap-parser');
-    const parser = new SitemapParser();
-    const urls = await parser.parseSitemap(finalSitemapUrl);
-    
-    // Check if we have any URLs to test
-    if (urls.length === 0) {
-      console.log('❌ No URLs found in sitemap or sitemap is empty');
-      console.log('💡 Please check:');
-      console.log('   - The sitemap URL is correct and accessible');
-      console.log('   - The sitemap contains valid URL entries');
-      console.log('   - The sitemap is properly formatted XML');
-      throw new Error('Empty sitemap');
-    }
-    
-    actualPageCount = config.maxPages === 1000 ? urls.length : Math.min(urls.length, config.maxPages);
-    console.log(`📈 Found ${urls.length} URLs in sitemap, testing ${actualPageCount}`);
-  } catch (error) {
-    if (error.message === 'Empty sitemap') {
-      process.exit(1);
-    }
-    console.log('⚙️  Could not parse sitemap, using default page count');
-  }
-  
-  const startTime = Date.now();
-  
-  // Update pipeline options with discovered sitemap URL
-  pipelineOptions.sitemapUrl = finalSitemapUrl;
-  
-  console.log(`✨ ${actualPageCount === 1 ? '1 page' : actualPageCount + ' pages'} will be tested...`);
-  
-  const { summary, outputFiles } = await pipeline.run(pipelineOptions);
-  
-  const totalTime = Math.round((Date.now() - startTime) / 1000);
-  console.log(`✅ Completed ${summary.testedPages} pages in ${formatTime(totalTime)}`);
-  
-  return { summary, outputFiles, totalTime };
-}
+// Legacy runStandardPipeline function removed - using modern AccessibilityChecker architecture only
 
 // Legacy report generators removed - using UnifiedHTMLGenerator exclusively
 
