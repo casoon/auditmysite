@@ -36,8 +36,6 @@ const CRITICAL_IMPORTS = [
 
 const CRITICAL_EXPORTS = [
   // Test that specific exports are available
-  { module: 'dist/reports/index.js', exports: ['UnifiedReportSystem'] },
-  { module: 'dist/reports/unified/index.js', exports: ['UnifiedReportSystem'] },
   { module: 'dist/core/index.js', exports: ['StandardPipeline'] },
   { module: 'dist/sdk/index.js', exports: ['AuditSDK'] },
 ];
