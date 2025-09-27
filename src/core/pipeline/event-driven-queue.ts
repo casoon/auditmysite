@@ -155,7 +155,7 @@ export class EventDrivenQueue extends EventEmitter {
       retryDelay: 1000,
       enableEvents: true,
       enableShortStatus: true,
-      statusUpdateInterval: 2000,
+      statusUpdateInterval: 5000, // Reduced frequency - every 5 seconds instead of 2
       enableBackpressure: false,
       enableResourceMonitoring: false,
       hardTimeout: 30000,
@@ -467,7 +467,11 @@ export class EventDrivenQueue extends EventEmitter {
   }
 
   private checkQueueEmpty(): void {
-    if (this.queue.length === 0 && this.activeWorkers.size === 0) {
+    const pendingUrls = this.queue.filter(q => q.status === 'pending' || q.status === 'retrying');
+    console.log(`🔍 checkQueueEmpty: pending=${pendingUrls.length}, activeWorkers=${this.activeWorkers.size}, totalQueue=${this.queue.length}`);
+    
+    if (pendingUrls.length === 0 && this.activeWorkers.size === 0) {
+      console.log('📝 Queue is empty - processing complete');
       this.isProcessing = false;
       
       // Stop monitoring
@@ -500,13 +504,18 @@ export class EventDrivenQueue extends EventEmitter {
   }
 
   getStats(): QueueStats {
-    const total = this.queue.length + this.completed.length + this.failed.length;
+    // Get unique URLs from queue, completed and failed to avoid double-counting
+    const allUrls = new Set<string>([...this.queue.map(q => q.url), ...this.completed.map(q => q.url), ...this.failed.map(q => q.url)]);
+    const total = allUrls.size;
     const pending = this.queue.filter(q => q.status === 'pending').length;
     const inProgress = this.queue.filter(q => q.status === 'in-progress').length;
     const completed = this.completed.length;
     const failed = this.failed.length;
     const retrying = this.queue.filter(q => q.status === 'retrying').length;
     const progress = total > 0 ? ((completed + failed) / total) * 100 : 0;
+    
+    // Debug progress calculation
+    console.log(`📊 Queue stats: total=${total}, completed=${completed}, failed=${failed}, progress=${progress.toFixed(2)}%`);
     
     // Calculate average duration
     const completedWithDuration = this.completed.filter(q => q.duration);
@@ -787,12 +796,26 @@ export class EventDrivenQueue extends EventEmitter {
    */
   private async worker(workerId: number, options: ProcessOptions): Promise<void> {
     let consecutiveIdleAttempts = 0;
-    const maxIdleAttempts = 50; // Exit after 5 seconds of idle (50 * 100ms)
+    const maxIdleAttempts = 20; // Exit after 2 seconds of idle (20 * 100ms)
     
-    while (this.queue.length > 0 || this.activeWorkers.size > 0) {
-      // Check if processing was stopped
-      if (!this.isProcessing) {
-        break;
+    console.log(`🚀 Worker ${workerId} starting`);
+    
+    while (this.isProcessing) {
+      const pendingUrls = this.queue.filter(q => q.status === 'pending' || q.status === 'retrying');
+      
+      // Exit if no pending work remains
+      if (pendingUrls.length === 0) {
+        consecutiveIdleAttempts++;
+        
+        // Quick exit if no work is available
+        if (consecutiveIdleAttempts > maxIdleAttempts) {
+          console.log(`😴 Worker ${workerId} - no work available, exiting`);
+          break;
+        }
+        
+        // Short wait before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
       }
       
       const queuedUrl = await this.getNextUrl();
@@ -800,15 +823,13 @@ export class EventDrivenQueue extends EventEmitter {
       if (!queuedUrl) {
         consecutiveIdleAttempts++;
         
-        // Prevent infinite waiting and timeout accumulation
         if (consecutiveIdleAttempts > maxIdleAttempts) {
           console.log(`😴 Worker ${workerId} idle timeout - exiting`);
           break;
         }
         
-        // Exponential backoff to reduce CPU usage
-        const delay = Math.min(100 * Math.pow(1.2, consecutiveIdleAttempts), 1000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Short wait before checking again
+        await new Promise(resolve => setTimeout(resolve, 100));
         continue;
       }
       
@@ -879,10 +900,7 @@ export class EventDrivenQueue extends EventEmitter {
     
     const elapsed = this.startTime ? Math.round((Date.now() - this.startTime.getTime()) / 1000) : 0;
     
-    // Fix: Clear line before writing new status and force console output
-    console.log(`\r🚀 Testing pages... ${progressBar} ${progress}% (${stats.completed}/${stats.total})`);
-    console.log(`   ${eta}Speed: ${speed.toFixed(1)} pages/min | Elapsed: ${elapsed}s`);
-    
+    // Only return the status string - don't print here to avoid spam
     return `🚀 Testing pages... ${progressBar} ${progress}% (${stats.completed}/${stats.total})\n   ${eta}Speed: ${speed.toFixed(1)} pages/min | Elapsed: ${elapsed}s`;
   }
   

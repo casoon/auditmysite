@@ -2,7 +2,7 @@ import { AuditIssue } from '@core/types';
 import { groupByPage, sortBySeverity, sortByType } from './report-utils';
 
 export class DetailedIssueMarkdownReport {
-  static generate(issues: AuditIssue[], options?: { verbose?: boolean }): string {
+  static generate(issues: AuditIssue[], options?: { verbose?: boolean, skippedPages?: { url: string, title?: string, reason?: string }[] }): string {
     if (!Array.isArray(issues)) issues = [];
     
     if (options?.verbose) {
@@ -51,6 +51,20 @@ export class DetailedIssueMarkdownReport {
         if (issue.metric) lines.push(`- **Metric:** ${issue.metric}`);
         lines.push('');
       });
+    }
+
+    // Append skipped redirects section if provided
+    if (options?.skippedPages && options.skippedPages.length > 0) {
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+      lines.push('## Skipped (Redirects)');
+      options.skippedPages.forEach(sp => {
+        const reason = sp.reason || 'HTTP Redirect';
+        const title = sp.title ? ` (${sp.title})` : '';
+        lines.push(`- ${sp.url}${title} — ${reason}`);
+      });
+      lines.push('');
     }
 
     return lines.join('\n');

@@ -38,12 +38,31 @@ export class AccessibilityService {
   private parser: SitemapParser;
 
   constructor() {
-    this.checker = new (require('@core/accessibility').AccessibilityChecker)(); // Dynamically import AccessibilityChecker
+    // Delay initialization until initialize() is called
+    this.checker = null;
     this.parser = new SitemapParser();
   }
 
   async initialize(): Promise<void> {
-    await this.checker.initialize();
+    if (!this.checker) {
+      // Create BrowserPoolManager for AccessibilityChecker
+      const { BrowserPoolManager } = require('@core/browser/browser-pool-manager');
+      const poolManager = new BrowserPoolManager({
+        maxInstances: 3,
+        acquireTimeout: 30000,
+        destroyTimeout: 5000,
+        headless: true
+      });
+      await poolManager.initialize();
+      
+      // Dynamically import AccessibilityChecker
+      const { AccessibilityChecker } = require('@core/accessibility');
+      this.checker = new AccessibilityChecker({
+        poolManager,
+        enableComprehensiveAnalysis: true
+      });
+      await this.checker.initialize();
+    }
   }
 
   async cleanup(): Promise<void> {

@@ -10,7 +10,20 @@ export class AccessibilityService {
 
   async initialize(): Promise<void> {
     if (!this.checker) {
-      this.checker = new AccessibilityChecker();
+      // Create BrowserPoolManager for AccessibilityChecker
+      const { BrowserPoolManager } = require('../../core/browser/browser-pool-manager');
+      const poolManager = new BrowserPoolManager({
+        maxInstances: 2, // API service uses fewer instances
+        acquireTimeout: 30000,
+        destroyTimeout: 5000,
+        headless: true
+      });
+      await poolManager.initialize();
+      
+      this.checker = new AccessibilityChecker({
+        poolManager,
+        enableComprehensiveAnalysis: false // API service only needs basic accessibility
+      });
       await this.checker.initialize();
     }
   }
@@ -23,12 +36,13 @@ export class AccessibilityService {
 
     try {
       // Run single URL accessibility test
-      const result = await this.checker!.testPage(url, {
+      const pageResult = await this.checker!.testPage(url, {
         timeout: 10000,
-        waitUntil: 'domcontentloaded',
         pa11yStandard: options.pa11yStandard || 'WCAG2AA',
         includeWarnings: options.includeWarnings || false
       });
+
+      const result = pageResult.accessibilityResult;
 
       // Convert to typed AccessibilityResult
       return {

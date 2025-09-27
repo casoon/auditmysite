@@ -98,7 +98,31 @@ export class StandardPipeline {
       await enhancedChecker.initialize(browserManager);
       checker = enhancedChecker; // Use enhanced checker as the main checker
     } else {
-      checker = new AccessibilityChecker();
+      // Create BrowserPoolManager for AccessibilityChecker
+      const { BrowserPoolManager } = require('../browser/browser-pool-manager');
+      const poolManager = new BrowserPoolManager({
+        maxInstances: 3,
+        acquireTimeout: 30000,
+        destroyTimeout: 5000,
+        headless: true
+      });
+      await poolManager.initialize();
+      
+      // Create AccessibilityChecker with comprehensive analysis enabled by default
+      // This ensures all analysis features (Performance, SEO, Content Weight, Mobile) are available
+      checker = new AccessibilityChecker({
+        poolManager,
+        enableComprehensiveAnalysis: true,
+        qualityAnalysisOptions: {
+          verbose: false, // Keep console output clean for CLI
+          includeResourceAnalysis: true,
+          includeSocialAnalysis: true,
+          includeReadabilityAnalysis: true,
+          includeTechnicalSEO: true,
+          includeMobileFriendliness: true,
+          analysisTimeout: 30000
+        }
+      });
       await checker.initialize();
     }
     
@@ -129,83 +153,35 @@ export class StandardPipeline {
       console.log(`   🔧 Workers: ${options.maxConcurrent || 3} | Retries: ${options.maxRetries || 3} | Delay: ${options.retryDelay || 2000}ms`);
     }
     
-    // Execute tests
-    const testOptions: TestOptions = {
+    // Execute tests using modern AccessibilityChecker API
+    const pageTestOptions: any = {
       maxPages: maxPages,
       timeout: options.timeout || 10000,
-      waitUntil: 'domcontentloaded',
       pa11yStandard: options.pa11yStandard || 'WCAG2AA',
       hideElements: options.hideElements,
       includeNotices: options.includeNotices,
       includeWarnings: options.includeWarnings,
       wait: options.wait,
-      // 🆕 New Playwright options
-      collectPerformanceMetrics: options.collectPerformanceMetrics,
-      captureScreenshots: options.captureScreenshots,
-      testKeyboardNavigation: options.testKeyboardNavigation,
-      testColorContrast: options.testColorContrast,
-      testFocusManagement: options.testFocusManagement,
-      blockImages: options.blockImages,
-      blockCSS: options.blockCSS,
-      mobileEmulation: options.mobileEmulation,
-      viewportSize: options.viewportSize,
-      userAgent: options.userAgent,
-      // 🚀 Parallel test options
-      useParallelTesting: !options.useSequentialTesting, // Keep this for compatibility, but it's now the default
-      maxConcurrent: options.maxConcurrent,
-      maxRetries: options.maxRetries,
-      retryDelay: options.retryDelay,
-      enableProgressBar: options.enableProgressBar,
-      progressUpdateInterval: options.progressUpdateInterval,
-      enableResourceMonitoring: options.enableResourceMonitoring,
-      maxMemoryUsage: options.maxMemoryUsage,
-      maxCpuUsage: options.maxCpuUsage
+      maxConcurrent: options.maxConcurrent
     };
-    
-    // Choose between enhanced analysis and regular analysis
-    let results: AccessibilityResult[];
-    
-    if (options.useEnhancedAnalysis && enhancedChecker) {
-      console.log('🆕 Running Enhanced Analysis Tests...');
-      const enhancedTestOptions = {
-        ...testOptions,
-        enhancedAnalysis: true,
-        contentWeightAnalysis: options.contentWeightAnalysis !== false,
-        enhancedPerformanceAnalysis: options.enhancedPerformanceAnalysis !== false,
-        enhancedSeoAnalysis: options.enhancedSeoAnalysis !== false,
-        semanticAnalysis: true
-      };
-      
-      results = await enhancedChecker.testMultiplePagesWithEnhancedAnalysis(
-        limitedUrls.map((url: any) => url.loc),
-        enhancedTestOptions
-      );
-    } else {
-      // Regular accessibility tests with modern queue system
-      if (options.useSequentialTesting) {
-        console.log('📋 Use sequential tests (Legacy mode)...');
-        results = await checker.testMultiplePagesParallel(
-          limitedUrls.map((url: any) => url.loc),
-          testOptions
-        );
-      } else {
-        console.log('🔧 Use Queue System (Recommended)...');
-        results = await checker.testMultiplePagesWithQueue(
-          limitedUrls.map((url: any) => url.loc),
-          testOptions
-        );
-      }
-    }
-    
+
+    const multiResult = await checker.testMultiplePages(
+      limitedUrls.map((url: any) => url.loc),
+      pageTestOptions
+    );
+
+    // Map PageTestResult[] to AccessibilityResult[] for legacy consumers
+    const results: AccessibilityResult[] = multiResult.results.map(r => r.accessibilityResult);
+
     console.log('\n📋 Creating test summary...');
     
     // Create summary
     const summary: TestSummary = {
-      totalPages: limitedUrls.length, // 🆕 Use limitedUrls instead of localUrls
+      totalPages: limitedUrls.length,
       testedPages: results.length,
       passedPages: results.filter(r => r.passed).length,
-      failedPages: results.filter(r => !r.passed && !r.crashed).length, // Only accessibility failures
-      crashedPages: results.filter(r => r.crashed === true).length, // 🆕 Technical crashes
+      failedPages: results.filter(r => !r.passed && !r.crashed).length,
+      crashedPages: results.filter(r => r.crashed === true).length,
       totalErrors: results.reduce((sum, r) => sum + r.errors.length, 0),
       totalWarnings: results.reduce((sum, r) => sum + r.warnings.length, 0),
       totalDuration: results.reduce((sum, r) => sum + r.duration, 0),

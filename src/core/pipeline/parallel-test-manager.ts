@@ -80,7 +80,7 @@ export class ParallelTestManager {
   private options: ParallelTestManagerOptions;
   private isRunning = false;
   private startTime: Date | null = null;
-  private activeTests: Map<string, Promise<AccessibilityResult>> = new Map();
+  private activeTests: Map<string, Promise<any>> = new Map();
 
   constructor(options: ParallelTestManagerOptions = {}) {
     this.options = {
@@ -123,8 +123,11 @@ export class ParallelTestManager {
       }
     });
 
-    // Initialize Accessibility Checker - use provided instance or create new one
-    this.accessibilityChecker = options.accessibilityChecker || new AccessibilityChecker();
+    // Initialize Accessibility Checker - use provided instance (required)
+    if (!options.accessibilityChecker) {
+      throw new Error('AccessibilityChecker instance is required in ParallelTestManager options');
+    }
+    this.accessibilityChecker = options.accessibilityChecker;
   }
 
   async initialize(): Promise<void> {
@@ -280,7 +283,7 @@ export class ParallelTestManager {
     this.options.onTestStart?.(url);
   }
 
-  private handleUrlCompleted(url: string, result: AccessibilityResult, duration: number): void {
+  private handleUrlCompleted(url: string, result: any, duration: number): void {
     this.options.onTestComplete?.(url, result);
   }
 

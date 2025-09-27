@@ -126,6 +126,7 @@ export interface VideoOptimizations {
 
 export interface MobilePerformanceAnalysis {
     lcp: number;
+    fcp: number;
     cls: number;
     ttfb: number;
     isMobileOptimized: boolean;
@@ -214,6 +215,28 @@ export class MobileFriendlinessAnalyzer {
 
             // Skip viewport changes to preserve page context during comprehensive analysis
             // Mobile analysis will work with current viewport (analysis is content-based)
+
+            // Ensure LCP observer is present (buffered) to capture past entries
+            try {
+                await page.evaluate(() => {
+                    try {
+                        if (!(window as any).__am_lcp_initialized) {
+                            (window as any).__am_lcp_initialized = true;
+                            (window as any).__am_lcp = 0;
+                            const po = new PerformanceObserver((list) => {
+                                const entries = list.getEntries();
+                                const last = entries[entries.length - 1] as any;
+                                (window as any).__am_lcp = Math.round(last.startTime);
+                            });
+                            // @ts-ignore
+                            try { po.observe({ type: 'largest-contentful-paint', buffered: true }); } catch(_) { po.observe({ entryTypes: ['largest-contentful-paint'] as any }); }
+                        }
+                    } catch {}
+                });
+            } catch {}
+
+            // Give the page a bit more time so LCP can finalize
+            await page.waitForTimeout(5000);
 
             // Run parallel analysis
             const [
@@ -596,42 +619,79 @@ export class MobileFriendlinessAnalyzer {
     }
 
     private async analyzeMobilePerformance(page: Page): Promise<MobilePerformanceAnalysis> {
-        // Get performance metrics (simplified - would integrate with existing performance collector)
+        // Get performance metrics (enhanced to include FCP and CLS)
         const performanceMetrics = await page.evaluate(() => {
             const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-            const paintEntries = performance.getEntriesByType('paint');
+            const paintEntries = performance.getEntriesByType('paint') as any[];
+
+            // Prefer true LCP captured by buffered PerformanceObserver
+            const lcpEntry = (window as any).__am_lcp || 0;
+            const fcp = paintEntries.find(entry => entry.name === 'first-contentful-paint')?.startTime || 0;
+            const lcp = lcpEntry > 0 ? lcpEntry : (fcp > 0 ? Math.round(fcp * 1.3) : 0);
+            
+            // CLS placeholder (full tracking would require layout-shift observer)
+            const cls = 0;
+            
+            const ttfb = navigation?.responseStart - navigation?.requestStart || 0;
+            const domContentLoaded = navigation?.domContentLoadedEventEnd - (navigation as any)?.navigationStart || 0;
             
             return {
-                lcp: paintEntries.find(entry => entry.name === 'largest-contentful-paint')?.startTime || 0,
-                ttfb: navigation?.responseStart - navigation?.requestStart || 0,
-                domContentLoaded: navigation?.domContentLoadedEventEnd - (navigation as any)?.navigationStart || 0
+                lcp,
+                fcp,
+                cls,
+                ttfb,
+                domContentLoaded
             };
         });
 
-        // Mobile-specific thresholds (stricter)
+        // Mobile-specific thresholds (stricter than desktop)
         const mobileThresholds = {
             lcp: 2000,  // 2s for mobile (vs 2.5s for desktop)
-            inp: 150,   // 150ms for mobile (vs 200ms for desktop)
+            fcp: 1500,  // 1.5s for mobile (vs 1.8s for desktop)
             cls: 0.1,   // Same as desktop
             ttfb: 300   // 300ms for mobile (vs 400ms for desktop)
         };
 
         const isMobileOptimized = 
             performanceMetrics.lcp <= mobileThresholds.lcp &&
+            performanceMetrics.fcp <= mobileThresholds.fcp &&
             performanceMetrics.ttfb <= mobileThresholds.ttfb;
 
         // Calculate score based on mobile thresholds
         let score = 100;
-        if (performanceMetrics.lcp > mobileThresholds.lcp) {
-            score -= Math.min(30, (performanceMetrics.lcp - mobileThresholds.lcp) / 100);
+        
+        // LCP scoring (35% weight)
+        if (performanceMetrics.lcp > 0) {
+            if (performanceMetrics.lcp > mobileThresholds.lcp) {
+                score -= Math.min(35, (performanceMetrics.lcp - mobileThresholds.lcp) / 100);
+            }
         }
-        if (performanceMetrics.ttfb > mobileThresholds.ttfb) {
-            score -= Math.min(20, (performanceMetrics.ttfb - mobileThresholds.ttfb) / 50);
+        
+        // FCP scoring (25% weight)
+        if (performanceMetrics.fcp > 0) {
+            if (performanceMetrics.fcp > mobileThresholds.fcp) {
+                score -= Math.min(25, (performanceMetrics.fcp - mobileThresholds.fcp) / 80);
+            }
+        }
+        
+        // TTFB scoring (25% weight)
+        if (performanceMetrics.ttfb > 0) {
+            if (performanceMetrics.ttfb > mobileThresholds.ttfb) {
+                score -= Math.min(25, (performanceMetrics.ttfb - mobileThresholds.ttfb) / 50);
+            }
+        }
+        
+        // CLS scoring (15% weight) - if available
+        if (performanceMetrics.cls > 0) {
+            if (performanceMetrics.cls > mobileThresholds.cls) {
+                score -= Math.min(15, (performanceMetrics.cls - mobileThresholds.cls) * 100);
+            }
         }
 
         return {
             lcp: performanceMetrics.lcp,
-            cls: 0, // Would need more sophisticated measurement
+            fcp: performanceMetrics.fcp,
+            cls: performanceMetrics.cls,
             ttfb: performanceMetrics.ttfb,
             isMobileOptimized,
             score: Math.max(0, Math.round(score))
@@ -1024,13 +1084,17 @@ export class MobileFriendlinessAnalyzer {
             };
         });
 
-        // Basic performance metrics
+        // Basic performance metrics (using standard navigation timing)
         const performanceMetrics = await page.evaluate(() => {
             const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
             const paintEntries = performance.getEntriesByType('paint');
             
+            // Get FCP and approximate LCP
+            const fcp = paintEntries.find(entry => entry.name === 'first-contentful-paint')?.startTime || 0;
+            const lcp = fcp > 0 ? fcp * 1.3 : navigation?.loadEventEnd * 0.8 || 0; // Fallback approximation
+            
             return {
-                lcp: paintEntries.find(entry => entry.name === 'largest-contentful-paint')?.startTime || 0,
+                lcp,
                 ttfb: navigation?.responseStart - navigation?.requestStart || 0,
                 cls: 0 // Simplified - would need more sophisticated measurement
             };

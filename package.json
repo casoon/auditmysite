@@ -1,6 +1,6 @@
 {
   "name": "@casoon/auditmysite",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "Professional website analysis suite with robust accessibility testing, Core Web Vitals performance monitoring, SEO analysis, and content optimization insights. Features isolated browser contexts, retry mechanisms, and comprehensive API endpoints for professional web auditing.",
   "main": "dist/index.js",
   "bin": {
@@ -30,6 +30,10 @@
     "test:verbose": "TEST_VERBOSE=1 jest --verbose",
     "test:performance": "jest tests/performance --testTimeout=90000 --verbose",
     "test:memory": "node --expose-gc --max-old-space-size=4096 ./node_modules/.bin/jest tests/performance/memory-usage.test.ts --testTimeout=120000",
+    "test:stable-interface": "jest tests/integration/stable-interface.test.ts --testTimeout=180000 --verbose",
+    "test:regression": "npm run test:stable-interface",
+    "example:stable-interface": "npx ts-node examples/stable-interface-example.ts",
+    "monitor:health": "node -e \"const { startGlobalHealthMonitoring } = require('./dist/utils/health-monitor'); const monitor = startGlobalHealthMonitoring(10000); setInterval(() => console.log('Health:', monitor.getHealthStatus().summary), 30000);\"",
     "test:legacy": "node test/run-tests.js",
     "test:legacy-mock-server": "node test/mock-server/server.js",
     "test:legacy-suite": "node test/test-suite.js",
@@ -93,6 +97,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/js-yaml": "^4.0.9",
+    "axe-core": "^4.10.0",
     "axios": "^1.11.0",
     "chalk": "^5.6.0",
     "commander": "^12.1.0",

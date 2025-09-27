@@ -26,8 +26,9 @@ export class MarkdownGenerator {
     lines.push(`- **Total Warnings:** ${auditData.summary.totalWarnings}`);
     lines.push('');
     
-    // Issues by page
-    auditData.pages.forEach((page, index) => {
+    // Issues by page (exclude skipped redirect pages)
+    const pagesForIssues = auditData.pages.filter(p => ((p as any).status !== 'skipped'));
+    pagesForIssues.forEach((page, index) => {
       const notices = page.accessibility.notices || [];
       const accessibilityIssues = [...page.accessibility.errors, ...page.accessibility.warnings, ...notices];
       
@@ -102,8 +103,9 @@ export class MarkdownGenerator {
     lines.push('| Page | Status | Score | Errors | Warnings |');
     lines.push('|------|--------|-------|--------|----------|');
     
-    auditData.pages.forEach(page => {
-      const statusIcon = page.status === 'passed' ? '✅' : page.status === 'failed' ? '❌' : '⚠️';
+    const pagesForSummary = auditData.pages.filter(p => ((p as any).status !== 'skipped'));
+    pagesForSummary.forEach(page => {
+      const statusIcon = page.status === 'passed' ? '✅' : page.status === 'failed' ? '❌' : (page.status === 'crashed' ? '💥' : '⚠️');
       lines.push(`| ${page.title} | ${statusIcon} ${page.status} | ${page.accessibility.score}/100 | ${page.accessibility.errors.length} | ${page.accessibility.warnings.length} |`);
     });
     

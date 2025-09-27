@@ -50,8 +50,30 @@ export class PerformanceCollector {
         });
       }
 
-      // Wait for potential lazy loading and interactions
-      await page.waitForTimeout(3000);
+      // Wait for potential lazy loading and interactions (allow LCP to settle)
+      await page.waitForTimeout(5000);
+
+      // Optionally emulate PSI profile (CPU/network throttling)
+      let cdpSession: any = null;
+      try {
+        if (this.options.psiProfile) {
+          // @ts-ignore
+          cdpSession = await (page as any)._client?.() || await (page.context() as any).newCDPSession(page);
+          await cdpSession.send('Network.enable');
+          const net = this.options.psiNetwork || { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 };
+          await cdpSession.send('Network.emulateNetworkConditions', {
+            offline: false,
+            latency: net.latencyMs,
+            downloadThroughput: Math.floor((net.downloadKbps * 1024) / 8),
+            uploadThroughput: Math.floor((net.uploadKbps * 1024) / 8),
+            connectionType: 'cellular3g'
+          });
+          const cpuRate = this.options.psiCPUThrottlingRate || 4;
+          await cdpSession.send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
+        }
+      } catch (e) {
+        console.warn('PSI profile emulation failed:', e);
+      }
 
       // Collect all performance metrics in parallel
       const [
@@ -63,6 +85,21 @@ export class PerformanceCollector {
         this.collectTimingMetrics(page),
         this.contentAnalyzer.analyze(page, urlString)
       ]);
+
+      // Disable PSI profile emulation
+      try {
+        if (cdpSession) {
+          await cdpSession.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+          await cdpSession.send('Network.emulateNetworkConditions', {
+            offline: false,
+            latency: 0,
+            downloadThroughput: -1,
+            uploadThroughput: -1
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to reset emulation:', e);
+      }
 
       // Calculate derived metrics
       const performanceScore = this.calculatePerformanceScore({
@@ -147,7 +184,7 @@ export class PerformanceCollector {
               const lastEntry = entries[entries.length - 1];
               window.webVitalsData.lcp = Math.round(lastEntry.startTime);
             });
-            lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+            try { lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true } as any); } catch(_) { lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] }); }
 
             // CLS Observer
             let clsValue = 0;
@@ -159,7 +196,7 @@ export class PerformanceCollector {
               }
               window.webVitalsData.cls = Math.round(clsValue * 1000) / 1000;
             });
-            clsObserver.observe({ type: 'layout-shift', buffered: true });
+            clsObserver.observe({ entryTypes: ['layout-shift'] });
 
             // FID Observer (for actual user input)
             const fidObserver = new PerformanceObserver((list) => {
@@ -167,7 +204,7 @@ export class PerformanceCollector {
                 window.webVitalsData.fid = Math.round(entry.processingStart - entry.startTime);
               }
             });
-            fidObserver.observe({ type: 'first-input', buffered: true });
+            fidObserver.observe({ entryTypes: ['first-input'] });
 
           } catch (e) {
             console.warn('Web Vitals observation failed:', e);
@@ -201,9 +238,24 @@ export class PerformanceCollector {
       fid: 0
     });
 
-    // Fallback measurements if Web Vitals API is not available
-    if (webVitals.lcp === 0) {
-      webVitals.lcp = await this.fallbackLCPMeasurement(page);
+    // Try to read LCP directly from performance entries (works even if observer attached late)
+    const lcpFromEntries = await page.evaluate(() => {
+      try {
+        const entries = performance.getEntriesByType('largest-contentful-paint') as any[];
+        if (entries && entries.length > 0) {
+          const last = entries[entries.length - 1];
+          return Math.round(last.startTime);
+        }
+      } catch {}
+      return 0;
+    });
+    if ((webVitals.lcp || 0) === 0 && lcpFromEntries > 0) {
+      (webVitals as any).lcp = lcpFromEntries;
+    }
+
+    // Fallback measurements if we still have no LCP
+    if ((webVitals.lcp || 0) === 0) {
+      (webVitals as any).lcp = await this.fallbackLCPMeasurement(page);
     }
 
     return {
@@ -266,34 +318,34 @@ export class PerformanceCollector {
    */
   private async fallbackLCPMeasurement(page: Page): Promise<number> {
     return page.evaluate(() => {
-      const images = Array.from(document.querySelectorAll('img'));
-      const textElements = Array.from(document.querySelectorAll('h1, h2, h3, p, div'));
-      
-      let largestElement = null;
-      let largestSize = 0;
-      
-      // Check images
-      images.forEach(img => {
-        const rect = img.getBoundingClientRect();
-        const size = rect.width * rect.height;
-        if (size > largestSize && rect.top < window.innerHeight) {
-          largestSize = size;
-          largestElement = img;
+      try {
+        // Prefer actual LCP entries if present
+        const lcpEntries = performance.getEntriesByType('largest-contentful-paint') as any[];
+        if (lcpEntries && lcpEntries.length > 0) {
+          const last = lcpEntries[lcpEntries.length - 1];
+          return Math.round(last.startTime);
         }
-      });
-      
-      // Check text elements
-      textElements.forEach(el => {
-        const rect = el.getBoundingClientRect();
-        const size = rect.width * rect.height;
-        if (size > largestSize && rect.top < window.innerHeight) {
-          largestSize = size;
-          largestElement = el;
+      } catch {}
+
+      try {
+        // Approximate from FCP if needed
+        const paintEntries = performance.getEntriesByType('paint') as any[];
+        const fcp = paintEntries?.find((e: any) => e.name === 'first-contentful-paint')?.startTime || 0;
+        if (fcp > 0) return Math.round(fcp * 1.2);
+      } catch {}
+
+      try {
+        // Last resort: derive from navigation timings
+        const nav = performance.getEntriesByType('navigation')[0] as any;
+        if (nav) {
+          const dcl = Math.max(0, Math.round(nav.domContentLoadedEventEnd - nav.fetchStart));
+          const loadEnd = Math.max(0, Math.round(nav.loadEventEnd - nav.fetchStart));
+          const approx = Math.max(dcl, Math.round((loadEnd || 0) * 0.8));
+          return approx || 0;
         }
-      });
-      
-      // Estimate LCP based on when largest element would be rendered
-      return largestElement ? Math.round(performance.now()) : 0;
+      } catch {}
+
+      return 0;
     });
   }
 

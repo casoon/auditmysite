@@ -218,7 +218,7 @@ This ensures CI/CD pipelines can distinguish between technical failures and expe
 
 ## 📦 Version
 
-Current version: **2.0.0-alpha.1**
+Current version: **2.0.0-alpha.2**
 
 ---
 
