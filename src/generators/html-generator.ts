@@ -440,7 +440,7 @@ export class HTMLGenerator {
       .issue-item.info { border-left-color: #6b7280; }
       
       .scrollable-issues-container {
-        max-height: 400px;
+        max-height: 720px;
         overflow-y: auto;
         border: 1px solid #e5e7eb;
         border-radius: var(--radius);
@@ -468,7 +468,7 @@ export class HTMLGenerator {
       
       /* Scrollable table container */
       .scrollable-table-container {
-        max-height: 500px;
+        max-height: 720px;
         overflow-y: auto;
         overflow-x: auto;
         border: 1px solid #e5e7eb;
@@ -543,7 +543,7 @@ export class HTMLGenerator {
       }
 
       .detailed-issues-container {
-        max-height: 600px;
+        max-height: 720px;
         overflow-y: auto;
         border: 1px solid #e5e7eb;
         border-radius: var(--radius);
@@ -574,7 +574,7 @@ export class HTMLGenerator {
       }
 
       .scrollable-issues-container {
-        max-height: 340px;
+        max-height: 720px;
         overflow: auto;
         border: 1px solid #e5e7eb;
         background: var(--color-card);
@@ -601,6 +601,10 @@ export class HTMLGenerator {
 
   private renderHeader(data: EnhancedAuditResult, domain: string, certificateSVG: string): string {
     const timestamp = new Date(data.metadata.timestamp).toLocaleString();
+    const pages = data.pages || [];
+    const analyzedCount = pages.filter(p => p.status !== 'skipped').length;
+    const skippedCount = pages.filter(p => p.status === 'skipped').length;
+    const skipInfo = skippedCount > 0 ? ` (skipped: ${skippedCount})` : '';
 
     return `
       <div class="header">
@@ -610,7 +614,7 @@ export class HTMLGenerator {
             <div class="header-meta">
               <div><strong>Domain:</strong> ${this.escape(domain)}</div>
               <div><strong>Generated:</strong> ${timestamp}</div>
-              <div><strong>Pages Analyzed:</strong> ${data.summary.testedPages} of ${data.summary.totalPages}</div>
+              <div><strong>Pages Analyzed:</strong> ${analyzedCount} of ${data.summary.totalPages}${skipInfo}</div>
             </div>
           </div>
         </div>
@@ -637,6 +641,9 @@ export class HTMLGenerator {
     const s = data.summary;
     const successRate = s.successRate || 0;
     const duration = Math.round(data.metadata.duration / 1000);
+    const pagesList = data.pages || [];
+    const analyzedCount = pagesList.filter(p => p.status !== 'skipped').length;
+    const skippedCount = pagesList.filter(p => p.status === 'skipped').length;
 
     return `
       <section id="summary" class="section">
@@ -656,8 +663,9 @@ export class HTMLGenerator {
               <div class="metric-label">Success Rate</div>
             </div>
             <div class="metric-card">
-              <div class="metric-value info">${s.testedPages}/${s.totalPages}</div>
-              <div class="metric-label">Pages Tested</div>
+              <div class="metric-value info">${analyzedCount}/${s.totalPages}</div>
+              <div class="metric-label">Pages Analyzed</div>
+              ${skippedCount > 0 ? `<small style="color: #6b7280;">Skipped: ${skippedCount}</small>` : ''}
             </div>
             <div class="metric-card">
               <div class="metric-value info">${duration}s</div>
@@ -953,7 +961,7 @@ export class HTMLGenerator {
           
           <div style="margin-top: 2rem;">
             <h3 style="margin-bottom: 1rem;">Per-Page Accessibility Details</h3>
-            <div class="scrollable-table-container" style="max-height: 400px;">
+            <div class="scrollable-table-container" style="max-height: 720px;">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -1169,7 +1177,7 @@ export class HTMLGenerator {
           
           <div style="margin-top: 2rem;">
             <h3 style="margin-bottom: 1rem;">Per-Page Performance Details (Desktop & Mobile)</h3>
-            <div class="scrollable-table-container" style="max-height: 500px;">
+            <div class="scrollable-table-container" style="max-height: 720px;">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -1402,7 +1410,7 @@ export class HTMLGenerator {
           
           <div style="margin-top: 2rem;">
             <h3 style="margin-bottom: 1rem;">Per-Page SEO Details</h3>
-            <div class="scrollable-table-container" style="max-height: 400px;">
+            <div class="scrollable-table-container" style="max-height: 720px;">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -1738,11 +1746,12 @@ export class HTMLGenerator {
       ? `<div style="margin-top: 2rem;"><h3 style="margin-bottom: 1rem;">SEO Issues (Duplicates & Quality)</h3><div class="scrollable-issues-container">${groupSections}</div></div>`
       : '';
     
-    // Combine existing analysis issues (if any) with synthetic duplicates
-    const combined = `
-      ${existingIssuesHtml || ''}
-      ${syntheticBlock}
-    `;
+    // Combine existing analysis issues (avoid 'No issues found' when synthetic issues exist)
+    const hasSynthetic = syntheticBlock !== '';
+    const existingBlock = existingIssuesHtml && !/no-data/i.test(existingIssuesHtml) ? existingIssuesHtml : '';
+    const combined = hasSynthetic
+      ? `${existingBlock}${syntheticBlock}`
+      : (existingBlock || '<div class="no-data">No issues found</div>');
     
     return combined;
   }
@@ -1871,7 +1880,7 @@ export class HTMLGenerator {
           
           <div style="margin-top: 2rem;">
             <h3 style="margin-bottom: 1rem;">Per-Page Mobile Friendliness Details</h3>
-            <div class="scrollable-table-container" style="max-height: 400px;">
+            <div class="scrollable-table-container" style="max-height: 720px;">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -2500,7 +2509,7 @@ export class HTMLGenerator {
             📋 Copy
           </button>
         </div>
-        <pre id="detailed-issues-content" style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 1rem; overflow: auto; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin: 0; max-height: 400px;">${this.escape(markdownContent)}</pre>
+        <pre id="detailed-issues-content" style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 1rem; overflow: auto; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin: 0; max-height: 720px;">${this.escape(markdownContent)}</pre>
         <script>
           function copyToClipboard(elementId) {
             const element = document.getElementById(elementId);
@@ -3106,7 +3115,7 @@ export class HTMLGenerator {
         <!-- Summary Table -->
         <div style="margin-bottom: 2rem;">
           <h4 style="margin-bottom: 0.5rem; color: #374151;">Summary by Optimization Type</h4>
-          <div class="scrollable-table-container" style="max-height: 300px;">
+          <div class="scrollable-table-container" style="max-height: 720px;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -3187,7 +3196,7 @@ export class HTMLGenerator {
     return `
       <div style="margin-top: 1.5rem;">
         <h4 style="margin-bottom: 0.5rem; color: #374151;">Per-Page Optimization Details</h4>
-        <div class="scrollable-table-container" style="max-height: 400px;">
+        <div class="scrollable-table-container" style="max-height: 720px;">
           <table class="data-table">
             <thead>
               <tr>
