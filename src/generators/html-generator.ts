@@ -229,14 +229,7 @@ export class HTMLGenerator {
         color: rgba(255, 255, 255, 0.9);
       }
 
-.sticky-nav {
-        position: sticky;
-        top: 0;
-        background: white;
-        border-bottom: 1px solid #e5e7eb;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        z-index: 40;
-      }
+      .sticky-nav {
         position: sticky;
         top: 0;
         background: white;
@@ -255,15 +248,7 @@ export class HTMLGenerator {
         white-space: nowrap;
       }
 
-.nav-link {
-        display: inline-block;
-        padding: 1rem 1.5rem;
-        text-decoration: none;
-        color: var(--color-subtle);
-        font-weight: 500;
-        border-bottom: 3px solid transparent;
-        transition: all 0.2s ease;
-      }
+      .nav-link {
         display: inline-block;
         padding: 1rem 1.5rem;
         text-decoration: none;
@@ -273,18 +258,13 @@ export class HTMLGenerator {
         transition: all 0.2s ease;
       }
 
-.nav-link:hover,
+      .nav-link:hover,
       .nav-link.active {
         color: var(--primary);
         border-bottom-color: var(--primary);
       }
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-      }
 
-.main-content {
-        padding: 2rem 0;
-      }
+      .main-content {
         padding: 2rem 0;
       }
 
@@ -294,14 +274,7 @@ export class HTMLGenerator {
         padding: 0 1rem;
       }
 
-.section {
-        background: var(--color-card);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        margin-bottom: 2rem;
-        overflow: hidden;
-        scroll-margin-top: 120px;
-      }
+      .section {
         background: var(--color-card);
         border-radius: var(--radius);
         box-shadow: var(--shadow);
@@ -310,14 +283,7 @@ export class HTMLGenerator {
         scroll-margin-top: 120px;
       }
 
-.section-header {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border-bottom: 1px solid #e5e7eb;
-        padding: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-      }
+      .section-header {
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         border-bottom: 1px solid #e5e7eb;
         padding: 1.5rem;
@@ -336,26 +302,14 @@ export class HTMLGenerator {
         padding: 1.5rem;
       }
 
-.metrics-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-      }
+      .metrics-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
       }
 
-.metric-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border: 1px solid #e5e7eb;
-        border-radius: var(--radius);
-        padding: 1.5rem;
-        text-align: center;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
+      .metric-card {
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border: 1px solid #e5e7eb;
         border-radius: var(--radius);
@@ -364,33 +318,19 @@ export class HTMLGenerator {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
-.metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-lg);
-      }
+      .metric-card:hover {
         transform: translateY(-2px);
         box-shadow: var(--shadow-lg);
       }
 
-.metric-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        display: block;
-        margin-bottom: 0.5rem;
-      }
+      .metric-value {
         font-size: 2.5rem;
         font-weight: 700;
         display: block;
         margin-bottom: 0.5rem;
       }
 
-.metric-label {
-        color: var(--color-subtle);
-        font-size: 0.875rem;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-      }
+      .metric-label {
         color: var(--color-subtle);
         font-size: 0.875rem;
         font-weight: 500;
@@ -419,7 +359,7 @@ export class HTMLGenerator {
       .error { color: var(--error); }
       .info { color: var(--primary); }
 
-.data-table {
+      .data-table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 1rem;
@@ -427,41 +367,22 @@ export class HTMLGenerator {
         overflow: hidden;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       }
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-        border-radius: var(--radius);
-        overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      }
 
-.data-table th,
-      .data-table td {
-        padding: 1rem;
-        text-align: left;
-        border-bottom: 1px solid #f3f4f6;
-      }
+      .data-table th,
       .data-table td {
         padding: 1rem;
         text-align: left;
         border-bottom: 1px solid #f3f4f6;
       }
 
-.data-table th {
-        background: #f8fafc;
-        font-weight: 600;
-        color: var(--color-text);
-        border-bottom: 2px solid #e5e7eb;
-      }
+      .data-table th {
         background: #f8fafc;
         font-weight: 600;
         color: var(--color-text);
         border-bottom: 2px solid #e5e7eb;
       }
 
-.data-table tr:hover {
-        background: #f9fafb;
-      }
+      .data-table tr:hover {
         background: #f9fafb;
       }
 
@@ -612,12 +533,12 @@ export class HTMLGenerator {
       /* N/A values styling */
       .perf-na { color: #9ca3af; font-style: italic; font-weight: 500; }
 
-.footer {
+      .footer {
         text-align: center;
         color: var(--color-subtle);
-        font-size: 0.9rem;
+        font-size: 0.875rem;
         padding: 2rem 0;
-        border-top: var(--glass-border);
+        border-top: 1px solid #e5e7eb;
         margin-top: 2rem;
       }
 
@@ -711,7 +632,6 @@ export class HTMLGenerator {
       </nav>
     `;
   }
-
 
   private renderSummary(data: EnhancedAuditResult): string {
     const s = data.summary;
