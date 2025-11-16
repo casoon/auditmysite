@@ -181,37 +181,7 @@ Features:
 
 Folgende produktionsreife Test-Scripts wurden erstellt:
 
-### 1. `run-inros-simple.js`
-**Zweck:** Vollständiger Audit-Test mit Validierung
-**Features:**
-- Browser-Pool-Management
-- AccessibilityChecker Integration
-- ReportValidator + DataCompletenessChecker
-- Qualitätsbewertungssystem
-- Detaillierte Ergebnisausgabe
-
-**Usage:**
-```bash
-npm run build
-node run-inros-simple.js
-```
-
-### 2. `audit-inros-lackner.ts`
-**Zweck:** TypeScript-Implementierung mit StableAuditor
-**Features:**
-- StableAuditor Interface
-- Mehrseiten-Audit (maxPages: 5)
-- Real-time Progress Tracking
-- Error Monitoring
-- Quality Assessment
-
-**Usage:**
-```bash
-# Benötigt tsconfig-paths oder kompilierten Code
-npx ts-node -r tsconfig-paths/register audit-inros-lackner.ts
-```
-
-### 3. `quick-test.js`
+### 1. `quick-test.js`
 **Zweck:** Schneller Validierungstest
 **Features:**
 - Einzelseiten-Test
@@ -354,7 +324,7 @@ npm run test:e2e                 # Alle E2E-Tests
 2. **Audit ausführen:**
    ```bash
    # Option 1: Test-Script
-   node run-inros-simple.js
+   node quick-test.js
 
    # Option 2: CLI
    node dist/cli/index.js <sitemap-url> --max-pages 10

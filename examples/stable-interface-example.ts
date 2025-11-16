@@ -2,19 +2,19 @@
 
 /**
  * 🎯 Example: Using the Stable Audit Interface
- * 
+ *
  * This example demonstrates how to use the StableAuditor interface
  * for reliable, production-ready website auditing.
- * 
+ *
  * Run with: npx ts-node examples/stable-interface-example.ts
  */
 
-import { 
-  createStableAuditor, 
+import {
+  createStableAuditor,
   StableAuditConfig,
   AuditResult,
   AuditProgress,
-  AuditError 
+  AuditError,
 } from '../src/interfaces/stable-audit-interface';
 
 async function main() {
@@ -30,7 +30,7 @@ async function main() {
     outputDir: './audit-reports',
     standard: 'WCAG2AA',
     verbose: false,
-    reportPrefix: 'stable-audit'
+    reportPrefix: 'stable-audit',
   };
 
   // Create auditor instance
@@ -38,11 +38,14 @@ async function main() {
 
   // Setup progress monitoring
   auditor.onProgress((progress: AuditProgress) => {
-    const progressBar = '█'.repeat(Math.round(progress.progress / 5)) + 
-                       '░'.repeat(20 - Math.round(progress.progress / 5));
-    
-    console.log(`📊 ${progress.phase.toUpperCase()}: [${progressBar}] ${progress.progress.toFixed(1)}% (${progress.completed}/${progress.total})`);
-    
+    const progressBar =
+      '█'.repeat(Math.round(progress.progress / 5)) +
+      '░'.repeat(20 - Math.round(progress.progress / 5));
+
+    console.log(
+      `📊 ${progress.phase.toUpperCase()}: [${progressBar}] ${progress.progress.toFixed(1)}% (${progress.completed}/${progress.total})`
+    );
+
     if (progress.message) {
       console.log(`   ${progress.message}`);
     }
@@ -66,26 +69,28 @@ async function main() {
 
     console.log('🚀 Initializing Auditor...');
     await auditor.initialize();
-    
+
     const healthAfterInit = auditor.getHealthStatus();
     console.log(`✅ Initialization complete - Status: ${healthAfterInit.status}`);
     console.log(`   Browser Pool Size: ${healthAfterInit.details.browserPoolSize}`);
-    console.log(`   Memory Usage: ${Math.round(healthAfterInit.details.memoryUsage.heapUsed / 1024 / 1024)}MB`);
+    console.log(
+      `   Memory Usage: ${Math.round(healthAfterInit.details.memoryUsage.heapUsed / 1024 / 1024)}MB`
+    );
     console.log('');
 
     console.log('🌐 Starting Website Audit...');
     const startTime = Date.now();
-    
-    const result: AuditResult = await auditor.auditWebsite('https://www.inros-lackner.de/sitemap.xml');
-    
+
+    const result: AuditResult = await auditor.auditWebsite('https://example.com/sitemap.xml');
+
     const duration = Date.now() - startTime;
-    
+
     console.log('\n✅ Audit Completed Successfully!');
     console.log('================================\n');
-    
+
     // Display results summary
     console.log('📊 AUDIT SUMMARY:');
-    console.log(`   Domain: inros-lackner.de`);
+    console.log(`   Domain: example.com`);
     console.log(`   Total Pages: ${result.summary.totalPages}`);
     console.log(`   Pages Tested: ${result.summary.testedPages}`);
     console.log(`   Pages Passed: ${result.summary.passedPages}`);
@@ -99,8 +104,12 @@ async function main() {
     // Display performance metrics
     console.log('⚡ PERFORMANCE METRICS:');
     console.log(`   Avg Load Time: ${result.performance.avgLoadTime.toFixed(1)}ms`);
-    console.log(`   Avg Accessibility Score: ${result.performance.avgAccessibilityScore.toFixed(1)}/100`);
-    console.log(`   Avg Performance Score: ${result.performance.avgPerformanceScore.toFixed(1)}/100`);
+    console.log(
+      `   Avg Accessibility Score: ${result.performance.avgAccessibilityScore.toFixed(1)}/100`
+    );
+    console.log(
+      `   Avg Performance Score: ${result.performance.avgPerformanceScore.toFixed(1)}/100`
+    );
     console.log(`   Avg SEO Score: ${result.performance.avgSeoScore.toFixed(1)}/100`);
     console.log('');
 
@@ -110,8 +119,12 @@ async function main() {
       const status = page.crashed ? '💥' : page.passed ? '✅' : '❌';
       console.log(`   ${index + 1}. ${status} ${page.title}`);
       console.log(`      URL: ${page.url}`);
-      console.log(`      Scores: A11y:${page.scores.accessibility} Perf:${page.scores.performance} SEO:${page.scores.seo} Mobile:${page.scores.mobile}`);
-      console.log(`      Issues: ${page.issues.errors.length} errors, ${page.issues.warnings.length} warnings`);
+      console.log(
+        `      Scores: A11y:${page.scores.accessibility} Perf:${page.scores.performance} SEO:${page.scores.seo} Mobile:${page.scores.mobile}`
+      );
+      console.log(
+        `      Issues: ${page.issues.errors.length} errors, ${page.issues.warnings.length} warnings`
+      );
       console.log(`      Duration: ${page.duration}ms`);
     });
     console.log('');
@@ -129,7 +142,9 @@ async function main() {
     // Display system info
     console.log('🔧 SYSTEM INFO:');
     console.log(`   Node Version: ${result.metadata.systemInfo.nodeVersion}`);
-    console.log(`   Memory Usage: ${Math.round(result.metadata.systemInfo.memoryUsage.heapUsed / 1024 / 1024)}MB`);
+    console.log(
+      `   Memory Usage: ${Math.round(result.metadata.systemInfo.memoryUsage.heapUsed / 1024 / 1024)}MB`
+    );
     console.log(`   Audit Date: ${new Date(result.metadata.auditDate).toLocaleString()}`);
     console.log('');
 
@@ -137,16 +152,17 @@ async function main() {
     const finalHealth = auditor.getHealthStatus();
     console.log('🏥 Final Health Check:');
     console.log(`   Status: ${finalHealth.status}`);
-    console.log(`   Memory: ${Math.round(finalHealth.details.memoryUsage.heapUsed / 1024 / 1024)}MB`);
+    console.log(
+      `   Memory: ${Math.round(finalHealth.details.memoryUsage.heapUsed / 1024 / 1024)}MB`
+    );
     console.log(`   Uptime: ${finalHealth.details.uptime.toFixed(1)}s`);
-
   } catch (error) {
     console.error('🚨 Audit Failed:', error);
-    
+
     // Show health status in case of failure
     const errorHealth = auditor.getHealthStatus();
     console.log(`\n🏥 Health Status after error: ${errorHealth.status}`);
-    
+
     process.exit(1);
   } finally {
     console.log('\n🧹 Cleaning up resources...');
