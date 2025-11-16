@@ -1,4 +1,5 @@
 import { MobileFriendlinessMetrics } from './types/enhanced-metrics';
+import type { LaunchOptions } from 'playwright';
 
 export interface Pa11yIssue {
   code: string;
@@ -9,6 +10,15 @@ export interface Pa11yIssue {
   impact?: string;
   help?: string;
   helpUrl?: string;
+}
+
+export interface ProgressStats {
+  totalPages: number;
+  completedPages: number;
+  failedPages: number;
+  currentPage?: string;
+  elapsedTime: number;
+  estimatedTimeRemaining?: number;
 }
 
 export interface AccessibilityResult {
@@ -24,7 +34,7 @@ export interface AccessibilityResult {
   skipped?: boolean;  // 🆕 Skipped (redirected, not analyzed)
   duration: number;
   pa11yScore?: number;
-  pa11yIssues?: any[];
+  pa11yIssues?: Pa11yIssue[];
   performanceMetrics?: {
     loadTime: number;
     domContentLoaded: number;
@@ -79,7 +89,6 @@ export interface TestOptions {
   includePasses?: boolean;
   runners?: string[];
   wait?: number;
-  chromeLaunchConfig?: any;
   captureScreenshots?: boolean;
   testKeyboardNavigation?: boolean;
   testColorContrast?: boolean;
@@ -90,6 +99,7 @@ export interface TestOptions {
   mobileEmulation?: boolean;
   viewportSize?: { width: number; height: number };
   userAgent?: string;
+  chromeLaunchConfig?: LaunchOptions;
 
   // 🚀 Parallel test options
   maxConcurrent?: number;              // Number of parallel workers (default: 3)
@@ -113,7 +123,7 @@ export interface TestOptions {
     onUrlStarted?: (url: string) => void;
     onUrlCompleted?: (url: string, result: AccessibilityResult, duration: number) => void;
     onUrlFailed?: (url: string, error: string, attempts: number) => void;
-    onProgressUpdate?: (stats: any) => void;
+    onProgressUpdate?: (stats: ProgressStats) => void;
     onQueueEmpty?: () => void;
   };
 }
