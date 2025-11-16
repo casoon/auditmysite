@@ -1,4 +1,6 @@
 import { PerformanceResult, PerformanceIssue } from '../../types/audit-results';
+import { BrowserPoolManager } from '../../core/browser/browser-pool-manager';
+import { AccessibilityChecker } from '../../core/accessibility/accessibility-checker';
 
 /**
  * PerformanceService - Returns PerformanceResult (same type used in PageAuditResult)
@@ -14,7 +16,6 @@ export class PerformanceService {
   }
   
   private async initializePool() {
-    const { BrowserPoolManager } = require('../../core/browser/browser-pool-manager');
     this.poolManager = new BrowserPoolManager({
       maxConcurrent: 2, // Conservative for API service
       maxIdleTime: 30000,
@@ -44,17 +45,16 @@ export class PerformanceService {
     
     try {
       // Use pooled browser for performance analysis
-    const { AccessibilityChecker } = require('../../core/accessibility/accessibility-checker');
-    const checker = new AccessibilityChecker({ usePooling: true, poolManager: this.poolManager });
+      const checker = new AccessibilityChecker({ poolManager: this.poolManager });
       
-      const results = await checker.testMultiplePages([url], {
-        enhancedPerformanceAnalysis: true,
+      const multiResult = await checker.testMultiplePages([url], {
         timeout: options.timeout || 10000,
-        maxPages: 1
+        maxConcurrent: 1
       });
       
-      if (results[0]?.performanceMetrics) {
-        const metrics = results[0].performanceMetrics;
+      const firstResult = multiResult.results[0];
+      if (firstResult?.comprehensiveAnalysis) {
+        const metrics = (firstResult.comprehensiveAnalysis as any).performance;
         const score = this.calculatePerformanceScore(metrics);
         
         return {

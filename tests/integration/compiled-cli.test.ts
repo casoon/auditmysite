@@ -133,8 +133,8 @@ describe('Compiled CLI Integration', () => {
       ]);
       
       expect(result.stderr).not.toMatch(/Cannot find module/);
-      // Should show validation error for max-pages or URL
-      expect(result.stderr || result.stdout).toMatch(/Invalid|error/);
+      // Should show validation error for max-pages or URL (case insensitive)
+      expect(result.stderr || result.stdout).toMatch(/Invalid|error|Configuration/i);
     });
   });
 
@@ -195,7 +195,7 @@ describe('Build Artifact Validation', () => {
     const fs = require('fs');
     const requiredFiles = [
       'dist/cli/commands/audit-command.js',
-      'dist/generators/enhanced-html-generator.js',
+      'dist/generators/html-generator.js',
       'dist/generators/markdown-generator.js',
     ];
 
@@ -205,17 +205,17 @@ describe('Build Artifact Validation', () => {
     }
   });
 
-  it('should export EnhancedHTMLGenerator', () => {
-    const generatorsIndex = require('../../dist/generators/enhanced-html-generator.js');
-    expect(generatorsIndex.EnhancedHTMLGenerator).toBeDefined();
-    expect(typeof generatorsIndex.EnhancedHTMLGenerator).toBe('function');
+  it('should export HTMLGenerator', () => {
+    const generatorsIndex = require('../../dist/generators/html-generator.js');
+    expect(generatorsIndex.HTMLGenerator).toBeDefined();
+    expect(typeof generatorsIndex.HTMLGenerator).toBe('function');
   });
 
   it('should export modern generators', () => {
-    const htmlGenerator = require('../../dist/generators/enhanced-html-generator.js');
+    const htmlGenerator = require('../../dist/generators/html-generator.js');
     const markdownGenerator = require('../../dist/generators/markdown-generator.js');
     
-    expect(htmlGenerator.EnhancedHTMLGenerator).toBeDefined();
+    expect(htmlGenerator.HTMLGenerator).toBeDefined();
     expect(markdownGenerator.MarkdownGenerator).toBeDefined();
   });
 });

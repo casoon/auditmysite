@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * 🔧 UNIFIED Page Analysis Event System
  * 
@@ -476,7 +477,7 @@ export class PageAnalysisEmitter extends EventEmitter {
       }
       
       if (this.backpressureController) {
-        // Cleanup backpressure controller if it has cleanup method
+        this.backpressureController.destroy();
       }
       
       this.emit('cleanup-complete');

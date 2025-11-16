@@ -164,25 +164,29 @@ export class StrictReportGenerator {
     const legacyData = this.convertStrictToLegacy(strictData);
     
     switch (this.options.format) {
-      case 'markdown':
+      case 'markdown': {
         const mdFile = await this.generateMarkdownReport(legacyData);
         generatedFiles.push(mdFile);
         break;
+      }
         
-      case 'html':
+      case 'html': {
         const htmlFile = await this.generateHTMLReport(legacyData);
         generatedFiles.push(htmlFile);
         break;
+      }
         
-      case 'json':
+      case 'json': {
         const jsonFile = this.generateJSONReport(strictData);
         generatedFiles.push(jsonFile);
         break;
+      }
         
-      case 'csv':
+      case 'csv': {
         const csvFile = this.generateCSVReport(strictData);
         generatedFiles.push(csvFile);
         break;
+      }
         
       default:
         throw new Error(`Unsupported format: ${this.options.format}`);

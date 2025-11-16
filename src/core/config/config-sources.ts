@@ -117,7 +117,9 @@ export class JSConfigSource extends BaseConfigSource {
 
     try {
       // Clear require cache to allow hot reloading
+       
       delete require.cache[require.resolve(configPath)];
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- Dynamic config loading
       const configModule = require(configPath);
       const config = configModule.default || configModule;
 
@@ -199,6 +201,7 @@ export class AuditRCSource extends BaseConfigSource {
       } catch {
         // Try YAML parsing if available
         try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- Optional YAML support
           const yaml = require('js-yaml');
           config = yaml.load(configContent);
         } catch {

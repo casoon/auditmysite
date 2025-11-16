@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * 🚀 AuditMySite REST API Server
  * 
@@ -28,6 +29,7 @@ import {
 
 // Extend Express Request globally
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- Required for Express type augmentation
   namespace Express {
     interface Request {
       requestId: string;

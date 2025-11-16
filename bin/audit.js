@@ -43,11 +43,12 @@ program
   .option('--quiet-deprecations', 'Suppress deprecation warnings (auto-detected in CI: CI=true, NODE_ENV=production)')
   .option('-v, --verbose', 'Show detailed progress information')
   
-  // ✅ Analysis Control (4) - Opt-out instead of opt-in
+  // ✅ Analysis Control (5) - Opt-out instead of opt-in
   .option('--no-performance', 'Disable performance analysis')
   .option('--no-seo', 'Disable SEO analysis')
   .option('--no-content-weight', 'Disable content weight analysis')
   .option('--no-mobile', 'Disable mobile-friendliness analysis')
+  .option('--geo <locations>', 'Enable geographic testing with comma-separated locations (e.g., germany-berlin,usa-newyork,uk-london)')
   
   // ✅ Resume/Persistence Options (3)
   .option('--resume <stateId>', 'Resume a previous audit from saved state')
@@ -112,7 +113,8 @@ program
       performanceAnalysis: !options.noPerformance,
       seoAnalysis: !options.noSeo,
       contentWeight: !options.noContentWeight,
-      mobileFriendliness: !options.noMobile
+      mobileFriendliness: !options.noMobile,
+      geoAudit: options.geo ? options.geo.split(',').map(loc => loc.trim()) : null
     };
     
     let config = { ...QUICK_DEFAULTS };
@@ -202,6 +204,27 @@ program
             { name: '📝 Blog - Content-focused (relaxed for reading)', value: 'blog' }
           ],
           default: 'default'
+        },
+        {
+          type: 'confirm',
+          name: 'enableGeoAudit',
+          message: '🌍 Enable geographic performance testing?',
+          default: false
+        },
+        {
+          type: 'checkbox',
+          name: 'geoLocations',
+          message: '🗺️ Select geographic locations to test from:',
+          choices: [
+            { name: '🇩🇪 Germany (Berlin)', value: 'germany-berlin' },
+            { name: '🇺🇸 USA (New York)', value: 'usa-newyork' },
+            { name: '🇬🇧 UK (London)', value: 'uk-london' },
+            { name: '🇫🇷 France (Paris)', value: 'france-paris' },
+            { name: '🇯🇵 Japan (Tokyo)', value: 'japan-tokyo' },
+            { name: '🇦🇺 Australia (Sydney)', value: 'australia-sydney' }
+          ],
+          default: ['germany-berlin', 'usa-newyork'],
+          when: (answers) => answers.enableGeoAudit
         }
       ]);
       
@@ -210,6 +233,11 @@ program
       config.seoAnalysis = answers.analysisFeatures.includes('seo');
       config.contentWeight = answers.analysisFeatures.includes('contentWeight');
       config.mobileFriendliness = answers.analysisFeatures.includes('mobile');
+      
+      // Update GEO audit configuration
+      if (answers.enableGeoAudit && answers.geoLocations) {
+        config.geoAudit = answers.geoLocations;
+      }
       
       config = { ...config, ...answers };
     }
@@ -233,8 +261,11 @@ program
     console.log(`   🔍 SEO: ${config.seoAnalysis ? '✅' : '❌'}`);
     console.log(`   📏 Content Weight: ${config.contentWeight ? '✅' : '❌'}`);
     console.log(`   📱 Mobile-Friendliness: ${config.mobileFriendliness ? '✅' : '❌'}`);
+    if (config.geoAudit && config.geoAudit.length > 0) {
+      console.log(`   🌍 GEO Audit: ✅ (${config.geoAudit.length} locations)`);
+    }
     
-    console.log('\n✨ Simplified CLI - Only 11 parameters for better usability!');
+    console.log('\n✨ Simplified CLI - Only 12 parameters for better usability!');
     
     // 🔇 Configure deprecation warning suppression for CI/CD environments
     const shouldSuppressDeprecations = 
@@ -635,11 +666,11 @@ program
         if (byType['seo']) {
           const s = byType['seo'];
           out.seo = {
-            score: s.score || s.seoScore || s.overallSEOScore || s.overallScore || 0,
-            grade: s.grade || s.seoGrade || 'F',
+            score: s.overallSEOScore || s.score || s.seoScore || s.overallScore || 0,
+            grade: s.seoGrade || s.grade || 'F',
             metaTags: s.metaTags || s.metaData || {},
-            headingStructure: s.headingStructure || s.headings || { h1: [], h2: [], h3: [], issues: [] },
-            issues: s.issues || []
+            headingStructure: s.headingStructure || s.headings || { h1: 0, h2: 0, h3: 0, issues: [] },
+            issues: s.issues || s.recommendations || []
           };
         }
         // Content Weight
@@ -811,6 +842,12 @@ program
             title: page.title,
             status: page.status || (page.passed ? 'passed' : (page.crashed ? 'crashed' : 'failed')),
             duration: page.duration || 0,
+            enhancedAnalysis: page.performance || page.seo || page.contentWeight || page.mobileFriendliness ? {
+              performance: page.performance || null,
+              seo: page.seo || null,
+              contentWeight: page.contentWeight || null,
+              mobileFriendliness: page.mobileFriendliness || null
+            } : null,
             accessibility: {
               score: page.pa11yScore || 0,
               errors: [

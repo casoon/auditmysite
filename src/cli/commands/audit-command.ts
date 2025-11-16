@@ -8,6 +8,9 @@
 import { BaseCommand, CommandArgs, CommandResult } from './base-command';
 import { StandardPipeline, StandardPipelineOptions } from '../../core/pipeline/standard-pipeline';
 import { SitemapDiscovery } from '../../core/parsers/sitemap-discovery';
+import { BUDGET_TEMPLATES } from '../../core/performance/web-vitals-collector';
+import { SitemapParser } from '../../parsers/sitemap-parser';
+import packageJson from '../../../package.json';
 // Report system imports removed - using direct generators
 
 // Local type definitions
@@ -89,7 +92,6 @@ export class AuditCommand extends BaseCommand {
       }
 
       // Show header
-      const packageJson = require('../../../package.json');
       this.logProgress(`AuditMySite v${packageJson.version} - Professional Accessibility Testing`);
       this.logProgress(`Sitemap: ${args.sitemapUrl}`);
 
@@ -294,7 +296,6 @@ export class AuditCommand extends BaseCommand {
   }
 
   private buildPerformanceBudget(args: AuditCommandArgs): any {
-    const { BUDGET_TEMPLATES } = require('../../core/performance/web-vitals-collector');
 
     // Custom budget from CLI options
     if (args.lcpBudget || args.clsBudget || args.fcpBudget || args.inpBudget || args.ttfbBudget) {
@@ -313,8 +314,8 @@ export class AuditCommand extends BaseCommand {
           poor: (args.fcpBudget || defaultBudget.fcp.good) * 1.7 
         },
         inp: { 
-          good: args.inpBudget || defaultBudget.inp.good, 
-          poor: (args.inpBudget || defaultBudget.inp.good) * 2.5 
+          good: args.inpBudget || defaultBudget.inp?.good || 200, 
+          poor: (args.inpBudget || defaultBudget.inp?.good || 200) * 2.5 
         },
         ttfb: { 
           good: args.ttfbBudget || defaultBudget.ttfb.good, 
@@ -387,16 +388,9 @@ export class AuditCommand extends BaseCommand {
   }
 
   private async runAudit(sitemapUrl: string, config: StandardPipelineOptions, outputInfo: any): Promise<any> {
-    const enhancedConfig = config as any;
     const startTime = Date.now();
     
-    // Check if Enhanced Analysis is enabled
-    if (enhancedConfig.enhanced) {
-      this.logProgress('Starting enhanced accessibility analysis...');
-      return await this.runEnhancedAudit(sitemapUrl, config, outputInfo);
-    }
-    
-    // Standard audit pipeline
+    // Standard audit pipeline (enhanced analysis is now default in StandardPipeline)
     this.logProgress('Starting accessibility test...');
     const pipeline = new StandardPipeline();
 
@@ -415,133 +409,6 @@ export class AuditCommand extends BaseCommand {
     this.logProgress(`Average speed: ${avgSpeed.toFixed(1)} pages/minute`);
 
     return result;
-  }
-
-  private async runEnhancedAudit(sitemapUrl: string, config: StandardPipelineOptions, outputInfo: any): Promise<any> {
-    const { EnhancedAccessibilityChecker } = require('../../enhanced-accessibility-checker');
-    const { SitemapParser } = require('../../core/parsers/sitemap-parser');
-    
-    const enhancedConfig = config as any;
-    const startTime = Date.now();
-    
-    try {
-      // Parse sitemap to get URLs
-      this.logProgress('Parsing sitemap...');
-      const parser = new SitemapParser();
-      const urls = await parser.parseFromUrl(sitemapUrl);
-      const limitedUrls = urls.slice(0, config.maxPages || 5);
-      
-      this.logProgress(`Found ${urls.length} URLs, testing ${limitedUrls.length}`);
-      
-      // Initialize Enhanced Accessibility Checker
-      const checker = new EnhancedAccessibilityChecker({
-        includeResourceAnalysis: enhancedConfig.contentWeight,
-        includeSocialAnalysis: enhancedConfig.enhancedSeo,
-        includeReadabilityAnalysis: enhancedConfig.enhancedSeo,
-        includeTechnicalSEO: enhancedConfig.enhancedSeo,
-        analysisTimeout: 30000
-      });
-      
-      await checker.initialize();
-      this.logProgress('Enhanced accessibility checker initialized');
-      
-      const results = [];
-      let successCount = 0;
-      let errorCount = 0;
-      let warningCount = 0;
-      
-      // Process each URL
-      for (let i = 0; i < limitedUrls.length; i++) {
-        const url = limitedUrls[i];
-        this.logProgress(`[${i + 1}/${limitedUrls.length}] Analyzing ${url}`);
-        
-        try {
-          // For enhanced analysis, we'll use the URL directly
-          // Note: This is a simplified approach - in production you'd want to fetch HTML first
-          const result = await checker.analyze('', url); // Empty HTML means it will fetch the page
-          
-          results.push({
-            url,
-            title: result.title || 'N/A',
-            errors: result.errors?.length || 0,
-            warnings: result.warnings?.length || 0,
-            passed: result.passed,
-            enhancedPerformance: result.enhancedPerformance,
-            enhancedSEO: result.enhancedSEO,
-            contentWeight: result.contentWeight,
-            qualityScore: result.qualityScore
-          });
-          
-          if (result.passed) successCount++;
-          errorCount += result.errors?.length || 0;
-          warningCount += result.warnings?.length || 0;
-          
-          // Show enhanced metrics for this page
-          if (result.qualityScore) {
-            this.logProgress(`   Quality Score: ${result.qualityScore.score}/100 (${result.qualityScore.grade})`);
-          }
-          if (result.enhancedSEO) {
-            this.logProgress(`   SEO Score: ${result.enhancedSEO.seoScore}/100`);
-          }
-          if (result.contentWeight) {
-            this.logProgress(`   Content Score: ${result.contentWeight.contentScore}/100`);
-          }
-          
-        } catch (error) {
-          this.logError(`Failed to analyze ${url}: ${error}`);
-          results.push({
-            url,
-            title: 'Error',
-            errors: 1,
-            warnings: 0,
-            passed: false,
-            crashed: true
-          });
-          errorCount++;
-        }
-      }
-      
-      // Cleanup
-      await checker.cleanup();
-      
-      const totalTime = Date.now() - startTime;
-      const avgSpeed = results.length / (totalTime / 60000);
-      
-      // Build result summary
-      const summary = {
-        totalPages: urls.length,
-        testedPages: results.length,
-        passedPages: successCount,
-        failedPages: results.length - successCount,
-        crashedPages: results.filter(r => r.crashed).length,
-        totalErrors: errorCount,
-        totalWarnings: warningCount,
-        totalDuration: totalTime,
-        results
-      };
-      
-      const finalResult = {
-        summary,
-        issues: [],
-        sitemapUrl,
-        outputFiles: [],
-        enhancedResults: results // Store enhanced results
-      };
-      
-      // Generate enhanced reports if needed
-      if (config.outputFormat) {
-        await this.generateEnhancedReports(finalResult, config, outputInfo);
-      }
-      
-      this.logSuccess(`Enhanced analysis completed: ${results.length} pages in ${this.formatDuration(totalTime)}`);
-      this.logProgress(`Average speed: ${avgSpeed.toFixed(1)} pages/minute`);
-      
-      return finalResult;
-      
-    } catch (error) {
-      this.logError(`Enhanced audit failed: ${error}`);
-      throw error;
-    }
   }
 
   private async generateEnhancedReports(result: any, config: StandardPipelineOptions, outputInfo: any): Promise<void> {

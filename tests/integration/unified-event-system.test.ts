@@ -9,12 +9,29 @@ import { AccessibilityChecker } from '../../src/core/accessibility/accessibility
 import { PageAnalysisEmitter, UnifiedEventCallbacks } from '../../src/core/events/page-analysis-emitter';
 import { UnifiedEventAdapterFactory, DeprecationManager } from '../../src/core/events/event-system-adapters';
 import { TestOptions } from '../../src/types';
+import { BrowserPoolManager } from '../../src/core/browser/browser-pool-manager';
+import { createMockBrowserPool } from '../mocks/browser-pool-mock';
+
+// Mock heavy Playwright dependencies
+jest.mock('playwright', () => ({
+  chromium: {
+    launch: jest.fn().mockResolvedValue({
+      newContext: jest.fn(),
+      newPage: jest.fn(),
+      close: jest.fn()
+    })
+  }
+}));
 
 describe('Unified Event System Migration', () => {
+  let mockPoolManager: BrowserPoolManager;
   
   beforeEach(() => {
     // Clear deprecation warnings for clean test state
     DeprecationManager.clearWarnings();
+    
+    // Create mock pool manager using our comprehensive mock
+    mockPoolManager = createMockBrowserPool({ simulateDelay: 10 });
   });
 
   afterEach(() => {
@@ -26,6 +43,7 @@ describe('Unified Event System Migration', () => {
     
     test('should initialize unified event system when enabled', () => {
       const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager,
         enableUnifiedEvents: true,
         enableComprehensiveAnalysis: true
       });
@@ -36,6 +54,7 @@ describe('Unified Event System Migration', () => {
 
     test('should not initialize unified event system when disabled', () => {
       const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager,
         enableUnifiedEvents: false,
         enableComprehensiveAnalysis: true
       });
@@ -46,6 +65,7 @@ describe('Unified Event System Migration', () => {
 
     test('should allow setting unified event callbacks', () => {
       const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager,
         enableUnifiedEvents: true,
         enableComprehensiveAnalysis: true
       });
@@ -127,6 +147,7 @@ describe('Unified Event System Migration', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       
       const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager,
         enableUnifiedEvents: true,
         enableComprehensiveAnalysis: true,
         showDeprecationWarnings: true
@@ -149,6 +170,7 @@ describe('Unified Event System Migration', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       
       const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager,
         enableUnifiedEvents: true,
         enableComprehensiveAnalysis: true,
         showDeprecationWarnings: false
@@ -167,7 +189,9 @@ describe('Unified Event System Migration', () => {
   describe('Backward Compatibility', () => {
     
     test('should maintain existing AccessibilityChecker APIs', () => {
-      const checker = new AccessibilityChecker();
+      const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager
+      });
 
       // All these methods should exist and be callable
       expect(typeof checker.testPage).toBe('function');
@@ -178,6 +202,7 @@ describe('Unified Event System Migration', () => {
 
     test('should support both unified and legacy event patterns', () => {
       const checker = new AccessibilityChecker({
+        poolManager: mockPoolManager,
         enableUnifiedEvents: true,
         enableComprehensiveAnalysis: true
       });

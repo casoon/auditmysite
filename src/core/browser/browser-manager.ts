@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { chromium, Browser, BrowserContext } from 'playwright';
 import { TestOptions } from '@core/types';
 import { log } from '@core/logging';

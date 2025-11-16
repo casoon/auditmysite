@@ -77,25 +77,31 @@ describe('Event-Driven Architecture Integration Tests', () => {
       enableShortStatus: true
     });
     
-    // Set up event listeners
+    // Set up event listeners - EventDrivenQueue passes QueueEvent objects
     if (mockEventCallbacks.onUrlStarted) {
-      queue.onUrlStarted(mockEventCallbacks.onUrlStarted);
+      queue.onUrlStarted((event: any) => {
+        mockEventCallbacks.onUrlStarted!(event.url);
+      });
     }
     if (mockEventCallbacks.onUrlCompleted) {
-      queue.onUrlCompleted((url: string, result: any) => {
-        mockEventCallbacks.onUrlCompleted!(url, result, result.duration || 0);
+      queue.onUrlCompleted((event: any) => {
+        mockEventCallbacks.onUrlCompleted!(event.url, event.result, event.duration || 0);
       });
     }
     if (mockEventCallbacks.onUrlFailed) {
-      queue.onUrlFailed((url: string, error: any) => {
-        mockEventCallbacks.onUrlFailed!(url, error.message, 1);
+      queue.onUrlFailed((event: any) => {
+        mockEventCallbacks.onUrlFailed!(event.url, event.error, event.attempts);
       });
     }
     if (mockEventCallbacks.onProgressUpdate) {
-      queue.onProgressUpdate(mockEventCallbacks.onProgressUpdate);
+      queue.onProgressUpdate((event: any) => {
+        mockEventCallbacks.onProgressUpdate!(event.stats);
+      });
     }
     if (mockEventCallbacks.onQueueEmpty) {
-      queue.onQueueEmpty(mockEventCallbacks.onQueueEmpty);
+      queue.onQueueEmpty((event: any) => {
+        mockEventCallbacks.onQueueEmpty!();
+      });
     }
   });
 
@@ -106,7 +112,7 @@ describe('Event-Driven Architecture Integration Tests', () => {
   });
 
   describe('Success Scenarios', () => {
-    test.skip('should handle multiple URLs with complete event flow - needs debugging', async () => {
+    test('should handle multiple URLs with complete event flow', async () => {
       const results = await queue.processUrls(VALID_TEST_URLS, {
         processor: mockProcessor
       });
@@ -131,7 +137,7 @@ describe('Event-Driven Architecture Integration Tests', () => {
       expect(mockProcessor).toHaveBeenCalledTimes(VALID_TEST_URLS.length);
     }, 30000);
 
-    test.skip('should maintain event callback order and data consistency - needs debugging', async () => {
+    test('should maintain event callback order and data consistency', async () => {
       const eventLog: Array<{type: string, url?: string, timestamp: number}> = [];
       
       // Create a separate queue with sequential processing for this test
@@ -141,19 +147,20 @@ describe('Event-Driven Architecture Integration Tests', () => {
         enableShortStatus: true
       });
       
-      // Set up tracking callbacks
-      sequentialQueue.onUrlStarted((url: string) => {
-        eventLog.push({type: 'started', url, timestamp: Date.now()});
+      // Set up tracking callbacks - EventDrivenQueue passes QueueEvent objects
+      sequentialQueue.onUrlStarted((event: any) => {
+        eventLog.push({type: 'started', url: event.url, timestamp: Date.now()});
       });
       
-      sequentialQueue.onUrlCompleted((url: string, result: any) => {
-        eventLog.push({type: 'completed', url, timestamp: Date.now()});
-        expect(result).toBeDefined();
-        expect(result.url).toBe(url);
+      sequentialQueue.onUrlCompleted((event: any) => {
+        eventLog.push({type: 'completed', url: event.url, timestamp: Date.now()});
+        expect(event.result).toBeDefined();
+        expect(event.result.url).toBe(event.url);
       });
       
-      sequentialQueue.onProgressUpdate((progress: any) => {
+      sequentialQueue.onProgressUpdate((event: any) => {
         eventLog.push({type: 'progress', timestamp: Date.now()});
+        const progress = event.stats;
         if (progress && typeof progress === 'object') {
           if (progress.completed !== undefined) expect(progress.completed).toBeGreaterThanOrEqual(0);
           if (progress.total !== undefined) expect(progress.total).toBeGreaterThan(0);
@@ -163,7 +170,7 @@ describe('Event-Driven Architecture Integration Tests', () => {
         }
       });
       
-      sequentialQueue.onQueueEmpty(() => {
+      sequentialQueue.onQueueEmpty((event: any) => {
         eventLog.push({type: 'empty', timestamp: Date.now()});
       });
 

@@ -12,6 +12,12 @@ import { CoreAuditPipeline, CoreAuditOptions } from '../../src/core/pipeline/cor
 import { BrowserPoolManager } from '../../src/core/browser/browser-pool-manager';
 import { AccessibilityChecker } from '../../src/core/accessibility/accessibility-checker';
 import { EventDrivenQueue } from '../../src/core/pipeline/event-driven-queue';
+import { createMockBrowserPool } from '../mocks/browser-pool-mock';
+import { createMockAccessibilityChecker } from '../mocks/accessibility-checker-mock';
+
+// Mock heavy dependencies for memory testing
+jest.mock('playwright');
+jest.mock('pa11y');
 
 // Test configuration
 const TEST_URLS = [

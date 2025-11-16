@@ -34,17 +34,19 @@ jest.mock('../../src/core/pipeline/standard-pipeline', () => ({
 }));
 
 // Mock SitemapDiscovery for connection testing
+const mockDiscoverSitemap = jest.fn().mockResolvedValue({
+  found: true,
+  sitemaps: ['https://example.com/sitemap.xml'],
+  method: 'direct'
+});
+
 jest.mock('../../src/core/parsers/sitemap-discovery', () => ({
   SitemapDiscovery: jest.fn().mockImplementation(() => ({
-    discoverSitemap: jest.fn().mockResolvedValue({
-      found: true,
-      sitemaps: ['https://example.com/sitemap.xml'],
-      method: 'direct'
-    })
+    discoverSitemap: mockDiscoverSitemap
   }))
 }));
 
-describe.skip('AuditSDK', () => {
+describe('AuditSDK', () => {
   let sdk: AuditSDK;
 
   beforeEach(() => {
@@ -107,9 +109,7 @@ describe.skip('AuditSDK', () => {
 
     it('should handle connection failures', async () => {
       // Mock failure case
-      const { SitemapDiscovery } = require('../../src/core/parsers/sitemap-discovery');
-      const mockDiscovery = SitemapDiscovery.mock.instances[0];
-      mockDiscovery.discoverSitemap.mockResolvedValueOnce({ found: false });
+      mockDiscoverSitemap.mockResolvedValueOnce({ found: false });
 
       const result = await sdk.testConnection('https://broken-site.com/sitemap.xml');
       

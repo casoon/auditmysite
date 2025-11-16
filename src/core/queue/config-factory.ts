@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * 🔧 Queue Configuration Factory
  * 
@@ -122,7 +123,7 @@ export class QueueConfigFactory {
           ]
         };
       
-      case 'parallel':
+      case 'parallel': {
         const optimalConcurrency = isCI 
           ? Math.min(2, systemInfo.cpuCount) 
           : Math.min(systemInfo.cpuCount * 2, Math.floor(systemInfo.totalMemoryMB / 256));
@@ -133,6 +134,7 @@ export class QueueConfigFactory {
           enableBackpressure: !isCI && systemInfo.totalMemoryMB < 4096, // Enable on systems with <4GB RAM
           adaptiveDelay: !isCI
         };
+      }
       
       case 'persistent':
         return {

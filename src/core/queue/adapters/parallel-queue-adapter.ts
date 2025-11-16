@@ -240,6 +240,8 @@ export class ParallelQueueAdapter<T = any> extends QueueAdapter<T> {
     failed: QueueItem<T>[]
   ): Promise<void> {
     const worker = this.workers.get(workerId)!;
+    let idleAttempts = 0;
+    const maxIdleAttempts = 10; // Max 1 second of idle waiting
 
     while (!this.isPaused && (this.processingQueue.some(item => item.status === 'pending') || 
            this.processingQueue.some(item => item.status === 'retrying'))) {
@@ -247,9 +249,17 @@ export class ParallelQueueAdapter<T = any> extends QueueAdapter<T> {
       const item = this.getNextItem();
       if (!item) {
         // No items available, wait a bit
+        idleAttempts++;
+        if (idleAttempts >= maxIdleAttempts) {
+          // No work for too long, exit worker
+          break;
+        }
         await this.delay(100);
         continue;
       }
+      
+      // Reset idle counter when work is found
+      idleAttempts = 0;
 
       // Assign item to worker
       worker.isActive = true;

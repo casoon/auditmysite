@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { SitemapParser } from '@core/parsers';
 import { AccessibilityChecker } from '@core/accessibility';
 import { TestOptions, TestSummary, AccessibilityResult } from '@core/types';

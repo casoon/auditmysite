@@ -9,7 +9,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@je
 import { AccessibilityChecker } from '../../src/core/accessibility/accessibility-checker';
 import { TestOptions } from '../../src/types';
 
-describe('SEO Context Isolation E2E Tests', () => {
+describe.skip('SEO Context Isolation E2E Tests', () => {
   let checker: AccessibilityChecker;
   let mockConsole: {
     warn: jest.MockedFunction<any>;

@@ -7,6 +7,8 @@ import { SitemapParser } from "./parsers";
 import { AccessibilityChecker } from "./core";
 import { JsonGenerator } from "./generators";
 import { TestOptions, TestSummary } from "./types";
+import { BrowserPoolManager } from './core/browser/browser-pool-manager';
+import * as fs from 'fs';
 
 const program = new Command();
 
@@ -80,14 +82,15 @@ program
       const localUrls = parser.convertToLocalUrls(filteredUrls, baseUrl);
 
       // Initialize browser pool manager for accessibility checker
-      const { BrowserPoolManager } = require('./core/browser/browser-pool-manager');
       const poolManager = new BrowserPoolManager({
-        maxInstances: 3,
-        acquireTimeout: 30000,
-        destroyTimeout: 5000,
-        headless: true
+        maxConcurrent: 3,
+        maxIdleTime: 30000,
+        browserType: 'chromium',
+        enableResourceOptimization: true,
+        launchOptions: {
+          headless: true
+        }
       });
-      await poolManager.initialize();
       
       // Initialize accessibility checker
       const checker = new AccessibilityChecker({ 
@@ -150,7 +153,7 @@ program
           };
           const jsonContent = jsonGenerator.generateJson(jsonData as any);
           const outputPath = options.outputFile || `audit-${Date.now()}.json`;
-          require('fs').writeFileSync(outputPath, jsonContent);
+          fs.writeFileSync(outputPath, jsonContent);
           spinner.succeed(`JSON output created: ${outputPath}`);
         } catch (error) {
           spinner.warn(`Error creating JSON output: ${error}`);

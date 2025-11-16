@@ -152,7 +152,7 @@ export class ContentWeightAnalyzer implements BaseAnalyzer<ContentWeightAnalysis
       throw new Error(`Content weight analysis failed: ${error}`);
     } finally {
       if (tempPage) {
-        try { await tempPage.close(); } catch {}
+        try { await tempPage.close(); } catch { /* Ignore close errors */ }
       }
     }
   }

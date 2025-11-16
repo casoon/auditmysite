@@ -125,6 +125,7 @@ export class HTMLGenerator {
     const seo = this.renderSEOSection(data);
     const contentWeight = this.renderContentWeightSection(data);
     const mobileFriendliness = this.renderMobileFriendlinessSection(data);
+    const geoAudit = this.renderGeoAuditSection(data);
     const pages = this.renderPagesSection(data);
     const footer = this.renderFooter(data);
 
@@ -147,6 +148,7 @@ export class HTMLGenerator {
       ${seo}
       ${contentWeight}
       ${mobileFriendliness}
+      ${geoAudit}
       ${pages}
       ${footer}
     </div>
@@ -632,6 +634,7 @@ export class HTMLGenerator {
           <a href="#seo" class="nav-link">SEO</a>
           <a href="#contentweight" class="nav-link">Content Weight</a>
           <a href="#mobile" class="nav-link">Mobile</a>
+          <a href="#geo" class="nav-link">GEO</a>
         </div>
       </nav>
     `;
@@ -1756,6 +1759,129 @@ export class HTMLGenerator {
     return combined;
   }
 
+  private renderGeoAuditSection(data: EnhancedAuditResult): string {
+    // Check if we have GEO audit data
+    const geoResults = (data as any).geoAudit?.results || [];
+    
+    if (geoResults.length === 0) {
+      return `
+        <section id="geo" class="section">
+          <div class="section-header">
+            <h2>🌍 Geographic Performance Analysis</h2>
+          </div>
+          <div class="section-content">
+            <div class="no-data">
+              <p>Geographic audit data not available for this report.</p>
+              <p style="margin-top: 1rem; font-size: 0.9rem; color: #6b7280;">
+                GEO audits test your website from different geographic locations to identify performance variations,
+                content localization issues, and regional accessibility concerns.
+              </p>
+              <p style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+                To include GEO audits, use the <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">--geo</code> flag with location parameters.
+              </p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    // Calculate summary metrics from GEO results
+    const avgLoadTime = geoResults.reduce((sum: number, r: any) => sum + r.performance.loadTime, 0) / geoResults.length;
+    const minLoadTime = Math.min(...geoResults.map((r: any) => r.performance.loadTime));
+    const maxLoadTime = Math.max(...geoResults.map((r: any) => r.performance.loadTime));
+    const variance = ((maxLoadTime - minLoadTime) / avgLoadTime) * 100;
+    
+    const languages = new Set(geoResults.map((r: any) => r.content.language).filter(Boolean));
+    const currencies = new Set(geoResults.map((r: any) => r.content.currency).filter(Boolean));
+    
+    return `
+      <section id="geo" class="section">
+        <div class="section-header">
+          <h2>🌍 Geographic Performance Analysis</h2>
+        </div>
+        <div class="section-content">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value info">${geoResults.length}</div>
+              <div class="metric-label">Locations Tested</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value ${variance < 20 ? 'success' : variance < 50 ? 'warning' : 'error'}">${variance.toFixed(1)}%</div>
+              <div class="metric-label">Performance Variance</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">${Math.round(avgLoadTime)}ms</div>
+              <div class="metric-label">Avg Load Time</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value ${languages.size === 1 ? 'success' : 'info'}">${languages.size}</div>
+              <div class="metric-label">Languages Detected</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value ${currencies.size === 1 ? 'success' : 'info'}">${currencies.size}</div>
+              <div class="metric-label">Currencies Detected</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Performance by Location</h3>
+            <div class="scrollable-table-container" style="max-height: 720px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Location</th>
+                    <th>Load Time</th>
+                    <th>FCP</th>
+                    <th>Language</th>
+                    <th>Currency</th>
+                    <th>A11y Errors</th>
+                    <th>Hreflang</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${geoResults.map((result: any) => {
+                    const loadTimeClass = result.performance.loadTime < avgLoadTime * 1.2 ? 'value-good' : result.performance.loadTime < avgLoadTime * 1.5 ? 'value-warning' : 'value-poor';
+                    const hasHreflang = result.seo.hreflang && result.seo.hreflang.length > 0;
+                    
+                    return `
+                      <tr>
+                        <td><strong>${this.escape(result.location.name)}</strong></td>
+                        <td class="${loadTimeClass}">${Math.round(result.performance.loadTime)}ms</td>
+                        <td>${result.performance.firstContentfulPaint ? Math.round(result.performance.firstContentfulPaint) + 'ms' : 'N/A'}</td>
+                        <td>${result.content.language || 'N/A'}</td>
+                        <td>${result.content.currency || 'N/A'}</td>
+                        <td class="${result.accessibility.errors === 0 ? 'value-excellent' : result.accessibility.errors < 3 ? 'value-warning' : 'value-critical'}">${result.accessibility.errors}</td>
+                        <td class="${hasHreflang ? 'value-excellent' : 'value-warning'}">${hasHreflang ? '✓ Yes' : '✗ No'}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          ${variance > 50 ? `
+            <div style="margin-top: 2rem; padding: 1rem; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 0 8px 8px 0;">
+              <strong style="color: #991b1b;">⚠️ High Performance Variance Detected</strong>
+              <p style="color: #6b7280; margin-top: 0.5rem; font-size: 0.9rem;">
+                Performance varies significantly across geographic locations (${variance.toFixed(1)}%). Consider using a CDN to reduce latency for users in different regions.
+              </p>
+            </div>
+          ` : ''}
+          
+          ${languages.size > 1 && !geoResults.some((r: any) => r.seo.hreflang?.length > 0) ? `
+            <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0;">
+              <strong style="color: #92400e;">🌐 Multi-Language Content Detected</strong>
+              <p style="color: #6b7280; margin-top: 0.5rem; font-size: 0.9rem;">
+                Your site shows different languages in different regions, but no hreflang tags were detected. Add hreflang tags to help search engines understand your multi-language content.
+              </p>
+            </div>
+          ` : ''}
+        </div>
+      </section>
+    `;
+  }
+
   private renderMobileFriendlinessSection(data: EnhancedAuditResult): string {
     // Include pages with any mobile friendliness data, even if the overall test failed
     const mobilePages = data.pages.filter(p => 
@@ -2562,6 +2688,7 @@ export class HTMLGenerator {
       if (htmlLines.length > 1) {
         // If context contains multiple lines, estimate from structure
         const targetLineIndex = htmlLines.findIndex(line => 
+          // eslint-disable-next-line no-useless-escape -- Brackets need escaping in character class
           selector && line.includes(selector.replace(/[\[\]]/g, ''))
         );
         

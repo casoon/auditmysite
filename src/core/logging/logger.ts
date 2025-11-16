@@ -221,7 +221,7 @@ export class Logger {
     const prefix = this.options.prefix ? `[${this.options.prefix}] ` : '';
     
     // Format message based on level
-    let formattedMessage = `${icon} ${prefix}${message}`;
+    const formattedMessage = `${icon} ${prefix}${message}`;
     
     console.log(formattedMessage);
     

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { EventEmitter } from 'events';
 import { performance } from 'perf_hooks';
 

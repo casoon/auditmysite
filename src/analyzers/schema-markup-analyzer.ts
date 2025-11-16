@@ -489,7 +489,7 @@ export class SchemaMarkupAnalyzer {
 
     private isValidPhoneNumber(phone: string): boolean {
         // Basic phone validation - could be enhanced
-        return /^[\+]?[\d\s\-\(\)]{10,}$/.test(phone);
+        return /^[+]?[\d\s\-()]{10,}$/.test(phone);
     }
 
     private isValidDate(date: string): boolean {

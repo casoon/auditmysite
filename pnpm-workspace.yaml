@@ -1,0 +1,6 @@
+packages:
+  - .
+
+onlyBuiltDependencies:
+  - '@scarf/scarf'
+  - puppeteer

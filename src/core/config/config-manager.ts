@@ -99,7 +99,7 @@ export class ConfigManager {
    */
   mergeConfigs(configs: Array<Partial<AuditConfig>>): AuditConfig {
     const defaults = this.getDefaults();
-    let result = { ...defaults };
+    const result = { ...defaults };
 
     for (const config of configs) {
       // Merge top-level properties

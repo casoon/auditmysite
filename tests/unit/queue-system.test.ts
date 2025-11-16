@@ -113,7 +113,7 @@ describe('SimpleQueueAdapter', () => {
   let adapter: SimpleQueueAdapter;
 
   beforeEach(() => {
-    adapter = new SimpleQueueAdapter({ maxConcurrent: 1 });
+    adapter = new SimpleQueueAdapter({ maxConcurrent: 1, timeout: 5000 });
   });
 
   it('should process elements sequentially', async () => {
@@ -155,14 +155,14 @@ describe('SimpleQueueAdapter', () => {
       'https://example.com/medium', 
       'https://example.com/low'
     ]);
-  });
+  }, 10000);
 });
 
 describe('ParallelQueueAdapter', () => {
   let adapter: ParallelQueueAdapter;
 
   beforeEach(() => {
-    adapter = new ParallelQueueAdapter({ maxConcurrent: 2 });
+    adapter = new ParallelQueueAdapter({ maxConcurrent: 2, timeout: 15000 });
   });
 
   it('should limit concurrent processing', async () => {
@@ -177,7 +177,7 @@ describe('ParallelQueueAdapter', () => {
         setTimeout(() => {
           activeProcesses--;
           resolve({ success: true });
-        }, 10);
+        }, 50);
       });
     });
 
@@ -186,17 +186,21 @@ describe('ParallelQueueAdapter', () => {
     }));
 
     adapter.enqueue(elements);
-    await adapter.process(mockProcessor);
+    const result = await adapter.process(mockProcessor);
     
     expect(maxConcurrent).toBe(2); // Should not exceed concurrency limit
     expect(mockProcessor).toHaveBeenCalledTimes(5);
-  });
+    expect(result.completed.length).toBe(5);
+  }, 20000);
 
   it('should handle mixed success and failure in parallel processing', async () => {
     const mockProcessor: QueueProcessor<any> = jest.fn()
-      .mockResolvedValueOnce({ success: true })
-      .mockRejectedValueOnce(new Error('Parallel failure'))
-      .mockResolvedValueOnce({ success: true });
+      .mockImplementation((data) => {
+        if (data.url === 'https://example.com/2') {
+          return Promise.reject(new Error('Parallel failure'));
+        }
+        return Promise.resolve({ success: true });
+      });
 
     const elements = [
       { url: 'https://example.com/1' },
@@ -207,13 +211,11 @@ describe('ParallelQueueAdapter', () => {
     adapter.enqueue(elements);
     const result = await adapter.process(mockProcessor);
     
-    // With retry logic, check total items processed
+    // Check total items processed
     const totalProcessed = result.completed.length + result.failed.length;
     expect(totalProcessed).toBe(3);
     
-    // Check that we have failures (either in failed or completed with error)
-    const hasFailures = result.failed.length > 0 || 
-      result.completed.some(item => item.error);
-    expect(hasFailures).toBe(true);
-  });
+    // Should have at least one failure
+    expect(result.failed.length).toBeGreaterThan(0);
+  }, 20000);
 });

@@ -1,0 +1,1340 @@
+
+> @casoon/auditmysite@2.0.0-alpha.2 lint /Users/jseidel/GitHub/auditmysite
+> eslint "src/**/*.ts" --max-warnings=0
+
+
+/Users/jseidel/GitHub/auditmysite/src/adapters/audit-data-adapter.ts
+   12:3   warning  'createStrictAuditPage' is defined but never used                                  @typescript-eslint/no-unused-vars
+   14:3   warning  'validateAllPagesComplete' is defined but never used                               @typescript-eslint/no-unused-vars
+   18:3   warning  'StrictAuditPage' is defined but never used                                        @typescript-eslint/no-unused-vars
+   21:3   warning  'hasCompleteAnalysis' is defined but never used                                    @typescript-eslint/no-unused-vars
+   69:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   70:14  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   71:13  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   77:19  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   78:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   84:14  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   85:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   86:21  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   92:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   93:19  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   99:21  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  124:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  132:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  133:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  134:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  135:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  155:71  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  214:63  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  256:6   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  279:13  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  281:6   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  286:31  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  321:6   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  337:40  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  344:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  344:62  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  359:48  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  377:6   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  394:40  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  396:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  403:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  403:55  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  422:42  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  444:6   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  460:53  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  467:61  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  467:67  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  496:52  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  513:6   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  539:66  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  539:74  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  547:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  631:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  653:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/content-weight-analyzer.ts
+   16:3   warning  'QualityAnalysisOptions' is defined but never used                                 @typescript-eslint/no-unused-vars
+  102:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  115:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  155:47  error    Empty block statement                                                              no-empty
+  175:40  warning  'page' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+  284:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  285:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  286:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  292:13  warning  'matchingResponse' is assigned a value but never used                              @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/mobile-friendliness-analyzer.ts
+   169:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   179:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   190:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   191:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   223:41   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   224:40   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   225:40   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   228:77   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   229:44   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   231:29   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   232:109  warning  '_' is defined but never used                                                                                        @typescript-eslint/no-unused-vars
+   232:171  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   234:29   error    Empty block statement                                                                                                no-empty
+   236:21   error    Empty block statement                                                                                                no-empty
+   291:21   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   299:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   300:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   302:17   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   349:22   warning  'e' is defined but never used                                                                                        @typescript-eslint/no-unused-vars
+   443:28   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   444:31   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   625:75   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   628:41   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   636:92   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   805:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   872:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  1014:28   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  1127:23   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  1128:21   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  1129:21   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  1130:22   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/mobile-performance-collector.ts
+   41:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+   65:23  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   68:11  error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   69:39  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   69:84  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  118:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  119:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  201:37  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  253:52  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  297:56  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  297:70  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  335:51  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/performance-collector.ts
+   17:3   warning  'ResourceTiming' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+   36:11  warning  'startTime' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+   41:13  warning  'isDataUri' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+   42:13  warning  'isContentSet' is assigned a value but never used                                                                    @typescript-eslint/no-unused-vars
+   57:23  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   60:11  error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   61:39  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+   61:84  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  226:74  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  234:60  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  244:85  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  249:15  error    Empty block statement                                                                                                no-empty
+  253:21  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  258:21  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  323:88  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  328:15  error    Empty block statement                                                                                                no-empty
+  332:71  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  333:44  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  335:15  error    Empty block statement                                                                                                no-empty
+  339:70  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  346:15  error    Empty block statement                                                                                                no-empty
+  360:32  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  457:14  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/schema-markup-analyzer.ts
+   10:32  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   83:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  128:58  warning  'subIndex' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+  144:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  162:50  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  205:50  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  492:19  error    Unnecessary escape character: \+                                                   no-useless-escape
+  492:30  error    Unnecessary escape character: \(                                                   no-useless-escape
+  492:32  error    Unnecessary escape character: \)                                                   no-useless-escape
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/security-headers-analyzer.ts
+  598:55  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  623:16  warning  'error' is defined but never used                                          @typescript-eslint/no-unused-vars
+  791:53  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  855:33  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/seo-analyzer.ts
+    13:16  warning  'Response' is defined but never used                                               @typescript-eslint/no-unused-vars
+    34:11  warning  'startTime' is assigned a value but never used                                     @typescript-eslint/no-unused-vars
+   395:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+   440:11  warning  'domain' is assigned a value but never used                                        @typescript-eslint/no-unused-vars
+   485:11  warning  'schemaAnalysis' is assigned a value but never used                                @typescript-eslint/no-unused-vars
+   511:11  warning  'brokenLinks' is assigned a value but never used                                   @typescript-eslint/no-unused-vars
+   575:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   618:11  warning  'keywordAnalysis' is assigned a value but never used                               @typescript-eslint/no-unused-vars
+   640:19  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   641:31  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   642:19  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   643:24  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   708:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   804:78  warning  'allLinks' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+   943:58  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   982:69  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1031:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1151:45  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/analyzers/structured-data-analyzer.ts
+  242:37  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  246:40  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  246:45  warning  'type' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  250:35  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  250:40  warning  'type' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  254:47  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  254:52  warning  'type' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  268:67  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  269:21  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  289:62  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  290:21  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  327:36  warning  'subIndex' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  359:43  warning  'index' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  380:38  warning  'index' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  877:33  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/api/server.ts
+    8:77  warning  'ErrorRequestHandler' is defined but never used                                    @typescript-eslint/no-unused-vars
+   20:3   warning  'AuditResult' is defined but never used                                            @typescript-eslint/no-unused-vars
+   21:3   warning  'SDKConfig' is defined but never used                                              @typescript-eslint/no-unused-vars
+   22:3   warning  'ProgressData' is defined but never used                                           @typescript-eslint/no-unused-vars
+   31:3   error    ES2015 module syntax is preferred over namespaces                                  @typescript-eslint/no-namespace
+   39:6   warning  'AuthenticatedRequest' is defined but never used                                   @typescript-eslint/no-unused-vars
+   67:19  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   91:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  189:32  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  259:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  333:62  warning  'next' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+  336:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  338:19  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  422:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  518:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  555:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  592:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  629:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  666:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  689:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  777:72  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/api/services/accessibility.service.ts
+  14:38  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  81:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/api/services/performance.service.ts
+    8:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   17:36  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   47:38  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  105:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/api/services/seo.service.ts
+    8:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   17:36  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+   46:38  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  123:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  168:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/api/services/sitemap.service.ts
+  15:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:16  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/api/webhooks/webhook-manager.ts
+   28:11  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   65:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   74:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   89:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  110:46  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  115:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  119:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  138:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  167:25  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  214:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  246:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  257:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  279:17  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  294:29  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  366:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  379:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/cli/commands/audit-command.ts
+   92:27   error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  160:22   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  165:22   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  168:22   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  171:22   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  187:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  283:16   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  287:18   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  288:18   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  289:18   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  290:18   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  296:59   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  297:34   error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  332:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  333:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  334:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  335:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  336:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  337:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  338:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  341:38   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  343:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  345:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  348:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  351:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  389:91   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  389:105  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  390:38   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  420:99   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  420:113  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  421:46   error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  422:31   error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  424:38   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  547:49   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  547:99   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  569:48   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  569:53   warning  'config' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+  633:46   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  671:31   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  674:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  675:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  676:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  677:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  678:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  679:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  683:5    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  686:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  688:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/cli/commands/base-command.ts
+    9:18  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   15:10  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   36:22  warning  'args' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+   68:46  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   92:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   99:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  106:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  152:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/cli/strict-mode-handler.ts
+   16:3   warning  'generateMultipleStrictReports' is defined but never used                          @typescript-eslint/no-unused-vars
+   21:3   warning  'convertAndValidateAuditData' is defined but never used                            @typescript-eslint/no-unused-vars
+   28:3   warning  'MissingAnalysisError' is defined but never used                                   @typescript-eslint/no-unused-vars
+  125:24  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  132:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  226:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  257:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  353:25  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  356:62  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  381:65  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  442:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  443:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  444:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  445:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  446:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  447:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  448:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  454:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  455:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  456:49  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  459:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  461:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  466:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  468:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  471:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  478:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  481:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  482:38  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  486:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  487:41  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  490:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  503:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  515:46  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  528:75  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  529:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  536:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  537:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  538:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  539:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  540:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  543:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  545:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  550:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  552:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  557:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  559:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  560:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  561:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  563:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  564:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  568:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  570:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  577:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/accessibility/accessibility-checker.ts
+    8:10  warning  'Browser' is defined but never used                                       @typescript-eslint/no-unused-vars
+   10:31  warning  'TestOptions' is defined but never used                                   @typescript-eslint/no-unused-vars
+   17:3   warning  'BaseAnalysisResult' is defined but never used                            @typescript-eslint/no-unused-vars
+   31:37  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  154:13  warning  'browser' is assigned a value but never used                              @typescript-eslint/no-unused-vars
+  165:34  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  168:42  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  172:19  error    Empty block statement                                                     no-empty
+  193:38  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  196:17  error    Empty block statement                                                     no-empty
+  299:18  warning  'error' is defined but never used                                         @typescript-eslint/no-unused-vars
+  320:31  warning  'result' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  411:13  warning  'browser' is assigned a value but never used                              @typescript-eslint/no-unused-vars
+  421:34  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  424:42  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  428:19  error    Empty block statement                                                     no-empty
+  449:40  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  453:17  error    Empty block statement                                                     no-empty
+  457:15  warning  'urlChanged' is assigned a value but never used                           @typescript-eslint/no-unused-vars
+  484:22  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  595:5   warning  'page' is defined but never used. Allowed unused args must match /^_/u    @typescript-eslint/no-unused-vars
+  612:44  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  639:15  warning  'totalIssues' is assigned a value but never used                          @typescript-eslint/no-unused-vars
+  640:54  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  641:56  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/accessibility/detailed-issue-collector.ts
+  25:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  26:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/accessibility/html5-elements-checker.ts
+   80:17  warning  'hasRole' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  238:14  warning  'error' is defined but never used             @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/analyzers/analyzer-factory.ts
+  190:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  190:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  217:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  217:41  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  217:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  244:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  244:41  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  244:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  271:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  271:41  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  271:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  298:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  298:41  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  298:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  325:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  325:41  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  325:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  358:23  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  358:41  warning  'options' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  358:81  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/analyzers/interfaces.ts
+   13:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   13:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  187:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  188:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  189:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/browser/browser-manager.ts
+    2:10  warning  'TestOptions' is defined but never used                                            @typescript-eslint/no-unused-vars
+   27:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   35:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   39:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   68:16  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+   69:18  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+   91:21  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  130:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  131:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  164:20  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  165:32  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  175:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/browser/browser-pool-manager.ts
+   11:21  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  112:21  warning  'id' is assigned a value but never used                                            @typescript-eslint/no-unused-vars
+  207:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  248:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  270:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  290:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  298:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  305:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  317:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/browser/network-throttler.ts
+  162:29  warning  'request' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/config/config-manager.ts
+  10:3   warning  'ServerConfig' is defined but never used       @typescript-eslint/no-unused-vars
+  11:3   warning  'StandardsConfig' is defined but never used    @typescript-eslint/no-unused-vars
+  12:3   warning  'PerformanceConfig' is defined but never used  @typescript-eslint/no-unused-vars
+  13:3   warning  'OutputConfig' is defined but never used       @typescript-eslint/no-unused-vars
+  62:21  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/config/config-sources.ts
+   20:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:28  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  196:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:24  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  291:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  298:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/events/event-system-adapters.ts
+   95:42  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+   99:30  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  145:66  warning  'type' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  150:67  warning  'type' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  167:42  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  169:30  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  192:54  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  192:59  warning  'duration' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  197:58  warning  'attempts' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/events/page-analysis-emitter.ts
+    77:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+    86:68  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   182:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   183:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   321:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   322:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   323:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   324:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   342:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   361:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   485:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   538:28  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   546:28  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   554:32  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   607:64  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   607:77  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   661:54  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   661:67  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   665:23  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   794:51  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   794:64  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   813:58  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   888:19  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+   909:42  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   939:52  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   940:54  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   944:12  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+   956:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1014:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1024:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1032:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/logging/logger.ts
+   65:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   72:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   79:78  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   87:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   96:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  105:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  171:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  186:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  187:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  188:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  189:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  190:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  191:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  192:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  198:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  200:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  202:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  211:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  213:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  220:73  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  226:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  230:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  257:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  258:37  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  259:80  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  261:37  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  262:40  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  263:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  265:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  266:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/logging/structured-logger.ts
+   40:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   46:32  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   52:32  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   58:42  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   64:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   84:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  110:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  112:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  114:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/monitoring/performance-monitor.ts
+   20:31  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   48:60  warning  'metadata' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+   48:86  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   56:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   62:84  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   77:18  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  103:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  111:93  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  120:25  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  131:27  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  131:34  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  136:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  194:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  195:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  196:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  197:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  310:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/parsers/sitemap-discovery.ts
+   58:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+   71:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+   84:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  104:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  125:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  146:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  200:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  206:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  216:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+  244:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  288:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/performance/chrome135-optimizer.ts
+  110:11   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  111:26   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  111:52   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  124:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  150:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  177:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  203:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  231:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  254:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  272:24   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  278:11   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  284:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  301:17   error    Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  302:31   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  303:28   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  303:62   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  303:100  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  308:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  316:26   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  320:13   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  327:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  364:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  395:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  415:15   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  421:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  433:29   warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  434:9    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  444:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  466:7    warning  Unexpected console statement. Only these console methods are allowed: warn, error                                    no-console
+  480:66   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  482:61   error    Do not access Object.prototype method 'hasOwnProperty' from target object                                            no-prototype-builtins
+  483:63   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  484:77   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  486:85   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  491:14   warning  'error' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+  510:36   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  511:47   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  512:47   warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  518:14   warning  'error' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+  587:14   warning  'error' is defined but never used                                                                                    @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/performance/web-vitals-collector.ts
+  124:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  129:27  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  147:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  171:25  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  179:55  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  192:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  204:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  208:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  212:11  warning  'lastError' is assigned a value but never used                                     @typescript-eslint/no-unused-vars
+  221:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  234:75  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  247:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  256:9   warning  'lastError' is assigned a value but never used                                     @typescript-eslint/no-unused-vars
+  275:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  288:66  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  310:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  311:24  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  332:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  339:27  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  343:40  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  347:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  350:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  355:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  358:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  363:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  366:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  372:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  375:15  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  405:69  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  407:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  408:24  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  455:37  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  479:66  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  501:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  509:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  550:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  571:44  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  571:50  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  584:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  591:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  596:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  604:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  611:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  621:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  651:44  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  689:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/core-audit-pipeline.ts
+    2:10  warning  'AccessibilityChecker' is defined but never used                                   @typescript-eslint/no-unused-vars
+    3:23  warning  'TestSummary' is defined but never used                                            @typescript-eslint/no-unused-vars
+    6:3   warning  'AuditMetadata' is defined but never used                                          @typescript-eslint/no-unused-vars
+    7:3   warning  'AuditConfig' is defined but never used                                            @typescript-eslint/no-unused-vars
+   10:3   warning  'AuditSummary' is defined but never used                                           @typescript-eslint/no-unused-vars
+   11:3   warning  'StructuredIssue' is defined but never used                                        @typescript-eslint/no-unused-vars
+   13:3   warning  'calculateOverallScore' is defined but never used                                  @typescript-eslint/no-unused-vars
+   71:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   72:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   78:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   99:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  115:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  117:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  129:45  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  144:50  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  145:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  148:36  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  178:18  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  181:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  184:38  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  237:22  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  312:23  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  312:71  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  313:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  313:93  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  334:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  357:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  390:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  423:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  431:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  434:31  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  443:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  449:59  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  479:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  481:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  483:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/event-driven-queue.ts
+     4:41  warning  'QueueStateOptions' is defined but never used                                      @typescript-eslint/no-unused-vars
+    21:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+    30:9   warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+    62:44  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+    95:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+    96:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   199:62  warning  'data' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+   203:64  warning  'data' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+   294:52  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   382:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   471:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   474:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   518:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   687:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   739:71  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   740:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   750:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   761:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   782:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   789:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   801:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   812:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   827:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   849:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  1006:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1010:23  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  1060:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/parallel-test-manager.ts
+   32:18  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+   83:44  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  278:26  warning  'url' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  278:39  warning  'priority' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  286:51  warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  286:56  warning  'duration' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  290:55  warning  'attempts' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  294:29  warning  'url' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  294:42  warning  'attempts' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/priority-queue.ts
+    1:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   10:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   40:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:11  warning  'now' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/simple-queue.ts
+    6:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   61:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   80:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  101:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  105:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  141:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  148:23  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  167:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  168:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  169:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  170:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  171:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  172:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  173:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  202:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/standard-pipeline.ts
+    3:10  warning  'TestOptions' is defined but never used                                            @typescript-eslint/no-unused-vars
+    3:57  warning  'AuditIssue' is defined but never used                                             @typescript-eslint/no-unused-vars
+   70:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   75:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   84:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   88:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   91:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   92:48  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+   93:34  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  102:38  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  129:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  130:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  133:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  134:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  135:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  136:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  137:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  139:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  140:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  141:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  142:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  145:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  146:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  147:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  148:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  149:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  151:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  153:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  157:28  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  169:29  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  176:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  192:40  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  193:45  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  205:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  213:43  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  214:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  216:5   warning  'allIssues' is assigned a value but never used                                     @typescript-eslint/no-unused-vars
+  220:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  221:33  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  275:35  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  276:42  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  277:13  warning  'outputGenerator' is assigned a value but never used                               @typescript-eslint/no-unused-vars
+  281:37  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+
+/Users/jseidel/GitHub/auditmysite/src/core/pipeline/worker-pool.ts
+   64:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   76:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  160:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  256:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  268:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  282:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  292:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/adapters/parallel-queue-adapter.ts
+   20:39  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  123:29  warning  'worker' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/adapters/persistent-queue-adapter.ts
+    8:10  warning  'QueueAdapter' is defined but never used                                           @typescript-eslint/no-unused-vars
+    9:44  warning  'QueueItem' is defined but never used                                              @typescript-eslint/no-unused-vars
+   20:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  126:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  132:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  147:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  237:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/adapters/simple-queue-adapter.ts
+  11:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/config-factory.ts
+  126:9   error  Unexpected lexical declaration in case block  no-case-declarations
+  307:16  error  A `require()` style import is forbidden       @typescript-eslint/no-require-imports
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/example.ts
+   12:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   30:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   35:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   41:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   46:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   49:29  warning  'result' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+   50:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   53:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   92:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   99:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  124:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  126:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  136:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  151:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  166:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  172:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  180:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  181:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  182:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  183:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  184:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  185:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  186:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/queue-adapter.ts
+  11:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/queue-factory.ts
+   18:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/queue.ts
+   12:24  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   36:38  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  209:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  210:30  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  220:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  245:33  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  269:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/core/queue/types.ts
+    8:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   20:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  123:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/reporting/streaming-reporter.ts
+  127:28  warning  'config' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  127:36  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/core/resource-monitor.ts
+  279:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  279:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  353:18  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+  360:14  warning  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/core/utils/streaming-audit-handler.ts
+    7:70  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   47:11  warning  'pipeline' is assigned a value but never used                                      @typescript-eslint/no-unused-vars
+   56:14  warning  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+  141:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/generators/html-generator.ts
+    34:21   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+    35:19   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+    36:11   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+    37:21   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+    38:26   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   602:67   warning  'certificateSVG' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   698:59   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   699:61   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   702:19   warning  'anyPositive' is assigned a value but never used                                  @typescript-eslint/no-unused-vars
+   705:45   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   706:46   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   713:44   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   714:44   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   804:83   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   808:86   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   812:88   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   832:33   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   947:50   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   950:77   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   953:36   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   987:108  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   988:114  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   989:111  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1054:13   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1072:37   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1128:33   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1203:46   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1203:78   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1203:131  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1204:47   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1205:98   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1206:98   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1207:98   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1208:101  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1277:55   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1332:13   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1559:39   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1564:22   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1711:29   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1718:45   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1781:11   warning  'totalIssues' is assigned a value but never used                                  @typescript-eslint/no-unused-vars
+  1787:37   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1866:50   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1866:96   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1869:77   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1872:36   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1897:77   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1924:30   warning  'data' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  1930:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  1980:45   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2092:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2103:28   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2110:30   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2117:29   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2135:55   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2149:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2211:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2243:46   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2254:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2268:59   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2283:11   warning  'partialPages' is assigned a value but never used                                 @typescript-eslint/no-unused-vars
+  2306:57   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2326:33   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2357:52   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2374:42   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2374:81   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2375:89   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2385:35   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2410:44   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2410:83   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2411:91   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2421:37   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2446:43   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2446:82   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2447:90   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2457:36   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2565:56   error    Unnecessary escape character: \[                                                  no-useless-escape
+  2622:50   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2648:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2682:58   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2711:32   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2843:32   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2843:74   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2844:32   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2844:83   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2845:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2845:74   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2846:30   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2847:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2850:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2850:62   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2859:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2859:89   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2868:33   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2868:72   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2877:37   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2877:82   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2886:36   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2886:86   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2978:32   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2978:74   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2979:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2986:32   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2986:75   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2987:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2994:31   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2994:66   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  2995:33   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3002:30   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3003:37   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3010:34   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3011:36   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3051:51   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3083:17   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3083:25   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3091:60   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3142:45   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3176:68   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3221:54   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3374:26   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3377:47   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  3384:66   warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/generators/json-generator.ts
+  34:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/generators/markdown-generator.ts
+   30:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/generators/strict-report-generator.ts
+   12:3   warning  'convertAndValidateAuditData' is defined but never used                            @typescript-eslint/no-unused-vars
+   17:3   warning  'StrictAuditPage' is defined but never used                                        @typescript-eslint/no-unused-vars
+   81:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   82:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   83:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  123:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  124:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  125:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  126:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  168:9   error    Unexpected lexical declaration in case block                                       no-case-declarations
+  173:9   error    Unexpected lexical declaration in case block                                       no-case-declarations
+  178:9   error    Unexpected lexical declaration in case block                                       no-case-declarations
+  183:9   error    Unexpected lexical declaration in case block                                       no-case-declarations
+  236:40  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  319:34  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  439:65  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  523:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  575:22  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/index.ts
+   52:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   83:38  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  102:13  warning  'testOptions' is assigned a value but never used                                   @typescript-eslint/no-unused-vars
+  126:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  127:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  128:42  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  129:54  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  130:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  131:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  151:70  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  153:11  error    A `require()` style import is forbidden                                            @typescript-eslint/no-require-imports
+  167:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  168:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  169:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  171:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  172:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  173:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  174:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  175:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  176:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  179:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  182:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  183:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  184:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  188:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  194:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  202:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  205:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  206:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/interfaces/stable-audit-interface.ts
+  155:13  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  313:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  383:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  415:46  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  424:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  432:55  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  440:52  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  492:29  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  649:90  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/parsers/sitemap-parser.ts
+  35:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  48:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  59:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  69:40  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/reports/detailed-issue-markdown.ts
+   9:7  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  22:7  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/reports/exporters/unified-export.ts
+   30:16  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   31:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   79:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   80:14  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  157:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  263:16  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  264:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  277:16  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  278:15  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  284:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/reports/markdown-report.ts
+   1:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  13:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/reports/types/report-export.ts
+  307:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  370:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  381:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  390:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  407:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/sdk/audit-sdk.ts
+   19:3   warning  'ProgressData' is defined but never used                                     @typescript-eslint/no-unused-vars
+   20:3   warning  'PageStartData' is defined but never used                                    @typescript-eslint/no-unused-vars
+   21:3   warning  'PageCompleteData' is defined but never used                                 @typescript-eslint/no-unused-vars
+   22:3   warning  'PageErrorData' is defined but never used                                    @typescript-eslint/no-unused-vars
+  118:12  error    A `require()` style import is forbidden                                      @typescript-eslint/no-require-imports
+  302:70  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  407:21  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  409:5   warning  'sessionId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  419:50  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/sdk/types.ts
+  120:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  267:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  344:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  364:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/sdk/unified-audit-sdk.ts
+   60:28  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  152:21  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  176:34  error    A `require()` style import is forbidden                                       @typescript-eslint/no-require-imports
+  199:61  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  270:65  warning  'outputPath' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  272:31  error    A `require()` style import is forbidden                                       @typescript-eslint/no-require-imports
+  275:40  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  282:47  error    A `require()` style import is forbidden                                       @typescript-eslint/no-require-imports
+  291:42  error    A `require()` style import is forbidden                                       @typescript-eslint/no-require-imports
+  304:31  error    A `require()` style import is forbidden                                       @typescript-eslint/no-require-imports
+
+/Users/jseidel/GitHub/auditmysite/src/services/accessibility-service.ts
+    3:10  warning  'TestSummary' is defined but never used                                    @typescript-eslint/no-unused-vars
+   37:20  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+   49:38  error    A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+   59:40  error    A `require()` style import is forbidden                                    @typescript-eslint/no-require-imports
+   86:44  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+   95:31  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  103:22  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+  153:40  warning  'results' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/base-test.ts
+   8:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/tests/language/language-text-direction-test.ts
+   33:15  warning  'dirAttributes' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  175:20  warning  'e' is defined but never used                       @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/mobile/pwa-test.ts
+  265:50  warning  'manifest' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  265:80  warning  'hasServiceWorker' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  272:55  warning  'manifest' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/mobile/touch-target-test.ts
+  112:33  warning  'minSize' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/performance/core-web-vitals-test.ts
+   20:28  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  144:60  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  150:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  151:24  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  180:13  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  208:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  237:11  warning  'observersActive' is assigned a value but never used                               @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/performance/performance-loading-test.ts
+  25:15  warning  'navigation' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  30:15  warning  'firstPaint' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  31:15  warning  'firstContentfulPaint' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  71:15  warning  'scripts' is assigned a value but never used               @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/performance/performance-memory-test.ts
+  19:40  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  27:15  warning  'totalMemoryMB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  90:20  warning  'e' is defined but never used                       @typescript-eslint/no-unused-vars
+
+/Users/jseidel/GitHub/auditmysite/src/tests/test-manager.ts
+    1:10  warning  'Page' is defined but never used                                                   @typescript-eslint/no-unused-vars
+   22:27  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   55:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   61:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   70:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   73:11  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   89:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  200:66  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  201:35  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  204:41  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/types.ts
+   27:17  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+   82:24  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  116:32  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  181:18  error    An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+  243:22  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  244:12  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  245:10  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  246:20  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/types/audit-data.ts
+   32:11  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   33:13  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   34:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   51:12  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   57:13  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   58:13  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   59:11  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   60:11  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   66:17  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   67:29  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   68:17  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   69:22  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   83:18  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   89:20  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  176:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  206:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/types/base-types.ts
+  285:7  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/types/enhanced-metrics.ts
+  561:9  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/types/queue-state.ts
+   8:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  14:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/types/strict-audit-types.ts
+  226:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  241:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jseidel/GitHub/auditmysite/src/types/tauri-integration.ts
+  573:8  error  ES2015 module syntax is preferred over namespaces  @typescript-eslint/no-namespace
+
+/Users/jseidel/GitHub/auditmysite/src/utils/health-monitor.ts
+   58:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+   80:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  281:5  warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/Users/jseidel/GitHub/auditmysite/src/validators/strict-audit-validators.ts
+   34:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   57:42  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   61:46  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   65:44  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+   89:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  127:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  148:45  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  167:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  205:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  226:45  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  228:39  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  242:36  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  242:41  warning  'pageUrl' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  266:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  282:37  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  301:46  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  301:51  warning  'pageUrl' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  333:54  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  351:58  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  356:56  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  357:55  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  371:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  414:45  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  473:45  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  494:68  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  502:26  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  504:18  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  567:47  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  569:11  warning  'strictData' is assigned a value but never used                                    @typescript-eslint/no-unused-vars
+  571:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+  586:49  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+✖ 1158 problems (72 errors, 1086 warnings)
+
+ ELIFECYCLE  Command failed with exit code 1.

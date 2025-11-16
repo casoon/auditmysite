@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * 🎯 AuditMySite SDK - Single Source of Truth Interface
  * 

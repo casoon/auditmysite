@@ -23,6 +23,12 @@ import {
 } from '../../src/interfaces/stable-audit-interface';
 import * as path from 'path';
 import * as fs from 'fs';
+import { createMockAccessibilityChecker } from '../mocks/accessibility-checker-mock';
+import { createMockBrowserPool } from '../mocks/browser-pool-mock';
+
+// Mock heavy dependencies
+jest.mock('../../src/core/accessibility/accessibility-checker');
+jest.mock('../../src/core/browser/browser-pool-manager');
 
 // Test configuration
 const TEST_CONFIG: StableAuditConfig = {

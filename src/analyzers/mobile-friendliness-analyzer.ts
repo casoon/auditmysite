@@ -228,12 +228,11 @@ export class MobileFriendlinessAnalyzer {
                                 const last = entries[entries.length - 1] as any;
                                 (window as any).__am_lcp = Math.round(last.startTime);
                             });
-                            // @ts-ignore
                             try { po.observe({ type: 'largest-contentful-paint', buffered: true }); } catch(_) { po.observe({ entryTypes: ['largest-contentful-paint'] as any }); }
                         }
-                    } catch {}
+                    } catch { /* Ignore observation errors */ }
                 });
-            } catch {}
+            } catch { /* Ignore evaluation errors */ }
 
             // Give the page a bit more time so LCP can finalize
             await page.waitForTimeout(5000);

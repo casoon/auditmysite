@@ -178,7 +178,7 @@ export interface AuditIssue {
 /**
  * @deprecated Please use AuditIssue!
  */
-export interface DetailedIssue extends AuditIssue {}
+export type DetailedIssue = AuditIssue;
 
 export interface AuditConfig {
   sitemap?: string;

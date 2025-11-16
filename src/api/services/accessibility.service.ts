@@ -1,5 +1,6 @@
 import { AccessibilityChecker } from '../../core/accessibility';
 import { AccessibilityResult } from '../../types/audit-results';
+import { BrowserPoolManager } from '../../core/browser/browser-pool-manager';
 
 /**
  * AccessibilityService - Returns AccessibilityResult (same type used in PageAuditResult)
@@ -11,14 +12,15 @@ export class AccessibilityService {
   async initialize(): Promise<void> {
     if (!this.checker) {
       // Create BrowserPoolManager for AccessibilityChecker
-      const { BrowserPoolManager } = require('../../core/browser/browser-pool-manager');
       const poolManager = new BrowserPoolManager({
-        maxInstances: 2, // API service uses fewer instances
-        acquireTimeout: 30000,
-        destroyTimeout: 5000,
-        headless: true
+        maxConcurrent: 2, // API service uses fewer instances
+        maxIdleTime: 30000,
+        browserType: 'chromium',
+        enableResourceOptimization: true,
+        launchOptions: {
+          headless: true
+        }
       });
-      await poolManager.initialize();
       
       this.checker = new AccessibilityChecker({
         poolManager,

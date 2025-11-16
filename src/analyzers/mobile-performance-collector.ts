@@ -65,7 +65,6 @@ export class MobilePerformanceCollector {
       let cdpSession: any = null;
       try {
         if (this.options.psiProfile) {
-          // @ts-ignore
           cdpSession = await (page as any)._client?.() || await (page.context() as any).newCDPSession(page);
           await cdpSession.send('Network.enable');
           const net = this.options.psiNetwork || { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 };

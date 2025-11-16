@@ -107,7 +107,6 @@ export class Chrome135Optimizer {
         // Enable enhanced accessibility features in Chrome 135
         await page.addInitScript(() => {
           // Force accessibility tree computation for modern elements
-          // @ts-ignore - Chrome 135 specific API
           if ((window as any).chrome && (window as any).chrome.runtime) {
             // Chrome 135 specific accessibility enhancements
             const observer = new MutationObserver(() => {
@@ -298,7 +297,6 @@ export class Chrome135Optimizer {
           try {
             const clsObserver = new PerformanceObserver((list) => {
               for (const entry of list.getEntries()) {
-                // @ts-ignore - Layout shift entry API
                 if ((entry as any).hadRecentInput) continue;
                 (window as any).__chrome135CLS = ((window as any).__chrome135CLS || 0) + (entry as any).value;
               }
@@ -479,7 +477,7 @@ export class Chrome135Optimizer {
         return {
           enhancedAccessibilityTree: isChrome135 && !!(window as any).getComputedAccessibleName,
           improvedDialogSupport: isChrome135 && !!HTMLDialogElement && 
-                                HTMLDialogElement.prototype.hasOwnProperty('showModal'),
+                                Object.prototype.hasOwnProperty.call(HTMLDialogElement.prototype, 'showModal'),
           modernDevToolsProtocol: isChrome135 && !!(window as any).chrome,
           optimizedResourceLoading: isChrome135 && !!(window.performance as any).measureUserAgentSpecificMemory,
           enhancedPerformanceMetrics: isChrome135 && !!window.PerformanceObserver,

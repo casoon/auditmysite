@@ -1,0 +1,4 @@
+
+> @casoon/auditmysite@2.0.0-alpha.2 type-check /Users/jseidel/GitHub/auditmysite
+> tsc --noEmit
+

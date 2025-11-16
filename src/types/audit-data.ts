@@ -27,11 +27,28 @@ export interface AuditSummary {
   certificateLevel?: string;
 }
 
+export interface AccessibilityIssue {
+  code: string;
+  type: 'error' | 'warning' | 'notice';
+  message: string;
+  context?: string;
+  selector?: string;
+  runner?: string;
+}
+
 export interface PageAccessibility {
   score: number;
-  errors: any[];
-  warnings: any[];
-  notices: any[];
+  errors: AccessibilityIssue[];
+  warnings: AccessibilityIssue[];
+  notices: AccessibilityIssue[];
+}
+
+export interface PerformanceIssue {
+  type: 'warning' | 'info';
+  message: string;
+  metric?: string;
+  value?: number;
+  threshold?: number;
 }
 
 export interface PagePerformance {
@@ -48,25 +65,65 @@ export interface PagePerformance {
     loadComplete: number;
     firstPaint: number;
   };
-  issues?: any[];
+  issues?: PerformanceIssue[];
+}
+
+export interface SEOMetaTags {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  canonical?: string;
+  robots?: string;
+}
+
+export interface SEOHeadings {
+  h1: string[];
+  h2: string[];
+  h3: string[];
+  h4: string[];
+  h5: string[];
+  h6: string[];
+}
+
+export interface SEOImageAnalysis {
+  total: number;
+  withAlt: number;
+  withoutAlt: number;
+  missingAltImages?: string[];
+}
+
+export interface SEOIssue {
+  type: 'error' | 'warning' | 'info';
+  category: string;
+  message: string;
+  element?: string;
 }
 
 export interface PageSEO {
   score: number;
   grade: string;
-  metaTags: any;
-  headings: any;
-  images: any;
-  issues: any[];
+  metaTags: SEOMetaTags;
+  headings: SEOHeadings;
+  images: SEOImageAnalysis;
+  issues: SEOIssue[];
   url: string;
   title: string;
   // Enhanced SEO features
   overallSEOScore?: number;
   seoGrade?: string;
-  semanticSEO?: any;
-  voiceSearchOptimization?: any;
-  eatAnalysis?: any;
-  coreWebVitalsSEO?: any;
+  semanticSEO?: Record<string, unknown>;
+  voiceSearchOptimization?: Record<string, unknown>;
+  eatAnalysis?: Record<string, unknown>;
+  coreWebVitalsSEO?: Record<string, unknown>;
+}
+
+export interface ContentOptimization {
+  type: string;
+  message: string;
+  potentialSavings?: number;
+  severity?: 'low' | 'medium' | 'high';
 }
 
 export interface PageContentWeight {
@@ -80,13 +137,20 @@ export interface PageContentWeight {
     images: { size: number; files: number };
     other: { size: number; files: number };
   };
-  optimizations: any[];
+  optimizations: ContentOptimization[];
+}
+
+export interface MobileRecommendation {
+  category: string;
+  message: string;
+  priority?: 'low' | 'medium' | 'high';
+  impact?: string;
 }
 
 export interface PageMobileFriendliness {
   overallScore: number;
   grade: string;
-  recommendations: any[];
+  recommendations: MobileRecommendation[];
 }
 
 export interface AuditPage {

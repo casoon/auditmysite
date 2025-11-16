@@ -26,6 +26,7 @@ export interface PerformanceBudget {
   lcp: { good: number; poor: number };
   cls: { good: number; poor: number };
   fcp: { good: number; poor: number };
+  inp?: { good: number; poor: number }; // INP is optional (newer metric)
   ttfb: { good: number; poor: number };
 }
 

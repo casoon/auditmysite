@@ -57,7 +57,6 @@ export class PerformanceCollector {
       let cdpSession: any = null;
       try {
         if (this.options.psiProfile) {
-          // @ts-ignore
           cdpSession = await (page as any)._client?.() || await (page.context() as any).newCDPSession(page);
           await cdpSession.send('Network.enable');
           const net = this.options.psiNetwork || { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 };
@@ -246,7 +245,7 @@ export class PerformanceCollector {
           const last = entries[entries.length - 1];
           return Math.round(last.startTime);
         }
-      } catch {}
+      } catch { /* Ignore LCP access errors */ }
       return 0;
     });
     if ((webVitals.lcp || 0) === 0 && lcpFromEntries > 0) {
@@ -325,14 +324,14 @@ export class PerformanceCollector {
           const last = lcpEntries[lcpEntries.length - 1];
           return Math.round(last.startTime);
         }
-      } catch {}
+      } catch { /* Ignore LCP entry errors */ }
 
       try {
         // Approximate from FCP if needed
         const paintEntries = performance.getEntriesByType('paint') as any[];
         const fcp = paintEntries?.find((e: any) => e.name === 'first-contentful-paint')?.startTime || 0;
         if (fcp > 0) return Math.round(fcp * 1.2);
-      } catch {}
+      } catch { /* Ignore FCP fallback errors */ }
 
       try {
         // Last resort: derive from navigation timings
@@ -343,7 +342,7 @@ export class PerformanceCollector {
           const approx = Math.max(dcl, Math.round((loadEnd || 0) * 0.8));
           return approx || 0;
         }
-      } catch {}
+      } catch { /* Ignore navigation timing errors */ }
 
       return 0;
     });

@@ -570,8 +570,8 @@ export const DEFAULT_CONFIGURATIONS = {
 /**
  * Helper functions for type guards and validation
  */
-export namespace TauriIntegrationUtils {
-  export function isStreamEvent(obj: unknown): obj is StreamEvent {
+export const TauriIntegrationUtils = {
+  isStreamEvent(obj: unknown): obj is StreamEvent {
     return (
       typeof obj === 'object' &&
       obj !== null &&
@@ -580,25 +580,25 @@ export namespace TauriIntegrationUtils {
       'timestamp' in obj &&
       'data' in obj
     );
-  }
+  },
   
-  export function isProgressEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').ProgressEvent {
+  isProgressEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').ProgressEvent {
     return event.type === 'progress';
-  }
+  },
   
-  export function isPageResultEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').PageResultEvent {
+  isPageResultEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').PageResultEvent {
     return event.type === 'page_result';
-  }
+  },
   
-  export function isCompleteEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').CompleteEvent {
+  isCompleteEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').CompleteEvent {
     return event.type === 'complete';
-  }
+  },
   
-  export function isErrorEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').ErrorEvent {
+  isErrorEvent(event: StreamEvent): event is import('../core/reporting/streaming-reporter').ErrorEvent {
     return event.type === 'error';
-  }
+  },
   
-  export function validateAuditConfiguration(config: Partial<AuditConfiguration>): config is AuditConfiguration {
+  validateAuditConfiguration(config: Partial<AuditConfiguration>): config is AuditConfiguration {
     return !!(
       config.sitemapUrl &&
       config.maxPages &&
@@ -606,13 +606,13 @@ export namespace TauriIntegrationUtils {
       config.enhancedFeatures &&
       config.advanced
     );
-  }
+  },
   
-  export function createDefaultConfig(baseUrl: string): AuditConfiguration {
+  createDefaultConfig(baseUrl: string): AuditConfiguration {
     return {
       ...DEFAULT_CONFIGURATIONS.QUICK,
       sitemapUrl: baseUrl,
       outputDir: './reports',
     };
   }
-}
+} as const;

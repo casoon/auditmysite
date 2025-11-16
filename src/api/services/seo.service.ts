@@ -1,4 +1,6 @@
 import { SEOResult, SEOIssue } from '../../types/audit-results';
+import { BrowserPoolManager } from '../../core/browser/browser-pool-manager';
+import { AccessibilityChecker } from '../../core/accessibility/accessibility-checker';
 
 /**
  * SEOService - Returns SEOResult (same type used in PageAuditResult)
@@ -14,7 +16,6 @@ export class SEOService {
   }
   
   private async initializePool() {
-    const { BrowserPoolManager } = require('../../core/browser/browser-pool-manager');
     this.poolManager = new BrowserPoolManager({
       maxConcurrent: 2, // Conservative for API service
       maxIdleTime: 30000,
@@ -43,17 +44,16 @@ export class SEOService {
     
     try {
       // Use pooled browser for SEO analysis
-    const { AccessibilityChecker } = require('../../core/accessibility/accessibility-checker');
-    const checker = new AccessibilityChecker({ usePooling: true, poolManager: this.poolManager });
+      const checker = new AccessibilityChecker({ poolManager: this.poolManager });
       
-      const results = await checker.testMultiplePages([url], {
-        enhancedSeoAnalysis: true,
+      const multiResult = await checker.testMultiplePages([url], {
         timeout: options.timeout || 10000,
-        maxPages: 1
+        maxConcurrent: 1
       });
       
-      if (results[0]?.enhancedSEO) {
-        const seoData = results[0].enhancedSEO;
+      const firstResult = multiResult.results[0];
+      if (firstResult?.comprehensiveAnalysis) {
+        const seoData = (firstResult.comprehensiveAnalysis as any).seo;
         const score = this.calculateSEOScore(seoData);
         
         return {

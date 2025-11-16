@@ -249,7 +249,7 @@ export class StrictModeHandler {
       }
 
       // Step 4: Generate reports if validation succeeded or tolerance is enabled
-      let generatedFiles: string[] = [];
+      const generatedFiles: string[] = [];
       let strictData: StrictAuditData | undefined;
 
       if (conversionResult.success) {

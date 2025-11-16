@@ -169,7 +169,7 @@ export class AccessibilityChecker {
             if (isNav && res.status() >= 300 && res.status() < 400) {
               wasRedirectNav = true;
             }
-          } catch {}
+          } catch { /* Ignore response check errors */ }
         };
         page.on('response', onResponse);
 
@@ -193,7 +193,7 @@ export class AccessibilityChecker {
           if (typeof (lastRequest as any).redirectedFrom === 'function') {
             wasRedirectNav = wasRedirectNav || !!lastRequest.redirectedFrom();
           }
-        } catch {}
+        } catch { /* Ignore redirect check errors */ }
         
         if (skipRedirects && wasRedirectNav) {
           const duration = Date.now() - startTime;
@@ -425,7 +425,7 @@ export class AccessibilityChecker {
             if (isNav && res.status() >= 300 && res.status() < 400) {
               wasRedirect = true;
             }
-          } catch {}
+          } catch { /* Ignore redirect detection errors */ }
         };
         page.on('response', onResponse);
         
@@ -450,7 +450,7 @@ export class AccessibilityChecker {
               wasRedirect = wasRedirect || !!lastRequest.redirectedFrom();
             }
           }
-        } catch {}
+        } catch { /* Ignore redirect chain check errors */ }
         
         // Only treat real HTTP redirects as redirects, not arbitrary URL changes
         const isHttpRedirect = wasRedirect || (status >= 300 && status < 400);
@@ -635,16 +635,17 @@ export class AccessibilityChecker {
           }
         });
 
-        // Calculate pa11y score
+        // Calculate pa11y score with balanced penalties
         const totalIssues = pa11yResult.issues.length;
         const errors = pa11yResult.issues.filter((i: any) => i.type === 'error').length;
         const warnings = pa11yResult.issues.filter((i: any) => i.type === 'warning').length;
         
         let score = 100;
-        score -= errors * 10; // 10 points per error
-        score -= warnings * 2; // 2 points per warning
+        // More balanced scoring: ~5 errors = ~75 score, ~20 errors = ~50 score
+        score -= errors * 2.5; // 2.5 points per error (was 10)
+        score -= warnings * 1; // 1 point per warning (was 2)
         
-        result.pa11yScore = Math.max(0, score);
+        result.pa11yScore = Math.max(0, Math.min(100, Math.round(score)));
       } else {
         result.pa11yScore = 100;
       }
