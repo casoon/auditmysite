@@ -162,12 +162,14 @@ export class AccessibilityChecker {
 
         // Observe navigation-level redirects
         let wasRedirectNav = false;
+        let redirectStatusCode = 0;
         const onResponse = (res: any) => {
           try {
             const req = res.request();
             const isNav = typeof (req as any).isNavigationRequest === 'function' ? req.isNavigationRequest() : false;
             if (isNav && res.status() >= 300 && res.status() < 400) {
               wasRedirectNav = true;
+              redirectStatusCode = res.status();
             }
           } catch { /* Ignore response check errors */ }
         };
@@ -186,18 +188,31 @@ export class AccessibilityChecker {
           throw new Error(`HTTP ${response?.status() || 'unknown'} error`);
         }
 
-        // If this navigation was the result of an HTTP redirect and skipping is enabled, short-circuit
+        // Enhanced redirect detection: only skip if URL actually changed
         const skipRedirects = options.skipRedirects !== false;
+        const finalUrl = response.url();
+        const urlChanged = finalUrl !== url;
+        let hasRedirectChain = false;
+
         try {
           const lastRequest = response.request();
           if (typeof (lastRequest as any).redirectedFrom === 'function') {
-            wasRedirectNav = wasRedirectNav || !!lastRequest.redirectedFrom();
+            hasRedirectChain = !!lastRequest.redirectedFrom();
           }
         } catch { /* Ignore redirect check errors */ }
-        
-        if (skipRedirects && wasRedirectNav) {
+
+        // Only consider it a redirect if the URL actually changed
+        const isRealRedirect = (wasRedirectNav || hasRedirectChain) && urlChanged;
+
+        if (skipRedirects && isRealRedirect) {
           const duration = Date.now() - startTime;
           const titleNow = await page.title();
+          logger.info(`Skipping redirected URL`, {
+            originalUrl: url,
+            finalUrl,
+            statusCode: redirectStatusCode,
+            hasRedirectChain
+          });
           const minimal: PageTestResult = {
             url,
             title: titleNow || 'Redirected',
@@ -207,7 +222,7 @@ export class AccessibilityChecker {
               imagesWithoutAlt: 0,
               buttonsWithoutLabel: 0,
               headingsCount: 0,
-              errors: [`HTTP Redirect detected (skipped)`],
+              errors: [`HTTP Redirect detected: ${url} → ${finalUrl} (${redirectStatusCode || 'unknown'})`],
               warnings: [],
               passed: false,
               crashed: false,
@@ -219,6 +234,16 @@ export class AccessibilityChecker {
             timestamp: new Date()
           };
           return minimal;
+        }
+
+        // Log if redirect signals were detected but URL didn't change
+        if ((wasRedirectNav || hasRedirectChain) && !urlChanged) {
+          logger.debug(`Redirect signals detected but URL unchanged`, {
+            url,
+            wasRedirectNav,
+            hasRedirectChain,
+            statusCode: redirectStatusCode
+          });
         }
 
         // Run basic accessibility analysis
