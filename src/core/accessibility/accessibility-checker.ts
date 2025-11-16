@@ -1,6 +1,6 @@
 /**
  * AccessibilityChecker v2 - Clean Architecture
- * 
+ *
  * This is a complete rewrite of the AccessibilityChecker with proper
  * separation of concerns, dependency injection, and typed interfaces.
  */
@@ -10,15 +10,68 @@ import pa11y from 'pa11y';
 import { AccessibilityResult, TestOptions, Pa11yIssue } from '../types';
 import { BrowserPoolManager } from '../browser/browser-pool-manager';
 import { Queue, QueueEventCallbacks } from '../queue';
-import { 
-  ILogger, 
-  AnalyzerType, 
+import {
+  ILogger,
+  AnalyzerType,
   BaseAnalysisOptions,
-  BaseAnalysisResult 
+  BaseAnalysisResult
 } from '../analyzers/interfaces';
 import { AnalyzerFactory, AnalyzerFactoryConfig } from '../analyzers/analyzer-factory';
 import { AnalysisOrchestrator, OrchestratorConfig, AnalysisResults } from '../analysis/analysis-orchestrator';
 import { createLogger } from '../logging/structured-logger';
+import { shouldIgnoreRule, getWhitelistReason } from '../config/accessibility-whitelist';
+
+/**
+ * Deduplicate accessibility errors
+ * Fixes bug where duplicate errors are reported (e.g., errors 22-42 = duplicates of 1-21)
+ */
+function deduplicateAccessibilityIssues(issues: Pa11yIssue[]): Pa11yIssue[] {
+  const seen = new Set<string>();
+  return issues.filter(issue => {
+    // Create unique key from code, selector, and context
+    const key = `${issue.code}|${issue.selector}|${issue.context}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Detect glassmorphism elements (backdrop-blur, semi-transparent backgrounds)
+ * These elements cause false positives in color-contrast checks
+ */
+async function detectGlassmorphismElements(page: Page): Promise<string[]> {
+  return await page.evaluate(() => {
+    const elements = Array.from(document.querySelectorAll('*'));
+    const selectors: string[] = [];
+
+    elements.forEach(el => {
+      const style = window.getComputedStyle(el);
+      const hasBackdropBlur = style.backdropFilter !== 'none' ||
+                              (style as any).webkitBackdropFilter !== 'none';
+      const hasTransparentBg = style.backgroundColor.includes('rgba') &&
+                               parseFloat(style.backgroundColor.split(',')[3]) < 1;
+
+      if (hasBackdropBlur || hasTransparentBg) {
+        // Generate CSS selector
+        let selector = el.tagName.toLowerCase();
+        if (el.id) {
+          selector += `#${el.id}`;
+        } else if (el.className && typeof el.className === 'string') {
+          const classes = el.className.trim().split(/\s+/).slice(0, 3); // Max 3 classes
+          if (classes.length > 0) {
+            selector += '.' + classes.join('.');
+          }
+        }
+        selectors.push(selector);
+      }
+    });
+
+    return selectors;
+  });
+}
 
 /**
  * Configuration for AccessibilityChecker
@@ -597,6 +650,19 @@ export class AccessibilityChecker {
     try {
       this.logger.debug('Running pa11y accessibility tests');
 
+      // Detect glassmorphism elements to filter out from color-contrast checks
+      let glassmorphismSelectors: string[] = [];
+      if (page) {
+        try {
+          glassmorphismSelectors = await detectGlassmorphismElements(page);
+          if (glassmorphismSelectors.length > 0) {
+            this.logger.debug(`Detected ${glassmorphismSelectors.length} glassmorphism elements (will filter color-contrast false positives)`);
+          }
+        } catch (err) {
+          this.logger.warn('Failed to detect glassmorphism elements, continuing without filtering', err);
+        }
+      }
+
       const pa11yResult = await pa11y(result.url, {
         timeout: options.timeout || 15000,
         wait: options.wait || 1000,
@@ -604,31 +670,58 @@ export class AccessibilityChecker {
         hideElements: options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
         includeNotices: options.includeNotices !== false,
         includeWarnings: options.includeWarnings !== false,
-        runners: ['axe'], // Always use axe for pooled browsers
+        runners: ['axe'],
         chromeLaunchConfig: {
           ignoreHTTPSErrors: true
-        },
-        // Configure axe to reduce false positives for color-contrast on glassmorphism/semi-transparent elements
-        runnerOptions: {
-          axe: {
-            rules: {
-              'color-contrast': {
-                enabled: true,
-                // Reduce severity for glassmorphism false positives
-                // This helps with semi-transparent overlays and backdrop-blur effects
-                options: {
-                  // Allow slightly lower contrast ratios for large text
-                  noScroll: false
-                }
-              }
-            }
-          }
         }
       });
 
       // Process pa11y issues
       if (pa11yResult.issues) {
-        pa11yResult.issues.forEach((issue: any) => {
+        // 1. Deduplicate issues (fixes bug where errors 22-42 are duplicates of 1-21)
+        const deduplicatedIssues = deduplicateAccessibilityIssues(
+          pa11yResult.issues.map((i: any) => ({
+            code: i.code,
+            message: i.message,
+            type: i.type,
+            selector: i.selector,
+            context: i.context,
+            impact: i.impact,
+            help: i.help,
+            helpUrl: i.helpUrl
+          }))
+        );
+
+        // 2. Filter out glassmorphism color-contrast false positives and whitelisted rules
+        const filteredIssues = deduplicatedIssues.filter(issue => {
+          // Check whitelist first (manual verification overrides)
+          if (shouldIgnoreRule(result.url, issue.code, issue.selector)) {
+            const reason = getWhitelistReason(result.url, issue.code);
+            this.logger.debug(`Filtered whitelisted rule ${issue.code} for ${issue.selector}: ${reason}`);
+            return false; // Filter out
+          }
+
+          // If it's a color-contrast error on a glassmorphism element, filter it out
+          if (issue.code === 'color-contrast' && glassmorphismSelectors.length > 0) {
+            const matchesGlassmorphism = glassmorphismSelectors.some(sel => {
+              try {
+                return issue.selector?.includes(sel) || issue.context?.includes(sel);
+              } catch {
+                return false;
+              }
+            });
+            if (matchesGlassmorphism) {
+              this.logger.debug(`Filtered glassmorphism false positive: ${issue.selector}`);
+              return false; // Filter out
+            }
+          }
+          return true; // Keep
+        });
+
+        this.logger.debug(`Issues: ${pa11yResult.issues.length} original → ${deduplicatedIssues.length} deduplicated → ${filteredIssues.length} after glassmorphism filter`);
+
+        // 3. Process filtered issues
+        filteredIssues.forEach((issue: any) => {
           const detailedIssue: Pa11yIssue = {
             code: issue.code,
             message: issue.message,
@@ -655,20 +748,13 @@ export class AccessibilityChecker {
         });
 
         // Calculate pa11y score with balanced penalties
-        const totalIssues = pa11yResult.issues.length;
-        const errors = pa11yResult.issues.filter((i: any) => i.type === 'error').length;
-        const warnings = pa11yResult.issues.filter((i: any) => i.type === 'warning').length;
-
-        // Count color-contrast issues separately (potential false positives from glassmorphism)
-        const colorContrastErrors = pa11yResult.issues.filter((i: any) =>
-          i.type === 'error' && (i.code === 'color-contrast' || i.code?.includes('color-contrast'))
-        ).length;
-        const otherErrors = errors - colorContrastErrors;
+        // Now using filtered issues (deduplicated + glassmorphism-filtered)
+        const errors = filteredIssues.filter((i: any) => i.type === 'error').length;
+        const warnings = filteredIssues.filter((i: any) => i.type === 'warning').length;
 
         let score = 100;
-        // Balanced scoring with reduced penalty for color-contrast false positives
-        score -= otherErrors * 2.5; // 2.5 points per non-contrast error
-        score -= colorContrastErrors * 0.5; // Only 0.5 points per color-contrast error (likely false positive)
+        // Balanced scoring - all errors treated equally since false positives are filtered
+        score -= errors * 2.5; // 2.5 points per error
         score -= warnings * 1; // 1 point per warning
 
         result.pa11yScore = Math.max(0, Math.min(100, Math.round(score)));
