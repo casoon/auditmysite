@@ -64,13 +64,12 @@ export class TestOptionsEventAdapter {
     if (options.eventCallbacks.onProgressUpdate) {
       unified.onProgressUpdate = (stats: ProgressStats) => {
         // Adapt ProgressStats to the format expected by TestOptions
-        const adaptedStats = {
-          total: stats.total,
-          completed: stats.completed,
-          failed: stats.failed,
-          progress: stats.progress,
-          memoryUsage: stats.memoryUsage,
-          activeWorkers: stats.activeWorkers
+        const adaptedStats: import('../../types').ProgressStats = {
+          totalPages: stats.total,
+          completedPages: stats.completed,
+          failedPages: stats.failed,
+          elapsedTime: stats.averageDuration * stats.completed,
+          estimatedTimeRemaining: stats.estimatedTimeRemaining
         };
         options.eventCallbacks!.onProgressUpdate!(adaptedStats);
       };

@@ -24,7 +24,7 @@ export enum LogLevel {
 }
 
 export interface LoggerOptions {
-  level: LogLevel;
+  level: LogLevel | 'error' | 'warn' | 'info' | 'success' | 'debug';
   verbose: boolean;
   prefix?: string;
   enableColors?: boolean;
@@ -39,18 +39,45 @@ export interface ProgressTracker {
 }
 
 export class Logger {
-  private options: LoggerOptions;
+  private options: Required<Omit<LoggerOptions, 'prefix'>> & { prefix?: string };
   private progress: ProgressTracker | null = null;
-  
+
   constructor(options: Partial<LoggerOptions> = {}) {
+    // Convert string levels to LogLevel enum
+    const normalizedLevel = this.normalizeLevel(options.level);
+
     this.options = {
-      level: LogLevel.INFO,
       verbose: false,
       enableColors: true,
-      ...options
+      ...options,
+      level: normalizedLevel
     };
   }
-  
+
+  /**
+   * Normalize log level from string to enum
+   */
+  private normalizeLevel(level?: LogLevel | 'error' | 'warn' | 'info' | 'success' | 'debug'): LogLevel {
+    if (typeof level === 'number') {
+      return level as LogLevel;
+    }
+
+    switch (level) {
+      case 'error':
+        return LogLevel.ERROR;
+      case 'warn':
+        return LogLevel.WARN;
+      case 'info':
+        return LogLevel.INFO;
+      case 'success':
+        return LogLevel.SUCCESS;
+      case 'debug':
+        return LogLevel.DEBUG;
+      default:
+        return LogLevel.INFO;
+    }
+  }
+
   /**
    * Set the verbosity level
    */
@@ -235,7 +262,10 @@ export class Logger {
    * Check if we should log at this level
    */
   private shouldLog(level: LogLevel): boolean {
-    return level <= this.options.level;
+    const currentLevel = typeof this.options.level === 'number'
+      ? this.options.level
+      : this.normalizeLevel(this.options.level);
+    return level <= currentLevel;
   }
   
   /**

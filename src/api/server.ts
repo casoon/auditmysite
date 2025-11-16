@@ -21,6 +21,7 @@ import {
   SDKConfig,
   ProgressData
 } from '../sdk/types';
+import { SystemHealthChecker } from '../core/health/system-health-checker';
 
 // =============================================================================
 // Type Definitions
@@ -169,20 +170,32 @@ export class AuditAPIServer {
 
   private setupRoutes(): void {
     // Health check (no auth required)
-    this.app.get('/health', (req: Request, res: Response) => {
-      res.json({
-        success: true,
-        data: {
-          status: 'healthy',
-          timestamp: new Date().toISOString(),
-          version: '2.0.0-alpha.1', // Updated for v2.0
-          uptime: process.uptime(),
-          jobs: {
-            total: this.jobManager.jobs.size,
-            running: this.jobManager.runningJobs.size
+    this.app.get('/health', async (req: Request, res: Response) => {
+      try {
+        const healthChecker = new SystemHealthChecker();
+        const healthStatus = await healthChecker.getHealthStatus();
+
+        res.status(healthStatus.status === 'healthy' ? 200 : 503).json({
+          success: healthStatus.status !== 'unhealthy',
+          data: {
+            ...healthStatus,
+            version: '2.0.0-alpha.2',
+            jobs: {
+              total: this.jobManager.jobs.size,
+              running: this.jobManager.runningJobs.size
+            }
           }
-        }
-      });
+        });
+      } catch (error) {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'HEALTH_CHECK_FAILED',
+            message: 'Health check failed',
+            details: error instanceof Error ? error.message : String(error)
+          }
+        });
+      }
     });
     
     // v2.0 API Routes (no auth required for now)

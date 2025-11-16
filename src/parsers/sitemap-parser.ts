@@ -2,18 +2,49 @@ import fs from "fs";
 import path from "path";
 import { XMLParser } from "fast-xml-parser";
 import { SitemapUrl } from "../types";
+import { ValidationError } from "../utils/errors";
+import { Logger } from "../core/logging/logger";
+
+interface SitemapUrlEntry {
+  loc: string;
+  lastmod?: string;
+  changefreq?: string;
+  priority?: number;
+}
 
 export class SitemapParser {
   private parser: XMLParser;
+  private logger: Logger;
+  private readonly MAX_RECURSION_DEPTH = 5;
+  private readonly MAX_SUBSITEMAPS = 10;
+  private visitedUrls: Set<string> = new Set();
 
   constructor() {
     this.parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: "@_",
     });
+    this.logger = new Logger({ level: 'info' });
   }
 
-  async parseSitemap(sitemapUrl: string): Promise<SitemapUrl[]> {
+  async parseSitemap(sitemapUrl: string, depth = 0): Promise<SitemapUrl[]> {
+    // Validate recursion depth
+    if (depth > this.MAX_RECURSION_DEPTH) {
+      this.logger.warn(`Maximum recursion depth (${this.MAX_RECURSION_DEPTH}) reached for sitemap: ${sitemapUrl}`);
+      return [];
+    }
+
+    // Prevent circular dependencies
+    if (this.visitedUrls.has(sitemapUrl)) {
+      this.logger.debug(`Skipping already visited sitemap: ${sitemapUrl}`);
+      return [];
+    }
+    this.visitedUrls.add(sitemapUrl);
+
+    // Validate URL format
+    if (!this.isValidSitemapUrl(sitemapUrl)) {
+      throw new ValidationError('Invalid sitemap URL format', { url: sitemapUrl });
+    }
     let xml: string;
 
     // Lade XML von URL oder Datei
@@ -32,31 +63,32 @@ export class SitemapParser {
 
     // Fall 1: Sitemap Index (WordPress/multi-sitemap structure)
     if (parsed.sitemapindex && parsed.sitemapindex.sitemap) {
-      console.log(`📋 Found sitemap index with ${Array.isArray(parsed.sitemapindex.sitemap) ? parsed.sitemapindex.sitemap.length : 1} sub-sitemaps`);
-      
-      const sitemaps = Array.isArray(parsed.sitemapindex.sitemap) 
-        ? parsed.sitemapindex.sitemap 
+      const sitemapCount = Array.isArray(parsed.sitemapindex.sitemap) ? parsed.sitemapindex.sitemap.length : 1;
+      this.logger.info(`Found sitemap index with ${sitemapCount} sub-sitemaps`);
+
+      const sitemaps = Array.isArray(parsed.sitemapindex.sitemap)
+        ? parsed.sitemapindex.sitemap
         : [parsed.sitemapindex.sitemap];
-      
-      // Fetch URLs from each sub-sitemap (limit to first 10 for performance)
-      const sitemapsToProcess = sitemaps.slice(0, 10);
-      
+
+      // Fetch URLs from each sub-sitemap (limit to MAX_SUBSITEMAPS for performance)
+      const sitemapsToProcess = sitemaps.slice(0, this.MAX_SUBSITEMAPS);
+
       for (const sitemap of sitemapsToProcess) {
         try {
           const subSitemapUrl = sitemap.loc;
-          if (subSitemapUrl && subSitemapUrl !== sitemapUrl) { // Avoid infinite loops
-            console.log(`  📄 Processing sub-sitemap: ${subSitemapUrl}`);
-            const subUrls = await this.parseSitemap(subSitemapUrl); // Recursive call
+          if (subSitemapUrl) {
+            this.logger.debug(`Processing sub-sitemap: ${subSitemapUrl}`);
+            const subUrls = await this.parseSitemap(subSitemapUrl, depth + 1); // Recursive call
             urls.push(...subUrls);
           }
         } catch (error) {
-          console.warn(`  ⚠️  Failed to process sub-sitemap ${sitemap.loc}: ${error}`);
+          this.logger.warn(`Failed to process sub-sitemap ${sitemap.loc}`, error);
           // Continue with other sitemaps even if one fails
         }
       }
-      
-      if (sitemaps.length > 10) {
-        console.log(`  📊 Limited processing to first 10 of ${sitemaps.length} sub-sitemaps for performance`);
+
+      if (sitemaps.length > this.MAX_SUBSITEMAPS) {
+        this.logger.info(`Limited processing to first ${this.MAX_SUBSITEMAPS} of ${sitemaps.length} sub-sitemaps for performance`);
       }
       
       return urls;
@@ -66,7 +98,7 @@ export class SitemapParser {
     if (parsed.urlset && parsed.urlset.url) {
       if (Array.isArray(parsed.urlset.url)) {
         urls.push(
-          ...parsed.urlset.url.map((u: any) => ({
+          ...parsed.urlset.url.map((u: SitemapUrlEntry) => ({
             loc: u.loc,
             lastmod: u.lastmod,
             changefreq: u.changefreq,
@@ -140,5 +172,24 @@ export class SitemapParser {
 
     // Ersetze Domain durch baseUrl
     return url.replace(domain, baseUrl);
+  }
+
+  private isValidSitemapUrl(url: string): boolean {
+    if (!url || typeof url !== 'string') {
+      return false;
+    }
+
+    // Allow http(s) URLs and file paths
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Allow file paths
+    return url.length > 0;
   }
 }

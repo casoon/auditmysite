@@ -307,6 +307,8 @@ export interface QualityAnalysisOptions {
   includeMobileFriendliness?: boolean;
   /** Timeout for analysis in milliseconds */
   analysisTimeout?: number;
+  /** Time to wait for metrics to settle (e.g., LCP) in milliseconds. Default: 2000ms. Set to 0 to disable. */
+  metricsSettleTime?: number;
   /** Enable verbose logging for debugging */
   verbose?: boolean;
   /** Enable PSI-like throttling profile */

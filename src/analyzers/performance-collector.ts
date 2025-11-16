@@ -9,15 +9,32 @@
  * - Performance scoring and grading
  */
 
-import { Page } from 'playwright';
-import { 
+import { Page, CDPSession } from 'playwright';
+import {
   PerformanceMetrics,
-  ContentWeight, 
-  ContentAnalysis, 
+  ContentWeight,
+  ContentAnalysis,
   ResourceTiming,
-  QualityAnalysisOptions 
+  QualityAnalysisOptions
 } from '../types/enhanced-metrics';
 import { ContentWeightAnalyzer } from './content-weight-analyzer';
+
+interface WebVitalsData {
+  lcp: number;
+  inp: number;
+  cls: number;
+  fid: number;
+}
+
+interface WindowWithWebVitals extends Window {
+  webVitalsData?: WebVitalsData;
+}
+
+declare global {
+  interface Window {
+    webVitalsData?: WebVitalsData;
+  }
+}
 
 export class PerformanceCollector {
   private contentAnalyzer: ContentWeightAnalyzer;
@@ -44,21 +61,25 @@ export class PerformanceCollector {
       // Use already loaded content - navigation is handled by main test flow
       // Only navigate if page is completely empty (about:blank)
       if (currentUrl === 'about:blank' || currentUrl === '') {
-        await page.goto(urlString, { 
+        await page.goto(urlString, {
           waitUntil: 'networkidle',
-          timeout: this.options.analysisTimeout || 30000 
+          timeout: this.options.analysisTimeout || 30000
         });
       }
 
       // Wait for potential lazy loading and interactions (allow LCP to settle)
-      await page.waitForTimeout(5000);
+      // Use configurable wait time instead of fixed 5 seconds
+      const settleTime = this.options.metricsSettleTime ?? 2000; // Default to 2s instead of 5s
+      if (settleTime > 0) {
+        await page.waitForTimeout(settleTime);
+      }
 
       // Optionally emulate PSI profile (CPU/network throttling)
-      let cdpSession: any = null;
+      let cdpSession: CDPSession | null = null;
       try {
         if (this.options.psiProfile) {
-          // @ts-ignore
-          cdpSession = await (page as any)._client?.() || await (page.context() as any).newCDPSession(page);
+          // Access CDP session through context (Playwright's official API)
+          cdpSession = await page.context().newCDPSession(page);
           await cdpSession.send('Network.enable');
           const net = this.options.psiNetwork || { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 };
           await cdpSession.send('Network.emulateNetworkConditions', {
@@ -231,26 +252,31 @@ export class PerformanceCollector {
     });
 
     // Get the collected Web Vitals data
-    const webVitals = await page.evaluate(() => (window as any).webVitalsData || {
+    const webVitalsResult = await page.evaluate((): WebVitalsData => window.webVitalsData || {
       lcp: 0,
       inp: 0,
       cls: 0,
       fid: 0
     });
 
+    // Make a mutable copy
+    const webVitals: WebVitalsData = { ...webVitalsResult };
+
     // Try to read LCP directly from performance entries (works even if observer attached late)
     const lcpFromEntries = await page.evaluate(() => {
       try {
-        const entries = performance.getEntriesByType('largest-contentful-paint') as any[];
+        const entries = performance.getEntriesByType('largest-contentful-paint') as PerformanceEntry[];
         if (entries && entries.length > 0) {
-          const last = entries[entries.length - 1];
+          const last = entries[entries.length - 1] as PerformancePaintTiming;
           return Math.round(last.startTime);
         }
-      } catch {}
+      } catch {
+        // Ignore errors
+      }
       return 0;
     });
     if ((webVitals.lcp || 0) === 0 && lcpFromEntries > 0) {
-      (webVitals as any).lcp = lcpFromEntries;
+      webVitals.lcp = lcpFromEntries;
     }
 
     // Fallback measurements if we still have no LCP
