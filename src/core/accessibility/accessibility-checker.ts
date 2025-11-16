@@ -14,10 +14,14 @@ import {
   ILogger,
   AnalyzerType,
   BaseAnalysisOptions,
-  BaseAnalysisResult
+  BaseAnalysisResult,
 } from '../analyzers/interfaces';
 import { AnalyzerFactory, AnalyzerFactoryConfig } from '../analyzers/analyzer-factory';
-import { AnalysisOrchestrator, OrchestratorConfig, AnalysisResults } from '../analysis/analysis-orchestrator';
+import {
+  AnalysisOrchestrator,
+  OrchestratorConfig,
+  AnalysisResults,
+} from '../analysis/analysis-orchestrator';
 import { createLogger } from '../logging/structured-logger';
 import { shouldIgnoreRule, getWhitelistReason } from '../config/accessibility-whitelist';
 
@@ -29,7 +33,7 @@ import { shouldIgnoreRule, getWhitelistReason } from '../config/accessibility-wh
  */
 export function deduplicateAccessibilityIssues(issues: Pa11yIssue[]): Pa11yIssue[] {
   const seen = new Set<string>();
-  return issues.filter(issue => {
+  return issues.filter((issue) => {
     // Create unique key from code, selector, and context
     const key = `${issue.code}|${issue.selector}|${issue.context}`;
     if (seen.has(key)) {
@@ -49,12 +53,13 @@ async function detectGlassmorphismElements(page: Page): Promise<string[]> {
     const elements = Array.from(document.querySelectorAll('*'));
     const selectors: string[] = [];
 
-    elements.forEach(el => {
+    elements.forEach((el) => {
       const style = window.getComputedStyle(el);
-      const hasBackdropBlur = style.backdropFilter !== 'none' ||
-                              (style as any).webkitBackdropFilter !== 'none';
-      const hasTransparentBg = style.backgroundColor.includes('rgba') &&
-                               parseFloat(style.backgroundColor.split(',')[3]) < 1;
+      const hasBackdropBlur =
+        style.backdropFilter !== 'none' || (style as any).webkitBackdropFilter !== 'none';
+      const hasTransparentBg =
+        style.backgroundColor.includes('rgba') &&
+        parseFloat(style.backgroundColor.split(',')[3]) < 1;
 
       if (hasBackdropBlur || hasTransparentBg) {
         // Generate CSS selector
@@ -96,7 +101,7 @@ export interface PageTestOptions extends BaseAnalysisOptions {
   readonly wait?: number;
   readonly hideElements?: string;
   readonly enableComprehensiveAnalysis?: boolean;
-  readonly skipRedirects?: boolean;         // Skip 301/302 redirects (default: true)
+  readonly skipRedirects?: boolean; // Skip 301/302 redirects (default: true)
 }
 
 /**
@@ -116,14 +121,14 @@ export interface PageTestResult {
  */
 export interface MultiPageTestResult {
   readonly results: PageTestResult[];
-  readonly skippedUrls: string[];           // URLs skipped due to redirects/errors
+  readonly skippedUrls: string[]; // URLs skipped due to redirects/errors
   readonly totalDuration: number;
   readonly timestamp: Date;
 }
 
 /**
  * AccessibilityChecker v2 - Clean, focused implementation
- * 
+ *
  * Responsibilities:
  * - Core accessibility testing via pa11y
  * - Basic page analysis (images, buttons, headings)
@@ -135,7 +140,7 @@ export class AccessibilityChecker {
   private readonly logger: ILogger;
   private readonly analyzerFactory?: AnalyzerFactory;
   private readonly analysisOrchestrator?: AnalysisOrchestrator;
-  
+
   constructor(config: AccessibilityCheckerConfig) {
     // Validate required dependencies
     if (!config.poolManager) {
@@ -148,18 +153,19 @@ export class AccessibilityChecker {
       logger: config.logger || createLogger('accessibility-checker'),
       enableComprehensiveAnalysis: config.enableComprehensiveAnalysis || false,
       analyzerTypes: config.analyzerTypes || [],
-      qualityAnalysisOptions: config.qualityAnalysisOptions || {}
+      qualityAnalysisOptions: config.qualityAnalysisOptions || {},
     };
 
     this.logger = this.config.logger;
-    
+
     // Initialize analyzer factory if comprehensive analysis is enabled
     if (this.config.enableComprehensiveAnalysis) {
       try {
         const factoryConfig: AnalyzerFactoryConfig = {
           logger: this.logger.child ? this.logger.child('factory') : this.logger,
           qualityAnalysisOptions: this.config.qualityAnalysisOptions,
-          enabledAnalyzers: this.config.analyzerTypes.length > 0 ? this.config.analyzerTypes : undefined
+          enabledAnalyzers:
+            this.config.analyzerTypes.length > 0 ? this.config.analyzerTypes : undefined,
         };
 
         this.analyzerFactory = new AnalyzerFactory(factoryConfig);
@@ -169,12 +175,15 @@ export class AccessibilityChecker {
           analyzerFactory: this.analyzerFactory,
           logger: this.logger.child ? this.logger.child('orchestrator') : this.logger,
           defaultTimeout: 30000,
-          failFast: false
+          failFast: false,
         };
 
         this.analysisOrchestrator = new AnalysisOrchestrator(orchestratorConfig);
       } catch (error) {
-        this.logger.warn('Failed to initialize comprehensive analysis - continuing with basic accessibility testing only', error);
+        this.logger.warn(
+          'Failed to initialize comprehensive analysis - continuing with basic accessibility testing only',
+          error
+        );
         // Cannot modify readonly config - comprehensive analysis will remain disabled for this session
       }
     }
@@ -207,10 +216,10 @@ export class AccessibilityChecker {
     logger.info(`Testing page: ${url}`);
 
     const { browser, context, release } = await this.config.poolManager.acquire();
-    
+
     try {
       const page = await context.newPage();
-      
+
       try {
         // Navigate to page
         await this.configurePage(page, options);
@@ -220,17 +229,22 @@ export class AccessibilityChecker {
         const onResponse = (res: any) => {
           try {
             const req = res.request();
-            const isNav = typeof (req as any).isNavigationRequest === 'function' ? req.isNavigationRequest() : false;
+            const isNav =
+              typeof (req as any).isNavigationRequest === 'function'
+                ? req.isNavigationRequest()
+                : false;
             if (isNav && res.status() >= 300 && res.status() < 400) {
               wasRedirectNav = true;
             }
-          } catch { /* Ignore response check errors */ }
+          } catch {
+            /* Ignore response check errors */
+          }
         };
         page.on('response', onResponse);
 
         const response = await page.goto(url, {
           waitUntil: 'domcontentloaded',
-          timeout: options.timeout || 30000
+          timeout: options.timeout || 30000,
         });
 
         // Stop observing responses
@@ -248,8 +262,10 @@ export class AccessibilityChecker {
           if (typeof (lastRequest as any).redirectedFrom === 'function') {
             wasRedirectNav = wasRedirectNav || !!lastRequest.redirectedFrom();
           }
-        } catch { /* Ignore redirect check errors */ }
-        
+        } catch {
+          /* Ignore redirect check errors */
+        }
+
         if (skipRedirects && wasRedirectNav) {
           const duration = Date.now() - startTime;
           const titleNow = await page.title();
@@ -267,47 +283,49 @@ export class AccessibilityChecker {
               passed: false,
               crashed: false,
               skipped: true,
-              duration
+              duration,
             },
             comprehensiveAnalysis: undefined,
             duration,
-            timestamp: new Date()
+            timestamp: new Date(),
           };
           return minimal;
         }
 
         // Run basic accessibility analysis
         const accessibilityResult = await this.runBasicAccessibilityAnalysis(page, url, options);
-        
+
         // Run comprehensive analysis if enabled
         let comprehensiveAnalysis: AnalysisResults | undefined;
-        if ((options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis) && this.analysisOrchestrator) {
+        if (
+          (options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis) &&
+          this.analysisOrchestrator
+        ) {
           comprehensiveAnalysis = await this.analysisOrchestrator.runComprehensiveAnalysis(
-            page, 
-            url, 
+            page,
+            url,
             { timeout: options.timeout }
           );
         }
 
         const duration = Date.now() - startTime;
-        
+
         const result: PageTestResult = {
           url,
           title: accessibilityResult.title,
           accessibilityResult,
           comprehensiveAnalysis,
           duration,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
 
-        logger.info(`Page testing completed`, { 
-          url, 
-          duration, 
-          passed: accessibilityResult.passed 
+        logger.info(`Page testing completed`, {
+          url,
+          duration,
+          passed: accessibilityResult.passed,
         });
 
         return result;
-
       } finally {
         await page.close();
       }
@@ -326,11 +344,11 @@ export class AccessibilityChecker {
     const startTime = Date.now();
     const logger = this.logger.child ? this.logger.child('multi-test') : this.logger;
     const skipRedirects = options.skipRedirects !== false;
-    
-    logger.info(`Testing ${urls.length} pages`, { 
+
+    logger.info(`Testing ${urls.length} pages`, {
       concurrency: options.maxConcurrent || 3,
       comprehensive: options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis,
-      skipRedirects
+      skipRedirects,
     });
 
     const results: PageTestResult[] = [];
@@ -341,11 +359,11 @@ export class AccessibilityChecker {
     if (skipRedirects) {
       logger.debug('Pre-filtering redirects...');
       const filteredUrls: string[] = [];
-      
+
       for (const url of urls) {
         try {
           const minimalResult = await this.testUrlMinimal(url, 8000);
-          if (minimalResult.skipped && minimalResult.errors.some(e => e.includes('Redirect'))) {
+          if (minimalResult.skipped && minimalResult.errors.some((e) => e.includes('Redirect'))) {
             skippedUrls.push(url);
             logger.debug(`Skipped redirect: ${url}`);
           } else {
@@ -356,9 +374,11 @@ export class AccessibilityChecker {
           filteredUrls.push(url);
         }
       }
-      
+
       urlsToProcess = filteredUrls;
-      logger.info(`After redirect filtering: ${urlsToProcess.length} URLs to test, ${skippedUrls.length} redirects skipped`);
+      logger.info(
+        `After redirect filtering: ${urlsToProcess.length} URLs to test, ${skippedUrls.length} redirects skipped`
+      );
     }
 
     // Configure queue callbacks
@@ -368,7 +388,7 @@ export class AccessibilityChecker {
           logger.info(`Progress: ${stats.progress.toFixed(1)}%`, {
             completed: stats.completed,
             total: stats.total,
-            workers: stats.activeWorkers
+            workers: stats.activeWorkers,
           });
         }
       },
@@ -380,37 +400,45 @@ export class AccessibilityChecker {
       },
       onQueueEmpty: () => {
         logger.info('All page tests completed');
-      }
+      },
     };
 
     // Create optimized queue for accessibility testing
-    const queue = Queue.forAccessibilityTesting<string>('parallel', {
-      maxConcurrent: options.maxConcurrent || 3,
-      maxRetries: 3,
-      retryDelay: 2000,
-      timeout: options.timeout || 30000,
-      enableProgressReporting: true,
-      progressUpdateInterval: 3000
-    }, callbacks);
+    const queue = Queue.forAccessibilityTesting<string>(
+      'parallel',
+      {
+        maxConcurrent: options.maxConcurrent || 3,
+        maxRetries: 3,
+        retryDelay: 2000,
+        timeout: options.timeout || 30000,
+        enableProgressReporting: true,
+        progressUpdateInterval: 3000,
+      },
+      callbacks
+    );
 
     try {
       // Process filtered URLs with queue
-      const result = await queue.processWithProgress(urlsToProcess, async (url: string) => {
-        return await this.testPage(url, options);
-      }, {
-        showProgress: !options.verbose,
-        progressInterval: 3000
-      });
+      const result = await queue.processWithProgress(
+        urlsToProcess,
+        async (url: string) => {
+          return await this.testPage(url, options);
+        },
+        {
+          showProgress: !options.verbose,
+          progressInterval: 3000,
+        }
+      );
 
       // Extract successful results
-      result.completed.forEach(item => {
+      result.completed.forEach((item) => {
         if (item.result) {
           results.push(item.result);
         }
       });
 
       // Add failed items as error results
-      result.failed.forEach(failedItem => {
+      result.failed.forEach((failedItem) => {
         results.push({
           url: failedItem.data,
           title: 'Error',
@@ -424,30 +452,29 @@ export class AccessibilityChecker {
             warnings: [],
             passed: false,
             crashed: true,
-            duration: failedItem.duration || 0
+            duration: failedItem.duration || 0,
           },
           duration: failedItem.duration || 0,
-          timestamp: new Date()
+          timestamp: new Date(),
         });
       });
 
       const totalDuration = Date.now() - startTime;
-      
+
       logger.info(`Multi-page testing completed`, {
         total: urls.length,
         tested: results.length,
         skipped: skippedUrls.length,
         failed: result.failed.length,
-        totalDuration
+        totalDuration,
       });
 
       return {
         results,
         skippedUrls,
         totalDuration,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
-
     } catch (error) {
       logger.error('Multi-page testing failed', error);
       throw error;
@@ -464,10 +491,10 @@ export class AccessibilityChecker {
     logger.debug(`Minimal test: ${url}`);
 
     const { browser, context, release } = await this.config.poolManager.acquire();
-    
+
     try {
       const page = await context.newPage();
-      
+
       try {
         page.setDefaultTimeout(timeout);
 
@@ -476,17 +503,22 @@ export class AccessibilityChecker {
         const onResponse = (res: any) => {
           try {
             const req = res.request();
-            const isNav = typeof (req as any).isNavigationRequest === 'function' ? req.isNavigationRequest() : false;
+            const isNav =
+              typeof (req as any).isNavigationRequest === 'function'
+                ? req.isNavigationRequest()
+                : false;
             if (isNav && res.status() >= 300 && res.status() < 400) {
               wasRedirect = true;
             }
-          } catch { /* Ignore redirect detection errors */ }
+          } catch {
+            /* Ignore redirect detection errors */
+          }
         };
         page.on('response', onResponse);
-        
+
         const response = await page.goto(url, {
           waitUntil: 'domcontentloaded',
-          timeout
+          timeout,
         });
 
         // Stop observing responses
@@ -495,7 +527,7 @@ export class AccessibilityChecker {
         const finalUrl = page.url();
         const title = await page.title();
         const status = response?.status() || 0;
-        
+
         // Detect redirects even when Playwright follows them to a final 200
         try {
           const lastRequest = response?.request();
@@ -505,12 +537,14 @@ export class AccessibilityChecker {
               wasRedirect = wasRedirect || !!lastRequest.redirectedFrom();
             }
           }
-        } catch { /* Ignore redirect chain check errors */ }
-        
+        } catch {
+          /* Ignore redirect chain check errors */
+        }
+
         // Only treat real HTTP redirects as redirects, not arbitrary URL changes
         const isHttpRedirect = wasRedirect || (status >= 300 && status < 400);
         const urlChanged = finalUrl !== url;
-        
+
         const result: AccessibilityResult = {
           url,
           title: title || 'Untitled',
@@ -522,9 +556,9 @@ export class AccessibilityChecker {
           passed: status >= 200 && status < 300, // Only 2xx are successful
           crashed: false,
           skipped: isHttpRedirect || status === 404,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         };
-        
+
         // Add status-specific errors
         if (status === 404) {
           result.errors.push('HTTP 404 Not Found');
@@ -533,25 +567,24 @@ export class AccessibilityChecker {
         } else if (status >= 400) {
           result.errors.push(`HTTP ${status} Error`);
         }
-        
+
         // Add redirect info if needed
         if (isHttpRedirect) {
           (result as any).redirectInfo = {
             status: status >= 300 && status < 400 ? status : 0,
             originalUrl: url,
             finalUrl,
-            type: 'http_redirect'
+            type: 'http_redirect',
           };
         }
-        
-        return result;
 
+        return result;
       } finally {
         await page.close();
       }
     } catch (error) {
       logger.debug(`Minimal test failed: ${url}`, error);
-      
+
       return {
         url,
         title: 'Error',
@@ -562,7 +595,7 @@ export class AccessibilityChecker {
         warnings: [],
         passed: false,
         crashed: true,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       };
     } finally {
       await release();
@@ -587,23 +620,23 @@ export class AccessibilityChecker {
 
     // Set user agent
     await page.setExtraHTTPHeaders({
-      'User-Agent': 'auditmysite/2.0.0 (+https://github.com/casoon/AuditMySite)'
+      'User-Agent': 'auditmysite/2.0.0 (+https://github.com/casoon/AuditMySite)',
     });
 
     // Configure console/error logging based on verbose setting
     if (options.verbose) {
-      page.on('console', msg => this.logger.debug(`Browser: ${msg.text()}`));
-      page.on('pageerror', error => this.logger.warn(`JS Error: ${error.message}`));
+      page.on('console', (msg) => this.logger.debug(`Browser: ${msg.text()}`));
+      page.on('pageerror', (error) => this.logger.warn(`JS Error: ${error.message}`));
     }
   }
 
   private async runBasicAccessibilityAnalysis(
-    page: Page, 
-    url: string, 
+    page: Page,
+    url: string,
     options: PageTestOptions
   ): Promise<AccessibilityResult> {
     const startTime = Date.now();
-    
+
     const result: AccessibilityResult = {
       url,
       title: await page.title(),
@@ -613,7 +646,7 @@ export class AccessibilityChecker {
       errors: [],
       warnings: [],
       passed: true,
-      duration: 0
+      duration: 0,
     };
 
     // Basic element checks
@@ -645,7 +678,7 @@ export class AccessibilityChecker {
   }
 
   private async runPa11yTests(
-    result: AccessibilityResult, 
+    result: AccessibilityResult,
     options: PageTestOptions,
     page?: Page
   ): Promise<void> {
@@ -658,10 +691,15 @@ export class AccessibilityChecker {
         try {
           glassmorphismSelectors = await detectGlassmorphismElements(page);
           if (glassmorphismSelectors.length > 0) {
-            this.logger.debug(`Detected ${glassmorphismSelectors.length} glassmorphism elements (will filter color-contrast false positives)`);
+            this.logger.debug(
+              `Detected ${glassmorphismSelectors.length} glassmorphism elements (will filter color-contrast false positives)`
+            );
           }
         } catch (err) {
-          this.logger.warn('Failed to detect glassmorphism elements, continuing without filtering', err);
+          this.logger.warn(
+            'Failed to detect glassmorphism elements, continuing without filtering',
+            err
+          );
         }
       }
 
@@ -669,13 +707,15 @@ export class AccessibilityChecker {
         timeout: options.timeout || 15000,
         wait: options.wait || 1000,
         standard: options.pa11yStandard || 'WCAG2AA',
-        hideElements: options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
+        hideElements:
+          options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
         includeNotices: options.includeNotices !== false,
         includeWarnings: options.includeWarnings !== false,
         runners: ['axe'],
         chromeLaunchConfig: {
-          ignoreHTTPSErrors: true
-        }
+          executablePath: '', // Will use default Chromium
+          ignoreHTTPSErrors: true,
+        },
       });
 
       // Process pa11y issues
@@ -690,7 +730,7 @@ export class AccessibilityChecker {
             context: i.context,
             impact: i.impact,
             help: i.help,
-            helpUrl: i.helpUrl
+            helpUrl: i.helpUrl,
           }))
         );
 
@@ -698,18 +738,20 @@ export class AccessibilityChecker {
         let whitelistedCount = 0;
         let glassmorphismFilteredCount = 0;
 
-        const filteredIssues = deduplicatedIssues.filter(issue => {
+        const filteredIssues = deduplicatedIssues.filter((issue) => {
           // Check whitelist first (manual verification overrides)
           if (shouldIgnoreRule(result.url, issue.code, issue.selector)) {
             const reason = getWhitelistReason(result.url, issue.code);
-            this.logger.debug(`Filtered whitelisted rule ${issue.code} for ${issue.selector}: ${reason}`);
+            this.logger.debug(
+              `Filtered whitelisted rule ${issue.code} for ${issue.selector}: ${reason}`
+            );
             whitelistedCount++;
             return false; // Filter out
           }
 
           // If it's a color-contrast error on a glassmorphism element, filter it out
           if (issue.code === 'color-contrast' && glassmorphismSelectors.length > 0) {
-            const matchesGlassmorphism = glassmorphismSelectors.some(sel => {
+            const matchesGlassmorphism = glassmorphismSelectors.some((sel) => {
               try {
                 return issue.selector?.includes(sel) || issue.context?.includes(sel);
               } catch {
@@ -725,7 +767,9 @@ export class AccessibilityChecker {
           return true; // Keep
         });
 
-        this.logger.debug(`Issues: ${pa11yResult.issues.length} original → ${deduplicatedIssues.length} deduplicated → ${filteredIssues.length} after filtering`);
+        this.logger.debug(
+          `Issues: ${pa11yResult.issues.length} original → ${deduplicatedIssues.length} deduplicated → ${filteredIssues.length} after filtering`
+        );
 
         // Store filtering metadata for transparency
         result.filteringMetadata = {
@@ -733,7 +777,7 @@ export class AccessibilityChecker {
           deduplicatedIssuesCount: deduplicatedIssues.length,
           filteredIssuesCount: filteredIssues.length,
           glassmorphismElementsDetected: glassmorphismSelectors.length,
-          whitelistedIssuesCount: whitelistedCount
+          whitelistedIssuesCount: whitelistedCount,
         };
 
         // 3. Process filtered issues
@@ -746,7 +790,7 @@ export class AccessibilityChecker {
             context: issue.context,
             impact: issue.impact,
             help: issue.help,
-            helpUrl: issue.helpUrl
+            helpUrl: issue.helpUrl,
           };
 
           result.pa11yIssues = result.pa11yIssues || [];
@@ -777,10 +821,9 @@ export class AccessibilityChecker {
       } else {
         result.pa11yScore = 100;
       }
-
     } catch (error) {
       this.logger.warn('pa11y test failed, using fallback scoring', error);
-      
+
       // Fallback score calculation
       let score = 100;
       score -= result.errors.length * 15;
@@ -788,7 +831,7 @@ export class AccessibilityChecker {
       score -= result.imagesWithoutAlt * 3;
       score -= result.buttonsWithoutLabel * 5;
       if (result.headingsCount === 0) score -= 20;
-      
+
       result.pa11yScore = Math.max(0, score);
     }
   }
