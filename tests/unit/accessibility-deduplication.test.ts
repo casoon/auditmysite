@@ -6,32 +6,8 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-
-// Import the deduplication function
-// Note: We need to export it from accessibility-checker.ts for testing
-interface Pa11yIssue {
-  code: string;
-  message: string;
-  type: 'error' | 'warning' | 'notice';
-  selector: string;
-  context: string;
-  impact?: string;
-  help?: string;
-  helpUrl?: string;
-}
-
-// Inline copy of deduplication function for testing
-function deduplicateAccessibilityIssues(issues: Pa11yIssue[]): Pa11yIssue[] {
-  const seen = new Set<string>();
-  return issues.filter(issue => {
-    const key = `${issue.code}|${issue.selector}|${issue.context}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
+import { deduplicateAccessibilityIssues } from '../../src/core/accessibility/accessibility-checker';
+import { Pa11yIssue } from '../../src/types';
 
 describe('Accessibility Issue Deduplication', () => {
   it('should remove exact duplicates', () => {

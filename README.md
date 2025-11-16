@@ -37,6 +37,9 @@ Each page tested provides detailed insights across **5 key areas**:
 - **Error categorization**: Critical errors, warnings, and notices
 - **Specific fixes**: Exact HTML elements and recommended solutions
 - **Screen reader compatibility** and keyboard navigation issues
+- **🆕 Glassmorphism false positive detection**: Automatically detects and filters backdrop-blur/transparent elements that cause color-contrast false positives
+- **🆕 Intelligent error deduplication**: Eliminates duplicate error reporting for cleaner results
+- **🆕 Filtering transparency**: See exactly how many issues were filtered and why (metadata included in reports)
 
 #### ⚡ **Performance Analysis**
 - **Core Web Vitals**: LCP, FCP, CLS, INP, TTFB with Google's official thresholds
@@ -193,6 +196,52 @@ auditmysite --api --port 3000 --api-key your-secret-key
 # POST /api/v1/audit/accessibility - Accessibility-focused analysis
 # GET /api/v1/audit/{jobId} - Get audit job status
 ```
+
+## 🎨 Advanced Features
+
+### Glassmorphism False Positive Filtering
+
+Modern web designs often use glassmorphism effects (backdrop-blur with transparent backgrounds). These cause axe-core to incorrectly report color-contrast violations because the tool analyzes static DOM, not final rendered pixels.
+
+**How it works:**
+- Automatically detects elements with `backdrop-filter` or semi-transparent backgrounds
+- Filters color-contrast errors on detected glassmorphism elements
+- Provides filtering metadata showing exactly what was filtered and why
+
+**Transparency:**
+```json
+{
+  "filteringMetadata": {
+    "originalIssuesCount": 42,
+    "deduplicatedIssuesCount": 21,
+    "filteredIssuesCount": 0,
+    "glassmorphismElementsDetected": 8,
+    "whitelistedIssuesCount": 0
+  }
+}
+```
+
+### Whitelist System
+
+For cases where automated detection isn't enough, use the whitelist system for URL-specific rules:
+
+**Configuration:** `src/core/config/accessibility-whitelist.ts`
+
+**Example:**
+```typescript
+{
+  url: 'https://example.com',
+  ignoreRules: {
+    'color-contrast': {
+      selectors: ['.glassmorphism-card'],
+      reason: 'Manual verification: 12.5:1 contrast ratio (WCAG AAA compliant)',
+      addedDate: '2025-11-16'
+    }
+  }
+}
+```
+
+**Documentation:** See [docs/ACCESSIBILITY_MANUAL_VERIFICATION.md](docs/ACCESSIBILITY_MANUAL_VERIFICATION.md) for manual verification guidelines.
 
 ## 🎯 Use Cases
 

@@ -24,8 +24,10 @@ import { shouldIgnoreRule, getWhitelistReason } from '../config/accessibility-wh
 /**
  * Deduplicate accessibility errors
  * Fixes bug where duplicate errors are reported (e.g., errors 22-42 = duplicates of 1-21)
+ *
+ * @export Exported for testing
  */
-function deduplicateAccessibilityIssues(issues: Pa11yIssue[]): Pa11yIssue[] {
+export function deduplicateAccessibilityIssues(issues: Pa11yIssue[]): Pa11yIssue[] {
   const seen = new Set<string>();
   return issues.filter(issue => {
     // Create unique key from code, selector, and context
@@ -693,11 +695,15 @@ export class AccessibilityChecker {
         );
 
         // 2. Filter out glassmorphism color-contrast false positives and whitelisted rules
+        let whitelistedCount = 0;
+        let glassmorphismFilteredCount = 0;
+
         const filteredIssues = deduplicatedIssues.filter(issue => {
           // Check whitelist first (manual verification overrides)
           if (shouldIgnoreRule(result.url, issue.code, issue.selector)) {
             const reason = getWhitelistReason(result.url, issue.code);
             this.logger.debug(`Filtered whitelisted rule ${issue.code} for ${issue.selector}: ${reason}`);
+            whitelistedCount++;
             return false; // Filter out
           }
 
@@ -712,13 +718,23 @@ export class AccessibilityChecker {
             });
             if (matchesGlassmorphism) {
               this.logger.debug(`Filtered glassmorphism false positive: ${issue.selector}`);
+              glassmorphismFilteredCount++;
               return false; // Filter out
             }
           }
           return true; // Keep
         });
 
-        this.logger.debug(`Issues: ${pa11yResult.issues.length} original → ${deduplicatedIssues.length} deduplicated → ${filteredIssues.length} after glassmorphism filter`);
+        this.logger.debug(`Issues: ${pa11yResult.issues.length} original → ${deduplicatedIssues.length} deduplicated → ${filteredIssues.length} after filtering`);
+
+        // Store filtering metadata for transparency
+        result.filteringMetadata = {
+          originalIssuesCount: pa11yResult.issues.length,
+          deduplicatedIssuesCount: deduplicatedIssues.length,
+          filteredIssuesCount: filteredIssues.length,
+          glassmorphismElementsDetected: glassmorphismSelectors.length,
+          whitelistedIssuesCount: whitelistedCount
+        };
 
         // 3. Process filtered issues
         filteredIssues.forEach((issue: any) => {

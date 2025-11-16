@@ -50,12 +50,29 @@ export const ACCESSIBILITY_WHITELIST: AccessibilityWhitelistRule[] = [
 ];
 
 /**
+ * Normalize URL for comparison (remove trailing slash, normalize protocol)
+ */
+function normalizeUrl(url: string): string {
+  let normalized = url.trim().toLowerCase();
+  // Remove trailing slash
+  if (normalized.endsWith('/')) {
+    normalized = normalized.slice(0, -1);
+  }
+  // Normalize protocol
+  normalized = normalized.replace(/^https?:\/\//, '');
+  return normalized;
+}
+
+/**
  * Check if a URL should ignore a specific rule based on whitelist
  */
 export function shouldIgnoreRule(url: string, ruleCode: string, selector?: string): boolean {
+  const normalizedUrl = normalizeUrl(url);
+
   for (const entry of ACCESSIBILITY_WHITELIST) {
-    // Check if URL matches
-    const urlMatches = url.includes(entry.url) || url === entry.url;
+    // Check if URL matches (normalized comparison)
+    const normalizedEntry = normalizeUrl(entry.url);
+    const urlMatches = normalizedUrl === normalizedEntry || normalizedUrl.includes(normalizedEntry);
     if (!urlMatches) continue;
 
     // Check if rule is whitelisted
@@ -85,8 +102,11 @@ export function shouldIgnoreRule(url: string, ruleCode: string, selector?: strin
  * Get whitelist reason for a specific URL and rule
  */
 export function getWhitelistReason(url: string, ruleCode: string): string | undefined {
+  const normalizedUrl = normalizeUrl(url);
+
   for (const entry of ACCESSIBILITY_WHITELIST) {
-    if (url.includes(entry.url) || url === entry.url) {
+    const normalizedEntry = normalizeUrl(entry.url);
+    if (normalizedUrl === normalizedEntry || normalizedUrl.includes(normalizedEntry)) {
       return entry.ignoreRules?.[ruleCode]?.reason;
     }
   }

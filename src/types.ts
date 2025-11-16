@@ -71,6 +71,14 @@ export interface AccessibilityResult {
     finalUrl: string;
     type: 'http_redirect' | 'automatic_redirect';
   };
+  // 🆕 Filtering metadata (transparency for users)
+  filteringMetadata?: {
+    originalIssuesCount: number;          // Total pa11y issues before any filtering
+    deduplicatedIssuesCount: number;      // Issues after deduplication
+    filteredIssuesCount: number;          // Final count after all filtering
+    glassmorphismElementsDetected: number; // Number of glassmorphism elements found
+    whitelistedIssuesCount: number;       // Issues filtered by whitelist
+  };
 }
 
 export interface TestOptions {
