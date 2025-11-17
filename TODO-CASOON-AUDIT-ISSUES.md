@@ -15,38 +15,44 @@ Das Audit zeigt einen sehr niedrigen Score (16/100), aber das liegt **NICHT** an
   - Keine Fehler, keine Warnungen
   - Mobile-Friendliness: **91/100 (Grade: A)** ✅
 
-### ❌ Geskippte Seiten (Redirects)
+### ❌ Geskippte Seiten (308 Redirects - Trailing Slash Problem)
 
-Alle folgenden Seiten redirecten und werden daher nicht getestet:
+**Root Cause:** Alle URLs in der Sitemap sind **ohne trailing slash**, aber der Server redirectet sie mit **HTTP 308** zu URLs **mit trailing slash**.
 
-1. https://www.casoon.de/arbeitsweise
-2. https://www.casoon.de/cloud-entwicklung
-3. https://www.casoon.de/datenschutz
-4. https://www.casoon.de/e-commerce
-5. https://www.casoon.de/impressum
-6. https://www.casoon.de/kollaboration
-7. https://www.casoon.de/kontakt
-8. https://www.casoon.de/leistungskatalog
-9. https://www.casoon.de/projekte
-10. https://www.casoon.de/plattform-apps
-11. https://www.casoon.de/seo-marketing
-12. https://www.casoon.de/technologien
-13. https://www.casoon.de/usp
-14. https://www.casoon.de/webentwicklung
+Beispiel:
+- ❌ `https://www.casoon.de/arbeitsweise` → **308 Redirect** → `/arbeitsweise/`
+- ✅ `https://www.casoon.de/arbeitsweise/` → **200 OK**
+
+**Betroffene URLs (alle ohne trailing slash in Sitemap):**
+
+1. https://www.casoon.de/arbeitsweise → sollte sein: /arbeitsweise/
+2. https://www.casoon.de/cloud-entwicklung → sollte sein: /cloud-entwicklung/
+3. https://www.casoon.de/datenschutz → sollte sein: /datenschutz/
+4. https://www.casoon.de/e-commerce → sollte sein: /e-commerce/
+5. https://www.casoon.de/impressum → sollte sein: /impressum/
+6. https://www.casoon.de/kollaboration → sollte sein: /kollaboration/
+7. https://www.casoon.de/kontakt → sollte sein: /kontakt/
+8. https://www.casoon.de/leistungskatalog → sollte sein: /leistungskatalog/
+9. https://www.casoon.de/projekte → sollte sein: /projekte/
+10. https://www.casoon.de/plattform-apps → sollte sein: /plattform-apps/
+11. https://www.casoon.de/seo-marketing → sollte sein: /seo-marketing/
+12. https://www.casoon.de/technologien → sollte sein: /technologien/
+13. https://www.casoon.de/usp → sollte sein: /usp/
+14. https://www.casoon.de/webentwicklung → sollte sein: /webentwicklung/
 
 ## 📋 Action Items
 
-### 1. **Sitemap bereinigen** (Priorität: HOCH)
+### 1. **Sitemap bereinigen - Trailing Slashes hinzufügen** (Priorität: HOCH)
 - [ ] Überprüfe die Sitemap auf www.casoon.de/sitemap.xml
-- [ ] Entferne alle URLs, die redirecten
-- [ ] Füge die korrekten Ziel-URLs hinzu (wohin die Redirects zeigen)
+- [ ] Füge trailing slashes zu allen 14 URLs hinzu (siehe Liste oben)
+- [ ] Alternativ: Server-Konfiguration anpassen (trailing slashes optional machen)
 - [ ] Sitemap neu generieren und deployen
 
-### 2. **Redirects überprüfen** (Priorität: MITTEL)
-- [ ] Prüfe, wohin jede der 14 URLs redirectet
-- [ ] Entscheide: Sollen die alten URLs erhalten bleiben oder gelöscht werden?
-- [ ] Wenn erhalten: Redirect-Logik überarbeiten (z.B. 301 statt 302?)
-- [ ] Wenn gelöscht: Aus Sitemap entfernen
+### 2. **Server-Konfiguration überprüfen** (Priorität: MITTEL)
+- [ ] Warum sind trailing slashes Pflicht? (Next.js/Astro/Framework-Konfiguration?)
+- [ ] HTTP 308 = Permanent Redirect (gut für SEO, aber Audit-Tool überspringt sie)
+- [ ] Option 1: Trailing slashes in Sitemap hinzufügen
+- [ ] Option 2: Server akzeptiert beide Varianten ohne Redirect
 
 ### 3. **Audit-Tool verbessern** (Priorität: NIEDRIG)
 - [ ] Audit-Tool sollte Redirects folgen können (Option `--follow-redirects`)
@@ -59,9 +65,19 @@ Alle folgenden Seiten redirecten und werden daher nicht getestet:
 
 ## 💡 Zusammenfassung
 
-**Das Problem ist NICHT die Website-Qualität**, sondern die Sitemap-Konfiguration:
+**Das Problem ist NICHT die Website-Qualität**, sondern ein **Trailing Slash Problem** in der Sitemap:
 - Die Homepage ist perfekt (100/100 Accessibility Score!)
-- Alle anderen Seiten redirecten und können nicht getestet werden
+- Alle 14 Unterseiten haben **HTTP 308 Redirects** (ohne `/` → mit `/`)
+- Das Audit-Tool überspringt Redirects standardmäßig
 - Der niedrige Overall Score (16/100) ist irreführend
 
-**Lösung:** Sitemap aktualisieren und nur erreichbare URLs einbeziehen.
+**Einfachste Lösung:** Sitemap aktualisieren und trailing slashes zu allen URLs hinzufügen.
+
+**Beispiel-Fix in der Sitemap:**
+```xml
+<!-- ❌ Alt (redirectet) -->
+<url><loc>https://www.casoon.de/arbeitsweise</loc></url>
+
+<!-- ✅ Neu (funktioniert) -->
+<url><loc>https://www.casoon.de/arbeitsweise/</loc></url>
+```
