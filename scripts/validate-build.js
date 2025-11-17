@@ -22,8 +22,6 @@ const CRITICAL_IMPORTS = [
   
   // Reports system (the one that caused the issue)
   'dist/reports/index.js',
-  'dist/reports/unified/index.js',
-  'dist/reports/unified/unified-report-system.js',
   
   // Core modules
   'dist/core/index.js',
