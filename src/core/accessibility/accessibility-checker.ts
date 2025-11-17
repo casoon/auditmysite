@@ -5,20 +5,36 @@
  * separation of concerns, dependency injection, and typed interfaces.
  */
 
-import { Browser, Page } from 'playwright';
+import { Browser, Page, Response } from 'playwright';
 import pa11y from 'pa11y';
 import { AccessibilityResult, TestOptions, Pa11yIssue } from '../types';
 import { BrowserPoolManager } from '../browser/browser-pool-manager';
 import { Queue, QueueEventCallbacks } from '../queue';
-import { 
-  ILogger, 
-  AnalyzerType, 
+import {
+  ILogger,
+  AnalyzerType,
   BaseAnalysisOptions,
-  BaseAnalysisResult 
+  BaseAnalysisResult
 } from '../analyzers/interfaces';
 import { AnalyzerFactory, AnalyzerFactoryConfig } from '../analyzers/analyzer-factory';
 import { AnalysisOrchestrator, OrchestratorConfig, AnalysisResults } from '../analysis/analysis-orchestrator';
 import { createLogger } from '../logging/structured-logger';
+import { RedirectDetector, createRedirectDetector } from './redirect-detector';
+import { ResultFactory } from './result-factory';
+import {
+  TIMEOUTS,
+  CONCURRENCY,
+  RETRY,
+  SCORING,
+  VIEWPORT,
+  USER_AGENTS,
+  PA11Y_HIDE_ELEMENTS,
+  PROGRESS,
+  HTTP_STATUS,
+  isHttpSuccess,
+  isHttpRedirect,
+  isHttpError
+} from './constants';
 
 /**
  * Configuration for AccessibilityChecker
@@ -152,131 +168,74 @@ export class AccessibilityChecker {
     logger.info(`Testing page: ${url}`);
 
     const { browser, context, release } = await this.config.poolManager.acquire();
-    
+
     try {
       const page = await context.newPage();
-      
+
       try {
-        // Navigate to page
+        // Configure page settings
         await this.configurePage(page, options);
 
-        // Observe navigation-level redirects
-        let wasRedirectNav = false;
-        let redirectStatusCode = 0;
-        const onResponse = (res: any) => {
-          try {
-            const req = res.request();
-            const isNav = typeof (req as any).isNavigationRequest === 'function' ? req.isNavigationRequest() : false;
-            if (isNav && res.status() >= 300 && res.status() < 400) {
-              wasRedirectNav = true;
-              redirectStatusCode = res.status();
-            }
-          } catch { /* Ignore response check errors */ }
-        };
-        page.on('response', onResponse);
-
-        const response = await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout: options.timeout || 30000
+        // Set up redirect detection
+        const redirectDetector = createRedirectDetector({
+          skipRedirects: options.skipRedirects,
+          logger: logger.child ? logger.child('redirect') : logger
         });
 
-        // Stop observing responses
-        page.off('response', onResponse);
-
-        // Check for errors and redirects
-        if (!response || response.status() >= 400) {
-          throw new Error(`HTTP ${response?.status() || 'unknown'} error`);
-        }
-
-        // Enhanced redirect detection: only skip if URL actually changed
-        const skipRedirects = options.skipRedirects !== false;
-        const finalUrl = response.url();
-        const urlChanged = finalUrl !== url;
-        let hasRedirectChain = false;
+        const { getResult, cleanup } = redirectDetector.attachToPage(page);
 
         try {
-          const lastRequest = response.request();
-          if (typeof (lastRequest as any).redirectedFrom === 'function') {
-            hasRedirectChain = !!lastRequest.redirectedFrom();
-          }
-        } catch { /* Ignore redirect check errors */ }
-
-        // Only consider it a redirect if the URL actually changed
-        const isRealRedirect = (wasRedirectNav || hasRedirectChain) && urlChanged;
-
-        if (skipRedirects && isRealRedirect) {
-          const duration = Date.now() - startTime;
-          const titleNow = await page.title();
-          logger.info(`Skipping redirected URL`, {
-            originalUrl: url,
-            finalUrl,
-            statusCode: redirectStatusCode,
-            hasRedirectChain
+          // Navigate to page
+          const response = await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: options.timeout || TIMEOUTS.DEFAULT_NAVIGATION
           });
-          const minimal: PageTestResult = {
+
+          // Check for HTTP errors
+          if (!response || isHttpError(response.status())) {
+            throw new Error(`HTTP ${response?.status() || 'unknown'} error`);
+          }
+
+          // Check for redirects
+          const redirectInfo = getResult(response, url);
+
+          if (options.skipRedirects !== false && redirectInfo.isRedirect) {
+            const duration = Date.now() - startTime;
+            logger.info(`Skipping redirected URL`, redirectInfo);
+            return ResultFactory.createRedirectResult(redirectInfo, duration);
+          }
+
+          // Run basic accessibility analysis
+          const accessibilityResult = await this.runBasicAccessibilityAnalysis(page, url, options);
+
+          // Run comprehensive analysis if enabled
+          let comprehensiveAnalysis: AnalysisResults | undefined;
+          if (this.shouldRunComprehensiveAnalysis(options)) {
+            comprehensiveAnalysis = await this.runComprehensiveAnalysis(page, url, options);
+          }
+
+          const duration = Date.now() - startTime;
+
+          const result: PageTestResult = {
             url,
-            title: titleNow || 'Redirected',
-            accessibilityResult: {
-              url,
-              title: titleNow || 'Redirected',
-              imagesWithoutAlt: 0,
-              buttonsWithoutLabel: 0,
-              headingsCount: 0,
-              errors: [`HTTP Redirect detected: ${url} → ${finalUrl} (${redirectStatusCode || 'unknown'})`],
-              warnings: [],
-              passed: false,
-              crashed: false,
-              skipped: true,
-              duration
-            },
-            comprehensiveAnalysis: undefined,
+            title: accessibilityResult.title,
+            accessibilityResult,
+            comprehensiveAnalysis,
             duration,
             timestamp: new Date()
           };
-          return minimal;
-        }
 
-        // Log if redirect signals were detected but URL didn't change
-        if ((wasRedirectNav || hasRedirectChain) && !urlChanged) {
-          logger.debug(`Redirect signals detected but URL unchanged`, {
+          logger.info(`Page testing completed`, {
             url,
-            wasRedirectNav,
-            hasRedirectChain,
-            statusCode: redirectStatusCode
+            duration,
+            passed: accessibilityResult.passed
           });
+
+          return result;
+
+        } finally {
+          cleanup();
         }
-
-        // Run basic accessibility analysis
-        const accessibilityResult = await this.runBasicAccessibilityAnalysis(page, url, options);
-        
-        // Run comprehensive analysis if enabled
-        let comprehensiveAnalysis: AnalysisResults | undefined;
-        if ((options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis) && this.analysisOrchestrator) {
-          comprehensiveAnalysis = await this.analysisOrchestrator.runComprehensiveAnalysis(
-            page, 
-            url, 
-            { timeout: options.timeout }
-          );
-        }
-
-        const duration = Date.now() - startTime;
-        
-        const result: PageTestResult = {
-          url,
-          title: accessibilityResult.title,
-          accessibilityResult,
-          comprehensiveAnalysis,
-          duration,
-          timestamp: new Date()
-        };
-
-        logger.info(`Page testing completed`, { 
-          url, 
-          duration, 
-          passed: accessibilityResult.passed 
-        });
-
-        return result;
 
       } finally {
         await page.close();
@@ -295,46 +254,99 @@ export class AccessibilityChecker {
   ): Promise<MultiPageTestResult> {
     const startTime = Date.now();
     const logger = this.logger.child ? this.logger.child('multi-test') : this.logger;
-    const skipRedirects = options.skipRedirects !== false;
-    
-    logger.info(`Testing ${urls.length} pages`, { 
-      concurrency: options.maxConcurrent || 3,
-      comprehensive: options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis,
-      skipRedirects
+
+    logger.info(`Testing ${urls.length} pages`, {
+      concurrency: options.maxConcurrent || CONCURRENCY.DEFAULT_MAX,
+      comprehensive: this.shouldRunComprehensiveAnalysis(options),
+      skipRedirects: options.skipRedirects !== false
     });
 
-    const results: PageTestResult[] = [];
-    const skippedUrls: string[] = [];
-    let urlsToProcess = urls;
-
     // Pre-filter redirects if enabled
-    if (skipRedirects) {
-      logger.debug('Pre-filtering redirects...');
-      const filteredUrls: string[] = [];
-      
-      for (const url of urls) {
-        try {
-          const minimalResult = await this.testUrlMinimal(url, 8000);
-          if (minimalResult.skipped && minimalResult.errors.some(e => e.includes('Redirect'))) {
-            skippedUrls.push(url);
-            logger.debug(`Skipped redirect: ${url}`);
-          } else {
-            filteredUrls.push(url);
-          }
-        } catch (error) {
-          // If minimal test fails, include URL for full testing
-          filteredUrls.push(url);
-        }
-      }
-      
-      urlsToProcess = filteredUrls;
-      logger.info(`After redirect filtering: ${urlsToProcess.length} URLs to test, ${skippedUrls.length} redirects skipped`);
+    const { urlsToProcess, skippedUrls } = await this.preFilterRedirects(urls, options, logger);
+
+    // Create and configure queue
+    const queue = this.createQueue(options, logger);
+
+    try {
+      // Process URLs with queue
+      const queueResult = await queue.processWithProgress(urlsToProcess, async (url: string) => {
+        return await this.testPage(url, options);
+      }, {
+        showProgress: !options.verbose,
+        progressInterval: PROGRESS.UPDATE_INTERVAL
+      });
+
+      // Collect results
+      const results = this.collectResults(queueResult);
+
+      const totalDuration = Date.now() - startTime;
+
+      logger.info(`Multi-page testing completed`, {
+        total: urls.length,
+        tested: results.length,
+        skipped: skippedUrls.length,
+        failed: queueResult.failed.length,
+        totalDuration
+      });
+
+      return {
+        results,
+        skippedUrls,
+        totalDuration,
+        timestamp: new Date()
+      };
+
+    } catch (error) {
+      logger.error('Multi-page testing failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pre-filter redirects from URL list
+   */
+  private async preFilterRedirects(
+    urls: string[],
+    options: PageTestOptions,
+    logger: ILogger
+  ): Promise<{ urlsToProcess: string[]; skippedUrls: string[] }> {
+    const skipRedirects = options.skipRedirects !== false;
+
+    if (!skipRedirects) {
+      return { urlsToProcess: urls, skippedUrls: [] };
     }
 
-    // Configure queue callbacks
+    logger.debug('Pre-filtering redirects...');
+    const filteredUrls: string[] = [];
+    const skippedUrls: string[] = [];
+
+    for (const url of urls) {
+      try {
+        const minimalResult = await this.testUrlMinimal(url, 8000);
+        if (minimalResult.skipped && minimalResult.errors.some(e => e.includes('Redirect'))) {
+          skippedUrls.push(url);
+          logger.debug(`Skipped redirect: ${url}`);
+        } else {
+          filteredUrls.push(url);
+        }
+      } catch (error) {
+        // If minimal test fails, include URL for full testing
+        filteredUrls.push(url);
+      }
+    }
+
+    logger.info(`After redirect filtering: ${filteredUrls.length} URLs to test, ${skippedUrls.length} redirects skipped`);
+
+    return { urlsToProcess: filteredUrls, skippedUrls };
+  }
+
+  /**
+   * Create queue with callbacks
+   */
+  private createQueue(options: PageTestOptions, logger: ILogger): Queue<string, PageTestResult> {
     const callbacks: QueueEventCallbacks<string> = {
       onProgressUpdate: (stats) => {
-        if (stats.progress > 0 && stats.progress % 25 === 0) {
+        if (stats.progress > 0 && stats.progress % PROGRESS.REPORT_THRESHOLD === 0) {
           logger.info(`Progress: ${stats.progress.toFixed(1)}%`, {
             completed: stats.completed,
             total: stats.total,
@@ -353,187 +365,114 @@ export class AccessibilityChecker {
       }
     };
 
-    // Create optimized queue for accessibility testing
-    const queue = Queue.forAccessibilityTesting<string>('parallel', {
-      maxConcurrent: options.maxConcurrent || 3,
-      maxRetries: 3,
-      retryDelay: 2000,
-      timeout: options.timeout || 30000,
+    return Queue.forAccessibilityTesting<string>('parallel', {
+      maxConcurrent: options.maxConcurrent || CONCURRENCY.DEFAULT_MAX,
+      maxRetries: RETRY.MAX_ATTEMPTS,
+      retryDelay: RETRY.DELAY_MS,
+      timeout: options.timeout || TIMEOUTS.QUEUE_ITEM,
       enableProgressReporting: true,
-      progressUpdateInterval: 3000
+      progressUpdateInterval: PROGRESS.UPDATE_INTERVAL
     }, callbacks);
+  }
 
-    try {
-      // Process filtered URLs with queue
-      const result = await queue.processWithProgress(urlsToProcess, async (url: string) => {
-        return await this.testPage(url, options);
-      }, {
-        showProgress: !options.verbose,
-        progressInterval: 3000
-      });
+  /**
+   * Collect results from queue execution
+   */
+  private collectResults(queueResult: any): PageTestResult[] {
+    const results: PageTestResult[] = [];
 
-      // Extract successful results
-      result.completed.forEach(item => {
-        if (item.result) {
-          results.push(item.result);
-        }
-      });
+    // Add successful results
+    queueResult.completed.forEach((item: any) => {
+      if (item.result) {
+        results.push(item.result);
+      }
+    });
 
-      // Add failed items as error results
-      result.failed.forEach(failedItem => {
-        results.push({
-          url: failedItem.data,
-          title: 'Error',
-          accessibilityResult: {
-            url: failedItem.data,
-            title: 'Error',
-            imagesWithoutAlt: 0,
-            buttonsWithoutLabel: 0,
-            headingsCount: 0,
-            errors: [`Test failed: ${failedItem.error}`],
-            warnings: [],
-            passed: false,
-            crashed: true,
-            duration: failedItem.duration || 0
-          },
-          duration: failedItem.duration || 0,
-          timestamp: new Date()
-        });
-      });
+    // Add failed items as error results
+    queueResult.failed.forEach((failedItem: any) => {
+      const duration = failedItem.duration || 0;
+      results.push(ResultFactory.createErrorResult(failedItem.data, failedItem.error, duration));
+    });
 
-      const totalDuration = Date.now() - startTime;
-      
-      logger.info(`Multi-page testing completed`, {
-        total: urls.length,
-        tested: results.length,
-        skipped: skippedUrls.length,
-        failed: result.failed.length,
-        totalDuration
-      });
-
-      return {
-        results,
-        skippedUrls,
-        totalDuration,
-        timestamp: new Date()
-      };
-
-    } catch (error) {
-      logger.error('Multi-page testing failed', error);
-      throw error;
-    }
+    return results;
   }
 
   /**
    * Test URL for basic connectivity (used by SmartUrlSampler)
    */
-  async testUrlMinimal(url: string, timeout: number = 5000): Promise<AccessibilityResult> {
+  async testUrlMinimal(url: string, timeout: number = TIMEOUTS.MINIMAL_TEST): Promise<AccessibilityResult> {
     const startTime = Date.now();
     const logger = this.logger.child ? this.logger.child('minimal-test') : this.logger;
 
     logger.debug(`Minimal test: ${url}`);
 
     const { browser, context, release } = await this.config.poolManager.acquire();
-    
+
     try {
       const page = await context.newPage();
-      
+
       try {
         page.setDefaultTimeout(timeout);
 
-        // Observe navigation-level redirects
-        let wasRedirect = false;
-        const onResponse = (res: any) => {
-          try {
-            const req = res.request();
-            const isNav = typeof (req as any).isNavigationRequest === 'function' ? req.isNavigationRequest() : false;
-            if (isNav && res.status() >= 300 && res.status() < 400) {
-              wasRedirect = true;
-            }
-          } catch { /* Ignore redirect detection errors */ }
-        };
-        page.on('response', onResponse);
-        
-        const response = await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout
+        // Set up redirect detection
+        const redirectDetector = createRedirectDetector({
+          logger: logger.child ? logger.child('redirect') : logger
         });
 
-        // Stop observing responses
-        page.off('response', onResponse);
+        const { getResult, cleanup } = redirectDetector.attachToPage(page);
 
-        const finalUrl = page.url();
-        const title = await page.title();
-        const status = response?.status() || 0;
-        
-        // Detect redirects even when Playwright follows them to a final 200
         try {
-          const lastRequest = response?.request();
-          if (lastRequest) {
-            // If the last request was created via a redirect chain, redirectedFrom() will be non-null
-            if (typeof (lastRequest as any).redirectedFrom === 'function') {
-              wasRedirect = wasRedirect || !!lastRequest.redirectedFrom();
-            }
+          const response = await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout
+          });
+
+          const title = await page.title();
+          const status = response?.status() || 0;
+          const duration = Date.now() - startTime;
+
+          // Get redirect information
+          const redirectInfo = getResult(response, url);
+
+          // Create base result
+          let result = ResultFactory.createMinimalResult({
+            url,
+            title,
+            duration
+          });
+
+          // Update based on HTTP status
+          if (status === HTTP_STATUS.NOT_FOUND) {
+            result = ResultFactory.create404Result(url, duration);
+          } else if (isHttpError(status)) {
+            result = ResultFactory.createHttpErrorResult(url, status, duration);
+          } else if (redirectInfo.isRedirect) {
+            result = ResultFactory.createHttpErrorResult(url, redirectInfo.statusCode, duration);
+            result = ResultFactory.addRedirectInfo(result, redirectInfo);
+          } else if (isHttpSuccess(status)) {
+            result.passed = true;
+            result.title = title;
           }
-        } catch { /* Ignore redirect chain check errors */ }
-        
-        // Only treat real HTTP redirects as redirects, not arbitrary URL changes
-        const isHttpRedirect = wasRedirect || (status >= 300 && status < 400);
-        const urlChanged = finalUrl !== url;
-        
-        const result: AccessibilityResult = {
-          url,
-          title: title || 'Untitled',
-          imagesWithoutAlt: 0,
-          buttonsWithoutLabel: 0,
-          headingsCount: 0,
-          errors: [],
-          warnings: [],
-          passed: status >= 200 && status < 300, // Only 2xx are successful
-          crashed: false,
-          skipped: isHttpRedirect || status === 404,
-          duration: Date.now() - startTime
-        };
-        
-        // Add status-specific errors
-        if (status === 404) {
-          result.errors.push('HTTP 404 Not Found');
-        } else if (status >= 300 && status < 400) {
-          result.errors.push(`HTTP ${status} Redirect`);
-        } else if (status >= 400) {
-          result.errors.push(`HTTP ${status} Error`);
+
+          return result;
+
+        } finally {
+          cleanup();
         }
-        
-        // Add redirect info if needed
-        if (isHttpRedirect) {
-          (result as any).redirectInfo = {
-            status: status >= 300 && status < 400 ? status : 0,
-            originalUrl: url,
-            finalUrl,
-            type: 'http_redirect'
-          };
-        }
-        
-        return result;
 
       } finally {
         await page.close();
       }
     } catch (error) {
       logger.debug(`Minimal test failed: ${url}`, error);
-      
-      return {
-        url,
-        title: 'Error',
-        imagesWithoutAlt: 0,
-        buttonsWithoutLabel: 0,
-        headingsCount: 0,
-        errors: [`Navigation failed: ${error}`],
-        warnings: [],
-        passed: false,
-        crashed: true,
-        duration: Date.now() - startTime
-      };
+
+      const duration = Date.now() - startTime;
+      const result = ResultFactory.createMinimalResult({ url, duration });
+      result.errors.push(`Navigation failed: ${error instanceof Error ? error.message : String(error)}`);
+      result.passed = false;
+      result.crashed = true;
+
+      return result;
     } finally {
       await release();
     }
@@ -551,13 +490,50 @@ export class AccessibilityChecker {
 
   // Private helper methods
 
+  /**
+   * Check if comprehensive analysis should be run
+   */
+  private shouldRunComprehensiveAnalysis(options: PageTestOptions): boolean {
+    return (
+      (options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis) &&
+      this.analysisOrchestrator !== undefined
+    );
+  }
+
+  /**
+   * Run comprehensive analysis on a page
+   */
+  private async runComprehensiveAnalysis(
+    page: Page,
+    url: string,
+    options: PageTestOptions
+  ): Promise<AnalysisResults | undefined> {
+    if (!this.analysisOrchestrator) {
+      return undefined;
+    }
+
+    try {
+      return await this.analysisOrchestrator.runComprehensiveAnalysis(
+        page,
+        url,
+        { timeout: options.timeout || TIMEOUTS.DEFAULT_NAVIGATION }
+      );
+    } catch (error) {
+      this.logger.warn('Comprehensive analysis failed', { url, error });
+      return undefined;
+    }
+  }
+
+  /**
+   * Configure page settings before navigation
+   */
   private async configurePage(page: Page, options: PageTestOptions): Promise<void> {
     // Set viewport
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.setViewportSize(VIEWPORT.DESKTOP);
 
     // Set user agent
     await page.setExtraHTTPHeaders({
-      'User-Agent': 'auditmysite/2.0.0 (+https://github.com/casoon/AuditMySite)'
+      'User-Agent': USER_AGENTS.DEFAULT
     });
 
     // Configure console/error logging based on verbose setting
@@ -614,8 +590,11 @@ export class AccessibilityChecker {
     return result;
   }
 
+  /**
+   * Run pa11y accessibility tests
+   */
   private async runPa11yTests(
-    result: AccessibilityResult, 
+    result: AccessibilityResult,
     options: PageTestOptions,
     page?: Page
   ): Promise<void> {
@@ -623,10 +602,10 @@ export class AccessibilityChecker {
       this.logger.debug('Running pa11y accessibility tests');
 
       const pa11yResult = await pa11y(result.url, {
-        timeout: options.timeout || 15000,
-        wait: options.wait || 1000,
+        timeout: options.timeout || TIMEOUTS.PA11Y_TEST,
+        wait: options.wait || TIMEOUTS.PA11Y_WAIT,
         standard: options.pa11yStandard || 'WCAG2AA',
-        hideElements: options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
+        hideElements: options.hideElements || PA11Y_HIDE_ELEMENTS,
         includeNotices: options.includeNotices !== false,
         includeWarnings: options.includeWarnings !== false,
         runners: ['axe'] // Always use axe for pooled browsers
@@ -634,60 +613,78 @@ export class AccessibilityChecker {
 
       // Process pa11y issues
       if (pa11yResult.issues) {
-        pa11yResult.issues.forEach((issue: any) => {
-          const detailedIssue: Pa11yIssue = {
-            code: issue.code,
-            message: issue.message,
-            type: issue.type as 'error' | 'warning' | 'notice',
-            selector: issue.selector,
-            context: issue.context,
-            impact: issue.impact,
-            help: issue.help,
-            helpUrl: issue.helpUrl
-          };
-
-          result.pa11yIssues = result.pa11yIssues || [];
-          result.pa11yIssues.push(detailedIssue);
-
-          // Add to appropriate array
-          const message = `${issue.code}: ${issue.message}`;
-          if (issue.type === 'error') {
-            result.errors.push(message);
-          } else if (issue.type === 'warning') {
-            result.warnings.push(message);
-          } else if (issue.type === 'notice') {
-            result.warnings.push(`Notice: ${message}`);
-          }
-        });
-
-        // Calculate pa11y score with balanced penalties
-        const totalIssues = pa11yResult.issues.length;
-        const errors = pa11yResult.issues.filter((i: any) => i.type === 'error').length;
-        const warnings = pa11yResult.issues.filter((i: any) => i.type === 'warning').length;
-        
-        let score = 100;
-        // More balanced scoring: ~5 errors = ~75 score, ~20 errors = ~50 score
-        score -= errors * 2.5; // 2.5 points per error (was 10)
-        score -= warnings * 1; // 1 point per warning (was 2)
-        
-        result.pa11yScore = Math.max(0, Math.min(100, Math.round(score)));
+        this.processPa11yIssues(pa11yResult.issues, result);
+        result.pa11yScore = this.calculatePa11yScore(pa11yResult.issues);
       } else {
         result.pa11yScore = 100;
       }
 
     } catch (error) {
       this.logger.warn('pa11y test failed, using fallback scoring', error);
-      
-      // Fallback score calculation
-      let score = 100;
-      score -= result.errors.length * 15;
-      score -= result.warnings.length * 5;
-      score -= result.imagesWithoutAlt * 3;
-      score -= result.buttonsWithoutLabel * 5;
-      if (result.headingsCount === 0) score -= 20;
-      
-      result.pa11yScore = Math.max(0, score);
+      result.pa11yScore = this.calculateFallbackScore(result);
     }
+  }
+
+  /**
+   * Process pa11y issues and add them to result
+   */
+  private processPa11yIssues(issues: any[], result: AccessibilityResult): void {
+    issues.forEach((issue: any) => {
+      const detailedIssue: Pa11yIssue = {
+        code: issue.code,
+        message: issue.message,
+        type: issue.type as 'error' | 'warning' | 'notice',
+        selector: issue.selector,
+        context: issue.context,
+        impact: issue.impact,
+        help: issue.help,
+        helpUrl: issue.helpUrl
+      };
+
+      result.pa11yIssues = result.pa11yIssues || [];
+      result.pa11yIssues.push(detailedIssue);
+
+      // Add to appropriate array
+      const message = `${issue.code}: ${issue.message}`;
+      if (issue.type === 'error') {
+        result.errors.push(message);
+      } else if (issue.type === 'warning') {
+        result.warnings.push(message);
+      } else if (issue.type === 'notice') {
+        result.warnings.push(`Notice: ${message}`);
+      }
+    });
+  }
+
+  /**
+   * Calculate pa11y score based on issues
+   */
+  private calculatePa11yScore(issues: any[]): number {
+    const errors = issues.filter((i: any) => i.type === 'error').length;
+    const warnings = issues.filter((i: any) => i.type === 'warning').length;
+
+    let score = 100;
+    score -= errors * SCORING.ERROR_PENALTY;
+    score -= warnings * SCORING.WARNING_PENALTY;
+
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }
+
+  /**
+   * Calculate fallback score when pa11y fails
+   */
+  private calculateFallbackScore(result: AccessibilityResult): number {
+    let score = 100;
+    score -= result.errors.length * SCORING.FALLBACK.ERROR_PENALTY;
+    score -= result.warnings.length * SCORING.FALLBACK.WARNING_PENALTY;
+    score -= result.imagesWithoutAlt * SCORING.FALLBACK.IMAGE_NO_ALT;
+    score -= result.buttonsWithoutLabel * SCORING.FALLBACK.BUTTON_NO_LABEL;
+
+    if (result.headingsCount === 0) {
+      score -= SCORING.FALLBACK.NO_HEADINGS;
+    }
+
+    return Math.max(0, score);
   }
 }
 
