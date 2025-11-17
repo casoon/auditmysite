@@ -1,6 +1,7 @@
 # AuditMySite
 
-**Professional Website Accessibility & Performance Testing Tool**
+
+**Version 2.1.0** - Professional Website Accessibility & Performance Testing Tool
 
 AuditMySite is a comprehensive website analysis suite that provides professional accessibility testing, Core Web Vitals performance monitoring, SEO analysis, and content optimization insights. Built for developers, agencies, and businesses who need reliable, automated website quality assessments.
 
