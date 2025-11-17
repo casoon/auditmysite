@@ -343,7 +343,7 @@ export class AccessibilityChecker {
   /**
    * Create queue with callbacks
    */
-  private createQueue(options: PageTestOptions, logger: ILogger): Queue<string, PageTestResult> {
+  private createQueue(options: PageTestOptions, logger: ILogger): Queue<string> {
     const callbacks: QueueEventCallbacks<string> = {
       onProgressUpdate: (stats) => {
         if (stats.progress > 0 && stats.progress % PROGRESS.REPORT_THRESHOLD === 0) {

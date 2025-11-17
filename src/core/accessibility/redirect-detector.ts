@@ -34,7 +34,7 @@ export interface RedirectDetectorConfig {
 const DEFAULT_CONFIG: Required<RedirectDetectorConfig> = {
   skipRedirects: true,
   followRedirects: false,
-  logger: console as ILogger
+  logger: { ...console, success: (msg: string) => console.log(msg), debug: (msg: string) => console.log(msg) } as ILogger
 };
 
 /**
