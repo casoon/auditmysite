@@ -1,11 +1,11 @@
 /**
  * AccessibilityChecker v2 - Clean Architecture
- *
+ * 
  * This is a complete rewrite of the AccessibilityChecker with proper
  * separation of concerns, dependency injection, and typed interfaces.
  */
 
-import { Browser, Page } from 'playwright';
+import { Browser, Page, Response } from 'playwright';
 import pa11y from 'pa11y';
 import { AccessibilityResult, TestOptions, Pa11yIssue } from '../types';
 import { BrowserPoolManager } from '../browser/browser-pool-manager';
@@ -14,71 +14,27 @@ import {
   ILogger,
   AnalyzerType,
   BaseAnalysisOptions,
-  BaseAnalysisResult,
+  BaseAnalysisResult
 } from '../analyzers/interfaces';
 import { AnalyzerFactory, AnalyzerFactoryConfig } from '../analyzers/analyzer-factory';
-import {
-  AnalysisOrchestrator,
-  OrchestratorConfig,
-  AnalysisResults,
-} from '../analysis/analysis-orchestrator';
+import { AnalysisOrchestrator, OrchestratorConfig, AnalysisResults } from '../analysis/analysis-orchestrator';
 import { createLogger } from '../logging/structured-logger';
-import { shouldIgnoreRule, getWhitelistReason } from '../config/accessibility-whitelist';
-
-/**
- * Deduplicate accessibility errors
- * Fixes bug where duplicate errors are reported (e.g., errors 22-42 = duplicates of 1-21)
- *
- * @export Exported for testing
- */
-export function deduplicateAccessibilityIssues(issues: Pa11yIssue[]): Pa11yIssue[] {
-  const seen = new Set<string>();
-  return issues.filter((issue) => {
-    // Create unique key from code, selector, and context
-    const key = `${issue.code}|${issue.selector}|${issue.context}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
-/**
- * Detect glassmorphism elements (backdrop-blur, semi-transparent backgrounds)
- * These elements cause false positives in color-contrast checks
- */
-async function detectGlassmorphismElements(page: Page): Promise<string[]> {
-  return await page.evaluate(() => {
-    const elements = Array.from(document.querySelectorAll('*'));
-    const selectors: string[] = [];
-
-    elements.forEach((el) => {
-      const style = window.getComputedStyle(el);
-      const hasBackdropBlur =
-        style.backdropFilter !== 'none' || (style as any).webkitBackdropFilter !== 'none';
-      const hasTransparentBg =
-        style.backgroundColor.includes('rgba') &&
-        parseFloat(style.backgroundColor.split(',')[3]) < 1;
-
-      if (hasBackdropBlur || hasTransparentBg) {
-        // Generate CSS selector
-        let selector = el.tagName.toLowerCase();
-        if (el.id) {
-          selector += `#${el.id}`;
-        } else if (el.className && typeof el.className === 'string') {
-          const classes = el.className.trim().split(/\s+/).slice(0, 3); // Max 3 classes
-          if (classes.length > 0) {
-            selector += '.' + classes.join('.');
-          }
-        }
-        selectors.push(selector);
-      }
-    });
-
-    return selectors;
-  });
-}
+import { RedirectDetector, createRedirectDetector } from './redirect-detector';
+import { ResultFactory } from './result-factory';
+import {
+  TIMEOUTS,
+  CONCURRENCY,
+  RETRY,
+  SCORING,
+  VIEWPORT,
+  USER_AGENTS,
+  PA11Y_HIDE_ELEMENTS,
+  PROGRESS,
+  HTTP_STATUS,
+  isHttpSuccess,
+  isHttpRedirect,
+  isHttpError
+} from './constants';
 
 /**
  * Configuration for AccessibilityChecker
@@ -101,7 +57,7 @@ export interface PageTestOptions extends BaseAnalysisOptions {
   readonly wait?: number;
   readonly hideElements?: string;
   readonly enableComprehensiveAnalysis?: boolean;
-  readonly skipRedirects?: boolean; // Skip 301/302 redirects (default: true)
+  readonly skipRedirects?: boolean;         // Skip 301/302 redirects (default: true)
 }
 
 /**
@@ -121,14 +77,14 @@ export interface PageTestResult {
  */
 export interface MultiPageTestResult {
   readonly results: PageTestResult[];
-  readonly skippedUrls: string[]; // URLs skipped due to redirects/errors
+  readonly skippedUrls: string[];           // URLs skipped due to redirects/errors
   readonly totalDuration: number;
   readonly timestamp: Date;
 }
 
 /**
  * AccessibilityChecker v2 - Clean, focused implementation
- *
+ * 
  * Responsibilities:
  * - Core accessibility testing via pa11y
  * - Basic page analysis (images, buttons, headings)
@@ -140,7 +96,7 @@ export class AccessibilityChecker {
   private readonly logger: ILogger;
   private readonly analyzerFactory?: AnalyzerFactory;
   private readonly analysisOrchestrator?: AnalysisOrchestrator;
-
+  
   constructor(config: AccessibilityCheckerConfig) {
     // Validate required dependencies
     if (!config.poolManager) {
@@ -153,19 +109,18 @@ export class AccessibilityChecker {
       logger: config.logger || createLogger('accessibility-checker'),
       enableComprehensiveAnalysis: config.enableComprehensiveAnalysis || false,
       analyzerTypes: config.analyzerTypes || [],
-      qualityAnalysisOptions: config.qualityAnalysisOptions || {},
+      qualityAnalysisOptions: config.qualityAnalysisOptions || {}
     };
 
     this.logger = this.config.logger;
-
+    
     // Initialize analyzer factory if comprehensive analysis is enabled
     if (this.config.enableComprehensiveAnalysis) {
       try {
         const factoryConfig: AnalyzerFactoryConfig = {
           logger: this.logger.child ? this.logger.child('factory') : this.logger,
           qualityAnalysisOptions: this.config.qualityAnalysisOptions,
-          enabledAnalyzers:
-            this.config.analyzerTypes.length > 0 ? this.config.analyzerTypes : undefined,
+          enabledAnalyzers: this.config.analyzerTypes.length > 0 ? this.config.analyzerTypes : undefined
         };
 
         this.analyzerFactory = new AnalyzerFactory(factoryConfig);
@@ -175,15 +130,12 @@ export class AccessibilityChecker {
           analyzerFactory: this.analyzerFactory,
           logger: this.logger.child ? this.logger.child('orchestrator') : this.logger,
           defaultTimeout: 30000,
-          failFast: false,
+          failFast: false
         };
 
         this.analysisOrchestrator = new AnalysisOrchestrator(orchestratorConfig);
       } catch (error) {
-        this.logger.warn(
-          'Failed to initialize comprehensive analysis - continuing with basic accessibility testing only',
-          error
-        );
+        this.logger.warn('Failed to initialize comprehensive analysis - continuing with basic accessibility testing only', error);
         // Cannot modify readonly config - comprehensive analysis will remain disabled for this session
       }
     }
@@ -221,111 +173,70 @@ export class AccessibilityChecker {
       const page = await context.newPage();
 
       try {
-        // Navigate to page
+        // Configure page settings
         await this.configurePage(page, options);
 
-        // Observe navigation-level redirects
-        let wasRedirectNav = false;
-        const onResponse = (res: any) => {
-          try {
-            const req = res.request();
-            const isNav =
-              typeof (req as any).isNavigationRequest === 'function'
-                ? req.isNavigationRequest()
-                : false;
-            if (isNav && res.status() >= 300 && res.status() < 400) {
-              wasRedirectNav = true;
-            }
-          } catch {
-            /* Ignore response check errors */
-          }
-        };
-        page.on('response', onResponse);
-
-        const response = await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout: options.timeout || 30000,
+        // Set up redirect detection
+        const redirectDetector = createRedirectDetector({
+          skipRedirects: options.skipRedirects,
+          logger: logger.child ? logger.child('redirect') : logger
         });
 
-        // Stop observing responses
-        page.off('response', onResponse);
+        const { getResult, cleanup } = redirectDetector.attachToPage(page);
 
-        // Check for errors and redirects
-        if (!response || response.status() >= 400) {
-          throw new Error(`HTTP ${response?.status() || 'unknown'} error`);
-        }
-
-        // If this navigation was the result of an HTTP redirect and skipping is enabled, short-circuit
-        const skipRedirects = options.skipRedirects !== false;
         try {
-          const lastRequest = response.request();
-          if (typeof (lastRequest as any).redirectedFrom === 'function') {
-            wasRedirectNav = wasRedirectNav || !!lastRequest.redirectedFrom();
+          // Navigate to page
+          const response = await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: options.timeout || TIMEOUTS.DEFAULT_NAVIGATION
+          });
+
+          // Check for HTTP errors
+          if (!response || isHttpError(response.status())) {
+            throw new Error(`HTTP ${response?.status() || 'unknown'} error`);
           }
-        } catch {
-          /* Ignore redirect check errors */
-        }
 
-        if (skipRedirects && wasRedirectNav) {
+          // Check for redirects
+          const redirectInfo = getResult(response, url);
+
+          if (options.skipRedirects !== false && redirectInfo.isRedirect) {
+            const duration = Date.now() - startTime;
+            logger.info(`Skipping redirected URL`, redirectInfo);
+            return ResultFactory.createRedirectResult(redirectInfo, duration);
+          }
+
+          // Run basic accessibility analysis
+          const accessibilityResult = await this.runBasicAccessibilityAnalysis(page, url, options);
+
+          // Run comprehensive analysis if enabled
+          let comprehensiveAnalysis: AnalysisResults | undefined;
+          if (this.shouldRunComprehensiveAnalysis(options)) {
+            comprehensiveAnalysis = await this.runComprehensiveAnalysis(page, url, options);
+          }
+
           const duration = Date.now() - startTime;
-          const titleNow = await page.title();
-          const minimal: PageTestResult = {
+
+          const result: PageTestResult = {
             url,
-            title: titleNow || 'Redirected',
-            accessibilityResult: {
-              url,
-              title: titleNow || 'Redirected',
-              imagesWithoutAlt: 0,
-              buttonsWithoutLabel: 0,
-              headingsCount: 0,
-              errors: [`HTTP Redirect detected (skipped)`],
-              warnings: [],
-              passed: false,
-              crashed: false,
-              skipped: true,
-              duration,
-            },
-            comprehensiveAnalysis: undefined,
+            title: accessibilityResult.title,
+            accessibilityResult,
+            comprehensiveAnalysis,
             duration,
-            timestamp: new Date(),
+            timestamp: new Date()
           };
-          return minimal;
-        }
 
-        // Run basic accessibility analysis
-        const accessibilityResult = await this.runBasicAccessibilityAnalysis(page, url, options);
-
-        // Run comprehensive analysis if enabled
-        let comprehensiveAnalysis: AnalysisResults | undefined;
-        if (
-          (options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis) &&
-          this.analysisOrchestrator
-        ) {
-          comprehensiveAnalysis = await this.analysisOrchestrator.runComprehensiveAnalysis(
-            page,
+          logger.info(`Page testing completed`, {
             url,
-            { timeout: options.timeout }
-          );
+            duration,
+            passed: accessibilityResult.passed
+          });
+
+          return result;
+
+        } finally {
+          cleanup();
         }
 
-        const duration = Date.now() - startTime;
-
-        const result: PageTestResult = {
-          url,
-          title: accessibilityResult.title,
-          accessibilityResult,
-          comprehensiveAnalysis,
-          duration,
-          timestamp: new Date(),
-        };
-
-        logger.info(`Page testing completed`, {
-          url,
-          duration,
-          passed: accessibilityResult.passed,
-        });
-
-        return result;
       } finally {
         await page.close();
       }
@@ -343,52 +254,103 @@ export class AccessibilityChecker {
   ): Promise<MultiPageTestResult> {
     const startTime = Date.now();
     const logger = this.logger.child ? this.logger.child('multi-test') : this.logger;
-    const skipRedirects = options.skipRedirects !== false;
 
     logger.info(`Testing ${urls.length} pages`, {
-      concurrency: options.maxConcurrent || 3,
-      comprehensive: options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis,
-      skipRedirects,
+      concurrency: options.maxConcurrent || CONCURRENCY.DEFAULT_MAX,
+      comprehensive: this.shouldRunComprehensiveAnalysis(options),
+      skipRedirects: options.skipRedirects !== false
     });
 
-    const results: PageTestResult[] = [];
-    const skippedUrls: string[] = [];
-    let urlsToProcess = urls;
-
     // Pre-filter redirects if enabled
-    if (skipRedirects) {
-      logger.debug('Pre-filtering redirects...');
-      const filteredUrls: string[] = [];
+    const { urlsToProcess, skippedUrls } = await this.preFilterRedirects(urls, options, logger);
 
-      for (const url of urls) {
-        try {
-          const minimalResult = await this.testUrlMinimal(url, 8000);
-          if (minimalResult.skipped && minimalResult.errors.some((e) => e.includes('Redirect'))) {
-            skippedUrls.push(url);
-            logger.debug(`Skipped redirect: ${url}`);
-          } else {
-            filteredUrls.push(url);
-          }
-        } catch (error) {
-          // If minimal test fails, include URL for full testing
-          filteredUrls.push(url);
-        }
-      }
+    // Create and configure queue
+    const queue = this.createQueue(options, logger);
 
-      urlsToProcess = filteredUrls;
-      logger.info(
-        `After redirect filtering: ${urlsToProcess.length} URLs to test, ${skippedUrls.length} redirects skipped`
-      );
+    try {
+      // Process URLs with queue
+      const queueResult = await queue.processWithProgress(urlsToProcess, async (url: string) => {
+        return await this.testPage(url, options);
+      }, {
+        showProgress: !options.verbose,
+        progressInterval: PROGRESS.UPDATE_INTERVAL
+      });
+
+      // Collect results
+      const results = this.collectResults(queueResult);
+
+      const totalDuration = Date.now() - startTime;
+
+      logger.info(`Multi-page testing completed`, {
+        total: urls.length,
+        tested: results.length,
+        skipped: skippedUrls.length,
+        failed: queueResult.failed.length,
+        totalDuration
+      });
+
+      return {
+        results,
+        skippedUrls,
+        totalDuration,
+        timestamp: new Date()
+      };
+
+    } catch (error) {
+      logger.error('Multi-page testing failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pre-filter redirects from URL list
+   */
+  private async preFilterRedirects(
+    urls: string[],
+    options: PageTestOptions,
+    logger: ILogger
+  ): Promise<{ urlsToProcess: string[]; skippedUrls: string[] }> {
+    const skipRedirects = options.skipRedirects !== false;
+
+    if (!skipRedirects) {
+      return { urlsToProcess: urls, skippedUrls: [] };
     }
 
-    // Configure queue callbacks
+    logger.debug('Pre-filtering redirects...');
+    const filteredUrls: string[] = [];
+    const skippedUrls: string[] = [];
+
+    for (const url of urls) {
+      try {
+        const minimalResult = await this.testUrlMinimal(url, 8000);
+        if (minimalResult.skipped && minimalResult.errors.some(e => e.includes('Redirect'))) {
+          skippedUrls.push(url);
+          logger.debug(`Skipped redirect: ${url}`);
+        } else {
+          filteredUrls.push(url);
+        }
+      } catch (error) {
+        // If minimal test fails, include URL for full testing
+        filteredUrls.push(url);
+      }
+    }
+
+    logger.info(`After redirect filtering: ${filteredUrls.length} URLs to test, ${skippedUrls.length} redirects skipped`);
+
+    return { urlsToProcess: filteredUrls, skippedUrls };
+  }
+
+  /**
+   * Create queue with callbacks
+   */
+  private createQueue(options: PageTestOptions, logger: ILogger): Queue<string, PageTestResult> {
     const callbacks: QueueEventCallbacks<string> = {
       onProgressUpdate: (stats) => {
-        if (stats.progress > 0 && stats.progress % 25 === 0) {
+        if (stats.progress > 0 && stats.progress % PROGRESS.REPORT_THRESHOLD === 0) {
           logger.info(`Progress: ${stats.progress.toFixed(1)}%`, {
             completed: stats.completed,
             total: stats.total,
-            workers: stats.activeWorkers,
+            workers: stats.activeWorkers
           });
         }
       },
@@ -400,91 +362,45 @@ export class AccessibilityChecker {
       },
       onQueueEmpty: () => {
         logger.info('All page tests completed');
-      },
+      }
     };
 
-    // Create optimized queue for accessibility testing
-    const queue = Queue.forAccessibilityTesting<string>(
-      'parallel',
-      {
-        maxConcurrent: options.maxConcurrent || 3,
-        maxRetries: 3,
-        retryDelay: 2000,
-        timeout: options.timeout || 30000,
-        enableProgressReporting: true,
-        progressUpdateInterval: 3000,
-      },
-      callbacks
-    );
+    return Queue.forAccessibilityTesting<string>('parallel', {
+      maxConcurrent: options.maxConcurrent || CONCURRENCY.DEFAULT_MAX,
+      maxRetries: RETRY.MAX_ATTEMPTS,
+      retryDelay: RETRY.DELAY_MS,
+      timeout: options.timeout || TIMEOUTS.QUEUE_ITEM,
+      enableProgressReporting: true,
+      progressUpdateInterval: PROGRESS.UPDATE_INTERVAL
+    }, callbacks);
+  }
 
-    try {
-      // Process filtered URLs with queue
-      const result = await queue.processWithProgress(
-        urlsToProcess,
-        async (url: string) => {
-          return await this.testPage(url, options);
-        },
-        {
-          showProgress: !options.verbose,
-          progressInterval: 3000,
-        }
-      );
+  /**
+   * Collect results from queue execution
+   */
+  private collectResults(queueResult: any): PageTestResult[] {
+    const results: PageTestResult[] = [];
 
-      // Extract successful results
-      result.completed.forEach((item) => {
-        if (item.result) {
-          results.push(item.result);
-        }
-      });
+    // Add successful results
+    queueResult.completed.forEach((item: any) => {
+      if (item.result) {
+        results.push(item.result);
+      }
+    });
 
-      // Add failed items as error results
-      result.failed.forEach((failedItem) => {
-        results.push({
-          url: failedItem.data,
-          title: 'Error',
-          accessibilityResult: {
-            url: failedItem.data,
-            title: 'Error',
-            imagesWithoutAlt: 0,
-            buttonsWithoutLabel: 0,
-            headingsCount: 0,
-            errors: [`Test failed: ${failedItem.error}`],
-            warnings: [],
-            passed: false,
-            crashed: true,
-            duration: failedItem.duration || 0,
-          },
-          duration: failedItem.duration || 0,
-          timestamp: new Date(),
-        });
-      });
+    // Add failed items as error results
+    queueResult.failed.forEach((failedItem: any) => {
+      const duration = failedItem.duration || 0;
+      results.push(ResultFactory.createErrorResult(failedItem.data, failedItem.error, duration));
+    });
 
-      const totalDuration = Date.now() - startTime;
-
-      logger.info(`Multi-page testing completed`, {
-        total: urls.length,
-        tested: results.length,
-        skipped: skippedUrls.length,
-        failed: result.failed.length,
-        totalDuration,
-      });
-
-      return {
-        results,
-        skippedUrls,
-        totalDuration,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      logger.error('Multi-page testing failed', error);
-      throw error;
-    }
+    return results;
   }
 
   /**
    * Test URL for basic connectivity (used by SmartUrlSampler)
    */
-  async testUrlMinimal(url: string, timeout: number = 5000): Promise<AccessibilityResult> {
+  async testUrlMinimal(url: string, timeout: number = TIMEOUTS.MINIMAL_TEST): Promise<AccessibilityResult> {
     const startTime = Date.now();
     const logger = this.logger.child ? this.logger.child('minimal-test') : this.logger;
 
@@ -498,105 +414,65 @@ export class AccessibilityChecker {
       try {
         page.setDefaultTimeout(timeout);
 
-        // Observe navigation-level redirects
-        let wasRedirect = false;
-        const onResponse = (res: any) => {
-          try {
-            const req = res.request();
-            const isNav =
-              typeof (req as any).isNavigationRequest === 'function'
-                ? req.isNavigationRequest()
-                : false;
-            if (isNav && res.status() >= 300 && res.status() < 400) {
-              wasRedirect = true;
-            }
-          } catch {
-            /* Ignore redirect detection errors */
-          }
-        };
-        page.on('response', onResponse);
-
-        const response = await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout,
+        // Set up redirect detection
+        const redirectDetector = createRedirectDetector({
+          logger: logger.child ? logger.child('redirect') : logger
         });
 
-        // Stop observing responses
-        page.off('response', onResponse);
+        const { getResult, cleanup } = redirectDetector.attachToPage(page);
 
-        const finalUrl = page.url();
-        const title = await page.title();
-        const status = response?.status() || 0;
-
-        // Detect redirects even when Playwright follows them to a final 200
         try {
-          const lastRequest = response?.request();
-          if (lastRequest) {
-            // If the last request was created via a redirect chain, redirectedFrom() will be non-null
-            if (typeof (lastRequest as any).redirectedFrom === 'function') {
-              wasRedirect = wasRedirect || !!lastRequest.redirectedFrom();
-            }
+          const response = await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout
+          });
+
+          const title = await page.title();
+          const status = response?.status() || 0;
+          const duration = Date.now() - startTime;
+
+          // Get redirect information
+          const redirectInfo = getResult(response, url);
+
+          // Create base result
+          let result = ResultFactory.createMinimalResult({
+            url,
+            title,
+            duration
+          });
+
+          // Update based on HTTP status
+          if (status === HTTP_STATUS.NOT_FOUND) {
+            result = ResultFactory.create404Result(url, duration);
+          } else if (isHttpError(status)) {
+            result = ResultFactory.createHttpErrorResult(url, status, duration);
+          } else if (redirectInfo.isRedirect) {
+            result = ResultFactory.createHttpErrorResult(url, redirectInfo.statusCode, duration);
+            result = ResultFactory.addRedirectInfo(result, redirectInfo);
+          } else if (isHttpSuccess(status)) {
+            result.passed = true;
+            result.title = title;
           }
-        } catch {
-          /* Ignore redirect chain check errors */
+
+          return result;
+
+        } finally {
+          cleanup();
         }
 
-        // Only treat real HTTP redirects as redirects, not arbitrary URL changes
-        const isHttpRedirect = wasRedirect || (status >= 300 && status < 400);
-        const urlChanged = finalUrl !== url;
-
-        const result: AccessibilityResult = {
-          url,
-          title: title || 'Untitled',
-          imagesWithoutAlt: 0,
-          buttonsWithoutLabel: 0,
-          headingsCount: 0,
-          errors: [],
-          warnings: [],
-          passed: status >= 200 && status < 300, // Only 2xx are successful
-          crashed: false,
-          skipped: isHttpRedirect || status === 404,
-          duration: Date.now() - startTime,
-        };
-
-        // Add status-specific errors
-        if (status === 404) {
-          result.errors.push('HTTP 404 Not Found');
-        } else if (status >= 300 && status < 400) {
-          result.errors.push(`HTTP ${status} Redirect`);
-        } else if (status >= 400) {
-          result.errors.push(`HTTP ${status} Error`);
-        }
-
-        // Add redirect info if needed
-        if (isHttpRedirect) {
-          (result as any).redirectInfo = {
-            status: status >= 300 && status < 400 ? status : 0,
-            originalUrl: url,
-            finalUrl,
-            type: 'http_redirect',
-          };
-        }
-
-        return result;
       } finally {
         await page.close();
       }
     } catch (error) {
       logger.debug(`Minimal test failed: ${url}`, error);
 
-      return {
-        url,
-        title: 'Error',
-        imagesWithoutAlt: 0,
-        buttonsWithoutLabel: 0,
-        headingsCount: 0,
-        errors: [`Navigation failed: ${error}`],
-        warnings: [],
-        passed: false,
-        crashed: true,
-        duration: Date.now() - startTime,
-      };
+      const duration = Date.now() - startTime;
+      const result = ResultFactory.createMinimalResult({ url, duration });
+      result.errors.push(`Navigation failed: ${error instanceof Error ? error.message : String(error)}`);
+      result.passed = false;
+      result.crashed = true;
+
+      return result;
     } finally {
       await release();
     }
@@ -614,29 +490,66 @@ export class AccessibilityChecker {
 
   // Private helper methods
 
+  /**
+   * Check if comprehensive analysis should be run
+   */
+  private shouldRunComprehensiveAnalysis(options: PageTestOptions): boolean {
+    return (
+      (options.enableComprehensiveAnalysis ?? this.config.enableComprehensiveAnalysis) &&
+      this.analysisOrchestrator !== undefined
+    );
+  }
+
+  /**
+   * Run comprehensive analysis on a page
+   */
+  private async runComprehensiveAnalysis(
+    page: Page,
+    url: string,
+    options: PageTestOptions
+  ): Promise<AnalysisResults | undefined> {
+    if (!this.analysisOrchestrator) {
+      return undefined;
+    }
+
+    try {
+      return await this.analysisOrchestrator.runComprehensiveAnalysis(
+        page,
+        url,
+        { timeout: options.timeout || TIMEOUTS.DEFAULT_NAVIGATION }
+      );
+    } catch (error) {
+      this.logger.warn('Comprehensive analysis failed', { url, error });
+      return undefined;
+    }
+  }
+
+  /**
+   * Configure page settings before navigation
+   */
   private async configurePage(page: Page, options: PageTestOptions): Promise<void> {
     // Set viewport
-    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.setViewportSize(VIEWPORT.DESKTOP);
 
     // Set user agent
     await page.setExtraHTTPHeaders({
-      'User-Agent': 'auditmysite/2.0.0 (+https://github.com/casoon/AuditMySite)',
+      'User-Agent': USER_AGENTS.DEFAULT
     });
 
     // Configure console/error logging based on verbose setting
     if (options.verbose) {
-      page.on('console', (msg) => this.logger.debug(`Browser: ${msg.text()}`));
-      page.on('pageerror', (error) => this.logger.warn(`JS Error: ${error.message}`));
+      page.on('console', msg => this.logger.debug(`Browser: ${msg.text()}`));
+      page.on('pageerror', error => this.logger.warn(`JS Error: ${error.message}`));
     }
   }
 
   private async runBasicAccessibilityAnalysis(
-    page: Page,
-    url: string,
+    page: Page, 
+    url: string, 
     options: PageTestOptions
   ): Promise<AccessibilityResult> {
     const startTime = Date.now();
-
+    
     const result: AccessibilityResult = {
       url,
       title: await page.title(),
@@ -646,7 +559,7 @@ export class AccessibilityChecker {
       errors: [],
       warnings: [],
       passed: true,
-      duration: 0,
+      duration: 0
     };
 
     // Basic element checks
@@ -677,6 +590,9 @@ export class AccessibilityChecker {
     return result;
   }
 
+  /**
+   * Run pa11y accessibility tests
+   */
   private async runPa11yTests(
     result: AccessibilityResult,
     options: PageTestOptions,
@@ -685,155 +601,90 @@ export class AccessibilityChecker {
     try {
       this.logger.debug('Running pa11y accessibility tests');
 
-      // Detect glassmorphism elements to filter out from color-contrast checks
-      let glassmorphismSelectors: string[] = [];
-      if (page) {
-        try {
-          glassmorphismSelectors = await detectGlassmorphismElements(page);
-          if (glassmorphismSelectors.length > 0) {
-            this.logger.debug(
-              `Detected ${glassmorphismSelectors.length} glassmorphism elements (will filter color-contrast false positives)`
-            );
-          }
-        } catch (err) {
-          this.logger.warn(
-            'Failed to detect glassmorphism elements, continuing without filtering',
-            err
-          );
-        }
-      }
-
       const pa11yResult = await pa11y(result.url, {
-        timeout: options.timeout || 15000,
-        wait: options.wait || 1000,
+        timeout: options.timeout || TIMEOUTS.PA11Y_TEST,
+        wait: options.wait || TIMEOUTS.PA11Y_WAIT,
         standard: options.pa11yStandard || 'WCAG2AA',
-        hideElements:
-          options.hideElements || 'iframe[src*="google-analytics"], iframe[src*="doubleclick"]',
+        hideElements: options.hideElements || PA11Y_HIDE_ELEMENTS,
         includeNotices: options.includeNotices !== false,
         includeWarnings: options.includeWarnings !== false,
-        runners: ['axe'],
-        chromeLaunchConfig: {
-          executablePath: '', // Will use default Chromium
-          ignoreHTTPSErrors: true,
-        },
+        runners: ['axe'] // Always use axe for pooled browsers
       });
 
       // Process pa11y issues
       if (pa11yResult.issues) {
-        // 1. Deduplicate issues (fixes bug where errors 22-42 are duplicates of 1-21)
-        const deduplicatedIssues = deduplicateAccessibilityIssues(
-          pa11yResult.issues.map((i: any) => ({
-            code: i.code,
-            message: i.message,
-            type: i.type,
-            selector: i.selector,
-            context: i.context,
-            impact: i.impact,
-            help: i.help,
-            helpUrl: i.helpUrl,
-          }))
-        );
-
-        // 2. Filter out glassmorphism color-contrast false positives and whitelisted rules
-        let whitelistedCount = 0;
-        let glassmorphismFilteredCount = 0;
-
-        const filteredIssues = deduplicatedIssues.filter((issue) => {
-          // Check whitelist first (manual verification overrides)
-          if (shouldIgnoreRule(result.url, issue.code, issue.selector)) {
-            const reason = getWhitelistReason(result.url, issue.code);
-            this.logger.debug(
-              `Filtered whitelisted rule ${issue.code} for ${issue.selector}: ${reason}`
-            );
-            whitelistedCount++;
-            return false; // Filter out
-          }
-
-          // If it's a color-contrast error on a glassmorphism element, filter it out
-          if (issue.code === 'color-contrast' && glassmorphismSelectors.length > 0) {
-            const matchesGlassmorphism = glassmorphismSelectors.some((sel) => {
-              try {
-                return issue.selector?.includes(sel) || issue.context?.includes(sel);
-              } catch {
-                return false;
-              }
-            });
-            if (matchesGlassmorphism) {
-              this.logger.debug(`Filtered glassmorphism false positive: ${issue.selector}`);
-              glassmorphismFilteredCount++;
-              return false; // Filter out
-            }
-          }
-          return true; // Keep
-        });
-
-        this.logger.debug(
-          `Issues: ${pa11yResult.issues.length} original → ${deduplicatedIssues.length} deduplicated → ${filteredIssues.length} after filtering`
-        );
-
-        // Store filtering metadata for transparency
-        result.filteringMetadata = {
-          originalIssuesCount: pa11yResult.issues.length,
-          deduplicatedIssuesCount: deduplicatedIssues.length,
-          filteredIssuesCount: filteredIssues.length,
-          glassmorphismElementsDetected: glassmorphismSelectors.length,
-          whitelistedIssuesCount: whitelistedCount,
-        };
-
-        // 3. Process filtered issues
-        filteredIssues.forEach((issue: any) => {
-          const detailedIssue: Pa11yIssue = {
-            code: issue.code,
-            message: issue.message,
-            type: issue.type as 'error' | 'warning' | 'notice',
-            selector: issue.selector,
-            context: issue.context,
-            impact: issue.impact,
-            help: issue.help,
-            helpUrl: issue.helpUrl,
-          };
-
-          result.pa11yIssues = result.pa11yIssues || [];
-          result.pa11yIssues.push(detailedIssue);
-
-          // Add to appropriate array
-          const message = `${issue.code}: ${issue.message}`;
-          if (issue.type === 'error') {
-            result.errors.push(message);
-          } else if (issue.type === 'warning') {
-            result.warnings.push(message);
-          } else if (issue.type === 'notice') {
-            result.warnings.push(`Notice: ${message}`);
-          }
-        });
-
-        // Calculate pa11y score with balanced penalties
-        // Now using filtered issues (deduplicated + glassmorphism-filtered)
-        const errors = filteredIssues.filter((i: any) => i.type === 'error').length;
-        const warnings = filteredIssues.filter((i: any) => i.type === 'warning').length;
-
-        let score = 100;
-        // Balanced scoring - all errors treated equally since false positives are filtered
-        score -= errors * 2.5; // 2.5 points per error
-        score -= warnings * 1; // 1 point per warning
-
-        result.pa11yScore = Math.max(0, Math.min(100, Math.round(score)));
+        this.processPa11yIssues(pa11yResult.issues, result);
+        result.pa11yScore = this.calculatePa11yScore(pa11yResult.issues);
       } else {
         result.pa11yScore = 100;
       }
+
     } catch (error) {
       this.logger.warn('pa11y test failed, using fallback scoring', error);
-
-      // Fallback score calculation
-      let score = 100;
-      score -= result.errors.length * 15;
-      score -= result.warnings.length * 5;
-      score -= result.imagesWithoutAlt * 3;
-      score -= result.buttonsWithoutLabel * 5;
-      if (result.headingsCount === 0) score -= 20;
-
-      result.pa11yScore = Math.max(0, score);
+      result.pa11yScore = this.calculateFallbackScore(result);
     }
+  }
+
+  /**
+   * Process pa11y issues and add them to result
+   */
+  private processPa11yIssues(issues: any[], result: AccessibilityResult): void {
+    issues.forEach((issue: any) => {
+      const detailedIssue: Pa11yIssue = {
+        code: issue.code,
+        message: issue.message,
+        type: issue.type as 'error' | 'warning' | 'notice',
+        selector: issue.selector,
+        context: issue.context,
+        impact: issue.impact,
+        help: issue.help,
+        helpUrl: issue.helpUrl
+      };
+
+      result.pa11yIssues = result.pa11yIssues || [];
+      result.pa11yIssues.push(detailedIssue);
+
+      // Add to appropriate array
+      const message = `${issue.code}: ${issue.message}`;
+      if (issue.type === 'error') {
+        result.errors.push(message);
+      } else if (issue.type === 'warning') {
+        result.warnings.push(message);
+      } else if (issue.type === 'notice') {
+        result.warnings.push(`Notice: ${message}`);
+      }
+    });
+  }
+
+  /**
+   * Calculate pa11y score based on issues
+   */
+  private calculatePa11yScore(issues: any[]): number {
+    const errors = issues.filter((i: any) => i.type === 'error').length;
+    const warnings = issues.filter((i: any) => i.type === 'warning').length;
+
+    let score = 100;
+    score -= errors * SCORING.ERROR_PENALTY;
+    score -= warnings * SCORING.WARNING_PENALTY;
+
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }
+
+  /**
+   * Calculate fallback score when pa11y fails
+   */
+  private calculateFallbackScore(result: AccessibilityResult): number {
+    let score = 100;
+    score -= result.errors.length * SCORING.FALLBACK.ERROR_PENALTY;
+    score -= result.warnings.length * SCORING.FALLBACK.WARNING_PENALTY;
+    score -= result.imagesWithoutAlt * SCORING.FALLBACK.IMAGE_NO_ALT;
+    score -= result.buttonsWithoutLabel * SCORING.FALLBACK.BUTTON_NO_LABEL;
+
+    if (result.headingsCount === 0) {
+      score -= SCORING.FALLBACK.NO_HEADINGS;
+    }
+
+    return Math.max(0, score);
   }
 }
 
