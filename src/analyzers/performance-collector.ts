@@ -84,10 +84,12 @@ export class PerformanceCollector {
           // Access CDP session through context (Playwright's official API)
           cdpSession = await page.context().newCDPSession(page);
           await cdpSession.send('Network.enable');
+          // Lighthouse Slow 4G Standard (mobile, default)
+          // Matches PageSpeed Insights lab conditions for mobile testing
           const net = this.options.psiNetwork || {
-            latencyMs: 150,
-            downloadKbps: 1600,
-            uploadKbps: 750,
+            latencyMs: 400,      // RTT (was 150ms - now matches Lighthouse)
+            downloadKbps: 400,   // Download throughput (was 1600kbps - now 75% slower)
+            uploadKbps: 400,     // Upload throughput (was 750kbps - now 47% slower)
           };
           await cdpSession.send('Network.emulateNetworkConditions', {
             offline: false,
