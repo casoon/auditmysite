@@ -67,13 +67,15 @@ export class MobilePerformanceCollector {
         if (this.options.psiProfile) {
           cdpSession = await (page as any)._client?.() || await (page.context() as any).newCDPSession(page);
           await cdpSession.send('Network.enable');
-          const net = this.options.psiNetwork || { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 };
+          // Lighthouse Slow 4G Standard (mobile, default)
+          // Matches PageSpeed Insights lab conditions for mobile testing
+          const net = this.options.psiNetwork || { latencyMs: 400, downloadKbps: 400, uploadKbps: 400 };
           await cdpSession.send('Network.emulateNetworkConditions', {
             offline: false,
             latency: net.latencyMs,
             downloadThroughput: Math.floor((net.downloadKbps * 1024) / 8),
             uploadThroughput: Math.floor((net.uploadKbps * 1024) / 8),
-            connectionType: 'cellular3g'
+            connectionType: 'cellular4g' // Changed from 3g to 4g (Slow 4G)
           });
           const cpuRate = this.options.psiCPUThrottlingRate || 4;
           await cdpSession.send('Emulation.setCPUThrottlingRate', { rate: cpuRate });

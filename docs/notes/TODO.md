@@ -161,29 +161,35 @@ interface SEOResult {
    - ❌ Einheitliches `StructuredIssue`-Format
    - ❌ Cross-Category-Issue-Aggregation
 
-## 📈 Was funktioniert bereits (CURRENT STATE)
+## 📈 Was funktioniert bereits (CURRENT STATE - UPDATED 2025-11-18)
 
-### Engine API (`localhost:3000`)
+### ✅ Engine/CLI - Vollständig implementiert
 ```bash
-✅ POST /audit - Startet Audit mit sitemap_url
-✅ GET /health - Health check
-✅ WebSocket /ws - Live-Events während Audit
+✅ Performance Analysis - Core Web Vitals, Scoring, Grading
+✅ SEO Analysis - Meta Tags, Headings, Social, Technical SEO
+✅ Content Weight Analysis - Resource optimization
+✅ Mobile Friendliness Analysis - Touch targets, responsive
+✅ Comprehensive JSON Output - FullAuditResult structure
+✅ HTML Reports - Professional formatting
+✅ CSV/JSON Export - Multiple formats
 ```
 
-### CLI (`dart run`)
-```bash  
-✅ Lädt JSON von Engine
-✅ --format=html,csv,json - Multiple Ausgabeformate
-✅ Generiert vollständige Reports
-```
+### ✅ Implemented Analyzers
+- `performance-collector.ts` - LCP, INP, CLS, FID, TTFB, recommendations
+- `seo-analyzer.ts` - Meta tags, headings, social tags, E-A-T, voice search
+- `content-weight-analyzer.ts` - Resource analysis, optimization
+- `mobile-friendliness-analyzer.ts` - Responsive design, touch targets
+- `schema-markup-analyzer.ts` - Structured data validation
+- `security-headers-analyzer.ts` - HTTP security headers
 
-### Studio App
+### ✅ CLI Integration (`bin/audit.js`)
 ```bash
-✅ Engine-Connection & Management
-✅ Audit-Progress mit WebSocket-Updates
-✅ Results laden/speichern/exportieren
-✅ Settings-Management (SharedPreferences)
-✅ Export-Format-Auswahl
+✅ All analyzers enabled by default (opt-out model)
+✅ Smart URL sampling with redirect filtering
+✅ Performance budgets (default, ecommerce, blog, corporate)
+✅ Expert mode with interactive configuration
+✅ Parallel processing with browser pooling
+✅ PSI-profile emulation (CPU throttling, network conditions)
 ```
 
 ### Beispiel funktionierender JSON-Output (reduziert)
@@ -208,137 +214,133 @@ interface SEOResult {
 }
 ```
 
-## 🎯 TODO: Was muss implementiert werden
+## 🎯 TODO: Was muss noch implementiert werden
 
-### 🔥 **Hochpriorität (Kurzfristig)**
+### ✅ **ERLEDIGT (2025-11-18)**
 
-1. **Engine erweitern - Performance-Vollanalyse**
+1. ~~**Engine erweitern - Performance-Vollanalyse**~~ ✅
+   - ✅ PerformanceIssue-Detection implementiert
+   - ✅ Grade-Berechnung (A-F) implementiert
+   - ✅ Metrics-Vollerfassung (TTFB, INP, LCP, CLS, FID, TBT, Speed Index)
+
+2. ~~**Engine erweitern - SEO-Basis**~~ ✅
+   - ✅ Meta-Tags extrahieren (title, description, canonical, robots)
+   - ✅ H1-H6 Heading-Struktur analysieren
+   - ✅ Image alt-text überprüfen
+   - ✅ OpenGraph/TwitterCard-Tags
+   - ✅ Advanced: Semantic SEO, Voice Search, E-A-T
+
+3. ~~**JSON-Schema-Kompatibilität**~~ ✅
+   - ✅ Output an FullAuditResult-Schema angepasst
+   - ✅ PageAuditResult-Struktur implementiert
+   - ✅ AuditSummary-Generierung hinzugefügt
+
+4. ~~**Content Weight Analysis**~~ ✅
+   - ✅ Resource-Sizes erfassen (CSS, JS, Images)
+   - ✅ GZIP-Compression-Status
+   - ✅ Optimization-Recommendations
+
+5. ~~**Mobile Friendliness**~~ ✅
+   - ✅ Viewport-Configuration-Tests
+   - ✅ Touch-Target-Size-Analyse
+   - ✅ Mobile-Navigation-Usability
+
+6. ~~**Security Headers**~~ ✅
+   - ✅ Security-Headers-Analysis implementiert
+   - ✅ Structured-Data-Validation implementiert
+
+### 🔥 **Noch zu erledigen (Hochpriorität)**
+
+1. **HTML Report Generator aktualisieren**
    ```typescript
-   // In engine/audit.js hinzufügen:
-   - PerformanceIssue-Detection (LCP > 2.5s, CLS > 0.1, etc.)
-   - Grade-Berechnung für Performance
-   - Metrics-Vollerfassung (TTFB, INP, etc.)
+   // In generators/html-generator.ts:
+   - ❌ Performance-Metriken-Sektion erweitern
+   - ❌ SEO-Results-Sektion erweitern
+   - ❌ Content-Weight-Visualisierung verbessern
+   - ❌ Mobile-Friendliness-Sektion hinzufügen
    ```
 
-2. **Engine erweitern - SEO-Basis**
-   ```typescript  
-   // In engine/audit.js hinzufügen:
-   - Meta-Tags extrahieren (title, description, canonical)
-   - H1-H6 Heading-Struktur analysieren
-   - Image alt-text überprüfen
-   - OpenGraph/TwitterCard-Tags
-   ```
-
-3. **JSON-Schema-Kompatibilität**
+2. **JSON Generator aktualisieren**
    ```typescript
-   // In engine/audit.js:
-   - Output an FullAuditResult-Schema anpassen
-   - PageAuditResult-Struktur implementieren  
-   - AuditSummary-Generierung hinzufügen
+   // In generators/json-generator.ts:
+   - ❌ Vollständige FullAuditResult-Struktur validieren
+   - ❌ TypeScript-Interfaces synchronisieren
    ```
 
-### 📊 **Medium-Priorität (Mittelfristig)**
+### 📊 **Optional (Medium-Priorität)**
 
-4. **Studio UI für neue Datentypen**
+3. **Studio UI für neue Datentypen**
    ```dart
-   // In Flutter Studio:
-   - Performance-Metriken-Anzeige
-   - SEO-Results-Widgets  
-   - Grade-Visualization (A-F Badges)
-   - Certificate-Level-Display
+   // In Flutter Studio (falls vorhanden):
+   - ❌ Performance-Metriken-Anzeige
+   - ❌ SEO-Results-Widgets
+   - ❌ Grade-Visualization (A-F Badges)
+   - ❌ Certificate-Level-Display
    ```
 
-5. **CLI Report-Templates erweitern**
-   ```dart
+4. **PDF-Export-Option**
+   ```typescript
    // In CLI:
-   - HTML-Templates für Performance/SEO
-   - CSV-Export für alle Kategorien
-   - PDF-Export-Option
-   ```
-
-6. **Content Weight Analysis**
-   ```typescript
-   // In engine:
-   - Resource-Sizes erfassen (CSS, JS, Images)
-   - GZIP-Compression-Status
-   - Optimization-Recommendations
+   - ❌ PDF-Export-Option hinzufügen
    ```
 
 ### ⚡ **Niedrige Priorität (Langfristig)**
 
-7. **Mobile Friendliness**
+5. **Advanced Features**
    ```typescript
-   - Viewport-Configuration-Tests
-   - Touch-Target-Size-Analyse
-   - Mobile-Navigation-Usability
+   - ❌ Lighthouse-Integration (optional)
+   - ❌ Real User Monitoring (RUM) Integration
+   - ❌ Historical Trend Analysis
    ```
 
-8. **Advanced Features**
-   ```typescript
-   - Lighthouse-Integration
-   - Security-Headers-Analysis
-   - Structured-Data-Validation
-   ```
+## 🛠️ Konkrete Implementierungsschritte (AKTUALISIERT)
 
-## 🛠️ Konkrete Implementierungsschritte
+### ✅ Phase 1: Performance & SEO Engine-Integration - **ERLEDIGT** ✅
 
-### Phase 1: Performance & SEO Engine-Integration (1-2 Wochen)
+1. ✅ **Engine Performance erweitert** - `src/analyzers/performance-collector.ts`
+   - ✅ calculatePerformanceGrade() implementiert
+   - ✅ detectPerformanceIssues() implementiert
+   - ✅ Vollständige PerformanceResult-Struktur
 
-1. **Engine Performance erweitern**
+2. ✅ **Engine SEO-Basis** - `src/analyzers/seo-analyzer.ts`
+   - ✅ extractMetaTags() implementiert
+   - ✅ analyzeHeadingStructure() implementiert
+   - ✅ checkImageAltText() implementiert (in analyzeContentQuality)
+   - ✅ generateSEOResult() implementiert
+
+3. ✅ **JSON-Output angepasst** - `bin/audit.js`
+   - ✅ FullAuditResult-kompatible Struktur
+   - ✅ AuditMetadata hinzugefügt
+   - ✅ AuditSummary berechnet
+
+### 🔥 Phase 2: Report Generator-Verbesserung (AKTUELLE PRIORITÄT)
+
+1. **HTML Generator erweitern**
    ```bash
-   cd auditmysite_engine
-   # In audit.js hinzufügen:
-   - calculatePerformanceGrade() Funktion
-   - detectPerformanceIssues() Funktion
-   - Vollständige PerformanceResult-Struktur
+   # In src/generators/html-generator.ts:
+   - ❌ Performance-Sektion mit Core Web Vitals Charts
+   - ❌ SEO-Sektion mit Meta-Tags & Headings
+   - ❌ Content-Weight-Sektion mit Resource-Breakdown
+   - ❌ Mobile-Friendliness-Sektion
    ```
 
-2. **Engine SEO-Basis**
+2. **JSON Generator validieren**
    ```bash
-   # In audit.js hinzufügen:
-   - extractMetaTags() Funktion
-   - analyzeHeadingStructure() Funktion  
-   - checkImageAltText() Funktion
-   - generateSEOResult() Funktion
+   # In src/generators/json-generator.ts:
+   - ❌ FullAuditResult-Schema validieren
+   - ❌ TypeScript-Interfaces synchronisieren
    ```
 
-3. **JSON-Output anpassen**
+### 📊 Phase 3: Studio UI-Erweiterung (OPTIONAL)
+
+3. **Flutter Widgets für neue Daten** (falls Studio vorhanden)
    ```bash
-   # Engine Output erweitern:
-   - FullAuditResult-kompatible Struktur
-   - AuditMetadata hinzufügen
-   - AuditSummary berechnen
-   ```
-
-### Phase 2: Studio UI-Erweiterung (1 Woche)
-
-4. **Flutter Widgets für neue Daten**
-   ```bash
-   cd auditmysite_studio  
-   # Neue Widgets erstellen:
-   - PerformanceMetricsCard
-   - SEOResultsCard
-   - GradeBadgeWidget
-   - CertificateLevelIndicator
-   ```
-
-5. **Results-View erweitern**
-   ```bash
-   # In results_view.dart:
-   - Tabs für Performance/SEO
-   - Charts für Metriken-Anzeige
-   - Issue-Kategorisierung
-   ```
-
-### Phase 3: CLI & Export-Verbesserung (3-5 Tage)
-
-6. **CLI Templates erweitern**
-   ```bash
-   cd auditmysite_cli
-   # Neue Report-Templates:
-   - Performance-HTML-Section
-   - SEO-Analysis-Section  
-   - Multi-Category-CSV-Export
+   # Prüfen ob auditmysite_studio existiert
+   # Falls ja:
+   - ❌ PerformanceMetricsCard
+   - ❌ SEOResultsCard
+   - ❌ GradeBadgeWidget
+   - ❌ CertificateLevelIndicator
    ```
 
 ## 🧪 Test-Strategie
@@ -366,41 +368,43 @@ mkdir demo_data
 - poor_site.json (0-50 scores)
 ```
 
-## 🎉 Erwartete Ergebnisse nach Implementierung
+## 🎉 Aktuelle Features & Ergebnisse (Stand: 2025-11-18)
 
-Nach Umsetzung aller TODO-Punkte wird das System liefern:
+### ✅ **Vollständig implementierte Audit-Kategorien**
+- ✅ Accessibility (Pa11y-basiert mit WCAG 2.1 AA/AAA)
+- ✅ Performance (Core Web Vitals: LCP, INP, CLS, FID, TTFB)
+- ✅ SEO (Meta-Tags, Headings, Social Tags, E-A-T, Voice Search)
+- ✅ Content Weight (Resource-Analysis mit Optimierungsempfehlungen)
+- ✅ Mobile Friendliness (Touch-Targets, Responsive Design)
+- ✅ Security Headers (CSP, HTTPS, HSTS)
+- ✅ Schema Markup (Structured Data Validation)
 
-### 📊 **Vollständige Audit-Ergebnisse**
-- ✅ Accessibility (Pa11y-basiert) - **Bereits vorhanden**
-- ✅ Performance (Core Web Vitals) - **Nach Phase 1**
-- ✅ SEO (Meta-Tags, Headings, Images) - **Nach Phase 1**
-- ✅ Content Weight (Resource-Analysis) - **Nach Phase 3**
-- ✅ Mobile Friendliness - **Nach Phase 4**
+### 🚀 **CLI Features (bin/audit.js)**
+- ✅ Smart URL Sampling mit Redirect-Filterung
+- ✅ Parallel Processing mit Browser Pooling
+- ✅ Performance Budgets (default, ecommerce, blog, corporate)
+- ✅ Expert Mode mit interaktiver Konfiguration
+- ✅ PSI-Profile Emulation (CPU throttling, network conditions)
+- ✅ HTML/JSON/CSV Export
+- ✅ Detailed Issues Markdown Reports
+- ✅ System Performance Metrics
 
-### 🎨 **Studio App Features**
-- ✅ Multi-Category-Dashboard
-- ✅ Performance-Charts & Metriken
-- ✅ SEO-Recommendations
-- ✅ Grade-Visualization (A-F)
-- ✅ Certificate-Levels (Platinum, Gold, etc.)
-- ✅ Detaillierte Issue-Listen
-- ✅ Export in allen Formaten
+### 📄 **Generierte Reports**
+- ✅ HTML-Reports mit Accessibility-Ergebnissen
+- ✅ JSON-Export mit vollständigen Audit-Daten
+- ✅ Detailed Issues Markdown
+- ⏳ Performance/SEO/Content-Weight Sektionen in HTML (noch zu erweitern)
+- ❌ PDF-Export (geplant)
 
-### 📄 **CLI Report-Funktionen**  
-- ✅ HTML-Reports mit allen Kategorien
-- ✅ CSV-Export für Datenanalyse
-- ✅ JSON-API für Integrationen
-- ✅ PDF-Export für Präsentationen
-
-### 🔄 **Voll funktionsfähiger Workflow**
+### 🔄 **Aktueller Workflow**
 ```bash
-1. Studio App starten
-2. Sitemap-URL eingeben  
-3. Audit starten (alle Kategorien)
-4. Live-Progress verfolgen
-5. Vollständige Ergebnisse anzeigen
-6. In gewünschtem Format exportieren
-7. Ergebnisse teilen/präsentieren
+1. CLI starten: `npm run audit <sitemap-url>`
+2. Automatische Sitemap-Discovery
+3. Smart URL-Sampling (Homepage + weitere Seiten)
+4. Parallel Testing mit allen Analyzern
+5. Comprehensive Analysis (Performance, SEO, etc.)
+6. HTML + JSON + Detailed Markdown Reports
+7. Browser-Cleanup & Exit
 ```
 
 ---

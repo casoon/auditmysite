@@ -18,9 +18,10 @@ async function testComprehensive() {
     includeTechnicalSEO: true,
     includeMobileFriendliness: true,
     analysisTimeout: 30000,
+    // Lighthouse Slow 4G Standard (matches PageSpeed Insights)
     psiProfile: true,
     psiCPUThrottlingRate: 4,
-    psiNetwork: { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 }
+    psiNetwork: { latencyMs: 400, downloadKbps: 400, uploadKbps: 400 }
   };
   
   const checker = new AccessibilityChecker({

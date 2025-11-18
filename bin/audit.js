@@ -458,10 +458,11 @@ program
           includeTechnicalSEO: true,
           includeMobileFriendliness: true,
           analysisTimeout: 30000,
-          // PSI-like lab profile enabled per user request
+          // Lighthouse Slow 4G Standard (matches PageSpeed Insights)
+          // Mobile lab conditions for realistic performance testing
           psiProfile: true,
           psiCPUThrottlingRate: 4,
-          psiNetwork: { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 }
+          psiNetwork: { latencyMs: 400, downloadKbps: 400, uploadKbps: 400 }
         };
         const checker = new AccessibilityChecker({
           poolManager: poolManager,
