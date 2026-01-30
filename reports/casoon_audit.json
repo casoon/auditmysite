@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "tool": "auditmysit v0.1.0",
+    "timestamp": "2026-01-30T05:37:28.462926Z",
+    "wcag_level": "AA",
+    "execution_time_ms": 5
+  },
+  "report": {
+    "url": "https://www.casoon.de",
+    "timestamp": "2026-01-30T05:37:28.462609Z",
+    "wcag_results": {
+      "violations": [
+        {
+          "rule": "1.1.1",
+          "rule_name": "Non-text Content",
+          "level": "A",
+          "severity": "serious",
+          "message": "Image is missing alternative text",
+          "node_id": "61",
+          "role": "image",
+          "name": null,
+          "selector": null,
+          "fix_suggestion": "Add an alt attribute describing the image content, or alt=\"\" if decorative",
+          "help_url": "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html"
+        },
+        {
+          "rule": "2.4.1",
+          "rule_name": "Bypass Blocks",
+          "level": "A",
+          "severity": "minor",
+          "message": "Missing navigation landmark",
+          "node_id": "page",
+          "role": null,
+          "name": null,
+          "selector": null,
+          "fix_suggestion": "Wrap navigation in a <nav> element",
+          "help_url": "https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html"
+        },
+        {
+          "rule": "3.1.1",
+          "rule_name": "Language of Page",
+          "level": "A",
+          "severity": "serious",
+          "message": "Page is missing a valid lang attribute on the html element",
+          "node_id": "document",
+          "role": null,
+          "name": null,
+          "selector": null,
+          "fix_suggestion": "Add a valid lang attribute to the <html> element, e.g., <html lang=\"en\">",
+          "help_url": "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html"
+        },
+        {
+          "rule": "2.4.6",
+          "rule_name": "Headings and Labels",
+          "level": "AA",
+          "severity": "minor",
+          "message": "Page is missing an h1 element (main heading)",
+          "node_id": "122",
+          "role": null,
+          "name": null,
+          "selector": null,
+          "fix_suggestion": "Add an h1 element as the main page heading",
+          "help_url": "https://www.w3.org/WAI/WCAG21/Understanding/headings-and-labels.html"
+        }
+      ],
+      "passes": 75,
+      "incomplete": 91,
+      "nodes_checked": 1367
+    },
+    "score": 99,
+    "nodes_analyzed": 1367,
+    "duration_ms": 5
+  }
+}

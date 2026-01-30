@@ -1,0 +1,80 @@
+[package]
+name = "auditmysit"
+version = "0.1.0"
+edition = "2021"
+authors = ["AuditMySit Team"]
+description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
+license = "MIT"
+repository = "https://github.com/jseidel/auditmysit_rust"
+keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
+categories = ["command-line-utilities", "web-programming"]
+readme = "README.md"
+
+[dependencies]
+# Browser automation via Chrome DevTools Protocol
+chromiumoxide = { version = "0.8", default-features = false, features = ["tokio-runtime"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Output formatting
+colored = "2.0"
+prettytable-rs = "0.10"
+indicatif = "0.17"
+
+# URL handling
+url = "2.5"
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Sitemap parsing (for batch processing)
+sitemap = "0.4"
+
+# HTTP client (for sitemap fetching and Chromium download)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+
+# Zip extraction for Chromium installer
+zip = "2.2"
+
+# Home directory detection
+dirs = "5.0"
+
+# PDF report generation via Typst (local dependency until published)
+renderreport = { path = "../renderreport" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[[bin]]
+name = "auditmysit"
+path = "src/main.rs"
+
+[features]
+default = []
+# Future features
+api = []       # REST API server
+desktop = []   # Tauri desktop app

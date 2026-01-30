@@ -1,0 +1,467 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "timestamp": "2025-11-02T15:22:28.358Z",
+    "sitemapUrl": "https://www.casoon.de/sitemap.xml",
+    "toolVersion": "2.0.0-alpha.2",
+    "duration": 0
+  },
+  "systemPerformance": {
+    "testCompletionTimeSeconds": 0,
+    "parallelProcessing": {
+      "pagesProcessed": 1,
+      "concurrentWorkers": 2,
+      "averageTimePerPageMs": 0,
+      "throughputPagesPerMinute": null
+    },
+    "memoryUsage": {
+      "peakUsageMB": 34,
+      "heapUsedMB": 34,
+      "rssUsageMB": 123,
+      "externalMB": 4
+    },
+    "architecture": {
+      "eventDrivenParallel": true,
+      "comprehensiveAnalysis": true,
+      "browserPooling": true,
+      "persistenceEnabled": false
+    },
+    "measurementSettings": {
+      "psiProfile": true,
+      "cpuThrottlingRate": 4,
+      "network": {
+        "latencyMs": 150,
+        "downloadKbps": 1600,
+        "uploadKbps": 750
+      }
+    }
+  },
+  "summary": {
+    "totalPages": 15,
+    "testedPages": 1,
+    "passedPages": 0,
+    "failedPages": 1,
+    "crashedPages": 0,
+    "redirectPages": 0,
+    "totalErrors": 40,
+    "totalWarnings": 0
+  },
+  "pages": [
+    {
+      "url": "https://www.casoon.de/",
+      "title": "Digitale Transformation einfach gemacht | CASOON",
+      "status": "failed",
+      "duration": 0,
+      "accessibility": {
+        "score": 0,
+        "errors": [
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(1) > div > div:nth-child(2) > div > h1",
+            "context": "<h1 class=\"inline-flex items-center bg-white/20 backdrop-blur-sm text-gray-800 px-4 py-2 rounded-full text-sm font-medium mb-6 border border-white/30 shadow-lg\">\nFür Wandel gemacht. Für Zukunf...</h1>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(1) > div > div:nth-child(2) > div > p",
+            "context": "<p class=\"text-gray-700 mb-6 text-3xl md:text-4xl leading-relaxed\"><strong class=\"text-gray-800\">T...</p>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(1) > div > div:nth-child(2) > div > p > strong:nth-child(1)",
+            "context": "<strong class=\"text-gray-800\">Transformation vorantreiben</strong>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(1) > div > div:nth-child(2) > div > p > strong:nth-child(2)",
+            "context": "<strong class=\"text-gray-800\">Innovation, Technologie und pra...</strong>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(1) > div > div:nth-child(2) > div > p > strong:nth-child(3)",
+            "context": "<strong class=\"text-gray-800\">Fahrplan für Ihre Zukunft</strong>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(2) > div > div > a:nth-child(1)",
+            "context": "<a href=\"/impressum\" class=\"text-gray-700 hover:text-gray-900 transition-colors text-lg md:text-base font-medium\">\nImpressum\n</a>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#left-panel > div:nth-child(2) > div > div > a:nth-child(3)",
+            "context": "<a href=\"/datenschutz\" class=\"text-gray-700 hover:text-gray-900 transition-colors text-lg md:text-base font-medium\">\nDatenschutz\n</a>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(1) > h2",
+            "context": "<h2 class=\"text-3xl font-semibold text-gray-800 text-center lg:text-left\">Starke Lösungen für Ihr Unterne...</h2>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(1) > div > div:nth-child(1) > h3",
+            "context": "<h3 class=\"font-bold text-2xl mb-4 text-gray-900\">Webentwicklung</h3>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(1) > div > div:nth-child(3) > div",
+            "context": "<div class=\"card-description text-gray-900 leading-relaxed mb-1 font-medium text-[18px]\">Schnelle, responsive Websites m...</div>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(2) > div > div:nth-child(1) > h3",
+            "context": "<h3 class=\"font-bold text-2xl mb-4 text-gray-900\">E-Commerce</h3>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(2) > div > div:nth-child(3) > div",
+            "context": "<div class=\"card-description text-gray-900 leading-relaxed mb-1 font-medium text-[18px]\">Professionelle Online-Shops mit...</div>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(3) > div > div:nth-child(1) > h3",
+            "context": "<h3 class=\"font-bold text-2xl mb-4 text-gray-900\">SEO &amp; Marketing</h3>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(3) > div > div:nth-child(3) > div",
+            "context": "<div class=\"card-description text-gray-900 leading-relaxed mb-1 font-medium text-[18px]\">Suchmaschinenoptimierung und di...</div>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(4) > div > div:nth-child(1) > h3",
+            "context": "<h3 class=\"font-bold text-2xl mb-4 text-gray-900\">Plattform­übergreifende Apps</h3>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(4) > div > div:nth-child(3) > div",
+            "context": "<div class=\"card-description text-gray-900 leading-relaxed mb-1 font-medium text-[18px]\">Eine Codebasis, viele Plattform...</div>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(5) > div > div:nth-child(1) > h3",
+            "context": "<h3 class=\"font-bold text-2xl mb-4 text-gray-900\">Cloud-Entwicklung</h3>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(5) > div > div:nth-child(3) > div",
+            "context": "<div class=\"card-description text-gray-900 leading-relaxed mb-1 font-medium text-[18px]\">Robuste Backends für Wachstum u...</div>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(6) > div > div:nth-child(1) > h3",
+            "context": "<h3 class=\"font-bold text-2xl mb-4 text-gray-900\">Leistungskatalog</h3>"
+          },
+          {
+            "code": "color-contrast",
+            "message": "Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "selector": "#services > div:nth-child(2) > a:nth-child(6) > div > div:nth-child(3) > div",
+            "context": "<div class=\"card-description text-gray-900 leading-relaxed mb-1 font-medium text-[18px]\">Alle Services mit Preisen im Üb...</div>"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          },
+          {
+            "message": "color-contrast: Elements must meet minimum color contrast ratio thresholds (https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=axeAPI)",
+            "type": "error",
+            "code": "accessibility-error"
+          }
+        ],
+        "warnings": [],
+        "notices": [],
+        "basicChecks": {
+          "imagesWithoutAlt": 0,
+          "buttonsWithoutLabel": 0,
+          "headingsCount": 0,
+          "contrastIssues": 0
+        }
+      },
+      "performance": {
+        "score": 100,
+        "grade": "A",
+        "coreWebVitals": {
+          "largestContentfulPaint": 773,
+          "firstContentfulPaint": 644,
+          "cumulativeLayoutShift": 0,
+          "timeToFirstByte": 386
+        },
+        "metrics": {
+          "domContentLoaded": 656,
+          "loadComplete": 708,
+          "firstPaint": 644,
+          "requestCount": 0,
+          "transferSize": 182351
+        },
+        "issues": []
+      },
+      "seo": {
+        "score": 80,
+        "grade": "B",
+        "metaTags": {
+          "title": {
+            "present": true,
+            "content": "Digitale Transformation einfach gemacht | CASOON",
+            "length": 48,
+            "optimal": true,
+            "issues": []
+          },
+          "description": {
+            "present": true,
+            "content": "Freelancer für moderne Webentwicklung & digitale Lösungen",
+            "length": 57,
+            "optimal": false,
+            "issues": [
+              "Meta description is too short (< 120 characters)"
+            ]
+          },
+          "keywords": {
+            "present": true,
+            "content": "Web Development, UX Design, Digital Marketing, Freelancer, Digital, Web Development",
+            "relevant": true
+          },
+          "robots": {
+            "present": true,
+            "content": "index, follow",
+            "indexable": true
+          },
+          "canonical": {
+            "present": true,
+            "url": "https://interim.casoon.de/",
+            "valid": true
+          },
+          "viewport": {
+            "present": true,
+            "mobileOptimized": true
+          }
+        },
+        "headings": {
+          "h1Count": 1,
+          "h2Count": 5,
+          "h3Count": 21,
+          "h4Count": 0,
+          "h5Count": 0,
+          "h6Count": 0,
+          "structureValid": true,
+          "issues": []
+        },
+        "images": {
+          "total": 0,
+          "missingAlt": 0,
+          "emptyAlt": 0
+        },
+        "issues": [],
+        "url": "https://www.casoon.de/",
+        "title": "Digitale Transformation einfach gemacht | CASOON"
+      },
+      "contentWeight": {
+        "score": 100,
+        "grade": "A",
+        "totalSize": 387642,
+        "resources": {
+          "html": {
+            "size": 26630
+          },
+          "css": {
+            "size": 235039,
+            "files": 0
+          },
+          "javascript": {
+            "size": 30972,
+            "files": 0
+          },
+          "images": {
+            "size": 8849,
+            "files": 0
+          },
+          "other": {
+            "size": 0,
+            "files": 0
+          }
+        },
+        "optimizations": [
+          {
+            "id": "improve-content-ratio",
+            "priority": "low",
+            "category": "Content Quality",
+            "issue": "Low text-to-code ratio detected",
+            "recommendation": "Increase meaningful text content or reduce excessive markup and scripts",
+            "impact": "Improve content quality and user experience",
+            "effort": 3,
+            "scoreImprovement": 5
+          }
+        ]
+      },
+      "mobileFriendliness": {
+        "overallScore": 92,
+        "grade": "A",
+        "performance": {
+          "lcp": 644,
+          "fcp": 644,
+          "cls": 0,
+          "ttfb": 386.3000000715256,
+          "isMobileOptimized": false,
+          "score": 98
+        },
+        "recommendations": [
+          {
+            "category": "Touch Targets",
+            "priority": "high",
+            "issue": "2 touch targets below 48px",
+            "recommendation": "Increase touch target size to minimum 48x48px or add padding",
+            "impact": "Essential for mobile usability and accessibility"
+          },
+          {
+            "category": "Performance",
+            "priority": "high",
+            "issue": "Mobile performance thresholds not met",
+            "recommendation": "Optimize for mobile-specific performance budgets (LCP < 2s, TTFB < 300ms)",
+            "impact": "Critical for mobile user experience and SEO"
+          },
+          {
+            "category": "Media",
+            "priority": "medium",
+            "issue": "Images not responsive",
+            "recommendation": "Use srcset and sizes attributes for responsive images",
+            "impact": "Improves performance and visual quality across devices"
+          },
+          {
+            "category": "Forms",
+            "priority": "medium",
+            "issue": "Input types not optimized for mobile",
+            "recommendation": "Use appropriate input types (email, tel, number, etc.)",
+            "impact": "Better mobile keyboard experience"
+          }
+        ]
+      }
+    }
+  ]
+}

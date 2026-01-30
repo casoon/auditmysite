@@ -1,0 +1,3187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AuditMySite Report - www.casoon.de</title>
+  <style>
+      :root {
+        --color-bg: #f8fafc;
+        --color-card: #ffffff;
+        --color-text: #1f2937;
+        --color-subtle: #6b7280;
+        --primary: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --radius: 12px;
+        --shadow: 0 4px 16px rgba(0,0,0,0.08);
+        --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: var(--color-bg);
+        color: var(--color-text);
+        line-height: 1.6;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        padding: 2rem 0;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        z-index: 50;
+      }
+
+      .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2rem;
+      }
+
+      .header-info h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+      }
+
+      .header-meta {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.9rem;
+      }
+
+      .certificate-badge {
+        text-align: center;
+      }
+
+      .certificate-badge svg {
+        width: 120px;
+        height: 120px;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+      }
+
+      .certificate-grade {
+        margin-top: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .sticky-nav {
+        position: sticky;
+        top: 0;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        z-index: 40;
+      }
+
+      .nav-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+        display: flex;
+        align-items: center;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      .nav-link {
+        display: inline-block;
+        padding: 1rem 1.5rem;
+        text-decoration: none;
+        color: var(--color-subtle);
+        font-weight: 500;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+      }
+
+      .nav-link:hover,
+      .nav-link.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+
+      .main-content {
+        padding: 2rem 0;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+      }
+
+      .section {
+        background: var(--color-card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+        overflow: hidden;
+        scroll-margin-top: 120px;
+      }
+
+      .section-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border-bottom: 1px solid #e5e7eb;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .section-header h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--color-text);
+      }
+
+      .section-content {
+        padding: 1.5rem;
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .metric-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        display: block;
+        margin-bottom: 0.5rem;
+      }
+
+      .metric-label {
+        color: var(--color-subtle);
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .grade-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      }
+
+      .grade-A { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+      .grade-B { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+      .grade-C { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+      .grade-D { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+      .grade-F { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+      .success { color: var(--success); }
+      .warning { color: var(--warning); }
+      .error { color: var(--error); }
+      .info { color: var(--primary); }
+
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #f3f4f6;
+      }
+
+      .data-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: var(--color-text);
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .data-table tr:hover {
+        background: #f9fafb;
+      }
+
+      .data-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .page-status {
+        font-weight: 600;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+      }
+
+      .status-passed {
+        background: #ecfdf5;
+        color: #065f46;
+      }
+
+      .status-failed {
+        background: #fef2f2;
+        color: #991b1b;
+      }
+
+      .status-crashed {
+        background: #fffbeb;
+        color: #92400e;
+      }
+
+      .no-data {
+        text-align: center;
+        color: var(--color-subtle);
+        font-style: italic;
+        padding: 2rem;
+      }
+
+      .issue-list {
+        list-style: none;
+        padding: 0;
+      }
+
+      .issue-item {
+        padding: 1rem;
+        border-left: 4px solid #e5e7eb;
+        margin-bottom: 1rem;
+        background: #f9fafb;
+        border-radius: 0 var(--radius) var(--radius) 0;
+      }
+
+      .issue-item.critical { border-left-color: #dc2626; }
+      .issue-item.error { border-left-color: #ef4444; }
+      .issue-item.warning { border-left-color: #f59e0b; }
+      .issue-item.notice { border-left-color: #3b82f6; }
+      .issue-item.info { border-left-color: #6b7280; }
+      
+      .scrollable-issues-container {
+        max-height: 720px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: var(--radius);
+        background: #ffffff;
+        padding: 0.5rem;
+      }
+      
+      .scrollable-issues-container::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      .scrollable-issues-container::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      
+      .scrollable-issues-container::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      
+      .scrollable-issues-container::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      
+      /* Scrollable table container */
+      .scrollable-table-container {
+        max-height: 720px;
+        overflow-y: auto;
+        overflow-x: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        background: white;
+      }
+      
+      .scrollable-table-container::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      .scrollable-table-container::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      
+      .scrollable-table-container::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      
+      .scrollable-table-container::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+      
+      /* Value color coding */
+      .value-excellent { color: #10b981; font-weight: 600; }
+      .value-good { color: #059669; font-weight: 600; }
+      .value-warning { color: #f59e0b; font-weight: 600; }
+      .value-poor { color: #ef4444; font-weight: 600; }
+      .value-critical { color: #dc2626; font-weight: 700; background: #fef2f2; padding: 2px 6px; border-radius: 4px; }
+      
+      /* Score badges */
+      .score-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        min-width: 45px;
+        text-align: center;
+      }
+      .score-a { background: #dcfce7; color: #166534; }
+      .score-b { background: #fef3c7; color: #92400e; }
+      .score-c { background: #fed7aa; color: #9a3412; }
+      .score-d { background: #fecaca; color: #991b1b; }
+      .score-f { background: #fef2f2; color: #dc2626; }
+      
+      /* Performance value specific coloring */
+      .perf-excellent { color: #10b981; font-weight: 600; } /* < 1000ms LCP */
+      .perf-good { color: #059669; font-weight: 600; }      /* < 2500ms LCP */
+      .perf-poor { color: #f59e0b; font-weight: 600; }      /* < 4000ms LCP */
+      .perf-critical { color: #ef4444; font-weight: 600; }  /* > 4000ms LCP */
+      
+      /* Content weight specific coloring */
+      .size-small { color: #10b981; font-weight: 600; }     /* < 500KB */
+      .size-medium { color: #059669; font-weight: 600; }    /* < 1MB */
+      .size-large { color: #f59e0b; font-weight: 600; }     /* < 2MB */
+      .size-huge { color: #ef4444; font-weight: 600; }      /* > 2MB */
+      
+      /* N/A values styling */
+      .perf-na { color: #9ca3af; font-style: italic; font-weight: 500; }
+
+      .footer {
+        text-align: center;
+        color: var(--color-subtle);
+        font-size: 0.875rem;
+        padding: 2rem 0;
+        border-top: 1px solid #e5e7eb;
+        margin-top: 2rem;
+      }
+
+      .detailed-issues-container {
+        max-height: 720px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: var(--radius);
+        background: #f9fafb;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+
+      .copy-button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        cursor: pointer;
+        margin-bottom: 1rem;
+        transition: background-color 0.2s ease;
+      }
+
+      .copy-button:hover {
+        background: #1d4ed8;
+      }
+
+      .copy-button.copied {
+        background: var(--success);
+      }
+
+      .scrollable-issues-container {
+        max-height: 720px;
+        overflow: auto;
+        border: 1px solid #e5e7eb;
+        background: var(--color-card);
+        border-radius: 8px;
+        padding: 0.5rem;
+      }
+      
+      @media (max-width: 768px) {
+        .header-content {
+          flex-direction: column;
+          text-align: center;
+        }
+        
+        .metrics-grid {
+          grid-template-columns: 1fr;
+        }
+        
+        .nav-container {
+          justify-content: flex-start;
+        }
+      }
+    </style>
+</head>
+<body>
+  
+      <div class="header">
+        <div class="header-content">
+          <div class="header-info">
+            <h1>Website Audit Report</h1>
+            <div class="header-meta">
+              <div><strong>Domain:</strong> www.casoon.de</div>
+              <div><strong>Generated:</strong> 11/17/2025, 8:35:16 AM</div>
+              <div><strong>Pages Analyzed:</strong> 10 of 15</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+  
+      <nav class="sticky-nav">
+        <div class="nav-container">
+          <a href="#summary" class="nav-link">Summary</a>
+          <a href="#accessibility" class="nav-link">Accessibility</a>
+          <a href="#performance" class="nav-link">Performance</a>
+          <a href="#seo" class="nav-link">SEO</a>
+          <a href="#contentweight" class="nav-link">Content Weight</a>
+          <a href="#mobile" class="nav-link">Mobile</a>
+          <a href="#geo" class="nav-link">GEO</a>
+        </div>
+      </nav>
+    
+  <div class="main-content">
+    <div class="container">
+      
+      <section id="summary" class="section">
+        <div class="section-header">
+          <h2>Executive Summary</h2>
+        </div>
+        <div class="section-content">
+          <!-- Overview -->
+          <div class="metrics-grid">
+            <div class="metric-card" style="border: 2px solid var(--primary); background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%);">
+              <div class="metric-value info" style="font-size: 3rem; font-weight: 800;">94/100</div>
+              <div class="metric-label" style="font-weight: 600; color: var(--primary);">Overall Score</div>
+              <small style="color: #6b7280; font-size: 0.75rem; margin-top: 0.5rem; display: block;">Weighted average of all analyses</small>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0%</div>
+              <div class="metric-label">Success Rate</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">10/15</div>
+              <div class="metric-label">Pages Analyzed</div>
+              
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">0s</div>
+              <div class="metric-label">Analysis Duration</div>
+            </div>
+          </div>
+
+          <!-- Outcomes -->
+          <div class="metrics-grid" style="margin-top: 1rem;">
+            <div class="metric-card">
+              <div class="metric-value success">10</div>
+              <div class="metric-label">Pages Passed</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">0</div>
+              <div class="metric-label">Pages Failed</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">0</div>
+              <div class="metric-label">Total Errors</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value warning">75</div>
+              <div class="metric-label">Total Warnings</div>
+            </div>
+          </div>
+
+          <!-- Key KPIs -->
+          
+              <div style="margin-top: 1rem;">
+                <h3 style="margin-bottom: 0.75rem;">Key KPIs</h3>
+                <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+                  <div class="metric-card">
+                    <div class="metric-value success">25.95 KB</div>
+                    <div class="metric-label">Avg JS Size/Page</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value success">17.21 KB</div>
+                    <div class="metric-label">Avg Images Size/Page</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value success">0</div>
+                    <div class="metric-label">Avg Requests/Page</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value success">203.73 KB</div>
+                    <div class="metric-label">Avg Transfer/Page</div>
+                  </div>
+                  
+                  <div class="metric-card">
+                    <div class="metric-value success">0</div>
+                    <div class="metric-label">JS-heavy Pages (>500KB)</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value success">0</div>
+                    <div class="metric-label">Image-heavy Pages (>1MB)</div>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <!-- Overall Score Breakdown -->
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Overall Score Breakdown</h3>
+            <p style="color: #6b7280; margin-bottom: 1rem; font-size: 0.9rem;">The Overall Score is calculated as a weighted average of all analyses. Each category contributes based on its importance for web quality:</p>
+            
+      <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+        
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="metric-label" style="font-weight: 600; margin-bottom: 0;">Accessibility</div>
+                <div style="font-size: 0.8rem; color: #6b7280; font-weight: 500;">35% weight</div>
+              </div>
+              <div class="metric-value success" style="font-size: 2rem; margin-bottom: 0.25rem;">
+                96/100
+              </div>
+              <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">
+                WCAG compliance, screen reader support, keyboard navigation
+              </div>
+              <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">
+                Contributes 34 points
+              </div>
+            </div>
+          
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="metric-label" style="font-weight: 600; margin-bottom: 0;">Performance</div>
+                <div style="font-size: 0.8rem; color: #6b7280; font-weight: 500;">25% weight</div>
+              </div>
+              <div class="metric-value success" style="font-size: 2rem; margin-bottom: 0.25rem;">
+                100/100
+              </div>
+              <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">
+                Core Web Vitals, loading speed, user experience metrics
+              </div>
+              <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">
+                Contributes 25 points
+              </div>
+            </div>
+          
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="metric-label" style="font-weight: 600; margin-bottom: 0;">SEO</div>
+                <div style="font-size: 0.8rem; color: #6b7280; font-weight: 500;">20% weight</div>
+              </div>
+              <div class="metric-value warning" style="font-size: 2rem; margin-bottom: 0.25rem;">
+                87/100
+              </div>
+              <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">
+                Meta tags, heading structure, content optimization
+              </div>
+              <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">
+                Contributes 17 points
+              </div>
+            </div>
+          
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="metric-label" style="font-weight: 600; margin-bottom: 0;">Content Weight</div>
+                <div style="font-size: 0.8rem; color: #6b7280; font-weight: 500;">10% weight</div>
+              </div>
+              <div class="metric-value success" style="font-size: 2rem; margin-bottom: 0.25rem;">
+                100/100
+              </div>
+              <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">
+                Resource sizes, compression, optimization opportunities
+              </div>
+              <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">
+                Contributes 10 points
+              </div>
+            </div>
+          
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <div class="metric-label" style="font-weight: 600; margin-bottom: 0;">Mobile Friendliness</div>
+                <div style="font-size: 0.8rem; color: #6b7280; font-weight: 500;">10% weight</div>
+              </div>
+              <div class="metric-value warning" style="font-size: 2rem; margin-bottom: 0.25rem;">
+                81/100
+              </div>
+              <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">
+                Responsive design, touch targets, mobile usability
+              </div>
+              <div style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">
+                Contributes 8 points
+              </div>
+            </div>
+          
+      </div>
+      
+      <div style="margin-top: 1.5rem; padding: 1rem; background: #f8fafc; border-radius: 8px; border-left: 4px solid var(--primary);">
+        <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--color-text);">Calculation Formula:</div>
+        <div style="color: #6b7280; font-size: 0.9rem; line-height: 1.5;">
+          <strong>Overall Score = </strong>
+          Accessibility (96 × 35%) + Performance (100 × 25%) + SEO (87 × 20%) + Content Weight (100 × 10%) + Mobile Friendliness (81 × 10%)
+          <br><br>
+          <strong>Result:</strong> 94/100 (weighted average)
+        </div>
+      </div>
+    
+          </div>
+        </div>
+      </section>
+    
+      
+      <section id="accessibility" class="section">
+        <div class="section-header">
+          <h2>Accessibility Analysis
+            <a href="https://github.com/casoon/AuditMySite/blob/main/docs/accessibility.html" target="_blank" 
+               style="margin-left: 0.5rem; color: #6b7280; text-decoration: none; font-size: 0.875rem;"
+               title="What do these accessibility metrics mean?">
+              <i style="font-style: normal; border: 1px solid; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem;">i</i>
+            </a>
+          </h2>
+        </div>
+        <div class="section-content">
+          <!-- Core Accessibility Metrics -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value success">96/100</div>
+              <div class="metric-label">Average A11y Score</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Critical Issues</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">75</div>
+              <div class="metric-label">Warnings</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Images Missing Alt</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Unlabeled Buttons</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Contrast Issues</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">0</div>
+              <div class="metric-label">Notices</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">10</div>
+              <div class="metric-label">Pages Analyzed</div>
+            </div>
+          </div>
+          
+          <!-- Page Quality Distribution -->
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Accessibility Quality Distribution</h3>
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+              <div class="metric-card">
+                <div class="metric-value success">10</div>
+                <div class="metric-label">Excellent (90+)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value success">0</div>
+                <div class="metric-label">Good (75-89)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value success">0</div>
+                <div class="metric-label">Needs Work (40-74)</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value success">0</div>
+                <div class="metric-label">Critical (<40)</div>
+              </div>
+              
+            </div>
+          </div>
+          
+          
+            <div style="margin-top: 2rem;">
+              <h3 style="margin-bottom: 1rem;">Most Common Accessibility Issues</h3>
+              <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                
+                    <div class="metric-card">
+                      <div class="metric-value warning">75</div>
+                      <div class="metric-label">Other</div>
+                      <small style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem; display: block;">
+                        Needs attention
+                      </small>
+                    </div>
+                  
+              </div>
+            </div>
+          
+          
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Per-Page Accessibility Details</h3>
+            <div class="scrollable-table-container" style="max-height: 720px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="position: sticky; left: 0; background: #f8fafc; z-index: 11;">Page</th>
+                    <th>A11y Score</th>
+                    <th>Errors</th>
+                    <th>Warnings</th>
+                    <th>Notices</th>
+                    <th>Images w/o Alt</th>
+                    <th>Buttons w/o Label</th>
+                    <th>Contrast Issues</th>
+                    <th>WCAG Level</th>
+                    <th>ARIA Issues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Digitale Transformation einfach gemacht | CASOON</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/</small>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">AAA</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Arbeitsweise | Transparent, agil und ergebnisorientiert</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/arbeitsweise/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/cloud-entwicklung/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Datenschutzerklärung</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/datenschutz/</small>
+                        </td>
+                        <td class="value-excellent">95/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">10</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">10</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>E-Commerce | Online-Shop Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/e-commerce/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Impressum</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/impressum/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Kollaboration | Wie wir zusammenarbeiten</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kollaboration/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Kontakt | Schnelle Antworten und direkte Kommunikation</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kontakt/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Leistungskatalog</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/leistungskatalog/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">9</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">9</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/plattform-apps/</small>
+                        </td>
+                        <td class="value-excellent">96/100</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">8</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-excellent">0</td>
+                        <td class="value-critical">Partial</td>
+                        <td class="value-critical">8</td>
+                      </tr>
+                    
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Professional WCAG 2.1 Compliance Analysis -->
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">WCAG 2.1 Compliance Analysis</h3>
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              
+      <div class="metric-card">
+        <div class="metric-value error">1</div>
+        <div class="metric-label">WCAG AAA</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value error">0</div>
+        <div class="metric-label">WCAG AA</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value success">0</div>
+        <div class="metric-label">WCAG A</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value success">0</div>
+        <div class="metric-label">Failed</div>
+      </div>
+    
+            </div>
+          </div>
+          
+          <!-- ARIA Implementation Analysis -->
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">ARIA Implementation Analysis</h3>
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+              
+      <div class="metric-card">
+        <div class="metric-value error">75</div>
+        <div class="metric-label">ARIA Issues</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value success">0</div>
+        <div class="metric-label">Mislabeled Elements</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value error">74</div>
+        <div class="metric-label">Landmark Issues</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value success">0</div>
+        <div class="metric-label">Focus Issues</div>
+      </div>
+    
+            </div>
+          </div>
+          
+          <!-- Detailed Accessibility Issues -->
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Detailed Accessibility Issues & Recommendations</h3>
+            
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="margin: 0; color: #1f2937;">📋 Detailed Issues (Markdown Format)</h4>
+          <button onclick="copyToClipboard('detailed-issues-content')" 
+                  style="background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;"
+                  title="Copy to clipboard">
+            📋 Copy
+          </button>
+        </div>
+        <pre id="detailed-issues-content" style="background: white; border: 1px solid #d1d5db; border-radius: 6px; padding: 1rem; overflow: auto; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin: 0; max-height: 720px;">
+## Page 2: Arbeitsweise | Transparent, agil und ergebnisorientiert
+
+**URL:** https://www.casoon.de/arbeitsweise/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 3: Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen
+
+**URL:** https://www.casoon.de/cloud-entwicklung/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 4: Datenschutzerklärung
+
+**URL:** https://www.casoon.de/datenschutz/
+**Status:** PASSED
+**Accessibility Score:** 95/100
+
+**Accessibility Warnings (10):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;main class=&quot;max-w-7xl mx-a...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main &gt; main`
+   - HTML Context: `&lt;main class=&quot;max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 relative z-10&quot; data-astro-cid-7i3oie76=&quot;&quot;&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+3. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+6. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+9. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+10. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 5: E-Commerce | Online-Shop Lösungen für Ihr Unternehmen
+
+**URL:** https://www.casoon.de/e-commerce/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 6: Impressum
+
+**URL:** https://www.casoon.de/impressum/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 7: Kollaboration | Wie wir zusammenarbeiten
+
+**URL:** https://www.casoon.de/kollaboration/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 8: Kontakt | Schnelle Antworten und direkte Kommunikation
+
+**URL:** https://www.casoon.de/kontakt/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 9: Leistungskatalog
+
+**URL:** https://www.casoon.de/leistungskatalog/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (9):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. 3 buttons without aria-label
+   - Code: `accessibility-warning`
+6. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+9. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+
+## Page 10: Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis
+
+**URL:** https://www.casoon.de/plattform-apps/
+**Status:** PASSED
+**Accessibility Score:** 96/100
+
+**Accessibility Warnings (8):**
+1. Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Element: `#background-wrapper &gt; main`
+   - HTML Context: `&lt;main class=&quot;relative z-10 w-full flex-1&quot; data-astro-cid-cbmqowv6=&quot;&quot;&gt;    &lt;div class=&quot;max-w-7xl mx-au...`
+   - **Line 1** in HTML source
+   - Code: `landmark-main-is-top-level`
+2. Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-no-duplicate-main`
+3. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `html &gt; body &gt; nav`
+   - HTML Context: `&lt;nav data-astro-cid-ziy6i7mw=&quot;&quot;&gt;  &lt;/nav&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+4. Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Element: `#site-content &gt; main`
+   - HTML Context: `&lt;main data-astro-cid-ziy6i7mw=&quot;&quot;&gt;    &lt;div id=&quot;background-wrapper...&lt;/main&gt;...`
+   - **Line 1** in HTML source
+   - Code: `landmark-unique`
+5. landmark-main-is-top-level: Main landmark should not be contained in another landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-main-is-top-level?application=axeAPI)
+   - Code: `accessibility-warning`
+6. landmark-no-duplicate-main: Document should not have more than one main landmark (https://dequeuniversity.com/rules/axe/4.10/landmark-no-duplicate-main?application=axeAPI)
+   - Code: `accessibility-warning`
+7. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+8. landmark-unique: Landmarks should have a unique role or role/label/title (i.e. accessible name) combination (https://dequeuniversity.com/rules/axe/4.10/landmark-unique?application=axeAPI)
+   - Code: `accessibility-warning`
+
+</pre>
+        <script>
+          function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent || element.innerText;
+            navigator.clipboard.writeText(text).then(function() {
+              // Simple feedback
+              const btn = event.target;
+              const original = btn.textContent;
+              btn.textContent = '✅ Copied!';
+              setTimeout(() => btn.textContent = original, 2000);
+            }).catch(function(err) {
+              console.error('Could not copy text: ', err);
+            });
+          }
+        </script>
+      </div>
+    
+          </div>
+          
+          
+        </div>
+      </section>
+    
+      
+      <section id="performance" class="section">
+        <div class="section-header">
+          <h2>Performance Analysis
+            <a href="https://github.com/casoon/AuditMySite/blob/main/docs/performance.html" target="_blank" 
+               style="margin-left: 0.5rem; color: #6b7280; text-decoration: none; font-size: 0.875rem;"
+               title="Understanding Core Web Vitals and performance metrics">
+              <i style="font-style: normal; border: 1px solid; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem;">i</i>
+            </a>
+          </h2>
+        </div>
+        <div class="section-content">
+          
+              <div style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
+                <strong>Measurement Settings:</strong> PSI-like Profile Enabled · CPU×4 · 150ms, 1600kbps down, 750kbps up
+              </div>
+            
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value info">100/100</div>
+              <div class="metric-label">Average Score</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">277ms</div>
+              <div class="metric-label">Avg LCP</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">230ms</div>
+              <div class="metric-label">Avg FCP</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0.000</div>
+              <div class="metric-label">Avg CLS</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">99ms</div>
+              <div class="metric-label">Avg TTFB</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">210ms</div>
+              <div class="metric-label">Avg DOM Loaded</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">271ms</div>
+              <div class="metric-label">Avg Load Complete</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value warning">0</div>
+              <div class="metric-label">Total Issues</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">10</div>
+              <div class="metric-label">Pages Analyzed</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Per-Page Performance Details (Desktop & Mobile)</h3>
+            <div class="scrollable-table-container" style="max-height: 720px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="position: sticky; left: 0; background: #f8fafc; z-index: 11; width: 200px;">Page</th>
+                    <th style="position: sticky; left: 200px; background: #f8fafc; z-index: 10; width: 80px;">Device</th>
+                    <th title="Overall Performance Score (0-100)">Score</th>
+                    <th title="Largest Contentful Paint - Time when the largest content element becomes visible"><abbr title="Largest Contentful Paint">LCP</abbr></th>
+                    <th title="First Contentful Paint - Time when first content appears"><abbr title="First Contentful Paint">FCP</abbr></th>
+                    <th title="Cumulative Layout Shift - Measure of visual stability"><abbr title="Cumulative Layout Shift">CLS</abbr></th>
+                    <th title="Time to First Byte - Server response time"><abbr title="Time to First Byte">TTFB</abbr></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Digitale Transformation einfach gemacht | CASOON</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">317ms</td>
+                        <td class="perf-excellent">264ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">75ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">264ms</td>
+                        <td class="perf-excellent">264ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">75ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Arbeitsweise | Transparent, agil und ergebnisorientiert</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...www.casoon.de/arbeitsweise/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">341ms</td>
+                        <td class="perf-excellent">284ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">153ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">284ms</td>
+                        <td class="perf-excellent">284ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">153ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...asoon.de/cloud-entwicklung/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">418ms</td>
+                        <td class="perf-excellent">348ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">162ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">348ms</td>
+                        <td class="perf-excellent">348ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">162ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Datenschutzerklärung</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">.../www.casoon.de/datenschutz/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">182ms</td>
+                        <td class="perf-excellent">152ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">56ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">152ms</td>
+                        <td class="perf-excellent">152ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">56ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>E-Commerce | Online-Shop Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...//www.casoon.de/e-commerce/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">331ms</td>
+                        <td class="perf-excellent">276ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">150ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">276ms</td>
+                        <td class="perf-excellent">276ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">150ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Impressum</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...://www.casoon.de/impressum/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">226ms</td>
+                        <td class="perf-excellent">188ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">91ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">188ms</td>
+                        <td class="perf-excellent">188ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">91ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Kollaboration | Wie wir zusammenarbeiten</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...ww.casoon.de/kollaboration/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">288ms</td>
+                        <td class="perf-excellent">240ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">67ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">240ms</td>
+                        <td class="perf-excellent">240ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">67ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Kontakt | Schnelle Antworten und direkte Kommunikation</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kontakt/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">230ms</td>
+                        <td class="perf-excellent">192ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">87ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">192ms</td>
+                        <td class="perf-excellent">192ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">87ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Leistungskatalog</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...casoon.de/leistungskatalog/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">226ms</td>
+                        <td class="perf-excellent">188ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">77ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">188ms</td>
+                        <td class="perf-excellent">188ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">77ms</td>
+                      </tr>
+                    
+                      <!-- Desktop Row -->
+                      <tr>
+                        <td style="max-width: 200px; position: sticky; left: 0; background: #f8fafc; border-right: 2px solid #e5e7eb; z-index: 9;" rowspan="2">
+                          <strong>Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">...w.casoon.de/plattform-apps/</small>
+                        </td>
+                        <td style="position: sticky; left: 200px; background: #f8fafc; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">🖥️</span>
+                            <span>Desktop</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">206ms</td>
+                        <td class="perf-excellent">172ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">75ms</td>
+                      </tr>
+                      <!-- Mobile Row -->
+                      <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <td style="position: sticky; left: 200px; background: #fef3c7; font-weight: 500; z-index: 8; border-right: 1px solid #e5e7eb;">
+                          <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.1rem;">📱</span>
+                            <span>Mobile</span>
+                          </div>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="perf-excellent">172ms</td>
+                        <td class="perf-excellent">172ms</td>
+                        <td class="perf-excellent">0.000</td>
+                        <td class="perf-excellent">75ms</td>
+                      </tr>
+                    
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Omitted issues-by-severity for performance to avoid duplication with table above -->
+
+          <div style="margin-top: 1.5rem; color: #6b7280; font-size: 0.9rem;">
+            <h3 style="margin-bottom: 0.5rem; color: var(--color-text);">Heuristics Used</h3>
+            <ul style="margin-left: 1rem; list-style: disc;">
+              <li><strong>LCP</strong> (Largest Contentful Paint): Warning > 2500ms, Error > 4000ms</li>
+              <li><strong>TTFB</strong> (Time To First Byte): Warning > 500ms, Error > 1000ms</li>
+              <li><strong>CLS</strong> (Cumulative Layout Shift): Warning > 0.10, Error > 0.25</li>
+              <li><strong>FCP</strong> (First Contentful Paint): Warning > 3000ms</li>
+              <li><strong>Requests/Page</strong>: Warning > 60, Error > 100</li>
+              <li><strong>Transfer/Page</strong>: Warning > 1.2MB, Error > 2.5MB</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    
+      
+      <section id="seo" class="section">
+        <div class="section-header">
+          <h2>SEO Analysis
+            <a href="https://github.com/casoon/AuditMySite/blob/main/docs/seo.html" target="_blank" 
+               style="margin-left: 0.5rem; color: #6b7280; text-decoration: none; font-size: 0.875rem;"
+               title="Search Engine Optimization metrics explained">
+              <i style="font-style: normal; border: 1px solid; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem;">i</i>
+            </a>
+          </h2>
+        </div>
+        <div class="section-content">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value info">87/100</div>
+              <div class="metric-label">Average Score</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value warning">27</div>
+              <div class="metric-label">Total Issues</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">5/10</div>
+              <div class="metric-label">Optimal Titles</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value warning">6/10</div>
+              <div class="metric-label">Optimal Descriptions</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">0.0</div>
+              <div class="metric-label">Avg H1 Count</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">0</div>
+              <div class="metric-label">Total Images</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Missing Alt Text</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Empty Alt Text</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">10</div>
+              <div class="metric-label">Pages Analyzed</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Per-Page SEO Details</h3>
+            <div class="scrollable-table-container" style="max-height: 720px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="position: sticky; left: 0; background: #f8fafc; z-index: 11;">Page</th>
+                    <th>SEO Score</th>
+                    <th>Title Length</th>
+                    <th>Description Length</th>
+                    <th>H1 Count</th>
+                    <th>Images Missing Alt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Digitale Transformation einfach gemacht | CASOON</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/</small>
+                        </td>
+                        <td class="value-good">80/100</td>
+                        <td class="value-excellent">48 chars</td>
+                        <td class="value-good">161 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Arbeitsweise | Transparent, agil und ergebnisorientiert</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/arbeitsweise/</small>
+                        </td>
+                        <td class="value-excellent">93/100</td>
+                        <td class="value-excellent">55 chars</td>
+                        <td class="value-excellent">149 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/cloud-entwicklung/</small>
+                        </td>
+                        <td class="value-excellent">93/100</td>
+                        <td class="value-good">62 chars</td>
+                        <td class="value-excellent">149 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Datenschutzerklärung</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/datenschutz/</small>
+                        </td>
+                        <td class="value-good">75/100</td>
+                        <td class="value-good">20 chars</td>
+                        <td class="value-warning">89 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>E-Commerce | Online-Shop Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/e-commerce/</small>
+                        </td>
+                        <td class="value-excellent">100/100</td>
+                        <td class="value-excellent">53 chars</td>
+                        <td class="value-excellent">137 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Impressum</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/impressum/</small>
+                        </td>
+                        <td class="value-warning">73/100</td>
+                        <td class="value-warning">9 chars</td>
+                        <td class="value-warning">60 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Kollaboration | Wie wir zusammenarbeiten</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kollaboration/</small>
+                        </td>
+                        <td class="value-excellent">93/100</td>
+                        <td class="value-excellent">40 chars</td>
+                        <td class="value-excellent">135 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Kontakt | Schnelle Antworten und direkte Kommunikation</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kontakt/</small>
+                        </td>
+                        <td class="value-good">88/100</td>
+                        <td class="value-excellent">54 chars</td>
+                        <td class="value-excellent">122 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Leistungskatalog</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/leistungskatalog/</small>
+                        </td>
+                        <td class="value-good">88/100</td>
+                        <td class="value-warning">16 chars</td>
+                        <td class="value-excellent">124 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/plattform-apps/</small>
+                        </td>
+                        <td class="value-good">88/100</td>
+                        <td class="value-good">66 chars</td>
+                        <td class="value-good">167 chars</td>
+                        <td class="value-critical">0</td>
+                        <td class="value-excellent">0</td>
+                      </tr>
+                    
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          
+      <div style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Issues by Severity</h3>
+        
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            Infos (27)
+          </h4>
+          <div class="scrollable-issues-container">
+            <ul class="issue-list">
+              
+          <li class="issue-item info">
+            <strong>📝 Optimize meta description length (current: 161 chars, optimal: 120-160)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📖 Add more content (current: 219 words, recommended: 300+)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📋 Add structured data (schema.org) for better search results</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📏 Optimize title length (current: 62 chars, optimal: 30-60)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📏 Optimize title length (current: 20 chars, optimal: 30-60)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📝 Optimize meta description length (current: 89 chars, optimal: 120-160)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📋 Add structured data (schema.org) for better search results</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/e-commerce/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📏 Optimize title length (current: 9 chars, optimal: 30-60)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📝 Optimize meta description length (current: 60 chars, optimal: 120-160)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📋 Add structured data (schema.org) for better search results</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📖 Add more content (current: 237 words, recommended: 300+)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📋 Add structured data (schema.org) for better search results</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📋 Add structured data (schema.org) for better search results</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📏 Optimize title length (current: 16 chars, optimal: 30-60)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📋 Add structured data (schema.org) for better search results</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📏 Optimize title length (current: 66 chars, optimal: 30-60)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📝 Optimize meta description length (current: 167 chars, optimal: 120-160)</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+          <li class="issue-item info">
+            <strong>📱 Add Open Graph and Twitter Card tags for better social media sharing</strong>
+            
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+            </ul>
+          </div>
+        </div>
+      
+      </div>
+    <div style="margin-top: 2rem;"><h3 style="margin-bottom: 1rem;">SEO Issues (Duplicates & Quality)</h3><div class="scrollable-issues-container">
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            Errors (10)
+          </h4>
+          <div>
+            <ul class="issue-list">
+              
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/e-commerce/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item error">
+            <strong>Missing H1 heading</strong>
+            <br/><small style="color: #6b7280;">Details: No H1 heading found on page</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+            </ul>
+          </div>
+        </div>
+      
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            Warnings (9)
+          </h4>
+          <div>
+            <ul class="issue-list">
+              
+          <li class="issue-item warning">
+            <strong>Meta description too long (161 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Freelancer für Softwareentwicklung: Moderne Webanwendungen, E-Commerce, KI-Integration und Cloud-Entwicklung – praxisnah und maßgeschneidert für Ihr Unternehmen.</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Title too long (62 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Title too short (20 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Datenschutzerklärung</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Meta description too short (89 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Datenschutzerklärung von CASOON - Informationen zur Verarbeitung personenbezogener Daten.</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Title too short (9 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Impressum</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Meta description too short (60 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Impressum und Anbieterkennzeichnung von CASOON - Jörn Seidel</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Title too short (16 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Leistungskatalog</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Title too long (66 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+          <li class="issue-item warning">
+            <strong>Meta description too long (167 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Native Apps für alle Plattformen: Desktop, Mobile und Web aus einer Codebasis – mit Flutter, Tauri oder PWA für effiziente Entwicklung und konsistente Nutzererfahrung.</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+            </ul>
+          </div>
+        </div>
+      
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            Notices (5)
+          </h4>
+          <div>
+            <ul class="issue-list">
+              
+          <li class="issue-item notice">
+            <strong>Title is too long (&gt; 60 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item notice">
+            <strong>Title is too short (&lt; 30 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Datenschutzerklärung</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item notice">
+            <strong>Title is too short (&lt; 30 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Impressum</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item notice">
+            <strong>Title is too short (&lt; 30 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Leistungskatalog</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item notice">
+            <strong>Title is too long (&gt; 60 characters)</strong>
+            <br/><small style="color: #6b7280;">Details: Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+            </ul>
+          </div>
+        </div>
+      </div></div>
+        </div>
+      </section>
+    
+      
+      <section id="contentweight" class="section">
+        <div class="section-header">
+          <h2>Content Weight Analysis
+            <a href="https://github.com/casoon/AuditMySite/blob/main/docs/content-weight.html" target="_blank" 
+               style="margin-left: 0.5rem; color: #6b7280; text-decoration: none; font-size: 0.875rem;"
+               title="Resource sizes and optimization metrics explained">
+              <i style="font-style: normal; border: 1px solid; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem;">i</i>
+            </a>
+          </h2>
+        </div>
+        <div class="section-content">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value info">100/100</div>
+              <div class="metric-label">Average Score</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">374.2 KB</div>
+              <div class="metric-label">Avg Total Size</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value warning">10</div>
+              <div class="metric-label">Total Optimizations</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">10</div>
+              <div class="metric-label">Pages Analyzed</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Resource Breakdown (Average)</h3>
+            <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="metric-card">
+                <div class="metric-value warning">58.75 KB</div>
+                <div class="metric-label">HTML</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value warning">186.87 KB</div>
+                <div class="metric-label">CSS</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value success">25.95 KB</div>
+                <div class="metric-label">JavaScript</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value success">17.21 KB</div>
+                <div class="metric-label">Images</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-value error">0 B</div>
+                <div class="metric-label">Other</div>
+              </div>
+            </div>
+          </div>
+          
+          
+      <div style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem;">🔧 Optimization Recommendations</h3>
+        
+        <!-- Summary Table -->
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 0.5rem; color: #374151;">Summary by Optimization Type</h4>
+          <div class="scrollable-table-container" style="max-height: 720px;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Optimization</th>
+                  <th>Priority</th>
+                  <th>Affected Pages</th>
+                  <th>Potential Savings</th>
+                  <th>Impact</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+        <tr>
+          <td><strong>Improve Content Ratio</strong></td>
+          <td><span class="value-good">🟢 Low</span></td>
+          <td>10</td>
+          <td>50 points</td>
+          <td style="font-size: 0.8rem; color: #6b7280;">Medium Impact</td>
+          <td style="font-size: 0.8rem;">Increase meaningful text content or reduce excessive markup and scripts</td>
+        </tr>
+      
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        
+      <div style="margin-top: 1.5rem;">
+        <h4 style="margin-bottom: 0.5rem; color: #374151;">Per-Page Optimization Details</h4>
+        <div class="scrollable-table-container" style="max-height: 720px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="position: sticky; left: 0; background: #f8fafc; z-index: 11;">Page</th>
+                <th>Content Score</th>
+                <th>Total Size</th>
+                <th>JS Size</th>
+                <th>CSS Size</th>
+                <th>Image Size</th>
+                <th>Top Optimizations</th>
+              </tr>
+            </thead>
+            <tbody>
+              
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Digitale Transformation einfach gemacht | CASOON</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">450.53 KB</td>
+          <td class="size-small">24.98 KB</td>
+          <td class="size-small">301.97 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Arbeitsweise | Transparent, agil und ergebnisorientiert</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/arbeitsweise/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">438.65 KB</td>
+          <td class="size-small">51.18 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/cloud-entwicklung/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">413.66 KB</td>
+          <td class="size-small">26.19 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Datenschutzerklärung</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/datenschutz/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">420.61 KB</td>
+          <td class="size-small">26.19 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">51.47 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>E-Commerce | Online-Shop Lösungen für Ihr Unternehmen</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/e-commerce/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">420.61 KB</td>
+          <td class="size-small">26.19 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">51.47 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Impressum</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/impressum/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">213.97 KB</td>
+          <td class="size-small">1.21 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Kollaboration | Wie wir zusammenarbeiten</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kollaboration/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">308.97 KB</td>
+          <td class="size-small">26.19 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Kontakt | Schnelle Antworten und direkte Kommunikation</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kontakt/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">307.96 KB</td>
+          <td class="size-small">26.19 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Leistungskatalog</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/leistungskatalog/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">426.33 KB</td>
+          <td class="size-small">24.98 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+        <tr>
+          <td style="max-width: 200px;">
+            <strong>Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</strong><br/>
+            <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/plattform-apps/</small>
+          </td>
+          <td class="value-excellent">100/100</td>
+          <td class="size-small">340.68 KB</td>
+          <td class="size-small">26.19 KB</td>
+          <td class="size-small">174.08 KB</td>
+          <td class="size-small">8.64 KB</td>
+          <td style="font-size: 0.7rem;"><span class="issue-item info" style="padding: 0.25rem 0.5rem; margin: 0.125rem; display: inline-block; border-radius: 4px; font-size: 0.7rem;">Improve Content Ratio</span></td>
+        </tr>
+      
+            </tbody>
+          </table>
+        </div>
+      </div>
+    
+      </div>
+    
+        </div>
+      </section>
+    
+      
+      <section id="mobile" class="section">
+        <div class="section-header">
+          <h2>Mobile Friendliness
+            <a href="https://github.com/casoon/AuditMySite/blob/main/docs/mobile-friendliness.html" target="_blank" 
+               style="margin-left: 0.5rem; color: #6b7280; text-decoration: none; font-size: 0.875rem;"
+               title="Mobile responsiveness and usability metrics explained">
+              <i style="font-style: normal; border: 1px solid; border-radius: 50%; padding: 2px 6px; font-size: 0.75rem;">i</i>
+            </a>
+          </h2>
+        </div>
+        <div class="section-content">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value warning">81/100</div>
+              <div class="metric-label">Average Score</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">39</div>
+              <div class="metric-label">Total Recommendations</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value error">1</div>
+              <div class="metric-label">Excellent Pages</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">9</div>
+              <div class="metric-label">Good Pages</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value success">0</div>
+              <div class="metric-label">Needs Improvement</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">4</div>
+              <div class="metric-label">Issue Categories</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value info">10</div>
+              <div class="metric-label">Pages Analyzed</div>
+            </div>
+          </div>
+          
+          
+            <div style="margin-top: 2rem;">
+              <h3 style="margin-bottom: 1rem;">Most Common Mobile Issues</h3>
+              <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                
+                    <div class="metric-card">
+                      <div class="metric-value error">10</div>
+                      <div class="metric-label">Touch Targets</div>
+                      <small style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem; display: block;">
+                        5 touch targets below 48px
+                      </small>
+                    </div>
+                  
+                    <div class="metric-card">
+                      <div class="metric-value warning">10</div>
+                      <div class="metric-label">Media</div>
+                      <small style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem; display: block;">
+                        Images not responsive
+                      </small>
+                    </div>
+                  
+                    <div class="metric-card">
+                      <div class="metric-value warning">10</div>
+                      <div class="metric-label">Forms</div>
+                      <small style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem; display: block;">
+                        Input types not optimized for mobile
+                      </small>
+                    </div>
+                  
+                    <div class="metric-card">
+                      <div class="metric-value error">9</div>
+                      <div class="metric-label">User Experience</div>
+                      <small style="color: #6b7280; font-size: 0.8rem; margin-top: 0.5rem; display: block;">
+                        Intrusive interstitials detected
+                      </small>
+                    </div>
+                  
+              </div>
+            </div>
+          
+          
+          <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem;">Per-Page Mobile Friendliness Details</h3>
+            <div class="scrollable-table-container" style="max-height: 720px;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="position: sticky; left: 0; background: #f8fafc; z-index: 11;">Page</th>
+                    <th>Mobile Score</th>
+                    <th>Recommendations</th>
+                    <th>Top Issues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Digitale Transformation einfach gemacht | CASOON</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/</small>
+                        </td>
+                        <td class="value-excellent">91/100</td>
+                        <td class="value-warning">3</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Arbeitsweise | Transparent, agil und ergebnisorientiert</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/arbeitsweise/</small>
+                        </td>
+                        <td class="value-good">80/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Cloud-Entwicklung | Moderne Cloud-Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/cloud-entwicklung/</small>
+                        </td>
+                        <td class="value-good">80/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Datenschutzerklärung</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/datenschutz/</small>
+                        </td>
+                        <td class="value-good">79/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>E-Commerce | Online-Shop Lösungen für Ihr Unternehmen</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/e-commerce/</small>
+                        </td>
+                        <td class="value-good">82/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Impressum</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/impressum/</small>
+                        </td>
+                        <td class="value-good">79/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Kollaboration | Wie wir zusammenarbeiten</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kollaboration/</small>
+                        </td>
+                        <td class="value-good">80/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Kontakt | Schnelle Antworten und direkte Kommunikation</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/kontakt/</small>
+                        </td>
+                        <td class="value-good">82/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Leistungskatalog</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/leistungskatalog/</small>
+                        </td>
+                        <td class="value-good">75/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                      <tr>
+                        <td style="max-width: 200px;">
+                          <strong>Plattformübergreifende Apps | Desktop &amp; Mobile aus einer Codebasis</strong><br/>
+                          <small style="color: #6b7280; font-size: 0.7rem;">https://www.casoon.de/plattform-apps/</small>
+                        </td>
+                        <td class="value-good">80/100</td>
+                        <td class="value-warning">4</td>
+                        <td style="font-size: 0.8rem; color: #6b7280;">Touch Targets, Media</td>
+                      </tr>
+                    
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          
+      <div style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Issues by Severity</h3>
+        
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            Highs (19)
+          </h4>
+          <div class="scrollable-issues-container">
+            <ul class="issue-list">
+              
+          <li class="issue-item high">
+            <strong>5 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>24 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>24 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>28 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>27 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/e-commerce/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/e-commerce/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>27 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>24 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>23 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>81 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>24 touch targets below 48px</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Essential for mobile usability and accessibility</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+          <li class="issue-item high">
+            <strong>Intrusive interstitials detected</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Google penalty avoidance and better UX</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+            </ul>
+          </div>
+        </div>
+      
+        <div style="margin-bottom: 2rem;">
+          <h4 style="margin-bottom: 1rem; color: var(--color-text);">
+            Mediums (20)
+          </h4>
+          <div class="scrollable-issues-container">
+            <ul class="issue-list">
+              
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/arbeitsweise/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/cloud-entwicklung/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/datenschutz/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/e-commerce/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/e-commerce/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/impressum/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kollaboration/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/kontakt/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/leistungskatalog/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Images not responsive</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Improves performance and visual quality across devices</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+          <li class="issue-item medium">
+            <strong>Input types not optimized for mobile</strong>
+            <br/><small style="color: #6b7280;">Details: Impact: Better mobile keyboard experience</small>
+            <br/><small style="color: #6b7280;">Page: https://www.casoon.de/plattform-apps/</small>
+          </li>
+        
+            </ul>
+          </div>
+        </div>
+      
+      </div>
+    
+        </div>
+      </section>
+    
+      
+        <section id="geo" class="section">
+          <div class="section-header">
+            <h2>🌍 Geographic Performance Analysis</h2>
+          </div>
+          <div class="section-content">
+            <div class="no-data">
+              <p>Geographic audit data not available for this report.</p>
+              <p style="margin-top: 1rem; font-size: 0.9rem; color: #6b7280;">
+                GEO audits test your website from different geographic locations to identify performance variations,
+                content localization issues, and regional accessibility concerns.
+              </p>
+              <p style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+                To include GEO audits, use the <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">--geo</code> flag with location parameters.
+              </p>
+            </div>
+          </div>
+        </section>
+      
+      
+      
+      <footer class="footer">
+        <div>
+          Generated by <strong>AuditMySite v2.0.0-alpha.2</strong> •
+          Analysis Duration: 0s • 
+          Generated: 11/17/2025, 8:35:16 AM
+        </div>
+      </footer>
+    
+    </div>
+  </div>
+  <script>
+      // Navigation highlighting
+      const sections = document.querySelectorAll('section[id]');
+      const navLinks = document.querySelectorAll('.nav-link');
+      
+      function updateActiveNav() {
+        let current = '';
+        sections.forEach(section => {
+          const sectionTop = section.offsetTop - 140;
+          const sectionHeight = section.offsetHeight;
+          if (window.pageYOffset >= sectionTop && window.pageYOffset < sectionTop + sectionHeight) {
+            current = section.getAttribute('id');
+          }
+        });
+        
+        navLinks.forEach(link => {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + current) {
+            link.classList.add('active');
+          }
+        });
+      }
+      
+      window.addEventListener('scroll', updateActiveNav);
+      updateActiveNav();
+      
+      // Smooth scrolling for nav links
+      navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const targetId = link.getAttribute('href').substring(1);
+          const targetSection = document.getElementById(targetId);
+          if (targetSection) {
+            window.scrollTo({
+              top: targetSection.offsetTop - 120,
+              behavior: 'smooth'
+            });
+          }
+        });
+      });
+      
+      // Copy detailed issues functionality
+      function copyDetailedIssues() {
+        const issuesContent = document.querySelector('#detailed-issues-content pre');
+        const button = document.querySelector('.copy-button');
+        
+        if (issuesContent && button) {
+          const textContent = issuesContent.textContent || issuesContent.innerText || '';
+          
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(textContent).then(() => {
+              button.textContent = '✓ Copied!';
+              button.classList.add('copied');
+              setTimeout(() => {
+                button.textContent = '📋 Copy All Issues to Clipboard';
+                button.classList.remove('copied');
+              }, 2000);
+            }).catch(err => {
+              console.error('Failed to copy: ', err);
+              fallbackCopyTextToClipboard(textContent, button);
+            });
+          } else {
+            fallbackCopyTextToClipboard(textContent, button);
+          }
+        }
+      }
+      
+      function fallbackCopyTextToClipboard(text, button) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.position = 'fixed';
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          button.textContent = '✓ Copied!';
+          button.classList.add('copied');
+          setTimeout(() => {
+            button.textContent = '📋 Copy All Issues to Clipboard';
+            button.classList.remove('copied');
+          }, 2000);
+        } catch (err) {
+          console.error('Fallback: Oops, unable to copy', err);
+        }
+        
+        document.body.removeChild(textArea);
+      }
+      
+      // Make function globally available
+      window.copyDetailedIssues = copyDetailedIssues;
+    </script>
+</body>
+</html>
