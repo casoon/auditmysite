@@ -132,9 +132,8 @@ async fn run_single_mode(args: &Args) -> Result<()> {
 
     let report = run_single_audit(url, &browser, &config).await?;
 
-    // Close browser
+    // Close browser gracefully
     browser.close().await?;
-    info!("Browser closed");
 
     // Output results
     output_single_report(&report, args)?;

@@ -2,17 +2,17 @@
 //!
 //! Provides meta tags validation, heading structure, social tags, and technical SEO checks.
 
-mod meta;
 mod headings;
+mod meta;
+mod schema;
 mod social;
 mod technical;
-mod schema;
 
+pub use headings::{analyze_heading_structure, HeadingIssue, HeadingStructure};
 pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
-pub use headings::{analyze_heading_structure, HeadingStructure, HeadingIssue};
-pub use social::{extract_social_tags, SocialTags, OpenGraph, TwitterCard};
+pub use schema::{detect_structured_data, SchemaType, StructuredData};
+pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
 pub use technical::{analyze_technical_seo, TechnicalSeo};
-pub use schema::{detect_structured_data, StructuredData, SchemaType};
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,7 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
 }
 
 fn calculate_seo_score(
-    meta: &MetaTags,
+    _meta: &MetaTags,
     meta_issues: &[MetaValidation],
     headings: &HeadingStructure,
     social: &SocialTags,

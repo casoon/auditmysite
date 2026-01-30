@@ -241,6 +241,7 @@ fn print_footer(report: &AuditReport) {
 }
 
 /// Get letter grade from score
+#[allow(dead_code)]
 fn get_grade(score: u8) -> &'static str {
     match score {
         95..=100 => "A+",

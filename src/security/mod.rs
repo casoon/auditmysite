@@ -290,15 +290,13 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
     }
 
     if headers.x_content_type_options.is_none() {
-        recommendations.push(
-            "Add X-Content-Type-Options: nosniff to prevent MIME-type sniffing".to_string(),
-        );
+        recommendations
+            .push("Add X-Content-Type-Options: nosniff to prevent MIME-type sniffing".to_string());
     }
 
     if headers.x_frame_options.is_none() {
-        recommendations.push(
-            "Add X-Frame-Options: DENY or SAMEORIGIN to prevent clickjacking".to_string(),
-        );
+        recommendations
+            .push("Add X-Frame-Options: DENY or SAMEORIGIN to prevent clickjacking".to_string());
     }
 
     if https && headers.strict_transport_security.is_none() {
@@ -308,16 +306,15 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
     }
 
     if headers.permissions_policy.is_none() {
-        recommendations.push(
-            "Add Permissions-Policy header to control browser features".to_string(),
-        );
+        recommendations
+            .push("Add Permissions-Policy header to control browser features".to_string());
     }
 
     recommendations
 }
 
 fn calculate_security_score(
-    headers: &SecurityHeaders,
+    _headers: &SecurityHeaders,
     ssl: &SslInfo,
     issues: &[SecurityIssue],
 ) -> u32 {

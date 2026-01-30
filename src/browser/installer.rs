@@ -7,7 +7,7 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -213,7 +213,7 @@ impl ChromiumInstaller {
 
     /// Extract zip archive
     fn extract_archive(archive_path: &PathBuf, dest_dir: &PathBuf) -> Result<()> {
-        use std::io::Read;
+        
 
         let file = fs::File::open(archive_path).map_err(|e| AuditError::BrowserLaunchFailed {
             reason: format!("Failed to open archive: {}", e),

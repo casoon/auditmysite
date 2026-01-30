@@ -11,7 +11,7 @@ use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::Page;
 use futures::StreamExt;
 use tokio::sync::Mutex;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use super::detection::{find_chrome, verify_chrome_executable, ChromeInfo};
 use crate::error::{AuditError, Result};
@@ -299,14 +299,19 @@ impl BrowserManager {
         // Close all pages first
         if let Ok(pages) = self.browser.pages().await {
             for page in pages {
-                if let Err(e) = page.close().await {
-                    warn!("Failed to close page: {}", e);
-                }
+                let _ = page.close().await;
             }
         }
 
-        // Close browser
-        // Note: Browser will be dropped when self is dropped
+        // Abort the handler task to prevent WS errors on shutdown
+        if let Some(handler) = self.handler.lock().await.take() {
+            handler.abort();
+        }
+
+        // Small delay to allow clean shutdown
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Browser will be dropped when self is dropped
         info!("Browser closed");
         Ok(())
     }

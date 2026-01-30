@@ -2,13 +2,9 @@
 //!
 //! Analyzes page resources by type and provides optimization recommendations.
 
-use chromiumoxide::cdp::browser_protocol::network::{
-    GetResponseBodyParams, ResourceType,
-};
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
