@@ -100,7 +100,7 @@ class Auditmysite < Formula
   desc "Lightning-fast WCAG accessibility auditing written in Rust"
   homepage "https://github.com/casoon/auditmysite"
   version "X.Y.Z"
-  license "MIT"
+  license "LGPL-3.0-or-later"
 
   on_macos do
     if Hardware::CPU.arm?

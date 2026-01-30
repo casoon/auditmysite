@@ -3,7 +3,7 @@
 > Lightning-fast WCAG 2.1 accessibility checker written in Rust
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
 
 ## Overview
 
@@ -189,7 +189,7 @@ Contributions welcome! Please:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+LGPL-3.0-or-later - see [LICENSE](LICENSE)
 
 ## Credits
 
