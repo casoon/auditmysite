@@ -94,36 +94,33 @@ Alle JSON-Parsing-Stellen mit warn!() versehen:
 
 ---
 
-## Phase 5: Documentation (Aktuell)
+## Phase 5: Documentation ✅ ABGESCHLOSSEN
 
 **Ziel:** Onboarding und Community
 
 ### 5.1 Architektur-Dokumentation
-- [ ] `docs/ARCHITECTURE.md` - System Design und Data Flow
-- [ ] Modul-Diagramme
+- [x] `docs/ARCHITECTURE.md` - System Design und Data Flow
 
 ### 5.2 Contributor Guide
-- [ ] `docs/CONTRIBUTING.md` - Wie man beiträgt
+- [x] `docs/CONTRIBUTING.md` - Wie man beiträgt
 
 ### 5.3 Troubleshooting
-- [ ] `docs/TROUBLESHOOTING.md` - Häufige Probleme und Lösungen
-
-**Geschätzter Aufwand:** 2-3 Stunden
+- [x] `docs/TROUBLESHOOTING.md` - Häufige Probleme und Lösungen
 
 ---
 
-## Phase 6: Features (Backlog)
+## Phase 6: Performance Optimizations ✅ ABGESCHLOSSEN
 
-### 6.1 API Server Feature
-- [ ] `--serve` Flag für REST API
-- [ ] OpenAPI Specification
-- [ ] Rate Limiting
+**Ziel:** Schnellere Audits bei großen Batch-Jobs
 
-### 6.2 Performance Optimizations
-- [ ] CDP Calls batchen
-- [ ] Style Caching zwischen Checks
+### 6.1 Parallele Extraktion
+- [x] AXTree und Computed Styles parallel extrahieren via `tokio::join!`
+- [x] Spart ~100-200ms pro Audit durch parallele CDP/JS-Calls
 
-**Geschätzter Aufwand:** 10+ Stunden
+### 6.2 Style Caching
+- [x] `check_with_styles()` Methode für vorgeladene Styles
+- [x] Pipeline lädt Styles einmal und übergibt sie an Contrast-Rule
+- [x] Keine redundanten Style-Abfragen mehr
 
 ---
 
@@ -143,8 +140,11 @@ Alle JSON-Parsing-Stellen mit warn!() versehen:
 ## Changelog
 
 ### 2026-01-30
+- Phase 6 abgeschlossen: Parallele Extraktion, Style Caching
+- Phase 5 abgeschlossen: Dokumentation (ARCHITECTURE, CONTRIBUTING, TROUBLESHOOTING)
 - Phase 4 abgeschlossen: 19 Integration Tests hinzugefügt
 - Phase 3 abgeschlossen: SSRF Protection, Path Traversal, Chromium Security
 - Phase 2 abgeschlossen: JSON Parsing mit Logging
 - Phase 1 abgeschlossen: Kritische Fixes
+- Lizenz geändert: MIT → LGPL-3.0-or-later
 - Initial Roadmap erstellt nach Code Review

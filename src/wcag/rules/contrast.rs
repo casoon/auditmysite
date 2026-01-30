@@ -8,7 +8,7 @@
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
-use crate::accessibility::{extract_text_styles, AXTree};
+use crate::accessibility::{extract_text_styles, AXTree, ComputedStyles};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
@@ -34,10 +34,11 @@ impl ContrastRule {
     }
 
     /// Check contrast ratios for text elements (with CDP access)
+    ///
+    /// Note: Prefer `check_with_styles` when styles are already extracted
+    /// (e.g., via parallel extraction in the pipeline)
     pub async fn check_with_page(page: &Page, _tree: &AXTree, level: WcagLevel) -> Vec<Violation> {
         debug!("Running contrast check with CDP integration...");
-
-        let mut violations = Vec::new();
 
         // Extract computed styles for text elements
         let styles_result = extract_text_styles(page).await;
@@ -45,14 +46,23 @@ impl ContrastRule {
             Ok(s) => s,
             Err(e) => {
                 warn!("Failed to extract text styles: {}", e);
-                return violations;
+                return Vec::new();
             }
         };
+
+        Self::check_with_styles(&styles, level)
+    }
+
+    /// Check contrast ratios using pre-fetched styles
+    ///
+    /// This is more efficient when styles are extracted in parallel with AXTree
+    pub fn check_with_styles(styles: &[ComputedStyles], level: WcagLevel) -> Vec<Violation> {
+        let mut violations = Vec::new();
 
         debug!("Checking contrast for {} elements", styles.len());
 
         // Check each element's contrast
-        for style in &styles {
+        for style in styles {
             // Skip invisible elements
             if let Some(visibility) = style.get("visibility") {
                 if visibility == "hidden" {

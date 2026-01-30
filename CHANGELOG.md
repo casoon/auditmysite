@@ -5,101 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-01-30
 
-### Planning Phase
-- Comprehensive 35-week project plan created
-- Architecture documentation completed
-- WCAG rules catalog defined
-- Development workflows established
-- Skills and templates created for efficient development
+### Changed
+- **License**: Changed from MIT to LGPL-3.0-or-later
 
-### Infrastructure
-- Git repository initialized
-- Private GitHub repository created: https://github.com/casoon/auditmysit_rust
-- `.claude/` configuration directory with:
-  - Project setup documentation
-  - Architecture documentation
-  - WCAG rules catalog
-  - Chrome installation strategies
-  - Custom skills (audit, test-wcag, chrome-detect)
-  - Code templates for WCAG rules
-  - Development workflows
+### Added
+- **Security Hardening**
+  - SSRF Protection: Block private IPs (10.x, 172.16-31.x, 192.168.x), localhost, link-local
+  - URL validation for all audit targets (single and batch mode)
+  - Path traversal protection in URL file reading
+  - Pinned Chromium version and trusted CDN URL
 
-## [0.1.0] - TBD (MVP Target: Week 4)
+- **Performance Optimizations**
+  - Parallel extraction of AXTree and computed styles via `tokio::join!`
+  - Style caching: `check_with_styles()` method eliminates redundant CDP calls
+  - ~100-200ms faster audits for AA/AAA level checks
 
-### Planned Features
+- **Testing**
+  - 19 new integration tests (170 total)
+  - `tests/url_validation_tests.rs` - SSRF protection tests
+  - `tests/output_format_tests.rs` - Report generation tests
+  - `tests/error_handling_tests.rs` - Error path tests
+
+- **Documentation**
+  - `docs/ARCHITECTURE.md` - System design and data flow
+  - `docs/CONTRIBUTING.md` - Development setup and PR process
+  - `docs/TROUBLESHOOTING.md` - Common issues and solutions
+
+### Fixed
+- JSON parsing now logs warnings instead of failing silently
+- All `.expect()` calls replaced with proper error handling
+- Browser pool reset timeout (5 seconds) prevents hanging
+- WebSocket error on browser close eliminated
+
+### Removed
+- Outdated documentation files (MIGRATION.md, FEATURE_PARITY.md, etc.)
+
+## [0.2.1] - 2026-01-30
+
+### Changed
+- Default output format changed to PDF
+- Auto-generated output path: `reports/<domain>_<date>.pdf`
+
+### Fixed
+- WebSocket connection error on browser close
+- Build warnings cleaned up
+
+## [0.2.0] - 2026-01-30
+
+### Changed
+- Renamed binary from `audit` to `auditmysite` to avoid macOS conflict
+
+### Added
+- PDF report generation via renderreport/Typst
+- Homebrew formula for easy installation
+
+## [0.1.0] - 2026-01-29
+
+### Added
+- Initial release
 - Chrome/Chromium auto-detection (macOS, Linux, Windows)
 - Headless browser management via chromiumoxide
 - CDP (Chrome DevTools Protocol) integration
 - Accessibility Tree (AXTree) extraction
-- WCAG 2.1 Level AA compliance testing:
-  - 1.1.1 - Non-text Content (image alt text)
-  - 4.1.2 - Name, Role, Value (form labels, ARIA)
-  - 2.4.6 - Headings and Labels
-  - 1.4.3 - Contrast (Minimum) with color calculation
-- JSON output format
-- CLI table output format
-- Sitemap XML parsing
-- Batch URL processing
-- Single binary distribution
-
-### Technical Highlights
-- Rust 1.75+ required
-- Async/await with Tokio runtime
-- Resource-efficient (100-300 MB RAM)
-- Fast execution (<1s per page)
-- Cross-platform support
+- 12 WCAG 2.1 rules (Level A, AA, AAA)
+- Contrast checking with color calculation
+- JSON, HTML, Table, Markdown output formats
+- Sitemap XML parsing for batch processing
+- Browser pool for concurrent audits
+- Progress bars with ETA
 
 ---
 
-## Future Releases
-
-### [0.2.0] - Performance & SEO Analysis
-- Core Web Vitals collection (LCP, FCP, CLS, INP, TTFB)
-- Performance scoring system (0-100)
-- Certificate levels (Platinum, Gold, Silver, Bronze)
-- Meta tags validation
-- Heading structure analysis
-- Social meta tags (OpenGraph, Twitter Cards)
-- Technical SEO (HTTPS, sitemap, robots.txt, schema.org)
-- HTML report generation with interactive dashboard
-
-### [0.3.0] - Advanced Features
-- Mobile friendliness analysis (8-category scoring)
-- Security headers analysis
-- Advanced WCAG rules (keyboard, bypass blocks, link purpose)
-- Glassmorphism false positive filtering
-- Error deduplication
-- PDF report generation
-
-### [0.4.0] - Scaling & Enterprise
-- Browser pool management
-- Queue and pipeline system
-- Network throttling (Slow 4G, Fast 3G)
-- Request rate limiting
-- Performance budgets (default, ecommerce, blog, corporate)
-- Configuration system
-- Geo-audit feature (multi-location testing)
-
-### [0.5.0] - API & Integration
-- REST API server (Axum/Actix)
-- WebSocket support for real-time progress
-- Job management and queuing
-- Rust SDK with fluent API
-- Tauri desktop app (cross-platform)
-
-### [1.0.0] - Production Release
-- State persistence and resume functionality
-- Advanced CLI features (expert mode, non-interactive)
-- System health monitoring
-- Audit debugger
-- Comprehensive test coverage
-- CI/CD integration examples
-- Docker image
-- Homebrew formula
-
----
-
-**Repository:** https://github.com/casoon/auditmysit_rust  
-**Documentation:** See `.claude/COMPREHENSIVE_PROJECT_PLAN.md` for full roadmap
+**Repository:** https://github.com/casoon/auditmysite

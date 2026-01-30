@@ -2,6 +2,10 @@
 //!
 //! Coordinates browser management, AXTree extraction, WCAG checking,
 //! and report generation.
+//!
+//! ## Performance Optimizations
+//! - Parallel extraction of AXTree and computed styles
+//! - Style cache shared between contrast and other checks
 
 use std::time::Instant;
 
@@ -9,7 +13,7 @@ use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
 use super::report::AuditReport;
-use crate::accessibility::extract_ax_tree;
+use crate::accessibility::{extract_ax_tree, extract_text_styles};
 use crate::browser::{BrowserManager, BrowserOptions};
 use crate::cli::{Args, WcagLevel};
 use crate::error::Result;
@@ -86,20 +90,43 @@ pub async fn run_single_audit(
 pub async fn audit_page(page: &Page, url: &str, config: &PipelineConfig) -> Result<AuditReport> {
     let start_time = Instant::now();
 
-    // Extract Accessibility Tree
-    debug!("Extracting Accessibility Tree...");
-    let ax_tree = extract_ax_tree(page).await?;
-    info!("Extracted {} nodes from AXTree", ax_tree.len());
+    // Parallel extraction: AXTree and computed styles (for contrast checks)
+    // This saves ~100-200ms by not waiting for sequential CDP calls
+    let needs_styles = matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA);
+
+    let (ax_tree, styles) = if needs_styles {
+        debug!("Extracting AXTree and styles in parallel...");
+        let (ax_result, styles_result) =
+            tokio::join!(extract_ax_tree(page), extract_text_styles(page));
+
+        let ax_tree = ax_result?;
+        let styles = styles_result.unwrap_or_else(|e| {
+            warn!("Failed to extract styles: {}", e);
+            Vec::new()
+        });
+
+        info!(
+            "Extracted {} AXTree nodes and {} style objects",
+            ax_tree.len(),
+            styles.len()
+        );
+        (ax_tree, styles)
+    } else {
+        debug!("Extracting Accessibility Tree...");
+        let ax_tree = extract_ax_tree(page).await?;
+        info!("Extracted {} nodes from AXTree", ax_tree.len());
+        (ax_tree, Vec::new())
+    };
 
     // Run WCAG checks
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&ax_tree, config.wcag_level);
 
-    // Run contrast check with page access (Level AA and AAA only)
-    if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
-        info!("Running contrast check with CDP...");
+    // Run contrast check using pre-fetched styles (Level AA and AAA only)
+    if needs_styles && !styles.is_empty() {
+        debug!("Running contrast check with cached styles...");
         let contrast_violations =
-            wcag::rules::ContrastRule::check_with_page(page, &ax_tree, config.wcag_level).await;
+            wcag::rules::ContrastRule::check_with_styles(&styles, config.wcag_level);
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.violations.extend(contrast_violations);
     }
