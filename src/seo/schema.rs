@@ -57,7 +57,7 @@ pub enum SchemaType {
 }
 
 impl SchemaType {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "Organization" => SchemaType::Organization,
             "LocalBusiness" => SchemaType::LocalBusiness,
@@ -147,13 +147,13 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
     // Parse JSON-LD schemas
     if let Some(schemas) = parsed["jsonLd"].as_array() {
         for schema in schemas {
-            let is_valid = !schema.get("error").is_some();
+            let is_valid = schema.get("error").is_none();
 
             // Extract @type (can be string or array)
             let schema_types = extract_types(schema);
 
             for type_str in &schema_types {
-                let schema_type = SchemaType::from_str(type_str);
+                let schema_type = SchemaType::parse(type_str);
 
                 if let Some(rich_snippet) = schema_type.rich_snippet_type() {
                     if !rich_snippets_potential.contains(&rich_snippet.to_string()) {
@@ -222,10 +222,10 @@ mod tests {
 
     #[test]
     fn test_schema_type_from_str() {
-        assert_eq!(SchemaType::from_str("Article"), SchemaType::Article);
-        assert_eq!(SchemaType::from_str("Product"), SchemaType::Product);
+        assert_eq!(SchemaType::parse("Article"), SchemaType::Article);
+        assert_eq!(SchemaType::parse("Product"), SchemaType::Product);
         assert!(matches!(
-            SchemaType::from_str("CustomType"),
+            SchemaType::parse("CustomType"),
             SchemaType::Other(_)
         ));
     }

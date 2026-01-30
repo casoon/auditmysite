@@ -207,13 +207,13 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(false)
         .build()
-        .map_err(|e| AuditError::HttpError(e))?;
+        .map_err(AuditError::HttpError)?;
 
     let response = client
         .head(url)
         .send()
         .await
-        .map_err(|e| AuditError::HttpError(e))?;
+        .map_err(AuditError::HttpError)?;
 
     let header_map = response.headers();
 

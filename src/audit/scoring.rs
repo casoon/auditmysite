@@ -250,7 +250,7 @@ mod tests {
                     WcagLevel::A,
                     Severity::Critical,
                     "Error",
-                    &format!("node{}", i),
+                    format!("node{}", i),
                 )
             })
             .collect();

@@ -34,7 +34,7 @@ pub fn check_language(tree: &AXTree) -> WcagResults {
 
                 // Check for language property
                 if let Some(lang) = node.get_property_str("lang") {
-                    if is_valid_language_code(&lang) {
+                    if is_valid_language_code(lang) {
                         has_valid_lang = true;
                     }
                 }

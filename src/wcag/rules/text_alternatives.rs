@@ -74,7 +74,7 @@ fn check_icons(tree: &AXTree, results: &mut WcagResults) {
 
         // Check for icon patterns
         let is_icon = node.role.as_deref() == Some("img")
-            || node.name.as_ref().map_or(false, |n| {
+            || node.name.as_ref().is_some_and(|n| {
                 n.contains("icon") || n.contains("Icon")
             });
 
@@ -111,10 +111,9 @@ fn check_svg_elements(tree: &AXTree, results: &mut WcagResults) {
         }
 
         // SVG elements often appear as graphics role
-        if node.role.as_deref() == Some("graphics-document")
-            || node.role.as_deref() == Some("graphics-symbol")
-        {
-            if !node.has_name() {
+        if (node.role.as_deref() == Some("graphics-document")
+            || node.role.as_deref() == Some("graphics-symbol"))
+            && !node.has_name() {
                 let violation = Violation::new(
                     RULE_META.id,
                     RULE_META.name,
@@ -129,7 +128,6 @@ fn check_svg_elements(tree: &AXTree, results: &mut WcagResults) {
 
                 results.add_violation(violation);
             }
-        }
     }
 }
 

@@ -31,7 +31,7 @@ fn test_read_url_file_filters_invalid_urls() {
         let mut file = std::fs::File::create(&temp_file).unwrap();
         writeln!(file, "https://valid.com").unwrap();
         writeln!(file, "# This is a comment").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "not-a-url").unwrap();
         writeln!(file, "ftp://invalid-scheme.com").unwrap();
         writeln!(file, "http://also-valid.com").unwrap();

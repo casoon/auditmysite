@@ -124,6 +124,31 @@ Alle JSON-Parsing-Stellen mit warn!() versehen:
 
 ---
 
+## Version 0.3.x: Stabilisierung & PDF-Verbesserungen
+
+**Ziel:** Qualitätssicherung und bessere Report-Ausgabe
+
+### Qualitätssicherung
+- [ ] Bestehende Tests erweitern und Edge Cases abdecken
+- [ ] Bug-Hunting: Fehlerszenarien identifizieren und fixen
+- [ ] Code-Cleanup und Refactoring wo nötig
+
+### PDF Report Verbesserungen
+- [ ] Layout optimieren (Abstände, Schriftgrößen, Lesbarkeit)
+- [ ] Mehr Informationen pro Violation (Kontext, Empfehlungen)
+- [ ] Übersichtliche Zusammenfassung am Anfang
+- [ ] Visuelle Hierarchie verbessern (Farben, Icons)
+- [ ] WCAG-Referenzen und Hilfelinks einfügen
+
+### Release-Checkliste (vor jedem Version-Bump)
+- [ ] `cargo build --release` ohne Fehler
+- [ ] `cargo build --release` ohne Warnings
+- [ ] `cargo test` alle Tests bestanden
+- [ ] `cargo clippy` ohne Warnings
+- [ ] CHANGELOG.md aktualisiert
+
+---
+
 ## Metriken
 
 | Kategorie | Start | Aktuell | Ziel |

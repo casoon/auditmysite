@@ -11,6 +11,7 @@ use crate::error::{AuditError, Result};
 
 /// Core Web Vitals and performance metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct WebVitals {
     /// Largest Contentful Paint (ms) - target ≤2500
     pub lcp: Option<VitalMetric>,
@@ -71,24 +72,6 @@ impl VitalMetric {
     }
 }
 
-impl Default for WebVitals {
-    fn default() -> Self {
-        Self {
-            lcp: None,
-            fcp: None,
-            cls: None,
-            inp: None,
-            ttfb: None,
-            fid: None,
-            tbt: None,
-            speed_index: None,
-            dom_content_loaded: None,
-            load_time: None,
-            dom_nodes: None,
-            js_heap_size: None,
-        }
-    }
-}
 
 impl WebVitals {
     /// Count how many vitals pass the "good" threshold

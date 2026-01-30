@@ -668,7 +668,7 @@ footer a:hover {
                 .to_string();
         }
 
-        let items: String = violations.iter().map(|v| render_violation(v)).collect();
+        let items: String = violations.iter().map(render_violation).collect();
 
         format!(
             r#"<section class="section">
@@ -758,7 +758,7 @@ fn render_violation(v: &Violation) -> String {
     </div>
 </div>"#,
         severity_class = severity_class,
-        severity = format!("{:?}", v.severity),
+        severity = v.severity,
         rule = v.rule,
         rule_name = html_escape(&v.rule_name),
         message = html_escape(&v.message),

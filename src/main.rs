@@ -25,6 +25,9 @@ use auditmysite::output::{
 };
 use auditmysite::security::validate_url;
 
+/// Progress callback type for batch processing
+type ProgressCallback = Arc<dyn Fn(usize, usize, &str) + Send + Sync>;
+
 #[tokio::main]
 async fn main() {
     // Parse CLI arguments
@@ -226,16 +229,15 @@ async fn run_batch_mode(args: &Args) -> Result<()> {
         None
     };
 
-    let progress: Option<Arc<dyn Fn(usize, usize, &str) + Send + Sync>> =
-        if let Some(ref pb) = progress_bar {
-            let pb_clone = pb.clone();
-            Some(Arc::new(move |current, _total, url| {
-                pb_clone.set_position(current as u64);
-                pb_clone.set_message(truncate_url(url, 50));
-            }))
-        } else {
-            None
-        };
+    let progress: Option<ProgressCallback> = if let Some(ref pb) = progress_bar {
+        let pb_clone = pb.clone();
+        Some(Arc::new(move |current, _total, url| {
+            pb_clone.set_position(current as u64);
+            pb_clone.set_message(truncate_url(url, 50));
+        }))
+    } else {
+        None
+    };
 
     // Run batch audit with concurrent processing
     let batch_report = run_concurrent_batch(urls, &batch_config, progress).await?;
@@ -418,7 +420,7 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
             }
         }
         OutputFormat::Pdf => {
-            let pdf_bytes = generate_batch_pdf(&batch_report).map_err(|e| {
+            let pdf_bytes = generate_batch_pdf(batch_report).map_err(|e| {
                 AuditError::ReportGenerationFailed {
                     reason: e.to_string(),
                 }

@@ -18,16 +18,16 @@ pub fn generate_pdf(report: &AuditReport) -> anyhow::Result<Vec<u8>> {
         .subtitle(&report.url)
         .metadata(
             "date",
-            &report.timestamp.format("%Y-%m-%d %H:%M UTC").to_string(),
+            report.timestamp.format("%Y-%m-%d %H:%M UTC").to_string(),
         )
-        .metadata("score", &format!("{:.1}/100", report.score))
+        .metadata("score", format!("{:.1}/100", report.score))
         .metadata("grade", &report.grade)
         .metadata("certificate", &report.certificate)
         // Executive Summary Section
         .add_component(Section::new("Executive Summary").with_level(1))
         .add_component(
             ScoreCard::new("Accessibility Score", report.score as u32)
-                .with_description(&format!(
+                .with_description(format!(
                     "Grade: {} | Certificate: {} | {} violations found",
                     report.grade,
                     report.certificate,
@@ -37,12 +37,12 @@ pub fn generate_pdf(report: &AuditReport) -> anyhow::Result<Vec<u8>> {
         )
         .add_component(
             SummaryBox::new("Audit Statistics")
-                .add_item("Total Violations", &report.statistics.total.to_string())
-                .add_item("Errors", &report.statistics.errors.to_string())
-                .add_item("Warnings", &report.statistics.warnings.to_string())
-                .add_item("Notices", &report.statistics.notices.to_string())
-                .add_item("Nodes Analyzed", &report.nodes_analyzed.to_string())
-                .add_item("Duration", &format!("{}ms", report.duration_ms)),
+                .add_item("Total Violations", report.statistics.total.to_string())
+                .add_item("Errors", report.statistics.errors.to_string())
+                .add_item("Warnings", report.statistics.warnings.to_string())
+                .add_item("Notices", report.statistics.notices.to_string())
+                .add_item("Nodes Analyzed", report.nodes_analyzed.to_string())
+                .add_item("Duration", format!("{}ms", report.duration_ms)),
         );
 
     // Add violations section if any exist
@@ -59,7 +59,7 @@ pub fn generate_pdf(report: &AuditReport) -> anyhow::Result<Vec<u8>> {
             };
 
             let mut finding = Finding::new(
-                &format!("{} - {}", violation.rule, violation.rule_name),
+                format!("{} - {}", violation.rule, violation.rule_name),
                 severity,
                 &violation.message,
             );
@@ -88,7 +88,7 @@ pub fn generate_pdf(report: &AuditReport) -> anyhow::Result<Vec<u8>> {
 
     let pdf_report = if report.score < 70.0 {
         pdf_report.add_component(
-            Callout::warning(&format!(
+            Callout::warning(format!(
                 "This page scored {:.1}/100 (Grade: {}), which indicates significant accessibility barriers. \
                 Priority should be given to fixing errors first.",
                 report.score, report.grade
@@ -97,7 +97,7 @@ pub fn generate_pdf(report: &AuditReport) -> anyhow::Result<Vec<u8>> {
         )
     } else if report.score < 90.0 {
         pdf_report.add_component(
-            Callout::info(&format!(
+            Callout::info(format!(
                 "This page scored {:.1}/100 (Grade: {}). Consider addressing the remaining issues.",
                 report.score, report.grade
             ))
@@ -105,7 +105,7 @@ pub fn generate_pdf(report: &AuditReport) -> anyhow::Result<Vec<u8>> {
         )
     } else {
         pdf_report.add_component(
-            Callout::success(&format!(
+            Callout::success(format!(
                 "This page scored {:.1}/100 (Grade: {}), demonstrating excellent accessibility!",
                 report.score, report.grade
             ))
@@ -133,30 +133,30 @@ pub fn generate_batch_pdf(batch: &BatchReport) -> anyhow::Result<Vec<u8>> {
     let mut builder = engine
         .report("wcag-batch-audit")
         .title("WCAG 2.1 Batch Audit Report")
-        .subtitle(&format!("{} URLs Audited", batch.summary.total_urls))
+        .subtitle(format!("{} URLs Audited", batch.summary.total_urls))
         .metadata(
             "date",
-            &chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
+            chrono::Utc::now().format("%Y-%m-%d %H:%M UTC").to_string(),
         )
-        .metadata("total_urls", &batch.summary.total_urls.to_string())
-        .metadata("success_rate", &format!("{:.1}%", success_rate))
+        .metadata("total_urls", batch.summary.total_urls.to_string())
+        .metadata("success_rate", format!("{:.1}%", success_rate))
         // Batch Summary
         .add_component(Section::new("Batch Summary").with_level(1))
         .add_component(
             SummaryBox::new("Overall Statistics")
-                .add_item("Total URLs", &batch.summary.total_urls.to_string())
-                .add_item("Passed", &batch.summary.passed.to_string())
-                .add_item("Failed", &batch.summary.failed.to_string())
-                .add_item("Success Rate", &format!("{:.1}%", success_rate))
+                .add_item("Total URLs", batch.summary.total_urls.to_string())
+                .add_item("Passed", batch.summary.passed.to_string())
+                .add_item("Failed", batch.summary.failed.to_string())
+                .add_item("Success Rate", format!("{:.1}%", success_rate))
                 .add_item(
                     "Average Score",
-                    &format!("{:.1}/100", batch.summary.average_score),
+                    format!("{:.1}/100", batch.summary.average_score),
                 )
                 .add_item(
                     "Total Violations",
-                    &batch.summary.total_violations.to_string(),
+                    batch.summary.total_violations.to_string(),
                 )
-                .add_item("Duration", &format!("{}ms", batch.total_duration_ms)),
+                .add_item("Duration", format!("{}ms", batch.total_duration_ms)),
         );
 
     // Add individual results
@@ -165,12 +165,12 @@ pub fn generate_batch_pdf(batch: &BatchReport) -> anyhow::Result<Vec<u8>> {
     for (idx, report) in batch.reports.iter().enumerate() {
         builder = builder
             .add_component(
-                Section::new(&format!("{}. {}", idx + 1, truncate_url(&report.url, 60)))
+                Section::new(format!("{}. {}", idx + 1, truncate_url(&report.url, 60)))
                     .with_level(2),
             )
             .add_component(
                 ScoreCard::new("Score", report.score as u32)
-                    .with_description(&format!(
+                    .with_description(format!(
                         "Grade: {} | {} violations",
                         report.grade,
                         report.wcag_results.violations.len()
@@ -190,14 +190,14 @@ pub fn generate_batch_pdf(batch: &BatchReport) -> anyhow::Result<Vec<u8>> {
             };
 
             builder = builder.add_component(Finding::new(
-                &format!("{} - {}", violation.rule, violation.rule_name),
+                format!("{} - {}", violation.rule, violation.rule_name),
                 severity,
                 &violation.message,
             ));
         }
 
         if report.wcag_results.violations.len() > 3 {
-            builder = builder.add_component(Callout::info(&format!(
+            builder = builder.add_component(Callout::info(format!(
                 "...and {} more violations",
                 report.wcag_results.violations.len() - 3
             )));

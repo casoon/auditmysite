@@ -81,10 +81,7 @@ impl ContrastRule {
                 None => continue, // No color specified
             };
 
-            let bg_color_str = match style.background_color() {
-                Some(c) => c,
-                None => "rgb(255, 255, 255)", // Default to white background
-            };
+            let bg_color_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
 
             // Parse colors
             let fg_color = match Color::from_css(fg_color_str) {
@@ -125,12 +122,10 @@ impl ContrastRule {
                         } else {
                             "3.0"
                         }
+                    } else if level == WcagLevel::AAA {
+                        "7.0"
                     } else {
-                        if level == WcagLevel::AAA {
-                            "7.0"
-                        } else {
-                            "4.5"
-                        }
+                        "4.5"
                     }
                 );
 
@@ -145,7 +140,7 @@ impl ContrastRule {
                     CONTRAST_RULE.level,
                     Severity::Serious,
                     &message,
-                    &format!("{}#{}", selector, style.node_id),
+                    format!("{}#{}", selector, style.node_id),
                 )
                 .with_fix(&fix)
                 .with_help_url(CONTRAST_RULE.help_url);

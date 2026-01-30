@@ -163,7 +163,7 @@ pub struct AXNode {
 impl AXNode {
     /// Check if this node has an accessible name
     pub fn has_name(&self) -> bool {
-        self.name.as_ref().map_or(false, |n| !n.trim().is_empty())
+        self.name.as_ref().is_some_and(|n| !n.trim().is_empty())
     }
 
     /// Check if this node is focusable
