@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-01-30
+
+### Fixed
+- Fixed all Clippy warnings for cleaner codebase
+- Renamed `SchemaType::from_str` to `parse` to avoid std trait conflict
+- Added `ProgressCallback` type alias for better readability
+- Simplified `map_or` patterns to `is_some_and`
+
+### Added
+- v0.3.x roadmap for stabilization and PDF improvements
+- Release checklist in ROADMAP.md
+
 ## [0.3.0] - 2026-01-30
 
 ### Changed
