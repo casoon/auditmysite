@@ -18,21 +18,21 @@ jobs:
           # macOS
           - target: x86_64-apple-darwin
             os: macos-latest
-            name: audit-x86_64-apple-darwin
+            name: auditmysite-x86_64-apple-darwin
           - target: aarch64-apple-darwin
             os: macos-latest
-            name: audit-aarch64-apple-darwin
+            name: auditmysite-aarch64-apple-darwin
           # Linux
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            name: audit-x86_64-unknown-linux-gnu
+            name: auditmysite-x86_64-unknown-linux-gnu
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            name: audit-aarch64-unknown-linux-gnu
+            name: auditmysite-aarch64-unknown-linux-gnu
           # Windows
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            name: audit-x86_64-pc-windows-msvc.exe
+            name: auditmysite-x86_64-pc-windows-msvc.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -57,14 +57,14 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          tar -czvf ../../../${{ matrix.name }}.tar.gz audit
+          tar -czvf ../../../${{ matrix.name }}.tar.gz auditmysite
           cd ../../..
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          Compress-Archive -Path audit.exe -DestinationPath ../../../${{ matrix.name }}.zip
+          Compress-Archive -Path auditmysite.exe -DestinationPath ../../../${{ matrix.name }}.zip
           cd ../../..
 
       - name: Upload artifact
@@ -125,4 +125,4 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           repository: casoon/homebrew-tap
           event-type: update-formula
-          client-payload: '{"formula": "audit", "version": "${{ github.ref_name }}"}'
+          client-payload: '{"formula": "auditmysite", "version": "${{ github.ref_name }}"}'
