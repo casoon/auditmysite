@@ -1,3 +1,22 @@
+# ⚠️ ARCHIVED - TypeScript/Node.js Version
+
+> **This is the archived TypeScript/Node.js implementation of AuditMySite.**
+> 
+> **The project has been completely rewritten in Rust for significantly better performance and lower resource usage.**
+>
+> 🚀 **New Rust Version:** Switch to the `main` branch to see the new implementation.
+>
+> **Why the rewrite?**
+> - ⚡ **3x faster**: <1s per page (was 2-3s)
+> - 💾 **50% less memory**: 200-300MB (was 500-600MB)
+> - 📊 **More rules**: 12 WCAG rules (was 9)
+> - 📄 **PDF Reports**: Professional Typst-based reports
+> - 📈 **Better UX**: Progress bars with ETA, browser pooling
+>
+> **For the legacy TypeScript documentation, see below.**
+
+---
+
 # AuditMySite
 
 
