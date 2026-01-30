@@ -6,6 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -315,7 +316,10 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
             let output_path = if let Some(path) = &args.output {
                 path.clone()
             } else {
-                PathBuf::from("reports/audit-report.pdf")
+                // Generate default path: reports/<domain>_<date>.pdf
+                let domain = extract_domain(&report.url);
+                let date = Local::now().format("%Y-%m-%d").to_string();
+                PathBuf::from(format!("reports/{}_{}.pdf", domain, date))
             };
 
             if let Some(parent) = output_path.parent() {
@@ -665,6 +669,16 @@ fn truncate_url(url: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &url[..max_len - 3])
     }
+}
+
+/// Extract domain from URL for filename generation
+fn extract_domain(url: &str) -> String {
+    url::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_string()))
+        .unwrap_or_else(|| "unknown".to_string())
+        .replace("www.", "")
+        .replace('.', "_")
 }
 
 /// Print application banner

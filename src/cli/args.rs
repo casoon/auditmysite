@@ -56,7 +56,7 @@ pub struct Args {
     /// json: Machine-readable JSON
     /// table: Human-readable CLI table
     /// html: Interactive HTML report
-    #[arg(short = 'f', long, default_value = "table", value_enum)]
+    #[arg(short = 'f', long, default_value = "pdf", value_enum)]
     pub format: OutputFormat,
 
     /// Output file path (stdout if not specified)
