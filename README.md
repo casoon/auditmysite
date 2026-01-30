@@ -199,5 +199,5 @@ MIT License - see [LICENSE](LICENSE)
 
 ---
 
-**Version:** 0.2.0  
+**Version:** 0.2.1  
 **Repository:** [github.com/casoon/auditmysite](https://github.com/casoon/auditmysite)
