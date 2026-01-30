@@ -147,12 +147,11 @@ pub enum OutputFormat {
     /// HTML report output
     #[value(name = "html")]
     Html,
-    /// Markdown output
-    #[value(name = "markdown", alias = "md")]
     /// PDF report output (via Typst)
     #[value(name = "pdf")]
     Pdf,
-
+    /// Markdown output
+    #[value(name = "markdown", alias = "md")]
     Markdown,
 }
 

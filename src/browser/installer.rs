@@ -34,7 +34,7 @@ impl ChromiumInstaller {
     /// Get path to local Chromium installation
     fn local_chromium_path() -> PathBuf {
         let cache_dir = dirs::home_dir()
-            .expect("Could not find home directory")
+            .unwrap_or_else(|| PathBuf::from("."))
             .join(".audit")
             .join("chromium");
 
@@ -113,7 +113,9 @@ impl ChromiumInstaller {
         };
 
         let cache_dir = dirs::home_dir()
-            .expect("Could not find home directory")
+            .ok_or_else(|| AuditError::BrowserLaunchFailed {
+                reason: "Could not determine home directory".to_string(),
+            })?
             .join(".audit")
             .join("chromium");
 
@@ -213,8 +215,6 @@ impl ChromiumInstaller {
 
     /// Extract zip archive
     fn extract_archive(archive_path: &PathBuf, dest_dir: &PathBuf) -> Result<()> {
-        
-
         let file = fs::File::open(archive_path).map_err(|e| AuditError::BrowserLaunchFailed {
             reason: format!("Failed to open archive: {}", e),
         })?;

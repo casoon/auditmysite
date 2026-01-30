@@ -81,18 +81,29 @@ struct BrowserPoolInner {
 impl BrowserPoolInner {
     /// Return a page to the pool
     async fn return_page(&self, page: Page) {
-        // Try to reset the page for reuse
-        if let Err(e) = page.goto("about:blank").await {
-            warn!("Failed to reset page: {}", e);
-            // Page is unusable, don't return it
-            self.semaphore.add_permits(1);
-            return;
-        }
+        // Try to reset the page for reuse with timeout
+        let reset_result =
+            tokio::time::timeout(Duration::from_secs(5), page.goto("about:blank")).await;
 
-        let mut pages = self.pages.lock().await;
-        pages.push(page);
-        self.semaphore.add_permits(1);
-        debug!("Page returned to pool ({} available)", pages.len());
+        match reset_result {
+            Ok(Ok(_)) => {
+                // Page reset successfully, return to pool
+                let mut pages = self.pages.lock().await;
+                pages.push(page);
+                self.semaphore.add_permits(1);
+                debug!("Page returned to pool ({} available)", pages.len());
+            }
+            Ok(Err(e)) => {
+                warn!("Failed to reset page: {}", e);
+                // Page is unusable, don't return it
+                self.semaphore.add_permits(1);
+            }
+            Err(_) => {
+                warn!("Page reset timed out after 5 seconds");
+                // Page is unusable, don't return it
+                self.semaphore.add_permits(1);
+            }
+        }
     }
 }
 
@@ -133,7 +144,8 @@ impl BrowserPool {
         Self::new(PoolConfig {
             max_pages: concurrency,
             ..Default::default()
-        }).await
+        })
+        .await
     }
 
     /// Acquire a page from the pool
@@ -147,15 +159,13 @@ impl BrowserPool {
         debug!("Acquiring page from pool...");
 
         // Wait for a permit with timeout
-        let permit = tokio::time::timeout(
-            self.inner.acquire_timeout,
-            self.inner.semaphore.acquire(),
-        )
-        .await
-        .map_err(|_| AuditError::PoolTimeout {
-            timeout_secs: self.inner.acquire_timeout.as_secs(),
-        })?
-        .map_err(|_| AuditError::PoolClosed)?;
+        let permit =
+            tokio::time::timeout(self.inner.acquire_timeout, self.inner.semaphore.acquire())
+                .await
+                .map_err(|_| AuditError::PoolTimeout {
+                    timeout_secs: self.inner.acquire_timeout.as_secs(),
+                })?
+                .map_err(|_| AuditError::PoolClosed)?;
 
         // Forget the permit since we manage page count manually
         permit.forget();
@@ -179,7 +189,11 @@ impl BrowserPool {
             return Err(AuditError::PoolExhausted);
         }
 
-        debug!("Creating new page ({}/{})", current + 1, self.inner.max_pages);
+        debug!(
+            "Creating new page ({}/{})",
+            current + 1,
+            self.inner.max_pages
+        );
         let page = self.inner.browser.new_page().await?;
 
         Ok(PooledPage {

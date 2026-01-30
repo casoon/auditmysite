@@ -59,7 +59,8 @@ fn setup_logging(args: &Args) {
         .compact()
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set tracing subscriber");
+    // Ignore error if subscriber already set (e.g., in tests)
+    let _ = tracing::subscriber::set_global_default(subscriber);
 }
 
 /// Main application logic
@@ -91,7 +92,10 @@ async fn run(args: Args) -> Result<()> {
 
 /// Run single URL audit mode
 async fn run_single_mode(args: &Args) -> Result<()> {
-    let url = args.url.as_ref().expect("URL required after validation");
+    let url = args
+        .url
+        .as_ref()
+        .ok_or_else(|| AuditError::ConfigError("URL required but not provided".to_string()))?;
 
     info!("Starting audit for: {}", url);
 
@@ -207,7 +211,7 @@ async fn run_batch_mode(args: &Args) -> Result<()> {
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
-                .expect("Invalid template")
+                .unwrap_or_else(|_| ProgressStyle::default_bar())
                 .progress_chars("#>-")
         );
         Some(pb)
