@@ -14,9 +14,9 @@
 //! ## Quick Start
 //!
 //! ```no_run
-//! use audit::browser::BrowserManager;
-//! use audit::audit::{run_single_audit, PipelineConfig};
-//! use audit::cli::WcagLevel;
+//! use auditmysite::browser::BrowserManager;
+//! use auditmysite::audit::{run_single_audit, PipelineConfig};
+//! use auditmysite::cli::WcagLevel;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
