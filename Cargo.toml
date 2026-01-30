@@ -56,8 +56,8 @@ zip = "2.2"
 # Home directory detection
 dirs = "5.0"
 
-# PDF report generation via Typst (local dependency until published)
-renderreport = { path = "../renderreport" }
+# PDF report generation via Typst
+renderreport = { git = "https://github.com/casoon/renderreport.git", branch = "main" }
 
 [dev-dependencies]
 tokio-test = "0.4"

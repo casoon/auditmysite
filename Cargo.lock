@@ -2590,6 +2590,7 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 [[package]]
 name = "renderreport"
 version = "0.1.0-alpha.1"
+source = "git+https://github.com/casoon/renderreport.git?branch=main#17b9b8d9d9f9db00200d73d9b54eec89013ba08e"
 dependencies = [
  "anyhow",
  "chrono",
