@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_table_with_headers() {
-        let mut table = create_node("1", "table", None, vec!["2", "3"]);
+        let table = create_node("1", "table", None, vec!["2", "3"]);
         let header = create_node("2", "columnheader", Some("Name"), vec![]);
         let cell = create_node("3", "cell", Some("John"), vec![]);
 

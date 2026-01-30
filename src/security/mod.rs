@@ -1,12 +1,115 @@
 //! Security headers analysis module
 //!
 //! Analyzes HTTP security headers and SSL/TLS configuration.
+//! Also provides URL validation for SSRF protection.
+
+use std::net::IpAddr;
 
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
+use url::Url;
 
 use crate::error::{AuditError, Result};
+
+/// Validate a URL for safety (SSRF protection)
+///
+/// Blocks:
+/// - Private IP ranges (10.x, 172.16-31.x, 192.168.x)
+/// - Loopback addresses (127.x, ::1)
+/// - Link-local addresses (169.254.x, fe80::)
+/// - Non-HTTP(S) schemes
+///
+/// # Arguments
+/// * `url_str` - The URL to validate
+///
+/// # Returns
+/// * `Ok(Url)` - The parsed, validated URL
+/// * `Err(AuditError)` - If the URL is invalid or blocked
+pub fn validate_url(url_str: &str) -> Result<Url> {
+    let url =
+        Url::parse(url_str).map_err(|e| AuditError::ConfigError(format!("Invalid URL: {}", e)))?;
+
+    // Only allow HTTP(S)
+    match url.scheme() {
+        "http" | "https" => {}
+        scheme => {
+            return Err(AuditError::ConfigError(format!(
+                "URL scheme '{}' not allowed. Only http and https are permitted.",
+                scheme
+            )));
+        }
+    }
+
+    // Check host
+    let host = url
+        .host_str()
+        .ok_or_else(|| AuditError::ConfigError("URL must have a host".to_string()))?;
+
+    // Block localhost variants
+    if is_localhost(host) {
+        warn!("Blocked localhost URL: {}", url_str);
+        return Err(AuditError::ConfigError(
+            "Localhost URLs are not allowed for security reasons".to_string(),
+        ));
+    }
+
+    // Try to parse as IP and check for private ranges
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        if is_private_ip(&ip) {
+            warn!("Blocked private IP URL: {}", url_str);
+            return Err(AuditError::ConfigError(
+                "Private IP addresses are not allowed for security reasons".to_string(),
+            ));
+        }
+    }
+
+    Ok(url)
+}
+
+/// Check if a host string represents localhost
+fn is_localhost(host: &str) -> bool {
+    let host_lower = host.to_lowercase();
+    host_lower == "localhost"
+        || host_lower == "127.0.0.1"
+        || host_lower == "::1"
+        || host_lower == "[::1]"
+        || host_lower.ends_with(".localhost")
+        || host_lower == "0.0.0.0"
+}
+
+/// Check if an IP address is in a private range
+fn is_private_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ipv4) => {
+            ipv4.is_loopback()           // 127.0.0.0/8
+                || ipv4.is_private()     // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+                || ipv4.is_link_local()  // 169.254.0.0/16
+                || ipv4.is_unspecified() // 0.0.0.0
+                || ipv4.is_broadcast()   // 255.255.255.255
+                || ipv4.is_documentation() // 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24
+        }
+        IpAddr::V6(ipv6) => {
+            ipv6.is_loopback()           // ::1
+                || ipv6.is_unspecified() // ::
+                // Note: is_unique_local and is_unicast_link_local are unstable
+                // Check manually for common private ranges
+                || is_ipv6_private(ipv6)
+        }
+    }
+}
+
+/// Check for private IPv6 ranges (since some methods are unstable)
+fn is_ipv6_private(ip: &std::net::Ipv6Addr) -> bool {
+    let segments = ip.segments();
+    // fc00::/7 - Unique Local Addresses
+    (segments[0] & 0xfe00) == 0xfc00
+        // fe80::/10 - Link-Local
+        || (segments[0] & 0xffc0) == 0xfe80
+        // ::ffff:0:0/96 - IPv4-mapped (check the embedded IPv4)
+        || (segments[0] == 0 && segments[1] == 0 && segments[2] == 0
+            && segments[3] == 0 && segments[4] == 0 && segments[5] == 0xffff)
+}
 
 /// Security analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -385,5 +488,59 @@ mod tests {
         assert_eq!(calculate_grade(65), "C");
         assert_eq!(calculate_grade(55), "D");
         assert_eq!(calculate_grade(40), "F");
+    }
+
+    #[test]
+    fn test_validate_url_valid() {
+        assert!(validate_url("https://example.com").is_ok());
+        assert!(validate_url("https://example.com/path?query=1").is_ok());
+        assert!(validate_url("http://example.com").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_localhost_blocked() {
+        assert!(validate_url("http://localhost").is_err());
+        assert!(validate_url("http://localhost:8080").is_err());
+        assert!(validate_url("http://127.0.0.1").is_err());
+        assert!(validate_url("http://127.0.0.1:3000").is_err());
+        assert!(validate_url("http://0.0.0.0").is_err());
+        assert!(validate_url("http://[::1]").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_private_ip_blocked() {
+        assert!(validate_url("http://10.0.0.1").is_err());
+        assert!(validate_url("http://10.255.255.255").is_err());
+        assert!(validate_url("http://172.16.0.1").is_err());
+        assert!(validate_url("http://172.31.255.255").is_err());
+        assert!(validate_url("http://192.168.0.1").is_err());
+        assert!(validate_url("http://192.168.1.100").is_err());
+        assert!(validate_url("http://169.254.1.1").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_invalid_scheme() {
+        assert!(validate_url("ftp://example.com").is_err());
+        assert!(validate_url("file:///etc/passwd").is_err());
+        assert!(validate_url("javascript:alert(1)").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_invalid_format() {
+        assert!(validate_url("not a url").is_err());
+        assert!(validate_url("").is_err());
+    }
+
+    #[test]
+    fn test_is_localhost() {
+        assert!(is_localhost("localhost"));
+        assert!(is_localhost("LOCALHOST"));
+        assert!(is_localhost("127.0.0.1"));
+        assert!(is_localhost("::1"));
+        assert!(is_localhost("[::1]"));
+        assert!(is_localhost("0.0.0.0"));
+        assert!(is_localhost("foo.localhost"));
+        assert!(!is_localhost("example.com"));
+        assert!(!is_localhost("localhost.example.com"));
     }
 }

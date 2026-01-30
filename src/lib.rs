@@ -93,6 +93,6 @@ pub use output::{format_batch_html, format_html, format_json, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };
-pub use security::{analyze_security, SecurityAnalysis};
+pub use security::{analyze_security, validate_url, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

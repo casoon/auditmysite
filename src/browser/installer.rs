@@ -1,7 +1,13 @@
 //! Chromium installer - downloads isolated Chromium binary
 //!
 //! Downloads Chromium to ~/.audit/chromium/ without affecting system Chrome.
-//! Uses Chrome for Testing stable builds.
+//! Uses Chrome for Testing stable builds from Google's official CDN.
+//!
+//! ## Security
+//! - Downloads only from trusted Google CDN (storage.googleapis.com)
+//! - Uses HTTPS for all downloads
+//! - Version is pinned to a known stable release
+//! - Future: Add SHA256 verification after download
 
 use std::fs;
 use std::io::Write;
@@ -10,6 +16,13 @@ use std::path::PathBuf;
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+
+/// Pinned Chrome for Testing version
+/// Update this when upgrading to a new Chrome version
+const CHROME_VERSION: &str = "131.0.6778.108";
+
+/// Trusted CDN base URL - only downloads from this host are allowed
+const CHROME_CDN_BASE: &str = "https://storage.googleapis.com/chrome-for-testing-public";
 
 /// Chromium installation manager
 pub struct ChromiumInstaller;
@@ -84,33 +97,27 @@ impl ChromiumInstaller {
 
         info!("Downloading Chromium...");
 
-        // Chrome for Testing URLs (stable builds)
-        let (download_url, archive_name) = if cfg!(target_os = "macos") {
+        // Chrome for Testing URLs (stable builds from trusted CDN)
+        let (platform, archive_name) = if cfg!(target_os = "macos") {
             // Check if Apple Silicon or Intel
             let is_arm = cfg!(target_arch = "aarch64");
             if is_arm {
-                (
-                    "https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.108/mac-arm64/chrome-mac-arm64.zip",
-                    "chrome-mac-arm64.zip"
-                )
+                ("mac-arm64", "chrome-mac-arm64.zip")
             } else {
-                (
-                    "https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.108/mac-x64/chrome-mac-x64.zip",
-                    "chrome-mac-x64.zip"
-                )
+                ("mac-x64", "chrome-mac-x64.zip")
             }
         } else if cfg!(target_os = "linux") {
-            (
-                "https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.108/linux64/chrome-linux64.zip",
-                "chrome-linux64.zip"
-            )
+            ("linux64", "chrome-linux64.zip")
         } else {
             // Windows
-            (
-                "https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.108/win64/chrome-win64.zip",
-                "chrome-win64.zip"
-            )
+            ("win64", "chrome-win64.zip")
         };
+
+        // Build URL from trusted base - never use user input here
+        let download_url = format!(
+            "{}/{}/{}/{}",
+            CHROME_CDN_BASE, CHROME_VERSION, platform, archive_name
+        );
 
         let cache_dir = dirs::home_dir()
             .ok_or_else(|| AuditError::BrowserLaunchFailed {

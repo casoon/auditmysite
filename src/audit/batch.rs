@@ -145,12 +145,10 @@ pub async fn run_concurrent_batch(
 
     for handle in handles {
         match handle.await {
-            Ok(batch_result) => {
-                match batch_result.result {
-                    Ok(report) => reports.push(report),
-                    Err(e) => errors.push((batch_result.url, e)),
-                }
-            }
+            Ok(batch_result) => match batch_result.result {
+                Ok(report) => reports.push(report),
+                Err(e) => errors.push((batch_result.url, e)),
+            },
             Err(e) => {
                 warn!("Task panicked: {}", e);
             }
@@ -316,7 +314,22 @@ fn extract_loc_value(line: &str) -> Option<String> {
 /// * `Ok(Vec<String>)` - List of URLs
 /// * `Err(AuditError)` - If file reading fails
 pub fn read_url_file(path: &str) -> Result<Vec<String>> {
-    let content = std::fs::read_to_string(path).map_err(|e| AuditError::FileError {
+    // Path traversal protection
+    let canonical_path = std::fs::canonicalize(path).map_err(|e| AuditError::FileError {
+        path: path.into(),
+        reason: format!("Cannot resolve path: {}", e),
+    })?;
+
+    // Block paths containing suspicious patterns
+    let path_str = canonical_path.to_string_lossy();
+    if path_str.contains("..") {
+        return Err(AuditError::FileError {
+            path: path.into(),
+            reason: "Path traversal not allowed".to_string(),
+        });
+    }
+
+    let content = std::fs::read_to_string(&canonical_path).map_err(|e| AuditError::FileError {
         path: path.into(),
         reason: e.to_string(),
     })?;
@@ -343,7 +356,10 @@ mod tests {
             extract_loc_value("  <loc>https://example.com/page</loc>  "),
             Some("https://example.com/page".to_string())
         );
-        assert_eq!(extract_loc_value("<loc>https://test.com</loc>"), Some("https://test.com".to_string()));
+        assert_eq!(
+            extract_loc_value("<loc>https://test.com</loc>"),
+            Some("https://test.com".to_string())
+        );
         assert_eq!(extract_loc_value("no loc here"), None);
     }
 

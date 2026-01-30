@@ -23,6 +23,7 @@ use auditmysite::error::{AuditError, Result};
 use auditmysite::output::{
     format_batch_html, format_html, generate_batch_pdf, generate_pdf, print_report, JsonReport,
 };
+use auditmysite::security::validate_url;
 
 #[tokio::main]
 async fn main() {
@@ -97,6 +98,9 @@ async fn run_single_mode(args: &Args) -> Result<()> {
         .as_ref()
         .ok_or_else(|| AuditError::ConfigError("URL required but not provided".to_string()))?;
 
+    // Validate URL for SSRF protection
+    validate_url(url)?;
+
     info!("Starting audit for: {}", url);
 
     // Build browser options from CLI args
@@ -159,6 +163,9 @@ async fn run_single_mode(args: &Args) -> Result<()> {
 async fn run_batch_mode(args: &Args) -> Result<()> {
     // Collect URLs from source
     let urls = if let Some(ref sitemap_url) = args.sitemap {
+        // Validate sitemap URL for SSRF protection
+        validate_url(sitemap_url)?;
+
         if !args.quiet {
             println!("{} {}", "Fetching sitemap:".cyan().bold(), sitemap_url);
         }
