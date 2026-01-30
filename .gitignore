@@ -1,0 +1,41 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+*.profraw
+*.profdata
+
+# Output
+/reports/*
+!reports/README.md
+*.json
+*.html
+!tests/fixtures/*.html
+
+# Logs
+*.log
+
+# Build artifacts
+auditmysit
+*.exe
+
+# Coverage
+/coverage/
+tarpaulin-report.html
+
+# Temporary
+/tmp/
+*.tmp
