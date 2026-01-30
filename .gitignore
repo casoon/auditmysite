@@ -32,6 +32,9 @@ Cargo.lock
 auditmysit
 *.exe
 
+# Distribution
+/dist/
+
 # Coverage
 /coverage/
 tarpaulin-report.html

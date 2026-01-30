@@ -1,11 +1,11 @@
 #!/bin/bash
-# Installation script for audit CLI
+# Installation script for auditmysite CLI
 # Usage: curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh | bash
 
 set -e
 
 REPO="casoon/auditmysite"
-BINARY_NAME="audit"
+BINARY_NAME="auditmysite"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
 # Colors
@@ -91,10 +91,10 @@ install() {
     trap "rm -rf $tmp_dir" EXIT
 
     info "Downloading from $url"
-    curl -fsSL "$url" -o "$tmp_dir/audit.tar.gz"
+    curl -fsSL "$url" -o "$tmp_dir/auditmysite.tar.gz"
 
     info "Extracting..."
-    tar -xzf "$tmp_dir/audit.tar.gz" -C "$tmp_dir"
+    tar -xzf "$tmp_dir/auditmysite.tar.gz" -C "$tmp_dir"
 
     # Create install directory if it doesn't exist
     mkdir -p "$INSTALL_DIR"
@@ -115,7 +115,7 @@ install() {
 
     info "Successfully installed $BINARY_NAME $version"
     echo ""
-    echo "Run 'audit --help' to get started"
+    echo "Run 'auditmysite --help' to get started"
 }
 
 # Check dependencies
@@ -131,9 +131,9 @@ check_dependencies() {
     # Check for Chrome (optional but recommended)
     if ! command -v google-chrome &> /dev/null && ! command -v chromium &> /dev/null; then
         if [ ! -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then
-            warn "Chrome/Chromium not found. audit requires Chrome for accessibility checks."
+            warn "Chrome/Chromium not found. auditmysite requires Chrome for accessibility checks."
             echo "  Install Chrome: https://www.google.com/chrome/"
-            echo "  Or use: audit --detect-chrome to check available browsers"
+            echo "  Or use: auditmysite --detect-chrome to check available browsers"
             echo ""
         fi
     fi
@@ -142,7 +142,7 @@ check_dependencies() {
 main() {
     echo ""
     echo "  ╔═══════════════════════════════════════╗"
-    echo "  ║     audit CLI Installer               ║"
+    echo "  ║     auditmysite CLI Installer         ║"
     echo "  ║     WCAG 2.1 Accessibility Checker    ║"
     echo "  ╚═══════════════════════════════════════╝"
     echo ""
