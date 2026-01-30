@@ -1,5 +1,34 @@
 # Deployment Guide for auditmysite
 
+## Installation Policy
+
+**Lokale Installation ausschließlich über Homebrew.**
+
+- Binaries werden über GitHub Actions erzeugt (siehe `.github/workflows/release.yml`)
+- Lokale Installation nur via `brew install casoon/tap/auditmysite`
+- Keine Verwendung von `cargo install` für lokale Installation
+- `~/.cargo/bin/auditmysite` wird nicht verwendet
+
+### Lokale Version aktualisieren
+
+```bash
+# Neue Version via Homebrew installieren
+brew upgrade casoon/tap/auditmysite
+
+# Falls nicht verfügbar, erst Tap aktualisieren
+brew update
+brew upgrade casoon/tap/auditmysite
+```
+
+### Nach einem neuen Release
+
+1. GitHub Actions baut automatisch alle Binaries
+2. Release wird auf GitHub erstellt
+3. Homebrew Formula muss mit neuen SHA256 Checksums aktualisiert werden
+4. Dann: `brew upgrade casoon/tap/auditmysite`
+
+---
+
 ## Release Process
 
 ### 1. Version Bump
