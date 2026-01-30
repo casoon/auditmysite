@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -187,12 +187,12 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         .await
         .map_err(|e| AuditError::CdpError(format!("Mobile analysis failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse mobile analysis JSON: {}", e);
+        serde_json::Value::default()
+    });
 
     // Parse viewport
     let vp = &parsed["viewport"];

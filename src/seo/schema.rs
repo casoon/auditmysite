@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -133,12 +133,12 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Structured data detection failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse structured data JSON: {}", e);
+        serde_json::Value::Object(serde_json::Map::new())
+    });
 
     let mut json_ld = Vec::new();
     let mut types = Vec::new();
@@ -224,7 +224,10 @@ mod tests {
     fn test_schema_type_from_str() {
         assert_eq!(SchemaType::from_str("Article"), SchemaType::Article);
         assert_eq!(SchemaType::from_str("Product"), SchemaType::Product);
-        assert!(matches!(SchemaType::from_str("CustomType"), SchemaType::Other(_)));
+        assert!(matches!(
+            SchemaType::from_str("CustomType"),
+            SchemaType::Other(_)
+        ));
     }
 
     #[test]

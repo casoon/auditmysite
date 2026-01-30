@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -94,14 +94,20 @@ impl MetaTags {
                 if len < 120 {
                     issues.push(MetaValidation {
                         field: "description".to_string(),
-                        message: format!("Description is too short ({} chars, recommended: 120-160)", len),
+                        message: format!(
+                            "Description is too short ({} chars, recommended: 120-160)",
+                            len
+                        ),
                         severity: "warning".to_string(),
                         suggestion: Some("Expand description to 120-160 characters".to_string()),
                     });
                 } else if len > 160 {
                     issues.push(MetaValidation {
                         field: "description".to_string(),
-                        message: format!("Description is too long ({} chars, recommended: 120-160)", len),
+                        message: format!(
+                            "Description is too long ({} chars, recommended: 120-160)",
+                            len
+                        ),
                         severity: "warning".to_string(),
                         suggestion: Some("Shorten description to under 160 characters".to_string()),
                     });
@@ -115,7 +121,10 @@ impl MetaTags {
                 field: "viewport".to_string(),
                 message: "Missing viewport meta tag".to_string(),
                 severity: "error".to_string(),
-                suggestion: Some("Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">".to_string()),
+                suggestion: Some(
+                    "Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+                        .to_string(),
+                ),
             });
         }
 
@@ -191,12 +200,12 @@ pub async fn extract_meta_tags(page: &Page) -> Result<MetaTags> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Meta extraction failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let meta: MetaTags = serde_json::from_str(json_str).unwrap_or_default();
+    let meta: MetaTags = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse meta tags JSON: {}", e);
+        MetaTags::default()
+    });
 
     info!(
         "Meta tags: title={}, description={}, viewport={}",
@@ -217,7 +226,9 @@ mod tests {
         let meta = MetaTags::default();
         let issues = meta.validate();
 
-        assert!(issues.iter().any(|i| i.field == "title" && i.severity == "error"));
+        assert!(issues
+            .iter()
+            .any(|i| i.field == "title" && i.severity == "error"));
     }
 
     #[test]
@@ -228,7 +239,9 @@ mod tests {
         };
         let issues = meta.validate();
 
-        assert!(issues.iter().any(|i| i.field == "title" && i.severity == "warning"));
+        assert!(issues
+            .iter()
+            .any(|i| i.field == "title" && i.severity == "warning"));
     }
 
     #[test]

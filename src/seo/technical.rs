@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -123,12 +123,12 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         .await
         .map_err(|e| AuditError::CdpError(format!("Technical SEO analysis failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse technical SEO JSON: {}", e);
+        serde_json::Value::Object(serde_json::Map::new())
+    });
 
     let canonical_url = parsed["canonical"].as_str().map(String::from);
     let lang = parsed["lang"].as_str().map(String::from);
@@ -182,7 +182,10 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     if word_count < 300 {
         issues.push(TechnicalIssue {
             issue_type: "thin_content".to_string(),
-            message: format!("Page has thin content ({} words, recommended: 300+)", word_count),
+            message: format!(
+                "Page has thin content ({} words, recommended: 300+)",
+                word_count
+            ),
             severity: "warning".to_string(),
         });
     }

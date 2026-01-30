@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -125,12 +125,12 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Resource analysis failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("[]");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("[]");
 
-    let resources: Vec<ResourceEntry> = serde_json::from_str(json_str).unwrap_or_default();
+    let resources: Vec<ResourceEntry> = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse resource entries JSON: {}", e);
+        Vec::new()
+    });
 
     let mut breakdown = ResourceBreakdown::default();
     let mut total_bytes: u64 = 0;
@@ -271,9 +271,7 @@ fn generate_recommendations(
     if total_bytes > 0 {
         let ratio = transfer_bytes as f64 / total_bytes as f64;
         if ratio > 0.8 {
-            recommendations.push(
-                "Enable gzip/brotli compression for text resources.".to_string()
-            );
+            recommendations.push("Enable gzip/brotli compression for text resources.".to_string());
         }
     }
 
@@ -311,9 +309,8 @@ fn generate_recommendations(
 
     // Check request count
     if breakdown.javascript.count + breakdown.css.count > 20 {
-        recommendations.push(
-            "Many JS/CSS files. Consider bundling to reduce HTTP requests.".to_string()
-        );
+        recommendations
+            .push("Many JS/CSS files. Consider bundling to reduce HTTP requests.".to_string());
     }
 
     recommendations

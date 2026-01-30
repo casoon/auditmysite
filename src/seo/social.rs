@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -112,12 +112,12 @@ pub async fn extract_social_tags(page: &Page) -> Result<SocialTags> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Social tags extraction failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse social tags JSON: {}", e);
+        serde_json::Value::Object(serde_json::Map::new())
+    });
 
     // Parse OpenGraph
     let og = &parsed["og"];

@@ -5,7 +5,7 @@
 use chromiumoxide::cdp::browser_protocol::performance::GetMetricsParams;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -247,12 +247,12 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
         .await
         .map_err(|e| AuditError::CdpError(format!("JS metrics extraction failed: {}", e)))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
+        warn!("Failed to parse web vitals JSON: {}", e);
+        serde_json::Value::Object(serde_json::Map::new())
+    });
 
     let mut vitals = WebVitals::default();
 
