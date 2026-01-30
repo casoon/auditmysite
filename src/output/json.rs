@@ -45,14 +45,10 @@ pub struct ReportMetadata {
 
 impl JsonReport {
     /// Create a new JSON report with metadata
-    pub fn new(
-        report: AuditReport,
-        wcag_level: &str,
-        execution_time_ms: u64,
-    ) -> Self {
+    pub fn new(report: AuditReport, wcag_level: &str, execution_time_ms: u64) -> Self {
         Self {
             metadata: ReportMetadata {
-                tool: format!("auditmysit v{}", env!("CARGO_PKG_VERSION")),
+                tool: format!("audit v{}", env!("CARGO_PKG_VERSION")),
                 timestamp: Utc::now(),
                 wcag_level: wcag_level.to_string(),
                 execution_time_ms,
@@ -83,11 +79,7 @@ mod tests {
 
     #[test]
     fn test_format_json() {
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagResults::new(),
-            500,
-        );
+        let report = AuditReport::new("https://example.com".to_string(), WcagResults::new(), 500);
 
         let json = format_json(&report, true).unwrap();
         assert!(json.contains("example.com"));
@@ -96,16 +88,12 @@ mod tests {
 
     #[test]
     fn test_json_report_with_metadata() {
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagResults::new(),
-            1200,
-        );
+        let report = AuditReport::new("https://example.com".to_string(), WcagResults::new(), 1200);
 
         let json_report = JsonReport::new(report, "AA", 1200);
         let output = json_report.to_json(true).unwrap();
 
-        assert!(output.contains("auditmysit"));
+        assert!(output.contains("audit"));
         assert!(output.contains("\"wcag_level\": \"AA\""));
     }
 }

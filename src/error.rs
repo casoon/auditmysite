@@ -1,4 +1,4 @@
-//! Error types for AuditMySit
+//! Error types for audit
 //!
 //! Centralized error handling using thiserror for derive macros
 //! and anyhow for error context propagation.
@@ -6,11 +6,11 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Main error type for the auditmysit application
+/// Main error type for the audit application
 #[derive(Debug, Error)]
 pub enum AuditError {
     /// Chrome/Chromium browser not found on the system
-    #[error("Chrome/Chromium not found!\n\nInstallation:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Download from https://www.google.com/chrome/\n\nOr specify manually:\n  auditmysit --chrome-path /path/to/chrome <url>")]
+    #[error("Chrome/Chromium not found!\n\nInstallation:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Download from https://www.google.com/chrome/\n\nOr specify manually:\n  audit --chrome-path /path/to/chrome <url>")]
     ChromeNotFound,
 
     /// Chrome binary exists but is not executable

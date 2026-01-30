@@ -1,0 +1,112 @@
+use crate::accessibility::tree::{AXTree, AXNode};
+use crate::wcag::types::{Violation, Severity, WCAGLevel};
+
+/// WCAG {RULE_CODE}: {RULE_NAME}
+///
+/// Conformance Level: {LEVEL}
+///
+/// Description:
+/// {DESCRIPTION}
+///
+/// Success Criterion:
+/// {SUCCESS_CRITERION}
+///
+/// Implementation Notes:
+/// {IMPLEMENTATION_NOTES}
+pub struct {STRUCT_NAME}Rule;
+
+impl {STRUCT_NAME}Rule {
+    /// Check this rule against the accessibility tree
+    pub fn check(&self, tree: &AXTree) -> Vec<Violation> {
+        let mut violations = Vec::new();
+
+        for node in &tree.nodes {
+            if self.is_violation(node) {
+                violations.push(Violation {
+                    rule: "{RULE_CODE}".to_string(),
+                    message: self.get_violation_message(node),
+                    node_id: node.node_id.clone(),
+                    severity: Severity::Error,
+                    wcag_level: WCAGLevel::{LEVEL},
+                    element_selector: node.backend_dom_node_id
+                        .map(|id| format!("node-{}", id)),
+                });
+            }
+        }
+
+        violations
+    }
+
+    /// Determine if a node violates this rule
+    fn is_violation(&self, node: &AXNode) -> bool {
+        // TODO: Implement violation detection logic
+        // Example:
+        // node.role == "button" && node.name.is_none()
+        false
+    }
+
+    /// Generate a descriptive violation message
+    fn get_violation_message(&self, node: &AXNode) -> String {
+        // TODO: Customize message based on node context
+        format!("{VIOLATION_MESSAGE}: {}", node.role)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accessibility::tree::{AXTree, AXNode, AXProperty};
+
+    #[test]
+    fn test_{RULE_CODE_UNDERSCORE}_detects_violation() {
+        // Create mock AXTree with violation
+        let tree = AXTree {
+            nodes: vec![
+                AXNode {
+                    node_id: "1".to_string(),
+                    role: "button".to_string(),
+                    name: None, // Missing name = violation
+                    description: None,
+                    value: None,
+                    properties: vec![],
+                    children: vec![],
+                    ignored: false,
+                    ignored_reasons: vec![],
+                    backend_dom_node_id: Some(42),
+                },
+            ],
+        };
+
+        let rule = {STRUCT_NAME}Rule;
+        let violations = rule.check(&tree);
+
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].rule, "{RULE_CODE}");
+    }
+
+    #[test]
+    fn test_{RULE_CODE_UNDERSCORE}_no_violation_when_compliant() {
+        // Create mock AXTree without violations
+        let tree = AXTree {
+            nodes: vec![
+                AXNode {
+                    node_id: "1".to_string(),
+                    role: "button".to_string(),
+                    name: Some("Submit".to_string()), // Has name = OK
+                    description: None,
+                    value: None,
+                    properties: vec![],
+                    children: vec![],
+                    ignored: false,
+                    ignored_reasons: vec![],
+                    backend_dom_node_id: Some(42),
+                },
+            ],
+        };
+
+        let rule = {STRUCT_NAME}Rule;
+        let violations = rule.check(&tree);
+
+        assert_eq!(violations.len(), 0);
+    }
+}

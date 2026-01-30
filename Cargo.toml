@@ -1,11 +1,11 @@
 [package]
-name = "auditmysit"
+name = "audit"
 version = "0.1.0"
 edition = "2021"
-authors = ["AuditMySit Team"]
+authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
 license = "MIT"
-repository = "https://github.com/jseidel/auditmysit_rust"
+repository = "https://github.com/casoon/auditmysite"
 keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
 categories = ["command-line-utilities", "web-programming"]
 readme = "README.md"
@@ -70,7 +70,7 @@ codegen-units = 1
 strip = true
 
 [[bin]]
-name = "auditmysit"
+name = "audit"
 path = "src/main.rs"
 
 [features]

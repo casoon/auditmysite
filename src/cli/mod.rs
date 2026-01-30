@@ -1,4 +1,4 @@
-//! CLI module for AuditMySit
+//! CLI module for audit
 //!
 //! Command-line interface using clap for argument parsing.
 

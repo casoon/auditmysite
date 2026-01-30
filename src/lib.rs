@@ -1,4 +1,4 @@
-//! AuditMySit - Resource-efficient WCAG 2.1 Accessibility Checker
+//! audit - Resource-efficient WCAG 2.1 Accessibility Checker
 //!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
@@ -14,9 +14,9 @@
 //! ## Quick Start
 //!
 //! ```no_run
-//! use auditmysit::browser::BrowserManager;
-//! use auditmysit::audit::{run_single_audit, PipelineConfig};
-//! use auditmysit::cli::WcagLevel;
+//! use audit::browser::BrowserManager;
+//! use audit::audit::{run_single_audit, PipelineConfig};
+//! use audit::cli::WcagLevel;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -90,7 +90,9 @@ pub use cli::{Args, OutputFormat, WcagLevel};
 pub use error::{AuditError, Result};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_batch_html, format_html, format_json, print_report};
-pub use performance::{calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals};
+pub use performance::{
+    calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
+};
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

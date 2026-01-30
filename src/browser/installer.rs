@@ -1,6 +1,6 @@
 //! Chromium installer - downloads isolated Chromium binary
 //!
-//! Downloads Chromium to ~/.auditmysit/chromium/ without affecting system Chrome.
+//! Downloads Chromium to ~/.audit/chromium/ without affecting system Chrome.
 //! Uses Chrome for Testing stable builds.
 
 use std::fs;
@@ -35,7 +35,7 @@ impl ChromiumInstaller {
     fn local_chromium_path() -> PathBuf {
         let cache_dir = dirs::home_dir()
             .expect("Could not find home directory")
-            .join(".auditmysit")
+            .join(".audit")
             .join("chromium");
 
         if cfg!(target_os = "macos") {
@@ -60,12 +60,12 @@ impl ChromiumInstaller {
         println!("└──────────────────────────────────────────────────────────┘\n");
         println!("Chrome/Chromium not found on your system.\n");
         println!("Options:");
-        println!("  1) Auto-download Chromium (~120 MB, isolated in ~/.auditmysit/)");
+        println!("  1) Auto-download Chromium (~120 MB, isolated in ~/.audit/)");
         println!("     ✓ No system dependencies affected");
-        println!("     ✓ Managed by AuditMySit");
+        println!("     ✓ Managed by audit");
         println!("     ✓ Can be deleted anytime\n");
         println!("  2) Use existing Chrome:");
-        println!("     auditmysit --chrome-path \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" <url>\n");
+        println!("     audit --chrome-path \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" <url>\n");
         println!("  3) Install via Homebrew:");
         println!("     brew install chromium\n");
 
@@ -114,7 +114,7 @@ impl ChromiumInstaller {
 
         let cache_dir = dirs::home_dir()
             .expect("Could not find home directory")
-            .join(".auditmysit")
+            .join(".audit")
             .join("chromium");
 
         fs::create_dir_all(&cache_dir).map_err(|e| AuditError::BrowserLaunchFailed {
