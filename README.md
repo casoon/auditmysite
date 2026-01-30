@@ -94,7 +94,7 @@ Arguments:
 
 Options:
   -l, --level <LEVEL>          WCAG level: A, AA, AAA [default: AA]
-  -f, --format <FORMAT>        Output format: json, table, html, pdf [default: table]
+  -f, --format <FORMAT>        Output format: json, table, html, pdf, markdown [default: table]
   -o, --output <FILE>          Output file path (stdout if not specified)
       --chrome-path <PATH>     Chrome/Chromium executable path
       --sitemap <URL>          Audit all URLs from sitemap.xml
@@ -199,5 +199,5 @@ MIT License - see [LICENSE](LICENSE)
 
 ---
 
-**Version:** 0.1.0  
+**Version:** 0.2.0  
 **Repository:** [github.com/casoon/auditmysite](https://github.com/casoon/auditmysite)
