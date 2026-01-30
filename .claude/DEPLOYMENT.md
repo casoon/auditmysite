@@ -1,4 +1,4 @@
-# Deployment Guide for audit
+# Deployment Guide for auditmysite
 
 ## Release Process
 
@@ -18,7 +18,7 @@ version = "X.Y.Z"
 cargo build --release
 
 # Verify binary
-./target/release/audit --version
+./target/release/auditmysite --version
 ```
 
 ### 3. Run Tests
@@ -53,7 +53,7 @@ Create a new release on GitHub:
 
 ```bash
 cargo build --release
-# Binary: target/release/audit
+# Binary: target/release/auditmysite
 ```
 
 #### macOS (Intel)
@@ -61,7 +61,7 @@ cargo build --release
 ```bash
 rustup target add x86_64-apple-darwin
 cargo build --release --target x86_64-apple-darwin
-# Binary: target/x86_64-apple-darwin/release/audit
+# Binary: target/x86_64-apple-darwin/release/auditmysite
 ```
 
 #### Linux (x86_64)
@@ -70,7 +70,7 @@ cargo build --release --target x86_64-apple-darwin
 # Using cross-compilation or on Linux machine
 rustup target add x86_64-unknown-linux-gnu
 cargo build --release --target x86_64-unknown-linux-gnu
-# Binary: target/x86_64-unknown-linux-gnu/release/audit
+# Binary: target/x86_64-unknown-linux-gnu/release/auditmysite
 ```
 
 #### Windows
@@ -78,7 +78,7 @@ cargo build --release --target x86_64-unknown-linux-gnu
 ```bash
 rustup target add x86_64-pc-windows-msvc
 cargo build --release --target x86_64-pc-windows-msvc
-# Binary: target/x86_64-pc-windows-msvc/release/audit.exe
+# Binary: target/x86_64-pc-windows-msvc/release/auditmysite.exe
 ```
 
 ### 7. Homebrew Formula Update
@@ -88,15 +88,15 @@ After releasing binaries, update the Homebrew formula:
 1. Calculate SHA256 checksums for each binary:
 
 ```bash
-shasum -a 256 audit-macos-arm64.tar.gz
-shasum -a 256 audit-macos-x86_64.tar.gz
-shasum -a 256 audit-linux-x86_64.tar.gz
+shasum -a 256 auditmysite-macos-arm64.tar.gz
+shasum -a 256 auditmysite-macos-x86_64.tar.gz
+shasum -a 256 auditmysite-linux-x86_64.tar.gz
 ```
 
-2. Update `Formula/audit.rb`:
+2. Update `Formula/auditmysite.rb`:
 
 ```ruby
-class Audit < Formula
+class Auditmysite < Formula
   desc "Lightning-fast WCAG accessibility auditing written in Rust"
   homepage "https://github.com/casoon/auditmysite"
   version "X.Y.Z"
@@ -104,25 +104,25 @@ class Audit < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/casoon/auditmysite/releases/download/vX.Y.Z/audit-macos-arm64.tar.gz"
+      url "https://github.com/casoon/auditmysite/releases/download/vX.Y.Z/auditmysite-macos-arm64.tar.gz"
       sha256 "<SHA256_ARM64>"
     else
-      url "https://github.com/casoon/auditmysite/releases/download/vX.Y.Z/audit-macos-x86_64.tar.gz"
+      url "https://github.com/casoon/auditmysite/releases/download/vX.Y.Z/auditmysite-macos-x86_64.tar.gz"
       sha256 "<SHA256_X86_64>"
     end
   end
 
   on_linux do
-    url "https://github.com/casoon/auditmysite/releases/download/vX.Y.Z/audit-linux-x86_64.tar.gz"
+    url "https://github.com/casoon/auditmysite/releases/download/vX.Y.Z/auditmysite-linux-x86_64.tar.gz"
     sha256 "<SHA256_LINUX>"
   end
 
   def install
-    bin.install "audit"
+    bin.install "auditmysite"
   end
 
   test do
-    system "#{bin}/audit", "--version"
+    system "#{bin}/auditmysite", "--version"
   end
 end
 ```
@@ -130,7 +130,7 @@ end
 3. Commit and push formula update:
 
 ```bash
-git add Formula/audit.rb
+git add Formula/auditmysite.rb
 git commit -m "chore: Update Formula with vX.Y.Z SHA256 checksums"
 git push origin main
 ```
@@ -157,14 +157,14 @@ cargo publish
 ### Binary not found after Homebrew install
 
 ```bash
-brew uninstall audit
-brew install casoon/tap/audit
+brew uninstall auditmysite
+brew install casoon/tap/auditmysite
 ```
 
 ### Permission denied on macOS
 
 ```bash
-xattr -d com.apple.quarantine /usr/local/bin/audit
+xattr -d com.apple.quarantine /usr/local/bin/auditmysite
 ```
 
 ### Chrome not found
@@ -172,5 +172,5 @@ xattr -d com.apple.quarantine /usr/local/bin/audit
 The binary will auto-download Chromium to `~/.cache/chromiumoxide/` on first run. Alternatively, specify Chrome path:
 
 ```bash
-audit --chrome-path /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome https://example.com
+auditmysite --chrome-path /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome https://example.com
 ```

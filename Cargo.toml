@@ -1,5 +1,5 @@
 [package]
-name = "audit"
+name = "auditmysite"
 version = "0.1.0"
 edition = "2021"
 authors = ["Casoon"]
@@ -70,7 +70,7 @@ codegen-units = 1
 strip = true
 
 [[bin]]
-name = "audit"
+name = "auditmysite"
 path = "src/main.rs"
 
 [features]

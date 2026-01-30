@@ -1,4 +1,4 @@
-//! audit - Resource-efficient WCAG 2.1 Accessibility Checker
+//! auditmysite - Resource-efficient WCAG 2.1 Accessibility Checker
 //!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree

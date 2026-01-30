@@ -1,4 +1,4 @@
-# audit
+# auditmysite
 
 > Lightning-fast WCAG 2.1 accessibility checker written in Rust
 
@@ -7,7 +7,7 @@
 
 ## Overview
 
-`audit` is a blazing-fast, resource-efficient command-line tool for auditing web accessibility compliance. It leverages Chrome's native Accessibility Tree via the Chrome DevTools Protocol (CDP) to provide accurate WCAG 2.1 Level A/AA/AAA testing.
+`auditmysite` is a blazing-fast, resource-efficient command-line tool for auditing web accessibility compliance. It leverages Chrome's native Accessibility Tree via the Chrome DevTools Protocol (CDP) to provide accurate WCAG 2.1 Level A/AA/AAA testing.
 
 ### Key Features
 
@@ -25,13 +25,13 @@
 
 ```bash
 brew tap casoon/tap
-brew install audit
+brew install auditmysite
 ```
 
 ### Cargo
 
 ```bash
-cargo install audit
+cargo install auditmysite
 ```
 
 ### Pre-built Binaries
@@ -44,7 +44,7 @@ Download from [Releases](https://github.com/casoon/auditmysite/releases)
 git clone https://github.com/casoon/auditmysite.git
 cd auditmysite
 cargo build --release
-./target/release/audit --version
+./target/release/auditmysite --version
 ```
 
 ## Quick Start
@@ -53,41 +53,41 @@ cargo build --release
 
 ```bash
 # Default output (terminal table)
-audit https://example.com
+auditmysite https://example.com
 
 # JSON output
-audit https://example.com -f json -o report.json
+auditmysite https://example.com -f json -o report.json
 
 # HTML report
-audit https://example.com -f html -o report.html
+auditmysite https://example.com -f html -o report.html
 
 # PDF report
-audit https://example.com -f pdf -o report.pdf
+auditmysite https://example.com -f pdf -o report.pdf
 
 # WCAG AAA level
-audit https://example.com -l AAA
+auditmysite https://example.com -l AAA
 ```
 
 ### Batch Processing
 
 ```bash
 # From sitemap
-audit --sitemap https://example.com/sitemap.xml
+auditmysite --sitemap https://example.com/sitemap.xml
 
 # From URL list file
-audit --urls urls.txt
+auditmysite --urls urls.txt
 ```
 
 ### Custom Chrome Path
 
 ```bash
-audit --chrome-path /path/to/chrome https://example.com
+auditmysite --chrome-path /path/to/chrome https://example.com
 ```
 
 ## Usage
 
 ```
-audit [OPTIONS] <URL>
+auditmysite [OPTIONS] <URL>
 
 Arguments:
   <URL>  URL to audit (or use --sitemap/--urls for batch)
@@ -146,7 +146,7 @@ CLI → Browser Manager → Chrome (CDP) → Accessibility Tree → WCAG Engine 
 
 ## Comparison
 
-| Feature | audit (Rust) | pa11y (Node.js) | axe-core |
+| Feature | auditmysite (Rust) | pa11y (Node.js) | axe-core |
 |---------|--------------|-----------------|----------|
 | Speed | ⚡⚡⚡ <1s | ⚡⚡ 2-3s | ⚡ 3-5s |
 | Memory | 180 MB | 500+ MB | 400+ MB |
@@ -175,7 +175,7 @@ cargo test
 cargo build --release
 
 # Run
-./target/release/audit https://example.com
+./target/release/auditmysite https://example.com
 ```
 
 ## Contributing

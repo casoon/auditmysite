@@ -48,7 +48,7 @@ impl JsonReport {
     pub fn new(report: AuditReport, wcag_level: &str, execution_time_ms: u64) -> Self {
         Self {
             metadata: ReportMetadata {
-                tool: format!("audit v{}", env!("CARGO_PKG_VERSION")),
+                tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
                 timestamp: Utc::now(),
                 wcag_level: wcag_level.to_string(),
                 execution_time_ms,
