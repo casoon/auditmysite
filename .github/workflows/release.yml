@@ -32,7 +32,7 @@ jobs:
           # Windows
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            name: auditmysite-x86_64-pc-windows-msvc.exe
+            name: auditmysite-x86_64-pc-windows-msvc
 
     steps:
       - uses: actions/checkout@v4
