@@ -90,11 +90,16 @@ pub use audit::{
     audit_page, parse_sitemap, read_url_file, run_concurrent_batch, AuditReport, BatchConfig,
     BatchReport, PerformanceResults, PipelineConfig,
 };
-pub use browser::{BrowserManager, BrowserOptions, BrowserPool, PoolConfig};
-pub use cli::{Args, OutputFormat, WcagLevel};
+pub use browser::{
+    BrowserManager, BrowserOptions, BrowserPool, PoolConfig,
+    BrowserKind, BrowserSource, BrowserMode, DetectedBrowser, ResolvedBrowser,
+    BrowserInstaller, BrowserResolveOptions, InstallTarget,
+    detect_all_browsers, resolve_browser,
+};
+pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use error::{AuditError, Result};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
-pub use output::{format_batch_html, format_html, format_json, print_report};
+pub use output::{format_json, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };

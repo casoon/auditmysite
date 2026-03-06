@@ -218,17 +218,6 @@ async fn test_output_formats() {
         parsed.get("score").is_some(),
         "JSON should contain score field"
     );
-
-    // HTML output should contain basic structure
-    let html = auditmysite::format_html(&report, "AA").expect("HTML formatting failed");
-    assert!(
-        html.contains("<html"),
-        "HTML output should contain html tag"
-    );
-    assert!(
-        html.contains(&report.url),
-        "HTML should contain the audited URL"
-    );
 }
 
 #[tokio::test]

@@ -171,6 +171,7 @@ mod tests {
     #[test]
     fn test_pipeline_config_from_args() {
         let args = Args {
+            command: None,
             url: Some("https://example.com".to_string()),
             sitemap: None,
             url_file: None,

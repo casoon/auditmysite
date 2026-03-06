@@ -16,13 +16,13 @@ use auditmysite::audit::{
     parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, BatchConfig,
     PipelineConfig,
 };
-use auditmysite::browser::{find_chrome, BrowserManager, BrowserOptions};
-use auditmysite::cli::{Args, OutputFormat};
-use auditmysite::error::{AuditError, Result};
-use auditmysite::output::{
-    format_batch_html, format_batch_markdown, format_html, format_markdown, print_batch_table,
-    print_report, JsonReport,
+use auditmysite::browser::{
+    find_chrome, BrowserManager, BrowserOptions, BrowserInstaller,
+    detect_all_browsers, resolve_browser, BrowserResolveOptions, InstallTarget,
 };
+use auditmysite::cli::{Args, BrowserAction, Command, OutputFormat};
+use auditmysite::error::{AuditError, Result};
+use auditmysite::output::{print_batch_table, print_report, JsonReport};
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
 use auditmysite::util::truncate_url;
@@ -92,6 +92,11 @@ fn setup_logging(args: &Args) {
 /// Main application logic
 /// Returns the audit score (or 0.0 for non-scoring operations).
 async fn run(args: Args, _config: &Option<auditmysite::cli::Config>) -> Result<f64> {
+    // Handle subcommands first
+    if let Some(ref command) = args.command {
+        return handle_command(command).await;
+    }
+
     if args.detect_chrome {
         return detect_chrome_command(&args);
     }
@@ -110,6 +115,137 @@ async fn run(args: Args, _config: &Option<auditmysite::cli::Config>) -> Result<f
         run_batch_mode(&args).await
     } else {
         run_single_mode(&args).await
+    }
+}
+
+/// Handle subcommands (browser, doctor)
+async fn handle_command(command: &Command) -> Result<f64> {
+    match command {
+        Command::Browser { action } => handle_browser_command(action).await,
+        Command::Doctor => {
+            auditmysite::cli::doctor::run_doctor();
+            Ok(0.0)
+        }
+    }
+}
+
+/// Handle browser subcommands
+async fn handle_browser_command(action: &BrowserAction) -> Result<f64> {
+    match action {
+        BrowserAction::Detect => {
+            println!("{}", "Detecting browsers...".cyan().bold());
+            println!();
+
+            let browsers = detect_all_browsers();
+            if browsers.is_empty() {
+                println!("  No browsers found.");
+                println!();
+                println!("  Install one:");
+                println!("    brew install --cask google-chrome");
+                println!("    auditmysite browser install");
+            } else {
+                for browser in &browsers {
+                    println!(
+                        "  {} {:<25} {:<15} {}",
+                        "✓".green(),
+                        browser.kind.display_name(),
+                        browser.version.as_deref().unwrap_or("unknown"),
+                        browser.path.display()
+                    );
+                }
+            }
+
+            // Check managed installs
+            if let Some(home) = dirs::home_dir() {
+                let browsers_dir = home.join(".auditmysite").join("browsers");
+                if browsers_dir.exists() {
+                    let cft = browsers_dir.join("chrome-for-testing");
+                    let hs = browsers_dir.join("headless-shell");
+                    if cft.exists() {
+                        let version = std::fs::read_to_string(cft.join("version.txt"))
+                            .unwrap_or_else(|_| "unknown".to_string());
+                        println!(
+                            "  {} {:<25} {:<15} {}",
+                            "✓".green(),
+                            "Chrome for Testing",
+                            version.trim(),
+                            cft.display()
+                        );
+                    }
+                    if hs.exists() {
+                        let version = std::fs::read_to_string(hs.join("version.txt"))
+                            .unwrap_or_else(|_| "unknown".to_string());
+                        println!(
+                            "  {} {:<25} {:<15} {}",
+                            "✓".green(),
+                            "Headless Shell",
+                            version.trim(),
+                            hs.display()
+                        );
+                    }
+                }
+            }
+
+            // Show active browser
+            println!();
+            let opts = BrowserResolveOptions::default();
+            match resolve_browser(&opts) {
+                Ok(resolved) => {
+                    println!(
+                        "  {} Active: {} v{} ({})",
+                        "→".cyan(),
+                        resolved.browser.kind.display_name(),
+                        resolved.browser.version.as_deref().unwrap_or("unknown"),
+                        resolved.browser.source,
+                    );
+                }
+                Err(_) => {
+                    println!(
+                        "  {} No browser can be resolved for auditing.",
+                        "✗".red()
+                    );
+                }
+            }
+
+            Ok(0.0)
+        }
+
+        BrowserAction::Install {
+            headless_shell,
+            version,
+            force,
+        } => {
+            let target = if *headless_shell {
+                InstallTarget::HeadlessShell
+            } else {
+                InstallTarget::ChromeForTesting
+            };
+            BrowserInstaller::install(target, version.as_deref(), *force).await?;
+            Ok(0.0)
+        }
+
+        BrowserAction::Remove { all } => {
+            if *all {
+                BrowserInstaller::remove_all()?;
+            } else {
+                BrowserInstaller::remove(InstallTarget::ChromeForTesting)?;
+            }
+            Ok(0.0)
+        }
+
+        BrowserAction::Path => {
+            let opts = BrowserResolveOptions::default();
+            match resolve_browser(&opts) {
+                Ok(resolved) => {
+                    println!("{}", resolved.browser.path.display());
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "Error:".red().bold(), e);
+                    std::process::exit(1);
+                }
+            }
+            Ok(0.0)
+        }
     }
 }
 
@@ -262,16 +398,6 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
         OutputFormat::Table => {
             print_report(report, args.level);
         }
-        OutputFormat::Html => {
-            let output = format_html(report, &args.level.to_string())?;
-            let default = PathBuf::from("audit-report.html");
-            output_text(
-                &output,
-                &args.output.clone().or(Some(default)),
-                "HTML",
-                args.quiet,
-            )?;
-        }
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
@@ -292,10 +418,6 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                 ));
             }
         }
-        OutputFormat::Markdown => {
-            let output = format_markdown(report);
-            output_text(&output, &args.output, "Markdown", args.quiet)?;
-        }
     }
     Ok(())
 }
@@ -313,16 +435,6 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
         }
         OutputFormat::Table => {
             print_batch_table(batch_report, args.level);
-        }
-        OutputFormat::Html => {
-            let output = format_batch_html(&batch_report.reports, &args.level.to_string())?;
-            let default = PathBuf::from("batch-audit-report.html");
-            output_text(
-                &output,
-                &args.output.clone().or(Some(default)),
-                "HTML batch",
-                args.quiet,
-            )?;
         }
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]
@@ -344,10 +456,6 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
                     "PDF output requires the 'pdf' feature. Rebuild with: cargo build --features pdf".to_string(),
                 ));
             }
-        }
-        OutputFormat::Markdown => {
-            let output = format_batch_markdown(batch_report);
-            output_text(&output, &args.output, "Markdown batch", args.quiet)?;
         }
     }
     Ok(())

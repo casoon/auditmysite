@@ -21,7 +21,7 @@ src/
 ├── audit/               # Pipeline, batch processing, scoring, reports
 ├── browser/             # Chrome detection, management, pooling
 ├── cli/                 # Args (clap), config file support
-├── output/              # Formatters: cli, html, json, markdown, pdf
+├── output/              # Formatters: cli, json, pdf
 ├── performance/         # Core Web Vitals, content weight
 ├── seo/                 # Meta, headings, schema, social, technical
 ├── security/            # Security header analysis
@@ -34,7 +34,8 @@ src/
 - Sitemap: `auditmysite --sitemap <SITEMAP_URL>` (batch from XML sitemap)
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
 - Full audit: `--full` (enables performance, seo, security, mobile)
-- Output formats: `--format {json|table|html|markdown|pdf}`
+- Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
+- Output formats: `--format {json|table|pdf}`
 
 ## Reports Directory
 - **All manually generated test reports MUST be saved to `reports/`**
@@ -78,6 +79,6 @@ cargo test --lib               # Unit tests only
 ## Current State (v0.4.0)
 - Branch: `feat/march-improvements`
 - 22 WCAG rules implemented (Level A, AA, some AAA)
-- 5 output formats (json, table, html, markdown, pdf)
+- 3 output formats (json, table, pdf)
 - Batch processing with configurable concurrency
 - Performance, SEO, Security, Mobile analysis modules

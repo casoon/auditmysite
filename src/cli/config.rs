@@ -119,8 +119,6 @@ impl Config {
                 // default
                 match fmt.to_lowercase().as_str() {
                     "json" => args.format = OutputFormat::Json,
-                    "html" => args.format = OutputFormat::Html,
-                    "markdown" | "md" => args.format = OutputFormat::Markdown,
                     "pdf" => args.format = OutputFormat::Pdf,
                     "table" => {}
                     _ => tracing::warn!("Invalid format in config: {}", fmt),

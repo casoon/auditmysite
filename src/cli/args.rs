@@ -2,7 +2,7 @@
 //!
 //! Defines all command-line arguments and their validation.
 
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -25,6 +25,10 @@ use std::path::PathBuf;
                   Supports single URLs, sitemaps, and URL list files."
 )]
 pub struct Args {
+    /// Subcommand
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
     /// URL to audit (single page)
     ///
     /// Example: https://example.com
@@ -63,10 +67,10 @@ pub struct Args {
     #[arg(short = 'o', long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
-    /// Custom Chrome/Chromium binary path
+    /// Custom browser binary path (overrides auto-detection)
     ///
-    /// Overrides auto-detection. Can also be set via CHROME_PATH env var.
-    #[arg(long, value_name = "PATH", env = "CHROME_PATH")]
+    /// Can also be set via AUDITMYSITE_BROWSER or CHROME_PATH env var.
+    #[arg(long = "browser-path", alias = "chrome-path", value_name = "PATH", env = "AUDITMYSITE_BROWSER")]
     pub chrome_path: Option<String>,
 
     /// Remote debugging port for existing Chrome instance
@@ -130,6 +134,45 @@ pub struct Args {
     pub mobile: bool,
 }
 
+/// Subcommands
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Manage browser detection and installation
+    Browser {
+        #[command(subcommand)]
+        action: BrowserAction,
+    },
+    /// Run diagnostics and check system health
+    Doctor,
+}
+
+/// Browser management actions
+#[derive(Subcommand, Debug)]
+pub enum BrowserAction {
+    /// Detect all installed browsers
+    Detect,
+    /// Install Chrome for Testing
+    Install {
+        /// Install headless-shell instead (smaller, faster)
+        #[arg(long)]
+        headless_shell: bool,
+        /// Install specific version (default: latest stable)
+        #[arg(long)]
+        version: Option<String>,
+        /// Force reinstall even if already present
+        #[arg(long)]
+        force: bool,
+    },
+    /// Remove managed browser installation
+    Remove {
+        /// Remove all managed browsers
+        #[arg(long)]
+        all: bool,
+    },
+    /// Print path of the active browser
+    Path,
+}
+
 /// WCAG conformance levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -164,16 +207,9 @@ pub enum OutputFormat {
     /// CLI table output (human-readable)
     #[value(name = "table")]
     Table,
-    /// HTML report output
-    #[value(name = "html")]
-    Html,
-    /// Markdown output
-    #[value(name = "markdown", alias = "md")]
     /// PDF report output (via Typst)
     #[value(name = "pdf")]
     Pdf,
-
-    Markdown,
 }
 
 impl std::fmt::Display for OutputFormat {
@@ -181,8 +217,6 @@ impl std::fmt::Display for OutputFormat {
         match self {
             OutputFormat::Json => write!(f, "json"),
             OutputFormat::Table => write!(f, "table"),
-            OutputFormat::Html => write!(f, "html"),
-            OutputFormat::Markdown => write!(f, "markdown"),
             OutputFormat::Pdf => write!(f, "pdf"),
         }
     }
@@ -191,6 +225,11 @@ impl std::fmt::Display for OutputFormat {
 impl Args {
     /// Validate arguments
     pub fn validate(&self) -> Result<(), String> {
+        // Subcommands don't need URL validation
+        if self.command.is_some() {
+            return Ok(());
+        }
+
         // At least one input source required (unless --detect-chrome)
         if !self.detect_chrome
             && self.url.is_none()
@@ -266,118 +305,56 @@ mod tests {
     fn test_output_format_display() {
         assert_eq!(OutputFormat::Json.to_string(), "json");
         assert_eq!(OutputFormat::Table.to_string(), "table");
-        assert_eq!(OutputFormat::Html.to_string(), "html");
+        assert_eq!(OutputFormat::Pdf.to_string(), "pdf");
+    }
+
+    fn test_args(url: Option<&str>) -> Args {
+        Args {
+            command: None,
+            url: url.map(|s| s.to_string()),
+            sitemap: None,
+            url_file: None,
+            level: WcagLevel::AA,
+            format: OutputFormat::Table,
+            output: None,
+            chrome_path: None,
+            remote_debugging_port: None,
+            max_pages: 0,
+            concurrency: 3,
+            timeout: 30,
+            no_sandbox: false,
+            disable_images: false,
+            verbose: false,
+            quiet: false,
+            detect_chrome: false,
+            full: false,
+            performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
+        }
     }
 
     #[test]
     fn test_validate_no_input() {
-        let args = Args {
-            url: None,
-            sitemap: None,
-            url_file: None,
-            level: WcagLevel::AA,
-            format: OutputFormat::Table,
-            output: None,
-            chrome_path: None,
-            remote_debugging_port: None,
-            max_pages: 0,
-            concurrency: 3,
-            timeout: 30,
-            no_sandbox: false,
-            disable_images: false,
-            verbose: false,
-            quiet: false,
-            detect_chrome: false,
-            full: false,
-            performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-        };
-        assert!(args.validate().is_err());
+        assert!(test_args(None).validate().is_err());
     }
 
     #[test]
     fn test_validate_with_url() {
-        let args = Args {
-            url: Some("https://example.com".to_string()),
-            sitemap: None,
-            url_file: None,
-            level: WcagLevel::AA,
-            format: OutputFormat::Table,
-            output: None,
-            chrome_path: None,
-            remote_debugging_port: None,
-            max_pages: 0,
-            concurrency: 3,
-            timeout: 30,
-            no_sandbox: false,
-            disable_images: false,
-            verbose: false,
-            quiet: false,
-            detect_chrome: false,
-            full: false,
-            performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-        };
-        assert!(args.validate().is_ok());
+        assert!(test_args(Some("https://example.com")).validate().is_ok());
     }
 
     #[test]
     fn test_validate_invalid_url() {
-        let args = Args {
-            url: Some("not-a-valid-url".to_string()),
-            sitemap: None,
-            url_file: None,
-            level: WcagLevel::AA,
-            format: OutputFormat::Table,
-            output: None,
-            chrome_path: None,
-            remote_debugging_port: None,
-            max_pages: 0,
-            concurrency: 3,
-            timeout: 30,
-            no_sandbox: false,
-            disable_images: false,
-            verbose: false,
-            quiet: false,
-            detect_chrome: false,
-            full: false,
-            performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-        };
-        assert!(args.validate().is_err());
+        assert!(test_args(Some("not-a-valid-url")).validate().is_err());
     }
 
     #[test]
     fn test_validate_verbose_and_quiet() {
-        let args = Args {
-            url: Some("https://example.com".to_string()),
-            sitemap: None,
-            url_file: None,
-            level: WcagLevel::AA,
-            format: OutputFormat::Table,
-            output: None,
-            chrome_path: None,
-            remote_debugging_port: None,
-            max_pages: 0,
-            concurrency: 3,
-            timeout: 30,
-            no_sandbox: false,
-            disable_images: false,
-            verbose: true,
-            quiet: true,
-            detect_chrome: false,
-            full: false,
-            performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-        };
+        let mut args = test_args(Some("https://example.com"));
+        args.verbose = true;
+        args.quiet = true;
         assert!(args.validate().is_err());
     }
 }
