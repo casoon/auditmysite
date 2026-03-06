@@ -2,21 +2,21 @@
 //!
 //! Coordinates browser management, AXTree extraction, WCAG checking,
 //! and report generation.
-//!
-//! ## Performance Optimizations
-//! - Parallel extraction of AXTree and computed styles
-//! - Style cache shared between contrast and other checks
 
 use std::time::Instant;
 
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
-use super::report::AuditReport;
-use crate::accessibility::{extract_ax_tree, extract_text_styles};
-use crate::browser::{BrowserManager, BrowserOptions};
+use super::report::{AuditReport, PerformanceResults};
+use crate::accessibility::extract_ax_tree;
+use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::error::Result;
+use crate::mobile::analyze_mobile_friendliness;
+use crate::performance::{calculate_performance_score, extract_web_vitals};
+use crate::security::analyze_security;
+use crate::seo::analyze_seo;
 use crate::wcag;
 
 /// Audit pipeline configuration
@@ -28,6 +28,14 @@ pub struct PipelineConfig {
     pub timeout_secs: u64,
     /// Whether to be verbose
     pub verbose: bool,
+    /// Run performance analysis
+    pub check_performance: bool,
+    /// Run SEO analysis
+    pub check_seo: bool,
+    /// Run security analysis
+    pub check_security: bool,
+    /// Run mobile friendliness analysis
+    pub check_mobile: bool,
 }
 
 impl From<&Args> for PipelineConfig {
@@ -36,6 +44,10 @@ impl From<&Args> for PipelineConfig {
             wcag_level: args.level,
             timeout_secs: args.timeout,
             verbose: args.verbose,
+            check_performance: args.full || args.performance,
+            check_seo: args.full || args.seo,
+            check_security: args.full || args.security,
+            check_mobile: args.full || args.mobile,
         }
     }
 }
@@ -90,110 +102,67 @@ pub async fn run_single_audit(
 pub async fn audit_page(page: &Page, url: &str, config: &PipelineConfig) -> Result<AuditReport> {
     let start_time = Instant::now();
 
-    // Parallel extraction: AXTree and computed styles (for contrast checks)
-    // This saves ~100-200ms by not waiting for sequential CDP calls
-    let needs_styles = matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA);
-
-    let (ax_tree, styles) = if needs_styles {
-        debug!("Extracting AXTree and styles in parallel...");
-        let (ax_result, styles_result) =
-            tokio::join!(extract_ax_tree(page), extract_text_styles(page));
-
-        let ax_tree = ax_result?;
-        let styles = styles_result.unwrap_or_else(|e| {
-            warn!("Failed to extract styles: {}", e);
-            Vec::new()
-        });
-
-        info!(
-            "Extracted {} AXTree nodes and {} style objects",
-            ax_tree.len(),
-            styles.len()
-        );
-        (ax_tree, styles)
-    } else {
-        debug!("Extracting Accessibility Tree...");
-        let ax_tree = extract_ax_tree(page).await?;
-        info!("Extracted {} nodes from AXTree", ax_tree.len());
-        (ax_tree, Vec::new())
-    };
+    // Extract Accessibility Tree
+    debug!("Extracting Accessibility Tree...");
+    let ax_tree = extract_ax_tree(page).await?;
+    info!("Extracted {} nodes from AXTree", ax_tree.len());
 
     // Run WCAG checks
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&ax_tree, config.wcag_level);
 
-    // Run contrast check using pre-fetched styles (Level AA and AAA only)
-    if needs_styles && !styles.is_empty() {
-        debug!("Running contrast check with cached styles...");
+    // Run contrast check with page access (Level AA and AAA only)
+    if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
+        info!("Running contrast check with CDP...");
         let contrast_violations =
-            wcag::rules::ContrastRule::check_with_styles(&styles, config.wcag_level);
+            wcag::rules::ContrastRule::check_with_page(page, &ax_tree, config.wcag_level).await;
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.violations.extend(contrast_violations);
     }
 
-    // Calculate duration
-    let duration_ms = start_time.elapsed().as_millis() as u64;
+    // Create report with WCAG results
+    let mut report = AuditReport::new(url.to_string(), config.wcag_level, wcag_results, 0);
 
-    // Create report
-    let report = AuditReport::new(url.to_string(), wcag_results, duration_ms);
+    // Run optional module checks
+    if config.check_performance {
+        match extract_web_vitals(page).await {
+            Ok(vitals) => {
+                let score = calculate_performance_score(&vitals);
+                report = report.with_performance(PerformanceResults { vitals, score });
+            }
+            Err(e) => warn!("Performance analysis failed: {}", e),
+        }
+    }
+
+    if config.check_seo {
+        match analyze_seo(page, url).await {
+            Ok(seo) => report = report.with_seo(seo),
+            Err(e) => warn!("SEO analysis failed: {}", e),
+        }
+    }
+
+    if config.check_security {
+        match analyze_security(url).await {
+            Ok(sec) => report = report.with_security(sec),
+            Err(e) => warn!("Security analysis failed: {}", e),
+        }
+    }
+
+    if config.check_mobile {
+        match analyze_mobile_friendliness(page).await {
+            Ok(mobile) => report = report.with_mobile(mobile),
+            Err(e) => warn!("Mobile analysis failed: {}", e),
+        }
+    }
+
+    // Set final duration
+    report.duration_ms = start_time.elapsed().as_millis() as u64;
 
     Ok(report)
 }
 
 /// Run audits on multiple URLs
 ///
-/// # Arguments
-/// * `urls` - The URLs to audit
-/// * `args` - CLI arguments for configuration
-///
-/// # Returns
-/// * `Ok(Vec<AuditReport>)` - Reports for each URL
-pub async fn run_batch_audit(urls: Vec<String>, args: &Args) -> Result<Vec<AuditReport>> {
-    let config = PipelineConfig::from(args);
-
-    // Build browser options
-    let browser_options = BrowserOptions {
-        chrome_path: args.chrome_path.clone(),
-        headless: true,
-        disable_gpu: true,
-        no_sandbox: args.no_sandbox,
-        disable_images: args.disable_images,
-        window_size: (1920, 1080),
-        timeout_secs: args.timeout,
-        verbose: args.verbose,
-    };
-
-    // Launch browser
-    info!("Launching browser...");
-    let browser = BrowserManager::with_options(browser_options).await?;
-
-    let mut reports = Vec::with_capacity(urls.len());
-    let max_pages = if args.max_pages == 0 {
-        urls.len()
-    } else {
-        args.max_pages.min(urls.len())
-    };
-
-    // Process URLs
-    for (i, url) in urls.iter().take(max_pages).enumerate() {
-        info!("Auditing URL {}/{}: {}", i + 1, max_pages, url);
-
-        match run_single_audit(url, &browser, &config).await {
-            Ok(report) => {
-                reports.push(report);
-            }
-            Err(e) => {
-                warn!("Failed to audit {}: {}", url, e);
-                // Continue with other URLs
-            }
-        }
-    }
-
-    // Close browser
-    browser.close().await?;
-
-    Ok(reports)
-}
 
 #[cfg(test)]
 mod tests {
@@ -218,11 +187,17 @@ mod tests {
             verbose: true,
             quiet: false,
             detect_chrome: false,
+            full: false,
+            performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
         };
 
         let config = PipelineConfig::from(&args);
         assert_eq!(config.wcag_level, WcagLevel::AA);
         assert_eq!(config.timeout_secs, 30);
         assert!(config.verbose);
+        assert!(!config.check_performance);
     }
 }

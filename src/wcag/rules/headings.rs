@@ -81,15 +81,11 @@ fn check_heading_hierarchy(headings: &[&AXNode], results: &mut WcagResults) {
     let mut sorted_headings: Vec<_> = headings
         .iter()
         .filter(|h| !h.ignored)
-        .filter_map(|h| {
-            get_heading_level(h).map(|level| (level, *h))
-        })
+        .filter_map(|h| get_heading_level(h).map(|level| (level, *h)))
         .collect();
 
     // Simple ordering by node_id (numeric part)
-    sorted_headings.sort_by(|a, b| {
-        a.1.node_id.cmp(&b.1.node_id)
-    });
+    sorted_headings.sort_by(|a, b| a.1.node_id.cmp(&b.1.node_id));
 
     let mut prev_level: Option<u8> = None;
 
@@ -115,7 +111,9 @@ fn check_heading_hierarchy(headings: &[&AXNode], results: &mut WcagResults) {
                     prev + 1,
                     level
                 ))
-                .with_help_url("https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html");
+                .with_help_url(
+                    "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+                );
 
                 results.add_violation(violation);
             }
@@ -252,7 +250,10 @@ mod tests {
         let tree = AXTree::from_nodes(nodes);
         let results = check_headings(&tree);
 
-        assert!(results.violations.iter().any(|v| v.message.contains("skipped")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("skipped")));
     }
 
     #[test]
@@ -261,7 +262,10 @@ mod tests {
         let tree = AXTree::from_nodes(nodes);
         let results = check_headings(&tree);
 
-        assert!(results.violations.iter().any(|v| v.message.contains("empty")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("empty")));
     }
 
     #[test]
@@ -273,7 +277,10 @@ mod tests {
         let tree = AXTree::from_nodes(nodes);
         let results = check_headings(&tree);
 
-        assert!(results.violations.iter().any(|v| v.message.contains("Multiple h1")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Multiple h1")));
     }
 
     #[test]
@@ -285,6 +292,9 @@ mod tests {
         let tree = AXTree::from_nodes(nodes);
         let results = check_headings(&tree);
 
-        assert!(results.violations.iter().any(|v| v.message.contains("missing an h1")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("missing an h1")));
     }
 }

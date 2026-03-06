@@ -44,7 +44,7 @@ impl AccessibilityScorer {
             score -= 10.0; // Missing language attribute
         }
 
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// Calculate letter grade (A-F) based on score
@@ -250,7 +250,7 @@ mod tests {
                     WcagLevel::A,
                     Severity::Critical,
                     "Error",
-                    format!("node{}", i),
+                    &format!("node{}", i),
                 )
             })
             .collect();

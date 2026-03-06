@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -56,9 +56,11 @@ pub enum SchemaType {
     Other(String),
 }
 
-impl SchemaType {
-    pub fn parse(s: &str) -> Self {
-        match s {
+impl std::str::FromStr for SchemaType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(match s {
             "Organization" => SchemaType::Organization,
             "LocalBusiness" => SchemaType::LocalBusiness,
             "Person" => SchemaType::Person,
@@ -78,9 +80,11 @@ impl SchemaType {
             "Review" => SchemaType::Review,
             "AggregateRating" => SchemaType::AggregateRating,
             other => SchemaType::Other(other.to_string()),
-        }
+        })
     }
+}
 
+impl SchemaType {
     pub fn rich_snippet_type(&self) -> Option<&'static str> {
         match self {
             SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle => {
@@ -135,10 +139,7 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse structured data JSON: {}", e);
-        serde_json::Value::Object(serde_json::Map::new())
-    });
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     let mut json_ld = Vec::new();
     let mut types = Vec::new();
@@ -153,7 +154,7 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
             let schema_types = extract_types(schema);
 
             for type_str in &schema_types {
-                let schema_type = SchemaType::parse(type_str);
+                let schema_type: SchemaType = type_str.parse().unwrap();
 
                 if let Some(rich_snippet) = schema_type.rich_snippet_type() {
                     if !rich_snippets_potential.contains(&rich_snippet.to_string()) {
@@ -222,10 +223,16 @@ mod tests {
 
     #[test]
     fn test_schema_type_from_str() {
-        assert_eq!(SchemaType::parse("Article"), SchemaType::Article);
-        assert_eq!(SchemaType::parse("Product"), SchemaType::Product);
+        assert_eq!(
+            "Article".parse::<SchemaType>().unwrap(),
+            SchemaType::Article
+        );
+        assert_eq!(
+            "Product".parse::<SchemaType>().unwrap(),
+            SchemaType::Product
+        );
         assert!(matches!(
-            SchemaType::parse("CustomType"),
+            "CustomType".parse::<SchemaType>().unwrap(),
             SchemaType::Other(_)
         ));
     }

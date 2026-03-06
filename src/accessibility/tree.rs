@@ -66,9 +66,7 @@ impl AXTree {
     pub fn images(&self) -> Vec<&AXNode> {
         self.nodes
             .values()
-            .filter(|n| {
-                matches!(n.role.as_deref(), Some("image") | Some("img"))
-            })
+            .filter(|n| matches!(n.role.as_deref(), Some("image") | Some("img")))
             .collect()
     }
 
@@ -76,12 +74,7 @@ impl AXTree {
     pub fn headings(&self) -> Vec<&AXNode> {
         self.nodes
             .values()
-            .filter(|n| {
-                matches!(
-                    n.role.as_deref(),
-                    Some("heading")
-                )
-            })
+            .filter(|n| matches!(n.role.as_deref(), Some("heading")))
             .collect()
     }
 
@@ -192,8 +185,7 @@ impl AXNode {
             return None;
         }
 
-        self.get_property_int("level")
-            .map(|l| l.clamp(1, 6) as u8)
+        self.get_property_int("level").map(|l| l.clamp(1, 6) as u8)
     }
 
     /// Get a boolean property value

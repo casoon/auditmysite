@@ -45,8 +45,10 @@ pub struct PooledPage {
 
 impl PooledPage {
     /// Get a reference to the underlying page
-    pub fn page(&self) -> &Page {
-        self.page.as_ref().expect("Page already returned")
+    pub fn page(&self) -> Result<&Page> {
+        self.page.as_ref().ok_or_else(|| {
+            crate::error::AuditError::ConfigError("Page already returned to pool".to_string())
+        })
     }
 }
 
@@ -81,29 +83,18 @@ struct BrowserPoolInner {
 impl BrowserPoolInner {
     /// Return a page to the pool
     async fn return_page(&self, page: Page) {
-        // Try to reset the page for reuse with timeout
-        let reset_result =
-            tokio::time::timeout(Duration::from_secs(5), page.goto("about:blank")).await;
-
-        match reset_result {
-            Ok(Ok(_)) => {
-                // Page reset successfully, return to pool
-                let mut pages = self.pages.lock().await;
-                pages.push(page);
-                self.semaphore.add_permits(1);
-                debug!("Page returned to pool ({} available)", pages.len());
-            }
-            Ok(Err(e)) => {
-                warn!("Failed to reset page: {}", e);
-                // Page is unusable, don't return it
-                self.semaphore.add_permits(1);
-            }
-            Err(_) => {
-                warn!("Page reset timed out after 5 seconds");
-                // Page is unusable, don't return it
-                self.semaphore.add_permits(1);
-            }
+        // Try to reset the page for reuse
+        if let Err(e) = page.goto("about:blank").await {
+            warn!("Failed to reset page: {}", e);
+            // Page is unusable, don't return it
+            self.semaphore.add_permits(1);
+            return;
         }
+
+        let mut pages = self.pages.lock().await;
+        pages.push(page);
+        self.semaphore.add_permits(1);
+        debug!("Page returned to pool ({} available)", pages.len());
     }
 }
 

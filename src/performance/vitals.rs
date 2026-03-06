@@ -5,13 +5,12 @@
 use chromiumoxide::cdp::browser_protocol::performance::GetMetricsParams;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::error::{AuditError, Result};
 
 /// Core Web Vitals and performance metrics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WebVitals {
     /// Largest Contentful Paint (ms) - target ≤2500
     pub lcp: Option<VitalMetric>,
@@ -71,7 +70,6 @@ impl VitalMetric {
         self.rating == "good"
     }
 }
-
 
 impl WebVitals {
     /// Count how many vitals pass the "good" threshold
@@ -232,10 +230,7 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse web vitals JSON: {}", e);
-        serde_json::Value::Object(serde_json::Map::new())
-    });
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     let mut vitals = WebVitals::default();
 

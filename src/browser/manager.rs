@@ -11,7 +11,7 @@ use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::Page;
 use futures::StreamExt;
 use tokio::sync::Mutex;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::detection::{find_chrome, verify_chrome_executable, ChromeInfo};
 use crate::error::{AuditError, Result};
@@ -248,33 +248,57 @@ impl BrowserManager {
     /// * `Err(AuditError)` - Navigation failed
     pub async fn navigate(&self, page: &Page, url: &str) -> Result<()> {
         let timeout = Duration::from_secs(self.options.timeout_secs);
+        let max_retries = 1;
+        let mut last_error = None;
 
-        tokio::time::timeout(timeout, async {
-            page.goto(url)
-                .await
-                .map_err(|e| AuditError::NavigationFailed {
-                    url: url.to_string(),
-                    reason: e.to_string(),
-                })?;
+        for attempt in 0..=max_retries {
+            if attempt > 0 {
+                warn!(
+                    "Retrying navigation to {} (attempt {}/{})",
+                    url,
+                    attempt + 1,
+                    max_retries + 1
+                );
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
 
-            // Wait for network idle
-            page.wait_for_navigation()
-                .await
-                .map_err(|e| AuditError::NavigationFailed {
-                    url: url.to_string(),
-                    reason: format!("Navigation wait failed: {}", e),
-                })?;
+            match tokio::time::timeout(timeout, async {
+                page.goto(url)
+                    .await
+                    .map_err(|e| AuditError::NavigationFailed {
+                        url: url.to_string(),
+                        reason: e.to_string(),
+                    })?;
 
-            Ok::<(), AuditError>(())
-        })
-        .await
-        .map_err(|_| AuditError::PageLoadTimeout {
-            url: url.to_string(),
-            timeout_secs: self.options.timeout_secs,
-        })??;
+                // Wait for network idle
+                page.wait_for_navigation()
+                    .await
+                    .map_err(|e| AuditError::NavigationFailed {
+                        url: url.to_string(),
+                        reason: format!("Navigation wait failed: {}", e),
+                    })?;
 
-        debug!("Successfully navigated to: {}", url);
-        Ok(())
+                Ok::<(), AuditError>(())
+            })
+            .await
+            {
+                Ok(Ok(())) => {
+                    debug!("Successfully navigated to: {}", url);
+                    return Ok(());
+                }
+                Ok(Err(e)) => {
+                    last_error = Some(e);
+                }
+                Err(_) => {
+                    last_error = Some(AuditError::PageLoadTimeout {
+                        url: url.to_string(),
+                        timeout_secs: self.options.timeout_secs,
+                    });
+                }
+            }
+        }
+
+        Err(last_error.unwrap())
     }
 
     /// Get Chrome installation info
@@ -299,19 +323,14 @@ impl BrowserManager {
         // Close all pages first
         if let Ok(pages) = self.browser.pages().await {
             for page in pages {
-                let _ = page.close().await;
+                if let Err(e) = page.close().await {
+                    warn!("Failed to close page: {}", e);
+                }
             }
         }
 
-        // Abort the handler task to prevent WS errors on shutdown
-        if let Some(handler) = self.handler.lock().await.take() {
-            handler.abort();
-        }
-
-        // Small delay to allow clean shutdown
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-        // Browser will be dropped when self is dropped
+        // Close browser
+        // Note: Browser will be dropped when self is dropped
         info!("Browser closed");
         Ok(())
     }

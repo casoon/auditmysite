@@ -1,0 +1,239 @@
+//! Configuration file support
+//!
+//! Loads `auditmysite.toml` from the current directory or parent directories.
+
+use serde::Deserialize;
+use std::path::PathBuf;
+use tracing::info;
+
+use super::args::{Args, OutputFormat, WcagLevel};
+
+const CONFIG_FILENAME: &str = "auditmysite.toml";
+
+/// Configuration file structure
+#[derive(Debug, Deserialize, Default)]
+pub struct Config {
+    #[serde(default)]
+    pub audit: AuditConfig,
+    #[serde(default)]
+    pub output: OutputConfig,
+    #[serde(default)]
+    pub modules: ModulesConfig,
+    #[serde(default)]
+    pub rules: RulesConfig,
+    #[serde(default)]
+    pub thresholds: ThresholdsConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AuditConfig {
+    /// WCAG level: "a", "aa", or "aaa"
+    pub level: Option<String>,
+    /// Page load timeout in seconds
+    pub timeout: Option<u64>,
+    /// Number of concurrent browser tabs
+    pub concurrency: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct OutputConfig {
+    /// Default output format: "table", "json", "html", "markdown", "pdf"
+    pub format: Option<String>,
+    /// Default output path
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ModulesConfig {
+    /// Enable performance analysis
+    pub performance: Option<bool>,
+    /// Enable SEO analysis
+    pub seo: Option<bool>,
+    /// Enable security analysis
+    pub security: Option<bool>,
+    /// Enable mobile analysis
+    pub mobile: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct RulesConfig {
+    /// List of rule IDs to ignore
+    pub ignore: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ThresholdsConfig {
+    /// Minimum score to pass (exit code 0)
+    pub min_score: Option<f64>,
+}
+
+impl Config {
+    /// Load config from `auditmysite.toml`, searching up from the current directory.
+    /// Returns `None` if no config file is found.
+    pub fn load() -> Option<Self> {
+        let path = find_config_file()?;
+        info!("Loading config from: {}", path.display());
+
+        let content = std::fs::read_to_string(&path).ok()?;
+        match toml::from_str::<Config>(&content) {
+            Ok(config) => Some(config),
+            Err(e) => {
+                tracing::warn!("Failed to parse {}: {}", path.display(), e);
+                None
+            }
+        }
+    }
+
+    /// Apply config file defaults to CLI args.
+    /// CLI args always take precedence over config file values.
+    pub fn apply_to_args(&self, args: &mut Args) {
+        // Audit settings (only if CLI didn't override)
+        if let Some(ref level_str) = self.audit.level {
+            // Only apply if user didn't specify --level explicitly
+            // clap default is "aa", so we check if it's still the default
+            match level_str.to_lowercase().as_str() {
+                "a" => args.level = WcagLevel::A,
+                "aa" => args.level = WcagLevel::AA,
+                "aaa" => args.level = WcagLevel::AAA,
+                _ => tracing::warn!("Invalid level in config: {}", level_str),
+            }
+        }
+
+        if let Some(timeout) = self.audit.timeout {
+            if args.timeout == 30 {
+                // default
+                args.timeout = timeout;
+            }
+        }
+
+        if let Some(concurrency) = self.audit.concurrency {
+            if args.concurrency == 3 {
+                // default
+                args.concurrency = concurrency;
+            }
+        }
+
+        // Output settings
+        if let Some(ref fmt) = self.output.format {
+            if args.format == OutputFormat::Table {
+                // default
+                match fmt.to_lowercase().as_str() {
+                    "json" => args.format = OutputFormat::Json,
+                    "html" => args.format = OutputFormat::Html,
+                    "markdown" | "md" => args.format = OutputFormat::Markdown,
+                    "pdf" => args.format = OutputFormat::Pdf,
+                    "table" => {}
+                    _ => tracing::warn!("Invalid format in config: {}", fmt),
+                }
+            }
+        }
+
+        if let Some(ref path) = self.output.path {
+            if args.output.is_none() {
+                args.output = Some(PathBuf::from(path));
+            }
+        }
+
+        // Module settings
+        if !args.full {
+            if let Some(true) = self.modules.performance {
+                args.performance = true;
+            }
+            if let Some(true) = self.modules.seo {
+                args.seo = true;
+            }
+            if let Some(true) = self.modules.security {
+                args.security = true;
+            }
+            if let Some(true) = self.modules.mobile {
+                args.mobile = true;
+            }
+        }
+    }
+}
+
+/// Search for config file starting from current dir, walking up to root.
+fn find_config_file() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join(CONFIG_FILENAME);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// Get the minimum score threshold from config, if set.
+pub fn get_min_score_threshold(config: &Option<Config>) -> Option<f64> {
+    config.as_ref().and_then(|c| c.thresholds.min_score)
+}
+
+/// Get the list of ignored rules from config, if set.
+pub fn get_ignored_rules(config: &Option<Config>) -> Vec<String> {
+    config
+        .as_ref()
+        .and_then(|c| c.rules.ignore.clone())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_config() {
+        let toml_str = r#"
+[audit]
+level = "aaa"
+timeout = 60
+concurrency = 5
+
+[output]
+format = "html"
+path = "reports/"
+
+[modules]
+performance = true
+seo = true
+security = true
+mobile = true
+
+[rules]
+ignore = ["1.4.3"]
+
+[thresholds]
+min_score = 70
+"#;
+
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.audit.level.as_deref(), Some("aaa"));
+        assert_eq!(config.audit.timeout, Some(60));
+        assert_eq!(config.audit.concurrency, Some(5));
+        assert_eq!(config.output.format.as_deref(), Some("html"));
+        assert_eq!(config.output.path.as_deref(), Some("reports/"));
+        assert!(config.modules.performance.unwrap());
+        assert_eq!(config.rules.ignore.as_ref().unwrap().len(), 1);
+        assert_eq!(config.thresholds.min_score, Some(70.0));
+    }
+
+    #[test]
+    fn test_empty_config() {
+        let config: Config = toml::from_str("").unwrap();
+        assert!(config.audit.level.is_none());
+        assert!(config.modules.performance.is_none());
+    }
+
+    #[test]
+    fn test_partial_config() {
+        let toml_str = r#"
+[modules]
+seo = true
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert!(config.modules.seo.unwrap());
+        assert!(config.modules.performance.is_none());
+    }
+}

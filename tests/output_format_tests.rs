@@ -10,7 +10,6 @@ use auditmysite::wcag::{Severity, Violation, WcagResults};
 fn create_test_report() -> AuditReport {
     let mut wcag_results = WcagResults::new();
 
-    // Add a sample violation using the builder pattern
     let violation = Violation::new(
         "1.1.1",
         "Non-text Content",
@@ -26,7 +25,12 @@ fn create_test_report() -> AuditReport {
     wcag_results.violations.push(violation);
     wcag_results.passes = 42;
 
-    AuditReport::new("https://example.com".to_string(), wcag_results, 1500)
+    AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        wcag_results,
+        1500,
+    )
 }
 
 #[test]
@@ -36,11 +40,9 @@ fn test_json_report_generation() {
 
     let json_str = json_report.to_json(false).expect("JSON generation failed");
 
-    // Verify it's valid JSON
     let parsed: serde_json::Value =
         serde_json::from_str(&json_str).expect("Failed to parse generated JSON");
 
-    // Check key fields - JsonReport wraps report in a 'report' field
     assert_eq!(parsed["report"]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
     assert!(parsed["report"]["wcag_results"]["violations"].is_array());
@@ -61,11 +63,9 @@ fn test_json_report_pretty_print() {
     let pretty = json_report.to_json(true).expect("Pretty JSON failed");
     let compact = json_report.to_json(false).expect("Compact JSON failed");
 
-    // Pretty should have newlines, compact should not
     assert!(pretty.contains('\n'));
     assert!(!compact.contains('\n'));
 
-    // Both should parse to equivalent JSON
     let pretty_parsed: serde_json::Value = serde_json::from_str(&pretty).unwrap();
     let compact_parsed: serde_json::Value = serde_json::from_str(&compact).unwrap();
     assert_eq!(pretty_parsed, compact_parsed);
@@ -76,12 +76,9 @@ fn test_html_report_generation() {
     let report = create_test_report();
     let html = format_html(&report, "AA").expect("HTML generation failed");
 
-    // Check structure
     assert!(html.contains("<!DOCTYPE html>"));
     assert!(html.contains("<html"));
     assert!(html.contains("</html>"));
-
-    // Check content
     assert!(html.contains("example.com"));
     assert!(html.contains("WCAG AA"));
     assert!(html.contains("1.1.1"));
@@ -92,7 +89,6 @@ fn test_html_report_generation() {
 fn test_html_escaping() {
     let mut wcag_results = WcagResults::new();
 
-    // Add a violation with XSS attempt in message
     let violation = Violation::new(
         "1.1.1",
         "Test <script>alert('xss')</script>",
@@ -106,18 +102,17 @@ fn test_html_escaping() {
 
     wcag_results.violations.push(violation);
 
-    let report = AuditReport::new("https://example.com/test".to_string(), wcag_results, 100);
+    let report = AuditReport::new(
+        "https://example.com/test".to_string(),
+        WcagLevel::AA,
+        wcag_results,
+        100,
+    );
 
     let html = format_html(&report, "AA").expect("HTML generation failed");
 
-    // Verify XSS in rule_name is escaped (the rule_name contains <script>)
-    // The html_escape function should convert < to &lt;
     assert!(html.contains("&lt;script&gt;alert"));
-
-    // Verify XSS in message is escaped
     assert!(html.contains("&lt;img src=x"));
-
-    // Verify special chars are escaped
     assert!(html.contains("&amp;"));
     assert!(html.contains("&quot;"));
 }
@@ -125,7 +120,12 @@ fn test_html_escaping() {
 #[test]
 fn test_html_report_with_no_violations() {
     let wcag_results = WcagResults::new();
-    let report = AuditReport::new("https://perfect-site.com".to_string(), wcag_results, 500);
+    let report = AuditReport::new(
+        "https://perfect-site.com".to_string(),
+        WcagLevel::AAA,
+        wcag_results,
+        500,
+    );
 
     let html = format_html(&report, "AAA").expect("HTML generation failed");
 
@@ -135,11 +135,14 @@ fn test_html_report_with_no_violations() {
 
 #[test]
 fn test_report_score_calculation() {
-    // Report with no violations should have high score
-    let clean_report = AuditReport::new("https://example.com".to_string(), WcagResults::new(), 100);
+    let clean_report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        100,
+    );
     assert!(clean_report.score >= 90.0);
 
-    // Report with violations should have lower score
     let report_with_issues = create_test_report();
     assert!(report_with_issues.score < clean_report.score);
 }

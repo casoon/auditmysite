@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -68,10 +68,7 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("[]");
 
-    let headings: Vec<HeadingInfo> = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse headings JSON: {}", e);
-        Vec::new()
-    });
+    let headings: Vec<HeadingInfo> = serde_json::from_str(json_str).unwrap_or_default();
 
     // Analyze structure
     let h1_headings: Vec<_> = headings.iter().filter(|h| h.level == 1).collect();

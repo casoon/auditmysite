@@ -142,9 +142,16 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
 fn is_form_input(role: &str) -> bool {
     matches!(
         role,
-        "textbox" | "searchbox" | "combobox" | "listbox" |
-        "spinbutton" | "slider" | "checkbox" | "radio" |
-        "switch" | "textarea"
+        "textbox"
+            | "searchbox"
+            | "combobox"
+            | "listbox"
+            | "spinbutton"
+            | "slider"
+            | "checkbox"
+            | "radio"
+            | "switch"
+            | "textarea"
     )
 }
 
@@ -204,13 +211,20 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
     let name = node.name.as_deref().unwrap_or("").to_lowercase();
 
     let format_sensitive = [
-        "date", "phone", "tel", "zip", "postal",
-        "credit card", "ssn", "social security",
-        "passport", "account", "routing"
+        "date",
+        "phone",
+        "tel",
+        "zip",
+        "postal",
+        "credit card",
+        "ssn",
+        "social security",
+        "passport",
+        "account",
+        "routing",
     ];
 
-    format_sensitive.iter().any(|&term| name.contains(term)) ||
-    role == "spinbutton"
+    format_sensitive.iter().any(|&term| name.contains(term)) || role == "spinbutton"
 }
 
 /// Check if format hint is provided
@@ -266,7 +280,12 @@ mod tests {
         }
     }
 
-    fn create_input_with_required(id: &str, role: &str, name: Option<&str>, required: bool) -> AXNode {
+    fn create_input_with_required(
+        id: &str,
+        role: &str,
+        name: Option<&str>,
+        required: bool,
+    ) -> AXNode {
         let mut node = create_input(id, role, name);
         if required {
             node.properties.push(AXProperty {
@@ -296,31 +315,49 @@ mod tests {
     fn test_input_without_label() {
         let tree = AXTree::from_nodes(vec![create_input("1", "textbox", None)]);
         let results = check_instructions(&tree);
-        assert!(results.violations.iter().any(|v| v.message.contains("no accessible label")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("no accessible label")));
     }
 
     #[test]
     fn test_input_with_label() {
         let tree = AXTree::from_nodes(vec![create_input("1", "textbox", Some("Email address"))]);
         let results = check_instructions(&tree);
-        assert!(!results.violations.iter().any(|v| v.message.contains("no accessible label")));
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("no accessible label")));
     }
 
     #[test]
     fn test_required_without_indication() {
-        let tree = AXTree::from_nodes(vec![
-            create_input_with_required("1", "textbox", Some("Name"), true)
-        ]);
+        let tree = AXTree::from_nodes(vec![create_input_with_required(
+            "1",
+            "textbox",
+            Some("Name"),
+            true,
+        )]);
         let results = check_instructions(&tree);
-        assert!(results.violations.iter().any(|v| v.message.contains("Required field")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Required field")));
     }
 
     #[test]
     fn test_required_with_indication() {
-        let tree = AXTree::from_nodes(vec![
-            create_input_with_required("1", "textbox", Some("Name (required)"), true)
-        ]);
+        let tree = AXTree::from_nodes(vec![create_input_with_required(
+            "1",
+            "textbox",
+            Some("Name (required)"),
+            true,
+        )]);
         let results = check_instructions(&tree);
-        assert!(!results.violations.iter().any(|v| v.message.contains("Required field not clearly indicated")));
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Required field not clearly indicated")));
     }
 }

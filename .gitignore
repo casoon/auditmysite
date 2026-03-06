@@ -39,6 +39,9 @@ auditmysit
 /coverage/
 tarpaulin-report.html
 
+# Local cargo config (patch overrides for development)
+/.cargo/config.toml
+
 # Temporary
 /tmp/
 *.tmp

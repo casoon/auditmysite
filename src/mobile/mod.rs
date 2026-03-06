@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -47,7 +47,7 @@ pub struct ViewportAnalysis {
 pub struct TouchTargetAnalysis {
     /// Total interactive elements
     pub total_targets: u32,
-    /// Targets with adequate size (≥48x48px)
+    /// Targets with adequate size (≥44x44px)
     pub adequate_targets: u32,
     /// Targets too small
     pub small_targets: u32,
@@ -178,6 +178,24 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         }
         result.content.hasMediaQueries = hasMediaQueries;
 
+        // Check for relative font units (em, rem, %, vw)
+        let usesRelativeUnits = false;
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule.style && rule.style.fontSize) {
+                        const fs = rule.style.fontSize;
+                        if (fs.match(/\d+(em|rem|%|vw)/)) {
+                            usesRelativeUnits = true;
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
+            if (usesRelativeUnits) break;
+        }
+        result.fonts.usesRelativeUnits = usesRelativeUnits;
+
         return JSON.stringify(result);
     })()
     "#;
@@ -189,10 +207,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse mobile analysis JSON: {}", e);
-        serde_json::Value::default()
-    });
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     // Parse viewport
     let vp = &parsed["viewport"];
@@ -230,7 +245,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         } else {
             100.0
         },
-        uses_relative_units: true, // Would need more analysis
+        uses_relative_units: fonts["usesRelativeUnits"].as_bool().unwrap_or(false),
     };
 
     // Parse content sizing

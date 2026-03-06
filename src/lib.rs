@@ -1,4 +1,4 @@
-//! auditmysite - Resource-efficient WCAG 2.1 Accessibility Checker
+//! AuditMySit - Resource-efficient WCAG 2.1 Accessibility Checker
 //!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
@@ -28,6 +28,10 @@
 //!         wcag_level: WcagLevel::AA,
 //!         timeout_secs: 30,
 //!         verbose: false,
+//!         check_performance: false,
+//!         check_seo: false,
+//!         check_security: false,
+//!         check_mobile: false,
 //!     };
 //!
 //!     // Run audit
@@ -77,13 +81,14 @@ pub mod output;
 pub mod performance;
 pub mod security;
 pub mod seo;
+pub mod util;
 pub mod wcag;
 
 // Re-export commonly used types
 pub use accessibility::{AXNode, AXTree};
 pub use audit::{
-    parse_sitemap, read_url_file, run_concurrent_batch, AuditReport, BatchConfig, BatchReport,
-    PerformanceResults, PipelineConfig,
+    audit_page, parse_sitemap, read_url_file, run_concurrent_batch, AuditReport, BatchConfig,
+    BatchReport, PerformanceResults, PipelineConfig,
 };
 pub use browser::{BrowserManager, BrowserOptions, BrowserPool, PoolConfig};
 pub use cli::{Args, OutputFormat, WcagLevel};
@@ -93,6 +98,6 @@ pub use output::{format_batch_html, format_html, format_json, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };
-pub use security::{analyze_security, validate_url, SecurityAnalysis};
+pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

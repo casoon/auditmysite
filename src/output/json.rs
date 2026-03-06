@@ -75,11 +75,17 @@ impl JsonReport {
 mod tests {
     use super::*;
     use crate::audit::AuditReport;
+    use crate::cli::WcagLevel;
     use crate::wcag::WcagResults;
 
     #[test]
     fn test_format_json() {
-        let report = AuditReport::new("https://example.com".to_string(), WcagResults::new(), 500);
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            500,
+        );
 
         let json = format_json(&report, true).unwrap();
         assert!(json.contains("example.com"));
@@ -88,12 +94,17 @@ mod tests {
 
     #[test]
     fn test_json_report_with_metadata() {
-        let report = AuditReport::new("https://example.com".to_string(), WcagResults::new(), 1200);
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1200,
+        );
 
         let json_report = JsonReport::new(report, "AA", 1200);
         let output = json_report.to_json(true).unwrap();
 
-        assert!(output.contains("audit"));
+        assert!(output.contains("auditmysite"));
         assert!(output.contains("\"wcag_level\": \"AA\""));
     }
 }

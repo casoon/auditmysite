@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -125,10 +125,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse technical SEO JSON: {}", e);
-        serde_json::Value::Object(serde_json::Map::new())
-    });
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     let canonical_url = parsed["canonical"].as_str().map(String::from);
     let lang = parsed["lang"].as_str().map(String::from);

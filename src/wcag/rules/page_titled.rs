@@ -117,9 +117,10 @@ mod tests {
 
     #[test]
     fn test_page_with_good_title() {
-        let tree = AXTree::from_nodes(vec![
-            create_document_node("1", Some("Shopping Cart - Example Store")),
-        ]);
+        let tree = AXTree::from_nodes(vec![create_document_node(
+            "1",
+            Some("Shopping Cart - Example Store"),
+        )]);
         let results = check_page_titled(&tree);
         assert!(results.violations.is_empty());
         assert_eq!(results.passes, 1);

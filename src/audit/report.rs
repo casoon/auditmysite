@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
+use crate::cli::WcagLevel;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{PerformanceScore, WebVitals};
 use crate::security::SecurityAnalysis;
@@ -17,6 +18,8 @@ use crate::wcag::WcagResults;
 pub struct AuditReport {
     /// The URL that was audited
     pub url: String,
+    /// WCAG conformance level used for the audit
+    pub wcag_level: WcagLevel,
     /// Timestamp when the audit was performed
     pub timestamp: DateTime<Utc>,
     /// WCAG check results
@@ -58,7 +61,12 @@ pub struct PerformanceResults {
 
 impl AuditReport {
     /// Create a new audit report
-    pub fn new(url: String, wcag_results: WcagResults, duration_ms: u64) -> Self {
+    pub fn new(
+        url: String,
+        wcag_level: WcagLevel,
+        wcag_results: WcagResults,
+        duration_ms: u64,
+    ) -> Self {
         let score = AccessibilityScorer::calculate_score(&wcag_results.violations);
         let grade = AccessibilityScorer::calculate_grade(score).to_string();
         let certificate = AccessibilityScorer::calculate_certificate(score).to_string();
@@ -67,6 +75,7 @@ impl AuditReport {
 
         Self {
             url,
+            wcag_level,
             timestamp: Utc::now(),
             wcag_results,
             score,
@@ -121,29 +130,36 @@ impl AuditReport {
                 .any(|v| v.severity == crate::wcag::Severity::Critical)
     }
 
-    /// Calculate overall score across all modules
+    /// Calculate weighted overall score across all active modules
+    ///
+    /// Weights (normalized to active modules):
+    /// - WCAG Accessibility: 40%
+    /// - Performance: 20%
+    /// - SEO: 20%
+    /// - Security: 10%
+    /// - Mobile: 10%
     pub fn overall_score(&self) -> u32 {
-        let mut total = self.score as u32;
-        let mut count = 1u32;
+        let mut weighted_sum = self.score as f64 * 40.0;
+        let mut total_weight = 40.0;
 
         if let Some(ref perf) = self.performance {
-            total += perf.score.overall;
-            count += 1;
+            weighted_sum += perf.score.overall as f64 * 20.0;
+            total_weight += 20.0;
         }
         if let Some(ref seo) = self.seo {
-            total += seo.score;
-            count += 1;
+            weighted_sum += seo.score as f64 * 20.0;
+            total_weight += 20.0;
         }
         if let Some(ref security) = self.security {
-            total += security.score;
-            count += 1;
+            weighted_sum += security.score as f64 * 10.0;
+            total_weight += 10.0;
         }
         if let Some(ref mobile) = self.mobile {
-            total += mobile.score;
-            count += 1;
+            weighted_sum += mobile.score as f64 * 10.0;
+            total_weight += 10.0;
         }
 
-        total / count
+        (weighted_sum / total_weight).round() as u32
     }
 }
 
@@ -152,10 +168,22 @@ impl AuditReport {
 pub struct BatchReport {
     /// Individual reports for each URL
     pub reports: Vec<AuditReport>,
+    /// URLs that failed to audit (with error messages)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<BatchError>,
     /// Summary statistics
     pub summary: BatchSummary,
     /// Total execution time
     pub total_duration_ms: u64,
+}
+
+/// A failed URL audit
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchError {
+    /// The URL that failed
+    pub url: String,
+    /// Error message
+    pub error: String,
 }
 
 /// Summary statistics for a batch audit
@@ -174,8 +202,12 @@ pub struct BatchSummary {
 }
 
 impl BatchReport {
-    /// Create a batch report from individual reports
-    pub fn from_reports(reports: Vec<AuditReport>, total_duration_ms: u64) -> Self {
+    /// Create a batch report from individual reports and errors
+    pub fn from_reports(
+        reports: Vec<AuditReport>,
+        errors: Vec<BatchError>,
+        total_duration_ms: u64,
+    ) -> Self {
         let total_urls = reports.len();
         let passed = reports.iter().filter(|r| r.passed()).count();
         let failed = total_urls - passed;
@@ -190,6 +222,7 @@ impl BatchReport {
 
         Self {
             reports,
+            errors,
             summary: BatchSummary {
                 total_urls,
                 passed,
@@ -210,7 +243,12 @@ mod tests {
     #[test]
     fn test_audit_report_new() {
         let results = WcagResults::new();
-        let report = AuditReport::new("https://example.com".to_string(), results, 500);
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            500,
+        );
 
         assert_eq!(report.url, "https://example.com");
         assert_eq!(report.score, 100.0); // No violations = perfect score
@@ -224,14 +262,130 @@ mod tests {
     #[test]
     fn test_batch_report() {
         let reports = vec![
-            AuditReport::new("https://a.com".to_string(), WcagResults::new(), 100),
-            AuditReport::new("https://b.com".to_string(), WcagResults::new(), 200),
+            AuditReport::new(
+                "https://a.com".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            ),
+            AuditReport::new(
+                "https://b.com".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                200,
+            ),
         ];
 
-        let batch = BatchReport::from_reports(reports, 300);
+        let batch = BatchReport::from_reports(reports, vec![], 300);
 
         assert_eq!(batch.summary.total_urls, 2);
         assert_eq!(batch.summary.passed, 2);
         assert_eq!(batch.summary.average_score, 100.0);
+    }
+
+    #[test]
+    fn test_passed_with_perfect_score() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        assert!(report.passed());
+    }
+
+    #[test]
+    fn test_passed_with_critical_violation() {
+        let mut results = WcagResults::new();
+        results.add_violation(crate::wcag::Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            crate::wcag::Severity::Critical,
+            "Missing alt",
+            "node-1",
+        ));
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        );
+        assert!(!report.passed());
+    }
+
+    #[test]
+    fn test_overall_score_wcag_only() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        // WCAG only: overall = WCAG score
+        assert_eq!(report.overall_score(), 100);
+    }
+
+    #[test]
+    fn test_overall_score_weighted() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        // WCAG = 100 (weight 40), Security = 50 (weight 10)
+        report.security = Some(crate::security::SecurityAnalysis {
+            score: 50,
+            grade: "D".to_string(),
+            headers: Default::default(),
+            ssl: Default::default(),
+            issues: vec![],
+            recommendations: vec![],
+        });
+        // Weighted: (100*40 + 50*10) / (40+10) = 4500/50 = 90
+        assert_eq!(report.overall_score(), 90);
+    }
+
+    #[test]
+    fn test_with_builder_methods() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+
+        let report = report.with_security(crate::security::SecurityAnalysis {
+            score: 80,
+            grade: "A".to_string(),
+            headers: Default::default(),
+            ssl: Default::default(),
+            issues: vec![],
+            recommendations: vec![],
+        });
+
+        assert!(report.security.is_some());
+        assert_eq!(report.security.as_ref().unwrap().score, 80);
+    }
+
+    #[test]
+    fn test_violation_count() {
+        let mut results = WcagResults::new();
+        results.add_violation(crate::wcag::Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            crate::wcag::Severity::Serious,
+            "Missing alt",
+            "node-1",
+        ));
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        );
+        assert_eq!(report.violation_count(), 1);
     }
 }

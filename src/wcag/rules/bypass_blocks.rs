@@ -104,15 +104,23 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
 /// Check for skip navigation link
 fn has_skip_navigation(tree: &AXTree) -> bool {
     let skip_patterns = [
-        "skip to", "skip navigation", "skip to content", "skip to main",
-        "jump to", "jump to content", "go to main", "go to content",
+        "skip to",
+        "skip navigation",
+        "skip to content",
+        "skip to main",
+        "jump to",
+        "jump to content",
+        "go to main",
+        "go to content",
     ];
 
     tree.iter().any(|node| {
         if node.role.as_deref() == Some("link") {
             if let Some(name) = &node.name {
                 let name_lower = name.to_lowercase();
-                return skip_patterns.iter().any(|pattern| name_lower.contains(pattern));
+                return skip_patterns
+                    .iter()
+                    .any(|pattern| name_lower.contains(pattern));
             }
         }
         false
@@ -122,7 +130,8 @@ fn has_skip_navigation(tree: &AXTree) -> bool {
 /// Check if a specific landmark exists
 fn has_landmark(tree: &AXTree, landmark_type: &str) -> bool {
     tree.iter().any(|node| {
-        node.role.as_deref()
+        node.role
+            .as_deref()
             .map(|r| r.to_lowercase() == landmark_type.to_lowercase())
             .unwrap_or(false)
     })
@@ -131,22 +140,31 @@ fn has_landmark(tree: &AXTree, landmark_type: &str) -> bool {
 /// Count total landmarks in the page
 fn count_landmarks(tree: &AXTree) -> usize {
     let landmark_roles = [
-        "banner", "navigation", "main", "complementary",
-        "contentinfo", "region", "search", "form"
+        "banner",
+        "navigation",
+        "main",
+        "complementary",
+        "contentinfo",
+        "region",
+        "search",
+        "form",
     ];
 
-    tree.iter().filter(|node| {
-        node.role.as_deref()
-            .map(|r| landmark_roles.contains(&r.to_lowercase().as_str()))
-            .unwrap_or(false)
-    }).count()
+    tree.iter()
+        .filter(|node| {
+            node.role
+                .as_deref()
+                .map(|r| landmark_roles.contains(&r.to_lowercase().as_str()))
+                .unwrap_or(false)
+        })
+        .count()
 }
 
 /// Count headings in the page
 fn count_headings(tree: &AXTree) -> usize {
-    tree.iter().filter(|node| {
-        node.role.as_deref() == Some("heading")
-    }).count()
+    tree.iter()
+        .filter(|node| node.role.as_deref() == Some("heading"))
+        .count()
 }
 
 #[cfg(test)]
@@ -199,9 +217,7 @@ mod tests {
 
     #[test]
     fn test_has_main_landmark() {
-        let tree = AXTree::from_nodes(vec![
-            create_node("1", "main", None),
-        ]);
+        let tree = AXTree::from_nodes(vec![create_node("1", "main", None)]);
 
         assert!(has_landmark(&tree, "main"));
     }
@@ -217,8 +233,14 @@ mod tests {
         ]);
 
         let results = check_bypass_blocks(&tree);
-        assert!(!results.violations.iter().any(|v| v.message.contains("No skip navigation")));
-        assert!(!results.violations.iter().any(|v| v.message.contains("Missing main landmark")));
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("No skip navigation")));
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Missing main landmark")));
     }
 
     #[test]
@@ -229,6 +251,9 @@ mod tests {
         ]);
 
         let results = check_bypass_blocks(&tree);
-        assert!(results.violations.iter().any(|v| v.message.contains("Missing main landmark")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Missing main landmark")));
     }
 }

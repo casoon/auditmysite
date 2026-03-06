@@ -5,9 +5,11 @@
 use tracing::{debug, info};
 
 use super::rules::{
-    check_bypass_blocks, check_headings, check_info_relationships, check_instructions,
-    check_keyboard, check_labels, check_language, check_link_purpose, check_page_titled,
-    check_section_headings, check_text_alternatives, ContrastRule,
+    check_bypass_blocks, check_focus_order, check_focus_visible, check_headings,
+    check_info_relationships, check_input_purpose, check_instructions, check_keyboard,
+    check_label_in_name, check_labels, check_language, check_link_purpose, check_non_text_contrast,
+    check_on_focus, check_on_input, check_page_titled, check_resize_text, check_section_headings,
+    check_text_alternatives,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -44,9 +46,8 @@ pub fn check_all(tree: &AXTree, level: WcagLevel) -> WcagResults {
     }
 
     info!(
-        "WCAG check complete: {} violations found, score: {}",
-        results.violations.len(),
-        results.calculate_score()
+        "WCAG check complete: {} violations found",
+        results.violations.len()
     );
 
     results
@@ -86,6 +87,22 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults) {
     let instructions_results = check_instructions(tree);
     results.merge(instructions_results);
 
+    // 2.4.3 Focus Order (Level A)
+    let focus_order_results = check_focus_order(tree);
+    results.merge(focus_order_results);
+
+    // 2.5.3 Label in Name (Level A)
+    let label_in_name_results = check_label_in_name(tree);
+    results.merge(label_in_name_results);
+
+    // 3.2.1 On Focus (Level A)
+    let on_focus_results = check_on_focus(tree);
+    results.merge(on_focus_results);
+
+    // 3.2.2 On Input (Level A)
+    let on_input_results = check_on_input(tree);
+    results.merge(on_input_results);
+
     // 4.1.2 Name, Role, Value (Level A)
     let label_results = check_labels(tree);
     results.merge(label_results);
@@ -93,21 +110,34 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults) {
 
 /// Run all Level AA rules
 fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults) {
-    // 1.4.3 Contrast (Minimum) (Level AA)
-    let contrast_violations = ContrastRule::check(tree, WcagLevel::AA);
-    results.violations.extend(contrast_violations);
+    // Note: 1.4.3 Contrast (Minimum) requires CDP page access and is
+    // handled separately in the pipeline via ContrastRule::check_with_page
+
+    // 1.3.5 Identify Input Purpose (Level AA)
+    let input_purpose_results = check_input_purpose(tree);
+    results.merge(input_purpose_results);
+
+    // 1.4.4 Resize Text (Level AA)
+    let resize_results = check_resize_text(tree);
+    results.merge(resize_results);
+
+    // 1.4.11 Non-text Contrast (Level AA)
+    let non_text_contrast_results = check_non_text_contrast(tree);
+    results.merge(non_text_contrast_results);
 
     // 2.4.6 Headings and Labels (Level AA)
     let heading_results = check_headings(tree);
     results.merge(heading_results);
+
+    // 2.4.7 Focus Visible (Level AA)
+    let focus_visible_results = check_focus_visible(tree);
+    results.merge(focus_visible_results);
 }
 
 /// Run all Level AAA rules
 fn run_level_aaa_rules(tree: &AXTree, results: &mut WcagResults) {
-    // 1.4.6 Contrast (Enhanced) - would need 7:1 ratio
-    // This is handled by ContrastRule with WcagLevel::AAA parameter
-    let contrast_violations = ContrastRule::check(tree, WcagLevel::AAA);
-    results.violations.extend(contrast_violations);
+    // Note: 1.4.6 Contrast (Enhanced) requires CDP page access and is
+    // handled separately in the pipeline via ContrastRule::check_with_page
 
     // 2.4.10 Section Headings (Level AAA)
     let section_results = check_section_headings(tree);

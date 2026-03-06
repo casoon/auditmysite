@@ -1,33 +1,29 @@
-# typed: false
-# frozen_string_literal: true
+# Homebrew formula for auditmysite
+# Install: brew install casoon/tap/auditmysite
+# Or from local tap: brew tap casoon/tap && brew install auditmysite
 
-# Homebrew formula for auditmysite CLI
-# This file should be copied to your homebrew-tap repository
 class Auditmysite < Formula
-  desc "Lightning-fast WCAG accessibility auditing written in Rust"
+  desc "WCAG 2.1 accessibility checker using Chrome's Accessibility Tree"
   homepage "https://github.com/casoon/auditmysite"
-  version "0.2.1"
-  license "MIT"
+  version "0.4.0"
+  license "LGPL-3.0-or-later"
 
   on_macos do
     on_arm do
-      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-aarch64-apple-darwin.tar.gz"
-      sha256 "f2779c34752601cc8510f2b63faafc824ed52320484764390541aedc1bed4f65"
+      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-macos-arm64.tar.gz"
+      # sha256 will be filled after first release
     end
+
     on_intel do
-      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-x86_64-apple-darwin.tar.gz"
-      sha256 "PLACEHOLDER_SHA256_X86_64"
+      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-macos-x64.tar.gz"
+      # sha256 will be filled after first release
     end
   end
 
   on_linux do
-    on_arm do
-      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "PLACEHOLDER_SHA256_LINUX_ARM64"
-    end
     on_intel do
-      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "PLACEHOLDER_SHA256_LINUX_X86_64"
+      url "https://github.com/casoon/auditmysite/releases/download/v#{version}/auditmysite-linux-x64.tar.gz"
+      # sha256 will be filled after first release
     end
   end
 
@@ -36,6 +32,6 @@ class Auditmysite < Formula
   end
 
   test do
-    system "#{bin}/auditmysite", "--version"
+    assert_match "auditmysite", shell_output("#{bin}/auditmysite --version")
   end
 end

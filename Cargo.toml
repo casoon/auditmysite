@@ -1,6 +1,6 @@
 [package]
 name = "auditmysite"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
@@ -44,9 +44,6 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Sitemap parsing (for batch processing)
-sitemap = "0.4"
-
 # HTTP client (for sitemap fetching and Chromium download)
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
 
@@ -56,8 +53,11 @@ zip = "2.2"
 # Home directory detection
 dirs = "5.0"
 
+# Config file parsing
+toml = "0.8"
+
 # PDF report generation via Typst
-renderreport = { git = "https://github.com/casoon/renderreport.git", branch = "main" }
+renderreport = { git = "https://github.com/casoon/renderreport.git", branch = "main", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -74,7 +74,5 @@ name = "auditmysite"
 path = "src/main.rs"
 
 [features]
-default = []
-# Future features
-api = []       # REST API server
-desktop = []   # Tauri desktop app
+default = ["pdf"]
+pdf = ["dep:renderreport"]

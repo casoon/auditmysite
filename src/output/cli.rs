@@ -5,8 +5,12 @@
 use colored::Colorize;
 use prettytable::{format, Cell, Row, Table};
 
-use crate::audit::AuditReport;
+use crate::audit::{AuditReport, BatchReport, PerformanceResults};
 use crate::cli::WcagLevel;
+use crate::mobile::MobileFriendliness;
+use crate::security::SecurityAnalysis;
+use crate::seo::SeoAnalysis;
+use crate::util::truncate_url;
 use crate::wcag::{Severity, Violation};
 
 /// Format and print the audit report to the terminal
@@ -17,6 +21,30 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
 
     if !report.wcag_results.violations.is_empty() {
         print_violations_table(&report.wcag_results.violations);
+    }
+
+    // Optional module results
+    if let Some(ref perf) = report.performance {
+        print_performance_section(perf);
+    }
+    if let Some(ref seo) = report.seo {
+        print_seo_section(seo);
+    }
+    if let Some(ref sec) = report.security {
+        print_security_section(sec);
+    }
+    if let Some(ref mobile) = report.mobile {
+        print_mobile_section(mobile);
+    }
+
+    // Overall score if multiple modules are active
+    if report.performance.is_some()
+        || report.seo.is_some()
+        || report.security.is_some()
+        || report.mobile.is_some()
+    {
+        println!("  {} {}", "Overall Score:".bold(), report.overall_score());
+        println!();
     }
 
     print_footer(report);
@@ -240,19 +268,183 @@ fn print_footer(report: &AuditReport) {
     println!();
 }
 
-/// Get letter grade from score
-#[allow(dead_code)]
-fn get_grade(score: u8) -> &'static str {
-    match score {
-        95..=100 => "A+",
-        90..=94 => "A",
-        85..=89 => "B+",
-        80..=84 => "B",
-        75..=79 => "C+",
-        70..=74 => "C",
-        60..=69 => "D",
-        _ => "F",
+/// Print performance analysis section
+fn print_performance_section(perf: &PerformanceResults) {
+    println!("{}", "Performance".bold().underline());
+    println!();
+    println!(
+        "  {} {}/100 ({})",
+        "Score:".bold(),
+        perf.score.overall,
+        perf.score.grade.label()
+    );
+
+    if let Some(ref lcp) = perf.vitals.lcp {
+        println!("  {} {:.0}ms ({})", "LCP:".bold(), lcp.value, lcp.rating);
     }
+    if let Some(ref fcp) = perf.vitals.fcp {
+        println!("  {} {:.0}ms ({})", "FCP:".bold(), fcp.value, fcp.rating);
+    }
+    if let Some(ref cls) = perf.vitals.cls {
+        println!("  {} {:.3} ({})", "CLS:".bold(), cls.value, cls.rating);
+    }
+    if let Some(ref ttfb) = perf.vitals.ttfb {
+        println!("  {} {:.0}ms ({})", "TTFB:".bold(), ttfb.value, ttfb.rating);
+    }
+    println!();
+}
+
+/// Print SEO analysis section
+fn print_seo_section(seo: &SeoAnalysis) {
+    println!("{}", "SEO".bold().underline());
+    println!();
+    println!("  {} {}/100", "Score:".bold(), seo.score);
+
+    if let Some(ref title) = seo.meta.title {
+        println!("  {} {}", "Title:".bold(), truncate_url(title, 60));
+    }
+    if seo.headings.h1_count == 0 {
+        println!("  {} {}", "H1:".bold(), "Missing!".red());
+    } else {
+        println!("  {} {} found", "H1:".bold(), seo.headings.h1_count);
+    }
+    if !seo.meta_issues.is_empty() {
+        println!("  {} {} issues", "Meta:".bold(), seo.meta_issues.len());
+    }
+    if seo.structured_data.has_structured_data {
+        println!(
+            "  {} {} schemas detected",
+            "Schema.org:".bold(),
+            seo.structured_data.types.len()
+        );
+    }
+    println!();
+}
+
+/// Print security analysis section
+fn print_security_section(sec: &SecurityAnalysis) {
+    println!("{}", "Security".bold().underline());
+    println!();
+    println!("  {} {}/100 ({})", "Score:".bold(), sec.score, sec.grade);
+    println!("  {} {}/9 present", "Headers:".bold(), sec.headers.count());
+    if sec.ssl.https {
+        println!("  {} Yes", "HTTPS:".bold());
+    } else {
+        println!("  {} {}", "HTTPS:".bold(), "No!".red());
+    }
+    if !sec.issues.is_empty() {
+        println!("  {} {} issues", "Issues:".bold(), sec.issues.len());
+    }
+    println!();
+}
+
+/// Print mobile friendliness section
+fn print_mobile_section(mobile: &MobileFriendliness) {
+    println!("{}", "Mobile Friendliness".bold().underline());
+    println!();
+    println!("  {} {}/100", "Score:".bold(), mobile.score);
+    println!(
+        "  {} {}",
+        "Viewport:".bold(),
+        if mobile.viewport.has_viewport {
+            "Configured".green().to_string()
+        } else {
+            "Missing!".red().to_string()
+        }
+    );
+    if mobile.touch_targets.small_targets > 0 {
+        println!(
+            "  {} {} too small",
+            "Touch Targets:".bold(),
+            mobile.touch_targets.small_targets
+        );
+    }
+    if !mobile.issues.is_empty() {
+        println!("  {} {} issues", "Issues:".bold(), mobile.issues.len());
+    }
+    println!();
+}
+
+/// Print batch results as a table
+pub fn print_batch_table(batch_report: &BatchReport, level: WcagLevel) {
+    println!();
+    println!("{} WCAG {} Batch Audit Results", "═══".cyan(), level);
+    println!();
+
+    // Summary
+    println!(
+        "  {} {} URLs audited",
+        "Total:".bold(),
+        batch_report.summary.total_urls
+    );
+    println!(
+        "  {} {} passed, {} failed",
+        "Status:".bold(),
+        batch_report.summary.passed.to_string().green(),
+        batch_report.summary.failed.to_string().red()
+    );
+    println!(
+        "  {} {:.1}",
+        "Avg Score:".bold(),
+        batch_report.summary.average_score
+    );
+    println!(
+        "  {} {}",
+        "Total Violations:".bold(),
+        batch_report.summary.total_violations
+    );
+    println!(
+        "  {} {}ms",
+        "Duration:".bold(),
+        batch_report.total_duration_ms
+    );
+    println!();
+
+    // Individual results
+    println!("{}", "─".repeat(80));
+    println!(
+        "{:<50} {:>8} {:>10} {:>8}",
+        "URL".bold(),
+        "Score".bold(),
+        "Violations".bold(),
+        "Status".bold()
+    );
+    println!("{}", "─".repeat(80));
+
+    for report in &batch_report.reports {
+        let status = if report.passed() {
+            "PASS".green()
+        } else {
+            "FAIL".red()
+        };
+
+        let score_color = if report.score >= 90.0 {
+            format!("{:.1}", report.score).green()
+        } else if report.score >= 70.0 {
+            format!("{:.1}", report.score).yellow()
+        } else {
+            format!("{:.1}", report.score).red()
+        };
+
+        println!(
+            "{:<50} {:>8} {:>10} {:>8}",
+            truncate_url(&report.url, 48),
+            score_color,
+            report.violation_count(),
+            status
+        );
+    }
+
+    // Show errors if any
+    if !batch_report.errors.is_empty() {
+        println!();
+        println!("{}", "Errors:".red().bold());
+        for err in &batch_report.errors {
+            println!("  {} {}: {}", "✗".red(), err.url, err.error);
+        }
+    }
+
+    println!("{}", "─".repeat(80));
 }
 
 /// Format violations as a simple list (for non-interactive output)
@@ -281,16 +473,6 @@ pub fn format_violations_list(violations: &[Violation]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_get_grade() {
-        assert_eq!(get_grade(100), "A+");
-        assert_eq!(get_grade(95), "A+");
-        assert_eq!(get_grade(90), "A");
-        assert_eq!(get_grade(85), "B+");
-        assert_eq!(get_grade(70), "C");
-        assert_eq!(get_grade(50), "F");
-    }
 
     #[test]
     fn test_format_violations_list() {

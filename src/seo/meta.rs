@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -202,10 +202,7 @@ pub async fn extract_meta_tags(page: &Page) -> Result<MetaTags> {
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let meta: MetaTags = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse meta tags JSON: {}", e);
-        MetaTags::default()
-    });
+    let meta: MetaTags = serde_json::from_str(json_str).unwrap_or_default();
 
     info!(
         "Meta tags: title={}, description={}, viewport={}",

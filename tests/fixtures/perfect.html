@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A perfectly accessible test page for integration testing.">
+    <meta name="robots" content="index, follow">
+    <title>Perfect Accessible Page</title>
+    <style>
+        body { font-family: sans-serif; font-size: 1rem; color: #111; background: #fff; margin: 0; padding: 1em; }
+        a { color: #0056b3; }
+        a:focus, button:focus, input:focus { outline: 2px solid #0056b3; }
+        nav a { padding: 12px 16px; display: inline-block; }
+        button, input[type="submit"] { min-width: 44px; min-height: 44px; padding: 10px 20px; }
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <a href="#main" class="skip-link">Skip to main content</a>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/">Home</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
+        </nav>
+    </header>
+    <main id="main">
+        <h1>Welcome to the Test Page</h1>
+        <p>This page is designed to pass all WCAG 2.1 checks at Level AA.</p>
+
+        <section aria-labelledby="form-heading">
+            <h2 id="form-heading">Contact Form</h2>
+            <form>
+                <div>
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" autocomplete="name">
+                </div>
+                <div>
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" autocomplete="email">
+                </div>
+                <div>
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message"></textarea>
+                </div>
+                <button type="submit">Send Message</button>
+            </form>
+        </section>
+
+        <section aria-labelledby="content-heading">
+            <h2 id="content-heading">Content Section</h2>
+            <p>Some paragraph text with sufficient contrast ratio against the white background.</p>
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Placeholder image for testing">
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Test Page</p>
+    </footer>
+</body>
+</html>

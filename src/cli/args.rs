@@ -6,7 +6,7 @@ use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// auditmysite - Resource-efficient WCAG 2.1 Accessibility Checker
+/// AuditMySit - Resource-efficient WCAG 2.1 Accessibility Checker
 ///
 /// Analyzes web pages for WCAG accessibility violations using
 /// Chrome DevTools Protocol and the Accessibility Tree.
@@ -16,7 +16,7 @@ use std::path::PathBuf;
     version,
     author,
     about = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust",
-    long_about = "auditmysite analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
+    long_about = "AuditMySit analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
                   It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
                   - Missing alt text on images (1.1.1)\n\
                   - Heading hierarchy issues (2.4.6)\n\
@@ -56,7 +56,7 @@ pub struct Args {
     /// json: Machine-readable JSON
     /// table: Human-readable CLI table
     /// html: Interactive HTML report
-    #[arg(short = 'f', long, default_value = "pdf", value_enum)]
+    #[arg(short = 'f', long, default_value = "table", value_enum)]
     pub format: OutputFormat,
 
     /// Output file path (stdout if not specified)
@@ -108,6 +108,26 @@ pub struct Args {
     /// Detect Chrome and print path (then exit)
     #[arg(long)]
     pub detect_chrome: bool,
+
+    /// Run all checks (Performance + SEO + Security + Mobile)
+    #[arg(long)]
+    pub full: bool,
+
+    /// Enable performance analysis (Core Web Vitals)
+    #[arg(long)]
+    pub performance: bool,
+
+    /// Enable SEO analysis (meta tags, headings, schema.org)
+    #[arg(long)]
+    pub seo: bool,
+
+    /// Enable security header analysis
+    #[arg(long)]
+    pub security: bool,
+
+    /// Enable mobile friendliness check
+    #[arg(long)]
+    pub mobile: bool,
 }
 
 /// WCAG conformance levels
@@ -147,11 +167,12 @@ pub enum OutputFormat {
     /// HTML report output
     #[value(name = "html")]
     Html,
+    /// Markdown output
+    #[value(name = "markdown", alias = "md")]
     /// PDF report output (via Typst)
     #[value(name = "pdf")]
     Pdf,
-    /// Markdown output
-    #[value(name = "markdown", alias = "md")]
+
     Markdown,
 }
 
@@ -267,6 +288,11 @@ mod tests {
             verbose: false,
             quiet: false,
             detect_chrome: false,
+            full: false,
+            performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
         };
         assert!(args.validate().is_err());
     }
@@ -290,6 +316,11 @@ mod tests {
             verbose: false,
             quiet: false,
             detect_chrome: false,
+            full: false,
+            performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
         };
         assert!(args.validate().is_ok());
     }
@@ -313,6 +344,11 @@ mod tests {
             verbose: false,
             quiet: false,
             detect_chrome: false,
+            full: false,
+            performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
         };
         assert!(args.validate().is_err());
     }
@@ -336,6 +372,11 @@ mod tests {
             verbose: true,
             quiet: true,
             detect_chrome: false,
+            full: false,
+            performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
         };
         assert!(args.validate().is_err());
     }

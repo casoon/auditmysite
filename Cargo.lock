@@ -157,7 +157,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auditmysite"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "chromiumoxide",
@@ -172,11 +172,11 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "sitemap",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tokio-test",
+ "toml",
  "tracing",
  "tracing-subscriber",
  "url",
@@ -451,15 +451,6 @@ dependencies = [
  "serde",
  "wasm-bindgen",
  "windows-link 0.2.1",
-]
-
-[[package]]
-name = "chrono_utils"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f69ed74e2117892a1a4e05d31f6612178e8e827bfbd83bbf8ca8c1bcfbda710"
-dependencies = [
- "chrono",
 ]
 
 [[package]]
@@ -2590,7 +2581,6 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 [[package]]
 name = "renderreport"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/casoon/renderreport.git?branch=main#17b9b8d9d9f9db00200d73d9b54eec89013ba08e"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2935,18 +2925,6 @@ name = "siphasher"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2aa850e253778c88a04c3d7323b043aeda9d3e30d5971937c1855769763678e"
-
-[[package]]
-name = "sitemap"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c697e1d88854f66d7d805e8b532e341661a4b8f49fab419be8e82b0cafdeb4d"
-dependencies = [
- "chrono",
- "chrono_utils",
- "url",
- "xml-rs",
-]
 
 [[package]]
 name = "skrifa"
@@ -4685,21 +4663,6 @@ name = "writeable"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9edde0db4769d2dc68579893f2306b26c6ecfbe0ef499b013d731b7b9247e0b9"
-
-[[package]]
-name = "xml"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8aa498d22c9bbaf482329839bc5620c46be275a19a812e9a22a2b07529a642a"
-
-[[package]]
-name = "xml-rs"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3a56132a0d6ecbe77352edc10232f788fc4ceefefff4cab784a98e0e16b6b51"
-dependencies = [
- "xml",
-]
 
 [[package]]
 name = "xmlparser"
