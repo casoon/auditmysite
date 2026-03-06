@@ -9,8 +9,8 @@ use std::sync::Arc;
 use clap::Parser;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use tracing::{error, info, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{error, info};
+use tracing_subscriber::EnvFilter;
 
 use auditmysite::audit::{
     parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, BatchConfig,
@@ -69,16 +69,16 @@ async fn main() {
 
 /// Setup tracing/logging based on CLI flags
 fn setup_logging(args: &Args) {
-    let level = if args.quiet {
-        Level::ERROR
+    let filter = if args.quiet {
+        "error,chromiumoxide=off,tungstenite=off".to_string()
     } else if args.verbose {
-        Level::DEBUG
+        "debug,chromiumoxide=info,tungstenite=warn".to_string()
     } else {
-        Level::INFO
+        "warn,chromiumoxide=off,tungstenite=off,auditmysite=warn".to_string()
     };
 
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(level)
+    let subscriber = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(filter))
         .with_target(false)
         .with_thread_ids(false)
         .with_file(false)
