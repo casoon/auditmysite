@@ -1,7 +1,8 @@
-//! Presentation model for PDF reports
+//! Report ViewModel — structured, block-based presentation model
 //!
-//! Transforms raw audit data into a structured, customer-facing report model
-//! with grouped findings, explanations, and prioritized action plans.
+//! Transforms raw audit data into a ViewModel where each block maps 1:1
+//! to a report section. The renderer (pdf.rs) only calls add_component()
+//! with data from the ViewModel — zero data transformation in the renderer.
 
 use std::path::PathBuf;
 
@@ -24,6 +25,8 @@ impl Default for ReportConfig {
         }
     }
 }
+
+// ─── Shared Enums ───────────────────────────────────────────────────────────
 
 /// Priority level for findings and actions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -68,11 +71,8 @@ impl Role {
 /// Effort estimate for a fix
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Effort {
-    /// Quick fix, low effort
     Quick,
-    /// Requires some planning
     Medium,
-    /// Structural change, significant effort
     Structural,
 }
 
@@ -86,56 +86,145 @@ impl Effort {
     }
 }
 
-// ─── Single Report Presentation ─────────────────────────────────────────────
+// ─── Report ViewModel (Single Report) ───────────────────────────────────────
 
-/// Complete presentation model for a single audit report
-pub struct ReportPresentation {
-    pub cover: CoverData,
-    pub brief_verdict: BriefVerdict,
-    pub methodology: MethodologySection,
-    pub executive_summary: ExecutiveSummary,
-    pub top_findings: Vec<FindingGroup>,
-    pub score_breakdown: ScoreBreakdown,
-    pub accessibility_details: Vec<FindingGroup>,
-    pub module_details: ModuleDetails,
-    pub action_plan: ActionPlan,
-    pub positive_aspects: Vec<PositiveAspect>,
-    pub appendix: AppendixData,
+/// Complete ViewModel for a single audit report.
+/// Each block maps 1:1 to a report section — the renderer does zero data transformation.
+pub struct ReportViewModel {
+    pub meta: MetaBlock,
+    pub cover: CoverBlock,
+    pub summary: SummaryBlock,
+    pub methodology: MethodologyBlock,
+    pub modules: ModulesBlock,
+    pub severity: SeverityBlock,
+    pub findings: FindingsBlock,
+    pub module_details: ModuleDetailsBlock,
+    pub actions: ActionsBlock,
+    pub appendix: AppendixBlock,
+}
+
+/// Report metadata for engine setup
+pub struct MetaBlock {
+    pub title: String,
+    pub subtitle: String,
+    pub date: String,
+    pub version: String,
+    pub author: String,
+    pub report_level: ReportLevel,
+    pub score_label: String,
 }
 
 /// Cover page data
-pub struct CoverData {
+pub struct CoverBlock {
+    pub brand: String,
     pub title: String,
-    pub url: String,
+    pub domain: String,
+    pub subtitle: String,
     pub date: String,
-    pub version: String,
-}
-
-/// One-page brief verdict
-pub struct BriefVerdict {
-    pub score: f32,
+    pub score: u32,
     pub grade: String,
-    pub verdict_text: String,
-    pub critical_count: usize,
-    pub total_violations: usize,
-    pub top_actions: Vec<String>,
+    pub total_issues: u32,
+    pub critical_issues: u32,
+    pub modules: Vec<String>,
 }
 
-/// Methodology section explaining what was tested
-pub struct MethodologySection {
+/// Hero summary / Kurzfazit data
+pub struct SummaryBlock {
+    pub score: u32,
+    pub grade: String,
+    pub domain: String,
+    pub date: String,
+    pub verdict: String,
+    pub metrics: Vec<MetricItem>,
+    pub top_actions: Vec<String>,
+    pub positive_aspects: Vec<String>,
+}
+
+/// A single KPI metric for the hero summary
+pub struct MetricItem {
+    pub title: String,
+    pub value: String,
+    pub accent_color: Option<String>,
+}
+
+/// Methodology section
+pub struct MethodologyBlock {
     pub scope: String,
     pub method: String,
     pub limitations: String,
     pub disclaimer: String,
 }
 
-/// Executive summary for management
-pub struct ExecutiveSummary {
-    pub overall_assessment: String,
-    pub key_risks: Vec<String>,
-    pub positive_highlights: Vec<String>,
-    pub priorities: Vec<String>,
+/// Module scores for dashboard and comparison
+pub struct ModulesBlock {
+    pub dashboard: Vec<ModuleScore>,
+    pub overall_score: Option<u32>,
+    pub overall_interpretation: Option<String>,
 }
+
+/// A single module's score data
+pub struct ModuleScore {
+    pub name: String,
+    pub score: u32,
+    pub interpretation: String,
+    pub good_threshold: u32,
+    pub warn_threshold: u32,
+}
+
+/// Pre-computed severity breakdown
+pub struct SeverityBlock {
+    pub critical: u32,
+    pub serious: u32,
+    pub moderate: u32,
+    pub minor: u32,
+    pub total: u32,
+    pub has_issues: bool,
+}
+
+/// Grouped findings, already sorted by impact
+pub struct FindingsBlock {
+    pub top_findings: Vec<FindingGroup>,
+    pub all_findings: Vec<FindingGroup>,
+}
+
+/// Module detail presentations (unchanged from before)
+pub struct ModuleDetailsBlock {
+    pub performance: Option<PerformancePresentation>,
+    pub seo: Option<SeoPresentation>,
+    pub security: Option<SecurityPresentation>,
+    pub mobile: Option<MobilePresentation>,
+    pub has_any: bool,
+}
+
+/// Action plan as pre-mapped roadmap columns
+pub struct ActionsBlock {
+    pub roadmap_columns: Vec<RoadmapColumnData>,
+    pub role_assignments: Vec<RoleAssignment>,
+    pub intro_text: String,
+}
+
+pub struct RoadmapColumnData {
+    pub title: String,
+    pub accent_color: String,
+    pub items: Vec<RoadmapItemData>,
+}
+
+pub struct RoadmapItemData {
+    pub action: String,
+    pub role: String,
+    pub priority: String,
+    pub effort: String,
+    pub benefit: String,
+}
+
+/// Technical appendix
+pub struct AppendixBlock {
+    pub violations: Vec<AppendixViolation>,
+    pub score_methodology: String,
+    pub has_violations: bool,
+}
+
+// ─── Finding Types (shared between single and batch) ────────────────────────
 
 /// A grouped finding with customer-facing explanation
 pub struct FindingGroup {
@@ -164,35 +253,19 @@ pub struct ExampleBlock {
     pub decorative: Option<String>,
 }
 
-/// Score breakdown with interpretation per module
-pub struct ScoreBreakdown {
-    pub accessibility: ScoreDetail,
-    pub performance: Option<ScoreDetail>,
-    pub seo: Option<ScoreDetail>,
-    pub security: Option<ScoreDetail>,
-    pub mobile: Option<ScoreDetail>,
-    pub overall: Option<ScoreDetail>,
+/// Positive aspect of the audit
+pub struct PositiveAspect {
+    pub area: String,
+    pub description: String,
 }
 
-pub struct ScoreDetail {
-    pub score: u32,
-    pub label: String,
-    pub interpretation: String,
-}
-
-/// Details for non-accessibility modules
-pub struct ModuleDetails {
-    pub performance: Option<PerformancePresentation>,
-    pub seo: Option<SeoPresentation>,
-    pub security: Option<SecurityPresentation>,
-    pub mobile: Option<MobilePresentation>,
-}
+// ─── Module Detail Presentations ────────────────────────────────────────────
 
 pub struct PerformancePresentation {
     pub score: u32,
     pub grade: String,
     pub interpretation: String,
-    pub vitals: Vec<(String, String, String)>, // (name, value, rating)
+    pub vitals: Vec<(String, String, String)>,
     pub additional_metrics: Vec<(String, String)>,
 }
 
@@ -200,7 +273,7 @@ pub struct SeoPresentation {
     pub score: u32,
     pub interpretation: String,
     pub meta_tags: Vec<(String, String)>,
-    pub meta_issues: Vec<(String, String, String)>, // (field, severity, message)
+    pub meta_issues: Vec<(String, String, String)>,
     pub heading_summary: String,
     pub social_summary: String,
     pub technical_summary: Vec<(String, String)>,
@@ -210,9 +283,9 @@ pub struct SecurityPresentation {
     pub score: u32,
     pub grade: String,
     pub interpretation: String,
-    pub headers: Vec<(String, String, String)>, // (name, status, value)
+    pub headers: Vec<(String, String, String)>,
     pub ssl_info: Vec<(String, String)>,
-    pub issues: Vec<(String, String, String)>, // (title, severity, message)
+    pub issues: Vec<(String, String, String)>,
     pub recommendations: Vec<String>,
 }
 
@@ -223,16 +296,10 @@ pub struct MobilePresentation {
     pub touch_targets: Vec<(String, String)>,
     pub font_analysis: Vec<(String, String)>,
     pub content_sizing: Vec<(String, String)>,
-    pub issues: Vec<(String, String, String)>, // (category, severity, message)
+    pub issues: Vec<(String, String, String)>,
 }
 
-/// Action plan with quick wins and structural measures
-pub struct ActionPlan {
-    pub quick_wins: Vec<ActionItem>,
-    pub medium_term: Vec<ActionItem>,
-    pub structural: Vec<ActionItem>,
-    pub role_assignments: Vec<RoleAssignment>,
-}
+// ─── Shared Helper Types ────────────────────────────────────────────────────
 
 pub struct ActionItem {
     pub action: String,
@@ -246,29 +313,31 @@ pub struct RoleAssignment {
     pub responsibilities: Vec<String>,
 }
 
-/// Positive aspect of the audit
-pub struct PositiveAspect {
-    pub area: String,
-    pub description: String,
-}
-
-/// Technical appendix data
-pub struct AppendixData {
-    pub violations: Vec<AppendixViolation>,
-    pub score_methodology: String,
-}
-
+/// Aggregated violation: one entry per WCAG rule, with all affected elements
 pub struct AppendixViolation {
     pub rule: String,
     pub rule_name: String,
     pub severity: String,
     pub message: String,
-    pub node_id: String,
-    pub selector: Option<String>,
     pub fix_suggestion: Option<String>,
+    pub affected_elements: Vec<AffectedElement>,
+}
+
+/// Single affected element within an aggregated violation
+pub struct AffectedElement {
+    pub selector: String,
+    pub node_id: String,
 }
 
 // ─── Batch Report Presentation ──────────────────────────────────────────────
+
+/// Cover data (used by batch reports)
+pub struct CoverData {
+    pub title: String,
+    pub url: String,
+    pub date: String,
+    pub version: String,
+}
 
 /// Complete presentation model for a batch audit report
 pub struct BatchPresentation {
@@ -282,7 +351,13 @@ pub struct BatchPresentation {
     pub appendix: BatchAppendixData,
 }
 
-/// Portfolio overview for batch reports
+pub struct ActionPlan {
+    pub quick_wins: Vec<ActionItem>,
+    pub medium_term: Vec<ActionItem>,
+    pub structural: Vec<ActionItem>,
+    pub role_assignments: Vec<RoleAssignment>,
+}
+
 pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
@@ -296,7 +371,6 @@ pub struct PortfolioSummary {
     pub severity_distribution: SeverityDistribution,
 }
 
-/// Distribution of violations by severity level (for charts)
 pub struct SeverityDistribution {
     pub critical: usize,
     pub serious: usize,
@@ -304,7 +378,6 @@ pub struct SeverityDistribution {
     pub minor: usize,
 }
 
-/// Frequency table for most common issues
 pub struct IssueFrequency {
     pub problem: String,
     pub wcag: String,
@@ -313,7 +386,6 @@ pub struct IssueFrequency {
     pub priority: Priority,
 }
 
-/// URL ranking entry for overview table
 pub struct UrlSummary {
     pub url: String,
     pub score: f32,
@@ -324,7 +396,6 @@ pub struct UrlSummary {
     pub priority: Priority,
 }
 
-/// Compact per-URL summary (not full detail)
 pub struct CompactUrlSummary {
     pub url: String,
     pub score: f32,
@@ -333,7 +404,6 @@ pub struct CompactUrlSummary {
     pub module_scores: Vec<(String, u32)>,
 }
 
-/// Batch appendix with all raw details
 pub struct BatchAppendixData {
     pub per_url: Vec<UrlAppendix>,
 }
