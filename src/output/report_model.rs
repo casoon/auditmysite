@@ -123,6 +123,7 @@ pub struct CoverBlock {
     pub date: String,
     pub score: u32,
     pub grade: String,
+    pub certificate: String,
     pub total_issues: u32,
     pub critical_issues: u32,
     pub modules: Vec<String>,
@@ -132,6 +133,7 @@ pub struct CoverBlock {
 pub struct SummaryBlock {
     pub score: u32,
     pub grade: String,
+    pub certificate: String,
     pub domain: String,
     pub date: String,
     pub verdict: String,
@@ -174,9 +176,9 @@ pub struct ModuleScore {
 /// Pre-computed severity breakdown
 pub struct SeverityBlock {
     pub critical: u32,
-    pub serious: u32,
-    pub moderate: u32,
-    pub minor: u32,
+    pub high: u32,
+    pub medium: u32,
+    pub low: u32,
     pub total: u32,
     pub has_issues: bool,
 }
@@ -229,8 +231,12 @@ pub struct AppendixBlock {
 /// A grouped finding with customer-facing explanation
 pub struct FindingGroup {
     pub title: String,
+    pub rule_id: String,
     pub wcag_criterion: String,
     pub wcag_level: String,
+    pub dimension: Option<String>,
+    pub subcategory: Option<String>,
+    pub issue_class: Option<String>,
     pub severity: Severity,
     pub priority: Priority,
     pub customer_description: String,
@@ -273,10 +279,34 @@ pub struct SeoPresentation {
     pub score: u32,
     pub interpretation: String,
     pub meta_tags: Vec<(String, String)>,
-    pub meta_issues: Vec<(String, String, String)>,
+    pub meta_issues: Vec<(String, Severity, String)>,
     pub heading_summary: String,
     pub social_summary: String,
     pub technical_summary: Vec<(String, String)>,
+    pub profile: Option<SeoProfilePresentation>,
+}
+
+/// SEO Content Profile presentation data
+pub struct SeoProfilePresentation {
+    // Content Identity
+    pub identity_summary: String,
+    pub site_name: String,
+    pub content_type: String,
+    pub language: String,
+    pub category_hints: Vec<String>,
+    // Schema Inventory: (type, completeness%, details)
+    pub schema_rows: Vec<(String, String, String)>,
+    pub schema_count: usize,
+    // Signal Strength: (category, score%, rating_label)
+    pub signal_rows: Vec<(String, String, String)>,
+    pub signal_overall_pct: u32,
+    // Signal Details: (category_name, [(check_label, passed, detail)])
+    pub signal_details: Vec<(String, Vec<(String, bool, String)>)>,
+    // Maturity
+    pub maturity_level: String,
+    pub maturity_description: String,
+    pub maturity_techniques_used: u32,
+    pub maturity_techniques_total: u32,
 }
 
 pub struct SecurityPresentation {
@@ -285,7 +315,7 @@ pub struct SecurityPresentation {
     pub interpretation: String,
     pub headers: Vec<(String, String, String)>,
     pub ssl_info: Vec<(String, String)>,
-    pub issues: Vec<(String, String, String)>,
+    pub issues: Vec<(String, Severity, String)>,
     pub recommendations: Vec<String>,
 }
 
@@ -296,7 +326,7 @@ pub struct MobilePresentation {
     pub touch_targets: Vec<(String, String)>,
     pub font_analysis: Vec<(String, String)>,
     pub content_sizing: Vec<(String, String)>,
-    pub issues: Vec<(String, String, String)>,
+    pub issues: Vec<(String, Severity, String)>,
 }
 
 // ─── Shared Helper Types ────────────────────────────────────────────────────
@@ -317,7 +347,7 @@ pub struct RoleAssignment {
 pub struct AppendixViolation {
     pub rule: String,
     pub rule_name: String,
-    pub severity: String,
+    pub severity: Severity,
     pub message: String,
     pub fix_suggestion: Option<String>,
     pub affected_elements: Vec<AffectedElement>,
@@ -373,9 +403,9 @@ pub struct PortfolioSummary {
 
 pub struct SeverityDistribution {
     pub critical: usize,
-    pub serious: usize,
-    pub moderate: usize,
-    pub minor: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
 }
 
 pub struct IssueFrequency {

@@ -12,7 +12,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     id: "2.4.6",
     name: "Headings and Labels",
     level: WcagLevel::AA,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "Headings and labels describe topic or purpose",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/headings-and-labels.html",
 };
@@ -61,7 +61,7 @@ fn check_empty_heading(heading: &AXNode, results: &mut WcagResults) {
             RULE_META.id,
             RULE_META.name,
             RULE_META.level,
-            Severity::Serious,
+            Severity::High,
             format!("Heading level {} is empty", level),
             &heading.node_id,
         )
@@ -97,7 +97,7 @@ fn check_heading_hierarchy(headings: &[&AXNode], results: &mut WcagResults) {
                     "1.3.1", // Info and Relationships
                     "Heading Hierarchy",
                     WcagLevel::A,
-                    Severity::Moderate,
+                    Severity::Medium,
                     format!(
                         "Heading level skipped from h{} to h{} (should not skip levels)",
                         prev, level
@@ -138,7 +138,7 @@ fn check_multiple_h1(headings: &[&AXNode], results: &mut WcagResults) {
                 RULE_META.id,
                 RULE_META.name,
                 RULE_META.level,
-                Severity::Minor,
+                Severity::Low,
                 format!(
                     "Multiple h1 elements found (this is h1 #{}, best practice is to have only one)",
                     i + 1
@@ -169,7 +169,7 @@ fn check_missing_h1(headings: &[&AXNode], results: &mut WcagResults) {
                 RULE_META.id,
                 RULE_META.name,
                 RULE_META.level,
-                Severity::Minor,
+                Severity::Low,
                 "Page is missing an h1 element (main heading)",
                 &first_heading.node_id,
             )

@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Extracted meta tags
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -38,8 +39,8 @@ pub struct MetaValidation {
     pub field: String,
     /// Issue description
     pub message: String,
-    /// Severity: "error", "warning", "info"
-    pub severity: String,
+    /// Severity
+    pub severity: Severity,
     /// Suggested fix
     pub suggestion: Option<String>,
 }
@@ -55,7 +56,7 @@ impl MetaTags {
                 issues.push(MetaValidation {
                     field: "title".to_string(),
                     message: "Missing page title".to_string(),
-                    severity: "error".to_string(),
+                    severity: Severity::High,
                     suggestion: Some("Add a <title> tag to the page".to_string()),
                 });
             }
@@ -65,14 +66,14 @@ impl MetaTags {
                     issues.push(MetaValidation {
                         field: "title".to_string(),
                         message: format!("Title is too short ({} chars, recommended: 30-60)", len),
-                        severity: "warning".to_string(),
+                        severity: Severity::Medium,
                         suggestion: Some("Expand title to 30-60 characters".to_string()),
                     });
                 } else if len > 60 {
                     issues.push(MetaValidation {
                         field: "title".to_string(),
                         message: format!("Title is too long ({} chars, recommended: 30-60)", len),
-                        severity: "warning".to_string(),
+                        severity: Severity::Medium,
                         suggestion: Some("Shorten title to under 60 characters".to_string()),
                     });
                 }
@@ -85,7 +86,7 @@ impl MetaTags {
                 issues.push(MetaValidation {
                     field: "description".to_string(),
                     message: "Missing meta description".to_string(),
-                    severity: "error".to_string(),
+                    severity: Severity::High,
                     suggestion: Some("Add a meta description tag".to_string()),
                 });
             }
@@ -98,7 +99,7 @@ impl MetaTags {
                             "Description is too short ({} chars, recommended: 120-160)",
                             len
                         ),
-                        severity: "warning".to_string(),
+                        severity: Severity::Medium,
                         suggestion: Some("Expand description to 120-160 characters".to_string()),
                     });
                 } else if len > 160 {
@@ -108,7 +109,7 @@ impl MetaTags {
                             "Description is too long ({} chars, recommended: 120-160)",
                             len
                         ),
-                        severity: "warning".to_string(),
+                        severity: Severity::Medium,
                         suggestion: Some("Shorten description to under 160 characters".to_string()),
                     });
                 }
@@ -120,7 +121,7 @@ impl MetaTags {
             issues.push(MetaValidation {
                 field: "viewport".to_string(),
                 message: "Missing viewport meta tag".to_string(),
-                severity: "error".to_string(),
+                severity: Severity::High,
                 suggestion: Some(
                     "Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
                         .to_string(),
@@ -133,7 +134,7 @@ impl MetaTags {
             issues.push(MetaValidation {
                 field: "lang".to_string(),
                 message: "Missing lang attribute on <html> element".to_string(),
-                severity: "warning".to_string(),
+                severity: Severity::Medium,
                 suggestion: Some("Add lang attribute: <html lang=\"en\">".to_string()),
             });
         }
@@ -143,7 +144,7 @@ impl MetaTags {
             issues.push(MetaValidation {
                 field: "canonical".to_string(),
                 message: "Missing canonical URL".to_string(),
-                severity: "info".to_string(),
+                severity: Severity::Low,
                 suggestion: Some("Add <link rel=\"canonical\" href=\"...\">".to_string()),
             });
         }
@@ -225,7 +226,7 @@ mod tests {
 
         assert!(issues
             .iter()
-            .any(|i| i.field == "title" && i.severity == "error"));
+            .any(|i| i.field == "title" && i.severity == Severity::High));
     }
 
     #[test]
@@ -238,7 +239,7 @@ mod tests {
 
         assert!(issues
             .iter()
-            .any(|i| i.field == "title" && i.severity == "warning"));
+            .any(|i| i.field == "title" && i.severity == Severity::Medium));
     }
 
     #[test]
@@ -253,8 +254,8 @@ mod tests {
         };
         let issues = meta.validate();
 
-        // Should have no errors
-        assert!(!issues.iter().any(|i| i.severity == "error"));
+        // Should have no errors (High or Critical)
+        assert!(!issues.iter().any(|i| matches!(i.severity, Severity::High | Severity::Critical)));
     }
 
     #[test]

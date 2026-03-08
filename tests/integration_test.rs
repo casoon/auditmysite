@@ -211,11 +211,13 @@ async fn test_output_formats() {
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
     // JSON output should be valid JSON
-    let json = auditmysite::format_json(&report, true).expect("JSON formatting failed");
+    let normalized = auditmysite::audit::normalize(&report);
+    let json = auditmysite::format_json_normalized(&normalized, &report, true).expect("JSON formatting failed");
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid JSON output");
-    assert!(parsed.get("url").is_some(), "JSON should contain url field");
+    let report_obj = parsed.get("report").expect("JSON should contain report field");
+    assert!(report_obj.get("url").is_some(), "JSON should contain url field");
     assert!(
-        parsed.get("score").is_some(),
+        report_obj.get("score").is_some(),
         "JSON should contain score field"
     );
 }

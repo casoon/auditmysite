@@ -12,7 +12,7 @@ pub const SECTION_HEADINGS_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.10",
     name: "Section Headings",
     level: WcagLevel::AAA,
-    severity: Severity::Minor,
+    severity: Severity::Low,
     description: "Section headings are used to organize the content",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/section-headings.html",
 };
@@ -78,7 +78,7 @@ pub fn check_section_headings(tree: &AXTree) -> WcagResults {
             SECTION_HEADINGS_RULE.id,
             SECTION_HEADINGS_RULE.name,
             SECTION_HEADINGS_RULE.level,
-            Severity::Minor,
+            Severity::Low,
             "Heading hierarchy has gaps (e.g., h1 to h3 without h2)",
             "page",
         )

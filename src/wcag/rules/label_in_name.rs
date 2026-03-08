@@ -12,7 +12,7 @@ pub const LABEL_IN_NAME_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.3",
     name: "Label in Name",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "The accessible name contains the text that is presented visually",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/label-in-name.html",
 };
@@ -64,7 +64,7 @@ pub fn check_label_in_name(tree: &AXTree) -> WcagResults {
                     LABEL_IN_NAME_RULE.id,
                     LABEL_IN_NAME_RULE.name,
                     LABEL_IN_NAME_RULE.level,
-                    Severity::Serious,
+                    Severity::High,
                     format!(
                         "Accessible name '{}' does not contain visible label '{}'",
                         node.name.as_deref().unwrap_or(""),

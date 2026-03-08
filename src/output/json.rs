@@ -1,19 +1,22 @@
 //! JSON Output Formatter
 //!
-//! Generates machine-readable JSON reports.
+//! Generates machine-readable JSON reports from the NormalizedReport model.
+//! Uses the same score source as PDF output — no more inconsistencies.
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
+use crate::audit::normalized::NormalizedReport;
 use crate::audit::AuditReport;
 use crate::error::Result;
 
-/// Generate JSON output from an audit report
-pub fn format_json(report: &AuditReport, pretty: bool) -> Result<String> {
+/// Generate JSON output from a normalized report
+pub fn format_json_normalized(normalized: &NormalizedReport, report: &AuditReport, pretty: bool) -> Result<String> {
+    let json_report = JsonReport::from_normalized(normalized, report);
     let output = if pretty {
-        serde_json::to_string_pretty(report)
+        serde_json::to_string_pretty(&json_report)
     } else {
-        serde_json::to_string(report)
+        serde_json::to_string(&json_report)
     };
 
     output.map_err(|e| crate::error::AuditError::OutputError {
@@ -21,13 +24,22 @@ pub fn format_json(report: &AuditReport, pretty: bool) -> Result<String> {
     })
 }
 
-/// Extended JSON report with additional metadata
+/// Extended JSON report with metadata + normalized data + module details
 #[derive(Debug, Serialize)]
 pub struct JsonReport {
     /// Report metadata
     pub metadata: ReportMetadata,
-    /// The audit results
-    pub report: AuditReport,
+    /// Normalized audit results (score, grade, certificate, findings with taxonomy)
+    pub report: NormalizedReport,
+    /// Module detail data (performance, SEO, security, mobile)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performance: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seo: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile: Option<serde_json::Value>,
 }
 
 /// Report metadata for JSON output
@@ -44,16 +56,32 @@ pub struct ReportMetadata {
 }
 
 impl JsonReport {
-    /// Create a new JSON report with metadata
-    pub fn new(report: AuditReport, wcag_level: &str, execution_time_ms: u64) -> Self {
+    /// Create a JSON report from normalized data + raw module data
+    pub fn from_normalized(normalized: &NormalizedReport, raw: &AuditReport) -> Self {
         Self {
             metadata: ReportMetadata {
                 tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
                 timestamp: Utc::now(),
-                wcag_level: wcag_level.to_string(),
-                execution_time_ms,
+                wcag_level: normalized.wcag_level.to_string(),
+                execution_time_ms: normalized.duration_ms,
             },
-            report,
+            report: normalized.clone(),
+            performance: raw
+                .performance
+                .as_ref()
+                .and_then(|p| serde_json::to_value(p).ok()),
+            seo: raw
+                .seo
+                .as_ref()
+                .and_then(|s| serde_json::to_value(s).ok()),
+            security: raw
+                .security
+                .as_ref()
+                .and_then(|s| serde_json::to_value(s).ok()),
+            mobile: raw
+                .mobile
+                .as_ref()
+                .and_then(|m| serde_json::to_value(m).ok()),
         }
     }
 
@@ -74,37 +102,81 @@ impl JsonReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audit::AuditReport;
+    use crate::audit::normalized::normalize;
     use crate::cli::WcagLevel;
     use crate::wcag::WcagResults;
 
     #[test]
-    fn test_format_json() {
+    fn test_json_report_normalized() {
         let report = AuditReport::new(
             "https://example.com".to_string(),
             WcagLevel::AA,
             WcagResults::new(),
             500,
         );
+        let normalized = normalize(&report);
+        let output = format_json_normalized(&normalized, &report, true).unwrap();
 
-        let json = format_json(&report, true).unwrap();
-        assert!(json.contains("example.com"));
-        assert!(json.contains("\"score\": 100"));
+        assert!(output.contains("example.com"));
+        assert!(output.contains("\"score\": 100"));
+        assert!(output.contains("\"grade\": \"A\""));
+        assert!(output.contains("\"certificate\": \"PLATINUM\""));
+        assert!(output.contains("\"severity_counts\""));
     }
 
     #[test]
-    fn test_json_report_with_metadata() {
+    fn test_json_has_taxonomy_fields() {
+        use crate::taxonomy::Severity;
+        use crate::wcag::Violation;
+
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        ));
+
         let report = AuditReport::new(
             "https://example.com".to_string(),
             WcagLevel::AA,
-            WcagResults::new(),
-            1200,
+            results,
+            500,
         );
+        let normalized = normalize(&report);
+        let output = format_json_normalized(&normalized, &report, true).unwrap();
 
-        let json_report = JsonReport::new(report, "AA", 1200);
-        let output = json_report.to_json(true).unwrap();
+        assert!(output.contains("\"dimension\""));
+        assert!(output.contains("\"subcategory\""));
+        assert!(output.contains("\"issue_class\""));
+        assert!(output.contains("\"aggregation_key\""));
+        assert!(output.contains("\"user_impact\""));
+    }
 
-        assert!(output.contains("auditmysite"));
-        assert!(output.contains("\"wcag_level\": \"AA\""));
+    #[test]
+    fn test_json_score_matches_normalized() {
+        use crate::taxonomy::Severity;
+        use crate::wcag::Violation;
+
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1", "Alt", WcagLevel::A, Severity::High, "Missing", "n1",
+        ));
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            500,
+        );
+        let normalized = normalize(&report);
+        let json_report = JsonReport::from_normalized(&normalized, &report);
+
+        // JSON score must equal normalized score
+        assert_eq!(json_report.report.score, normalized.score);
+        assert_eq!(json_report.report.grade, normalized.grade);
+        assert_eq!(json_report.report.certificate, normalized.certificate);
     }
 }

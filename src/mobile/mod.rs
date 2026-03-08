@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Mobile friendliness analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,7 +88,7 @@ pub struct MobileIssue {
     pub category: String,
     pub issue_type: String,
     pub message: String,
-    pub severity: String,
+    pub severity: Severity,
     pub impact: String,
 }
 
@@ -266,7 +267,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "viewport".to_string(),
             issue_type: "missing_viewport".to_string(),
             message: "Missing viewport meta tag".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::Critical,
             impact: "Page won't scale properly on mobile devices".to_string(),
         });
     } else if !viewport.is_properly_configured {
@@ -274,7 +275,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "viewport".to_string(),
             issue_type: "improper_viewport".to_string(),
             message: "Viewport is not properly configured".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
             impact: "Page may not display correctly on all devices".to_string(),
         });
     }
@@ -284,7 +285,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "viewport".to_string(),
             issue_type: "not_scalable".to_string(),
             message: "Page disables zooming (user-scalable=no)".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::Critical,
             impact: "Users with visual impairments cannot zoom".to_string(),
         });
     }
@@ -294,7 +295,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "touch_targets".to_string(),
             issue_type: "small_targets".to_string(),
             message: format!("{} touch targets are too small (<44x44px)", small_targets),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
             impact: "Difficult to tap on mobile devices".to_string(),
         });
     }
@@ -307,7 +308,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 "Smallest font size is {}px (recommended: ≥12px)",
                 font_sizes.smallest_font_size
             ),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
             impact: "Text may be difficult to read on mobile".to_string(),
         });
     }
@@ -317,7 +318,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "content".to_string(),
             issue_type: "horizontal_scroll".to_string(),
             message: "Page has horizontal scrolling".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::High,
             impact: "Poor mobile user experience".to_string(),
         });
     }
@@ -325,10 +326,11 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     // Calculate score
     let mut score = 100u32;
     for issue in &issues {
-        score = score.saturating_sub(match issue.severity.as_str() {
-            "error" => 20,
-            "warning" => 10,
-            _ => 5,
+        score = score.saturating_sub(match issue.severity {
+            Severity::Critical => 20,
+            Severity::High => 20,
+            Severity::Medium => 10,
+            Severity::Low => 5,
         });
     }
 

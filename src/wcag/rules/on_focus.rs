@@ -16,7 +16,7 @@ pub const ON_FOCUS_RULE: RuleMetadata = RuleMetadata {
     id: "3.2.1",
     name: "On Focus",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Receiving focus does not initiate a change of context",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/on-focus.html",
 };
@@ -40,7 +40,7 @@ pub fn check_on_focus(tree: &AXTree) -> WcagResults {
                 ON_FOCUS_RULE.id,
                 ON_FOCUS_RULE.name,
                 ON_FOCUS_RULE.level,
-                Severity::Serious,
+                Severity::High,
                 format!(
                     "Non-interactive {} element has onfocus handler which may cause context change",
                     role
@@ -67,7 +67,7 @@ pub fn check_on_focus(tree: &AXTree) -> WcagResults {
                     ON_FOCUS_RULE.id,
                     ON_FOCUS_RULE.name,
                     ON_FOCUS_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     format!(
                         "{} element has autofocus which may cause unexpected context change",
                         role

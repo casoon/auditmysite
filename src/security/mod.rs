@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Security analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,7 +92,7 @@ pub struct SecurityIssue {
     pub header: String,
     pub issue_type: String,
     pub message: String,
-    pub severity: String,
+    pub severity: Severity,
 }
 
 /// Analyze security headers of a URL
@@ -224,7 +225,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "HTTPS".to_string(),
             issue_type: "missing_https".to_string(),
             message: "Site is not served over HTTPS".to_string(),
-            severity: "critical".to_string(),
+            severity: Severity::Critical,
         });
     }
 
@@ -233,7 +234,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Content-Security-Policy".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing Content-Security-Policy header".to_string(),
-            severity: "high".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -242,7 +243,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "X-Content-Type-Options".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing X-Content-Type-Options header".to_string(),
-            severity: "medium".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -251,7 +252,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "X-Frame-Options".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing X-Frame-Options header (clickjacking protection)".to_string(),
-            severity: "medium".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -260,7 +261,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Strict-Transport-Security".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing HSTS header".to_string(),
-            severity: "high".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -269,7 +270,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Referrer-Policy".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing Referrer-Policy header".to_string(),
-            severity: "low".to_string(),
+            severity: Severity::Low,
         });
     }
 
@@ -322,12 +323,11 @@ fn calculate_security_score(
 
     // Deduct for issues (includes missing HTTPS as a critical issue)
     for issue in issues {
-        score = score.saturating_sub(match issue.severity.as_str() {
-            "critical" => 25,
-            "high" => 15,
-            "medium" => 10,
-            "low" => 5,
-            _ => 5,
+        score = score.saturating_sub(match issue.severity {
+            Severity::Critical => 25,
+            Severity::High => 15,
+            Severity::Medium => 10,
+            Severity::Low => 5,
         });
     }
 

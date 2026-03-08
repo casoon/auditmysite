@@ -376,7 +376,7 @@ mod tests {
             "1.1.1",
             "Non-text Content",
             WcagLevel::A,
-            crate::wcag::Severity::Serious,
+            crate::wcag::Severity::High,
             "Missing alt",
             "node-1",
         ));

@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::WcagLevel;
 
+// Re-export Severity from taxonomy module (single source of truth)
+pub use crate::taxonomy::Severity;
+
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Violation {
@@ -89,30 +92,9 @@ impl Violation {
     }
 }
 
-/// Severity levels for violations (ordered from least to most severe for correct Ord)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    /// Minor - Small inconvenience
-    Minor,
-    /// Moderate - Degraded experience
-    Moderate,
-    /// Serious - Major barrier for users
-    Serious,
-    /// Critical - Blocks users completely
-    Critical,
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Critical => write!(f, "critical"),
-            Severity::Serious => write!(f, "serious"),
-            Severity::Moderate => write!(f, "moderate"),
-            Severity::Minor => write!(f, "minor"),
-        }
-    }
-}
+// Severity enum is now defined in crate::taxonomy::severity
+// and re-exported above. Old variants mapping:
+// Minor → Low, Moderate → Medium, Serious → High, Critical → Critical
 
 /// Metadata for a WCAG rule
 #[derive(Debug, Clone)]
@@ -217,7 +199,7 @@ mod tests {
             "1.1.1",
             "Non-text Content",
             WcagLevel::A,
-            Severity::Serious,
+            Severity::High,
             "Image missing alt text",
             "node-123",
         )
@@ -232,8 +214,8 @@ mod tests {
     #[test]
     fn test_severity_ordering() {
         // More severe = greater value
-        assert!(Severity::Critical > Severity::Serious);
-        assert!(Severity::Serious > Severity::Moderate);
-        assert!(Severity::Moderate > Severity::Minor);
+        assert!(Severity::Critical > Severity::High);
+        assert!(Severity::High > Severity::Medium);
+        assert!(Severity::Medium > Severity::Low);
     }
 }

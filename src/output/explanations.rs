@@ -43,9 +43,25 @@ impl RuleExplanation {
     }
 }
 
-/// Look up the explanation for a WCAG rule by its ID (e.g., "1.1.1")
+/// Look up the explanation for a rule by its WCAG ID (e.g., "1.1.1")
+/// or taxonomy rule ID (e.g., "a11y.alt_text.missing")
 pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
-    EXPLANATIONS.iter().find(|(id, _)| *id == rule_id).map(|(_, e)| e)
+    // Direct lookup by WCAG ID
+    if let Some(expl) = EXPLANATIONS.iter().find(|(id, _)| *id == rule_id).map(|(_, e)| e) {
+        return Some(expl);
+    }
+    // Fallback: if a taxonomy rule_id was passed, resolve to WCAG ID via legacy map
+    if rule_id.contains('.') {
+        use crate::taxonomy::rules::RULES;
+        if let Some(rule) = RULES.iter().find(|r| r.id == rule_id) {
+            if let Some(ext_ref) = rule.external_ref {
+                // external_ref is "WCAG 1.1.1" — extract the number
+                let wcag_id = ext_ref.strip_prefix("WCAG ").unwrap_or(ext_ref);
+                return EXPLANATIONS.iter().find(|(id, _)| *id == wcag_id).map(|(_, e)| e);
+            }
+        }
+    }
+    None
 }
 
 /// All WCAG rule explanations indexed by rule ID

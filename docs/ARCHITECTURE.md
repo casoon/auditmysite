@@ -23,14 +23,17 @@ src/
 ├── main.rs              # CLI entry point
 ├── lib.rs               # Library exports
 ├── error.rs             # Error types (AuditError)
+├── util.rs              # Utility functions
 │
 ├── cli/                 # Command-line interface
-│   └── args.rs          # Clap argument parsing
+│   ├── args.rs          # Clap argument parsing
+│   └── config.rs        # auditmysite.toml config support
 │
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
 │   ├── detection.rs     # Find Chrome installation
-│   ├── installer.rs     # Download Chromium if needed
+│   ├── installer.rs     # Download browser via `browser install`
+│   ├── resolver.rs      # Browser path resolution
 │   ├── manager.rs       # Browser lifecycle (launch, navigate, close)
 │   └── pool.rs          # Page pool for concurrent audits
 │
@@ -44,7 +47,7 @@ src/
 │   ├── mod.rs
 │   ├── engine.rs        # Rule orchestration
 │   ├── types.rs         # Violation, Severity, WcagResults
-│   └── rules/           # Individual WCAG rules
+│   └── rules/           # Individual WCAG rules (22 rules)
 │       ├── text_alternatives.rs  # 1.1.1
 │       ├── contrast.rs           # 1.4.3
 │       ├── keyboard.rs           # 2.1.1
@@ -54,19 +57,26 @@ src/
 │       ├── labels.rs             # 3.3.2
 │       └── ...
 │
+├── taxonomy/            # Rule taxonomy & classification
+│   ├── mod.rs
+│   ├── rules.rs         # Rule definitions with metadata
+│   └── lookup.rs        # RuleLookup for WCAG ID → taxonomy mapping
+│
 ├── audit/               # Audit orchestration
 │   ├── mod.rs
 │   ├── pipeline.rs      # Single page audit flow
 │   ├── batch.rs         # Sitemap/batch processing
-│   ├── report.rs        # AuditReport structure
+│   ├── report.rs        # AuditReport structure (raw data)
+│   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
 │   └── scoring.rs       # Score calculation
 │
 ├── output/              # Report generation
 │   ├── mod.rs
 │   ├── cli.rs           # Terminal table output
-│   ├── json.rs          # JSON reports
-│   ├── html.rs          # HTML reports
-│   └── pdf.rs           # PDF reports (via renderreport)
+│   ├── json.rs          # JSON reports (via NormalizedReport)
+│   ├── pdf.rs           # PDF reports (via renderreport/Typst)
+│   ├── report_model.rs  # ViewModel structs for PDF
+│   └── report_builder.rs # AuditReport → ViewModel transformation
 │
 ├── security/            # Security analysis
 │   └── mod.rs           # Headers, SSL, SSRF protection
@@ -75,6 +85,7 @@ src/
 │   ├── mod.rs
 │   ├── meta.rs          # Meta tags
 │   ├── headings.rs      # Heading structure
+│   ├── profile.rs       # SEO content profile
 │   └── ...
 │
 ├── performance/         # Performance metrics
@@ -107,11 +118,17 @@ src/
    │  ├── Level AA rules (if requested)
    │  └── Level AAA rules (if requested)
    │
-7. Calculate score
+7. Calculate raw score → AuditReport
    │
-8. Generate report (JSON/HTML/PDF/Table)
+8. Normalize: AuditReport → NormalizedReport
+   │  ├── Apply score corrections (e.g. 3.1.1 lang suppression)
+   │  ├── Enrich findings with taxonomy fields
+   │  └── Compute grade + certificate from corrected score
    │
-9. Close browser
+9. Generate report (JSON/PDF/Table)
+   │  └── All formats use NormalizedReport as single source of truth
+   │
+10. Close browser
 ```
 
 ### Batch Audit (Sitemap)
@@ -134,11 +151,19 @@ src/
 
 ## Key Components
 
+### NormalizedReport
+
+Central data layer between raw `AuditReport` and output formats:
+- Applies score corrections (e.g. 3.1.1 language suppression)
+- Enriches violations with taxonomy metadata (dimension, subcategory, issue_class, etc.)
+- Computes grade and certificate from corrected score
+- Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
+
 ### BrowserManager
 
 Handles Chrome lifecycle:
 - Auto-detects Chrome/Chromium installation
-- Downloads Chromium if not found
+- Explicit download via `auditmysite browser install`
 - Configures headless mode with security flags
 - Manages page navigation with timeouts
 
@@ -172,23 +197,32 @@ Each rule implements checking logic:
 ```rust
 pub fn check(tree: &AXTree, _styles: &[NodeStyle], level: WcagLevel) -> Vec<Violation> {
     let mut violations = Vec::new();
-    
+
     for node in tree.iter() {
         if should_check(node) && has_violation(node) {
             violations.push(Violation::new(
                 "1.1.1",
                 "Non-text Content",
                 level,
-                Severity::Serious,
+                Severity::High,
                 "Image missing alt text",
                 &node.node_id,
             ));
         }
     }
-    
+
     violations
 }
 ```
+
+### Taxonomy
+
+Maps WCAG rule IDs to rich metadata:
+- **Dimension**: Barrierefreiheit, Usability, etc.
+- **Subcategory**: Inhalte & Alternativen, Navigation, etc.
+- **IssueClass**: Fehlend, Falsch, Unvollständig
+- **ScoreImpact**: Base penalty, max penalty, scaling curve
+- **ReportVisibility**: Which report levels (Executive/Standard/Technical) include each finding
 
 ## Security Considerations
 
@@ -203,10 +237,6 @@ pub fn check(tree: &AXTree, _styles: &[NodeStyle], level: WcagLevel) -> Vec<Viol
 ### Path Traversal
 
 `read_url_file()` uses `canonicalize()` to prevent `../` attacks.
-
-### XSS in Reports
-
-`html_escape()` sanitizes all user-controlled content in HTML reports.
 
 ### Chromium Downloads
 
@@ -244,4 +274,4 @@ Key crates:
 - `clap` - CLI parsing
 - `serde` - Serialization
 - `tracing` - Logging
-- `renderreport` - PDF generation
+- `renderreport` - PDF generation (Typst-based)

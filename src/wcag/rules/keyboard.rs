@@ -45,7 +45,7 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
                     KEYBOARD_RULE.id,
                     KEYBOARD_RULE.name,
                     KEYBOARD_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     format!("Positive tabindex ({}) disrupts natural tab order", tabindex),
                     &node.node_id,
                 )
@@ -66,7 +66,7 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
                 KEYBOARD_RULE.id,
                 KEYBOARD_RULE.name,
                 KEYBOARD_RULE.level,
-                Severity::Minor,
+                Severity::Low,
                 "Focusable element without interactive role",
                 &node.node_id,
             )

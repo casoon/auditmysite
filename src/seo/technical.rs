@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Technical SEO analysis results
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -53,7 +54,7 @@ pub struct HreflangTag {
 pub struct TechnicalIssue {
     pub issue_type: String,
     pub message: String,
-    pub severity: String,
+    pub severity: Severity,
 }
 
 /// Analyze technical SEO aspects
@@ -156,7 +157,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_https".to_string(),
             message: "Page is not served over HTTPS".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -164,7 +165,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_canonical".to_string(),
             message: "Missing canonical URL".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -172,7 +173,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_lang".to_string(),
             message: "Missing lang attribute on html element".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -183,7 +184,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
                 "Page has thin content ({} words, recommended: 300+)",
                 word_count
             ),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -191,7 +192,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_internal_links".to_string(),
             message: "Page has no internal links".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 

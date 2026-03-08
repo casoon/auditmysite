@@ -13,7 +13,7 @@ pub const LINK_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.4",
     name: "Link Purpose (In Context)",
     level: WcagLevel::A,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "The purpose of each link can be determined from the link text or context",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
 };
@@ -70,7 +70,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
                 LINK_PURPOSE_RULE.id,
                 LINK_PURPOSE_RULE.name,
                 LINK_PURPOSE_RULE.level,
-                Severity::Minor,
+                Severity::Low,
                 "Link text appears to be a raw URL",
                 &node.node_id,
             )
@@ -112,7 +112,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
                 LINK_PURPOSE_RULE.id,
                 LINK_PURPOSE_RULE.name,
                 LINK_PURPOSE_RULE.level,
-                Severity::Minor,
+                Severity::Low,
                 "Link opens in new window without indication",
                 &node.node_id,
             )

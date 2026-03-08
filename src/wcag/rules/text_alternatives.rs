@@ -12,7 +12,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Non-text Content",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "All non-text content has a text alternative that serves the equivalent purpose",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
 };
@@ -90,7 +90,7 @@ fn check_icons(tree: &AXTree, results: &mut WcagResults) {
                     RULE_META.id,
                     RULE_META.name,
                     RULE_META.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     "Icon element may need alternative text",
                     &node.node_id,
                 )
@@ -122,7 +122,7 @@ fn check_svg_elements(tree: &AXTree, results: &mut WcagResults) {
                 RULE_META.id,
                 RULE_META.name,
                 RULE_META.level,
-                Severity::Serious,
+                Severity::High,
                 "SVG graphic is missing alternative text",
                 &node.node_id,
             )

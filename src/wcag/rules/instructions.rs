@@ -12,7 +12,7 @@ pub const INSTRUCTIONS_RULE: RuleMetadata = RuleMetadata {
     id: "3.3.2",
     name: "Labels or Instructions",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Labels or instructions are provided when content requires user input",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
 };
@@ -59,7 +59,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
                     INSTRUCTIONS_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     "Placeholder used as only label",
                     &node.node_id,
                 )
@@ -77,7 +77,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
                     INSTRUCTIONS_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     "Required field not clearly indicated",
                     &node.node_id,
                 )
@@ -95,7 +95,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
                     INSTRUCTIONS_RULE.level,
-                    Severity::Minor,
+                    Severity::Low,
                     format!("Input '{}' may require format instructions", role_lower),
                     &node.node_id,
                 )
@@ -120,7 +120,7 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
                     INSTRUCTIONS_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     "Form group has no legend or label",
                     &node.node_id,
                 )

@@ -41,25 +41,31 @@ Zielwebsite (wird im Chrome-Tab geladen)
 
 ## Chrome-Lebenszyklus
 
-### 1. Chrome finden (`src/browser/detection.rs`)
+### 1. Chrome finden (`src/browser/resolver.rs`)
 
 Suchreihenfolge:
-1. `--chrome-path` CLI-Argument (vom Benutzer angegeben)
-2. `CHROME_PATH` Umgebungsvariable
+1. `--browser-path` CLI-Argument (vom Benutzer angegeben, Alias: `--chrome-path`)
+2. `AUDITMYSITE_BROWSER` Umgebungsvariable
 3. System-Chrome an bekannten Pfaden:
    - macOS: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
    - Linux: `/usr/bin/google-chrome`, `/usr/bin/chromium-browser`, etc.
    - Windows: `Program Files/Google/Chrome/Application/chrome.exe`
+4. Managed Install unter `~/.auditmysite/browsers/`
 
-### 2. Chrome herunterladen (`src/browser/installer.rs`)
+### 2. Chrome installieren (`src/browser/installer.rs`)
 
-Falls kein Chrome gefunden wird:
-- **Automatischer Download** von "Chrome for Testing" (stabile Builds von Google)
+Falls kein Chrome gefunden wird, muss der Benutzer explizit installieren:
+```bash
+auditmysite browser install
+```
+
+- Download von "Chrome for Testing" (stabile Builds von Google)
 - Download-URL: `storage.googleapis.com/chrome-for-testing-public/...`
-- Zielverzeichnis: `~/.auditmysite/chromium/`
+- Zielverzeichnis: `~/.auditmysite/browsers/`
 - Plattformspezifisch (macOS arm64/x64, Linux x64, Windows x64)
-- Version: fest kodiert auf `131.0.6778.108`
 - Einmaliger Download (~150-200MB), danach aus Cache
+
+**Hinweis:** Es gibt keinen automatischen Download mehr. Der Benutzer entscheidet selbst, wann ein Browser installiert wird.
 
 ### 3. Chrome starten (`src/browser/manager.rs`)
 
@@ -154,7 +160,7 @@ Optionale Flags:
 |---|---|---|
 | **Sitemap fetch** | Ziel-Domain | XML-Sitemap herunterladen |
 | **Security Headers** | Ziel-Domain | HTTP-Header analysieren |
-| **Chromium Download** | storage.googleapis.com | Einmaliger Chromium-Download (wenn kein Chrome vorhanden) |
+| **Browser Download** | storage.googleapis.com | Browser-Download (nur bei explizitem `browser install`) |
 
 ---
 
@@ -165,18 +171,18 @@ Optionale Flags:
 3. **Bewährte Technologie:** CDP ist ein stabiles, gut dokumentiertes Protokoll, das auch von Playwright, Puppeteer und Lighthouse verwendet wird
 4. **Headless:** Kein sichtbares Fenster, kein GUI nötig
 5. **Plattformübergreifend:** Funktioniert auf macOS, Linux, Windows
-6. **Auto-Download:** Falls kein Chrome installiert ist, wird automatisch eine isolierte Kopie heruntergeladen
+6. **Managed Install:** Falls kein Chrome installiert ist, kann über `auditmysite browser install` eine isolierte Kopie heruntergeladen werden
 7. **Performance-Flags:** Viele unnötige Chrome-Features werden deaktiviert (Extensions, Sync, Translate, GPU, Audio)
 
 ---
 
 ## Negative Aspekte / Probleme
 
-### 1. Firewall-Alerts (dein konkretes Problem)
+### 1. Firewall-Alerts
 - Chrome wird als **separater Prozess** gestartet und macht ausgehende Netzwerkverbindungen
 - macOS-Firewall erkennt das als neuen Prozess der ins Internet will → **Firewall-Dialog bei jedem Start**
 - Selbst mit `--disable-background-networking` kann Chrome interne Requests machen
-- Bei Auto-Download: Die heruntergeladene Chromium-Binary ist unsigniert → zusätzliche Gatekeeper-Warnung auf macOS
+- Bei managed Install: Die heruntergeladene Chromium-Binary ist unsigniert → zusätzliche Gatekeeper-Warnung auf macOS
 
 ### 2. Ressourcenverbrauch
 - Chrome ist ein **schwerer Prozess** (~100-300MB RAM pro Instanz)
@@ -184,9 +190,8 @@ Optionale Flags:
 - CPU-Last beim Rendern komplexer Seiten
 
 ### 3. Abhängigkeit von einem externen Prozess
-- Chrome muss auf dem System vorhanden sein oder heruntergeladen werden
+- Chrome muss auf dem System vorhanden sein oder explizit installiert werden
 - Chrome-Versionen können sich ändern und Inkompatibilitäten verursachen
-- Die Version im Installer ist fest kodiert (131.0.6778.108) → veraltet mit der Zeit
 - In CI/CD-Umgebungen: Chrome muss extra installiert oder mitgeliefert werden
 
 ### 4. Security-Implikationen

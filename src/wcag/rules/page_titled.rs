@@ -12,7 +12,7 @@ pub const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.2",
     name: "Page Titled",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Web pages have titles that describe topic or purpose",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/page-titled.html",
 };
@@ -52,7 +52,7 @@ pub fn check_page_titled(tree: &AXTree) -> WcagResults {
                 PAGE_TITLED_RULE.id,
                 PAGE_TITLED_RULE.name,
                 PAGE_TITLED_RULE.level,
-                Severity::Serious,
+                Severity::High,
                 "Page has missing or non-descriptive title",
                 "document",
             )

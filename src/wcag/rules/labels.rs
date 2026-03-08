@@ -12,7 +12,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Name, Role, Value",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description:
         "For all user interface components, the name and role can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
@@ -119,7 +119,7 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
             RULE_META.id,
             RULE_META.name,
             RULE_META.level,
-            Severity::Serious,
+            Severity::High,
             "Link is missing accessible text",
             &node.node_id,
         )
@@ -146,7 +146,7 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
                 "2.4.4", // Link Purpose (In Context)
                 "Link Purpose",
                 WcagLevel::A,
-                Severity::Moderate,
+                Severity::Medium,
                 format!("Link text '{}' is not descriptive", name),
                 &node.node_id,
             )
@@ -171,7 +171,7 @@ fn check_button(node: &crate::accessibility::AXNode, results: &mut WcagResults) 
             RULE_META.id,
             RULE_META.name,
             RULE_META.level,
-            Severity::Serious,
+            Severity::High,
             "Button is missing accessible text",
             &node.node_id,
         )

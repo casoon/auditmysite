@@ -16,7 +16,7 @@ use renderreport::components::{
     RoadmapItem, SeverityOverview,
 };
 
-use crate::audit::{AuditReport, BatchReport};
+use crate::audit::{AuditReport, BatchReport, normalize};
 use crate::cli::ReportLevel;
 use crate::output::report_builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::*;
@@ -39,9 +39,9 @@ fn create_engine() -> anyhow::Result<Engine> {
 fn map_severity(severity: &crate::wcag::Severity) -> Severity {
     match severity {
         crate::wcag::Severity::Critical => Severity::Critical,
-        crate::wcag::Severity::Serious => Severity::High,
-        crate::wcag::Severity::Moderate => Severity::Medium,
-        crate::wcag::Severity::Minor => Severity::Low,
+        crate::wcag::Severity::High => Severity::High,
+        crate::wcag::Severity::Medium => Severity::Medium,
+        crate::wcag::Severity::Low => Severity::Low,
     }
 }
 
@@ -49,7 +49,8 @@ fn map_severity(severity: &crate::wcag::Severity) -> Severity {
 
 pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
     let engine = create_engine()?;
-    let vm = build_view_model(report, config);
+    let normalized = normalize(report);
+    let vm = build_view_model(&normalized, config);
 
     let mut builder = engine
         .report("wcag-audit")
@@ -63,6 +64,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── Cover Page ───────────────────────────────────────────────────
     let cover = CoverPage::new(&vm.cover.title, &vm.cover.domain, vm.cover.score, &vm.cover.grade)
         .with_brand(&vm.cover.brand)
+        .with_subtitle(&format!("{} — Zertifikat: {}", vm.cover.subtitle, vm.cover.certificate))
         .with_date(&vm.cover.date)
         .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
         .with_modules(vm.cover.modules);
@@ -76,7 +78,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── 1. Kurzfazit (Hero Summary) ──────────────────────────────────
     let mut hero = HeroSummary::new(vm.summary.score, &vm.summary.grade, &vm.summary.domain)
         .with_date(&vm.summary.date)
-        .with_verdict(&vm.summary.verdict)
+        .with_verdict(&format!("{} Zertifikat: {}.", vm.summary.verdict, vm.summary.certificate))
         .with_top_actions(vm.summary.top_actions)
         .with_positive_aspects(vm.summary.positive_aspects)
         .with_thresholds(70, 50);
@@ -156,7 +158,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                         .with_title("Ausgezeichnete Barrierefreiheit"));
             } else {
                 builder = builder.add_component(SeverityOverview::new(
-                    vm.severity.critical, vm.severity.serious, vm.severity.moderate, vm.severity.minor));
+                    vm.severity.critical, vm.severity.high, vm.severity.medium, vm.severity.low));
                 for group in vm.findings.top_findings.iter().take(5) {
                     builder = render_finding_compact(builder, group);
                 }
@@ -182,7 +184,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                         .with_title("Ausgezeichnete Barrierefreiheit"));
             } else {
                 builder = builder.add_component(SeverityOverview::new(
-                    vm.severity.critical, vm.severity.serious, vm.severity.moderate, vm.severity.minor));
+                    vm.severity.critical, vm.severity.high, vm.severity.medium, vm.severity.low));
                 for group in &vm.findings.all_findings {
                     builder = render_finding_compact(builder, group);
                 }
@@ -248,12 +250,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 builder = builder.add_component(
                     Finding::new(
                         &format!("{} — {}", v.rule, v.rule_name),
-                        match v.severity.to_lowercase().as_str() {
-                            "critical" => Severity::Critical,
-                            "serious" => Severity::High,
-                            "moderate" => Severity::Medium,
-                            _ => Severity::Low,
-                        },
+                        map_severity(&v.severity),
                         &desc,
                     ));
             }
@@ -268,7 +265,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             for v in &vm.appendix.violations {
                 table = table.add_row(vec![
                     format!("{} — {}", v.rule, v.rule_name),
-                    v.severity.clone(),
+                    v.severity.label().to_string(),
                     v.message.clone(),
                     format!("{} Elemente", v.affected_elements.len()),
                 ]);
@@ -317,7 +314,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let mut benchmark = BenchmarkSummary::new(
         pres.portfolio_summary.total_urls as u32,
         pres.portfolio_summary.average_score.round() as u32,
-    ).with_issues(pres.portfolio_summary.total_violations as u32, (dist.critical + dist.serious) as u32);
+    ).with_issues(pres.portfolio_summary.total_violations as u32, (dist.critical + dist.high) as u32);
 
     if let Some(b) = best { benchmark = benchmark.with_best(&truncate_url(&b.url, 35), b.score as u32); }
     if let Some(w) = worst { benchmark = benchmark.with_worst(&truncate_url(&w.url, 35), w.score as u32); }
@@ -429,7 +426,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                     .join("; ");
                 table = table.add_row(vec![
                     format!("{} — {} ({}×)", v.rule, v.rule_name, v.affected_elements.len()),
-                    v.severity.clone(),
+                    v.severity.label().to_string(),
                     v.message.clone(),
                     elements,
                 ]);
@@ -474,8 +471,15 @@ fn render_finding_compact(
     builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
 ) -> renderreport::engine::ReportBuilder {
+    let tag = if !group.wcag_criterion.is_empty() {
+        format!(" (WCAG {})", group.wcag_criterion)
+    } else if let Some(ref dim) = group.dimension {
+        format!(" ({})", dim)
+    } else {
+        String::new()
+    };
     let finding = Finding::new(
-        &format!("{} (WCAG {})", group.title, group.wcag_criterion),
+        &format!("{}{}", group.title, tag),
         map_severity(&group.severity),
         &group.customer_description,
     )
@@ -490,14 +494,28 @@ fn render_finding_technical(
     mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        Label::new(&format!("{} — WCAG {} ({})", group.title, group.wcag_criterion, group.wcag_level))
-            .bold().with_size("14pt"));
+    let header = if !group.wcag_criterion.is_empty() {
+        format!("{} — WCAG {} ({})", group.title, group.wcag_criterion, group.wcag_level)
+    } else {
+        format!("{} — {}", group.title, group.rule_id)
+    };
+    builder = builder.add_component(Label::new(&header).bold().with_size("14pt"));
+
+    let mut category_parts = vec![
+        format!("Priorität: {}", group.priority.label()),
+        format!("Zuständig: {}", group.responsible_role.label()),
+        format!("Aufwand: {}", group.effort.label()),
+    ];
+    if let Some(ref dim) = group.dimension {
+        category_parts.push(format!("Modul: {}", dim));
+    }
+    if let Some(ref cls) = group.issue_class {
+        category_parts.push(format!("Typ: {}", cls));
+    }
 
     let finding = Finding::new(&group.title, map_severity(&group.severity), &group.customer_description)
         .with_recommendation(&group.recommendation)
-        .with_category(&format!("Priorität: {} | Zuständig: {} | Aufwand: {}",
-            group.priority.label(), group.responsible_role.label(), group.effort.label()))
+        .with_category(&category_parts.join(" | "))
         .with_affected(&format!("{} Vorkommen, {} Elemente", group.occurrence_count, group.affected_elements));
 
     builder = builder.add_component(finding);
@@ -528,10 +546,16 @@ fn render_finding_group(
     mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        Section::new(&format!("{} (WCAG {})", group.title, group.wcag_criterion)).with_level(2));
+    let section_title = if !group.wcag_criterion.is_empty() {
+        format!("{} (WCAG {})", group.title, group.wcag_criterion)
+    } else if let Some(ref dim) = group.dimension {
+        format!("{} ({})", group.title, dim)
+    } else {
+        group.title.clone()
+    };
+    builder = builder.add_component(Section::new(&section_title).with_level(2));
 
-    if matches!(group.severity, crate::wcag::Severity::Critical | crate::wcag::Severity::Serious) {
+    if matches!(group.severity, crate::wcag::Severity::Critical | crate::wcag::Severity::High) {
         builder = builder.add_component(
             Callout::error(&group.customer_description)
                 .with_title(&format!("{} — Priorität: {}", group.title, group.priority.label())));
@@ -626,7 +650,7 @@ fn render_seo(mut builder: renderreport::engine::ReportBuilder, seo: &SeoPresent
             TableColumn::new("Feld"), TableColumn::new("Schweregrad"), TableColumn::new("Beschreibung"),
         ]).with_title("Meta-Tag Probleme");
         for (field, sev, msg) in &seo.meta_issues {
-            table = table.add_row(vec![field.as_str(), sev.as_str(), msg.as_str()]);
+            table = table.add_row(vec![field.as_str(), sev.label(), msg.as_str()]);
         }
         builder = builder.add_component(table);
     }
@@ -640,6 +664,93 @@ fn render_seo(mut builder: renderreport::engine::ReportBuilder, seo: &SeoPresent
         for (k, v) in &seo.technical_summary { kv = kv.add(k, v); }
         builder = builder.add_component(kv);
     }
+
+    // SEO Content Profile
+    if let Some(profile) = &seo.profile {
+        builder = render_seo_profile(builder, profile);
+    }
+
+    builder
+}
+
+fn render_seo_profile(
+    mut builder: renderreport::engine::ReportBuilder,
+    profile: &SeoProfilePresentation,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder
+        .add_component(Section::new("SEO-Inhaltsprofil").with_level(3))
+        .add_component(Callout::info(&profile.identity_summary).with_title("Inhaltsprofil"));
+
+    // Content Identity
+    let mut identity = KeyValueList::new().with_title("Website-Identität");
+    identity = identity.add("Website", &profile.site_name);
+    identity = identity.add("Inhaltstyp", &profile.content_type);
+    identity = identity.add("Sprache", &profile.language);
+    if !profile.category_hints.is_empty() {
+        identity = identity.add("Schema-Typen", &profile.category_hints.join(", "));
+    }
+    builder = builder.add_component(identity);
+
+    // Schema Inventory
+    if !profile.schema_rows.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Schema-Typ"),
+            TableColumn::new("Vollständigkeit"),
+            TableColumn::new("Details"),
+        ])
+        .with_title(&format!("Strukturierte Daten ({} Schemas)", profile.schema_count));
+        for (typ, completeness, details) in &profile.schema_rows {
+            table = table.add_row(vec![typ.as_str(), completeness.as_str(), details.as_str()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Signal Strength Overview
+    if !profile.signal_rows.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Kategorie"),
+            TableColumn::new("Bewertung"),
+            TableColumn::new("Einstufung"),
+        ])
+        .with_title(&format!(
+            "SEO-Signalstärke (Gesamt: {}%)",
+            profile.signal_overall_pct
+        ));
+        for (cat, score, rating) in &profile.signal_rows {
+            table = table.add_row(vec![cat.as_str(), score.as_str(), rating.as_str()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Signal Details per category
+    for (cat_name, checks) in &profile.signal_details {
+        let mut detail_table = AuditTable::new(vec![
+            TableColumn::new("Prüfung"),
+            TableColumn::new("Status"),
+            TableColumn::new("Detail"),
+        ])
+        .with_title(cat_name);
+        for (label, passed, detail) in checks {
+            let status = if *passed { "✓" } else { "✗" };
+            detail_table =
+                detail_table.add_row(vec![label.as_str(), status, detail.as_str()]);
+        }
+        builder = builder.add_component(detail_table);
+    }
+
+    // Maturity Rating
+    let mut maturity = SummaryBox::new("SEO-Reifegrad");
+    maturity = maturity.add_item("Level", &profile.maturity_level);
+    maturity = maturity.add_item("Bewertung", &profile.maturity_description);
+    maturity = maturity.add_item(
+        "Techniken",
+        &format!(
+            "{} von {} erkannt",
+            profile.maturity_techniques_used, profile.maturity_techniques_total
+        ),
+    );
+    builder = builder.add_component(maturity);
+
     builder
 }
 
@@ -668,11 +779,7 @@ fn render_security(mut builder: renderreport::engine::ReportBuilder, sec: &Secur
     }
 
     for (title, sev, msg) in &sec.issues {
-        let severity = match sev.as_str() {
-            "critical" => Severity::Critical, "high" => Severity::High,
-            "medium" => Severity::Medium, _ => Severity::Low,
-        };
-        builder = builder.add_component(Finding::new(title, severity, msg));
+        builder = builder.add_component(Finding::new(title, map_severity(sev), msg));
     }
 
     if !sec.recommendations.is_empty() {
@@ -712,11 +819,7 @@ fn render_mobile(mut builder: renderreport::engine::ReportBuilder, mobile: &Mobi
     }
 
     for (cat, sev, msg) in &mobile.issues {
-        let severity = match sev.as_str() {
-            "critical" => Severity::Critical, "high" => Severity::High,
-            "medium" => Severity::Medium, _ => Severity::Low,
-        };
-        builder = builder.add_component(Finding::new(cat, severity, msg));
+        builder = builder.add_component(Finding::new(cat, map_severity(sev), msg));
     }
     builder
 }

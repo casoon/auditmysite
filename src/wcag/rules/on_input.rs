@@ -17,7 +17,7 @@ pub const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     id: "3.2.2",
     name: "On Input",
     level: WcagLevel::A,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "Changing a setting does not automatically cause a change of context",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/on-input.html",
 };
@@ -52,7 +52,7 @@ pub fn check_on_input(tree: &AXTree) -> WcagResults {
                 ON_INPUT_RULE.id,
                 ON_INPUT_RULE.name,
                 ON_INPUT_RULE.level,
-                Severity::Moderate,
+                Severity::Medium,
                 format!(
                     "{} element has onchange handler — may cause unexpected context change",
                     role
@@ -81,7 +81,7 @@ pub fn check_on_input(tree: &AXTree) -> WcagResults {
                     ON_INPUT_RULE.id,
                     ON_INPUT_RULE.name,
                     ON_INPUT_RULE.level,
-                    Severity::Minor,
+                    Severity::Low,
                     format!(
                         "{} '{}' may trigger navigation on change without explicit submit",
                         role, name_lower

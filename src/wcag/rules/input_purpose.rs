@@ -13,7 +13,7 @@ pub const INPUT_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.5",
     name: "Identify Input Purpose",
     level: WcagLevel::AA,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "The purpose of each input field can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/identify-input-purpose.html",
 };
@@ -109,7 +109,7 @@ pub fn check_input_purpose(tree: &AXTree) -> WcagResults {
                     INPUT_PURPOSE_RULE.id,
                     INPUT_PURPOSE_RULE.name,
                     INPUT_PURPOSE_RULE.level,
-                    Severity::Minor,
+                    Severity::Low,
                     format!("Invalid autocomplete value: '{}'", ac_value),
                     node.node_id.clone(),
                 )
@@ -138,7 +138,7 @@ pub fn check_input_purpose(tree: &AXTree) -> WcagResults {
                     INPUT_PURPOSE_RULE.id,
                     INPUT_PURPOSE_RULE.name,
                     INPUT_PURPOSE_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     format!(
                         "Input '{}' appears to collect user info but lacks autocomplete attribute",
                         name_lower

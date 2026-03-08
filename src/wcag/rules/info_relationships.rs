@@ -13,7 +13,7 @@ pub const INFO_RELATIONSHIPS_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Info and Relationships",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Information, structure, and relationships can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
 };
@@ -94,7 +94,7 @@ fn check_table_structure(node: &AXNode, tree: &AXTree, results: &mut WcagResults
             INFO_RELATIONSHIPS_RULE.id,
             INFO_RELATIONSHIPS_RULE.name,
             INFO_RELATIONSHIPS_RULE.level,
-            Severity::Serious,
+            Severity::High,
             "Data table lacks header cells",
             &node.node_id,
         )
@@ -130,7 +130,7 @@ fn check_list_structure(node: &AXNode, tree: &AXTree, results: &mut WcagResults)
             INFO_RELATIONSHIPS_RULE.id,
             INFO_RELATIONSHIPS_RULE.name,
             INFO_RELATIONSHIPS_RULE.level,
-            Severity::Moderate,
+            Severity::Medium,
             "List does not contain proper list item elements",
             &node.node_id,
         )
@@ -159,7 +159,7 @@ fn check_form_grouping(node: &AXNode, tree: &AXTree, results: &mut WcagResults) 
                         INFO_RELATIONSHIPS_RULE.id,
                         INFO_RELATIONSHIPS_RULE.name,
                         INFO_RELATIONSHIPS_RULE.level,
-                        Severity::Moderate,
+                        Severity::Medium,
                         "Radio button is not contained in a group",
                         &node.node_id,
                     )

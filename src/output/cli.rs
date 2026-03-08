@@ -114,24 +114,24 @@ fn print_summary(report: &AuditReport, level: WcagLevel) {
         .iter()
         .filter(|v| v.severity == Severity::Critical)
         .count();
-    let serious = violations
+    let high = violations
         .iter()
-        .filter(|v| v.severity == Severity::Serious)
+        .filter(|v| v.severity == Severity::High)
         .count();
-    let moderate = violations
+    let medium = violations
         .iter()
-        .filter(|v| v.severity == Severity::Moderate)
+        .filter(|v| v.severity == Severity::Medium)
         .count();
-    let minor = violations
+    let low = violations
         .iter()
-        .filter(|v| v.severity == Severity::Minor)
+        .filter(|v| v.severity == Severity::Low)
         .count();
 
     println!("{}", "Violations by Severity".bold().underline());
     println!();
     println!(
         "  {} {}",
-        "Critical:".red().bold(),
+        "Kritisch:".red().bold(),
         if critical > 0 {
             critical.to_string().red().bold().to_string()
         } else {
@@ -140,23 +140,23 @@ fn print_summary(report: &AuditReport, level: WcagLevel) {
     );
     println!(
         "  {} {}",
-        "Serious: ".truecolor(255, 165, 0).bold(),
-        if serious > 0 {
-            serious.to_string().truecolor(255, 165, 0).to_string()
+        "Hoch:    ".truecolor(255, 165, 0).bold(),
+        if high > 0 {
+            high.to_string().truecolor(255, 165, 0).to_string()
         } else {
             "0".green().to_string()
         }
     );
     println!(
         "  {} {}",
-        "Moderate:".yellow().bold(),
-        if moderate > 0 {
-            moderate.to_string().yellow().to_string()
+        "Mittel:  ".yellow().bold(),
+        if medium > 0 {
+            medium.to_string().yellow().to_string()
         } else {
             "0".green().to_string()
         }
     );
-    println!("  {} {}", "Minor:   ".dimmed().bold(), minor);
+    println!("  {} {}", "Niedrig: ".dimmed().bold(), low);
     println!();
 }
 
@@ -179,10 +179,10 @@ fn print_violations_table(violations: &[Violation]) {
     // Add violations
     for violation in violations {
         let severity_cell = match violation.severity {
-            Severity::Critical => Cell::new("CRITICAL").style_spec("Fr"),
-            Severity::Serious => Cell::new("Serious").style_spec("Fy"),
-            Severity::Moderate => Cell::new("Moderate").style_spec("Fw"),
-            Severity::Minor => Cell::new("Minor").style_spec("Fd"),
+            Severity::Critical => Cell::new("Kritisch").style_spec("Fr"),
+            Severity::High => Cell::new("Hoch").style_spec("Fy"),
+            Severity::Medium => Cell::new("Mittel").style_spec("Fw"),
+            Severity::Low => Cell::new("Niedrig").style_spec("Fd"),
         };
 
         let level_cell = match violation.level {
@@ -480,7 +480,7 @@ mod tests {
             "1.1.1",
             "Non-text Content",
             WcagLevel::A,
-            Severity::Serious,
+            Severity::High,
             "Image missing alt text",
             "node-1",
         )

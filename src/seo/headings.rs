@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Heading structure analysis
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -42,7 +43,7 @@ pub struct HeadingIssue {
     /// Issue description
     pub message: String,
     /// Severity: "error", "warning"
-    pub severity: String,
+    pub severity: Severity,
 }
 
 /// Analyze heading structure of a page
@@ -82,7 +83,7 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
         issues.push(HeadingIssue {
             issue_type: "missing_h1".to_string(),
             message: "Page is missing an H1 heading".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -91,7 +92,7 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
         issues.push(HeadingIssue {
             issue_type: "multiple_h1".to_string(),
             message: format!("Page has {} H1 headings (should have exactly 1)", h1_count),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -107,7 +108,7 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
                     heading.level,
                     truncate(&heading.text, 40)
                 ),
-                severity: "warning".to_string(),
+                severity: Severity::Medium,
             });
         }
         prev_level = heading.level;
@@ -119,7 +120,7 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
             issues.push(HeadingIssue {
                 issue_type: "empty_heading".to_string(),
                 message: format!("Empty H{} heading found", heading.level),
-                severity: "error".to_string(),
+                severity: Severity::High,
             });
         }
     }
@@ -135,7 +136,7 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
                     heading.length,
                     truncate(&heading.text, 30)
                 ),
-                severity: "warning".to_string(),
+                severity: Severity::Medium,
             });
         }
     }

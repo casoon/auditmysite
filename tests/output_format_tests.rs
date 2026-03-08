@@ -1,8 +1,8 @@
 //! Output Format Tests
 //!
-//! Tests for JSON report generation
+//! Tests for JSON report generation using NormalizedReport
 
-use auditmysite::audit::AuditReport;
+use auditmysite::audit::{normalize, AuditReport};
 use auditmysite::cli::WcagLevel;
 use auditmysite::output::JsonReport;
 use auditmysite::wcag::{Severity, Violation, WcagResults};
@@ -14,7 +14,7 @@ fn create_test_report() -> AuditReport {
         "1.1.1",
         "Non-text Content",
         WcagLevel::A,
-        Severity::Serious,
+        Severity::High,
         "Image missing alt attribute",
         "node-123",
     )
@@ -36,7 +36,8 @@ fn create_test_report() -> AuditReport {
 #[test]
 fn test_json_report_generation() {
     let report = create_test_report();
-    let json_report = JsonReport::new(report.clone(), "AA", 1500);
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
 
     let json_str = json_report.to_json(false).expect("JSON generation failed");
 
@@ -45,20 +46,20 @@ fn test_json_report_generation() {
 
     assert_eq!(parsed["report"]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
-    assert!(parsed["report"]["wcag_results"]["violations"].is_array());
-    assert_eq!(
-        parsed["report"]["wcag_results"]["violations"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
+    // Findings are now grouped by rule, with taxonomy fields
+    assert!(parsed["report"]["findings"].is_array());
+    let findings = parsed["report"]["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 1);
+    assert!(findings[0]["dimension"].is_string());
+    assert!(findings[0]["subcategory"].is_string());
+    assert!(findings[0]["issue_class"].is_string());
 }
 
 #[test]
 fn test_json_report_pretty_print() {
     let report = create_test_report();
-    let json_report = JsonReport::new(report, "AA", 1500);
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
 
     let pretty = json_report.to_json(true).expect("Pretty JSON failed");
     let compact = json_report.to_json(false).expect("Compact JSON failed");

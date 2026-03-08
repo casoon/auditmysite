@@ -16,7 +16,7 @@ pub const NON_TEXT_CONTRAST_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.11",
     name: "Non-text Contrast",
     level: WcagLevel::AA,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "UI components and graphical objects have a contrast ratio of at least 3:1",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html",
 };
@@ -43,7 +43,7 @@ pub fn check_non_text_contrast(tree: &AXTree) -> WcagResults {
                     NON_TEXT_CONTRAST_RULE.id,
                     NON_TEXT_CONTRAST_RULE.name,
                     NON_TEXT_CONTRAST_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     format!(
                         "{} control has no checked state — visual state may not be distinguishable",
                         role

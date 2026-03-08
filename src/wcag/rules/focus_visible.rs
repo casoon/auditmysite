@@ -15,7 +15,7 @@ pub const FOCUS_VISIBLE_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.7",
     name: "Focus Visible",
     level: WcagLevel::AA,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Any keyboard operable user interface has a visible focus indicator",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-visible.html",
 };
@@ -61,7 +61,7 @@ pub fn check_focus_visible(tree: &AXTree) -> WcagResults {
                         FOCUS_VISIBLE_RULE.id,
                         FOCUS_VISIBLE_RULE.name,
                         FOCUS_VISIBLE_RULE.level,
-                        Severity::Moderate,
+                        Severity::Medium,
                         format!(
                             "Interactive {} element removed from tab order (tabindex=-1)",
                             role
@@ -85,7 +85,7 @@ pub fn check_focus_visible(tree: &AXTree) -> WcagResults {
             FOCUS_VISIBLE_RULE.id,
             FOCUS_VISIBLE_RULE.name,
             FOCUS_VISIBLE_RULE.level,
-            Severity::Serious,
+            Severity::High,
             "Page has no focusable interactive elements",
             "root",
         )

@@ -15,7 +15,7 @@ pub const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.4",
     name: "Resize Text",
     level: WcagLevel::AA,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Text can be resized up to 200% without loss of content or functionality",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/resize-text.html",
 };
@@ -35,7 +35,7 @@ pub fn check_resize_text(tree: &AXTree) -> WcagResults {
                     RESIZE_TEXT_RULE.id,
                     RESIZE_TEXT_RULE.name,
                     RESIZE_TEXT_RULE.level,
-                    Severity::Serious,
+                    Severity::High,
                     "Viewport meta tag prevents user scaling (user-scalable=no)",
                     root.node_id.clone(),
                 )
@@ -57,7 +57,7 @@ pub fn check_resize_text(tree: &AXTree) -> WcagResults {
                             RESIZE_TEXT_RULE.id,
                             RESIZE_TEXT_RULE.name,
                             RESIZE_TEXT_RULE.level,
-                            Severity::Moderate,
+                            Severity::Medium,
                             format!(
                                 "Viewport maximum-scale={:.1} is less than 2.0, limiting text resize",
                                 max_scale

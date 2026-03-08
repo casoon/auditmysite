@@ -17,7 +17,7 @@ pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.3",
     name: "Contrast (Minimum)",
     level: WcagLevel::AA,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Text must have sufficient color contrast with background",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html",
 };
@@ -125,7 +125,7 @@ impl ContrastRule {
                     CONTRAST_RULE.id,
                     CONTRAST_RULE.name,
                     CONTRAST_RULE.level,
-                    Severity::Serious,
+                    Severity::High,
                     &message,
                     format!("{}#{}", selector, style.node_id),
                 )

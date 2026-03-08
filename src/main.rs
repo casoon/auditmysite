@@ -22,7 +22,8 @@ use auditmysite::browser::{
 };
 use auditmysite::cli::{Args, BrowserAction, Command, OutputFormat};
 use auditmysite::error::{AuditError, Result};
-use auditmysite::output::{print_batch_table, print_report, JsonReport};
+use auditmysite::audit::normalize;
+use auditmysite::output::{print_batch_table, print_report, format_json_normalized};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 #[cfg(feature = "pdf")]
@@ -392,9 +393,8 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
 fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
     match args.format {
         OutputFormat::Json => {
-            let json_report =
-                JsonReport::new(report.clone(), &args.level.to_string(), report.duration_ms);
-            let output = json_report.to_json(true)?;
+            let normalized = normalize(report);
+            let output = format_json_normalized(&normalized, report, true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
         }
         OutputFormat::Table => {

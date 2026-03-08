@@ -12,7 +12,7 @@ pub const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.1",
     name: "Bypass Blocks",
     level: WcagLevel::A,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "A mechanism is available to bypass blocks of content that are repeated",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html",
 };
@@ -69,7 +69,7 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
             BYPASS_BLOCKS_RULE.id,
             BYPASS_BLOCKS_RULE.name,
             BYPASS_BLOCKS_RULE.level,
-            Severity::Minor,
+            Severity::Low,
             "Missing navigation landmark",
             "page",
         )

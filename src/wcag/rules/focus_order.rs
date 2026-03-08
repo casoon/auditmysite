@@ -13,7 +13,7 @@ pub const FOCUS_ORDER_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.3",
     name: "Focus Order",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Focusable components receive focus in an order that preserves meaning",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/focus-order.html",
 };
@@ -42,7 +42,7 @@ pub fn check_focus_order(tree: &AXTree) -> WcagResults {
             FOCUS_ORDER_RULE.id,
             FOCUS_ORDER_RULE.name,
             FOCUS_ORDER_RULE.level,
-            Severity::Serious,
+            Severity::High,
             format!(
                 "Element has positive tabindex={} which disrupts natural focus order",
                 tabindex
