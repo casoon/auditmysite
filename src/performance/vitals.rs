@@ -113,18 +113,25 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         let value = metric.value;
         match metric.name.as_str() {
             "FirstContentfulPaint" => {
-                // Convert to ms
+                // Convert to ms with sanity guard
                 let ms = value * 1000.0;
-                vitals.fcp = Some(VitalMetric::new(ms, 1800.0, 3000.0));
-                debug!("FCP: {:.0}ms", ms);
+                if ms > 0.0 && ms < 300_000.0 {
+                    vitals.fcp = Some(VitalMetric::new(ms, 1800.0, 3000.0));
+                    debug!("FCP: {:.0}ms", ms);
+                }
             }
             "LargestContentfulPaint" => {
                 let ms = value * 1000.0;
-                vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
-                debug!("LCP: {:.0}ms", ms);
+                if ms > 0.0 && ms < 300_000.0 {
+                    vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
+                    debug!("LCP: {:.0}ms", ms);
+                }
             }
             "DomContentLoaded" => {
-                vitals.dom_content_loaded = Some(value * 1000.0);
+                let ms = value * 1000.0;
+                if ms > 0.0 && ms < 300_000.0 {
+                    vitals.dom_content_loaded = Some(ms);
+                }
             }
             "NavigationStart" => {
                 // Used for TTFB calculation
@@ -169,6 +176,13 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     }
     if js_metrics.load_time.is_some() {
         vitals.load_time = js_metrics.load_time;
+    }
+    if vitals.dom_content_loaded.is_none() {
+        if let Some(js_dcl) = js_metrics.dom_content_loaded {
+            if js_dcl > 0.0 && js_dcl < 300_000.0 {
+                vitals.dom_content_loaded = Some(js_dcl);
+            }
+        }
     }
 
     info!(
@@ -248,6 +262,9 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
     }
     if let Some(load_time) = parsed["loadTime"].as_f64() {
         vitals.load_time = Some(load_time);
+    }
+    if let Some(dcl) = parsed["domContentLoaded"].as_f64() {
+        vitals.dom_content_loaded = Some(dcl);
     }
 
     Ok(vitals)

@@ -49,7 +49,7 @@ impl AccessibilityScorer {
 
     /// Calculate letter grade (A-F) based on score
     pub fn calculate_grade(score: f32) -> &'static str {
-        match score as u32 {
+        match score.round() as u32 {
             90..=100 => "A",
             80..=89 => "B",
             70..=79 => "C",
@@ -67,7 +67,7 @@ impl AccessibilityScorer {
     /// - BRONZE: ≥65% (acceptable accessibility)
     /// - NEEDS_IMPROVEMENT: <65% (significant issues)
     pub fn calculate_certificate(score: f32) -> &'static str {
-        match score as u32 {
+        match score.round() as u32 {
             95..=100 => "PLATINUM",
             85..=94 => "GOLD",
             75..=84 => "SILVER",

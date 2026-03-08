@@ -132,6 +132,22 @@ pub struct Args {
     /// Enable mobile friendliness check
     #[arg(long)]
     pub mobile: bool,
+
+    /// Report detail level (PDF only)
+    ///
+    /// executive: Compact overview (Kurzfazit + Summary + Maßnahmenplan)
+    /// standard: All chapters (default)
+    /// technical: Extended appendix with full technical details
+    #[arg(long, default_value = "standard", value_enum)]
+    pub report_level: ReportLevel,
+
+    /// Company name for report branding (appears in footer)
+    #[arg(long, value_name = "NAME")]
+    pub company_name: Option<String>,
+
+    /// Logo image path for PDF cover page
+    #[arg(long, value_name = "PATH")]
+    pub logo: Option<PathBuf>,
 }
 
 /// Subcommands
@@ -210,6 +226,21 @@ pub enum OutputFormat {
     /// PDF report output (via Typst)
     #[value(name = "pdf")]
     Pdf,
+}
+
+/// Report detail level for PDF reports
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum ReportLevel {
+    /// Executive summary — compact overview for management
+    #[value(name = "executive")]
+    Executive,
+    /// Standard report — all chapters (default)
+    #[default]
+    #[value(name = "standard")]
+    Standard,
+    /// Technical report — extended appendix with full details
+    #[value(name = "technical")]
+    Technical,
 }
 
 impl std::fmt::Display for OutputFormat {
@@ -332,6 +363,9 @@ mod tests {
             seo: false,
             security: false,
             mobile: false,
+            report_level: ReportLevel::Standard,
+            company_name: None,
+            logo: None,
         }
     }
 

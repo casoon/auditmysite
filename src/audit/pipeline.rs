@@ -193,6 +193,9 @@ mod tests {
             seo: false,
             security: false,
             mobile: false,
+            report_level: crate::cli::ReportLevel::Standard,
+            company_name: None,
+            logo: None,
         };
 
         let config = PipelineConfig::from(&args);

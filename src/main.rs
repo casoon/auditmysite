@@ -24,6 +24,8 @@ use auditmysite::cli::{Args, BrowserAction, Command, OutputFormat};
 use auditmysite::error::{AuditError, Result};
 use auditmysite::output::{print_batch_table, print_report, JsonReport};
 #[cfg(feature = "pdf")]
+use auditmysite::output::report_model::ReportConfig;
+#[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
 use auditmysite::util::truncate_url;
 
@@ -401,8 +403,13 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
+                let config = ReportConfig {
+                    level: args.report_level,
+                    company_name: args.company_name.clone(),
+                    logo_path: args.logo.clone(),
+                };
                 let pdf_bytes =
-                    generate_pdf(report).map_err(|e| AuditError::ReportGenerationFailed {
+                    generate_pdf(report, &config).map_err(|e| AuditError::ReportGenerationFailed {
                         reason: e.to_string(),
                     })?;
                 let path = args
@@ -439,7 +446,12 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
-                let pdf_bytes = generate_batch_pdf(batch_report).map_err(|e| {
+                let config = ReportConfig {
+                    level: args.report_level,
+                    company_name: args.company_name.clone(),
+                    logo_path: args.logo.clone(),
+                };
+                let pdf_bytes = generate_batch_pdf(batch_report, &config).map_err(|e| {
                     AuditError::ReportGenerationFailed {
                         reason: e.to_string(),
                     }

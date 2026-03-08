@@ -1,12 +1,19 @@
 //! Shared utility functions
 
-/// Truncate a URL for display purposes
-pub fn truncate_url(url: &str, max_len: usize) -> String {
-    if url.len() <= max_len {
-        url.to_string()
-    } else {
-        format!("{}...", &url[..max_len.saturating_sub(3)])
+/// Truncate a string for display purposes (safe for multi-byte UTF-8)
+pub fn truncate_url(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        return s.to_string();
     }
+    let target = max_len.saturating_sub(3);
+    // Find the last char boundary at or before target
+    let boundary = s
+        .char_indices()
+        .take_while(|(i, _)| *i <= target)
+        .last()
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    format!("{}...", &s[..boundary])
 }
 
 #[cfg(test)]

@@ -6,5 +6,5 @@ mod args;
 pub mod config;
 pub mod doctor;
 
-pub use args::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
+pub use args::{Args, BrowserAction, Command, OutputFormat, ReportLevel, WcagLevel};
 pub use config::Config;
