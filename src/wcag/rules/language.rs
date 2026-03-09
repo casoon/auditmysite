@@ -12,7 +12,7 @@ pub const LANGUAGE_RULE: RuleMetadata = RuleMetadata {
     id: "3.1.1",
     name: "Language of Page",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "The default human language of each Web page can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
 };
@@ -55,7 +55,7 @@ pub fn check_language(tree: &AXTree) -> WcagResults {
             LANGUAGE_RULE.id,
             LANGUAGE_RULE.name,
             LANGUAGE_RULE.level,
-            Severity::Serious,
+            Severity::High,
             "Page is missing a valid lang attribute on the html element",
             "document",
         )

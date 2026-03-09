@@ -12,8 +12,9 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     id: "4.1.2",
     name: "Name, Role, Value",
     level: WcagLevel::A,
-    severity: Severity::Serious,
-    description: "For all user interface components, the name and role can be programmatically determined",
+    severity: Severity::High,
+    description:
+        "For all user interface components, the name and role can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
 };
 
@@ -67,10 +68,7 @@ pub fn check_labels(tree: &AXTree) -> WcagResults {
 }
 
 /// Check a single form control
-fn check_form_control(
-    node: &crate::accessibility::AXNode,
-    results: &mut WcagResults,
-) {
+fn check_form_control(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
     let role = node.role.as_deref().unwrap_or("unknown");
 
     // Check for accessible name
@@ -91,9 +89,7 @@ fn check_form_control(
             "textbox" | "searchbox" => {
                 "Add a <label> element with 'for' attribute, or use aria-label/aria-labelledby"
             }
-            "checkbox" | "radio" => {
-                "Wrap in a <label> element, or use aria-label"
-            }
+            "checkbox" | "radio" => "Wrap in a <label> element, or use aria-label",
             _ => "Add aria-label or aria-labelledby attribute",
         };
 
@@ -123,7 +119,7 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
             RULE_META.id,
             RULE_META.name,
             RULE_META.level,
-            Severity::Serious,
+            Severity::High,
             "Link is missing accessible text",
             &node.node_id,
         )
@@ -134,7 +130,7 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
         results.add_violation(violation);
     } else {
         // Check for generic link text
-        let name = node.name.as_ref().unwrap().to_lowercase();
+        let name = node.name.as_deref().unwrap_or("").to_lowercase();
         let generic_texts = [
             "click here",
             "here",
@@ -150,14 +146,16 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
                 "2.4.4", // Link Purpose (In Context)
                 "Link Purpose",
                 WcagLevel::A,
-                Severity::Moderate,
+                Severity::Medium,
                 format!("Link text '{}' is not descriptive", name),
                 &node.node_id,
             )
             .with_role(node.role.clone())
             .with_name(node.name.clone())
             .with_fix("Use descriptive link text that explains the destination")
-            .with_help_url("https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html");
+            .with_help_url(
+                "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
+            );
 
             results.add_violation(violation);
         } else {
@@ -167,16 +165,13 @@ fn check_link(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
 }
 
 /// Check a button element
-fn check_button(
-    node: &crate::accessibility::AXNode,
-    results: &mut WcagResults,
-) {
+fn check_button(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
     if !node.has_name() {
         let violation = Violation::new(
             RULE_META.id,
             RULE_META.name,
             RULE_META.level,
-            Severity::Serious,
+            Severity::High,
             "Button is missing accessible text",
             &node.node_id,
         )

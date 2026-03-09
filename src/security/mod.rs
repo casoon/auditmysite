@@ -1,115 +1,13 @@
 //! Security headers analysis module
 //!
 //! Analyzes HTTP security headers and SSL/TLS configuration.
-//! Also provides URL validation for SSRF protection.
-
-use std::net::IpAddr;
 
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
-use url::Url;
+use tracing::info;
 
 use crate::error::{AuditError, Result};
-
-/// Validate a URL for safety (SSRF protection)
-///
-/// Blocks:
-/// - Private IP ranges (10.x, 172.16-31.x, 192.168.x)
-/// - Loopback addresses (127.x, ::1)
-/// - Link-local addresses (169.254.x, fe80::)
-/// - Non-HTTP(S) schemes
-///
-/// # Arguments
-/// * `url_str` - The URL to validate
-///
-/// # Returns
-/// * `Ok(Url)` - The parsed, validated URL
-/// * `Err(AuditError)` - If the URL is invalid or blocked
-pub fn validate_url(url_str: &str) -> Result<Url> {
-    let url =
-        Url::parse(url_str).map_err(|e| AuditError::ConfigError(format!("Invalid URL: {}", e)))?;
-
-    // Only allow HTTP(S)
-    match url.scheme() {
-        "http" | "https" => {}
-        scheme => {
-            return Err(AuditError::ConfigError(format!(
-                "URL scheme '{}' not allowed. Only http and https are permitted.",
-                scheme
-            )));
-        }
-    }
-
-    // Check host
-    let host = url
-        .host_str()
-        .ok_or_else(|| AuditError::ConfigError("URL must have a host".to_string()))?;
-
-    // Block localhost variants
-    if is_localhost(host) {
-        warn!("Blocked localhost URL: {}", url_str);
-        return Err(AuditError::ConfigError(
-            "Localhost URLs are not allowed for security reasons".to_string(),
-        ));
-    }
-
-    // Try to parse as IP and check for private ranges
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        if is_private_ip(&ip) {
-            warn!("Blocked private IP URL: {}", url_str);
-            return Err(AuditError::ConfigError(
-                "Private IP addresses are not allowed for security reasons".to_string(),
-            ));
-        }
-    }
-
-    Ok(url)
-}
-
-/// Check if a host string represents localhost
-fn is_localhost(host: &str) -> bool {
-    let host_lower = host.to_lowercase();
-    host_lower == "localhost"
-        || host_lower == "127.0.0.1"
-        || host_lower == "::1"
-        || host_lower == "[::1]"
-        || host_lower.ends_with(".localhost")
-        || host_lower == "0.0.0.0"
-}
-
-/// Check if an IP address is in a private range
-fn is_private_ip(ip: &IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(ipv4) => {
-            ipv4.is_loopback()           // 127.0.0.0/8
-                || ipv4.is_private()     // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-                || ipv4.is_link_local()  // 169.254.0.0/16
-                || ipv4.is_unspecified() // 0.0.0.0
-                || ipv4.is_broadcast()   // 255.255.255.255
-                || ipv4.is_documentation() // 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24
-        }
-        IpAddr::V6(ipv6) => {
-            ipv6.is_loopback()           // ::1
-                || ipv6.is_unspecified() // ::
-                // Note: is_unique_local and is_unicast_link_local are unstable
-                // Check manually for common private ranges
-                || is_ipv6_private(ipv6)
-        }
-    }
-}
-
-/// Check for private IPv6 ranges (since some methods are unstable)
-fn is_ipv6_private(ip: &std::net::Ipv6Addr) -> bool {
-    let segments = ip.segments();
-    // fc00::/7 - Unique Local Addresses
-    (segments[0] & 0xfe00) == 0xfc00
-        // fe80::/10 - Link-Local
-        || (segments[0] & 0xffc0) == 0xfe80
-        // ::ffff:0:0/96 - IPv4-mapped (check the embedded IPv4)
-        || (segments[0] == 0 && segments[1] == 0 && segments[2] == 0
-            && segments[3] == 0 && segments[4] == 0 && segments[5] == 0xffff)
-}
+use crate::taxonomy::Severity;
 
 /// Security analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,7 +92,7 @@ pub struct SecurityIssue {
     pub header: String,
     pub issue_type: String,
     pub message: String,
-    pub severity: String,
+    pub severity: Severity,
 }
 
 /// Analyze security headers of a URL
@@ -327,7 +225,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "HTTPS".to_string(),
             issue_type: "missing_https".to_string(),
             message: "Site is not served over HTTPS".to_string(),
-            severity: "critical".to_string(),
+            severity: Severity::Critical,
         });
     }
 
@@ -336,7 +234,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Content-Security-Policy".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing Content-Security-Policy header".to_string(),
-            severity: "high".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -345,7 +243,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "X-Content-Type-Options".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing X-Content-Type-Options header".to_string(),
-            severity: "medium".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -354,7 +252,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "X-Frame-Options".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing X-Frame-Options header (clickjacking protection)".to_string(),
-            severity: "medium".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -363,7 +261,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Strict-Transport-Security".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing HSTS header".to_string(),
-            severity: "high".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -372,7 +270,7 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Referrer-Policy".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing Referrer-Policy header".to_string(),
-            severity: "low".to_string(),
+            severity: Severity::Low,
         });
     }
 
@@ -423,19 +321,13 @@ fn calculate_security_score(
 ) -> u32 {
     let mut score = 100u32;
 
-    // Deduct for HTTPS
-    if !ssl.https {
-        score = score.saturating_sub(30);
-    }
-
-    // Deduct for missing headers
+    // Deduct for issues (includes missing HTTPS as a critical issue)
     for issue in issues {
-        score = score.saturating_sub(match issue.severity.as_str() {
-            "critical" => 25,
-            "high" => 15,
-            "medium" => 10,
-            "low" => 5,
-            _ => 5,
+        score = score.saturating_sub(match issue.severity {
+            Severity::Critical => 25,
+            Severity::High => 15,
+            Severity::Medium => 10,
+            Severity::Low => 5,
         });
     }
 
@@ -491,56 +383,106 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_url_valid() {
-        assert!(validate_url("https://example.com").is_ok());
-        assert!(validate_url("https://example.com/path?query=1").is_ok());
-        assert!(validate_url("http://example.com").is_ok());
+    fn test_analyze_ssl_with_hsts() {
+        let headers = SecurityHeaders {
+            strict_transport_security: Some(
+                "max-age=31536000; includeSubDomains; preload".to_string(),
+            ),
+            ..Default::default()
+        };
+
+        let ssl = analyze_ssl(true, &headers);
+        assert!(ssl.https);
+        assert!(ssl.has_hsts);
+        assert_eq!(ssl.hsts_max_age, Some(31536000));
+        assert!(ssl.hsts_include_subdomains);
+        assert!(ssl.hsts_preload);
     }
 
     #[test]
-    fn test_validate_url_localhost_blocked() {
-        assert!(validate_url("http://localhost").is_err());
-        assert!(validate_url("http://localhost:8080").is_err());
-        assert!(validate_url("http://127.0.0.1").is_err());
-        assert!(validate_url("http://127.0.0.1:3000").is_err());
-        assert!(validate_url("http://0.0.0.0").is_err());
-        assert!(validate_url("http://[::1]").is_err());
+    fn test_analyze_ssl_without_hsts() {
+        let headers = SecurityHeaders::default();
+        let ssl = analyze_ssl(false, &headers);
+        assert!(!ssl.https);
+        assert!(!ssl.has_hsts);
+        assert_eq!(ssl.hsts_max_age, None);
     }
 
     #[test]
-    fn test_validate_url_private_ip_blocked() {
-        assert!(validate_url("http://10.0.0.1").is_err());
-        assert!(validate_url("http://10.255.255.255").is_err());
-        assert!(validate_url("http://172.16.0.1").is_err());
-        assert!(validate_url("http://172.31.255.255").is_err());
-        assert!(validate_url("http://192.168.0.1").is_err());
-        assert!(validate_url("http://192.168.1.100").is_err());
-        assert!(validate_url("http://169.254.1.1").is_err());
+    fn test_generate_security_issues_no_https() {
+        let headers = SecurityHeaders::default();
+        let issues = generate_security_issues(&headers, false);
+
+        assert!(issues.iter().any(|i| i.header == "HTTPS"));
+        assert!(issues.iter().any(|i| i.header == "Content-Security-Policy"));
+        assert!(issues.iter().any(|i| i.header == "X-Content-Type-Options"));
+        // HSTS issue should NOT appear for non-HTTPS sites
+        assert!(!issues
+            .iter()
+            .any(|i| i.header == "Strict-Transport-Security"));
     }
 
     #[test]
-    fn test_validate_url_invalid_scheme() {
-        assert!(validate_url("ftp://example.com").is_err());
-        assert!(validate_url("file:///etc/passwd").is_err());
-        assert!(validate_url("javascript:alert(1)").is_err());
+    fn test_generate_security_issues_https_no_hsts() {
+        let headers = SecurityHeaders::default();
+        let issues = generate_security_issues(&headers, true);
+
+        // No HTTPS issue
+        assert!(!issues.iter().any(|i| i.header == "HTTPS"));
+        // But HSTS should be flagged
+        assert!(issues
+            .iter()
+            .any(|i| i.header == "Strict-Transport-Security"));
     }
 
     #[test]
-    fn test_validate_url_invalid_format() {
-        assert!(validate_url("not a url").is_err());
-        assert!(validate_url("").is_err());
+    fn test_generate_security_issues_all_headers_present() {
+        let headers = SecurityHeaders {
+            content_security_policy: Some("default-src 'self'".to_string()),
+            x_content_type_options: Some("nosniff".to_string()),
+            x_frame_options: Some("DENY".to_string()),
+            strict_transport_security: Some("max-age=31536000".to_string()),
+            referrer_policy: Some("strict-origin".to_string()),
+            ..Default::default()
+        };
+        let issues = generate_security_issues(&headers, true);
+        assert!(issues.is_empty());
     }
 
     #[test]
-    fn test_is_localhost() {
-        assert!(is_localhost("localhost"));
-        assert!(is_localhost("LOCALHOST"));
-        assert!(is_localhost("127.0.0.1"));
-        assert!(is_localhost("::1"));
-        assert!(is_localhost("[::1]"));
-        assert!(is_localhost("0.0.0.0"));
-        assert!(is_localhost("foo.localhost"));
-        assert!(!is_localhost("example.com"));
-        assert!(!is_localhost("localhost.example.com"));
+    fn test_generate_recommendations() {
+        let headers = SecurityHeaders::default();
+        let recs = generate_recommendations(&headers, true);
+
+        assert!(recs.iter().any(|r| r.contains("Content-Security-Policy")));
+        assert!(recs.iter().any(|r| r.contains("X-Content-Type-Options")));
+        assert!(recs.iter().any(|r| r.contains("Strict-Transport-Security")));
+    }
+
+    #[test]
+    fn test_calculate_security_score_perfect() {
+        let headers = SecurityHeaders::default();
+        let ssl = SslInfo {
+            https: true,
+            valid_certificate: true,
+            has_hsts: true,
+            hsts_max_age: Some(31536000),
+            hsts_include_subdomains: true,
+            hsts_preload: true,
+        };
+        let issues = vec![];
+        let score = calculate_security_score(&headers, &ssl, &issues);
+        // 100 base + 5 (hsts) + 3 (subdomains) + 2 (preload) = 110, capped at 100
+        assert_eq!(score, 100);
+    }
+
+    #[test]
+    fn test_calculate_security_score_no_https() {
+        let headers = SecurityHeaders::default();
+        let ssl = SslInfo::default();
+        let issues = generate_security_issues(&headers, false);
+        let score = calculate_security_score(&headers, &ssl, &issues);
+        // Should lose points for critical (HTTPS) + high (CSP) + medium (XCT, XFO) + low (referrer)
+        assert!(score < 50);
     }
 }

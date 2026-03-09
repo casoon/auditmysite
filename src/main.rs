@@ -1,4 +1,4 @@
-//! auditmysite CLI Entry Point
+//! AuditMySit CLI Entry Point
 //!
 //! Resource-efficient WCAG 2.1 Accessibility Checker in Rust
 
@@ -6,56 +6,84 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
-use tracing::{error, info, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{error, info};
+use tracing_subscriber::EnvFilter;
 
+use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, BatchConfig,
-    PipelineConfig,
+    load_artifacts, parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit,
+    to_audit_report, BatchConfig, PipelineConfig,
 };
-use auditmysite::browser::{find_chrome, BrowserManager, BrowserOptions};
-use auditmysite::cli::{Args, OutputFormat};
+use auditmysite::browser::{
+    detect_all_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserManager,
+    BrowserOptions, BrowserResolveOptions, InstallTarget,
+};
+use auditmysite::cli::{Args, BrowserAction, Command, OutputFormat};
 use auditmysite::error::{AuditError, Result};
+#[cfg(feature = "pdf")]
+use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_batch_html, format_html, generate_batch_pdf, generate_pdf, print_report, JsonReport,
+    format_json_cached, format_json_normalized, print_batch_table, print_report,
 };
-use auditmysite::security::validate_url;
-
-/// Progress callback type for batch processing
-type ProgressCallback = Arc<dyn Fn(usize, usize, &str) + Send + Sync>;
+#[cfg(feature = "pdf")]
+use auditmysite::output::{generate_batch_pdf, generate_pdf};
+use auditmysite::util::truncate_url;
 
 #[tokio::main]
 async fn main() {
-    // Parse CLI arguments
-    let args = Args::parse();
-
-    // Setup logging
+    let mut args = Args::parse();
     setup_logging(&args);
 
-    // Run the main logic
-    if let Err(e) = run(args).await {
-        error!("{}", e);
-        eprintln!("{} {}", "Error:".red().bold(), e);
-        std::process::exit(1);
+    // Load config file and apply defaults (CLI args take precedence)
+    let config = auditmysite::cli::Config::load();
+    if let Some(ref cfg) = config {
+        cfg.apply_to_args(&mut args);
     }
+
+    let exit_code = match run(args, &config).await {
+        Ok(score) => {
+            // Check score threshold from config
+            if let Some(min_score) = auditmysite::cli::config::get_min_score_threshold(&config) {
+                if score < min_score {
+                    eprintln!(
+                        "{} Score {:.1} is below threshold {:.1}",
+                        "FAIL:".red().bold(),
+                        score,
+                        min_score
+                    );
+                    1
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        }
+        Err(e) => {
+            error!("{}", e);
+            eprintln!("{} {}", "Error:".red().bold(), e);
+            2
+        }
+    };
+
+    std::process::exit(exit_code);
 }
 
 /// Setup tracing/logging based on CLI flags
 fn setup_logging(args: &Args) {
-    let level = if args.quiet {
-        Level::ERROR
+    let filter = if args.quiet {
+        "error,chromiumoxide=off,tungstenite=off".to_string()
     } else if args.verbose {
-        Level::DEBUG
+        "debug,chromiumoxide=info,tungstenite=warn".to_string()
     } else {
-        Level::INFO
+        "warn,chromiumoxide=off,tungstenite=off,auditmysite=warn".to_string()
     };
 
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(level)
+    let subscriber = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(filter))
         .with_target(false)
         .with_thread_ids(false)
         .with_file(false)
@@ -63,28 +91,29 @@ fn setup_logging(args: &Args) {
         .compact()
         .finish();
 
-    // Ignore error if subscriber already set (e.g., in tests)
-    let _ = tracing::subscriber::set_global_default(subscriber);
+    tracing::subscriber::set_global_default(subscriber).expect("Failed to set tracing subscriber");
 }
 
 /// Main application logic
-async fn run(args: Args) -> Result<()> {
-    // Handle --detect-chrome flag
+/// Returns the audit score (or 0.0 for non-scoring operations).
+async fn run(args: Args, _config: &Option<auditmysite::cli::Config>) -> Result<f64> {
+    // Handle subcommands first
+    if let Some(ref command) = args.command {
+        return handle_command(command).await;
+    }
+
     if args.detect_chrome {
         return detect_chrome_command(&args);
     }
 
-    // Validate arguments
     if let Err(e) = args.validate() {
-        return Err(auditmysite::error::AuditError::ConfigError(e));
+        return Err(AuditError::ConfigError(e));
     }
 
-    // Print banner
     if !args.quiet {
         print_banner();
     }
 
-    // Determine if this is a batch operation
     let is_batch = args.sitemap.is_some() || args.url_file.is_some();
 
     if is_batch {
@@ -94,19 +123,168 @@ async fn run(args: Args) -> Result<()> {
     }
 }
 
+/// Handle subcommands (browser, doctor)
+async fn handle_command(command: &Command) -> Result<f64> {
+    match command {
+        Command::Browser { action } => handle_browser_command(action).await,
+        Command::Doctor => {
+            auditmysite::cli::doctor::run_doctor();
+            Ok(0.0)
+        }
+    }
+}
+
+/// Handle browser subcommands
+async fn handle_browser_command(action: &BrowserAction) -> Result<f64> {
+    match action {
+        BrowserAction::Detect => {
+            println!("{}", "Detecting browsers...".cyan().bold());
+            println!();
+
+            let browsers = detect_all_browsers();
+            if browsers.is_empty() {
+                println!("  No browsers found.");
+                println!();
+                println!("  Install one:");
+                println!("    brew install --cask google-chrome");
+                println!("    auditmysite browser install");
+            } else {
+                for browser in &browsers {
+                    println!(
+                        "  {} {:<25} {:<15} {}",
+                        "✓".green(),
+                        browser.kind.display_name(),
+                        browser.version.as_deref().unwrap_or("unknown"),
+                        browser.path.display()
+                    );
+                }
+            }
+
+            // Check managed installs
+            if let Some(home) = dirs::home_dir() {
+                let browsers_dir = home.join(".auditmysite").join("browsers");
+                if browsers_dir.exists() {
+                    let cft = browsers_dir.join("chrome-for-testing");
+                    let hs = browsers_dir.join("headless-shell");
+                    if cft.exists() {
+                        let version = std::fs::read_to_string(cft.join("version.txt"))
+                            .unwrap_or_else(|_| "unknown".to_string());
+                        println!(
+                            "  {} {:<25} {:<15} {}",
+                            "✓".green(),
+                            "Chrome for Testing",
+                            version.trim(),
+                            cft.display()
+                        );
+                    }
+                    if hs.exists() {
+                        let version = std::fs::read_to_string(hs.join("version.txt"))
+                            .unwrap_or_else(|_| "unknown".to_string());
+                        println!(
+                            "  {} {:<25} {:<15} {}",
+                            "✓".green(),
+                            "Headless Shell",
+                            version.trim(),
+                            hs.display()
+                        );
+                    }
+                }
+            }
+
+            // Show active browser
+            println!();
+            let opts = BrowserResolveOptions::default();
+            match resolve_browser(&opts) {
+                Ok(resolved) => {
+                    println!(
+                        "  {} Active: {} v{} ({})",
+                        "→".cyan(),
+                        resolved.browser.kind.display_name(),
+                        resolved.browser.version.as_deref().unwrap_or("unknown"),
+                        resolved.browser.source,
+                    );
+                }
+                Err(_) => {
+                    println!("  {} No browser can be resolved for auditing.", "✗".red());
+                }
+            }
+
+            Ok(0.0)
+        }
+
+        BrowserAction::Install {
+            headless_shell,
+            version,
+            force,
+        } => {
+            let target = if *headless_shell {
+                InstallTarget::HeadlessShell
+            } else {
+                InstallTarget::ChromeForTesting
+            };
+            BrowserInstaller::install(target, version.as_deref(), *force).await?;
+            Ok(0.0)
+        }
+
+        BrowserAction::Remove { all } => {
+            if *all {
+                BrowserInstaller::remove_all()?;
+            } else {
+                BrowserInstaller::remove(InstallTarget::ChromeForTesting)?;
+            }
+            Ok(0.0)
+        }
+
+        BrowserAction::Path => {
+            let opts = BrowserResolveOptions::default();
+            match resolve_browser(&opts) {
+                Ok(resolved) => {
+                    println!("{}", resolved.browser.path.display());
+                }
+                Err(e) => {
+                    eprintln!("{} {}", "Error:".red().bold(), e);
+                    std::process::exit(1);
+                }
+            }
+            Ok(0.0)
+        }
+    }
+}
+
 /// Run single URL audit mode
-async fn run_single_mode(args: &Args) -> Result<()> {
+async fn run_single_mode(args: &Args) -> Result<f64> {
     let url = args
         .url
         .as_ref()
-        .ok_or_else(|| AuditError::ConfigError("URL required but not provided".to_string()))?;
-
-    // Validate URL for SSRF protection
-    validate_url(url)?;
+        .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
     info!("Starting audit for: {}", url);
 
-    // Build browser options from CLI args
+    if args.reuse_cache && !args.force_refresh {
+        if let Some(cached) = load_artifacts(url)? {
+            if !args.quiet {
+                println!(
+                    "{} {}",
+                    "Cache hit:".green().bold(),
+                    "verwende vorhandene Audit-Artefakte".dimmed()
+                );
+            }
+
+            match args.format {
+                OutputFormat::Json => {
+                    let output = format_json_cached(&cached.audit, true)?;
+                    output_text(&output, &args.output, "JSON", args.quiet)?;
+                    return Ok(cached.audit.overall_score as f64);
+                }
+                OutputFormat::Table | OutputFormat::Pdf => {
+                    let report = to_audit_report(&cached);
+                    output_single_report(&report, args)?;
+                    return Ok(report.score as f64);
+                }
+            }
+        }
+    }
+
     let browser_options = BrowserOptions {
         chrome_path: args.chrome_path.clone(),
         headless: true,
@@ -118,7 +296,6 @@ async fn run_single_mode(args: &Args) -> Result<()> {
         verbose: args.verbose,
     };
 
-    // Launch browser
     if !args.quiet {
         println!("{}", "Launching browser...".dimmed());
     }
@@ -131,44 +308,21 @@ async fn run_single_mode(args: &Args) -> Result<()> {
             browser.chrome_version().unwrap_or("unknown version"),
             browser.chrome_path().display()
         );
-    }
-
-    // Build pipeline config
-    let config = PipelineConfig::from(args);
-
-    // Run the audit
-    if !args.quiet {
         println!("{} {}", "Auditing:".cyan().bold(), url);
     }
 
+    let config = PipelineConfig::from(args);
     let report = run_single_audit(url, &browser, &config).await?;
-
-    // Close browser gracefully
     browser.close().await?;
 
-    // Output results
     output_single_report(&report, args)?;
 
-    // Exit with non-zero code if critical violations found
-    if report
-        .wcag_results
-        .violations
-        .iter()
-        .any(|v| v.severity == auditmysite::Severity::Critical)
-    {
-        std::process::exit(1);
-    }
-
-    Ok(())
+    Ok(report.score as f64)
 }
 
 /// Run batch audit mode (sitemap or URL file)
-async fn run_batch_mode(args: &Args) -> Result<()> {
-    // Collect URLs from source
+async fn run_batch_mode(args: &Args) -> Result<f64> {
     let urls = if let Some(ref sitemap_url) = args.sitemap {
-        // Validate sitemap URL for SSRF protection
-        validate_url(sitemap_url)?;
-
         if !args.quiet {
             println!("{} {}", "Fetching sitemap:".cyan().bold(), sitemap_url);
         }
@@ -183,7 +337,7 @@ async fn run_batch_mode(args: &Args) -> Result<()> {
         }
         read_url_file(url_file.to_str().unwrap_or(""))?
     } else {
-        return Err(auditmysite::error::AuditError::ConfigError(
+        return Err(AuditError::ConfigError(
             "No batch source specified".to_string(),
         ));
     };
@@ -192,7 +346,7 @@ async fn run_batch_mode(args: &Args) -> Result<()> {
         if !args.quiet {
             println!("{} No URLs found to audit.", "Warning:".yellow().bold());
         }
-        return Ok(());
+        return Ok(0.0);
     }
 
     let total_urls = if args.max_pages > 0 {
@@ -203,54 +357,49 @@ async fn run_batch_mode(args: &Args) -> Result<()> {
 
     if !args.quiet {
         println!(
-            "{} {} URLs with {} concurrent workers",
+            "{} {} URLs with {} concurrent workers\n",
             "Auditing:".cyan().bold(),
             total_urls,
             args.concurrency
         );
-        println!();
     }
 
-    // Build batch config
     let batch_config = BatchConfig::from(args);
 
-    // Progress callback with progress bar
-    let quiet = args.quiet;
-    let progress_bar = if !quiet {
+    let progress_bar = if !args.quiet {
         let pb = ProgressBar::new(urls.len() as u64);
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
-                .unwrap_or_else(|_| ProgressStyle::default_bar())
-                .progress_chars("#>-")
+                .expect("Invalid template")
+                .progress_chars("#>-"),
         );
         Some(pb)
     } else {
         None
     };
 
-    let progress: Option<ProgressCallback> = if let Some(ref pb) = progress_bar {
-        let pb_clone = pb.clone();
-        Some(Arc::new(move |current, _total, url| {
-            pb_clone.set_position(current as u64);
-            pb_clone.set_message(truncate_url(url, 50));
-        }))
-    } else {
-        None
-    };
+    #[allow(clippy::type_complexity)]
+    let progress: Option<Arc<dyn Fn(usize, usize, &str) + Send + Sync>> =
+        if let Some(ref pb) = progress_bar {
+            let pb_clone = pb.clone();
+            Some(Arc::new(move |current, _total, url| {
+                pb_clone.set_position(current as u64);
+                pb_clone.set_message(truncate_url(url, 50));
+            }))
+        } else {
+            None
+        };
 
-    // Run batch audit with concurrent processing
     let batch_report = run_concurrent_batch(urls, &batch_config, progress).await?;
 
-    // Finish progress bar
     if let Some(pb) = progress_bar {
         pb.finish_with_message("Complete");
     }
 
     if !args.quiet {
-        println!();
         println!(
-            "{} {}/{} passed, {} violations found in {}ms",
+            "\n{} {}/{} passed, {} violations found in {}ms",
             "Results:".green().bold(),
             batch_report.summary.passed,
             batch_report.summary.total_urls,
@@ -259,113 +408,50 @@ async fn run_batch_mode(args: &Args) -> Result<()> {
         );
     }
 
-    // Output batch results
     output_batch_report(&batch_report, args)?;
 
-    // Exit with non-zero code if any failures
-    if batch_report.summary.failed > 0 {
-        std::process::exit(1);
-    }
-
-    Ok(())
+    Ok(batch_report.summary.average_score)
 }
 
 /// Output a single audit report in the requested format
 fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
     match args.format {
         OutputFormat::Json => {
-            let json_report =
-                JsonReport::new(report.clone(), &args.level.to_string(), report.duration_ms);
-            let output = json_report.to_json(true)?;
-
-            if let Some(path) = &args.output {
-                write_output(&output, path)?;
-                if !args.quiet {
-                    println!(
-                        "{} JSON report saved to {}",
-                        "Success:".green().bold(),
-                        path.display()
-                    );
-                }
-            } else {
-                println!("{}", output);
-            }
+            let normalized = normalize(report);
+            let output = format_json_normalized(&normalized, report, true)?;
+            output_text(&output, &args.output, "JSON", args.quiet)?;
         }
         OutputFormat::Table => {
             print_report(report, args.level);
         }
-        OutputFormat::Html => {
-            let output = format_html(report, &args.level.to_string())?;
-
-            if let Some(path) = &args.output {
-                write_output(&output, path)?;
-                if !args.quiet {
-                    println!(
-                        "{} HTML report saved to {}",
-                        "Success:".green().bold(),
-                        path.display()
-                    );
-                }
-            } else {
-                // For HTML without output file, save to default
-                let default_path = PathBuf::from("audit-report.html");
-                write_output(&output, &default_path)?;
-                if !args.quiet {
-                    println!(
-                        "{} HTML report saved to {}",
-                        "Success:".green().bold(),
-                        default_path.display()
-                    );
-                }
-            }
-        }
         OutputFormat::Pdf => {
-            let pdf_bytes =
-                generate_pdf(report).map_err(|e| AuditError::ReportGenerationFailed {
-                    reason: e.to_string(),
+            #[cfg(feature = "pdf")]
+            {
+                let config = ReportConfig {
+                    level: args.report_level,
+                    company_name: args.company_name.clone(),
+                    logo_path: args.logo.clone(),
+                    locale: args.lang.clone(),
+                };
+                let pdf_bytes = generate_pdf(report, &config).map_err(|e| {
+                    AuditError::ReportGenerationFailed {
+                        reason: e.to_string(),
+                    }
                 })?;
-
-            let output_path = if let Some(path) = &args.output {
-                path.clone()
-            } else {
-                // Generate default path: reports/<domain>_<date>.pdf
-                let domain = extract_domain(&report.url);
-                let date = Local::now().format("%Y-%m-%d").to_string();
-                PathBuf::from(format!("reports/{}_{}.pdf", domain, date))
-            };
-
-            if let Some(parent) = output_path.parent() {
-                std::fs::create_dir_all(parent)?;
+                let path = args
+                    .output
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("reports/audit-report.pdf"));
+                output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
             }
-
-            std::fs::write(&output_path, pdf_bytes)?;
-
-            if !args.quiet {
-                println!(
-                    "{} PDF report saved to {}",
-                    "Success:".green().bold(),
-                    output_path.display()
-                );
-            }
-        }
-
-        OutputFormat::Markdown => {
-            let output = format_markdown_report(report);
-            if let Some(path) = &args.output {
-                write_output(&output, path)?;
-                if !args.quiet {
-                    println!(
-                        "{} Markdown report saved to {}",
-                        "Success:".green().bold(),
-                        path.display()
-                    );
-                }
-            } else {
-                println!("{}", output);
+            #[cfg(not(feature = "pdf"))]
+            {
+                return Err(AuditError::ConfigError(
+                    "PDF output requires the 'pdf' feature. Rebuild with: cargo build --features pdf".to_string(),
+                ));
             }
         }
     }
-
     Ok(())
 }
 
@@ -374,237 +460,100 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
     match args.format {
         OutputFormat::Json => {
             let output = serde_json::to_string_pretty(batch_report).map_err(|e| {
-                auditmysite::error::AuditError::OutputError {
+                AuditError::OutputError {
                     reason: e.to_string(),
                 }
             })?;
-
-            if let Some(path) = &args.output {
-                write_output(&output, path)?;
-                if !args.quiet {
-                    println!(
-                        "{} JSON batch report saved to {}",
-                        "Success:".green().bold(),
-                        path.display()
-                    );
-                }
-            } else {
-                println!("{}", output);
-            }
+            output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
-            print_batch_table(batch_report, args);
-        }
-        OutputFormat::Html => {
-            let output = format_batch_html(&batch_report.reports, &args.level.to_string())?;
-
-            if let Some(path) = &args.output {
-                write_output(&output, path)?;
-                if !args.quiet {
-                    println!(
-                        "{} HTML batch report saved to {}",
-                        "Success:".green().bold(),
-                        path.display()
-                    );
-                }
-            } else {
-                let default_path = PathBuf::from("batch-audit-report.html");
-                write_output(&output, &default_path)?;
-                if !args.quiet {
-                    println!(
-                        "{} HTML batch report saved to {}",
-                        "Success:".green().bold(),
-                        default_path.display()
-                    );
-                }
-            }
+            print_batch_table(batch_report, args.level);
         }
         OutputFormat::Pdf => {
-            let pdf_bytes = generate_batch_pdf(batch_report).map_err(|e| {
-                AuditError::ReportGenerationFailed {
-                    reason: e.to_string(),
-                }
-            })?;
-
-            let output_path = if let Some(path) = &args.output {
-                path.clone()
-            } else {
-                PathBuf::from("reports/batch-audit-report.pdf")
-            };
-
-            if let Some(parent) = output_path.parent() {
-                std::fs::create_dir_all(parent)?;
+            #[cfg(feature = "pdf")]
+            {
+                let config = ReportConfig {
+                    level: args.report_level,
+                    company_name: args.company_name.clone(),
+                    logo_path: args.logo.clone(),
+                    locale: args.lang.clone(),
+                };
+                let pdf_bytes = generate_batch_pdf(batch_report, &config).map_err(|e| {
+                    AuditError::ReportGenerationFailed {
+                        reason: e.to_string(),
+                    }
+                })?;
+                let path = args
+                    .output
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("reports/batch-audit-report.pdf"));
+                output_bytes(&pdf_bytes, &path, "PDF batch", args.quiet)?;
             }
-
-            std::fs::write(&output_path, pdf_bytes)?;
-
-            if !args.quiet {
-                println!(
-                    "{} PDF batch report saved to {}",
-                    "Success:".green().bold(),
-                    output_path.display()
-                );
-            }
-        }
-
-        OutputFormat::Markdown => {
-            let output = format_batch_markdown(batch_report);
-            if let Some(path) = &args.output {
-                write_output(&output, path)?;
-                if !args.quiet {
-                    println!(
-                        "{} Markdown batch report saved to {}",
-                        "Success:".green().bold(),
-                        path.display()
-                    );
-                }
-            } else {
-                println!("{}", output);
+            #[cfg(not(feature = "pdf"))]
+            {
+                return Err(AuditError::ConfigError(
+                    "PDF output requires the 'pdf' feature. Rebuild with: cargo build --features pdf".to_string(),
+                ));
             }
         }
     }
-
     Ok(())
 }
 
-/// Print batch results as a table
-fn print_batch_table(batch_report: &auditmysite::audit::BatchReport, args: &Args) {
-    println!();
-    println!("{} WCAG {} Batch Audit Results", "═══".cyan(), args.level);
-    println!();
-
-    // Summary
-    println!(
-        "  {} {} URLs audited",
-        "Total:".bold(),
-        batch_report.summary.total_urls
-    );
-    println!(
-        "  {} {} passed, {} failed",
-        "Status:".bold(),
-        batch_report.summary.passed.to_string().green(),
-        batch_report.summary.failed.to_string().red()
-    );
-    println!(
-        "  {} {:.1}",
-        "Avg Score:".bold(),
-        batch_report.summary.average_score
-    );
-    println!(
-        "  {} {}",
-        "Total Violations:".bold(),
-        batch_report.summary.total_violations
-    );
-    println!(
-        "  {} {}ms",
-        "Duration:".bold(),
-        batch_report.total_duration_ms
-    );
-    println!();
-
-    // Individual results
-    println!("{}", "─".repeat(80));
-    println!(
-        "{:<50} {:>8} {:>10} {:>8}",
-        "URL".bold(),
-        "Score".bold(),
-        "Violations".bold(),
-        "Status".bold()
-    );
-    println!("{}", "─".repeat(80));
-
-    for report in &batch_report.reports {
-        let status = if report.passed() {
-            "PASS".green()
-        } else {
-            "FAIL".red()
-        };
-
-        let score_color = if report.score >= 90.0 {
-            format!("{:.1}", report.score).green()
-        } else if report.score >= 70.0 {
-            format!("{:.1}", report.score).yellow()
-        } else {
-            format!("{:.1}", report.score).red()
-        };
-
-        println!(
-            "{:<50} {:>8} {:>10} {:>8}",
-            truncate_url(&report.url, 48),
-            score_color,
-            report.violation_count(),
-            status
-        );
+/// Write text content to file or stdout
+fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) -> Result<()> {
+    if let Some(path) = path {
+        fs::write(path, content).map_err(|e| AuditError::FileError {
+            path: path.clone(),
+            reason: e.to_string(),
+        })?;
+        if !quiet {
+            println!(
+                "{} {} report saved to {}",
+                "Success:".green().bold(),
+                label,
+                path.display()
+            );
+        }
+    } else {
+        println!("{}", content);
     }
-
-    println!("{}", "─".repeat(80));
+    Ok(())
 }
 
-/// Format batch results as markdown
-fn format_batch_markdown(batch_report: &auditmysite::audit::BatchReport) -> String {
-    let mut output = String::new();
-
-    output.push_str("# WCAG Batch Audit Report\n\n");
-    output.push_str("## Summary\n\n");
-    output.push_str(&format!(
-        "- **Total URLs:** {}\n",
-        batch_report.summary.total_urls
-    ));
-    output.push_str(&format!("- **Passed:** {}\n", batch_report.summary.passed));
-    output.push_str(&format!("- **Failed:** {}\n", batch_report.summary.failed));
-    output.push_str(&format!(
-        "- **Average Score:** {:.1}\n",
-        batch_report.summary.average_score
-    ));
-    output.push_str(&format!(
-        "- **Total Violations:** {}\n",
-        batch_report.summary.total_violations
-    ));
-    output.push_str(&format!(
-        "- **Duration:** {}ms\n\n",
-        batch_report.total_duration_ms
-    ));
-
-    output.push_str("## Results by URL\n\n");
-    output.push_str("| URL | Score | Violations | Status |\n");
-    output.push_str("|-----|-------|------------|--------|\n");
-
-    for report in &batch_report.reports {
-        let status = if report.passed() { "Pass" } else { "Fail" };
-        output.push_str(&format!(
-            "| {} | {} | {} | {} |\n",
-            report.url,
-            report.score,
-            report.violation_count(),
-            status
-        ));
+/// Write binary content to file
+#[cfg(feature = "pdf")]
+fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
     }
-
-    output.push_str("\n---\n\n");
-    output.push_str(&format!(
-        "*Generated by auditmysite v{}*\n",
-        env!("CARGO_PKG_VERSION")
-    ));
-
-    output
+    fs::write(path, content)?;
+    if !quiet {
+        println!(
+            "{} {} report saved to {}",
+            "Success:".green().bold(),
+            label,
+            path.display()
+        );
+    }
+    Ok(())
 }
 
 /// Handle --detect-chrome command
-fn detect_chrome_command(args: &Args) -> Result<()> {
+fn detect_chrome_command(args: &Args) -> Result<f64> {
     println!("{}", "Detecting Chrome/Chromium...".cyan().bold());
     println!();
 
     match find_chrome(args.chrome_path.as_deref()) {
         Ok(info) => {
             println!("{} Chrome found!", "Success:".green().bold());
-            println!();
             println!("  Path:    {}", info.path.display());
             println!(
                 "  Version: {}",
                 info.version.as_deref().unwrap_or("unknown")
             );
             println!("  Method:  {:?}", info.detection_method);
-            Ok(())
+            Ok(0.0)
         }
         Err(e) => {
             println!("{}", e);
@@ -613,104 +562,23 @@ fn detect_chrome_command(args: &Args) -> Result<()> {
     }
 }
 
-/// Write output to file
-fn write_output(content: &str, path: &PathBuf) -> Result<()> {
-    fs::write(path, content).map_err(|e| auditmysite::error::AuditError::FileError {
-        path: path.clone(),
-        reason: e.to_string(),
-    })
-}
-
-/// Format a simple markdown report for single URL
-fn format_markdown_report(report: &auditmysite::AuditReport) -> String {
-    let mut output = String::new();
-
-    output.push_str("# WCAG Accessibility Report\n\n");
-    output.push_str(&format!("**URL:** {}\n\n", report.url));
-    output.push_str(&format!(
-        "**Date:** {}\n\n",
-        report.timestamp.format("%Y-%m-%d %H:%M:%S UTC")
-    ));
-    output.push_str(&format!("**Score:** {}/100\n\n", report.score));
-    output.push_str(&format!(
-        "**Violations:** {}\n\n",
-        report.wcag_results.violations.len()
-    ));
-
-    if !report.wcag_results.violations.is_empty() {
-        output.push_str("## Violations\n\n");
-
-        for violation in &report.wcag_results.violations {
-            output.push_str(&format!(
-                "### {} - {}\n\n",
-                violation.rule, violation.rule_name
-            ));
-            output.push_str(&format!("- **Level:** {}\n", violation.level));
-            output.push_str(&format!("- **Severity:** {}\n", violation.severity));
-            output.push_str(&format!("- **Message:** {}\n", violation.message));
-
-            if let Some(fix) = &violation.fix_suggestion {
-                output.push_str(&format!("- **Suggested Fix:** {}\n", fix));
-            }
-
-            if let Some(url) = &violation.help_url {
-                output.push_str(&format!(
-                    "- **Learn More:** [WCAG Documentation]({})\n",
-                    url
-                ));
-            }
-
-            output.push('\n');
-        }
-    }
-
-    output.push_str("---\n\n");
-    output.push_str(&format!(
-        "*Generated by auditmysite v{} in {}ms*\n",
-        env!("CARGO_PKG_VERSION"),
-        report.duration_ms
-    ));
-
-    output
-}
-
-/// Truncate URL for display
-fn truncate_url(url: &str, max_len: usize) -> String {
-    if url.len() <= max_len {
-        url.to_string()
-    } else {
-        format!("{}...", &url[..max_len - 3])
-    }
-}
-
-/// Extract domain from URL for filename generation
-fn extract_domain(url: &str) -> String {
-    url::Url::parse(url)
-        .ok()
-        .and_then(|u| u.host_str().map(|h| h.to_string()))
-        .unwrap_or_else(|| "unknown".to_string())
-        .replace("www.", "")
-        .replace('.', "_")
-}
-
 /// Print application banner
 fn print_banner() {
-    println!();
     println!(
         "{}",
         r#"
-                 _ _ _
-   __ _ _   _  __| (_) |_
-  / _` | | | |/ _` | | __|
- | (_| | |_| | (_| | | |_
-  \__,_|\__,_|\__,_|_|\__|
+    _             _ _ _   __  __       ____  _ _
+   / \  _   _  __| (_) |_|  \/  |_   _/ ___|(_) |_
+  / _ \| | | |/ _` | | __| |\/| | | | \___ \| | __|
+ / ___ \ |_| | (_| | | |_| |  | | |_| |___) | | |_
+/_/   \_\__,_|\__,_|_|\__|_|  |_|\__, |____/|_|\__|
+                                 |___/
 "#
         .cyan()
     );
     println!(
-        "  {} v{} - WCAG 2.1 Accessibility Checker",
-        "auditmysite".bold(),
+        "  {} v{} - WCAG 2.1 Accessibility Checker\n",
+        "AuditMySit".bold(),
         env!("CARGO_PKG_VERSION")
     );
-    println!();
 }

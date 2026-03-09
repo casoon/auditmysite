@@ -2,22 +2,38 @@
 //!
 //! Coordinates browser management, AXTree extraction, WCAG checking,
 //! and report generation.
-//!
-//! ## Performance Optimizations
-//! - Parallel extraction of AXTree and computed styles
-//! - Style cache shared between contrast and other checks
 
 use std::time::Instant;
 
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
-use super::report::AuditReport;
-use crate::accessibility::{extract_ax_tree, extract_text_styles};
-use crate::browser::{BrowserManager, BrowserOptions};
+use super::artifacts::{
+    content_hash, save_artifacts, AuditArtifacts, FetchArtifact, SnapshotArtifact,
+};
+use super::normalize;
+use super::report::{AuditReport, PerformanceResults};
+use crate::accessibility::{extract_ax_tree, AXTree};
+use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::error::Result;
-use crate::wcag;
+use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
+use crate::performance::{calculate_performance_score, extract_web_vitals};
+use crate::security::{analyze_security, SecurityAnalysis};
+use crate::seo::{analyze_seo, SeoAnalysis};
+use crate::wcag::{self, WcagResults};
+
+/// Extracted snapshot data from a loaded page.
+///
+/// This boundary is the basis for artifact persistence and future cache reuse.
+#[derive(Debug, Clone)]
+struct SnapshotData {
+    ax_tree: AXTree,
+    performance: Option<PerformanceResults>,
+    seo: Option<SeoAnalysis>,
+    security: Option<SecurityAnalysis>,
+    mobile: Option<MobileFriendliness>,
+}
 
 /// Audit pipeline configuration
 #[derive(Debug, Clone)]
@@ -28,6 +44,16 @@ pub struct PipelineConfig {
     pub timeout_secs: u64,
     /// Whether to be verbose
     pub verbose: bool,
+    /// Run performance analysis
+    pub check_performance: bool,
+    /// Run SEO analysis
+    pub check_seo: bool,
+    /// Run security analysis
+    pub check_security: bool,
+    /// Run mobile friendliness analysis
+    pub check_mobile: bool,
+    /// Persist audit artifacts under ~/.auditmysite/cache
+    pub persist_artifacts: bool,
 }
 
 impl From<&Args> for PipelineConfig {
@@ -36,6 +62,11 @@ impl From<&Args> for PipelineConfig {
             wcag_level: args.level,
             timeout_secs: args.timeout,
             verbose: args.verbose,
+            check_performance: (args.full || args.performance) && !args.skip_performance,
+            check_seo: args.full || args.seo,
+            check_security: args.full || args.security,
+            check_mobile: (args.full || args.mobile) && !args.skip_mobile,
+            persist_artifacts: true,
         }
     }
 }
@@ -90,110 +121,163 @@ pub async fn run_single_audit(
 pub async fn audit_page(page: &Page, url: &str, config: &PipelineConfig) -> Result<AuditReport> {
     let start_time = Instant::now();
 
-    // Parallel extraction: AXTree and computed styles (for contrast checks)
-    // This saves ~100-200ms by not waiting for sequential CDP calls
-    let needs_styles = matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA);
+    let snapshot = extract_snapshot(page, url, config).await?;
+    let wcag_results = run_rules(page, &snapshot, config).await;
+    let report = aggregate_report(
+        url,
+        config,
+        &snapshot,
+        wcag_results,
+        start_time.elapsed().as_millis() as u64,
+    );
 
-    let (ax_tree, styles) = if needs_styles {
-        debug!("Extracting AXTree and styles in parallel...");
-        let (ax_result, styles_result) =
-            tokio::join!(extract_ax_tree(page), extract_text_styles(page));
-
-        let ax_tree = ax_result?;
-        let styles = styles_result.unwrap_or_else(|e| {
-            warn!("Failed to extract styles: {}", e);
-            Vec::new()
-        });
-
-        info!(
-            "Extracted {} AXTree nodes and {} style objects",
-            ax_tree.len(),
-            styles.len()
-        );
-        (ax_tree, styles)
-    } else {
-        debug!("Extracting Accessibility Tree...");
-        let ax_tree = extract_ax_tree(page).await?;
-        info!("Extracted {} nodes from AXTree", ax_tree.len());
-        (ax_tree, Vec::new())
-    };
-
-    // Run WCAG checks
-    debug!("Running WCAG checks at level {}...", config.wcag_level);
-    let mut wcag_results = wcag::check_all(&ax_tree, config.wcag_level);
-
-    // Run contrast check using pre-fetched styles (Level AA and AAA only)
-    if needs_styles && !styles.is_empty() {
-        debug!("Running contrast check with cached styles...");
-        let contrast_violations =
-            wcag::rules::ContrastRule::check_with_styles(&styles, config.wcag_level);
-        info!("Found {} contrast violations", contrast_violations.len());
-        wcag_results.violations.extend(contrast_violations);
+    if config.persist_artifacts {
+        persist_artifacts(url, &snapshot, &report);
     }
-
-    // Calculate duration
-    let duration_ms = start_time.elapsed().as_millis() as u64;
-
-    // Create report
-    let report = AuditReport::new(url.to_string(), wcag_results, duration_ms);
 
     Ok(report)
 }
 
-/// Run audits on multiple URLs
-///
-/// # Arguments
-/// * `urls` - The URLs to audit
-/// * `args` - CLI arguments for configuration
-///
-/// # Returns
-/// * `Ok(Vec<AuditReport>)` - Reports for each URL
-pub async fn run_batch_audit(urls: Vec<String>, args: &Args) -> Result<Vec<AuditReport>> {
-    let config = PipelineConfig::from(args);
+async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Result<SnapshotData> {
+    debug!("Extracting Accessibility Tree...");
+    let ax_tree = extract_ax_tree(page).await?;
+    info!("Extracted {} nodes from AXTree", ax_tree.len());
 
-    // Build browser options
-    let browser_options = BrowserOptions {
-        chrome_path: args.chrome_path.clone(),
-        headless: true,
-        disable_gpu: true,
-        no_sandbox: args.no_sandbox,
-        disable_images: args.disable_images,
-        window_size: (1920, 1080),
-        timeout_secs: args.timeout,
-        verbose: args.verbose,
-    };
-
-    // Launch browser
-    info!("Launching browser...");
-    let browser = BrowserManager::with_options(browser_options).await?;
-
-    let mut reports = Vec::with_capacity(urls.len());
-    let max_pages = if args.max_pages == 0 {
-        urls.len()
-    } else {
-        args.max_pages.min(urls.len())
-    };
-
-    // Process URLs
-    for (i, url) in urls.iter().take(max_pages).enumerate() {
-        info!("Auditing URL {}/{}: {}", i + 1, max_pages, url);
-
-        match run_single_audit(url, &browser, &config).await {
-            Ok(report) => {
-                reports.push(report);
+    let performance = if config.check_performance {
+        match extract_web_vitals(page).await {
+            Ok(vitals) => {
+                let score = calculate_performance_score(&vitals);
+                Some(PerformanceResults { vitals, score })
             }
             Err(e) => {
-                warn!("Failed to audit {}: {}", url, e);
-                // Continue with other URLs
+                warn!("Performance analysis failed: {}", e);
+                None
             }
         }
+    } else {
+        None
+    };
+
+    let seo = if config.check_seo {
+        match analyze_seo(page, url).await {
+            Ok(seo) => Some(seo),
+            Err(e) => {
+                warn!("SEO analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let security = if config.check_security {
+        match analyze_security(url).await {
+            Ok(sec) => Some(sec),
+            Err(e) => {
+                warn!("Security analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let mobile = if config.check_mobile {
+        match analyze_mobile_friendliness(page).await {
+            Ok(mobile) => Some(mobile),
+            Err(e) => {
+                warn!("Mobile analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    Ok(SnapshotData {
+        ax_tree,
+        performance,
+        seo,
+        security,
+        mobile,
+    })
+}
+
+async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig) -> WcagResults {
+    debug!("Running WCAG checks at level {}...", config.wcag_level);
+    let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
+
+    if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
+        info!("Running contrast check with CDP...");
+        let contrast_violations =
+            wcag::rules::ContrastRule::check_with_page(page, &snapshot.ax_tree, config.wcag_level)
+                .await;
+        info!("Found {} contrast violations", contrast_violations.len());
+        wcag_results.violations.extend(contrast_violations);
     }
 
-    // Close browser
-    browser.close().await?;
-
-    Ok(reports)
+    wcag_results
 }
+
+fn aggregate_report(
+    url: &str,
+    config: &PipelineConfig,
+    snapshot: &SnapshotData,
+    wcag_results: WcagResults,
+    duration_ms: u64,
+) -> AuditReport {
+    let mut report = AuditReport::new(
+        url.to_string(),
+        config.wcag_level,
+        wcag_results,
+        duration_ms,
+    );
+
+    if let Some(performance) = snapshot.performance.clone() {
+        report = report.with_performance(performance);
+    }
+    if let Some(seo) = snapshot.seo.clone() {
+        report = report.with_seo(seo);
+    }
+    if let Some(security) = snapshot.security.clone() {
+        report = report.with_security(security);
+    }
+    if let Some(mobile) = snapshot.mobile.clone() {
+        report = report.with_mobile(mobile);
+    }
+
+    report
+}
+
+fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
+    let snapshot_artifact = SnapshotArtifact {
+        ax_tree: snapshot.ax_tree.clone(),
+        performance: snapshot.performance.clone(),
+        seo: snapshot.seo.clone(),
+        security: snapshot.security.clone(),
+        mobile: snapshot.mobile.clone(),
+    };
+    let normalized = normalize(report);
+    let artifacts = AuditArtifacts {
+        fetch: FetchArtifact {
+            requested_url: url.to_string(),
+            final_url: report.url.clone(),
+            status_code: None,
+            fetched_at: report.timestamp,
+            duration_ms: report.duration_ms,
+        },
+        snapshot: snapshot_artifact.clone(),
+        audit: normalized,
+        content_hash: content_hash(&snapshot_artifact),
+    };
+
+    if let Err(e) = save_artifacts(url, &artifacts) {
+        warn!("Artifact persistence failed for {}: {}", url, e);
+    }
+}
+
+/// Run audits on multiple URLs
+///
 
 #[cfg(test)]
 mod tests {
@@ -202,6 +286,7 @@ mod tests {
     #[test]
     fn test_pipeline_config_from_args() {
         let args = Args {
+            command: None,
             url: Some("https://example.com".to_string()),
             sitemap: None,
             url_file: None,
@@ -218,11 +303,26 @@ mod tests {
             verbose: true,
             quiet: false,
             detect_chrome: false,
+            full: false,
+            performance: false,
+            skip_performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
+            skip_mobile: false,
+            reuse_cache: false,
+            force_refresh: false,
+            report_level: crate::cli::ReportLevel::Standard,
+            lang: "de".to_string(),
+            company_name: None,
+            logo: None,
         };
 
         let config = PipelineConfig::from(&args);
         assert_eq!(config.wcag_level, WcagLevel::AA);
         assert_eq!(config.timeout_secs, 30);
         assert!(config.verbose);
+        assert!(!config.check_performance);
+        assert!(!config.check_mobile);
     }
 }

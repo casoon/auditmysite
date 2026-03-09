@@ -12,7 +12,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     id: "1.1.1",
     name: "Non-text Content",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "All non-text content has a text alternative that serves the equivalent purpose",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
 };
@@ -48,7 +48,9 @@ pub fn check_text_alternatives(tree: &AXTree) -> WcagResults {
                 &image.node_id,
             )
             .with_role(image.role.clone())
-            .with_fix("Add an alt attribute describing the image content, or alt=\"\" if decorative")
+            .with_fix(
+                "Add an alt attribute describing the image content, or alt=\"\" if decorative",
+            )
             .with_help_url(RULE_META.help_url);
 
             results.add_violation(violation);
@@ -74,27 +76,28 @@ fn check_icons(tree: &AXTree, results: &mut WcagResults) {
 
         // Check for icon patterns
         let is_icon = node.role.as_deref() == Some("img")
-            || node.name.as_ref().is_some_and(|n| {
-                n.contains("icon") || n.contains("Icon")
-            });
+            || node
+                .name
+                .as_ref()
+                .is_some_and(|n| n.contains("icon") || n.contains("Icon"));
 
         if is_icon && !node.has_name() {
             // Only flag if it seems meaningful (not decorative)
-            let likely_decorative = node
-                .get_property_str("hidden")
-                .is_some();
+            let likely_decorative = node.get_property_str("hidden").is_some();
 
             if !likely_decorative {
                 let violation = Violation::new(
                     RULE_META.id,
                     RULE_META.name,
                     RULE_META.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     "Icon element may need alternative text",
                     &node.node_id,
                 )
                 .with_role(node.role.clone())
-                .with_fix("Add aria-label for meaningful icons, or aria-hidden=\"true\" for decorative")
+                .with_fix(
+                    "Add aria-label for meaningful icons, or aria-hidden=\"true\" for decorative",
+                )
                 .with_help_url(RULE_META.help_url);
 
                 results.add_violation(violation);
@@ -113,21 +116,22 @@ fn check_svg_elements(tree: &AXTree, results: &mut WcagResults) {
         // SVG elements often appear as graphics role
         if (node.role.as_deref() == Some("graphics-document")
             || node.role.as_deref() == Some("graphics-symbol"))
-            && !node.has_name() {
-                let violation = Violation::new(
-                    RULE_META.id,
-                    RULE_META.name,
-                    RULE_META.level,
-                    Severity::Serious,
-                    "SVG graphic is missing alternative text",
-                    &node.node_id,
-                )
-                .with_role(node.role.clone())
-                .with_fix("Add <title> element inside SVG, or aria-label on the SVG element")
-                .with_help_url(RULE_META.help_url);
+            && !node.has_name()
+        {
+            let violation = Violation::new(
+                RULE_META.id,
+                RULE_META.name,
+                RULE_META.level,
+                Severity::High,
+                "SVG graphic is missing alternative text",
+                &node.node_id,
+            )
+            .with_role(node.role.clone())
+            .with_fix("Add <title> element inside SVG, or aria-label on the SVG element")
+            .with_help_url(RULE_META.help_url);
 
-                results.add_violation(violation);
-            }
+            results.add_violation(violation);
+        }
     }
 }
 

@@ -1,55 +1,76 @@
+use std::collections::HashMap;
+
+use crate::taxonomy::{RuleLookup, ScoreImpact, Scaling};
 use crate::wcag::types::{Severity, Violation};
 
 /// Calculates accessibility scores and grades based on WCAG violations
 pub struct AccessibilityScorer;
 
+/// Default penalty for rules not found in the taxonomy registry
+fn default_impact(severity: Severity) -> ScoreImpact {
+    match severity {
+        Severity::Critical => ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 15.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        Severity::High => ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        Severity::Medium => ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        Severity::Low => ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    }
+}
+
 impl AccessibilityScorer {
     /// Calculate accessibility score (0-100) based on violations
     ///
-    /// Scoring algorithm:
-    /// - Start at 100 points
-    /// - Deduct 2.5 points per error
-    /// - Deduct 1.0 point per warning
-    /// - Additional specific penalties for critical issues
+    /// Uses the taxonomy rule registry for per-rule score impacts.
+    /// Groups violations by rule, looks up ScoreImpact, and applies
+    /// occurrence-based penalty scaling.
     pub fn calculate_score(violations: &[Violation]) -> f32 {
-        let errors = violations
-            .iter()
-            .filter(|v| matches!(v.severity, Severity::Critical | Severity::Serious))
-            .count();
-        let warnings = violations
-            .iter()
-            .filter(|v| matches!(v.severity, Severity::Moderate))
-            .count();
-
-        let mut score = 100.0;
-
-        // Base deductions
-        score -= errors as f32 * 2.5;
-        score -= warnings as f32 * 1.0;
-
-        // Specific penalties for critical WCAG violations
-        if Self::has_rule_violation(violations, "1.1.1") {
-            score -= 3.0; // Images without alt text
-        }
-        if Self::has_rule_violation(violations, "4.1.2") {
-            score -= 5.0; // Buttons/forms without labels
-        }
-        if Self::has_rule_violation(violations, "2.4.6") {
-            score -= 20.0; // No headings (critical for navigation)
-        }
-        if Self::has_rule_violation(violations, "1.4.3") {
-            score -= 5.0; // Contrast failures
-        }
-        if Self::has_rule_violation(violations, "3.1.1") {
-            score -= 10.0; // Missing language attribute
+        if violations.is_empty() {
+            return 100.0;
         }
 
-        score.max(0.0).min(100.0)
+        // Group violations by rule ID and track severity
+        let mut rule_counts: HashMap<&str, (usize, Severity)> = HashMap::new();
+        for v in violations {
+            let entry = rule_counts.entry(&v.rule).or_insert((0, v.severity));
+            entry.0 += 1;
+            // Keep highest severity if same rule has mixed severities
+            if v.severity > entry.1 {
+                entry.1 = v.severity;
+            }
+        }
+
+        let mut total_penalty = 0.0f32;
+
+        for (rule_id, (count, severity)) in &rule_counts {
+            // Look up rule in taxonomy (by legacy WCAG ID)
+            let impact = RuleLookup::by_legacy_wcag_id(rule_id)
+                .map(|r| r.score_impact)
+                .unwrap_or_else(|| default_impact(*severity));
+
+            total_penalty += impact.calculate_penalty(*count);
+        }
+
+        (100.0 - total_penalty).clamp(0.0, 100.0)
     }
 
     /// Calculate letter grade (A-F) based on score
     pub fn calculate_grade(score: f32) -> &'static str {
-        match score as u32 {
+        match score.round() as u32 {
             90..=100 => "A",
             80..=89 => "B",
             70..=79 => "C",
@@ -67,7 +88,7 @@ impl AccessibilityScorer {
     /// - BRONZE: ≥65% (acceptable accessibility)
     /// - NEEDS_IMPROVEMENT: <65% (significant issues)
     pub fn calculate_certificate(score: f32) -> &'static str {
-        match score as u32 {
+        match score.round() as u32 {
             95..=100 => "PLATINUM",
             85..=94 => "GOLD",
             75..=84 => "SILVER",
@@ -76,53 +97,33 @@ impl AccessibilityScorer {
         }
     }
 
-    /// Check if violations contain a specific WCAG rule
-    fn has_rule_violation(violations: &[Violation], rule_code: &str) -> bool {
-        violations.iter().any(|v| v.rule == rule_code)
-    }
-
     /// Calculate detailed statistics for a set of violations
     pub fn calculate_statistics(violations: &[Violation]) -> ViolationStatistics {
         let total = violations.len();
-        let errors = violations
+        let critical = violations
             .iter()
-            .filter(|v| matches!(v.severity, Severity::Critical | Severity::Serious))
+            .filter(|v| matches!(v.severity, Severity::Critical))
             .count();
-        let warnings = violations
+        let high = violations
             .iter()
-            .filter(|v| matches!(v.severity, Severity::Moderate))
+            .filter(|v| matches!(v.severity, Severity::High))
             .count();
-        let notices = violations
+        let medium = violations
             .iter()
-            .filter(|v| matches!(v.severity, Severity::Minor))
+            .filter(|v| matches!(v.severity, Severity::Medium))
             .count();
-
-        // Count violations by WCAG principle
-        let perceivable = Self::count_by_principle(violations, "1.");
-        let operable = Self::count_by_principle(violations, "2.");
-        let understandable = Self::count_by_principle(violations, "3.");
-        let robust = Self::count_by_principle(violations, "4.");
+        let low = violations
+            .iter()
+            .filter(|v| matches!(v.severity, Severity::Low))
+            .count();
 
         ViolationStatistics {
             total,
-            errors,
-            warnings,
-            notices,
-            by_principle: PrincipleBreakdown {
-                perceivable,
-                operable,
-                understandable,
-                robust,
-            },
+            critical,
+            high,
+            medium,
+            low,
         }
-    }
-
-    /// Count violations that belong to a specific WCAG principle
-    fn count_by_principle(violations: &[Violation], prefix: &str) -> usize {
-        violations
-            .iter()
-            .filter(|v| v.rule.starts_with(prefix))
-            .count()
     }
 }
 
@@ -130,19 +131,10 @@ impl AccessibilityScorer {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ViolationStatistics {
     pub total: usize,
-    pub errors: usize,
-    pub warnings: usize,
-    pub notices: usize,
-    pub by_principle: PrincipleBreakdown,
-}
-
-/// Breakdown of violations by WCAG principle
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PrincipleBreakdown {
-    pub perceivable: usize,    // WCAG 1.x
-    pub operable: usize,       // WCAG 2.x
-    pub understandable: usize, // WCAG 3.x
-    pub robust: usize,         // WCAG 4.x
+    pub critical: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
 }
 
 #[cfg(test)]
@@ -170,7 +162,7 @@ mod tests {
                 "1.1.1",
                 "Non-text Content",
                 WcagLevel::A,
-                Severity::Serious,
+                Severity::High,
                 "Image missing alt",
                 "img1",
             ),
@@ -178,18 +170,16 @@ mod tests {
                 "1.1.1",
                 "Non-text Content",
                 WcagLevel::A,
-                Severity::Serious,
+                Severity::High,
                 "Image missing alt",
                 "img2",
             ),
         ];
 
-        // Base: 100
-        // 2 errors × 2.5 = -5
-        // 1.1.1 penalty = -3
-        // Expected: 92
+        // Rule 1.1.1: base=3.0, max=10.0, Logarithmic
+        // 2 occurrences: 3.0 * (1 + ln(2)) ≈ 5.08
         let score = AccessibilityScorer::calculate_score(&violations);
-        assert_eq!(score, 92.0);
+        assert!(score > 94.0 && score < 96.0, "Score was {}", score);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "A");
     }
 
@@ -201,15 +191,13 @@ mod tests {
             "2.4.4",
             "Link Purpose",
             WcagLevel::A,
-            Severity::Moderate,
+            Severity::Medium,
             "Link text not descriptive",
             "link1",
         )];
 
-        // Base: 100
-        // 1 warning × 1.0 = -1
-        // No special penalties for 2.4.4
-        // Expected: 99
+        // Rule 2.4.4: base=1.0, max=5.0, Logarithmic
+        // 1 occurrence: 1.0 * (1 + ln(1)) = 1.0
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 99.0);
     }
@@ -222,18 +210,16 @@ mod tests {
             "2.4.6",
             "Headings and Labels",
             WcagLevel::AA,
-            Severity::Serious,
+            Severity::High,
             "No headings found",
             "document",
         )];
 
-        // Base: 100
-        // 1 error × 2.5 = -2.5
-        // 2.4.6 penalty = -20
-        // Expected: 77.5
+        // Rule 2.4.6: base=20.0, max=20.0, Fixed
+        // 1 occurrence: 20.0
         let score = AccessibilityScorer::calculate_score(&violations);
-        assert_eq!(score, 77.5);
-        assert_eq!(AccessibilityScorer::calculate_grade(score), "C");
+        assert_eq!(score, 80.0);
+        assert_eq!(AccessibilityScorer::calculate_grade(score), "B");
         assert_eq!(AccessibilityScorer::calculate_certificate(score), "SILVER");
     }
 
@@ -241,19 +227,20 @@ mod tests {
     fn test_score_floor_at_zero() {
         use crate::cli::WcagLevel;
 
-        // Create many violations to test floor
-        let violations: Vec<Violation> = (0..100)
-            .map(|i| {
-                Violation::new(
-                    "1.1.1",
-                    "Non-text Content",
-                    WcagLevel::A,
-                    Severity::Critical,
-                    "Error",
-                    format!("node{}", i),
-                )
-            })
-            .collect();
+        // Create many violations across ALL mapped rules to exceed 100 penalty
+        let rules = [
+            ("1.1.1", "Non-text Content"), ("1.3.1", "Info and Relationships"),
+            ("1.4.3", "Contrast"), ("2.1.1", "Keyboard"), ("2.4.1", "Bypass Blocks"),
+            ("2.4.2", "Page Titled"), ("2.4.6", "Headings"), ("2.4.7", "Focus Visible"),
+            ("3.1.1", "Language"), ("3.3.2", "Labels"), ("4.1.2", "Name Role Value"),
+            ("2.4.4", "Link Purpose"), ("2.4.3", "Focus Order"), ("1.4.4", "Resize Text"),
+        ];
+        let mut violations = Vec::new();
+        for (rule, name) in &rules {
+            for i in 0..20 {
+                violations.push(Violation::new(*rule, *name, WcagLevel::A, Severity::Critical, "Error", &format!("n{}", i)));
+            }
+        }
 
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 0.0);
@@ -281,7 +268,7 @@ mod tests {
                 "2.4.6",
                 "Headings and Labels",
                 WcagLevel::AA,
-                Severity::Moderate,
+                Severity::Medium,
                 "Warning",
                 "2",
             ),
@@ -289,7 +276,7 @@ mod tests {
                 "3.1.1",
                 "Language of Page",
                 WcagLevel::A,
-                Severity::Minor,
+                Severity::Low,
                 "Notice",
                 "3",
             ),
@@ -297,7 +284,7 @@ mod tests {
                 "4.1.2",
                 "Name, Role, Value",
                 WcagLevel::A,
-                Severity::Serious,
+                Severity::High,
                 "Error",
                 "4",
             ),
@@ -305,12 +292,9 @@ mod tests {
 
         let stats = AccessibilityScorer::calculate_statistics(&violations);
         assert_eq!(stats.total, 4);
-        assert_eq!(stats.errors, 2);
-        assert_eq!(stats.warnings, 1);
-        assert_eq!(stats.notices, 1);
-        assert_eq!(stats.by_principle.perceivable, 1); // 1.1.1
-        assert_eq!(stats.by_principle.operable, 1); // 2.4.6
-        assert_eq!(stats.by_principle.understandable, 1); // 3.1.1
-        assert_eq!(stats.by_principle.robust, 1); // 4.1.2
+        assert_eq!(stats.critical, 1);
+        assert_eq!(stats.high, 1);
+        assert_eq!(stats.medium, 1);
+        assert_eq!(stats.low, 1);
     }
 }

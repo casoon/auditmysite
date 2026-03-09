@@ -13,7 +13,7 @@ pub const INFO_RELATIONSHIPS_RULE: RuleMetadata = RuleMetadata {
     id: "1.3.1",
     name: "Info and Relationships",
     level: WcagLevel::A,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Information, structure, and relationships can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
 };
@@ -94,7 +94,7 @@ fn check_table_structure(node: &AXNode, tree: &AXTree, results: &mut WcagResults
             INFO_RELATIONSHIPS_RULE.id,
             INFO_RELATIONSHIPS_RULE.name,
             INFO_RELATIONSHIPS_RULE.level,
-            Severity::Serious,
+            Severity::High,
             "Data table lacks header cells",
             &node.node_id,
         )
@@ -118,9 +118,7 @@ fn check_list_structure(node: &AXNode, tree: &AXTree, results: &mut WcagResults)
             let child_role = child.role.as_deref().unwrap_or("").to_lowercase();
             if child_role == "listitem" {
                 has_list_items = true;
-            } else if !child_role.is_empty()
-                && child_role != "presentation"
-                && child_role != "none"
+            } else if !child_role.is_empty() && child_role != "presentation" && child_role != "none"
             {
                 has_non_list_items = true;
             }
@@ -132,7 +130,7 @@ fn check_list_structure(node: &AXNode, tree: &AXTree, results: &mut WcagResults)
             INFO_RELATIONSHIPS_RULE.id,
             INFO_RELATIONSHIPS_RULE.name,
             INFO_RELATIONSHIPS_RULE.level,
-            Severity::Moderate,
+            Severity::Medium,
             "List does not contain proper list item elements",
             &node.node_id,
         )
@@ -161,7 +159,7 @@ fn check_form_grouping(node: &AXNode, tree: &AXTree, results: &mut WcagResults) 
                         INFO_RELATIONSHIPS_RULE.id,
                         INFO_RELATIONSHIPS_RULE.name,
                         INFO_RELATIONSHIPS_RULE.level,
-                        Severity::Moderate,
+                        Severity::Medium,
                         "Radio button is not contained in a group",
                         &node.node_id,
                     )
@@ -183,7 +181,11 @@ fn check_form_grouping(node: &AXNode, tree: &AXTree, results: &mut WcagResults) 
 /// Check data cells have associated headers
 fn check_cell_headers(node: &AXNode, _tree: &AXTree, results: &mut WcagResults) {
     // Check if cell has any text content
-    let has_content = node.name.as_ref().map(|n| !n.trim().is_empty()).unwrap_or(false);
+    let has_content = node
+        .name
+        .as_ref()
+        .map(|n| !n.trim().is_empty())
+        .unwrap_or(false);
 
     if has_content {
         // Data cells should ideally have headers associated
@@ -196,8 +198,16 @@ fn check_cell_headers(node: &AXNode, _tree: &AXTree, results: &mut WcagResults) 
 fn is_form_control(role: &str) -> bool {
     matches!(
         role,
-        "textbox" | "searchbox" | "combobox" | "listbox" | "spinbutton" | "slider" | "checkbox"
-            | "radio" | "switch" | "button"
+        "textbox"
+            | "searchbox"
+            | "combobox"
+            | "listbox"
+            | "spinbutton"
+            | "slider"
+            | "checkbox"
+            | "radio"
+            | "switch"
+            | "button"
     )
 }
 
@@ -250,9 +260,10 @@ mod tests {
         let results = check_info_relationships(&tree);
 
         // Should flag - has data cell but no headers
-        assert!(
-            results.violations.iter().any(|v| v.message.contains("header"))
-        );
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("header")));
     }
 
     #[test]

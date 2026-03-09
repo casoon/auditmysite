@@ -4,7 +4,7 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 
@@ -127,10 +127,7 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("[]");
 
-    let resources: Vec<ResourceEntry> = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse resource entries JSON: {}", e);
-        Vec::new()
-    });
+    let resources: Vec<ResourceEntry> = serde_json::from_str(json_str).unwrap_or_default();
 
     let mut breakdown = ResourceBreakdown::default();
     let mut total_bytes: u64 = 0;
@@ -240,11 +237,7 @@ fn categorize_resource(url: &str, initiator_type: &str) -> ResourceCategory {
 }
 
 fn truncate_url(url: &str) -> String {
-    if url.len() > 80 {
-        format!("{}...", &url[..77])
-    } else {
-        url.to_string()
-    }
+    crate::util::truncate_url(url, 80)
 }
 
 fn generate_recommendations(

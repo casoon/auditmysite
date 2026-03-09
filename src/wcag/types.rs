@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::WcagLevel;
 
+// Re-export Severity from taxonomy module (single source of truth)
+pub use crate::taxonomy::Severity;
+
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Violation {
@@ -89,30 +92,9 @@ impl Violation {
     }
 }
 
-/// Severity levels for violations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    /// Critical - Blocks users completely
-    Critical,
-    /// Serious - Major barrier for users
-    Serious,
-    /// Moderate - Degraded experience
-    Moderate,
-    /// Minor - Small inconvenience
-    Minor,
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Critical => write!(f, "critical"),
-            Severity::Serious => write!(f, "serious"),
-            Severity::Moderate => write!(f, "moderate"),
-            Severity::Minor => write!(f, "minor"),
-        }
-    }
-}
+// Severity enum is now defined in crate::taxonomy::severity
+// and re-exported above. Old variants mapping:
+// Minor → Low, Moderate → Medium, Serious → High, Critical → Critical
 
 /// Metadata for a WCAG rule
 #[derive(Debug, Clone)]
@@ -162,7 +144,10 @@ impl WcagResults {
 
     /// Count violations by severity
     pub fn count_by_severity(&self, severity: Severity) -> usize {
-        self.violations.iter().filter(|v| v.severity == severity).count()
+        self.violations
+            .iter()
+            .filter(|v| v.severity == severity)
+            .count()
     }
 
     /// Count violations by level
@@ -176,31 +161,6 @@ impl WcagResults {
             .iter()
             .filter(|v| v.severity == Severity::Critical)
             .collect()
-    }
-
-    /// Calculate an accessibility score (0-100)
-    pub fn calculate_score(&self) -> u8 {
-        if self.nodes_checked == 0 {
-            return 100;
-        }
-
-        // Weight violations by severity
-        let weighted_violations: f64 = self
-            .violations
-            .iter()
-            .map(|v| match v.severity {
-                Severity::Critical => 10.0,
-                Severity::Serious => 5.0,
-                Severity::Moderate => 2.0,
-                Severity::Minor => 1.0,
-            })
-            .sum();
-
-        // Calculate score (max penalty capped at 100)
-        let penalty = (weighted_violations / self.nodes_checked as f64) * 100.0;
-        let score = (100.0 - penalty).max(0.0);
-
-        score as u8
     }
 
     /// Check if the page passes at a given WCAG level
@@ -239,7 +199,7 @@ mod tests {
             "1.1.1",
             "Non-text Content",
             WcagLevel::A,
-            Severity::Serious,
+            Severity::High,
             "Image missing alt text",
             "node-123",
         )
@@ -252,31 +212,10 @@ mod tests {
     }
 
     #[test]
-    fn test_wcag_results_score() {
-        let mut results = WcagResults::new();
-        results.nodes_checked = 100;
-
-        // No violations = 100 score
-        assert_eq!(results.calculate_score(), 100);
-
-        // Add some violations
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Test",
-            WcagLevel::A,
-            Severity::Serious, // 5 points
-            "Test",
-            "1",
-        ));
-
-        // 5 / 100 * 100 = 5 penalty, 95 score
-        assert_eq!(results.calculate_score(), 95);
-    }
-
-    #[test]
     fn test_severity_ordering() {
-        assert!(Severity::Critical < Severity::Serious);
-        assert!(Severity::Serious < Severity::Moderate);
-        assert!(Severity::Moderate < Severity::Minor);
+        // More severe = greater value
+        assert!(Severity::Critical > Severity::High);
+        assert!(Severity::High > Severity::Medium);
+        assert!(Severity::Medium > Severity::Low);
     }
 }

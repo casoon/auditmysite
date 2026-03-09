@@ -4,9 +4,10 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Mobile friendliness analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +48,7 @@ pub struct ViewportAnalysis {
 pub struct TouchTargetAnalysis {
     /// Total interactive elements
     pub total_targets: u32,
-    /// Targets with adequate size (≥48x48px)
+    /// Targets with adequate size (≥44x44px)
     pub adequate_targets: u32,
     /// Targets too small
     pub small_targets: u32,
@@ -87,7 +88,7 @@ pub struct MobileIssue {
     pub category: String,
     pub issue_type: String,
     pub message: String,
-    pub severity: String,
+    pub severity: Severity,
     pub impact: String,
 }
 
@@ -178,6 +179,24 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         }
         result.content.hasMediaQueries = hasMediaQueries;
 
+        // Check for relative font units (em, rem, %, vw)
+        let usesRelativeUnits = false;
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule.style && rule.style.fontSize) {
+                        const fs = rule.style.fontSize;
+                        if (fs.match(/\d+(em|rem|%|vw)/)) {
+                            usesRelativeUnits = true;
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
+            if (usesRelativeUnits) break;
+        }
+        result.fonts.usesRelativeUnits = usesRelativeUnits;
+
         return JSON.stringify(result);
     })()
     "#;
@@ -189,10 +208,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse mobile analysis JSON: {}", e);
-        serde_json::Value::default()
-    });
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     // Parse viewport
     let vp = &parsed["viewport"];
@@ -230,7 +246,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         } else {
             100.0
         },
-        uses_relative_units: true, // Would need more analysis
+        uses_relative_units: fonts["usesRelativeUnits"].as_bool().unwrap_or(false),
     };
 
     // Parse content sizing
@@ -251,7 +267,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "viewport".to_string(),
             issue_type: "missing_viewport".to_string(),
             message: "Missing viewport meta tag".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::Critical,
             impact: "Page won't scale properly on mobile devices".to_string(),
         });
     } else if !viewport.is_properly_configured {
@@ -259,7 +275,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "viewport".to_string(),
             issue_type: "improper_viewport".to_string(),
             message: "Viewport is not properly configured".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
             impact: "Page may not display correctly on all devices".to_string(),
         });
     }
@@ -269,7 +285,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "viewport".to_string(),
             issue_type: "not_scalable".to_string(),
             message: "Page disables zooming (user-scalable=no)".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::Critical,
             impact: "Users with visual impairments cannot zoom".to_string(),
         });
     }
@@ -279,7 +295,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "touch_targets".to_string(),
             issue_type: "small_targets".to_string(),
             message: format!("{} touch targets are too small (<44x44px)", small_targets),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
             impact: "Difficult to tap on mobile devices".to_string(),
         });
     }
@@ -292,7 +308,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 "Smallest font size is {}px (recommended: ≥12px)",
                 font_sizes.smallest_font_size
             ),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
             impact: "Text may be difficult to read on mobile".to_string(),
         });
     }
@@ -302,7 +318,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             category: "content".to_string(),
             issue_type: "horizontal_scroll".to_string(),
             message: "Page has horizontal scrolling".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::High,
             impact: "Poor mobile user experience".to_string(),
         });
     }
@@ -310,10 +326,11 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     // Calculate score
     let mut score = 100u32;
     for issue in &issues {
-        score = score.saturating_sub(match issue.severity.as_str() {
-            "error" => 20,
-            "warning" => 10,
-            _ => 5,
+        score = score.saturating_sub(match issue.severity {
+            Severity::Critical => 20,
+            Severity::High => 20,
+            Severity::Medium => 10,
+            Severity::Low => 5,
         });
     }
 

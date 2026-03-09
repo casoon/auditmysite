@@ -45,7 +45,7 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
                     KEYBOARD_RULE.id,
                     KEYBOARD_RULE.name,
                     KEYBOARD_RULE.level,
-                    Severity::Moderate,
+                    Severity::Medium,
                     format!("Positive tabindex ({}) disrupts natural tab order", tabindex),
                     &node.node_id,
                 )
@@ -66,7 +66,7 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
                 KEYBOARD_RULE.id,
                 KEYBOARD_RULE.name,
                 KEYBOARD_RULE.level,
-                Severity::Minor,
+                Severity::Low,
                 "Focusable element without interactive role",
                 &node.node_id,
             )
@@ -107,12 +107,21 @@ fn is_focusable_without_interactive_role(node: &crate::accessibility::AXNode) ->
     let is_focusable = node.get_property_bool("focusable").unwrap_or(false);
 
     let non_interactive_roles = [
-        "generic", "group", "region", "article", "section",
-        "paragraph", "statictext", "none", "presentation"
+        "generic",
+        "group",
+        "region",
+        "article",
+        "section",
+        "paragraph",
+        "statictext",
+        "none",
+        "presentation",
     ];
 
-    (has_focusable_tabindex || is_focusable) &&
-        node.role.as_deref()
+    (has_focusable_tabindex || is_focusable)
+        && node
+            .role
+            .as_deref()
             .map(|r| non_interactive_roles.contains(&r.to_lowercase().as_str()))
             .unwrap_or(true)
 }
@@ -169,22 +178,24 @@ mod tests {
 
     #[test]
     fn test_positive_tabindex_violation() {
-        let tree = AXTree::from_nodes(vec![
-            create_node_with_tabindex("1", "generic", 5)
-        ]);
+        let tree = AXTree::from_nodes(vec![create_node_with_tabindex("1", "generic", 5)]);
 
         let results = check_keyboard(&tree);
         assert!(!results.violations.is_empty());
-        assert!(results.violations.iter().any(|v| v.message.contains("Positive tabindex")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Positive tabindex")));
     }
 
     #[test]
     fn test_zero_tabindex_no_violation() {
-        let tree = AXTree::from_nodes(vec![
-            create_node_with_tabindex("1", "button", 0)
-        ]);
+        let tree = AXTree::from_nodes(vec![create_node_with_tabindex("1", "button", 0)]);
 
         let results = check_keyboard(&tree);
-        assert!(!results.violations.iter().any(|v| v.message.contains("Positive tabindex")));
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Positive tabindex")));
     }
 }
