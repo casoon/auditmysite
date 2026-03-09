@@ -32,6 +32,7 @@
 //!         check_seo: false,
 //!         check_security: false,
 //!         check_mobile: false,
+//!         persist_artifacts: true,
 //!     };
 //!
 //!     // Run audit
@@ -76,6 +77,7 @@ pub mod audit;
 pub mod browser;
 pub mod cli;
 pub mod error;
+pub mod i18n;
 pub mod mobile;
 pub mod output;
 pub mod performance;
@@ -92,10 +94,9 @@ pub use audit::{
     BatchReport, PerformanceResults, PipelineConfig,
 };
 pub use browser::{
-    BrowserManager, BrowserOptions, BrowserPool, PoolConfig,
-    BrowserKind, BrowserSource, BrowserMode, DetectedBrowser, ResolvedBrowser,
-    BrowserInstaller, BrowserResolveOptions, InstallTarget,
-    detect_all_browsers, resolve_browser,
+    detect_all_browsers, resolve_browser, BrowserInstaller, BrowserKind, BrowserManager,
+    BrowserMode, BrowserOptions, BrowserPool, BrowserResolveOptions, BrowserSource,
+    DetectedBrowser, InstallTarget, PoolConfig, ResolvedBrowser,
 };
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use error::{AuditError, Result};

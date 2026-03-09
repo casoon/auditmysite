@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::audit::report::{AuditReport, PerformanceResults};
 use crate::audit::scoring::AccessibilityScorer;
@@ -17,11 +17,11 @@ use crate::cli::WcagLevel;
 use crate::mobile::MobileFriendliness;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
-use crate::taxonomy::{ReportVisibility, RuleLookup, Severity};
+use crate::taxonomy::{ReportVisibility, RuleLookup, Scaling, Severity};
 use crate::wcag::WcagResults;
 
 /// Normalisiertes Audit-Modell — einzige Score-Quelle für alle Output-Formate
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedReport {
     pub url: String,
     pub wcag_level: WcagLevel,
@@ -60,7 +60,7 @@ pub struct NormalizedReport {
 }
 
 /// Einheitliche Severity-Zähler
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeverityCounts {
     pub critical: usize,
     pub high: usize,
@@ -70,7 +70,7 @@ pub struct SeverityCounts {
 }
 
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedFinding {
     /// Taxonomie-Regel-ID (z.B. "a11y.alt_text.missing")
     pub rule_id: String,
@@ -91,8 +91,8 @@ pub struct NormalizedFinding {
     pub user_impact: String,
     /// Technische Auswirkung
     pub technical_impact: String,
-    /// Score-Impact-Beschreibung
-    pub score_impact: String,
+    /// Strukturierter Score-Impact
+    pub score_impact: ScoreImpactData,
     /// Report-Sichtbarkeit
     #[serde(skip)]
     pub report_visibility: ReportVisibilityData,
@@ -105,12 +105,22 @@ pub struct NormalizedFinding {
     pub description: String,
     /// Anzahl Vorkommen
     pub occurrence_count: usize,
+    /// Prioritätswert für Maßnahmenplanung (impact × reach / effort)
+    pub priority_score: f32,
     /// Einzelne Vorkommen
     pub occurrences: Vec<OccurrenceDetail>,
 }
 
+/// Strukturierte Darstellung des Score-Impacts für JSON/API-Verbraucher
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScoreImpactData {
+    pub base_penalty: f32,
+    pub max_penalty: f32,
+    pub scaling: String,
+}
+
 /// Kopie der ReportVisibility für Serialize-Kontext
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ReportVisibilityData {
     pub executive: bool,
     pub standard: bool,
@@ -138,7 +148,7 @@ impl Default for ReportVisibilityData {
 }
 
 /// Detail eines einzelnen Vorkommens
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OccurrenceDetail {
     pub node_id: String,
     pub message: String,
@@ -147,7 +157,7 @@ pub struct OccurrenceDetail {
 }
 
 /// Score-Eintrag pro Modul
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleScoreEntry {
     pub name: String,
     pub score: u32,
@@ -165,10 +175,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let violations = &report.wcag_results.violations;
 
     // Detect 3.1.1 suppression
-    let suppress_lang = report
-        .seo
-        .as_ref()
-        .map_or(false, |s| s.technical.has_lang);
+    let suppress_lang = report.seo.as_ref().map_or(false, |s| s.technical.has_lang);
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
     // Group violations by rule ID
@@ -195,7 +202,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 issue_class,
                 user_impact,
                 technical_impact,
-                score_impact_str,
+                score_impact,
                 visibility,
             ) = if let Some(rule) = taxonomy_rule {
                 (
@@ -205,12 +212,15 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     rule.issue_class.label().to_string(),
                     rule.user_impact.to_string(),
                     rule.technical_impact.to_string(),
-                    format!(
-                        "{:.1} base, max {:.1}, {:?}",
-                        rule.score_impact.base_penalty,
-                        rule.score_impact.max_penalty,
-                        rule.score_impact.occurrence_scaling
-                    ),
+                    ScoreImpactData {
+                        base_penalty: rule.score_impact.base_penalty,
+                        max_penalty: rule.score_impact.max_penalty,
+                        scaling: match rule.score_impact.occurrence_scaling {
+                            Scaling::Logarithmic => "logarithmic".to_string(),
+                            Scaling::Linear => "linear".to_string(),
+                            Scaling::Fixed => "fixed".to_string(),
+                        },
+                    },
                     ReportVisibilityData::from(&rule.report_visibility),
                 )
             } else {
@@ -221,7 +231,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     "Unbekannt".to_string(),
                     String::new(),
                     String::new(),
-                    String::new(),
+                    ScoreImpactData {
+                        base_penalty: 0.0,
+                        max_penalty: 0.0,
+                        scaling: "unknown".to_string(),
+                    },
                     ReportVisibilityData::default(),
                 )
             };
@@ -236,6 +250,10 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 })
                 .collect();
 
+            let occurrence_count = violations.len();
+            let priority_score =
+                calculate_priority_score(first.severity, occurrence_count, &tax_id);
+
             NormalizedFinding {
                 rule_id: tax_id.clone(),
                 wcag_criterion: rule_id.to_string(),
@@ -246,22 +264,24 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 severity: first.severity,
                 user_impact,
                 technical_impact,
-                score_impact: score_impact_str,
+                score_impact,
                 report_visibility: visibility,
                 aggregation_key: tax_id,
                 title: first.rule_name.clone(),
                 description: first.message.clone(),
-                occurrence_count: violations.len(),
+                occurrence_count,
+                priority_score,
                 occurrences,
             }
         })
         .collect();
 
-    // Sort by severity (highest first), then by occurrence count
+    // Sort by priority score (highest first), then by severity
     findings.sort_by(|a, b| {
-        b.severity
-            .cmp(&a.severity)
-            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
+        b.priority_score
+            .partial_cmp(&a.priority_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.severity.cmp(&a.severity))
     });
 
     // Calculate corrected score
@@ -366,6 +386,34 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     }
 }
 
+fn calculate_priority_score(severity: Severity, occurrence_count: usize, rule_id: &str) -> f32 {
+    let severity_weight = match severity {
+        Severity::Critical => 4.0,
+        Severity::High => 3.0,
+        Severity::Medium => 2.0,
+        Severity::Low => 1.0,
+    };
+    let reach = occurrence_count.max(1) as f32;
+    let effort_weight = effort_weight_for_rule(rule_id);
+    (severity_weight * reach) / effort_weight
+}
+
+fn effort_weight_for_rule(rule_id: &str) -> f32 {
+    if let Some(rule) = RuleLookup::by_id(rule_id) {
+        use crate::taxonomy::IssueClass;
+        match rule.issue_class {
+            IssueClass::Missing => 1.0,
+            IssueClass::Invalid => 1.2,
+            IssueClass::Weak => 1.5,
+            IssueClass::Risk => 2.0,
+            IssueClass::Opportunity => 1.2,
+            IssueClass::Informational => 2.5,
+        }
+    } else {
+        1.5
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -392,13 +440,28 @@ mod tests {
     fn test_normalize_groups_by_rule() {
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
-            "1.1.1", "Non-text Content", WcagLevel::A, Severity::High, "Missing alt 1", "n1",
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt 1",
+            "n1",
         ));
         results.add_violation(Violation::new(
-            "1.1.1", "Non-text Content", WcagLevel::A, Severity::High, "Missing alt 2", "n2",
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt 2",
+            "n2",
         ));
         results.add_violation(Violation::new(
-            "2.4.4", "Link Purpose", WcagLevel::A, Severity::Medium, "Unclear link", "n3",
+            "2.4.4",
+            "Link Purpose",
+            WcagLevel::A,
+            Severity::Medium,
+            "Unclear link",
+            "n3",
         ));
 
         let report = AuditReport::new(
@@ -410,8 +473,13 @@ mod tests {
         let norm = normalize(&report);
 
         assert_eq!(norm.findings.len(), 2);
-        let alt = norm.findings.iter().find(|f| f.wcag_criterion == "1.1.1").unwrap();
+        let alt = norm
+            .findings
+            .iter()
+            .find(|f| f.wcag_criterion == "1.1.1")
+            .unwrap();
         assert_eq!(alt.occurrence_count, 2);
+        assert!(alt.priority_score > 0.0);
         assert_eq!(alt.occurrences.len(), 2);
         assert_eq!(alt.dimension, "Accessibility");
         assert!(!alt.rule_id.is_empty());
@@ -421,7 +489,12 @@ mod tests {
     fn test_normalize_taxonomy_fields() {
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
-            "1.1.1", "Non-text Content", WcagLevel::A, Severity::High, "Missing alt", "n1",
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
         ));
 
         let report = AuditReport::new(
@@ -437,7 +510,9 @@ mod tests {
         assert_eq!(finding.dimension, "Accessibility");
         assert_eq!(finding.subcategory, "Inhalte & Alternativen");
         assert_eq!(finding.issue_class, "Fehlend");
-        assert!(!finding.score_impact.is_empty());
+        assert!(finding.score_impact.base_penalty > 0.0);
+        assert!(finding.score_impact.max_penalty >= finding.score_impact.base_penalty);
+        assert!(!finding.score_impact.scaling.is_empty());
         assert!(!finding.user_impact.is_empty());
     }
 
@@ -445,13 +520,28 @@ mod tests {
     fn test_normalize_severity_counts() {
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
-            "1.1.1", "Alt", WcagLevel::A, Severity::High, "Err", "n1",
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            Severity::High,
+            "Err",
+            "n1",
         ));
         results.add_violation(Violation::new(
-            "1.1.1", "Alt", WcagLevel::A, Severity::High, "Err", "n2",
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            Severity::High,
+            "Err",
+            "n2",
         ));
         results.add_violation(Violation::new(
-            "2.4.4", "Link", WcagLevel::A, Severity::Medium, "Warn", "n3",
+            "2.4.4",
+            "Link",
+            WcagLevel::A,
+            Severity::Medium,
+            "Warn",
+            "n3",
         ));
 
         let report = AuditReport::new(
@@ -471,7 +561,12 @@ mod tests {
     fn test_normalize_lang_suppression() {
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
-            "3.1.1", "Language", WcagLevel::A, Severity::High, "Missing lang", "n1",
+            "3.1.1",
+            "Language",
+            WcagLevel::A,
+            Severity::High,
+            "Missing lang",
+            "n1",
         ));
 
         let mut report = AuditReport::new(
@@ -501,7 +596,12 @@ mod tests {
     fn test_score_consistency() {
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
-            "1.1.1", "Alt", WcagLevel::A, Severity::High, "Missing", "n1",
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            Severity::High,
+            "Missing",
+            "n1",
         ));
 
         let report = AuditReport::new(

@@ -14,6 +14,7 @@ pub struct ReportConfig {
     pub level: ReportLevel,
     pub company_name: Option<String>,
     pub logo_path: Option<PathBuf>,
+    pub locale: String,
 }
 
 impl Default for ReportConfig {
@@ -22,6 +23,7 @@ impl Default for ReportConfig {
             level: ReportLevel::Standard,
             company_name: None,
             logo_path: None,
+            locale: "de".to_string(),
         }
     }
 }

@@ -11,12 +11,45 @@ use crate::audit::AuditReport;
 use crate::error::Result;
 
 /// Generate JSON output from a normalized report
-pub fn format_json_normalized(normalized: &NormalizedReport, report: &AuditReport, pretty: bool) -> Result<String> {
+pub fn format_json_normalized(
+    normalized: &NormalizedReport,
+    report: &AuditReport,
+    pretty: bool,
+) -> Result<String> {
     let json_report = JsonReport::from_normalized(normalized, report);
     let output = if pretty {
         serde_json::to_string_pretty(&json_report)
     } else {
         serde_json::to_string(&json_report)
+    };
+
+    output.map_err(|e| crate::error::AuditError::OutputError {
+        reason: format!("JSON serialization failed: {}", e),
+    })
+}
+
+/// Generate JSON output from cached normalized data only.
+pub fn format_json_cached(normalized: &NormalizedReport, pretty: bool) -> Result<String> {
+    #[derive(Debug, Serialize)]
+    struct CachedJsonReport<'a> {
+        metadata: ReportMetadata,
+        report: &'a NormalizedReport,
+    }
+
+    let payload = CachedJsonReport {
+        metadata: ReportMetadata {
+            tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
+            timestamp: Utc::now(),
+            wcag_level: normalized.wcag_level.to_string(),
+            execution_time_ms: normalized.duration_ms,
+        },
+        report: normalized,
+    };
+
+    let output = if pretty {
+        serde_json::to_string_pretty(&payload)
+    } else {
+        serde_json::to_string(&payload)
     };
 
     output.map_err(|e| crate::error::AuditError::OutputError {
@@ -70,10 +103,7 @@ impl JsonReport {
                 .performance
                 .as_ref()
                 .and_then(|p| serde_json::to_value(p).ok()),
-            seo: raw
-                .seo
-                .as_ref()
-                .and_then(|s| serde_json::to_value(s).ok()),
+            seo: raw.seo.as_ref().and_then(|s| serde_json::to_value(s).ok()),
             security: raw
                 .security
                 .as_ref()
@@ -162,7 +192,12 @@ mod tests {
 
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
-            "1.1.1", "Alt", WcagLevel::A, Severity::High, "Missing", "n1",
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            Severity::High,
+            "Missing",
+            "n1",
         ));
 
         let report = AuditReport::new(

@@ -70,7 +70,12 @@ pub struct Args {
     /// Custom browser binary path (overrides auto-detection)
     ///
     /// Can also be set via AUDITMYSITE_BROWSER or CHROME_PATH env var.
-    #[arg(long = "browser-path", alias = "chrome-path", value_name = "PATH", env = "AUDITMYSITE_BROWSER")]
+    #[arg(
+        long = "browser-path",
+        alias = "chrome-path",
+        value_name = "PATH",
+        env = "AUDITMYSITE_BROWSER"
+    )]
     pub chrome_path: Option<String>,
 
     /// Remote debugging port for existing Chrome instance
@@ -121,6 +126,10 @@ pub struct Args {
     #[arg(long)]
     pub performance: bool,
 
+    /// Skip performance analysis even when --full is used
+    #[arg(long)]
+    pub skip_performance: bool,
+
     /// Enable SEO analysis (meta tags, headings, schema.org)
     #[arg(long)]
     pub seo: bool,
@@ -133,6 +142,18 @@ pub struct Args {
     #[arg(long)]
     pub mobile: bool,
 
+    /// Skip mobile analysis even when --full is used
+    #[arg(long)]
+    pub skip_mobile: bool,
+
+    /// Reuse cached artifacts from previous runs when available
+    #[arg(long)]
+    pub reuse_cache: bool,
+
+    /// Ignore cache and force a fresh crawl
+    #[arg(long)]
+    pub force_refresh: bool,
+
     /// Report detail level (PDF only)
     ///
     /// executive: Compact overview (Kurzfazit + Summary + Maßnahmenplan)
@@ -140,6 +161,10 @@ pub struct Args {
     /// technical: Extended appendix with full technical details
     #[arg(long, default_value = "standard", value_enum)]
     pub report_level: ReportLevel,
+
+    /// Report language (PDF text i18n)
+    #[arg(long, default_value = "de", value_parser = ["de", "en"])]
+    pub lang: String,
 
     /// Company name for report branding (appears in footer)
     #[arg(long, value_name = "NAME")]
@@ -317,6 +342,10 @@ impl Args {
             return Err("Cannot use --verbose and --quiet together".to_string());
         }
 
+        if self.reuse_cache && self.force_refresh {
+            return Err("Cannot use --reuse-cache and --force-refresh together".to_string());
+        }
+
         Ok(())
     }
 }
@@ -360,10 +389,15 @@ mod tests {
             detect_chrome: false,
             full: false,
             performance: false,
+            skip_performance: false,
             seo: false,
             security: false,
             mobile: false,
+            skip_mobile: false,
+            reuse_cache: false,
+            force_refresh: false,
             report_level: ReportLevel::Standard,
+            lang: "de".to_string(),
             company_name: None,
             logo: None,
         }
@@ -389,6 +423,14 @@ mod tests {
         let mut args = test_args(Some("https://example.com"));
         args.verbose = true;
         args.quiet = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_reuse_and_force_refresh_conflict() {
+        let mut args = test_args(Some("https://example.com"));
+        args.reuse_cache = true;
+        args.force_refresh = true;
         assert!(args.validate().is_err());
     }
 }

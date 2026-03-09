@@ -8,16 +8,32 @@ use std::time::Instant;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
+use super::artifacts::{
+    content_hash, save_artifacts, AuditArtifacts, FetchArtifact, SnapshotArtifact,
+};
+use super::normalize;
 use super::report::{AuditReport, PerformanceResults};
-use crate::accessibility::extract_ax_tree;
+use crate::accessibility::{extract_ax_tree, AXTree};
 use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::error::Result;
-use crate::mobile::analyze_mobile_friendliness;
+use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{calculate_performance_score, extract_web_vitals};
-use crate::security::analyze_security;
-use crate::seo::analyze_seo;
-use crate::wcag;
+use crate::security::{analyze_security, SecurityAnalysis};
+use crate::seo::{analyze_seo, SeoAnalysis};
+use crate::wcag::{self, WcagResults};
+
+/// Extracted snapshot data from a loaded page.
+///
+/// This boundary is the basis for artifact persistence and future cache reuse.
+#[derive(Debug, Clone)]
+struct SnapshotData {
+    ax_tree: AXTree,
+    performance: Option<PerformanceResults>,
+    seo: Option<SeoAnalysis>,
+    security: Option<SecurityAnalysis>,
+    mobile: Option<MobileFriendliness>,
+}
 
 /// Audit pipeline configuration
 #[derive(Debug, Clone)]
@@ -36,6 +52,8 @@ pub struct PipelineConfig {
     pub check_security: bool,
     /// Run mobile friendliness analysis
     pub check_mobile: bool,
+    /// Persist audit artifacts under ~/.auditmysite/cache
+    pub persist_artifacts: bool,
 }
 
 impl From<&Args> for PipelineConfig {
@@ -44,10 +62,11 @@ impl From<&Args> for PipelineConfig {
             wcag_level: args.level,
             timeout_secs: args.timeout,
             verbose: args.verbose,
-            check_performance: args.full || args.performance,
+            check_performance: (args.full || args.performance) && !args.skip_performance,
             check_seo: args.full || args.seo,
             check_security: args.full || args.security,
-            check_mobile: args.full || args.mobile,
+            check_mobile: (args.full || args.mobile) && !args.skip_mobile,
+            persist_artifacts: true,
         }
     }
 }
@@ -102,63 +121,159 @@ pub async fn run_single_audit(
 pub async fn audit_page(page: &Page, url: &str, config: &PipelineConfig) -> Result<AuditReport> {
     let start_time = Instant::now();
 
-    // Extract Accessibility Tree
+    let snapshot = extract_snapshot(page, url, config).await?;
+    let wcag_results = run_rules(page, &snapshot, config).await;
+    let report = aggregate_report(
+        url,
+        config,
+        &snapshot,
+        wcag_results,
+        start_time.elapsed().as_millis() as u64,
+    );
+
+    if config.persist_artifacts {
+        persist_artifacts(url, &snapshot, &report);
+    }
+
+    Ok(report)
+}
+
+async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Result<SnapshotData> {
     debug!("Extracting Accessibility Tree...");
     let ax_tree = extract_ax_tree(page).await?;
     info!("Extracted {} nodes from AXTree", ax_tree.len());
 
-    // Run WCAG checks
-    debug!("Running WCAG checks at level {}...", config.wcag_level);
-    let mut wcag_results = wcag::check_all(&ax_tree, config.wcag_level);
+    let performance = if config.check_performance {
+        match extract_web_vitals(page).await {
+            Ok(vitals) => {
+                let score = calculate_performance_score(&vitals);
+                Some(PerformanceResults { vitals, score })
+            }
+            Err(e) => {
+                warn!("Performance analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
 
-    // Run contrast check with page access (Level AA and AAA only)
+    let seo = if config.check_seo {
+        match analyze_seo(page, url).await {
+            Ok(seo) => Some(seo),
+            Err(e) => {
+                warn!("SEO analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let security = if config.check_security {
+        match analyze_security(url).await {
+            Ok(sec) => Some(sec),
+            Err(e) => {
+                warn!("Security analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let mobile = if config.check_mobile {
+        match analyze_mobile_friendliness(page).await {
+            Ok(mobile) => Some(mobile),
+            Err(e) => {
+                warn!("Mobile analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    Ok(SnapshotData {
+        ax_tree,
+        performance,
+        seo,
+        security,
+        mobile,
+    })
+}
+
+async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig) -> WcagResults {
+    debug!("Running WCAG checks at level {}...", config.wcag_level);
+    let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
+
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running contrast check with CDP...");
         let contrast_violations =
-            wcag::rules::ContrastRule::check_with_page(page, &ax_tree, config.wcag_level).await;
+            wcag::rules::ContrastRule::check_with_page(page, &snapshot.ax_tree, config.wcag_level)
+                .await;
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.violations.extend(contrast_violations);
     }
 
-    // Create report with WCAG results
-    let mut report = AuditReport::new(url.to_string(), config.wcag_level, wcag_results, 0);
+    wcag_results
+}
 
-    // Run optional module checks
-    if config.check_performance {
-        match extract_web_vitals(page).await {
-            Ok(vitals) => {
-                let score = calculate_performance_score(&vitals);
-                report = report.with_performance(PerformanceResults { vitals, score });
-            }
-            Err(e) => warn!("Performance analysis failed: {}", e),
-        }
+fn aggregate_report(
+    url: &str,
+    config: &PipelineConfig,
+    snapshot: &SnapshotData,
+    wcag_results: WcagResults,
+    duration_ms: u64,
+) -> AuditReport {
+    let mut report = AuditReport::new(
+        url.to_string(),
+        config.wcag_level,
+        wcag_results,
+        duration_ms,
+    );
+
+    if let Some(performance) = snapshot.performance.clone() {
+        report = report.with_performance(performance);
+    }
+    if let Some(seo) = snapshot.seo.clone() {
+        report = report.with_seo(seo);
+    }
+    if let Some(security) = snapshot.security.clone() {
+        report = report.with_security(security);
+    }
+    if let Some(mobile) = snapshot.mobile.clone() {
+        report = report.with_mobile(mobile);
     }
 
-    if config.check_seo {
-        match analyze_seo(page, url).await {
-            Ok(seo) => report = report.with_seo(seo),
-            Err(e) => warn!("SEO analysis failed: {}", e),
-        }
+    report
+}
+
+fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
+    let snapshot_artifact = SnapshotArtifact {
+        ax_tree: snapshot.ax_tree.clone(),
+        performance: snapshot.performance.clone(),
+        seo: snapshot.seo.clone(),
+        security: snapshot.security.clone(),
+        mobile: snapshot.mobile.clone(),
+    };
+    let normalized = normalize(report);
+    let artifacts = AuditArtifacts {
+        fetch: FetchArtifact {
+            requested_url: url.to_string(),
+            final_url: report.url.clone(),
+            status_code: None,
+            fetched_at: report.timestamp,
+            duration_ms: report.duration_ms,
+        },
+        snapshot: snapshot_artifact.clone(),
+        audit: normalized,
+        content_hash: content_hash(&snapshot_artifact),
+    };
+
+    if let Err(e) = save_artifacts(url, &artifacts) {
+        warn!("Artifact persistence failed for {}: {}", url, e);
     }
-
-    if config.check_security {
-        match analyze_security(url).await {
-            Ok(sec) => report = report.with_security(sec),
-            Err(e) => warn!("Security analysis failed: {}", e),
-        }
-    }
-
-    if config.check_mobile {
-        match analyze_mobile_friendliness(page).await {
-            Ok(mobile) => report = report.with_mobile(mobile),
-            Err(e) => warn!("Mobile analysis failed: {}", e),
-        }
-    }
-
-    // Set final duration
-    report.duration_ms = start_time.elapsed().as_millis() as u64;
-
-    Ok(report)
 }
 
 /// Run audits on multiple URLs
@@ -190,10 +305,15 @@ mod tests {
             detect_chrome: false,
             full: false,
             performance: false,
+            skip_performance: false,
             seo: false,
             security: false,
             mobile: false,
+            skip_mobile: false,
+            reuse_cache: false,
+            force_refresh: false,
             report_level: crate::cli::ReportLevel::Standard,
+            lang: "de".to_string(),
             company_name: None,
             logo: None,
         };
@@ -203,5 +323,6 @@ mod tests {
         assert_eq!(config.timeout_secs, 30);
         assert!(config.verbose);
         assert!(!config.check_performance);
+        assert!(!config.check_mobile);
     }
 }

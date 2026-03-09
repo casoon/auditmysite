@@ -6,8 +6,9 @@
 
 use std::collections::HashMap;
 
-use crate::audit::BatchReport;
 use crate::audit::normalized::NormalizedReport;
+use crate::audit::AccessibilityScorer;
+use crate::audit::BatchReport;
 use crate::cli::ReportLevel;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::*;
@@ -19,8 +20,16 @@ use crate::wcag::Severity;
 
 /// Build a complete ViewModel from a normalized report (single source of truth for score/grade/certificate)
 pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) -> ReportViewModel {
+    let priority_by_rule: HashMap<&str, f32> = normalized
+        .findings
+        .iter()
+        .map(|f| (f.rule_id.as_str(), f.priority_score))
+        .collect();
+
     // Convert NormalizedFindings → FindingGroups, filtering by report visibility
-    let mut sorted_groups: Vec<FindingGroup> = normalized.findings.iter()
+    let mut sorted_groups: Vec<FindingGroup> = normalized
+        .findings
+        .iter()
         .filter(|f| match config.level {
             ReportLevel::Executive => f.report_visibility.executive,
             ReportLevel::Standard => f.report_visibility.standard,
@@ -28,11 +37,23 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         })
         .map(|f| finding_group_from_normalized(f))
         .collect();
-    sorted_groups.sort_by(|a, b| impact_score(b).cmp(&impact_score(a)));
+    sorted_groups.sort_by(|a, b| {
+        let pa = priority_by_rule
+            .get(a.rule_id.as_str())
+            .copied()
+            .unwrap_or(0.0);
+        let pb = priority_by_rule
+            .get(b.rule_id.as_str())
+            .copied()
+            .unwrap_or(0.0);
+        pb.partial_cmp(&pa)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| impact_score(b).cmp(&impact_score(a)))
+    });
 
-    let score = normalized.score;
-    let grade = normalized.grade.clone();
-    let certificate = normalized.certificate.clone();
+    let score = normalized.overall_score;
+    let grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
+    let certificate = AccessibilityScorer::calculate_certificate(score as f32).to_string();
     let date = normalized.timestamp.format("%d.%m.%Y").to_string();
 
     let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
@@ -41,10 +62,18 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
 
     // Build module list
     let mut module_names: Vec<String> = vec!["Accessibility".into()];
-    if normalized.raw_performance.is_some() { module_names.push("Performance".into()); }
-    if normalized.raw_seo.is_some() { module_names.push("SEO".into()); }
-    if normalized.raw_security.is_some() { module_names.push("Sicherheit".into()); }
-    if normalized.raw_mobile.is_some() { module_names.push("Mobile".into()); }
+    if normalized.raw_performance.is_some() {
+        module_names.push("Performance".into());
+    }
+    if normalized.raw_seo.is_some() {
+        module_names.push("SEO".into());
+    }
+    if normalized.raw_security.is_some() {
+        module_names.push("Sicherheit".into());
+    }
+    if normalized.raw_mobile.is_some() {
+        module_names.push("Mobile".into());
+    }
 
     // Build severity block from normalized counts
     let severity = SeverityBlock {
@@ -62,7 +91,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     // Build summary metrics
     let best_module = find_best_module_name_from_normalized(normalized);
     let quick_win_count = action_plan.quick_wins.len();
-    let critical_count = (normalized.severity_counts.critical + normalized.severity_counts.high) as u32;
+    let critical_count =
+        (normalized.severity_counts.critical + normalized.severity_counts.high) as u32;
     let total_violations = normalized.severity_counts.total as u32;
 
     // Build actions block (pre-mapped for ActionRoadmap component)
@@ -71,7 +101,11 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     // Build module details from raw data
     let module_details = build_module_details_from_normalized(normalized);
 
-    let author = config.company_name.as_deref().unwrap_or("AuditMySite").to_string();
+    let author = config
+        .company_name
+        .as_deref()
+        .unwrap_or("AuditMySite")
+        .to_string();
 
     ReportViewModel {
         meta: MetaBlock {
@@ -84,10 +118,16 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             score_label: format!("{}/100", score),
         },
         cover: CoverBlock {
-            brand: config.company_name.as_deref().unwrap_or("AuditMySite").to_string(),
+            brand: config
+                .company_name
+                .as_deref()
+                .unwrap_or("AuditMySite")
+                .to_string(),
             title: "Web Accessibility Audit Report".to_string(),
             domain: normalized.url.clone(),
-            subtitle: "Automatisierte Analyse zu Accessibility, Performance, SEO, Sicherheit und Mobile.".to_string(),
+            subtitle:
+                "Automatisierte Analyse zu Accessibility, Performance, SEO, Sicherheit und Mobile."
+                    .to_string(),
             date: date.clone(),
             score,
             grade: grade.clone(),
@@ -125,8 +165,13 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                     accent_color: Some("#2563eb".into()),
                 },
             ],
-            top_actions: top_findings.iter().take(3).map(|f| f.recommendation.clone()).collect(),
-            positive_aspects: positive_aspects.iter()
+            top_actions: top_findings
+                .iter()
+                .take(3)
+                .map(|f| f.recommendation.clone())
+                .collect(),
+            positive_aspects: positive_aspects
+                .iter()
                 .map(|a| format!("{}: {}", a.area, a.description))
                 .collect(),
         },
@@ -193,24 +238,36 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
     }
 
     let has_multiple = dashboard.len() > 1;
-    let overall_score = if has_multiple { Some(normalized.overall_score) } else { None };
+    let overall_score = if has_multiple {
+        Some(normalized.overall_score)
+    } else {
+        None
+    };
     let overall_interpretation = overall_score.map(|_| {
         "Gewichteter Durchschnitt aller aktiven Module. Accessibility fließt mit 40% ein, \
-         Performance und SEO mit je 20%, Sicherheit und Mobile mit je 10%.".to_string()
+         Performance und SEO mit je 20%, Sicherheit und Mobile mit je 10%."
+            .to_string()
     });
 
-    ModulesBlock { dashboard, overall_score, overall_interpretation }
+    ModulesBlock {
+        dashboard,
+        overall_score,
+        overall_interpretation,
+    }
 }
 
 fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
     let map_items = |items: &[ActionItem], effort: &str| -> Vec<RoadmapItemData> {
-        items.iter().map(|i| RoadmapItemData {
-            action: i.action.clone(),
-            role: i.role.label().to_string(),
-            priority: i.priority.label().to_string(),
-            effort: effort.to_string(),
-            benefit: i.benefit.clone(),
-        }).collect()
+        items
+            .iter()
+            .map(|i| RoadmapItemData {
+                action: i.action.clone(),
+                role: i.role.label().to_string(),
+                priority: i.priority.label().to_string(),
+                effort: effort.to_string(),
+                benefit: i.benefit.clone(),
+            })
+            .collect()
     };
 
     let mut columns = Vec::new();
@@ -239,30 +296,38 @@ fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
     ActionsBlock {
         roadmap_columns: columns,
         role_assignments: plan.role_assignments.clone(),
-        intro_text: "Auf Basis der identifizierten Probleme empfehlen wir die folgenden Maßnahmen, \
-                     gegliedert nach Aufwand und Wirkung.".to_string(),
+        intro_text:
+            "Auf Basis der identifizierten Probleme empfehlen wir die folgenden Maßnahmen, \
+                     gegliedert nach Aufwand und Wirkung."
+                .to_string(),
     }
 }
 
 fn build_appendix_block_from_normalized(normalized: &NormalizedReport) -> AppendixBlock {
     // Build appendix from normalized findings (already suppressed/filtered)
-    let violations: Vec<AppendixViolation> = normalized.findings.iter().map(|f| {
-        let affected_elements: Vec<AffectedElement> = f.occurrences.iter().map(|occ| {
-            AffectedElement {
-                selector: occ.selector.clone().unwrap_or_else(|| occ.node_id.clone()),
-                node_id: occ.node_id.clone(),
-            }
-        }).collect();
+    let violations: Vec<AppendixViolation> = normalized
+        .findings
+        .iter()
+        .map(|f| {
+            let affected_elements: Vec<AffectedElement> = f
+                .occurrences
+                .iter()
+                .map(|occ| AffectedElement {
+                    selector: occ.selector.clone().unwrap_or_else(|| occ.node_id.clone()),
+                    node_id: occ.node_id.clone(),
+                })
+                .collect();
 
-        AppendixViolation {
-            rule: f.wcag_criterion.clone(),
-            rule_name: f.title.clone(),
-            severity: f.severity,
-            message: f.description.clone(),
-            fix_suggestion: f.occurrences.first().and_then(|o| o.fix_suggestion.clone()),
-            affected_elements,
-        }
-    }).collect();
+            AppendixViolation {
+                rule: f.wcag_criterion.clone(),
+                rule_name: f.title.clone(),
+                severity: f.severity,
+                message: f.description.clone(),
+                fix_suggestion: f.occurrences.first().and_then(|o| o.fix_suggestion.clone()),
+                affected_elements,
+            }
+        })
+        .collect();
 
     let has_violations = !violations.is_empty();
 
@@ -279,18 +344,23 @@ fn build_methodology(url: &str) -> MethodologyBlock {
     MethodologyBlock {
         scope: format!(
             "Automatisierte Prüfung der Seite {} auf Barrierefreiheit nach WCAG 2.1 (Level AA). \
-             Zusätzlich wurden Performance, SEO, Sicherheit und mobile Nutzbarkeit analysiert.", url
+             Zusätzlich wurden Performance, SEO, Sicherheit und mobile Nutzbarkeit analysiert.",
+            url
         ),
         method: "Die Prüfung erfolgte über den Chrome DevTools Protocol (CDP) und den \
                  nativen Accessibility Tree des Browsers. 21 WCAG-Regeln wurden automatisiert \
-                 gegen den Seiteninhalt geprüft.".to_string(),
-        limitations: "Automatisierte Tests können ca. 30–40% aller Barrierefreiheitsprobleme erkennen. \
+                 gegen den Seiteninhalt geprüft."
+            .to_string(),
+        limitations:
+            "Automatisierte Tests können ca. 30–40% aller Barrierefreiheitsprobleme erkennen. \
                       Komplexe Aspekte wie korrekte Tab-Reihenfolge, sinnvolle Alt-Texte oder \
-                      verständliche Sprache erfordern zusätzlich manuelle Prüfung.".to_string(),
+                      verständliche Sprache erfordern zusätzlich manuelle Prüfung."
+                .to_string(),
         disclaimer: "Dieser Report stellt eine automatisierte technische Analyse dar. \
                      Er ersetzt keine vollständige Konformitätsbewertung nach WCAG 2.1. \
                      Für eine rechtsverbindliche Aussage zur Barrierefreiheit ist eine \
-                     umfassende manuelle Prüfung durch Experten erforderlich.".to_string(),
+                     umfassende manuelle Prüfung durch Experten erforderlich."
+            .to_string(),
     }
 }
 
@@ -298,22 +368,46 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
     let performance = normalized.raw_performance.as_ref().map(|p| {
         let mut vitals = Vec::new();
         if let Some(ref lcp) = p.vitals.lcp {
-            vitals.push(("Largest Contentful Paint (LCP)".to_string(), format!("{:.0}ms", lcp.value), lcp.rating.clone()));
+            vitals.push((
+                "Largest Contentful Paint (LCP)".to_string(),
+                format!("{:.0}ms", lcp.value),
+                lcp.rating.clone(),
+            ));
         }
         if let Some(ref fcp) = p.vitals.fcp {
-            vitals.push(("First Contentful Paint (FCP)".to_string(), format!("{:.0}ms", fcp.value), fcp.rating.clone()));
+            vitals.push((
+                "First Contentful Paint (FCP)".to_string(),
+                format!("{:.0}ms", fcp.value),
+                fcp.rating.clone(),
+            ));
         }
         if let Some(ref cls) = p.vitals.cls {
-            vitals.push(("Cumulative Layout Shift (CLS)".to_string(), format!("{:.3}", cls.value), cls.rating.clone()));
+            vitals.push((
+                "Cumulative Layout Shift (CLS)".to_string(),
+                format!("{:.3}", cls.value),
+                cls.rating.clone(),
+            ));
         }
         if let Some(ref ttfb) = p.vitals.ttfb {
-            vitals.push(("Time to First Byte (TTFB)".to_string(), format!("{:.0}ms", ttfb.value), ttfb.rating.clone()));
+            vitals.push((
+                "Time to First Byte (TTFB)".to_string(),
+                format!("{:.0}ms", ttfb.value),
+                ttfb.rating.clone(),
+            ));
         }
         if let Some(ref inp) = p.vitals.inp {
-            vitals.push(("Interaction to Next Paint (INP)".to_string(), format!("{:.0}ms", inp.value), inp.rating.clone()));
+            vitals.push((
+                "Interaction to Next Paint (INP)".to_string(),
+                format!("{:.0}ms", inp.value),
+                inp.rating.clone(),
+            ));
         }
         if let Some(ref tbt) = p.vitals.tbt {
-            vitals.push(("Total Blocking Time (TBT)".to_string(), format!("{:.0}ms", tbt.value), tbt.rating.clone()));
+            vitals.push((
+                "Total Blocking Time (TBT)".to_string(),
+                format!("{:.0}ms", tbt.value),
+                tbt.rating.clone(),
+            ));
         }
 
         let mut additional = Vec::new();
@@ -321,7 +415,10 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             additional.push(("DOM-Knoten".to_string(), nodes.to_string()));
         }
         if let Some(heap) = p.vitals.js_heap_size {
-            additional.push(("JS Heap".to_string(), format!("{:.1} MB", heap as f64 / 1_048_576.0)));
+            additional.push((
+                "JS Heap".to_string(),
+                format!("{:.1} MB", heap as f64 / 1_048_576.0),
+            ));
         }
         if let Some(load) = p.vitals.load_time {
             additional.push(("Ladezeit".to_string(), format!("{:.0}ms", load)));
@@ -341,58 +438,146 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
 
     let seo = normalized.raw_seo.as_ref().map(|s| {
         let mut meta_tags = Vec::new();
-        if let Some(ref title) = s.meta.title { meta_tags.push(("Titel".to_string(), title.clone())); }
-        if let Some(ref desc) = s.meta.description { meta_tags.push(("Beschreibung".to_string(), desc.clone())); }
-        if let Some(ref viewport) = s.meta.viewport { meta_tags.push(("Viewport".to_string(), viewport.clone())); }
+        if let Some(ref title) = s.meta.title {
+            meta_tags.push(("Titel".to_string(), title.clone()));
+        }
+        if let Some(ref desc) = s.meta.description {
+            meta_tags.push(("Beschreibung".to_string(), desc.clone()));
+        }
+        if let Some(ref viewport) = s.meta.viewport {
+            meta_tags.push(("Viewport".to_string(), viewport.clone()));
+        }
 
-        let meta_issues: Vec<(String, Severity, String)> = s.meta_issues.iter()
-            .map(|i| (i.field.clone(), i.severity, i.message.clone())).collect();
+        let meta_issues: Vec<(String, Severity, String)> = s
+            .meta_issues
+            .iter()
+            .map(|i| (i.field.clone(), i.severity, i.message.clone()))
+            .collect();
 
         let profile = s.content_profile.as_ref().map(|cp| {
             use crate::seo::profile::SchemaExtracted;
 
-            let schema_rows: Vec<(String, String, String)> = cp.schema_inventory.schemas.iter().map(|sd| {
-                let detail = match &sd.extracted {
-                    SchemaExtracted::Organization { name, .. } => name.clone().unwrap_or_default(),
-                    SchemaExtracted::LocalBusiness { name, address, .. } =>
-                        format!("{}{}", name.as_deref().unwrap_or(""), address.as_ref().map(|a| format!(", {}", a)).unwrap_or_default()),
-                    SchemaExtracted::Article { headline, author, .. } =>
-                        format!("{}{}", headline.as_deref().unwrap_or(""), author.as_ref().map(|a| format!(" ({})", a)).unwrap_or_default()),
-                    SchemaExtracted::FAQPage { question_count, .. } => format!("{} Fragen", question_count),
-                    SchemaExtracted::Product { name, price, currency, .. } =>
-                        format!("{}{}", name.as_deref().unwrap_or(""),
-                            price.as_ref().map(|p| format!(" — {} {}", p, currency.as_deref().unwrap_or(""))).unwrap_or_default()),
-                    SchemaExtracted::WebSite { name, has_search_action, .. } =>
-                        format!("{}{}", name.as_deref().unwrap_or(""), if *has_search_action { " (Suche)" } else { "" }),
-                    SchemaExtracted::BreadcrumbList { item_count } => format!("{} Ebenen", item_count),
-                    SchemaExtracted::Generic { key_fields } => key_fields.first().map(|(k, v)| format!("{}: {}", k, v)).unwrap_or_default(),
-                };
-                (sd.schema_type.clone(), format!("{}%", sd.completeness_pct), detail)
-            }).collect();
+            let schema_rows: Vec<(String, String, String)> = cp
+                .schema_inventory
+                .schemas
+                .iter()
+                .map(|sd| {
+                    let detail = match &sd.extracted {
+                        SchemaExtracted::Organization { name, .. } => {
+                            name.clone().unwrap_or_default()
+                        }
+                        SchemaExtracted::LocalBusiness { name, address, .. } => format!(
+                            "{}{}",
+                            name.as_deref().unwrap_or(""),
+                            address
+                                .as_ref()
+                                .map(|a| format!(", {}", a))
+                                .unwrap_or_default()
+                        ),
+                        SchemaExtracted::Article {
+                            headline, author, ..
+                        } => format!(
+                            "{}{}",
+                            headline.as_deref().unwrap_or(""),
+                            author
+                                .as_ref()
+                                .map(|a| format!(" ({})", a))
+                                .unwrap_or_default()
+                        ),
+                        SchemaExtracted::FAQPage { question_count, .. } => {
+                            format!("{} Fragen", question_count)
+                        }
+                        SchemaExtracted::Product {
+                            name,
+                            price,
+                            currency,
+                            ..
+                        } => format!(
+                            "{}{}",
+                            name.as_deref().unwrap_or(""),
+                            price
+                                .as_ref()
+                                .map(|p| format!(" — {} {}", p, currency.as_deref().unwrap_or("")))
+                                .unwrap_or_default()
+                        ),
+                        SchemaExtracted::WebSite {
+                            name,
+                            has_search_action,
+                            ..
+                        } => format!(
+                            "{}{}",
+                            name.as_deref().unwrap_or(""),
+                            if *has_search_action { " (Suche)" } else { "" }
+                        ),
+                        SchemaExtracted::BreadcrumbList { item_count } => {
+                            format!("{} Ebenen", item_count)
+                        }
+                        SchemaExtracted::Generic { key_fields } => key_fields
+                            .first()
+                            .map(|(k, v)| format!("{}: {}", k, v))
+                            .unwrap_or_default(),
+                    };
+                    (
+                        sd.schema_type.clone(),
+                        format!("{}%", sd.completeness_pct),
+                        detail,
+                    )
+                })
+                .collect();
 
-            let signal_rows: Vec<(String, String, String)> = cp.signal_strength.categories.iter().map(|cat| {
-                let rating = match cat.score_pct {
-                    90..=100 => "Sehr gut",
-                    67..=89 => "Gut",
-                    34..=66 => "Teilweise",
-                    1..=33 => "Minimal",
-                    _ => "Fehlt",
-                };
-                (cat.name.clone(), format!("{}%", cat.score_pct), rating.to_string())
-            }).collect();
+            let signal_rows: Vec<(String, String, String)> = cp
+                .signal_strength
+                .categories
+                .iter()
+                .map(|cat| {
+                    let rating = match cat.score_pct {
+                        90..=100 => "Sehr gut",
+                        67..=89 => "Gut",
+                        34..=66 => "Teilweise",
+                        1..=33 => "Minimal",
+                        _ => "Fehlt",
+                    };
+                    (
+                        cat.name.clone(),
+                        format!("{}%", cat.score_pct),
+                        rating.to_string(),
+                    )
+                })
+                .collect();
 
-            let signal_details: Vec<(String, Vec<(String, bool, String)>)> = cp.signal_strength.categories.iter().map(|cat| {
-                let checks = cat.checks.iter().map(|c| {
-                    (c.label.clone(), c.passed, c.detail.clone().unwrap_or_default())
-                }).collect();
-                (cat.name.clone(), checks)
-            }).collect();
+            let signal_details: Vec<(String, Vec<(String, bool, String)>)> = cp
+                .signal_strength
+                .categories
+                .iter()
+                .map(|cat| {
+                    let checks = cat
+                        .checks
+                        .iter()
+                        .map(|c| {
+                            (
+                                c.label.clone(),
+                                c.passed,
+                                c.detail.clone().unwrap_or_default(),
+                            )
+                        })
+                        .collect();
+                    (cat.name.clone(), checks)
+                })
+                .collect();
 
             SeoProfilePresentation {
                 identity_summary: cp.content_identity.summary.clone(),
-                site_name: cp.content_identity.site_name.clone().unwrap_or_else(|| "—".to_string()),
+                site_name: cp
+                    .content_identity
+                    .site_name
+                    .clone()
+                    .unwrap_or_else(|| "—".to_string()),
                 content_type: cp.content_identity.content_type.clone(),
-                language: cp.content_identity.language.clone().unwrap_or_else(|| "—".to_string()),
+                language: cp
+                    .content_identity
+                    .language
+                    .clone()
+                    .unwrap_or_else(|| "—".to_string()),
                 category_hints: cp.content_identity.category_hints.clone(),
                 schema_rows,
                 schema_count: cp.schema_inventory.total_count,
@@ -411,12 +596,26 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             interpretation: interpret_score(s.score as f32, "SEO"),
             meta_tags,
             meta_issues,
-            heading_summary: format!("{} H1-Überschrift(en), {} Überschriften gesamt, {} Probleme",
-                s.headings.h1_count, s.headings.total_count, s.headings.issues.len()),
-            social_summary: format!("Open Graph: {}, Twitter Card: {}, Vollständigkeit: {}%",
-                if s.social.open_graph.is_some() { "vorhanden" } else { "fehlt" },
-                if s.social.twitter_card.is_some() { "vorhanden" } else { "fehlt" },
-                s.social.completeness),
+            heading_summary: format!(
+                "{} H1-Überschrift(en), {} Überschriften gesamt, {} Probleme",
+                s.headings.h1_count,
+                s.headings.total_count,
+                s.headings.issues.len()
+            ),
+            social_summary: format!(
+                "Open Graph: {}, Twitter Card: {}, Vollständigkeit: {}%",
+                if s.social.open_graph.is_some() {
+                    "vorhanden"
+                } else {
+                    "fehlt"
+                },
+                if s.social.twitter_card.is_some() {
+                    "vorhanden"
+                } else {
+                    "fehlt"
+                },
+                s.social.completeness
+            ),
             technical_summary: vec![
                 ("HTTPS".to_string(), yes_no(s.technical.https)),
                 ("Canonical".to_string(), yes_no(s.technical.has_canonical)),
@@ -429,95 +628,204 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
 
     let security = normalized.raw_security.as_ref().map(|sec| {
         let header_checks: Vec<(&str, &Option<String>)> = vec![
-            ("Content-Security-Policy", &sec.headers.content_security_policy),
-            ("Strict-Transport-Security", &sec.headers.strict_transport_security),
-            ("X-Content-Type-Options", &sec.headers.x_content_type_options),
+            (
+                "Content-Security-Policy",
+                &sec.headers.content_security_policy,
+            ),
+            (
+                "Strict-Transport-Security",
+                &sec.headers.strict_transport_security,
+            ),
+            (
+                "X-Content-Type-Options",
+                &sec.headers.x_content_type_options,
+            ),
             ("X-Frame-Options", &sec.headers.x_frame_options),
             ("X-XSS-Protection", &sec.headers.x_xss_protection),
             ("Referrer-Policy", &sec.headers.referrer_policy),
             ("Permissions-Policy", &sec.headers.permissions_policy),
-            ("Cross-Origin-Opener-Policy", &sec.headers.cross_origin_opener_policy),
-            ("Cross-Origin-Resource-Policy", &sec.headers.cross_origin_resource_policy),
+            (
+                "Cross-Origin-Opener-Policy",
+                &sec.headers.cross_origin_opener_policy,
+            ),
+            (
+                "Cross-Origin-Resource-Policy",
+                &sec.headers.cross_origin_resource_policy,
+            ),
         ];
 
         SecurityPresentation {
             score: sec.score,
             grade: sec.grade.clone(),
             interpretation: interpret_score(sec.score as f32, "Sicherheit"),
-            headers: header_checks.iter().map(|(name, value)| {
-                let (status, val) = match value {
-                    Some(v) => ("Vorhanden".to_string(), truncate_url(v, 50)),
-                    None => ("Fehlt".to_string(), "—".to_string()),
-                };
-                (name.to_string(), status, val)
-            }).collect(),
+            headers: header_checks
+                .iter()
+                .map(|(name, value)| {
+                    let (status, val) = match value {
+                        Some(v) => ("Vorhanden".to_string(), truncate_url(v, 50)),
+                        None => ("Fehlt".to_string(), "—".to_string()),
+                    };
+                    (name.to_string(), status, val)
+                })
+                .collect(),
             ssl_info: vec![
                 ("HTTPS".to_string(), yes_no(sec.ssl.https)),
-                ("Gültiges Zertifikat".to_string(), yes_no(sec.ssl.valid_certificate)),
+                (
+                    "Gültiges Zertifikat".to_string(),
+                    yes_no(sec.ssl.valid_certificate),
+                ),
                 ("HSTS".to_string(), yes_no(sec.ssl.has_hsts)),
-                ("HSTS Max-Age".to_string(), sec.ssl.hsts_max_age.map(|v| format!("{}s", v)).unwrap_or_else(|| "—".to_string())),
-                ("Subdomains".to_string(), yes_no(sec.ssl.hsts_include_subdomains)),
+                (
+                    "HSTS Max-Age".to_string(),
+                    sec.ssl
+                        .hsts_max_age
+                        .map(|v| format!("{}s", v))
+                        .unwrap_or_else(|| "—".to_string()),
+                ),
+                (
+                    "Subdomains".to_string(),
+                    yes_no(sec.ssl.hsts_include_subdomains),
+                ),
                 ("Preload".to_string(), yes_no(sec.ssl.hsts_preload)),
             ],
-            issues: sec.issues.iter().map(|i| (i.header.clone(), i.severity, i.message.clone())).collect(),
+            issues: sec
+                .issues
+                .iter()
+                .map(|i| (i.header.clone(), i.severity, i.message.clone()))
+                .collect(),
             recommendations: sec.recommendations.clone(),
         }
     });
 
-    let mobile = normalized.raw_mobile.as_ref().map(|m| {
-        MobilePresentation {
-            score: m.score,
-            interpretation: interpret_score(m.score as f32, "mobile Nutzbarkeit"),
-            viewport: vec![
-                ("Viewport-Tag".to_string(), yes_no(m.viewport.has_viewport)),
-                ("device-width".to_string(), yes_no(m.viewport.uses_device_width)),
-                ("Initial Scale".to_string(), yes_no(m.viewport.has_initial_scale)),
-                ("Skalierbar".to_string(), yes_no(m.viewport.is_scalable)),
-                ("Korrekt konfiguriert".to_string(), yes_no(m.viewport.is_properly_configured)),
-            ],
-            touch_targets: vec![
-                ("Gesamt".to_string(), m.touch_targets.total_targets.to_string()),
-                ("Ausreichend (≥44px)".to_string(), m.touch_targets.adequate_targets.to_string()),
-                ("Zu klein".to_string(), m.touch_targets.small_targets.to_string()),
-                ("Zu eng beieinander".to_string(), m.touch_targets.crowded_targets.to_string()),
-            ],
-            font_analysis: vec![
-                ("Basis-Schriftgröße".to_string(), format!("{:.0}px", m.font_sizes.base_font_size)),
-                ("Kleinste Schrift".to_string(), format!("{:.0}px", m.font_sizes.smallest_font_size)),
-                ("Lesbarer Text".to_string(), format!("{:.0}%", m.font_sizes.legible_percentage)),
-                ("Relative Einheiten".to_string(), yes_no(m.font_sizes.uses_relative_units)),
-            ],
-            content_sizing: vec![
-                ("Passt in Viewport".to_string(), yes_no(m.content_sizing.fits_viewport)),
-                ("Kein hor. Scrollen".to_string(), yes_no(!m.content_sizing.has_horizontal_scroll)),
-                ("Responsive Bilder".to_string(), yes_no(m.content_sizing.uses_responsive_images)),
-                ("Media Queries".to_string(), yes_no(m.content_sizing.uses_media_queries)),
-            ],
-            issues: m.issues.iter().map(|i| (i.category.clone(), i.severity, i.message.clone())).collect(),
-        }
+    let mobile = normalized.raw_mobile.as_ref().map(|m| MobilePresentation {
+        score: m.score,
+        interpretation: interpret_score(m.score as f32, "mobile Nutzbarkeit"),
+        viewport: vec![
+            ("Viewport-Tag".to_string(), yes_no(m.viewport.has_viewport)),
+            (
+                "device-width".to_string(),
+                yes_no(m.viewport.uses_device_width),
+            ),
+            (
+                "Initial Scale".to_string(),
+                yes_no(m.viewport.has_initial_scale),
+            ),
+            ("Skalierbar".to_string(), yes_no(m.viewport.is_scalable)),
+            (
+                "Korrekt konfiguriert".to_string(),
+                yes_no(m.viewport.is_properly_configured),
+            ),
+        ],
+        touch_targets: vec![
+            (
+                "Gesamt".to_string(),
+                m.touch_targets.total_targets.to_string(),
+            ),
+            (
+                "Ausreichend (≥44px)".to_string(),
+                m.touch_targets.adequate_targets.to_string(),
+            ),
+            (
+                "Zu klein".to_string(),
+                m.touch_targets.small_targets.to_string(),
+            ),
+            (
+                "Zu eng beieinander".to_string(),
+                m.touch_targets.crowded_targets.to_string(),
+            ),
+        ],
+        font_analysis: vec![
+            (
+                "Basis-Schriftgröße".to_string(),
+                format!("{:.0}px", m.font_sizes.base_font_size),
+            ),
+            (
+                "Kleinste Schrift".to_string(),
+                format!("{:.0}px", m.font_sizes.smallest_font_size),
+            ),
+            (
+                "Lesbarer Text".to_string(),
+                format!("{:.0}%", m.font_sizes.legible_percentage),
+            ),
+            (
+                "Relative Einheiten".to_string(),
+                yes_no(m.font_sizes.uses_relative_units),
+            ),
+        ],
+        content_sizing: vec![
+            (
+                "Passt in Viewport".to_string(),
+                yes_no(m.content_sizing.fits_viewport),
+            ),
+            (
+                "Kein hor. Scrollen".to_string(),
+                yes_no(!m.content_sizing.has_horizontal_scroll),
+            ),
+            (
+                "Responsive Bilder".to_string(),
+                yes_no(m.content_sizing.uses_responsive_images),
+            ),
+            (
+                "Media Queries".to_string(),
+                yes_no(m.content_sizing.uses_media_queries),
+            ),
+        ],
+        issues: m
+            .issues
+            .iter()
+            .map(|i| (i.category.clone(), i.severity, i.message.clone()))
+            .collect(),
     });
 
     let has_any = performance.is_some() || seo.is_some() || security.is_some() || mobile.is_some();
-    ModuleDetailsBlock { performance, seo, security, mobile, has_any }
+    ModuleDetailsBlock {
+        performance,
+        seo,
+        security,
+        mobile,
+        has_any,
+    }
 }
 
 /// Convert a NormalizedFinding into a FindingGroup (with explanation enrichment)
 fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding) -> FindingGroup {
     let explanation = get_explanation(&f.wcag_criterion);
 
-    let (title, customer_desc, user_impact_text, typical_cause, recommendation, technical_note, role, effort) =
-        if let Some(expl) = explanation {
-            (expl.customer_title.to_string(), expl.customer_description.to_string(),
-             expl.user_impact.to_string(), expl.typical_cause.to_string(),
-             expl.recommendation.to_string(), expl.technical_note.to_string(),
-             expl.responsible_role, expl.effort_estimate)
-        } else {
-            (f.title.clone(), f.description.clone(),
-             f.user_impact.clone(),
-             "Automatisch erkanntes Problem.".to_string(),
-             f.occurrences.first().and_then(|o| o.fix_suggestion.clone()).unwrap_or_else(|| "Bitte prüfen und beheben.".to_string()),
-             String::new(), Role::Development, Effort::Medium)
-        };
+    let (
+        title,
+        customer_desc,
+        user_impact_text,
+        typical_cause,
+        recommendation,
+        technical_note,
+        role,
+        effort,
+    ) = if let Some(expl) = explanation {
+        (
+            expl.customer_title.to_string(),
+            expl.customer_description.to_string(),
+            expl.user_impact.to_string(),
+            expl.typical_cause.to_string(),
+            expl.recommendation.to_string(),
+            expl.technical_note.to_string(),
+            expl.responsible_role,
+            expl.effort_estimate,
+        )
+    } else {
+        (
+            f.title.clone(),
+            f.description.clone(),
+            f.user_impact.clone(),
+            "Automatisch erkanntes Problem.".to_string(),
+            f.occurrences
+                .first()
+                .and_then(|o| o.fix_suggestion.clone())
+                .unwrap_or_else(|| "Bitte prüfen und beheben.".to_string()),
+            String::new(),
+            Role::Development,
+            Effort::Medium,
+        )
+    };
 
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
 
@@ -550,51 +858,84 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
     let a11y_score = normalized.score as f32;
 
     if normalized.findings.is_empty() {
-        positives.push(PositiveAspect { area: "Barrierefreiheit".into(),
-            description: "Keine automatisch erkennbaren Verstöße gefunden.".into() });
+        positives.push(PositiveAspect {
+            area: "Barrierefreiheit".into(),
+            description: "Keine automatisch erkennbaren Verstöße gefunden.".into(),
+        });
     } else if a11y_score >= 80.0 {
-        positives.push(PositiveAspect { area: "Barrierefreiheit".into(),
-            description: format!("Guter Score von {:.0}/100 — die Basis stimmt.", a11y_score) });
+        positives.push(PositiveAspect {
+            area: "Barrierefreiheit".into(),
+            description: format!("Guter Score von {:.0}/100 — die Basis stimmt.", a11y_score),
+        });
     }
 
     if let Some(ref perf) = normalized.raw_performance {
         if perf.score.overall >= 80 {
-            positives.push(PositiveAspect { area: "Performance".into(),
-                description: format!("Gute Ladezeiten mit {}/100 Punkten.", perf.score.overall) });
+            positives.push(PositiveAspect {
+                area: "Performance".into(),
+                description: format!("Gute Ladezeiten mit {}/100 Punkten.", perf.score.overall),
+            });
         }
     }
     if let Some(ref seo) = normalized.raw_seo {
         if seo.score >= 80 {
-            positives.push(PositiveAspect { area: "SEO".into(),
-                description: format!("Solide SEO-Basis mit {}/100 Punkten.", seo.score) });
+            positives.push(PositiveAspect {
+                area: "SEO".into(),
+                description: format!("Solide SEO-Basis mit {}/100 Punkten.", seo.score),
+            });
         }
     }
     if let Some(ref sec) = normalized.raw_security {
         if sec.score >= 80 {
-            positives.push(PositiveAspect { area: "Sicherheit".into(),
-                description: format!("Gute Security-Konfiguration mit {}/100 Punkten (Grade {}).", sec.score, sec.grade) });
+            positives.push(PositiveAspect {
+                area: "Sicherheit".into(),
+                description: format!(
+                    "Gute Security-Konfiguration mit {}/100 Punkten (Grade {}).",
+                    sec.score, sec.grade
+                ),
+            });
         }
     }
     if let Some(ref mobile) = normalized.raw_mobile {
         if mobile.score >= 80 {
-            positives.push(PositiveAspect { area: "Mobile".into(),
-                description: format!("Gute mobile Nutzbarkeit mit {}/100 Punkten.", mobile.score) });
+            positives.push(PositiveAspect {
+                area: "Mobile".into(),
+                description: format!("Gute mobile Nutzbarkeit mit {}/100 Punkten.", mobile.score),
+            });
         }
     }
 
     if positives.is_empty() {
-        positives.push(PositiveAspect { area: "Grundstruktur".into(),
-            description: "Die Seite ist grundsätzlich funktional und erreichbar.".into() });
+        positives.push(PositiveAspect {
+            area: "Grundstruktur".into(),
+            description: "Die Seite ist grundsätzlich funktional und erreichbar.".into(),
+        });
     }
     positives
 }
 
 fn find_best_module_name_from_normalized(normalized: &NormalizedReport) -> String {
     let mut best = ("Barrierefreiheit", normalized.score);
-    if let Some(ref p) = normalized.raw_performance { if p.score.overall > best.1 { best = ("Performance", p.score.overall); } }
-    if let Some(ref s) = normalized.raw_seo { if s.score > best.1 { best = ("SEO", s.score); } }
-    if let Some(ref s) = normalized.raw_security { if s.score > best.1 { best = ("Sicherheit", s.score); } }
-    if let Some(ref m) = normalized.raw_mobile { if m.score > best.1 { best = ("Mobile", m.score); } }
+    if let Some(ref p) = normalized.raw_performance {
+        if p.score.overall > best.1 {
+            best = ("Performance", p.score.overall);
+        }
+    }
+    if let Some(ref s) = normalized.raw_seo {
+        if s.score > best.1 {
+            best = ("SEO", s.score);
+        }
+    }
+    if let Some(ref s) = normalized.raw_security {
+        if s.score > best.1 {
+            best = ("Sicherheit", s.score);
+        }
+    }
+    if let Some(ref m) = normalized.raw_mobile {
+        if m.score > best.1 {
+            best = ("Mobile", m.score);
+        }
+    }
     best.0.to_string()
 }
 
@@ -602,65 +943,121 @@ fn find_best_module_name_from_normalized(normalized: &NormalizedReport) -> Strin
 
 /// Build a complete presentation model from a batch audit report
 pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
-    let all_violations: Vec<_> = batch.reports.iter()
+    let all_violations: Vec<_> = batch
+        .reports
+        .iter()
         .flat_map(|r| r.wcag_results.violations.iter().map(move |v| (v, &r.url)))
         .collect();
 
     let mut rule_groups: HashMap<String, GroupAccumulator> = HashMap::new();
     for (violation, url) in &all_violations {
-        let entry = rule_groups.entry(violation.rule.clone()).or_insert_with(|| GroupAccumulator {
-            rule: violation.rule.clone(),
-            rule_name: violation.rule_name.clone(),
-            severity: violation.severity,
-            count: 0,
-            urls: Vec::new(),
-        });
+        let entry = rule_groups
+            .entry(violation.rule.clone())
+            .or_insert_with(|| GroupAccumulator {
+                rule: violation.rule.clone(),
+                rule_name: violation.rule_name.clone(),
+                severity: violation.severity,
+                count: 0,
+                urls: Vec::new(),
+            });
         entry.count += 1;
-        if !entry.urls.contains(url) { entry.urls.push((*url).clone()); }
-        if violation.severity > entry.severity { entry.severity = violation.severity; }
+        if !entry.urls.contains(url) {
+            entry.urls.push((*url).clone());
+        }
+        if violation.severity > entry.severity {
+            entry.severity = violation.severity;
+        }
     }
 
-    let mut top_issues: Vec<FindingGroup> = rule_groups.values()
-        .map(|acc| build_finding_group_from_accumulator(acc)).collect();
+    let mut top_issues: Vec<FindingGroup> = rule_groups
+        .values()
+        .map(|acc| build_finding_group_from_accumulator(acc))
+        .collect();
     top_issues.sort_by(|a, b| impact_score(b).cmp(&impact_score(a)));
 
-    let issue_frequency: Vec<IssueFrequency> = top_issues.iter().map(|g| IssueFrequency {
-        problem: g.title.clone(), wcag: g.wcag_criterion.clone(),
-        occurrences: g.occurrence_count, affected_urls: g.affected_urls.len(), priority: g.priority,
-    }).collect();
+    let issue_frequency: Vec<IssueFrequency> = top_issues
+        .iter()
+        .map(|g| IssueFrequency {
+            problem: g.title.clone(),
+            wcag: g.wcag_criterion.clone(),
+            occurrences: g.occurrence_count,
+            affected_urls: g.affected_urls.len(),
+            priority: g.priority,
+        })
+        .collect();
 
     let action_plan = derive_action_plan(&top_issues);
 
-    let mut url_ranking: Vec<UrlSummary> = batch.reports.iter().map(|r| {
-        let critical_count = r.wcag_results.violations.iter()
-            .filter(|v| matches!(v.severity, Severity::Critical | Severity::High)).count();
-        UrlSummary {
-            url: r.url.clone(), score: r.score, grade: r.grade.clone(),
-            critical_violations: critical_count, total_violations: r.wcag_results.violations.len(),
-            passed: r.passed(), priority: score_to_priority(r.score),
-        }
-    }).collect();
+    let mut url_ranking: Vec<UrlSummary> = batch
+        .reports
+        .iter()
+        .map(|r| {
+            let critical_count = r
+                .wcag_results
+                .violations
+                .iter()
+                .filter(|v| matches!(v.severity, Severity::Critical | Severity::High))
+                .count();
+            UrlSummary {
+                url: r.url.clone(),
+                score: r.score,
+                grade: r.grade.clone(),
+                critical_violations: critical_count,
+                total_violations: r.wcag_results.violations.len(),
+                passed: r.passed(),
+                priority: score_to_priority(r.score),
+            }
+        })
+        .collect();
     url_ranking.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
 
-    let url_details: Vec<CompactUrlSummary> = batch.reports.iter().map(|r| {
-        let per_url_groups = group_violations(&r.wcag_results.violations, &[]);
-        let mut sorted = per_url_groups;
-        sorted.sort_by(|a, b| impact_score(b).cmp(&impact_score(a)));
-        let top_issue_titles: Vec<String> = sorted.iter().take(3).map(|g| g.title.clone()).collect();
+    let url_details: Vec<CompactUrlSummary> = batch
+        .reports
+        .iter()
+        .map(|r| {
+            let per_url_groups = group_violations(&r.wcag_results.violations, &[]);
+            let mut sorted = per_url_groups;
+            sorted.sort_by(|a, b| impact_score(b).cmp(&impact_score(a)));
+            let top_issue_titles: Vec<String> =
+                sorted.iter().take(3).map(|g| g.title.clone()).collect();
 
-        let mut module_scores = vec![("Accessibility".to_string(), r.score.round() as u32)];
-        if let Some(ref p) = r.performance { module_scores.push(("Performance".to_string(), p.score.overall)); }
-        if let Some(ref s) = r.seo { module_scores.push(("SEO".to_string(), s.score)); }
-        if let Some(ref s) = r.security { module_scores.push(("Security".to_string(), s.score)); }
-        if let Some(ref m) = r.mobile { module_scores.push(("Mobile".to_string(), m.score)); }
+            let mut module_scores = vec![("Accessibility".to_string(), r.score.round() as u32)];
+            if let Some(ref p) = r.performance {
+                module_scores.push(("Performance".to_string(), p.score.overall));
+            }
+            if let Some(ref s) = r.seo {
+                module_scores.push(("SEO".to_string(), s.score));
+            }
+            if let Some(ref s) = r.security {
+                module_scores.push(("Security".to_string(), s.score));
+            }
+            if let Some(ref m) = r.mobile {
+                module_scores.push(("Mobile".to_string(), m.score));
+            }
 
-        CompactUrlSummary { url: r.url.clone(), score: r.score, grade: r.grade.clone(), top_issues: top_issue_titles, module_scores }
-    }).collect();
+            CompactUrlSummary {
+                url: r.url.clone(),
+                score: r.score,
+                grade: r.grade.clone(),
+                top_issues: top_issue_titles,
+                module_scores,
+            }
+        })
+        .collect();
 
     let mut sorted_by_score: Vec<_> = batch.reports.iter().collect();
     sorted_by_score.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
-    let worst_urls: Vec<(String, f32)> = sorted_by_score.iter().take(3).map(|r| (truncate_url(&r.url, 60), r.score)).collect();
-    let best_urls: Vec<(String, f32)> = sorted_by_score.iter().rev().take(3).map(|r| (truncate_url(&r.url, 60), r.score)).collect();
+    let worst_urls: Vec<(String, f32)> = sorted_by_score
+        .iter()
+        .take(3)
+        .map(|r| (truncate_url(&r.url, 60), r.score))
+        .collect();
+    let best_urls: Vec<(String, f32)> = sorted_by_score
+        .iter()
+        .rev()
+        .take(3)
+        .map(|r| (truncate_url(&r.url, 60), r.score))
+        .collect();
 
     let verdict_text = build_batch_verdict(batch);
 
@@ -668,11 +1065,18 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         let (mut critical, mut high, mut medium, mut low) = (0usize, 0usize, 0usize, 0usize);
         for (violation, _) in &all_violations {
             match violation.severity {
-                Severity::Critical => critical += 1, Severity::High => high += 1,
-                Severity::Medium => medium += 1, Severity::Low => low += 1,
+                Severity::Critical => critical += 1,
+                Severity::High => high += 1,
+                Severity::Medium => medium += 1,
+                Severity::Low => low += 1,
             }
         }
-        SeverityDistribution { critical, high, medium, low }
+        SeverityDistribution {
+            critical,
+            high,
+            medium,
+            low,
+        }
     };
 
     BatchPresentation {
@@ -683,13 +1087,22 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
         portfolio_summary: PortfolioSummary {
-            total_urls: batch.summary.total_urls, passed: batch.summary.passed,
-            failed: batch.summary.failed, average_score: batch.summary.average_score,
-            total_violations: batch.summary.total_violations, duration_ms: batch.total_duration_ms,
-            verdict_text, worst_urls, best_urls, severity_distribution,
+            total_urls: batch.summary.total_urls,
+            passed: batch.summary.passed,
+            failed: batch.summary.failed,
+            average_score: batch.summary.average_score,
+            total_violations: batch.summary.total_violations,
+            duration_ms: batch.total_duration_ms,
+            verdict_text,
+            worst_urls,
+            best_urls,
+            severity_distribution,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
-        issue_frequency, action_plan, url_ranking, url_details,
+        issue_frequency,
+        action_plan,
+        url_ranking,
+        url_details,
         appendix: build_batch_appendix(batch),
     }
 }
@@ -718,72 +1131,148 @@ struct GroupAccumulator {
     urls: Vec<String>,
 }
 
-
-
-fn group_violations(violations: &[crate::wcag::Violation], _url_context: &[&str]) -> Vec<FindingGroup> {
+fn group_violations(
+    violations: &[crate::wcag::Violation],
+    _url_context: &[&str],
+) -> Vec<FindingGroup> {
     let mut groups: HashMap<String, (Vec<&crate::wcag::Violation>, usize)> = HashMap::new();
     for v in violations {
-        let entry = groups.entry(v.rule.clone()).or_insert_with(|| (Vec::new(), 0));
+        let entry = groups
+            .entry(v.rule.clone())
+            .or_insert_with(|| (Vec::new(), 0));
         entry.0.push(v);
         entry.1 += 1;
     }
 
-    groups.into_iter().map(|(rule_id, (violations, count))| {
-        let first = violations[0];
-        let explanation = get_explanation(&rule_id);
+    groups
+        .into_iter()
+        .map(|(rule_id, (violations, count))| {
+            let first = violations[0];
+            let explanation = get_explanation(&rule_id);
 
-        let (title, customer_desc, user_impact_text, typical_cause, recommendation, technical_note, role, effort) =
-            if let Some(expl) = explanation {
-                (expl.customer_title.to_string(), expl.customer_description.to_string(),
-                 expl.user_impact.to_string(), expl.typical_cause.to_string(),
-                 expl.recommendation.to_string(), expl.technical_note.to_string(),
-                 expl.responsible_role, expl.effort_estimate)
+            let (
+                title,
+                customer_desc,
+                user_impact_text,
+                typical_cause,
+                recommendation,
+                technical_note,
+                role,
+                effort,
+            ) = if let Some(expl) = explanation {
+                (
+                    expl.customer_title.to_string(),
+                    expl.customer_description.to_string(),
+                    expl.user_impact.to_string(),
+                    expl.typical_cause.to_string(),
+                    expl.recommendation.to_string(),
+                    expl.technical_note.to_string(),
+                    expl.responsible_role,
+                    expl.effort_estimate,
+                )
             } else {
-                (format!("{} — {}", first.rule, first.rule_name), first.message.clone(),
-                 "Nutzer mit Einschränkungen können betroffen sein.".to_string(),
-                 "Automatisch erkanntes Problem.".to_string(),
-                 first.fix_suggestion.clone().unwrap_or_else(|| "Bitte prüfen und beheben.".to_string()),
-                 first.fix_suggestion.clone().unwrap_or_default(), Role::Development, Effort::Medium)
+                (
+                    format!("{} — {}", first.rule, first.rule_name),
+                    first.message.clone(),
+                    "Nutzer mit Einschränkungen können betroffen sein.".to_string(),
+                    "Automatisch erkanntes Problem.".to_string(),
+                    first
+                        .fix_suggestion
+                        .clone()
+                        .unwrap_or_else(|| "Bitte prüfen und beheben.".to_string()),
+                    first.fix_suggestion.clone().unwrap_or_default(),
+                    Role::Development,
+                    Effort::Medium,
+                )
             };
 
-        let examples = explanation.map(|e| e.examples()).unwrap_or_default();
-        let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&rule_id);
+            let examples = explanation.map(|e| e.examples()).unwrap_or_default();
+            let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&rule_id);
 
-        FindingGroup {
-            title, rule_id: mapped_rule_id, wcag_criterion: rule_id, wcag_level: format!("{:?}", first.level),
-            dimension, subcategory, issue_class,
-            severity: first.severity, priority: severity_to_priority(first.severity),
-            customer_description: customer_desc, user_impact: user_impact_text, typical_cause,
-            recommendation, technical_note, occurrence_count: count,
-            affected_urls: Vec::new(), affected_elements: count,
-            responsible_role: role, effort, examples,
-        }
-    }).collect()
+            FindingGroup {
+                title,
+                rule_id: mapped_rule_id,
+                wcag_criterion: rule_id,
+                wcag_level: format!("{:?}", first.level),
+                dimension,
+                subcategory,
+                issue_class,
+                severity: first.severity,
+                priority: severity_to_priority(first.severity),
+                customer_description: customer_desc,
+                user_impact: user_impact_text,
+                typical_cause,
+                recommendation,
+                technical_note,
+                occurrence_count: count,
+                affected_urls: Vec::new(),
+                affected_elements: count,
+                responsible_role: role,
+                effort,
+                examples,
+            }
+        })
+        .collect()
 }
 
 fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup {
     let explanation = get_explanation(&acc.rule);
-    let (title, customer_desc, user_impact_text, typical_cause, recommendation, technical_note, role, effort) =
-        if let Some(expl) = explanation {
-            (expl.customer_title.to_string(), expl.customer_description.to_string(),
-             expl.user_impact.to_string(), expl.typical_cause.to_string(),
-             expl.recommendation.to_string(), expl.technical_note.to_string(),
-             expl.responsible_role, expl.effort_estimate)
-        } else {
-            (format!("{} — {}", acc.rule, acc.rule_name), String::new(), String::new(),
-             String::new(), String::new(), String::new(), Role::Development, Effort::Medium)
-        };
+    let (
+        title,
+        customer_desc,
+        user_impact_text,
+        typical_cause,
+        recommendation,
+        technical_note,
+        role,
+        effort,
+    ) = if let Some(expl) = explanation {
+        (
+            expl.customer_title.to_string(),
+            expl.customer_description.to_string(),
+            expl.user_impact.to_string(),
+            expl.typical_cause.to_string(),
+            expl.recommendation.to_string(),
+            expl.technical_note.to_string(),
+            expl.responsible_role,
+            expl.effort_estimate,
+        )
+    } else {
+        (
+            format!("{} — {}", acc.rule, acc.rule_name),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            Role::Development,
+            Effort::Medium,
+        )
+    };
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
     let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&acc.rule);
 
     FindingGroup {
-        title, rule_id: mapped_rule_id, wcag_criterion: acc.rule.clone(), wcag_level: String::new(),
-        dimension, subcategory, issue_class,
-        severity: acc.severity, priority: severity_to_priority(acc.severity),
-        customer_description: customer_desc, user_impact: user_impact_text, typical_cause,
-        recommendation, technical_note, occurrence_count: acc.count,
-        affected_urls: acc.urls.clone(), affected_elements: acc.count,
-        responsible_role: role, effort, examples,
+        title,
+        rule_id: mapped_rule_id,
+        wcag_criterion: acc.rule.clone(),
+        wcag_level: String::new(),
+        dimension,
+        subcategory,
+        issue_class,
+        severity: acc.severity,
+        priority: severity_to_priority(acc.severity),
+        customer_description: customer_desc,
+        user_impact: user_impact_text,
+        typical_cause,
+        recommendation,
+        technical_note,
+        occurrence_count: acc.count,
+        affected_urls: acc.urls.clone(),
+        affected_elements: acc.count,
+        responsible_role: role,
+        effort,
+        examples,
     }
 }
 
@@ -797,36 +1286,51 @@ fn severity_to_priority(severity: Severity) -> Priority {
 }
 
 fn score_to_priority(score: f32) -> Priority {
-    if score < 50.0 { Priority::Critical }
-    else if score < 70.0 { Priority::High }
-    else if score < 85.0 { Priority::Medium }
-    else { Priority::Low }
+    if score < 50.0 {
+        Priority::Critical
+    } else if score < 70.0 {
+        Priority::High
+    } else if score < 85.0 {
+        Priority::Medium
+    } else {
+        Priority::Low
+    }
 }
 
 fn impact_score(group: &FindingGroup) -> u32 {
     let severity_weight = match group.severity {
-        Severity::Critical => 4, Severity::High => 3,
-        Severity::Medium => 2, Severity::Low => 1,
+        Severity::Critical => 4,
+        Severity::High => 3,
+        Severity::Medium => 2,
+        Severity::Low => 1,
     };
     severity_weight * group.occurrence_count as u32
 }
 
 fn build_verdict_text(url: &str, score: f32) -> String {
     if score >= 90.0 {
-        format!("Die Website {} erreicht mit {:.0}/100 Punkten ein sehr gutes Ergebnis. \
-                 Die Barrierefreiheit ist weitgehend gewährleistet.", url, score)
+        format!(
+            "Die Website {} erreicht mit {:.0}/100 Punkten ein sehr gutes Ergebnis. \
+                 Die Barrierefreiheit ist weitgehend gewährleistet.",
+            url, score
+        )
     } else if score >= 70.0 {
-        format!("Die Website {} erreicht {:.0}/100 Punkte — eine solide Basis, \
-                 aber mit relevanten Barrieren, die behoben werden sollten.", url, score)
+        format!(
+            "Die Website {} erreicht {:.0}/100 Punkte — eine solide Basis, \
+                 aber mit relevanten Barrieren, die behoben werden sollten.",
+            url, score
+        )
     } else if score >= 50.0 {
         format!("Die Website {} erreicht nur {:.0}/100 Punkte. \
                  Es bestehen erhebliche Barrierefreiheitsprobleme, die zeitnah behoben werden müssen.", url, score)
     } else {
-        format!("Die Website {} erreicht nur {:.0}/100 Punkte. \
-                 Die Barrierefreiheit ist stark eingeschränkt — dringender Handlungsbedarf.", url, score)
+        format!(
+            "Die Website {} erreicht nur {:.0}/100 Punkte. \
+                 Die Barrierefreiheit ist stark eingeschränkt — dringender Handlungsbedarf.",
+            url, score
+        )
     }
 }
-
 
 fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
     let mut quick_wins = Vec::new();
@@ -853,27 +1357,46 @@ fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
 
     let mut role_map: HashMap<Role, Vec<String>> = HashMap::new();
     for group in finding_groups {
-        role_map.entry(group.responsible_role).or_default().push(group.title.clone());
+        role_map
+            .entry(group.responsible_role)
+            .or_default()
+            .push(group.title.clone());
     }
-    role_map.entry(Role::ProjectManagement).or_default().extend([
-        "Priorisierung der Maßnahmen".to_string(),
-        "Qualitätssicherung und Testing".to_string(),
-        "Verantwortlichkeiten festlegen".to_string(),
-    ]);
+    role_map
+        .entry(Role::ProjectManagement)
+        .or_default()
+        .extend([
+            "Priorisierung der Maßnahmen".to_string(),
+            "Qualitätssicherung und Testing".to_string(),
+            "Verantwortlichkeiten festlegen".to_string(),
+        ]);
 
-    let role_assignments: Vec<RoleAssignment> = role_map.into_iter().map(|(role, mut responsibilities)| {
-        responsibilities.dedup();
-        RoleAssignment { role, responsibilities }
-    }).collect();
+    let role_assignments: Vec<RoleAssignment> = role_map
+        .into_iter()
+        .map(|(role, mut responsibilities)| {
+            responsibilities.dedup();
+            RoleAssignment {
+                role,
+                responsibilities,
+            }
+        })
+        .collect();
 
-    ActionPlan { quick_wins, medium_term, structural, role_assignments }
+    ActionPlan {
+        quick_wins,
+        medium_term,
+        structural,
+        role_assignments,
+    }
 }
-
 
 fn grade_label(score: u32) -> &'static str {
     match score {
-        90..=100 => "Sehr gut", 75..=89 => "Gut", 60..=74 => "Befriedigend",
-        40..=59 => "Ausbaufähig", _ => "Kritisch",
+        90..=100 => "Sehr gut",
+        75..=89 => "Gut",
+        60..=74 => "Befriedigend",
+        40..=59 => "Ausbaufähig",
+        _ => "Kritisch",
     }
 }
 
@@ -881,70 +1404,101 @@ fn interpret_score(score: f32, area: &str) -> String {
     let grade = grade_label(score.round() as u32);
     match grade {
         "Sehr gut" => format!("{} — die {} ist auf einem hohen Niveau.", grade, area),
-        "Gut" => format!("{} — die {} ist solide, einzelne Verbesserungen sind möglich.", grade, area),
+        "Gut" => format!(
+            "{} — die {} ist solide, einzelne Verbesserungen sind möglich.",
+            grade, area
+        ),
         "Befriedigend" => format!("{} — die {} weist einzelne Schwächen auf.", grade, area),
         "Ausbaufähig" => format!("{} — die {} weist relevante Schwächen auf.", grade, area),
-        _ => format!("{} — die {} hat erhebliche Mängel, die behoben werden sollten.", grade, area),
+        _ => format!(
+            "{} — die {} hat erhebliche Mängel, die behoben werden sollten.",
+            grade, area
+        ),
     }
 }
 
 fn build_batch_verdict(batch: &BatchReport) -> String {
     let avg = batch.summary.average_score;
     if avg >= 90.0 {
-        format!("Über {} geprüfte URLs hinweg erreicht die Website einen durchschnittlichen \
-                 Accessibility-Score von {:.0}/100 — ein sehr gutes Ergebnis.", batch.summary.total_urls, avg)
+        format!(
+            "Über {} geprüfte URLs hinweg erreicht die Website einen durchschnittlichen \
+                 Accessibility-Score von {:.0}/100 — ein sehr gutes Ergebnis.",
+            batch.summary.total_urls, avg
+        )
     } else if avg >= 70.0 {
-        format!("Im Durchschnitt erreichen die {} geprüften URLs {:.0}/100 Punkte. \
-                 Die Basis ist solide, es bestehen aber wiederkehrende Barrieren.", batch.summary.total_urls, avg)
+        format!(
+            "Im Durchschnitt erreichen die {} geprüften URLs {:.0}/100 Punkte. \
+                 Die Basis ist solide, es bestehen aber wiederkehrende Barrieren.",
+            batch.summary.total_urls, avg
+        )
     } else if avg >= 50.0 {
-        format!("Die {} geprüften URLs erreichen im Schnitt nur {:.0}/100 Punkte. \
-                 Es bestehen erhebliche systematische Barrierefreiheitsprobleme.", batch.summary.total_urls, avg)
+        format!(
+            "Die {} geprüften URLs erreichen im Schnitt nur {:.0}/100 Punkte. \
+                 Es bestehen erhebliche systematische Barrierefreiheitsprobleme.",
+            batch.summary.total_urls, avg
+        )
     } else {
-        format!("Die {} geprüften URLs erreichen im Schnitt nur {:.0}/100 Punkte. \
-                 Die Barrierefreiheit ist stark eingeschränkt — dringender Handlungsbedarf.", batch.summary.total_urls, avg)
+        format!(
+            "Die {} geprüften URLs erreichen im Schnitt nur {:.0}/100 Punkte. \
+                 Die Barrierefreiheit ist stark eingeschränkt — dringender Handlungsbedarf.",
+            batch.summary.total_urls, avg
+        )
     }
 }
 
 fn build_batch_appendix(batch: &BatchReport) -> BatchAppendixData {
     BatchAppendixData {
-        per_url: batch.reports.iter().map(|r| {
-            // Aggregate violations by rule for each URL
-            let mut rule_map: std::collections::HashMap<String, AppendixViolation> = std::collections::HashMap::new();
-            let mut rule_order: Vec<String> = Vec::new();
+        per_url: batch
+            .reports
+            .iter()
+            .map(|r| {
+                // Aggregate violations by rule for each URL
+                let mut rule_map: std::collections::HashMap<String, AppendixViolation> =
+                    std::collections::HashMap::new();
+                let mut rule_order: Vec<String> = Vec::new();
 
-            for v in &r.wcag_results.violations {
-                let element = AffectedElement {
-                    selector: v.selector.clone().unwrap_or_else(|| v.node_id.clone()),
-                    node_id: v.node_id.clone(),
-                };
+                for v in &r.wcag_results.violations {
+                    let element = AffectedElement {
+                        selector: v.selector.clone().unwrap_or_else(|| v.node_id.clone()),
+                        node_id: v.node_id.clone(),
+                    };
 
-                if let Some(existing) = rule_map.get_mut(&v.rule) {
-                    existing.affected_elements.push(element);
-                } else {
-                    rule_order.push(v.rule.clone());
-                    rule_map.insert(v.rule.clone(), AppendixViolation {
-                        rule: v.rule.clone(),
-                        rule_name: v.rule_name.clone(),
-                        severity: v.severity,
-                        message: v.message.clone(),
-                        fix_suggestion: v.fix_suggestion.clone(),
-                        affected_elements: vec![element],
-                    });
+                    if let Some(existing) = rule_map.get_mut(&v.rule) {
+                        existing.affected_elements.push(element);
+                    } else {
+                        rule_order.push(v.rule.clone());
+                        rule_map.insert(
+                            v.rule.clone(),
+                            AppendixViolation {
+                                rule: v.rule.clone(),
+                                rule_name: v.rule_name.clone(),
+                                severity: v.severity,
+                                message: v.message.clone(),
+                                fix_suggestion: v.fix_suggestion.clone(),
+                                affected_elements: vec![element],
+                            },
+                        );
+                    }
                 }
-            }
 
-            UrlAppendix {
-                url: r.url.clone(),
-                violations: rule_order.into_iter()
-                    .filter_map(|rule| rule_map.remove(&rule))
-                    .collect(),
-            }
-        }).collect(),
+                UrlAppendix {
+                    url: r.url.clone(),
+                    violations: rule_order
+                        .into_iter()
+                        .filter_map(|rule| rule_map.remove(&rule))
+                        .collect(),
+                }
+            })
+            .collect(),
     }
 }
 
 fn yes_no(val: bool) -> String {
-    if val { "Ja".to_string() } else { "Nein".to_string() }
+    if val {
+        "Ja".to_string()
+    } else {
+        "Nein".to_string()
+    }
 }
 
 // ─── Clone implementations ──────────────────────────────────────────────────
@@ -952,30 +1506,45 @@ fn yes_no(val: bool) -> String {
 impl Clone for FindingGroup {
     fn clone(&self) -> Self {
         FindingGroup {
-            title: self.title.clone(), rule_id: self.rule_id.clone(),
+            title: self.title.clone(),
+            rule_id: self.rule_id.clone(),
             wcag_criterion: self.wcag_criterion.clone(),
             wcag_level: self.wcag_level.clone(),
-            dimension: self.dimension.clone(), subcategory: self.subcategory.clone(),
+            dimension: self.dimension.clone(),
+            subcategory: self.subcategory.clone(),
             issue_class: self.issue_class.clone(),
-            severity: self.severity, priority: self.priority,
+            severity: self.severity,
+            priority: self.priority,
             customer_description: self.customer_description.clone(),
-            user_impact: self.user_impact.clone(), typical_cause: self.typical_cause.clone(),
-            recommendation: self.recommendation.clone(), technical_note: self.technical_note.clone(),
-            occurrence_count: self.occurrence_count, affected_urls: self.affected_urls.clone(),
-            affected_elements: self.affected_elements, responsible_role: self.responsible_role,
-            effort: self.effort, examples: self.examples.clone(),
+            user_impact: self.user_impact.clone(),
+            typical_cause: self.typical_cause.clone(),
+            recommendation: self.recommendation.clone(),
+            technical_note: self.technical_note.clone(),
+            occurrence_count: self.occurrence_count,
+            affected_urls: self.affected_urls.clone(),
+            affected_elements: self.affected_elements,
+            responsible_role: self.responsible_role,
+            effort: self.effort,
+            examples: self.examples.clone(),
         }
     }
 }
 
 impl Clone for ExampleBlock {
     fn clone(&self) -> Self {
-        ExampleBlock { bad: self.bad.clone(), good: self.good.clone(), decorative: self.decorative.clone() }
+        ExampleBlock {
+            bad: self.bad.clone(),
+            good: self.good.clone(),
+            decorative: self.decorative.clone(),
+        }
     }
 }
 
 impl Clone for RoleAssignment {
     fn clone(&self) -> Self {
-        RoleAssignment { role: self.role, responsibilities: self.responsibilities.clone() }
+        RoleAssignment {
+            role: self.role,
+            responsibilities: self.responsibilities.clone(),
+        }
     }
 }

@@ -12,20 +12,22 @@ use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, BatchConfig,
-    PipelineConfig,
+    load_artifacts, parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit,
+    to_audit_report, BatchConfig, PipelineConfig,
 };
 use auditmysite::browser::{
-    find_chrome, BrowserManager, BrowserOptions, BrowserInstaller,
-    detect_all_browsers, resolve_browser, BrowserResolveOptions, InstallTarget,
+    detect_all_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserManager,
+    BrowserOptions, BrowserResolveOptions, InstallTarget,
 };
 use auditmysite::cli::{Args, BrowserAction, Command, OutputFormat};
 use auditmysite::error::{AuditError, Result};
-use auditmysite::audit::normalize;
-use auditmysite::output::{print_batch_table, print_report, format_json_normalized};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
+use auditmysite::output::{
+    format_json_cached, format_json_normalized, print_batch_table, print_report,
+};
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
 use auditmysite::util::truncate_url;
@@ -203,10 +205,7 @@ async fn handle_browser_command(action: &BrowserAction) -> Result<f64> {
                     );
                 }
                 Err(_) => {
-                    println!(
-                        "  {} No browser can be resolved for auditing.",
-                        "✗".red()
-                    );
+                    println!("  {} No browser can be resolved for auditing.", "✗".red());
                 }
             }
 
@@ -260,6 +259,31 @@ async fn run_single_mode(args: &Args) -> Result<f64> {
         .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
     info!("Starting audit for: {}", url);
+
+    if args.reuse_cache && !args.force_refresh {
+        if let Some(cached) = load_artifacts(url)? {
+            if !args.quiet {
+                println!(
+                    "{} {}",
+                    "Cache hit:".green().bold(),
+                    "verwende vorhandene Audit-Artefakte".dimmed()
+                );
+            }
+
+            match args.format {
+                OutputFormat::Json => {
+                    let output = format_json_cached(&cached.audit, true)?;
+                    output_text(&output, &args.output, "JSON", args.quiet)?;
+                    return Ok(cached.audit.overall_score as f64);
+                }
+                OutputFormat::Table | OutputFormat::Pdf => {
+                    let report = to_audit_report(&cached);
+                    output_single_report(&report, args)?;
+                    return Ok(report.score as f64);
+                }
+            }
+        }
+    }
 
     let browser_options = BrowserOptions {
         chrome_path: args.chrome_path.clone(),
@@ -407,11 +431,13 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                     level: args.report_level,
                     company_name: args.company_name.clone(),
                     logo_path: args.logo.clone(),
+                    locale: args.lang.clone(),
                 };
-                let pdf_bytes =
-                    generate_pdf(report, &config).map_err(|e| AuditError::ReportGenerationFailed {
+                let pdf_bytes = generate_pdf(report, &config).map_err(|e| {
+                    AuditError::ReportGenerationFailed {
                         reason: e.to_string(),
-                    })?;
+                    }
+                })?;
                 let path = args
                     .output
                     .clone()
@@ -450,6 +476,7 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
                     level: args.report_level,
                     company_name: args.company_name.clone(),
                     logo_path: args.logo.clone(),
+                    locale: args.lang.clone(),
                 };
                 let pdf_bytes = generate_batch_pdf(batch_report, &config).map_err(|e| {
                     AuditError::ReportGenerationFailed {

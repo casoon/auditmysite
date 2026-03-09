@@ -45,3 +45,4 @@ tarpaulin-report.html
 # Temporary
 /tmp/
 *.tmp
+plans/

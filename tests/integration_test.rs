@@ -70,6 +70,7 @@ fn default_config() -> PipelineConfig {
         check_seo: false,
         check_security: false,
         check_mobile: false,
+        persist_artifacts: true,
     }
 }
 
@@ -212,10 +213,16 @@ async fn test_output_formats() {
 
     // JSON output should be valid JSON
     let normalized = auditmysite::audit::normalize(&report);
-    let json = auditmysite::format_json_normalized(&normalized, &report, true).expect("JSON formatting failed");
+    let json = auditmysite::format_json_normalized(&normalized, &report, true)
+        .expect("JSON formatting failed");
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid JSON output");
-    let report_obj = parsed.get("report").expect("JSON should contain report field");
-    assert!(report_obj.get("url").is_some(), "JSON should contain url field");
+    let report_obj = parsed
+        .get("report")
+        .expect("JSON should contain report field");
+    assert!(
+        report_obj.get("url").is_some(),
+        "JSON should contain url field"
+    );
     assert!(
         report_obj.get("score").is_some(),
         "JSON should contain score field"
