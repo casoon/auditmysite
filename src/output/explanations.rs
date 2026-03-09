@@ -47,7 +47,11 @@ impl RuleExplanation {
 /// or taxonomy rule ID (e.g., "a11y.alt_text.missing")
 pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
     // Direct lookup by WCAG ID
-    if let Some(expl) = EXPLANATIONS.iter().find(|(id, _)| *id == rule_id).map(|(_, e)| e) {
+    if let Some(expl) = EXPLANATIONS
+        .iter()
+        .find(|(id, _)| *id == rule_id)
+        .map(|(_, e)| e)
+    {
         return Some(expl);
     }
     // Fallback: if a taxonomy rule_id was passed, resolve to WCAG ID via legacy map
@@ -57,7 +61,10 @@ pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
             if let Some(ext_ref) = rule.external_ref {
                 // external_ref is "WCAG 1.1.1" — extract the number
                 let wcag_id = ext_ref.strip_prefix("WCAG ").unwrap_or(ext_ref);
-                return EXPLANATIONS.iter().find(|(id, _)| *id == wcag_id).map(|(_, e)| e);
+                return EXPLANATIONS
+                    .iter()
+                    .find(|(id, _)| *id == wcag_id)
+                    .map(|(_, e)| e);
             }
         }
     }

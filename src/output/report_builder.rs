@@ -35,7 +35,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             ReportLevel::Standard => f.report_visibility.standard,
             ReportLevel::Technical => f.report_visibility.technical,
         })
-        .map(|f| finding_group_from_normalized(f))
+        .map(finding_group_from_normalized)
         .collect();
     sorted_groups.sort_by(|a, b| {
         let pa = priority_by_rule
@@ -545,7 +545,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 })
                 .collect();
 
-            let signal_details: Vec<(String, Vec<(String, bool, String)>)> = cp
+            let signal_details: SignalDetails = cp
                 .signal_strength
                 .categories
                 .iter()
@@ -971,9 +971,9 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
     let mut top_issues: Vec<FindingGroup> = rule_groups
         .values()
-        .map(|acc| build_finding_group_from_accumulator(acc))
+        .map(build_finding_group_from_accumulator)
         .collect();
-    top_issues.sort_by(|a, b| impact_score(b).cmp(&impact_score(a)));
+    top_issues.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
 
     let issue_frequency: Vec<IssueFrequency> = top_issues
         .iter()
@@ -1017,7 +1017,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         .map(|r| {
             let per_url_groups = group_violations(&r.wcag_results.violations, &[]);
             let mut sorted = per_url_groups;
-            sorted.sort_by(|a, b| impact_score(b).cmp(&impact_score(a)));
+            sorted.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
 

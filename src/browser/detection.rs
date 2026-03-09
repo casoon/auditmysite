@@ -49,8 +49,12 @@ pub fn detect_all_browsers() -> Vec<DetectedBrowser> {
             if let Some(path) = which_binary(name) {
                 if seen_paths.insert(path.clone()) {
                     let version = get_browser_version(&path);
-                    debug!("Found {} via which: {} (v{})", kind.display_name(), path.display(),
-                        version.as_deref().unwrap_or("unknown"));
+                    debug!(
+                        "Found {} via which: {} (v{})",
+                        kind.display_name(),
+                        path.display(),
+                        version.as_deref().unwrap_or("unknown")
+                    );
                     found.push(DetectedBrowser {
                         kind,
                         path,

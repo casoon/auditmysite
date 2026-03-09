@@ -12,11 +12,14 @@ use std::path::PathBuf;
 
 use tracing::{debug, info, warn};
 
-use super::detection::{detect_all_browsers, get_browser_version, validate_browser, verify_executable};
+use super::detection::{
+    detect_all_browsers, get_browser_version, validate_browser, verify_executable,
+};
 use super::types::*;
 use crate::error::{AuditError, Result};
 
 /// Options that affect browser resolution
+#[derive(Default)]
 pub struct BrowserResolveOptions {
     /// --browser-path /explicit/path
     pub browser_path: Option<String>,
@@ -26,15 +29,6 @@ pub struct BrowserResolveOptions {
     pub strict: bool,
 }
 
-impl Default for BrowserResolveOptions {
-    fn default() -> Self {
-        Self {
-            browser_path: None,
-            browser_preference: None,
-            strict: false,
-        }
-    }
-}
 
 /// Find the best available browser
 pub fn resolve_browser(opts: &BrowserResolveOptions) -> Result<ResolvedBrowser> {
@@ -65,10 +59,7 @@ pub fn resolve_browser(opts: &BrowserResolveOptions) -> Result<ResolvedBrowser> 
         let path = PathBuf::from(&path_str);
         if path.exists() {
             let browser = validate_browser(&path, BrowserKind::Custom, BrowserSource::EnvVar)?;
-            info!(
-                "Using browser from AUDITMYSITE_BROWSER: {}",
-                path.display()
-            );
+            info!("Using browser from AUDITMYSITE_BROWSER: {}", path.display());
             return Ok(ResolvedBrowser {
                 browser,
                 mode,
@@ -96,16 +87,17 @@ pub fn resolve_browser(opts: &BrowserResolveOptions) -> Result<ResolvedBrowser> 
     }
 
     // 4. Parse browser preference filter
-    let filter_kind: Option<BrowserKind> = opts.browser_preference.as_deref().and_then(|s| {
-        match s.to_lowercase().as_str() {
-            "chrome" => Some(BrowserKind::Chrome),
-            "edge" => Some(BrowserKind::Edge),
-            "chromium" => Some(BrowserKind::Chromium),
-            "auto" | "" => None,
-            other => {
-                warn!("Unknown browser kind '{}', using auto-detection", other);
-                None
-            }
+    let filter_kind: Option<BrowserKind> = opts.browser_preference.as_deref().and_then(|s| match s
+        .to_lowercase()
+        .as_str()
+    {
+        "chrome" => Some(BrowserKind::Chrome),
+        "edge" => Some(BrowserKind::Edge),
+        "chromium" => Some(BrowserKind::Chromium),
+        "auto" | "" => None,
+        other => {
+            warn!("Unknown browser kind '{}', using auto-detection", other);
+            None
         }
     });
 

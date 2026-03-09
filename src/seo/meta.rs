@@ -255,7 +255,9 @@ mod tests {
         let issues = meta.validate();
 
         // Should have no errors (High or Critical)
-        assert!(!issues.iter().any(|i| matches!(i.severity, Severity::High | Severity::Critical)));
+        assert!(!issues
+            .iter()
+            .any(|i| matches!(i.severity, Severity::High | Severity::Critical)));
     }
 
     #[test]

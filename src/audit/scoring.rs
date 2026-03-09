@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::taxonomy::{RuleLookup, ScoreImpact, Scaling};
+use crate::taxonomy::{RuleLookup, Scaling, ScoreImpact};
 use crate::wcag::types::{Severity, Violation};
 
 /// Calculates accessibility scores and grades based on WCAG violations
@@ -229,16 +229,32 @@ mod tests {
 
         // Create many violations across ALL mapped rules to exceed 100 penalty
         let rules = [
-            ("1.1.1", "Non-text Content"), ("1.3.1", "Info and Relationships"),
-            ("1.4.3", "Contrast"), ("2.1.1", "Keyboard"), ("2.4.1", "Bypass Blocks"),
-            ("2.4.2", "Page Titled"), ("2.4.6", "Headings"), ("2.4.7", "Focus Visible"),
-            ("3.1.1", "Language"), ("3.3.2", "Labels"), ("4.1.2", "Name Role Value"),
-            ("2.4.4", "Link Purpose"), ("2.4.3", "Focus Order"), ("1.4.4", "Resize Text"),
+            ("1.1.1", "Non-text Content"),
+            ("1.3.1", "Info and Relationships"),
+            ("1.4.3", "Contrast"),
+            ("2.1.1", "Keyboard"),
+            ("2.4.1", "Bypass Blocks"),
+            ("2.4.2", "Page Titled"),
+            ("2.4.6", "Headings"),
+            ("2.4.7", "Focus Visible"),
+            ("3.1.1", "Language"),
+            ("3.3.2", "Labels"),
+            ("4.1.2", "Name Role Value"),
+            ("2.4.4", "Link Purpose"),
+            ("2.4.3", "Focus Order"),
+            ("1.4.4", "Resize Text"),
         ];
         let mut violations = Vec::new();
         for (rule, name) in &rules {
             for i in 0..20 {
-                violations.push(Violation::new(*rule, *name, WcagLevel::A, Severity::Critical, "Error", &format!("n{}", i)));
+                violations.push(Violation::new(
+                    *rule,
+                    *name,
+                    WcagLevel::A,
+                    Severity::Critical,
+                    "Error",
+                    &format!("n{}", i),
+                ));
             }
         }
 

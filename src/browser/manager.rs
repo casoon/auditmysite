@@ -13,7 +13,7 @@ use futures::StreamExt;
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
-use super::detection::{ChromeInfo, verify_executable};
+use super::detection::{verify_executable, ChromeInfo};
 use super::resolver::{self, BrowserResolveOptions};
 use super::types::DetectedBrowser;
 use crate::error::{AuditError, Result};
@@ -94,8 +94,7 @@ impl BrowserManager {
             Err(_) => {
                 // Fallback: try managed install via legacy installer
                 info!("No system browser found, trying managed install...");
-                let chromium_path =
-                    super::installer::ChromiumInstaller::ensure_chromium().await?;
+                let chromium_path = super::installer::ChromiumInstaller::ensure_chromium().await?;
 
                 let browser = DetectedBrowser {
                     kind: super::types::BrowserKind::ChromeForTesting,

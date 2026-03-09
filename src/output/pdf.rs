@@ -131,7 +131,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── 1. Kurzfazit (Hero Summary) ──────────────────────────────────
     let mut hero = HeroSummary::new(vm.summary.score, &vm.summary.grade, &vm.summary.domain)
         .with_date(&vm.summary.date)
-        .with_verdict(&format!(
+        .with_verdict(format!(
             "{} {}: {}.",
             vm.summary.verdict,
             i18n.t("label-certificate"),
@@ -150,29 +150,29 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     builder = builder
-        .add_component(Section::new(&i18n.t("section-summary")).with_level(1))
+        .add_component(Section::new(i18n.t("section-summary")).with_level(1))
         .add_component(hero)
         .add_component(PageBreak::new());
 
     // ── 2. Methodik ──────────────────────────────────────────────────
     builder = builder
-        .add_component(Section::new(&i18n.t("section-methodology")).with_level(1))
+        .add_component(Section::new(i18n.t("section-methodology")).with_level(1))
         .add_component(Text::new(&vm.methodology.scope))
         .add_component(Text::new(&vm.methodology.method))
         .add_component(
             Callout::info(&vm.methodology.limitations)
-                .with_title(&i18n.t("callout-limitations-title")),
+                .with_title(i18n.t("callout-limitations-title")),
         )
         .add_component(
-            Callout::warning(&vm.methodology.disclaimer).with_title(&i18n.t("callout-note-title")),
+            Callout::warning(&vm.methodology.disclaimer).with_title(i18n.t("callout-note-title")),
         )
-        .add_component(Text::new(&i18n.t("certificate-thresholds")));
+        .add_component(Text::new(i18n.t("certificate-thresholds")));
 
     // Executive level: compact view
     if vm.meta.report_level == ReportLevel::Executive {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(&i18n.t("section-modules")).with_level(1));
+            .add_component(Section::new(i18n.t("section-modules")).with_level(1));
 
         if vm.modules.dashboard.len() > 1 {
             builder = builder.add_component(build_module_comparison(&vm.modules));
@@ -180,7 +180,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(&i18n.t("section-actions")).with_level(1))
+            .add_component(Section::new(i18n.t("section-actions")).with_level(1))
             .add_component(Text::new(&vm.actions.intro_text))
             .add_component(build_action_roadmap(&vm.actions));
 
@@ -205,7 +205,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .collect();
 
     builder = builder
-        .add_component(Section::new(&i18n.t("section-modules")).with_level(1))
+        .add_component(Section::new(i18n.t("section-modules")).with_level(1))
         .add_component(ModuleDashboard::new(dashboard_modules));
 
     if vm.modules.dashboard.len() > 1 {
@@ -217,12 +217,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         ReportLevel::Technical => {
             builder = builder
                 .add_component(PageBreak::new())
-                .add_component(Section::new(&i18n.t("section-findings-overview")).with_level(1));
+                .add_component(Section::new(i18n.t("section-findings-overview")).with_level(1));
 
             if !vm.severity.has_issues {
                 builder = builder.add_component(
-                    Callout::success(&i18n.t("callout-no-issues-body"))
-                        .with_title(&i18n.t("callout-no-issues-title")),
+                    Callout::success(i18n.t("callout-no-issues-body"))
+                        .with_title(i18n.t("callout-no-issues-title")),
                 );
             } else {
                 builder = builder.add_component(SeverityOverview::new(
@@ -238,7 +238,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
             if vm.severity.has_issues {
                 builder = builder.add_component(PageBreak::new()).add_component(
-                    Section::new(&i18n.t("section-findings-technical")).with_level(1),
+                    Section::new(i18n.t("section-findings-technical")).with_level(1),
                 );
                 for group in &vm.findings.all_findings {
                     builder = render_finding_technical(builder, group, &i18n);
@@ -248,12 +248,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         _ => {
             builder = builder
                 .add_component(PageBreak::new())
-                .add_component(Section::new(&i18n.t("section-findings")).with_level(1));
+                .add_component(Section::new(i18n.t("section-findings")).with_level(1));
 
             if !vm.severity.has_issues {
                 builder = builder.add_component(
-                    Callout::success(&i18n.t("callout-no-issues-body"))
-                        .with_title(&i18n.t("callout-no-issues-title")),
+                    Callout::success(i18n.t("callout-no-issues-body"))
+                        .with_title(i18n.t("callout-no-issues-title")),
                 );
             } else {
                 builder = builder.add_component(SeverityOverview::new(
@@ -297,7 +297,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── 6. Maßnahmenplan ─────────────────────────────────────────────
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new(&i18n.t("section-actions")).with_level(1))
+        .add_component(Section::new(i18n.t("section-actions")).with_level(1))
         .add_component(Text::new(&vm.actions.intro_text))
         .add_component(build_action_roadmap(&vm.actions));
 
@@ -305,7 +305,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     if vm.appendix.has_violations {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(&i18n.t("section-appendix")).with_level(1))
+            .add_component(Section::new(i18n.t("section-appendix")).with_level(1))
             .add_component(Text::new(
                 "Die folgende Tabelle enthält alle erkannten Verstöße mit \
                  technischen Details für die Umsetzung.",
@@ -339,7 +339,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     desc.push_str(&format!("\nSelektoren: {}", useful_selectors.join(", ")));
                 }
                 builder = builder.add_component(Finding::new(
-                    &format!("{} — {}", v.rule, v.rule_name),
+                    format!("{} — {}", v.rule, v.rule_name),
                     map_severity(&v.severity),
                     &desc,
                 ));
@@ -507,17 +507,17 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     for detail in &pres.url_details {
         builder = builder
-            .add_component(Section::new(&truncate_url(&detail.url, 70)).with_level(2))
+            .add_component(Section::new(truncate_url(&detail.url, 70)).with_level(2))
             .add_component(
                 ScoreCard::new("Score", detail.score.round() as u32)
-                    .with_description(&format!("Note: {}", detail.grade))
+                    .with_description(format!("Note: {}", detail.grade))
                     .with_thresholds(70, 50),
             );
 
         if !detail.module_scores.is_empty() {
             let mut scores = SummaryBox::new("Modul-Scores");
             for (module, score) in &detail.module_scores {
-                scores = scores.add_item(module, &format!("{}/100", score));
+                scores = scores.add_item(module, format!("{}/100", score));
             }
             builder = builder.add_component(scores);
         }
@@ -547,7 +547,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             }
 
             builder = builder
-                .add_component(Section::new(&truncate_url(&url_appendix.url, 70)).with_level(2));
+                .add_component(Section::new(truncate_url(&url_appendix.url, 70)).with_level(2));
 
             let mut table = AuditTable::new(vec![
                 TableColumn::new("Regel"),
@@ -632,18 +632,18 @@ fn render_finding_compact(
         String::new()
     };
     let finding = Finding::new(
-        &format!("{}{}", group.title, tag),
+        format!("{}{}", group.title, tag),
         map_severity(&group.severity),
         &group.customer_description,
     )
     .with_recommendation(&group.recommendation)
-    .with_category(&format!(
+    .with_category(format!(
         "{}: {} | {} Vorkommen",
         i18n.t("label-priority"),
         priority_label_i18n(group.priority, i18n),
         group.occurrence_count
     ))
-    .with_affected(&format!("{} Elemente betroffen", group.affected_elements));
+    .with_affected(format!("{} Elemente betroffen", group.affected_elements));
 
     builder.add_component(finding)
 }
@@ -693,8 +693,8 @@ fn render_finding_technical(
         &group.customer_description,
     )
     .with_recommendation(&group.recommendation)
-    .with_category(&category_parts.join(" | "))
-    .with_affected(&format!(
+    .with_category(category_parts.join(" | "))
+    .with_affected(format!(
         "{} Vorkommen, {} Elemente",
         group.occurrence_count, group.affected_elements
     ));
@@ -703,24 +703,24 @@ fn render_finding_technical(
 
     if !group.technical_note.is_empty() {
         builder = builder.add_component(
-            Callout::info(&group.technical_note).with_title(&i18n.t("label-tech-note")),
+            Callout::info(&group.technical_note).with_title(i18n.t("label-tech-note")),
         );
     }
 
     for example in &group.examples {
         builder = builder
-            .add_component(Callout::error(&example.bad).with_title(&i18n.t("label-wrong")))
-            .add_component(Callout::success(&example.good).with_title(&i18n.t("label-right")));
+            .add_component(Callout::error(&example.bad).with_title(i18n.t("label-wrong")))
+            .add_component(Callout::success(&example.good).with_title(i18n.t("label-right")));
         if let Some(ref dec) = example.decorative {
             builder =
-                builder.add_component(Callout::info(dec).with_title(&i18n.t("label-decorative")));
+                builder.add_component(Callout::info(dec).with_title(i18n.t("label-decorative")));
         }
     }
 
     if !group.affected_urls.is_empty() && group.affected_urls.len() <= 10 {
-        let mut url_list = List::new().with_title(&i18n.t("label-affected-urls"));
+        let mut url_list = List::new().with_title(i18n.t("label-affected-urls"));
         for url in &group.affected_urls {
-            url_list = url_list.add_item(&truncate_url(url, 70));
+            url_list = url_list.add_item(truncate_url(url, 70));
         }
         builder = builder.add_component(url_list);
     }
@@ -747,7 +747,7 @@ fn render_finding_group(
         crate::wcag::Severity::Critical | crate::wcag::Severity::High
     ) {
         builder = builder.add_component(Callout::error(&group.customer_description).with_title(
-            &format!(
+            format!(
                 "{} — {}: {}",
                 group.title,
                 i18n.t("label-priority"),
@@ -762,7 +762,7 @@ fn render_finding_group(
         &group.customer_description,
     )
     .with_recommendation(&group.recommendation)
-    .with_category(&format!(
+    .with_category(format!(
         "{}: {} | {}: {} | {}: {}",
         i18n.t("label-priority"),
         priority_label_i18n(group.priority, i18n),
@@ -773,7 +773,7 @@ fn render_finding_group(
     ));
 
     if group.occurrence_count > 0 {
-        finding = finding.with_affected(&format!(
+        finding = finding.with_affected(format!(
             "{} Vorkommen, {} Elemente betroffen{}",
             group.occurrence_count,
             group.affected_elements,
@@ -789,18 +789,18 @@ fn render_finding_group(
 
     if !group.user_impact.is_empty() {
         builder = builder.add_component(
-            Callout::info(&group.user_impact).with_title(&i18n.t("label-user-impact")),
+            Callout::info(&group.user_impact).with_title(i18n.t("label-user-impact")),
         );
     }
     if !group.typical_cause.is_empty() {
-        builder = builder.add_component(Text::new(&format!(
+        builder = builder.add_component(Text::new(format!(
             "{}: {}",
             i18n.t("label-typical-cause"),
             group.typical_cause
         )));
     }
     if !group.technical_note.is_empty() {
-        builder = builder.add_component(Text::new(&format!(
+        builder = builder.add_component(Text::new(format!(
             "{}: {}",
             i18n.t("label-tech-note"),
             group.technical_note
@@ -808,26 +808,26 @@ fn render_finding_group(
     }
 
     if !group.examples.is_empty() {
-        builder = builder.add_component(Section::new(&i18n.t("label-code-example")).with_level(3));
+        builder = builder.add_component(Section::new(i18n.t("label-code-example")).with_level(3));
         for example in &group.examples {
             builder = builder
-                .add_component(Callout::error(&example.bad).with_title(&i18n.t("label-wrong")))
-                .add_component(Callout::success(&example.good).with_title(&i18n.t("label-right")));
+                .add_component(Callout::error(&example.bad).with_title(i18n.t("label-wrong")))
+                .add_component(Callout::success(&example.good).with_title(i18n.t("label-right")));
             if let Some(ref dec) = example.decorative {
                 builder = builder
-                    .add_component(Callout::info(dec).with_title(&i18n.t("label-decorative")));
+                    .add_component(Callout::info(dec).with_title(i18n.t("label-decorative")));
             }
         }
     }
 
     if !group.affected_urls.is_empty() && group.affected_urls.len() <= 10 {
-        let mut url_list = List::new().with_title(&i18n.t("label-affected-urls"));
+        let mut url_list = List::new().with_title(i18n.t("label-affected-urls"));
         for url in &group.affected_urls {
-            url_list = url_list.add_item(&truncate_url(url, 70));
+            url_list = url_list.add_item(truncate_url(url, 70));
         }
         builder = builder.add_component(url_list);
     } else if group.affected_urls.len() > 10 {
-        builder = builder.add_component(Text::new(&format!(
+        builder = builder.add_component(Text::new(format!(
             "Betrifft {} URLs (zu viele für Einzelauflistung — siehe Anhang).",
             group.affected_urls.len()
         )));
@@ -847,14 +847,14 @@ fn render_performance(
         .add_component(Text::new(&perf.interpretation))
         .add_component(
             ScoreCard::new("Performance Score", perf.score)
-                .with_description(&format!("Grade: {}", perf.grade))
+                .with_description(format!("Grade: {}", perf.grade))
                 .with_thresholds(75, 50),
         );
 
     if !perf.vitals.is_empty() {
         let mut kv = KeyValueList::new().with_title("Core Web Vitals");
         for (name, value, rating) in &perf.vitals {
-            kv = kv.add(name, &format!("{} — {}", value, rating));
+            kv = kv.add(name, format!("{} — {}", value, rating));
         }
         builder = builder.add_component(kv);
     }
@@ -934,7 +934,7 @@ fn render_seo_profile(
     identity = identity.add("Inhaltstyp", &profile.content_type);
     identity = identity.add("Sprache", &profile.language);
     if !profile.category_hints.is_empty() {
-        identity = identity.add("Schema-Typen", &profile.category_hints.join(", "));
+        identity = identity.add("Schema-Typen", profile.category_hints.join(", "));
     }
     builder = builder.add_component(identity);
 
@@ -945,7 +945,7 @@ fn render_seo_profile(
             TableColumn::new("Vollständigkeit"),
             TableColumn::new("Details"),
         ])
-        .with_title(&format!(
+        .with_title(format!(
             "Strukturierte Daten ({} Schemas)",
             profile.schema_count
         ));
@@ -962,7 +962,7 @@ fn render_seo_profile(
             TableColumn::new("Bewertung"),
             TableColumn::new("Einstufung"),
         ])
-        .with_title(&format!(
+        .with_title(format!(
             "SEO-Signalstärke (Gesamt: {}%)",
             profile.signal_overall_pct
         ));
@@ -993,7 +993,7 @@ fn render_seo_profile(
     maturity = maturity.add_item("Bewertung", &profile.maturity_description);
     maturity = maturity.add_item(
         "Techniken",
-        &format!(
+        format!(
             "{} von {} erkannt",
             profile.maturity_techniques_used, profile.maturity_techniques_total
         ),
@@ -1013,7 +1013,7 @@ fn render_security(
         .add_component(Text::new(&sec.interpretation))
         .add_component(
             ScoreCard::new("Security Score", sec.score)
-                .with_description(&format!("Grade: {}", sec.grade))
+                .with_description(format!("Grade: {}", sec.grade))
                 .with_thresholds(70, 50),
         );
 

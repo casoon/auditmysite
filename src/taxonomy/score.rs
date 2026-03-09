@@ -37,9 +37,7 @@ impl ScoreImpact {
         let raw = match self.occurrence_scaling {
             Scaling::Fixed => self.base_penalty,
             Scaling::Linear => occurrences as f32 * self.base_penalty,
-            Scaling::Logarithmic => {
-                self.base_penalty * (1.0 + (occurrences as f32).ln())
-            }
+            Scaling::Logarithmic => self.base_penalty * (1.0 + (occurrences as f32).ln()),
         };
         raw.min(self.max_penalty)
     }

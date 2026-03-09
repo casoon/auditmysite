@@ -11,19 +11,21 @@
 //! - manager: Browser launch and CDP connection
 //! - pool: Concurrent page management
 
-pub mod types;
-mod registry;
 mod detection;
-pub mod resolver;
 pub mod installer;
 mod manager;
 mod pool;
+mod registry;
+pub mod resolver;
+pub mod types;
 
 // New API
-pub use types::{BrowserKind, BrowserSource, BrowserMode, DetectedBrowser, ResolvedBrowser, InstallTarget};
 pub use detection::detect_all_browsers;
-pub use resolver::{resolve_browser, BrowserResolveOptions};
 pub use installer::BrowserInstaller;
+pub use resolver::{resolve_browser, BrowserResolveOptions};
+pub use types::{
+    BrowserKind, BrowserMode, BrowserSource, DetectedBrowser, InstallTarget, ResolvedBrowser,
+};
 
 // Legacy API (still used by main.rs and manager.rs)
 pub use detection::{detect_chrome, find_chrome, ChromeInfo};

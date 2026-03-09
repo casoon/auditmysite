@@ -7,7 +7,7 @@
 use super::{
     dimensions::{Dimension, Subcategory},
     issue_class::IssueClass,
-    score::{ScoreImpact, Scaling},
+    score::{Scaling, ScoreImpact},
     severity::Severity,
 };
 
@@ -148,7 +148,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-
     // ── Struktur & Semantik ─────────────────────────────────────────────────
     Rule {
         id: "a11y.structure.missing",
@@ -207,7 +206,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Navigation & Bedienung ──────────────────────────────────────────────
     Rule {
         id: "a11y.keyboard.missing",
@@ -361,7 +359,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Formulare & Interaktion ─────────────────────────────────────────────
     Rule {
         id: "a11y.input_purpose.missing",
@@ -401,7 +398,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-
     // ── Sprache & Verständlichkeit ──────────────────────────────────────────
     Rule {
         id: "a11y.language.missing",
@@ -460,7 +456,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Visuelle Darstellung / Kontrast ─────────────────────────────────────
     Rule {
         id: "a11y.contrast.weak",
@@ -519,7 +514,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Technische Robustheit ───────────────────────────────────────────────
     Rule {
         id: "a11y.name_role.missing",
@@ -540,7 +534,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-
     // ═══════════════════════════════════════════════════════════════════════════
     // PERFORMANCE
     // ═══════════════════════════════════════════════════════════════════════════
@@ -677,7 +670,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_TECHNICAL,
     },
-
     // ═══════════════════════════════════════════════════════════════════════════
     // SEO
     // ═══════════════════════════════════════════════════════════════════════════
@@ -928,7 +920,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-
     // ═══════════════════════════════════════════════════════════════════════════
     // SECURITY
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1046,7 +1037,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_TECHNICAL,
     },
-
     // ═══════════════════════════════════════════════════════════════════════════
     // MOBILE
     // ═══════════════════════════════════════════════════════════════════════════

@@ -226,7 +226,9 @@ impl BrowserInstaller {
             InstallTarget::HeadlessShell => {
                 let inner_dir = format!("chrome-headless-shell-{}", platform);
                 if cfg!(target_os = "windows") {
-                    target_dir.join(&inner_dir).join("chrome-headless-shell.exe")
+                    target_dir
+                        .join(&inner_dir)
+                        .join("chrome-headless-shell.exe")
                 } else {
                     target_dir.join(&inner_dir).join("chrome-headless-shell")
                 }
@@ -311,7 +313,12 @@ impl BrowserInstaller {
             if total_size > 0 {
                 let percent = (downloaded * 100) / total_size;
                 if downloaded % (total_size / 10).max(1) < chunk.len() as u64 {
-                    println!("  {}% ({}/{} MB)", percent, downloaded / 1_000_000, total_size / 1_000_000);
+                    println!(
+                        "  {}% ({}/{} MB)",
+                        percent,
+                        downloaded / 1_000_000,
+                        total_size / 1_000_000
+                    );
                 }
             }
         }
@@ -411,7 +418,8 @@ impl ChromiumInstaller {
             .join("chrome-for-testing");
 
         if browsers_dir.exists() {
-            let binary = BrowserInstaller::binary_path(&browsers_dir, InstallTarget::ChromeForTesting);
+            let binary =
+                BrowserInstaller::binary_path(&browsers_dir, InstallTarget::ChromeForTesting);
             if binary.exists() {
                 return Ok(binary);
             }

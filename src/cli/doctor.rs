@@ -51,7 +51,11 @@ pub fn run_doctor() {
             );
         }
         Err(_) => {
-            print_check("Active browser", CheckStatus::Error, "No browser can be resolved");
+            print_check(
+                "Active browser",
+                CheckStatus::Error,
+                "No browser can be resolved",
+            );
             has_errors = true;
         }
     }
@@ -66,7 +70,11 @@ pub fn run_doctor() {
             if cft.exists() {
                 let version = std::fs::read_to_string(cft.join("version.txt"))
                     .unwrap_or_else(|_| "unknown".to_string());
-                print_check("Managed: Chrome for Testing", CheckStatus::Ok, version.trim());
+                print_check(
+                    "Managed: Chrome for Testing",
+                    CheckStatus::Ok,
+                    version.trim(),
+                );
             }
             if hs.exists() {
                 let version = std::fs::read_to_string(hs.join("version.txt"))
@@ -115,10 +123,7 @@ pub fn run_doctor() {
             "WARN:".yellow().bold()
         );
     } else {
-        println!(
-            "{} All checks passed.",
-            "OK:".green().bold()
-        );
+        println!("{} All checks passed.", "OK:".green().bold());
     }
 }
 

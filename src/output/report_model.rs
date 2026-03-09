@@ -9,6 +9,9 @@ use std::path::PathBuf;
 use crate::cli::ReportLevel;
 use crate::wcag::Severity;
 
+/// Signal detail: category name mapped to a list of (check_label, passed, detail).
+pub type SignalDetails = Vec<(String, Vec<(String, bool, String)>)>;
+
 /// Configuration for PDF report generation
 pub struct ReportConfig {
     pub level: ReportLevel,
@@ -303,7 +306,7 @@ pub struct SeoProfilePresentation {
     pub signal_rows: Vec<(String, String, String)>,
     pub signal_overall_pct: u32,
     // Signal Details: (category_name, [(check_label, passed, detail)])
-    pub signal_details: Vec<(String, Vec<(String, bool, String)>)>,
+    pub signal_details: SignalDetails,
     // Maturity
     pub maturity_level: String,
     pub maturity_description: String,

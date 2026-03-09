@@ -175,7 +175,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let violations = &report.wcag_results.violations;
 
     // Detect 3.1.1 suppression
-    let suppress_lang = report.seo.as_ref().map_or(false, |s| s.technical.has_lang);
+    let suppress_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
     // Group violations by rule ID
@@ -348,7 +348,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     if let Some(ref sec) = report.security {
         module_scores.push(ModuleScoreEntry {
             name: "Security".to_string(),
-            score: sec.score as u32,
+            score: sec.score,
             grade: sec.grade.clone(),
             weight_pct: 10,
         });
@@ -356,7 +356,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     if let Some(ref mob) = report.mobile {
         module_scores.push(ModuleScoreEntry {
             name: "Mobile".to_string(),
-            score: mob.score as u32,
+            score: mob.score,
             grade: AccessibilityScorer::calculate_grade(mob.score as f32).to_string(),
             weight_pct: 10,
         });

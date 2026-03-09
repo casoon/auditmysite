@@ -364,9 +364,7 @@ fn str_opt(v: &serde_json::Value, key: &str) -> Option<String> {
     v[key].as_str().map(|s| s.to_string())
 }
 
-fn analyze_organization(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_organization(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     let expected = vec!["name", "url", "logo", "address", "telephone", "sameAs"];
 
     let address = v["address"]["streetAddress"]
@@ -387,16 +385,8 @@ fn analyze_organization(
     (expected, extracted)
 }
 
-fn analyze_local_business(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec![
-        "name",
-        "address",
-        "telephone",
-        "openingHours",
-        "priceRange",
-    ];
+fn analyze_local_business(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
+    let expected = vec!["name", "address", "telephone", "openingHours", "priceRange"];
 
     let address = v["address"]["streetAddress"]
         .as_str()
@@ -410,11 +400,7 @@ fn analyze_local_business(
                 .filter_map(|h| h.as_str().map(|s| s.to_string()))
                 .collect()
         })
-        .or_else(|| {
-            v["openingHours"]
-                .as_str()
-                .map(|s| vec![s.to_string()])
-        })
+        .or_else(|| v["openingHours"].as_str().map(|s| vec![s.to_string()]))
         .unwrap_or_default();
 
     let extracted = SchemaExtracted::LocalBusiness {
@@ -427,9 +413,7 @@ fn analyze_local_business(
     (expected, extracted)
 }
 
-fn analyze_article(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_article(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     let expected = vec![
         "headline",
         "author",
@@ -478,9 +462,7 @@ fn analyze_faq(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     (expected, extracted)
 }
 
-fn analyze_product(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_product(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     let expected = vec!["name", "offers", "image", "aggregateRating"];
 
     let offers = &v["offers"];
@@ -510,9 +492,7 @@ fn analyze_product(
     (expected, extracted)
 }
 
-fn analyze_website(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_website(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     let expected = vec!["name", "url", "potentialAction"];
 
     let has_search_action = v["potentialAction"]["@type"]
@@ -528,9 +508,7 @@ fn analyze_website(
     (expected, extracted)
 }
 
-fn analyze_breadcrumb(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_breadcrumb(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     let expected = vec!["itemListElement"];
 
     let item_count = v["itemListElement"]
@@ -542,9 +520,7 @@ fn analyze_breadcrumb(
     (expected, extracted)
 }
 
-fn analyze_generic(
-    v: &serde_json::Value,
-) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_generic(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
     let mut key_fields = Vec::new();
     if let Some(obj) = v.as_object() {
         for (key, val) in obj {
@@ -633,7 +609,10 @@ fn build_meta_signals(seo: &SeoAnalysis) -> SignalCategory {
         check(
             "Title vorhanden & Länge optimal",
             title_ok,
-            seo.meta.title.as_ref().map(|t| format!("{} Zeichen", t.len())),
+            seo.meta
+                .title
+                .as_ref()
+                .map(|t| format!("{} Zeichen", t.len())),
         ),
         check(
             "Description vorhanden & Länge optimal",
@@ -779,7 +758,11 @@ fn build_technical_signals(seo: &SeoAnalysis) -> SignalCategory {
                 None
             },
         ),
-        check("Robots erlaubt Indexierung", robots_ok, seo.technical.robots_meta.clone()),
+        check(
+            "Robots erlaubt Indexierung",
+            robots_ok,
+            seo.technical.robots_meta.clone(),
+        ),
     ];
     let score_pct = category_score(&checks);
     SignalCategory {
@@ -804,10 +787,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
             "Strukturierte Daten vorhanden",
             has_any,
             if has_any {
-                Some(format!(
-                    "{} Schema(s)",
-                    seo.structured_data.json_ld.len()
-                ))
+                Some(format!("{} Schema(s)", seo.structured_data.json_ld.len()))
             } else {
                 None
             },
@@ -834,11 +814,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
 fn build_content_signals(seo: &SeoAnalysis) -> SignalCategory {
     let wc = seo.technical.word_count;
     let il = seo.technical.internal_links;
-    let link_density = if wc > 0 {
-        il as f32 / wc as f32
-    } else {
-        0.0
-    };
+    let link_density = if wc > 0 { il as f32 / wc as f32 } else { 0.0 };
 
     let checks = vec![
         check(
@@ -871,19 +847,43 @@ fn count_techniques(seo: &SeoAnalysis) -> u32 {
     let mut count = 0u32;
 
     // 1. Title optimiert (30-60 Zeichen)
-    if seo.meta.title.as_ref().map(|t| t.len() >= 30 && t.len() <= 60).unwrap_or(false) {
+    if seo
+        .meta
+        .title
+        .as_ref()
+        .map(|t| t.len() >= 30 && t.len() <= 60)
+        .unwrap_or(false)
+    {
         count += 1;
     }
     // 2. Description optimiert (120-160 Zeichen)
-    if seo.meta.description.as_ref().map(|d| d.len() >= 120 && d.len() <= 160).unwrap_or(false) {
+    if seo
+        .meta
+        .description
+        .as_ref()
+        .map(|d| d.len() >= 120 && d.len() <= 160)
+        .unwrap_or(false)
+    {
         count += 1;
     }
     // 3. OpenGraph komplett (≥80%)
-    if seo.social.open_graph.as_ref().map(|og| og.completeness() >= 80).unwrap_or(false) {
+    if seo
+        .social
+        .open_graph
+        .as_ref()
+        .map(|og| og.completeness() >= 80)
+        .unwrap_or(false)
+    {
         count += 1;
     }
     // 4. Twitter Card komplett (≥75%)
-    if seo.social.twitter_card.as_ref().map(|tc| tc.completeness() >= 75).unwrap_or(false) {
+    if seo
+        .social
+        .twitter_card
+        .as_ref()
+        .map(|tc| tc.completeness() >= 75)
+        .unwrap_or(false)
+    {
         count += 1;
     }
     // 5. JSON-LD vorhanden
@@ -1055,12 +1055,7 @@ mod tests {
 
         // All signal categories should be high
         for cat in &profile.signal_strength.categories {
-            assert!(
-                cat.score_pct >= 75,
-                "{} only {}%",
-                cat.name,
-                cat.score_pct
-            );
+            assert!(cat.score_pct >= 75, "{} only {}%", cat.name, cat.score_pct);
         }
         assert!(profile.signal_strength.overall_pct >= 80);
         assert!(matches!(
