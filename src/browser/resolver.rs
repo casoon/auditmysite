@@ -29,7 +29,6 @@ pub struct BrowserResolveOptions {
     pub strict: bool,
 }
 
-
 /// Find the best available browser
 pub fn resolve_browser(opts: &BrowserResolveOptions) -> Result<ResolvedBrowser> {
     let mode = if opts.strict {
