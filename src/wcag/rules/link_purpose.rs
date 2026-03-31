@@ -13,7 +13,7 @@ pub const LINK_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     id: "2.4.4",
     name: "Link Purpose (In Context)",
     level: WcagLevel::A,
-    severity: Severity::Moderate,
+    severity: Severity::Medium,
     description: "The purpose of each link can be determined from the link text or context",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context.html",
 };
@@ -70,7 +70,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
                 LINK_PURPOSE_RULE.id,
                 LINK_PURPOSE_RULE.name,
                 LINK_PURPOSE_RULE.level,
-                Severity::Minor,
+                Severity::Low,
                 "Link text appears to be a raw URL",
                 &node.node_id,
             )
@@ -80,7 +80,13 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
             .with_help_url(LINK_PURPOSE_RULE.help_url);
 
             results.add_violation(violation);
-        } else if link_text.len() == 1 && !link_text.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+        } else if link_text.len() == 1
+            && !link_text
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
+        {
             // Check for single character links
             let violation = Violation::new(
                 LINK_PURPOSE_RULE.id,
@@ -106,7 +112,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
                 LINK_PURPOSE_RULE.id,
                 LINK_PURPOSE_RULE.name,
                 LINK_PURPOSE_RULE.level,
-                Severity::Minor,
+                Severity::Low,
                 "Link opens in new window without indication",
                 &node.node_id,
             )
@@ -125,10 +131,33 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
 /// Check if link text is generic/ambiguous
 fn is_generic_link_text(text: &str) -> bool {
     let generic_phrases = [
-        "click here", "click", "here", "read more", "more", "learn more",
-        "info", "information", "details", "link", "this link", "go",
-        "continue", "download", "view", "see more", "see all", "read",
-        "start", "begin", "submit", "next", "previous", "...", ">", ">>", "→",
+        "click here",
+        "click",
+        "here",
+        "read more",
+        "more",
+        "learn more",
+        "info",
+        "information",
+        "details",
+        "link",
+        "this link",
+        "go",
+        "continue",
+        "download",
+        "view",
+        "see more",
+        "see all",
+        "read",
+        "start",
+        "begin",
+        "submit",
+        "next",
+        "previous",
+        "...",
+        ">",
+        ">>",
+        "→",
     ];
 
     let text_lower = text.to_lowercase();
@@ -137,25 +166,30 @@ fn is_generic_link_text(text: &str) -> bool {
 
 /// Check if text looks like a URL
 fn looks_like_url(text: &str) -> bool {
-    text.starts_with("http://") ||
-    text.starts_with("https://") ||
-    text.starts_with("www.") ||
-    (text.contains(".com") && !text.contains(' ')) ||
-    (text.contains(".org") && !text.contains(' ')) ||
-    (text.contains(".net") && !text.contains(' '))
+    text.starts_with("http://")
+        || text.starts_with("https://")
+        || text.starts_with("www.")
+        || (text.contains(".com") && !text.contains(' '))
+        || (text.contains(".org") && !text.contains(' '))
+        || (text.contains(".net") && !text.contains(' '))
 }
 
 /// Check if link opens in new window
 fn opens_new_window(node: &AXNode) -> bool {
-    node.properties.iter().any(|p| {
-        p.name.to_lowercase() == "haspopup" && p.value.as_bool().unwrap_or(false)
-    })
+    node.properties
+        .iter()
+        .any(|p| p.name.to_lowercase() == "haspopup" && p.value.as_bool().unwrap_or(false))
 }
 
 /// Check if link text indicates it opens in new window
 fn indicates_new_window(text: &str) -> bool {
     let indicators = [
-        "new window", "new tab", "opens in", "(external)", "external link", "[external]",
+        "new window",
+        "new tab",
+        "opens in",
+        "(external)",
+        "external link",
+        "[external]",
     ];
     let text_lower = text.to_lowercase();
     indicators.iter().any(|&ind| text_lower.contains(ind))
@@ -207,19 +241,28 @@ mod tests {
     fn test_empty_link() {
         let tree = AXTree::from_nodes(vec![create_link("1", None)]);
         let results = check_link_purpose(&tree);
-        assert!(results.violations.iter().any(|v| v.message.contains("no accessible text")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("no accessible text")));
     }
 
     #[test]
     fn test_generic_link() {
         let tree = AXTree::from_nodes(vec![create_link("1", Some("click here"))]);
         let results = check_link_purpose(&tree);
-        assert!(results.violations.iter().any(|v| v.message.contains("generic text")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("generic text")));
     }
 
     #[test]
     fn test_good_link_text() {
-        let tree = AXTree::from_nodes(vec![create_link("1", Some("View our accessibility statement"))]);
+        let tree = AXTree::from_nodes(vec![create_link(
+            "1",
+            Some("View our accessibility statement"),
+        )]);
         let results = check_link_purpose(&tree);
         assert!(results.violations.is_empty());
     }
@@ -228,6 +271,9 @@ mod tests {
     fn test_url_as_link_text() {
         let tree = AXTree::from_nodes(vec![create_link("1", Some("https://example.com/page"))]);
         let results = check_link_purpose(&tree);
-        assert!(results.violations.iter().any(|v| v.message.contains("raw URL")));
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("raw URL")));
     }
 }

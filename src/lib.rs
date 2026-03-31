@@ -1,4 +1,4 @@
-//! auditmysite - Resource-efficient WCAG 2.1 Accessibility Checker
+//! AuditMySit - Resource-efficient WCAG 2.1 Accessibility Checker
 //!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
@@ -28,6 +28,11 @@
 //!         wcag_level: WcagLevel::AA,
 //!         timeout_secs: 30,
 //!         verbose: false,
+//!         check_performance: false,
+//!         check_seo: false,
+//!         check_security: false,
+//!         check_mobile: false,
+//!         persist_artifacts: true,
 //!     };
 //!
 //!     // Run audit
@@ -72,27 +77,34 @@ pub mod audit;
 pub mod browser;
 pub mod cli;
 pub mod error;
+pub mod i18n;
 pub mod mobile;
 pub mod output;
 pub mod performance;
 pub mod security;
 pub mod seo;
+pub mod taxonomy;
+pub mod util;
 pub mod wcag;
 
 // Re-export commonly used types
 pub use accessibility::{AXNode, AXTree};
 pub use audit::{
-    parse_sitemap, read_url_file, run_concurrent_batch, AuditReport, BatchConfig, BatchReport,
-    PerformanceResults, PipelineConfig,
+    audit_page, parse_sitemap, read_url_file, run_concurrent_batch, AuditReport, BatchConfig,
+    BatchReport, PerformanceResults, PipelineConfig,
 };
-pub use browser::{BrowserManager, BrowserOptions, BrowserPool, PoolConfig};
-pub use cli::{Args, OutputFormat, WcagLevel};
+pub use browser::{
+    detect_all_browsers, resolve_browser, BrowserInstaller, BrowserKind, BrowserManager,
+    BrowserMode, BrowserOptions, BrowserPool, BrowserResolveOptions, BrowserSource,
+    DetectedBrowser, InstallTarget, PoolConfig, ResolvedBrowser,
+};
+pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use error::{AuditError, Result};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
-pub use output::{format_batch_html, format_html, format_json, print_report};
+pub use output::{format_json_normalized, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };
-pub use security::{analyze_security, validate_url, SecurityAnalysis};
+pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

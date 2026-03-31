@@ -85,23 +85,11 @@ pub struct PerformanceScore {
 /// - INP/TBT: 25%
 pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
     // Calculate individual scores (0-25 each)
-    let lcp_score = vitals
-        .lcp
-        .as_ref()
-        .map(|v| score_lcp(v.value))
-        .unwrap_or(0);
+    let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value)).unwrap_or(0);
 
-    let fcp_score = vitals
-        .fcp
-        .as_ref()
-        .map(|v| score_fcp(v.value))
-        .unwrap_or(0);
+    let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value)).unwrap_or(0);
 
-    let cls_score = vitals
-        .cls
-        .as_ref()
-        .map(|v| score_cls(v.value))
-        .unwrap_or(0);
+    let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value)).unwrap_or(0);
 
     let interactivity_score = vitals
         .inp
@@ -201,7 +189,10 @@ mod tests {
         assert_eq!(PerformanceGrade::from_score(80), PerformanceGrade::Gold);
         assert_eq!(PerformanceGrade::from_score(65), PerformanceGrade::Silver);
         assert_eq!(PerformanceGrade::from_score(55), PerformanceGrade::Bronze);
-        assert_eq!(PerformanceGrade::from_score(30), PerformanceGrade::NeedsImprovement);
+        assert_eq!(
+            PerformanceGrade::from_score(30),
+            PerformanceGrade::NeedsImprovement
+        );
     }
 
     #[test]
@@ -226,6 +217,9 @@ mod tests {
 
         let score = calculate_performance_score(&vitals);
         assert!(score.overall >= 80);
-        assert!(matches!(score.grade, PerformanceGrade::Gold | PerformanceGrade::Platinum));
+        assert!(matches!(
+            score.grade,
+            PerformanceGrade::Gold | PerformanceGrade::Platinum
+        ));
     }
 }

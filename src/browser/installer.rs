@@ -1,155 +1,300 @@
-//! Chromium installer - downloads isolated Chromium binary
+//! Browser installer - explicit Chrome for Testing download
 //!
-//! Downloads Chromium to ~/.audit/chromium/ without affecting system Chrome.
-//! Uses Chrome for Testing stable builds from Google's official CDN.
-//!
-//! ## Security
-//! - Downloads only from trusted Google CDN (storage.googleapis.com)
-//! - Uses HTTPS for all downloads
-//! - Version is pinned to a known stable release
-//! - Future: Add SHA256 verification after download
+//! Downloads to ~/.auditmysite/browsers/ — only when explicitly requested
+//! via `auditmysite browser install`. No auto-download.
 
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-use tracing::info;
+use tracing::{info, warn};
 
+use super::types::InstallTarget;
 use crate::error::{AuditError, Result};
 
-/// Pinned Chrome for Testing version
-/// Update this when upgrading to a new Chrome version
-const CHROME_VERSION: &str = "131.0.6778.108";
+/// Chrome for Testing API endpoint
+const CFT_API_URL: &str =
+    "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json";
 
-/// Trusted CDN base URL - only downloads from this host are allowed
-const CHROME_CDN_BASE: &str = "https://storage.googleapis.com/chrome-for-testing-public";
+/// Fallback version if API is unavailable
+const FALLBACK_VERSION: &str = "131.0.6778.108";
 
-/// Chromium installation manager
-pub struct ChromiumInstaller;
+/// Browser installer
+pub struct BrowserInstaller;
 
-impl ChromiumInstaller {
-    /// Ensure Chromium is available (check cache, ask user, download if needed)
-    pub async fn ensure_chromium() -> Result<PathBuf> {
-        // 1. Check if already downloaded
-        let local_path = Self::local_chromium_path();
-        if local_path.exists() {
-            info!("Found cached Chromium at: {}", local_path.display());
-            return Ok(local_path);
+impl BrowserInstaller {
+    /// Install a browser to ~/.auditmysite/browsers/
+    pub async fn install(
+        target: InstallTarget,
+        version: Option<&str>,
+        force: bool,
+    ) -> Result<PathBuf> {
+        let base_dir = Self::browsers_dir()?;
+        let (target_name, channel) = match target {
+            InstallTarget::ChromeForTesting => ("chrome-for-testing", "chrome"),
+            InstallTarget::HeadlessShell => ("headless-shell", "chrome-headless-shell"),
+        };
+
+        let target_dir = base_dir.join(target_name);
+
+        // Check if already installed
+        if target_dir.exists() && !force {
+            let existing_version = fs::read_to_string(target_dir.join("version.txt"))
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+
+            if !existing_version.is_empty() {
+                println!("Already installed: {} v{}", target_name, existing_version);
+                println!("Use --force to reinstall.");
+
+                let binary_path = Self::binary_path(&target_dir, target);
+                return Ok(binary_path);
+            }
         }
 
-        // 2. Chromium not found - inform user
-        Self::prompt_user()?;
-
-        // 3. Download
-        Self::download_chromium().await
-    }
-
-    /// Get path to local Chromium installation
-    fn local_chromium_path() -> PathBuf {
-        let cache_dir = dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".audit")
-            .join("chromium");
-
-        if cfg!(target_os = "macos") {
-            cache_dir
-                .join("chrome-mac")
-                .join("Chromium.app")
-                .join("Contents")
-                .join("MacOS")
-                .join("Chromium")
-        } else if cfg!(target_os = "linux") {
-            cache_dir.join("chrome-linux").join("chrome")
+        // Resolve version
+        let resolved_version = if let Some(v) = version {
+            v.to_string()
         } else {
-            // Windows
-            cache_dir.join("chrome-win").join("chrome.exe")
+            Self::fetch_latest_version().await.unwrap_or_else(|e| {
+                warn!("Could not fetch latest version from API: {}", e);
+                info!("Using fallback version: {}", FALLBACK_VERSION);
+                FALLBACK_VERSION.to_string()
+            })
+        };
+
+        println!("Installing {} v{}...", target_name, resolved_version);
+
+        // Build download URL
+        let download_url = Self::build_download_url(&resolved_version, channel);
+        let archive_name = format!("{}.zip", target_name);
+
+        // Prepare directory
+        if target_dir.exists() {
+            fs::remove_dir_all(&target_dir).map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to clean existing install: {}", e),
+            })?;
         }
+        fs::create_dir_all(&target_dir).map_err(|e| AuditError::BrowserLaunchFailed {
+            reason: format!("Failed to create install directory: {}", e),
+        })?;
+
+        let archive_path = target_dir.join(&archive_name);
+
+        // Download
+        println!("Downloading from: {}", download_url);
+        Self::download_file(&download_url, &archive_path).await?;
+
+        // Extract
+        println!("Extracting...");
+        Self::extract_archive(&archive_path, &target_dir)?;
+
+        // Clean up archive
+        fs::remove_file(&archive_path).ok();
+
+        // Write version file
+        fs::write(target_dir.join("version.txt"), &resolved_version).ok();
+
+        // Make executable
+        let binary_path = Self::binary_path(&target_dir, target);
+        Self::set_executable(&binary_path)?;
+
+        // macOS: remove quarantine attribute
+        #[cfg(target_os = "macos")]
+        Self::remove_quarantine(&target_dir);
+
+        println!(
+            "Installed {} v{} at {}",
+            target_name,
+            resolved_version,
+            binary_path.display()
+        );
+
+        Ok(binary_path)
     }
 
-    /// Prompt user about Chromium download
-    fn prompt_user() -> Result<()> {
-        println!("\n┌──────────────────────────────────────────────────────────┐");
-        println!("│          Chromium Required for Accessibility Testing     │");
-        println!("└──────────────────────────────────────────────────────────┘\n");
-        println!("Chrome/Chromium not found on your system.\n");
-        println!("Options:");
-        println!("  1) Auto-download Chromium (~120 MB, isolated in ~/.audit/)");
-        println!("     ✓ No system dependencies affected");
-        println!("     ✓ Managed by audit");
-        println!("     ✓ Can be deleted anytime\n");
-        println!("  2) Use existing Chrome:");
-        println!("     audit --chrome-path \"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" <url>\n");
-        println!("  3) Install via Homebrew:");
-        println!("     brew install chromium\n");
+    /// Remove a managed browser installation
+    pub fn remove(target: InstallTarget) -> Result<()> {
+        let base_dir = Self::browsers_dir()?;
+        let target_name = match target {
+            InstallTarget::ChromeForTesting => "chrome-for-testing",
+            InstallTarget::HeadlessShell => "headless-shell",
+        };
+        let target_dir = base_dir.join(target_name);
 
-        println!("Proceed with auto-download? [Y/n]: ");
-
-        // For now, auto-accept (user can Ctrl+C to cancel)
-        // In production, read from stdin
-        println!("Proceeding with download...\n");
+        if target_dir.exists() {
+            fs::remove_dir_all(&target_dir).map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to remove {}: {}", target_name, e),
+            })?;
+            println!("Removed {}", target_name);
+        } else {
+            println!("{} is not installed", target_name);
+        }
 
         Ok(())
     }
 
-    /// Download Chromium binary
-    async fn download_chromium() -> Result<PathBuf> {
-        use futures::StreamExt;
+    /// Remove all managed browsers including legacy
+    pub fn remove_all() -> Result<()> {
+        Self::remove(InstallTarget::ChromeForTesting)?;
+        Self::remove(InstallTarget::HeadlessShell)?;
 
-        info!("Downloading Chromium...");
+        // Also clean up legacy location
+        if let Ok(legacy_dir) = Self::legacy_chromium_dir() {
+            if legacy_dir.exists() {
+                fs::remove_dir_all(&legacy_dir).ok();
+                println!("Removed legacy chromium install");
+            }
+        }
 
-        // Chrome for Testing URLs (stable builds from trusted CDN)
-        let (platform, archive_name) = if cfg!(target_os = "macos") {
-            // Check if Apple Silicon or Intel
-            let is_arm = cfg!(target_arch = "aarch64");
-            if is_arm {
-                ("mac-arm64", "chrome-mac-arm64.zip")
+        Ok(())
+    }
+
+    /// Fetch latest stable version from Chrome for Testing API
+    async fn fetch_latest_version() -> Result<String> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("HTTP client error: {}", e),
+            })?;
+
+        let resp: serde_json::Value = client
+            .get(CFT_API_URL)
+            .send()
+            .await
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to fetch versions: {}", e),
+            })?
+            .json()
+            .await
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to parse versions: {}", e),
+            })?;
+
+        resp["channels"]["Stable"]["version"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| AuditError::BrowserLaunchFailed {
+                reason: "Could not find stable version in API response".to_string(),
+            })
+    }
+
+    fn build_download_url(version: &str, channel: &str) -> String {
+        let platform = Self::platform_string();
+        format!(
+            "https://storage.googleapis.com/chrome-for-testing-public/{}/{}/{}-{}.zip",
+            version, platform, channel, platform
+        )
+    }
+
+    fn platform_string() -> &'static str {
+        if cfg!(target_os = "macos") {
+            if cfg!(target_arch = "aarch64") {
+                "mac-arm64"
             } else {
-                ("mac-x64", "chrome-mac-x64.zip")
+                "mac-x64"
             }
         } else if cfg!(target_os = "linux") {
-            ("linux64", "chrome-linux64.zip")
+            "linux64"
         } else {
-            // Windows
-            ("win64", "chrome-win64.zip")
-        };
+            "win64"
+        }
+    }
 
-        // Build URL from trusted base - never use user input here
-        let download_url = format!(
-            "{}/{}/{}/{}",
-            CHROME_CDN_BASE, CHROME_VERSION, platform, archive_name
-        );
+    fn binary_path(target_dir: &Path, target: InstallTarget) -> PathBuf {
+        let platform = Self::platform_string();
 
-        let cache_dir = dirs::home_dir()
-            .ok_or_else(|| AuditError::BrowserLaunchFailed {
-                reason: "Could not determine home directory".to_string(),
-            })?
-            .join(".audit")
+        match target {
+            InstallTarget::ChromeForTesting => {
+                let inner_dir = format!("chrome-{}", platform);
+                if cfg!(target_os = "macos") {
+                    target_dir
+                        .join(&inner_dir)
+                        .join("Google Chrome for Testing.app")
+                        .join("Contents")
+                        .join("MacOS")
+                        .join("Google Chrome for Testing")
+                } else if cfg!(target_os = "windows") {
+                    target_dir.join(&inner_dir).join("chrome.exe")
+                } else {
+                    target_dir.join(&inner_dir).join("chrome")
+                }
+            }
+            InstallTarget::HeadlessShell => {
+                let inner_dir = format!("chrome-headless-shell-{}", platform);
+                if cfg!(target_os = "windows") {
+                    target_dir
+                        .join(&inner_dir)
+                        .join("chrome-headless-shell.exe")
+                } else {
+                    target_dir.join(&inner_dir).join("chrome-headless-shell")
+                }
+            }
+        }
+    }
+
+    fn browsers_dir() -> Result<PathBuf> {
+        let dir = dirs::home_dir()
+            .ok_or_else(|| AuditError::ConfigError("Could not find home directory".to_string()))?
+            .join(".auditmysite")
+            .join("browsers");
+        Ok(dir)
+    }
+
+    fn legacy_chromium_dir() -> Result<PathBuf> {
+        let dir = dirs::home_dir()
+            .ok_or_else(|| AuditError::ConfigError("Could not find home directory".to_string()))?
+            .join(".auditmysite")
             .join("chromium");
+        Ok(dir)
+    }
 
-        fs::create_dir_all(&cache_dir).map_err(|e| AuditError::BrowserLaunchFailed {
-            reason: format!("Failed to create cache directory: {}", e),
+    async fn download_file(url: &str, dest: &Path) -> Result<()> {
+        use futures::StreamExt;
+
+        let max_retries = 2;
+        let mut last_error = None;
+        let mut response = None;
+
+        for attempt in 0..=max_retries {
+            if attempt > 0 {
+                let delay = Duration::from_secs(2u64.pow(attempt as u32));
+                warn!(
+                    "Retrying download (attempt {}/{}, backoff {:?})",
+                    attempt + 1,
+                    max_retries + 1,
+                    delay
+                );
+                tokio::time::sleep(delay).await;
+            }
+
+            match reqwest::get(url).await {
+                Ok(resp) if resp.status().is_success() => {
+                    response = Some(resp);
+                    break;
+                }
+                Ok(resp) => {
+                    last_error = Some(format!("HTTP {}", resp.status()));
+                }
+                Err(e) => {
+                    last_error = Some(format!("Download failed: {}", e));
+                }
+            }
+        }
+
+        let response = response.ok_or_else(|| AuditError::BrowserLaunchFailed {
+            reason: last_error.unwrap_or_else(|| "Download failed after retries".to_string()),
         })?;
-
-        let archive_path = cache_dir.join(archive_name);
-
-        // Download with progress
-        println!("Downloading from: {}", download_url);
-        println!("Destination: {}", archive_path.display());
-
-        let response =
-            reqwest::get(download_url)
-                .await
-                .map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Download failed: {}", e),
-                })?;
 
         let total_size = response.content_length().unwrap_or(0);
         let mut downloaded = 0u64;
 
-        let mut file =
-            fs::File::create(&archive_path).map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: format!("Failed to create file: {}", e),
-            })?;
+        let mut file = fs::File::create(dest).map_err(|e| AuditError::BrowserLaunchFailed {
+            reason: format!("Failed to create file: {}", e),
+        })?;
 
         let mut stream = response.bytes_stream();
 
@@ -167,61 +312,21 @@ impl ChromiumInstaller {
 
             if total_size > 0 {
                 let percent = (downloaded * 100) / total_size;
-                print!(
-                    "\rProgress: {}% ({}/{} MB)",
-                    percent,
-                    downloaded / 1_000_000,
-                    total_size / 1_000_000
-                );
-                std::io::stdout().flush().ok();
+                if downloaded % (total_size / 10).max(1) < chunk.len() as u64 {
+                    println!(
+                        "  {}% ({}/{} MB)",
+                        percent,
+                        downloaded / 1_000_000,
+                        total_size / 1_000_000
+                    );
+                }
             }
         }
 
-        println!("\n✓ Download complete!");
-
-        // Extract archive
-        info!("Extracting archive...");
-        Self::extract_archive(&archive_path, &cache_dir)?;
-
-        // Clean up archive
-        fs::remove_file(&archive_path).ok();
-
-        let chromium_path = Self::local_chromium_path();
-
-        if !chromium_path.exists() {
-            return Err(AuditError::BrowserLaunchFailed {
-                reason: format!(
-                    "Chromium binary not found after extraction: {}",
-                    chromium_path.display()
-                ),
-            });
-        }
-
-        // Make executable (Unix)
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(&chromium_path)
-                .map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: format!("Failed to get permissions: {}", e),
-                })?
-                .permissions();
-            perms.set_mode(0o755);
-            fs::set_permissions(&chromium_path, perms).map_err(|e| {
-                AuditError::BrowserLaunchFailed {
-                    reason: format!("Failed to set permissions: {}", e),
-                }
-            })?;
-        }
-
-        println!("✓ Chromium installed successfully!");
-        println!("  Location: {}", chromium_path.display());
-
-        Ok(chromium_path)
+        Ok(())
     }
 
-    /// Extract zip archive
-    fn extract_archive(archive_path: &PathBuf, dest_dir: &PathBuf) -> Result<()> {
+    fn extract_archive(archive_path: &Path, dest_dir: &Path) -> Result<()> {
         let file = fs::File::open(archive_path).map_err(|e| AuditError::BrowserLaunchFailed {
             reason: format!("Failed to open archive: {}", e),
         })?;
@@ -232,7 +337,6 @@ impl ChromiumInstaller {
             })?;
 
         let total_files = archive.len();
-        println!("Extracting {} files...", total_files);
 
         for i in 0..total_files {
             let mut file = archive
@@ -256,17 +360,98 @@ impl ChromiumInstaller {
                     fs::File::create(&outpath).map_err(|e| AuditError::BrowserLaunchFailed {
                         reason: format!("Failed to create extracted file: {}", e),
                     })?;
-                std::io::copy(&mut file, &mut outfile).ok();
-            }
-
-            // Progress indicator
-            if i % 100 == 0 {
-                print!("\rExtracting: {}/{}", i, total_files);
-                std::io::stdout().flush().ok();
+                std::io::copy(&mut file, &mut outfile).map_err(|e| {
+                    AuditError::BrowserLaunchFailed {
+                        reason: format!("Failed to extract file: {}", e),
+                    }
+                })?;
             }
         }
 
-        println!("\n✓ Extraction complete!");
         Ok(())
+    }
+
+    fn set_executable(path: &Path) -> Result<()> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if path.exists() {
+                let mut perms = fs::metadata(path)
+                    .map_err(|e| AuditError::BrowserLaunchFailed {
+                        reason: format!("Failed to get permissions: {}", e),
+                    })?
+                    .permissions();
+                perms.set_mode(0o755);
+                fs::set_permissions(path, perms).map_err(|e| AuditError::BrowserLaunchFailed {
+                    reason: format!("Failed to set permissions: {}", e),
+                })?;
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn remove_quarantine(dir: &Path) {
+        use std::process::Command;
+        // Remove macOS quarantine attribute recursively
+        let _ = Command::new("xattr")
+            .args(["-rd", "com.apple.quarantine"])
+            .arg(dir)
+            .output();
+    }
+}
+
+// ── Legacy compatibility ──────────────────────────────────────
+
+/// Legacy: Chromium installer (redirects to new installer)
+pub struct ChromiumInstaller;
+
+impl ChromiumInstaller {
+    /// Legacy: Ensure Chromium is available
+    /// Now uses the new BrowserInstaller but maintains the old API
+    pub async fn ensure_chromium() -> Result<PathBuf> {
+        // Check new location first
+        let browsers_dir = dirs::home_dir()
+            .ok_or_else(|| AuditError::ConfigError("Could not find home directory".to_string()))?
+            .join(".auditmysite")
+            .join("browsers")
+            .join("chrome-for-testing");
+
+        if browsers_dir.exists() {
+            let binary =
+                BrowserInstaller::binary_path(&browsers_dir, InstallTarget::ChromeForTesting);
+            if binary.exists() {
+                return Ok(binary);
+            }
+        }
+
+        // Check legacy location
+        let legacy_path = Self::local_chromium_path()?;
+        if legacy_path.exists() {
+            return Ok(legacy_path);
+        }
+
+        // Install to new location
+        BrowserInstaller::install(InstallTarget::ChromeForTesting, None, false).await
+    }
+
+    fn local_chromium_path() -> Result<PathBuf> {
+        let cache_dir = dirs::home_dir()
+            .ok_or_else(|| AuditError::ConfigError("Could not find home directory".to_string()))?
+            .join(".auditmysite")
+            .join("chromium");
+
+        Ok(if cfg!(target_os = "macos") {
+            cache_dir
+                .join("chrome-mac")
+                .join("Chromium.app")
+                .join("Contents")
+                .join("MacOS")
+                .join("Chromium")
+        } else if cfg!(target_os = "linux") {
+            cache_dir.join("chrome-linux").join("chrome")
+        } else {
+            cache_dir.join("chrome-win").join("chrome.exe")
+        })
     }
 }

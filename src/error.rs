@@ -1,4 +1,4 @@
-//! Error types for audit
+//! Error types for AuditMySit
 //!
 //! Centralized error handling using thiserror for derive macros
 //! and anyhow for error context propagation.
@@ -6,11 +6,11 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// Main error type for the audit application
+/// Main error type for the auditmysite application
 #[derive(Debug, Error)]
 pub enum AuditError {
-    /// Chrome/Chromium browser not found on the system
-    #[error("Chrome/Chromium not found!\n\nInstallation:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Download from https://www.google.com/chrome/\n\nOr specify manually:\n  audit --chrome-path /path/to/chrome <url>")]
+    /// No compatible Chromium-based browser found on the system
+    #[error("No compatible browser found!\n\nSupported browsers: Chrome, Edge, Chromium\n\nInstallation options:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Download from https://www.google.com/chrome/\n\nOr install a managed browser:\n  auditmysite browser install\n\nOr specify manually:\n  auditmysite --browser-path /path/to/chrome <url>\n\nRun diagnostics:\n  auditmysite doctor")]
     ChromeNotFound,
 
     /// Chrome binary exists but is not executable
@@ -20,10 +20,6 @@ pub enum AuditError {
     /// Browser failed to launch
     #[error("Failed to launch browser: {reason}")]
     BrowserLaunchFailed { reason: String },
-
-    /// Browser connection lost
-    #[error("Lost connection to browser: {reason}")]
-    BrowserConnectionLost { reason: String },
 
     /// Navigation to URL failed
     #[error("Failed to navigate to '{url}': {reason}")]
@@ -115,9 +111,11 @@ mod tests {
     fn test_chrome_not_found_error_message() {
         let err = AuditError::ChromeNotFound;
         let msg = err.to_string();
-        assert!(msg.contains("Chrome/Chromium not found"));
+        assert!(msg.contains("No compatible browser found"));
         assert!(msg.contains("brew install"));
-        assert!(msg.contains("apt install"));
+        assert!(msg.contains("auditmysite browser install"));
+        assert!(msg.contains("--browser-path"));
+        assert!(msg.contains("auditmysite doctor"));
     }
 
     #[test]

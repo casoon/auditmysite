@@ -86,17 +86,55 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
     // Use JavaScript to extract styles for all text elements
     let js_code = r#"
     (() => {
+        // Walk up the DOM to find the first ancestor with an opaque background
+        function getEffectiveBackgroundColor(el) {
+            let current = el;
+            while (current && current !== document.documentElement) {
+                const bg = window.getComputedStyle(current).backgroundColor;
+                if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+                    // Parse rgba to check alpha
+                    const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                    if (match) {
+                        const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+                        if (alpha > 0) {
+                            return bg;
+                        }
+                    } else {
+                        // hex or named color — opaque
+                        return bg;
+                    }
+                }
+                current = current.parentElement;
+            }
+            // Check <html> element
+            const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
+            if (htmlBg && htmlBg !== 'transparent' && htmlBg !== 'rgba(0, 0, 0, 0)') {
+                return htmlBg;
+            }
+            // Default: white (browser default)
+            return 'rgb(255, 255, 255)';
+        }
+
         const selectors = ['p', 'span', 'div', 'a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'label', 'strong', 'em'];
         const results = [];
+        const seen = new Set();
 
         selectors.forEach(selector => {
             const elements = document.querySelectorAll(selector);
             elements.forEach((el, idx) => {
-                // Check if element has text content
-                const text = el.textContent || '';
-                if (text.trim().length === 0) {
-                    return; // Skip elements without text
+                // Deduplicate — avoid checking the same element twice
+                if (seen.has(el)) return;
+                seen.add(el);
+
+                // Only check elements with direct text (not just child text)
+                let hasDirectText = false;
+                for (const child of el.childNodes) {
+                    if (child.nodeType === 3 && child.textContent.trim().length > 0) {
+                        hasDirectText = true;
+                        break;
+                    }
                 }
+                if (!hasDirectText) return;
 
                 const styles = window.getComputedStyle(el);
 
@@ -109,7 +147,7 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                     selector: selector,
                     index: idx,
                     color: styles.color,
-                    backgroundColor: styles.backgroundColor,
+                    backgroundColor: getEffectiveBackgroundColor(el),
                     fontSize: styles.fontSize,
                     fontWeight: styles.fontWeight,
                     visibility: styles.visibility,
@@ -133,7 +171,7 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                         let parsed: Vec<ComputedStyles> = items
                             .iter()
                             .enumerate()
-                            .filter_map(|(idx, item)| {
+                            .map(|(idx, item)| {
                                 let mut properties = HashMap::new();
 
                                 if let Some(color) = item.get("color").and_then(|v| v.as_str()) {
@@ -166,11 +204,11 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                     .and_then(|v| v.as_str())
                                     .map(String::from);
 
-                                Some(ComputedStyles {
+                                ComputedStyles {
                                     node_id: idx as i64,
                                     selector,
                                     properties,
-                                })
+                                }
                             })
                             .collect();
 

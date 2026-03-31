@@ -4,9 +4,10 @@
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
+use crate::taxonomy::Severity;
 
 /// Technical SEO analysis results
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -53,7 +54,7 @@ pub struct HreflangTag {
 pub struct TechnicalIssue {
     pub issue_type: String,
     pub message: String,
-    pub severity: String,
+    pub severity: Severity,
 }
 
 /// Analyze technical SEO aspects
@@ -125,10 +126,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
 
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
-    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_else(|e| {
-        warn!("Failed to parse technical SEO JSON: {}", e);
-        serde_json::Value::Object(serde_json::Map::new())
-    });
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     let canonical_url = parsed["canonical"].as_str().map(String::from);
     let lang = parsed["lang"].as_str().map(String::from);
@@ -159,7 +157,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_https".to_string(),
             message: "Page is not served over HTTPS".to_string(),
-            severity: "error".to_string(),
+            severity: Severity::High,
         });
     }
 
@@ -167,7 +165,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_canonical".to_string(),
             message: "Missing canonical URL".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -175,7 +173,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_lang".to_string(),
             message: "Missing lang attribute on html element".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -186,7 +184,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
                 "Page has thin content ({} words, recommended: 300+)",
                 word_count
             ),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 
@@ -194,7 +192,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         issues.push(TechnicalIssue {
             issue_type: "no_internal_links".to_string(),
             message: "Page has no internal links".to_string(),
-            severity: "warning".to_string(),
+            severity: Severity::Medium,
         });
     }
 

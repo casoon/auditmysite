@@ -8,32 +8,41 @@
 
 **Solutions:**
 
-1. **Auto-download** (recommended):
+1. **Install via auditmysite** (recommended):
    ```bash
-   auditmysite https://example.com
-   # Chromium will be downloaded to ~/.audit/chromium/
+   auditmysite browser install
+   # Downloads Chrome for Testing to ~/.auditmysite/browsers/
    ```
 
-2. **Specify path manually:**
+2. **Check browser status:**
+   ```bash
+   auditmysite browser detect
+   # Shows which browser is found and where
+
+   auditmysite doctor
+   # Full system check (browser, permissions, connectivity)
+   ```
+
+3. **Specify path manually:**
    ```bash
    # macOS
-   auditmysite --chrome-path "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" https://example.com
-   
+   auditmysite --browser-path "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" https://example.com
+
    # Linux
-   auditmysite --chrome-path /usr/bin/chromium-browser https://example.com
-   
+   auditmysite --browser-path /usr/bin/chromium-browser https://example.com
+
    # Windows
-   auditmysite --chrome-path "C:\Program Files\Google\Chrome\Application\chrome.exe" https://example.com
+   auditmysite --browser-path "C:\Program Files\Google\Chrome\Application\chrome.exe" https://example.com
    ```
 
-3. **Install via package manager:**
+4. **Install via package manager:**
    ```bash
    # macOS
    brew install chromium
-   
+
    # Ubuntu/Debian
    sudo apt install chromium-browser
-   
+
    # Fedora
    sudo dnf install chromium
    ```
@@ -69,12 +78,7 @@ auditmysite --no-sandbox https://example.com
 
 **Error:** `WS Connection error: Ws(Protocol(ResetWithoutClosingHandshake))`
 
-This warning is harmless and has been fixed in v0.2.1+. Update to the latest version:
-```bash
-brew upgrade auditmysite
-# or
-cargo install auditmysite
-```
+This warning is harmless and can be ignored. It occurs when Chrome's WebSocket connection closes during shutdown.
 
 ### PDF Generation Fails
 
@@ -117,6 +121,27 @@ This is a security feature. If you need to audit internal sites:
    echo "https://example.com/page2" >> urls.txt
    auditmysite --url-file urls.txt
    ```
+
+## Browser Management
+
+auditmysite provides built-in browser management commands:
+
+```bash
+# Detect installed browsers
+auditmysite browser detect
+
+# Install Chrome for Testing
+auditmysite browser install
+
+# Show browser binary path
+auditmysite browser path
+
+# Remove managed browser installation
+auditmysite browser remove
+
+# Full system diagnostic
+auditmysite doctor
+```
 
 ## Debug Mode
 

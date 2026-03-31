@@ -8,7 +8,7 @@
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
-use crate::accessibility::{extract_text_styles, AXTree, ComputedStyles};
+use crate::accessibility::{extract_text_styles, AXTree};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
@@ -17,7 +17,7 @@ pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.3",
     name: "Contrast (Minimum)",
     level: WcagLevel::AA,
-    severity: Severity::Serious,
+    severity: Severity::High,
     description: "Text must have sufficient color contrast with background",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html",
 };
@@ -26,19 +26,11 @@ pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
 pub struct ContrastRule;
 
 impl ContrastRule {
-    /// Check contrast ratios for text elements (legacy - no CDP access)
-    pub fn check(_tree: &AXTree, _level: WcagLevel) -> Vec<Violation> {
-        // This function is called by the engine but can't do contrast checking
-        // without access to the Page. Use check_with_page instead.
-        Vec::new()
-    }
-
     /// Check contrast ratios for text elements (with CDP access)
-    ///
-    /// Note: Prefer `check_with_styles` when styles are already extracted
-    /// (e.g., via parallel extraction in the pipeline)
     pub async fn check_with_page(page: &Page, _tree: &AXTree, level: WcagLevel) -> Vec<Violation> {
         debug!("Running contrast check with CDP integration...");
+
+        let mut violations = Vec::new();
 
         // Extract computed styles for text elements
         let styles_result = extract_text_styles(page).await;
@@ -46,23 +38,14 @@ impl ContrastRule {
             Ok(s) => s,
             Err(e) => {
                 warn!("Failed to extract text styles: {}", e);
-                return Vec::new();
+                return violations;
             }
         };
-
-        Self::check_with_styles(&styles, level)
-    }
-
-    /// Check contrast ratios using pre-fetched styles
-    ///
-    /// This is more efficient when styles are extracted in parallel with AXTree
-    pub fn check_with_styles(styles: &[ComputedStyles], level: WcagLevel) -> Vec<Violation> {
-        let mut violations = Vec::new();
 
         debug!("Checking contrast for {} elements", styles.len());
 
         // Check each element's contrast
-        for style in styles {
+        for style in &styles {
             // Skip invisible elements
             if let Some(visibility) = style.get("visibility") {
                 if visibility == "hidden" {
@@ -92,16 +75,20 @@ impl ContrastRule {
                 }
             };
 
+            // Skip elements with fully transparent backgrounds
+            if Color::is_transparent(bg_color_str) {
+                debug!(
+                    "Skipping element with transparent background: {}",
+                    bg_color_str
+                );
+                continue;
+            }
+
             let bg_color = match Color::from_css(bg_color_str) {
                 Some(c) => c,
                 None => {
                     debug!("Failed to parse background color: {}", bg_color_str);
-                    // Try to handle rgba(0, 0, 0, 0) - transparent
-                    if bg_color_str.contains("rgba") && bg_color_str.contains(", 0)") {
-                        Color::new(255, 255, 255) // Default to white
-                    } else {
-                        continue;
-                    }
+                    continue;
                 }
             };
 
@@ -138,7 +125,7 @@ impl ContrastRule {
                     CONTRAST_RULE.id,
                     CONTRAST_RULE.name,
                     CONTRAST_RULE.level,
-                    Severity::Serious,
+                    Severity::High,
                     &message,
                     format!("{}#{}", selector, style.node_id),
                 )
@@ -207,6 +194,28 @@ impl Color {
     /// Create a new color from RGB values
     pub fn new(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
+    }
+
+    /// Check if a CSS color string represents a fully transparent color
+    pub fn is_transparent(css: &str) -> bool {
+        let css = css.trim();
+        if css == "transparent" {
+            return true;
+        }
+        if css.starts_with("rgba") {
+            if let Some(start) = css.find('(') {
+                if let Some(end) = css.find(')') {
+                    let parts: Vec<&str> =
+                        css[start + 1..end].split(',').map(|s| s.trim()).collect();
+                    if parts.len() == 4 {
+                        if let Ok(alpha) = parts[3].parse::<f64>() {
+                            return alpha == 0.0;
+                        }
+                    }
+                }
+            }
+        }
+        false
     }
 
     /// Parse color from CSS color string
@@ -392,5 +401,17 @@ mod tests {
         // Level A has no contrast requirement
         assert!(ContrastRule::meets_requirement(1.0, false, WcagLevel::A));
         assert!(ContrastRule::meets_requirement(2.0, true, WcagLevel::A));
+    }
+
+    #[test]
+    fn test_is_transparent() {
+        assert!(Color::is_transparent("transparent"));
+        assert!(Color::is_transparent("rgba(0, 0, 0, 0)"));
+        assert!(Color::is_transparent("rgba(255, 255, 255, 0)"));
+        assert!(Color::is_transparent("rgba(0, 0, 0, 0.0)"));
+        assert!(!Color::is_transparent("rgba(0, 0, 0, 0.5)"));
+        assert!(!Color::is_transparent("rgba(0, 0, 0, 1)"));
+        assert!(!Color::is_transparent("rgb(255, 255, 255)"));
+        assert!(!Color::is_transparent("#FFFFFF"));
     }
 }

@@ -1,32 +1,65 @@
 # auditmysite
 
-> Lightning-fast WCAG 2.1 accessibility checker written in Rust
+> Accessibility audits for real rendered pages, built for CI and modern frontend stacks
 
+[![CI](https://github.com/casoon/auditmysite/actions/workflows/ci.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/ci.yml)
+[![Release](https://github.com/casoon/auditmysite/actions/workflows/release.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/release.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
 
 ## Overview
 
-`auditmysite` is a blazing-fast, resource-efficient command-line tool for auditing web accessibility compliance. It leverages Chrome's native Accessibility Tree via the Chrome DevTools Protocol (CDP) to provide accurate WCAG 2.1 Level A/AA/AAA testing.
+`auditmysite` is a Rust CLI that audits accessibility against fully rendered pages in Chrome. Instead of scanning raw HTML only, it uses Chrome DevTools Protocol (CDP) and the browser's native Accessibility Tree, so it can evaluate dynamic DOM, computed styles, and JavaScript-heavy applications more realistically.
 
-### Key Features
+It is designed for teams that want a fast local check, stable JSON for automation, and a single binary that can be dropped into CI.
 
-- **Resource Efficient**: 100-300 MB RAM per instance (vs. 500MB+ for Node.js tools)
-- **Fast**: <1s per page audit via direct CDP + AXTree extraction
-- **Accurate**: Uses browser's native accessibility representation
-- **Comprehensive**: Covers WCAG 2.1 A/AA/AAA including contrast checks
-- **Batch Processing**: Sitemap parsing and URL lists support
-- **Multiple Outputs**: JSON, CLI tables, HTML/PDF reports
-- **Cross-Platform**: Single binary for macOS, Linux, Windows
+## Why use it
 
-## Installation
+- Real browser signals instead of static guesses
+- Works for single pages, sitemaps, and URL lists
+- Outputs as terminal table, JSON, or PDF
+- JSON output is schema-backed and tested for release stability
+- Ships as a Rust binary instead of a Node-based toolchain
 
-### Homebrew (macOS/Linux)
+## Why this approach
+
+Most accessibility CLIs either depend on static parsing or require a heavier runtime stack around browser automation. `auditmysite` is opinionated in a different direction:
+
+- Chrome-native accessibility data first
+- CLI-first workflow for local use and CI
+- Small operational surface: install a binary, point it at a URL, get a report
+- Optional modules for performance, SEO, security, and mobile without changing tools
+
+## Quick Example
+
+```bash
+auditmysite https://example.com
+```
+
+By default, a single URL audit runs the full analysis set and writes a PDF report into the current working directory, for example `./example-com-2026-03-31-standard.pdf`.
+
+For CI or machine-readable output:
+
+```bash
+auditmysite https://example.com -f json -o report.json --quiet
+```
+
+## Install
+
+### Homebrew
 
 ```bash
 brew tap casoon/tap
 brew install auditmysite
 ```
+
+### curl installer (macOS/Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh | bash
+```
+
+The installer downloads the latest GitHub Release asset for your platform and verifies it against the published `.sha256` checksum before installing it.
 
 ### Cargo
 
@@ -34,11 +67,14 @@ brew install auditmysite
 cargo install auditmysite
 ```
 
-### Pre-built Binaries
+### Prebuilt binaries
 
-Download from [Releases](https://github.com/casoon/auditmysite/releases)
+Download from [Releases](https://github.com/casoon/auditmysite/releases).
 
-### Build from Source
+- macOS/Linux: `.tar.gz`
+- Windows: `.zip`
+
+### Build from source
 
 ```bash
 git clone https://github.com/casoon/auditmysite.git
@@ -47,157 +83,232 @@ cargo build --release
 ./target/release/auditmysite --version
 ```
 
-## Quick Start
+## Requirements
 
-### Audit a Single URL
+- Rust 1.75+ for local builds
+- Chrome/Chromium or a managed browser install
+- macOS, Linux, or Windows for released binaries
+
+If no compatible browser is installed:
 
 ```bash
-# Default output (terminal table)
+auditmysite browser detect
+auditmysite browser install
+```
+
+## Quick Start
+
+The fastest way to validate your setup:
+
+```bash
+auditmysite https://example.com
+```
+
+That creates a PDF report in the current directory. For machine-readable output:
+
+```bash
+auditmysite https://example.com -f json -o report.json
+```
+
+### Single page
+
+```bash
+# default: full audit + PDF in current directory
 auditmysite https://example.com
 
-# JSON output
+# JSON
 auditmysite https://example.com -f json -o report.json
 
-# HTML report
-auditmysite https://example.com -f html -o report.html
-
-# PDF report
+# PDF with explicit path
 auditmysite https://example.com -f pdf -o report.pdf
 
-# WCAG AAA level
+# stricter WCAG level
 auditmysite https://example.com -l AAA
 ```
 
-### Batch Processing
+### Batch audits
 
 ```bash
-# From sitemap
+# sitemap
 auditmysite --sitemap https://example.com/sitemap.xml
 
-# From URL list file
-auditmysite --urls urls.txt
+# URL file
+auditmysite --url-file urls.txt
 ```
 
-### Custom Chrome Path
+### Browser selection
 
 ```bash
-auditmysite --chrome-path /path/to/chrome https://example.com
+auditmysite --browser-path /path/to/chrome https://example.com
 ```
 
-## Usage
+## CLI
 
-```
-auditmysite [OPTIONS] <URL>
-
-Arguments:
-  <URL>  URL to audit (or use --sitemap/--urls for batch)
-
-Options:
-  -l, --level <LEVEL>          WCAG level: A, AA, AAA [default: AA]
-  -f, --format <FORMAT>        Output format: json, table, html, pdf, markdown [default: table]
-  -o, --output <FILE>          Output file path (stdout if not specified)
-      --chrome-path <PATH>     Chrome/Chromium executable path
-      --sitemap <URL>          Audit all URLs from sitemap.xml
-      --urls <FILE>            Audit URLs from file (one per line)
-  -h, --help                   Print help
-  -V, --version                Print version
+```text
+auditmysite [OPTIONS] [URL] [COMMAND]
 ```
 
-## Supported WCAG Rules
+Primary commands:
+- `auditmysite <url>`: run a full single-page audit and write a PDF into the current directory
+- `auditmysite --sitemap <url>`: audit sitemap URLs
+- `auditmysite --url-file <file>`: audit URLs from file
+- `auditmysite browser detect`: show available browsers
+- `auditmysite browser install`: install managed Chrome for Testing
+- `auditmysite doctor`: run local diagnostics
 
-### Level A
-- ✅ 1.1.1 - Non-text Content (images alt text)
-- ✅ 2.1.1 - Keyboard accessibility
-- ✅ 2.4.1 - Bypass blocks (skip links, landmarks)
-- ✅ 3.1.1 - Language of Page
-- ✅ 4.1.2 - Name, Role, Value (form labels, ARIA)
+For the full current interface, use:
 
-### Level AA
-- ✅ 1.4.3 - Contrast (Minimum) - 4.5:1 text, 3:1 large text
-- ✅ 2.4.6 - Headings and Labels
-- ✅ 3.3.2 - Labels or Instructions (forms)
+```bash
+auditmysite --help
+auditmysite browser --help
+```
 
-### Level AAA (Planned)
-- 🔄 1.4.6 - Contrast (Enhanced) - 7:1 text, 4.5:1 large text
-- 🔄 2.4.9 - Link Purpose (Link Only)
+## Output Contract
+
+JSON output is treated as an automation contract.
+
+- Contract documentation: [docs/OUTPUT_CONTRACT.md](/Users/jseidel/GitHub/auditmysite/docs/OUTPUT_CONTRACT.md)
+- Single report schema: [docs/json-report.schema.json](/Users/jseidel/GitHub/auditmysite/docs/json-report.schema.json)
+- Batch report schema: [docs/json-batch-report.schema.json](/Users/jseidel/GitHub/auditmysite/docs/json-batch-report.schema.json)
+
+The repository validates these contracts in automated tests.
+
+## Feature Scope
+
+WCAG coverage currently includes key rules across level A and AA, including:
+- Non-text content
+- Keyboard access
+- Bypass blocks
+- Language of page
+- Name, role, value / form labeling
+- Contrast (minimum)
+- Headings and labels
+- Labels or instructions
+
+AAA is not fully implemented yet.
+
+Additional modules:
+- Performance: Core Web Vitals and score interpretation
+- SEO: meta tags, headings, structured data, content profile
+- Security: HTTPS and header checks
+- Mobile: viewport, touch-target, and readability checks
+
+## Compared to typical setups
+
+- Better fit for JavaScript-heavy sites than static HTML-only checks
+- Easier to distribute than a multi-package browser toolchain
+- More automation-friendly than ad hoc console output because the JSON contract is explicit and tested
+- Broader reporting surface than a pure accessibility-only checker when you also want performance, SEO, security, and mobile signals
+
+## Typical Workflows
+
+### Local audit while developing
+
+```bash
+auditmysite https://localhost:3000 --browser-path /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome
+```
+
+### JSON report for CI
+
+```bash
+auditmysite https://example.com -f json -o report.json --quiet
+```
+
+### Batch audit from sitemap
+
+```bash
+auditmysite --sitemap https://example.com/sitemap.xml -f json -o sitemap-report.json
+```
 
 ## Architecture
 
+```text
+CLI -> Browser Manager -> Chrome/CDP -> Accessibility Tree -> WCAG Engine -> Output
 ```
-CLI → Browser Manager → Chrome (CDP) → Accessibility Tree → WCAG Engine → Report
-```
 
-1. **Auto-detect Chrome** binary across platforms
-2. **Launch headless Chrome** with optimized flags
-3. **Navigate to URL** and wait for page load
-4. **Extract Accessibility Tree** via CDP `Accessibility.getFullAXTree()`
-5. **Run WCAG rules** against AXTree nodes
-6. **Calculate contrast** via CDP computed styles
-7. **Generate report** in requested format (table, JSON, HTML, PDF)
+Key layers:
+- `browser/`: browser detection, resolution, install, lifecycle, pooling
+- `audit/`: pipeline, normalization, scoring, batch processing
+- `wcag/`: rule engine and violations
+- `output/`: CLI, JSON, PDF
+- `seo/`, `security/`, `performance/`, `mobile/`: optional analysis modules
 
-## Performance
-
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Single page audit | <3s | ~1.2s |
-| Memory usage | <300 MB | ~180 MB |
-| Binary size | <15 MB | ~8.5 MB |
-| Batch (10 pages) | <10s | ~7s |
-
-## Comparison
-
-| Feature | auditmysite (Rust) | pa11y (Node.js) | axe-core |
-|---------|--------------|-----------------|----------|
-| Speed | ⚡⚡⚡ <1s | ⚡⚡ 2-3s | ⚡ 3-5s |
-| Memory | 180 MB | 500+ MB | 400+ MB |
-| WCAG Coverage | A/AA + contrast | A/AA | A/AA/AAA |
-| Batch Processing | ✅ Sitemap | ⚠️ Manual | ❌ |
-| Binary Size | 8.5 MB | N/A (Node) | N/A |
-| Installation | Single binary | npm + deps | npm + deps |
+More detail:
+- Current implementation: [docs/ARCHITECTURE.md](/Users/jseidel/GitHub/auditmysite/docs/ARCHITECTURE.md)
+- Browser dependency details: [docs/chrome-dependency.md](/Users/jseidel/GitHub/auditmysite/docs/chrome-dependency.md)
+- Troubleshooting: [docs/TROUBLESHOOTING.md](/Users/jseidel/GitHub/auditmysite/docs/TROUBLESHOOTING.md)
 
 ## Development
-
-### Prerequisites
-
-- Rust 1.75+
-- Chrome/Chromium installed
 
 ### Setup
 
 ```bash
 git clone https://github.com/casoon/auditmysite.git
 cd auditmysite
-
-# Run tests
 cargo test
-
-# Build release
 cargo build --release
-
-# Run
 ./target/release/auditmysite https://example.com
 ```
 
+### Pre-commit secret scan
+
+This repository uses `nosecrets` in the Git `pre-commit` hook.
+
+Enable the repo hook path:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Install `nosecrets` as a real binary first:
+
+```bash
+npm install -g @casoon/nosecrets
+# or
+cargo install nosecrets-cli
+```
+
+The hook expects `nosecrets` to be available in `PATH`.
+
+### Release checks
+
+Run the local release gate with:
+
+```bash
+./scripts/release-check.sh
+```
+
+It validates:
+- `cargo test`
+- ignored browser integration tests
+- builds with and without PDF
+- current `--help` output
+- JSON contract tests
+- installer/release artifact consistency
+- stale docs references
+
+## Troubleshooting
+
+- Browser not found: run `auditmysite browser detect` or install a managed browser with `auditmysite browser install`
+- Running in Docker or as root: use `--no-sandbox`
+- Need raw output for scripts: prefer `-f json -o report.json`
+- Unsure about the full CLI surface: run `auditmysite --help`
+
 ## Contributing
 
-Contributions welcome! Please:
+Contributions are welcome. At minimum before opening a PR:
 
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/new-rule`)
-3. Run tests: `cargo test`
-4. Submit PR
+```bash
+cargo test
+./scripts/release-check.sh
+```
 
 ## License
 
-LGPL-3.0-or-later - see [LICENSE](LICENSE)
+LGPL-3.0-or-later. See [LICENSE](LICENSE).
 
 ## Credits
 
-- Built with [chromiumoxide](https://github.com/mattsse/chromiumoxide) for CDP
+- Browser automation via [chromiumoxide](https://github.com/mattsse/chromiumoxide)
 - PDF reports via [renderreport](https://github.com/casoon/renderreport)
-- WCAG 2.1 Guidelines: [W3C](https://www.w3.org/WAI/WCAG21/)
-
----
-
-**Version:** 0.2.1  
-**Repository:** [github.com/casoon/auditmysite](https://github.com/casoon/auditmysite)
+- WCAG reference material from [W3C](https://www.w3.org/WAI/WCAG21/)

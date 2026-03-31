@@ -4,12 +4,14 @@
 
 mod headings;
 mod meta;
-mod schema;
+pub mod profile;
+pub mod schema;
 mod social;
-mod technical;
+pub mod technical;
 
 pub use headings::{analyze_heading_structure, HeadingIssue, HeadingStructure};
 pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
+pub use profile::{build_content_profile, SeoContentProfile};
 pub use schema::{detect_structured_data, SchemaType, StructuredData};
 pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
 pub use technical::{analyze_technical_seo, TechnicalSeo};
@@ -20,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 
 /// Complete SEO analysis results
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SeoAnalysis {
     /// Meta tags analysis
     pub meta: MetaTags,
@@ -36,6 +38,8 @@ pub struct SeoAnalysis {
     pub structured_data: StructuredData,
     /// Overall SEO score (0-100)
     pub score: u32,
+    /// Content profile analysis
+    pub content_profile: Option<SeoContentProfile>,
 }
 
 /// Run complete SEO analysis
@@ -51,7 +55,7 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     // Calculate score
     let score = calculate_seo_score(&meta, &meta_issues, &headings, &social, &technical);
 
-    Ok(SeoAnalysis {
+    let mut analysis = SeoAnalysis {
         meta,
         meta_issues,
         headings,
@@ -59,7 +63,13 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         technical,
         structured_data,
         score,
-    })
+        content_profile: None,
+    };
+
+    // Build content profile from collected data
+    analysis.content_profile = Some(build_content_profile(&analysis));
+
+    Ok(analysis)
 }
 
 fn calculate_seo_score(
@@ -73,10 +83,11 @@ fn calculate_seo_score(
 
     // Meta tags (-5 to -20 per issue)
     for issue in meta_issues {
-        score = score.saturating_sub(match issue.severity.as_str() {
-            "error" => 10,
-            "warning" => 5,
-            _ => 2,
+        score = score.saturating_sub(match issue.severity {
+            crate::taxonomy::Severity::Critical => 15,
+            crate::taxonomy::Severity::High => 10,
+            crate::taxonomy::Severity::Medium => 5,
+            crate::taxonomy::Severity::Low => 2,
         });
     }
 

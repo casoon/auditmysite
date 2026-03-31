@@ -4,7 +4,7 @@
 
 use chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams;
 use chromiumoxide::Page;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::tree::{AXNode, AXProperty, AXTree, AXValue, NameSource};
 use crate::error::{AuditError, Result};
@@ -30,8 +30,8 @@ pub async fn extract_ax_tree(page: &Page) -> Result<AXTree> {
         })?;
 
     // Get nodes from response - serialize just the nodes array
-    let nodes_json = serde_json::to_value(&response.nodes)
-        .map_err(|e| AuditError::AXTreeExtractionFailed {
+    let nodes_json =
+        serde_json::to_value(&response.nodes).map_err(|e| AuditError::AXTreeExtractionFailed {
             reason: format!("JSON serialization failed: {}", e),
         })?;
 
@@ -60,7 +60,14 @@ fn extract_nodes_from_json(json: &serde_json::Value) -> Result<Vec<AXNode>> {
 
     let nodes: Vec<AXNode> = nodes_array
         .iter()
-        .filter_map(|node| convert_json_node(node).ok())
+        .filter_map(|node| {
+            convert_json_node(node)
+                .map_err(|e| {
+                    warn!("Skipping unparseable AX node: {}", e);
+                    e
+                })
+                .ok()
+        })
         .collect();
 
     Ok(nodes)
@@ -68,51 +75,38 @@ fn extract_nodes_from_json(json: &serde_json::Value) -> Result<Vec<AXNode>> {
 
 /// Convert a JSON node to our AXNode format
 fn convert_json_node(json: &serde_json::Value) -> Result<AXNode> {
-    let node_id = json["nodeId"]
-        .as_str()
-        .unwrap_or_default()
-        .to_string();
+    let node_id = json["nodeId"].as_str().unwrap_or_default().to_string();
 
     let ignored = json["ignored"].as_bool().unwrap_or(false);
 
     // Extract role
-    let role = json["role"]["value"]
-        .as_str()
-        .map(String::from);
+    let role = json["role"]["value"].as_str().map(String::from);
 
     // Extract name
-    let name = json["name"]["value"]
-        .as_str()
-        .map(String::from);
+    let name = json["name"]["value"].as_str().map(String::from);
 
     // Extract name source
-    let name_source = json["name"]["sources"]
-        .as_array()
-        .and_then(|sources| {
-            sources.iter().find_map(|s| {
-                if s["value"].is_null() {
-                    return None;
-                }
-                match s["type"].as_str()? {
-                    "attribute" => Some(NameSource::Attribute),
-                    "relatedElement" => Some(NameSource::RelatedElement),
-                    "contents" => Some(NameSource::Contents),
-                    "placeholder" => Some(NameSource::Placeholder),
-                    "title" => Some(NameSource::Title),
-                    _ => None,
-                }
-            })
-        });
+    let name_source = json["name"]["sources"].as_array().and_then(|sources| {
+        sources.iter().find_map(|s| {
+            if s["value"].is_null() {
+                return None;
+            }
+            match s["type"].as_str()? {
+                "attribute" => Some(NameSource::Attribute),
+                "relatedElement" => Some(NameSource::RelatedElement),
+                "contents" => Some(NameSource::Contents),
+                "placeholder" => Some(NameSource::Placeholder),
+                "title" => Some(NameSource::Title),
+                _ => None,
+            }
+        })
+    });
 
     // Extract description
-    let description = json["description"]["value"]
-        .as_str()
-        .map(String::from);
+    let description = json["description"]["value"].as_str().map(String::from);
 
     // Extract value
-    let value = json["value"]["value"]
-        .as_str()
-        .map(String::from);
+    let value = json["value"]["value"].as_str().map(String::from);
 
     // Convert properties
     let properties = json["properties"]
@@ -140,13 +134,10 @@ fn convert_json_node(json: &serde_json::Value) -> Result<AXNode> {
         .unwrap_or_default();
 
     // Extract parent ID
-    let parent_id = json["parentId"]
-        .as_str()
-        .map(String::from);
+    let parent_id = json["parentId"].as_str().map(String::from);
 
     // Extract backend DOM node ID
-    let backend_dom_node_id = json["backendDOMNodeId"]
-        .as_i64();
+    let backend_dom_node_id = json["backendDOMNodeId"].as_i64();
 
     // Extract ignored reasons
     let ignored_reasons = json["ignoredReasons"]
