@@ -538,7 +538,7 @@ mod tests {
 
         let existing = serde_json::json!({
             "metadata": {
-                "tool": "auditmysite v0.4.2",
+                "tool": "auditmysite v0.4.3",
                 "timestamp": "2026-03-01T08:00:00Z",
                 "wcag_level": "AA",
                 "execution_time_ms": 1000

@@ -773,7 +773,7 @@ error!("CDP connection lost: {}", err);
 class Auditmysite < Formula
   desc "WCAG 2.1 Accessibility Checker with full audit reporting"
   homepage "https://github.com/casoon/auditmysite"
-  url "https://github.com/casoon/auditmysite/archive/refs/tags/v0.4.2.tar.gz"
+  url "https://github.com/casoon/auditmysite/archive/refs/tags/v0.4.3.tar.gz"
   sha256 "..."
   license "LGPL-3.0-or-later"
 
