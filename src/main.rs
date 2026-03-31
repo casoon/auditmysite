@@ -434,10 +434,18 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
+                if !args.quiet {
+                    print_report(report, args.level);
+                }
                 let normalized = normalize(report);
                 let path = args.output.clone().unwrap_or_else(|| {
                     default_single_pdf_output_path(report.url.as_str(), args.report_level)
                 });
+                let auto_json_path = if args.output.is_none() {
+                    Some(default_single_json_output_path(&path))
+                } else {
+                    None
+                };
                 let history_preview =
                     preview_report_history(output_directory(&path), &path, &normalized)
                         .ok()
@@ -481,8 +489,15 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                         reason: e.to_string(),
                     }
                 })?;
+                if let Some(json_path) = auto_json_path.as_ref() {
+                    let json_output = format_json_normalized(&normalized, report, true)?;
+                    output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
+                    maybe_write_single_history(json_path, &normalized, args.quiet)?;
+                }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
-                maybe_write_single_history(&path, &normalized, args.quiet)?;
+                if auto_json_path.is_none() {
+                    maybe_write_single_history(&path, &normalized, args.quiet)?;
+                }
             }
             #[cfg(not(feature = "pdf"))]
             {
@@ -582,6 +597,11 @@ fn output_directory(path: &PathBuf) -> &std::path::Path {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => std::path::Path::new("."),
     }
+}
+
+#[cfg(any(feature = "pdf", test))]
+fn default_single_json_output_path(pdf_path: &PathBuf) -> PathBuf {
+    pdf_path.with_extension("json")
 }
 
 #[cfg(any(feature = "pdf", test))]
@@ -690,6 +710,15 @@ mod tests {
     fn test_output_directory_defaults_to_current_directory_for_bare_filename() {
         let path = PathBuf::from("casoon-de-2026-03-31-standard.pdf");
         assert_eq!(output_directory(&path), std::path::Path::new("."));
+    }
+
+    #[test]
+    fn test_default_single_json_output_path_matches_pdf_basename() {
+        let pdf_path = PathBuf::from("casoon-de-2026-03-31-standard.pdf");
+        assert_eq!(
+            default_single_json_output_path(&pdf_path),
+            PathBuf::from("casoon-de-2026-03-31-standard.json")
+        );
     }
 }
 
