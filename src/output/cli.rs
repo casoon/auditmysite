@@ -1,9 +1,10 @@
-//! CLI Table Output Formatter
+//! CLI Output Formatter
 //!
-//! Generates human-readable terminal output with colored tables.
+//! Generates human-readable terminal output for interactive use and batch tables.
 
 use colored::Colorize;
 use prettytable::{format, Cell, Row, Table};
+use std::cmp::min;
 
 use crate::audit::{AuditReport, BatchReport, PerformanceResults};
 use crate::cli::WcagLevel;
@@ -16,8 +17,7 @@ use crate::wcag::{Severity, Violation};
 /// Format and print the audit report to the terminal
 pub fn print_report(report: &AuditReport, level: WcagLevel) {
     println!();
-    print_header(report);
-    print_summary(report, level);
+    print_dashboard(report, level);
 
     if !report.wcag_results.violations.is_empty() {
         print_violations_table(&report.wcag_results.violations);
@@ -37,127 +37,163 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
         print_mobile_section(mobile);
     }
 
-    // Overall score if multiple modules are active
-    if report.performance.is_some()
-        || report.seo.is_some()
-        || report.security.is_some()
-        || report.mobile.is_some()
-    {
-        println!("  {} {}", "Overall Score:".bold(), report.overall_score());
-        println!();
-    }
-
     print_footer(report);
 }
 
-/// Print the report header
-fn print_header(report: &AuditReport) {
-    println!("{}", "═".repeat(70).cyan());
-    println!(
-        "{} {}",
-        "WCAG Accessibility Report".cyan().bold(),
-        format!("({})", report.timestamp.format("%Y-%m-%d %H:%M:%S UTC")).dimmed()
-    );
-    println!("{}", "═".repeat(70).cyan());
+fn print_dashboard(report: &AuditReport, level: WcagLevel) {
+    println!("{}", "auditmysite".truecolor(140, 154, 181).bold());
+    println!("{}", format!("$ auditmysite {}", report.url).white().bold());
     println!();
-    println!("{} {}", "URL:".bold(), report.url);
+
+    for line in dashboard_rows(report) {
+        println!("{line}");
+    }
+
+    println!();
+    println!(
+        "{}",
+        format!(
+            "  WCAG {}  Nodes {}  Duration {:.1}s  Overall {}  Certificate {}",
+            level,
+            report.nodes_analyzed,
+            report.duration_ms as f64 / 1000.0,
+            report.overall_score(),
+            report.certificate
+        )
+        .dimmed()
+    );
     println!();
 }
 
-/// Print the summary section
-fn print_summary(report: &AuditReport, level: WcagLevel) {
-    let score = report.score;
-    let score_color = if score >= 90.0 {
-        format!("{:.1}", score).green()
-    } else if score >= 70.0 {
-        format!("{:.1}", score).yellow()
-    } else if score >= 50.0 {
-        format!("{:.1}", score).truecolor(255, 165, 0) // Orange
+fn dashboard_rows(report: &AuditReport) -> Vec<String> {
+    let mut rows = vec![render_dashboard_row(
+        "Accessibility",
+        report.score.round() as u32,
+        &report.grade,
+    )];
+
+    if let Some(ref seo) = report.seo {
+        rows.push(render_dashboard_row(
+            "SEO",
+            seo.score,
+            score_grade(seo.score),
+        ));
+    }
+    if let Some(ref perf) = report.performance {
+        rows.push(render_dashboard_row(
+            "Performance",
+            perf.score.overall,
+            score_grade(perf.score.overall),
+        ));
+    }
+    if let Some(ref sec) = report.security {
+        rows.push(render_dashboard_row("Security", sec.score, &sec.grade));
+    }
+    if let Some(ref mobile) = report.mobile {
+        rows.push(render_dashboard_row(
+            "Mobile",
+            mobile.score,
+            score_grade(mobile.score),
+        ));
+    }
+
+    rows.push(String::new());
+    rows.push(format!(
+        "  {}",
+        render_issue_summary(
+            report
+                .wcag_results
+                .violations
+                .iter()
+                .filter(|v| v.severity == Severity::Critical)
+                .count(),
+            report
+                .wcag_results
+                .violations
+                .iter()
+                .filter(|v| v.severity == Severity::High)
+                .count(),
+            report
+                .wcag_results
+                .violations
+                .iter()
+                .filter(|v| v.severity == Severity::Medium)
+                .count(),
+            report
+                .wcag_results
+                .violations
+                .iter()
+                .filter(|v| v.severity == Severity::Low)
+                .count(),
+        )
+    ));
+    rows
+}
+
+fn render_dashboard_row(label: &str, score: u32, grade: &str) -> String {
+    let bar = render_score_bar(score);
+    let score_text = colorize_score(score, &format!("{score}/100")).bold();
+    let grade_text = colorize_grade(grade, grade).bold();
+    format!("{label:<16}  {bar}  {score_text}  {grade_text}")
+}
+
+fn render_score_bar(score: u32) -> String {
+    let slots = 18usize;
+    let filled = min((score as usize * slots + 99) / 100, slots);
+    let filled_text = "█".repeat(filled);
+    let empty_text = "░".repeat(slots - filled).truecolor(55, 68, 92);
+    format!("{}{}", bar_color(score, &filled_text), empty_text)
+}
+
+fn render_issue_summary(critical: usize, high: usize, medium: usize, low: usize) -> String {
+    let total = critical + high + medium + low;
+    format!(
+        "{}  {}  {}  {}  {}",
+        format!("Issues {total}").white().bold(),
+        format!("Critical {critical}").red().bold(),
+        format!("High {high}").truecolor(255, 165, 0).bold(),
+        format!("Medium {medium}").yellow().bold(),
+        format!("Low {low}").dimmed(),
+    )
+}
+
+fn colorize_score<'a>(score: u32, text: &'a str) -> colored::ColoredString {
+    bar_color(score, text)
+}
+
+fn colorize_grade<'a>(grade: &str, text: &'a str) -> colored::ColoredString {
+    match grade {
+        "A+" | "A" => text.green(),
+        "B" => text.yellow(),
+        "C" => text.truecolor(255, 165, 0),
+        "D" | "E" | "F" => text.red(),
+        _ => text.white(),
+    }
+}
+
+fn bar_color<'a>(score: u32, text: &'a str) -> colored::ColoredString {
+    if score >= 90 {
+        text.green()
+    } else if score >= 80 {
+        text.truecolor(120, 214, 75)
+    } else if score >= 70 {
+        text.yellow()
+    } else if score >= 50 {
+        text.truecolor(255, 165, 0)
     } else {
-        format!("{:.1}", score).red()
-    };
+        text.red()
+    }
+}
 
-    let grade_colored = match report.grade.as_str() {
-        "A" => report.grade.green().bold(),
-        "B" => report.grade.yellow().bold(),
-        "C" => report.grade.truecolor(255, 165, 0).bold(),
-        "D" | "F" => report.grade.red().bold(),
-        _ => report.grade.white().bold(),
-    };
-
-    // Certificate color coding
-    let certificate_colored = match report.certificate.as_str() {
-        "PLATINUM" => report.certificate.truecolor(229, 228, 226).bold(), // Platinum color
-        "GOLD" => report.certificate.truecolor(255, 215, 0).bold(),       // Gold
-        "SILVER" => report.certificate.truecolor(192, 192, 192).bold(),   // Silver
-        "BRONZE" => report.certificate.truecolor(205, 127, 50).bold(),    // Bronze
-        _ => report.certificate.red().bold(),                             // NEEDS_IMPROVEMENT
-    };
-
-    println!("{}", "Summary".bold().underline());
-    println!();
-    println!(
-        "  {} {} / 100  (Grade: {})",
-        "Score:".bold(),
-        score_color.bold(),
-        grade_colored
-    );
-    println!("  {} {}", "Certificate:".bold(), certificate_colored);
-    println!("  {} {}", "WCAG Level:".bold(), level.to_string().cyan());
-    println!("  {} {}", "Nodes Analyzed:".bold(), report.nodes_analyzed);
-    println!("  {} {}ms", "Duration:".bold(), report.duration_ms);
-    println!();
-
-    // Violation counts by severity
-    let violations = &report.wcag_results.violations;
-    let critical = violations
-        .iter()
-        .filter(|v| v.severity == Severity::Critical)
-        .count();
-    let high = violations
-        .iter()
-        .filter(|v| v.severity == Severity::High)
-        .count();
-    let medium = violations
-        .iter()
-        .filter(|v| v.severity == Severity::Medium)
-        .count();
-    let low = violations
-        .iter()
-        .filter(|v| v.severity == Severity::Low)
-        .count();
-
-    println!("{}", "Violations by Severity".bold().underline());
-    println!();
-    println!(
-        "  {} {}",
-        "Kritisch:".red().bold(),
-        if critical > 0 {
-            critical.to_string().red().bold().to_string()
-        } else {
-            "0".green().to_string()
-        }
-    );
-    println!(
-        "  {} {}",
-        "Hoch:    ".truecolor(255, 165, 0).bold(),
-        if high > 0 {
-            high.to_string().truecolor(255, 165, 0).to_string()
-        } else {
-            "0".green().to_string()
-        }
-    );
-    println!(
-        "  {} {}",
-        "Mittel:  ".yellow().bold(),
-        if medium > 0 {
-            medium.to_string().yellow().to_string()
-        } else {
-            "0".green().to_string()
-        }
-    );
-    println!("  {} {}", "Niedrig: ".dimmed().bold(), low);
-    println!();
+fn score_grade(score: u32) -> &'static str {
+    match score {
+        97..=100 => "A+",
+        90..=96 => "A",
+        80..=89 => "B",
+        70..=79 => "C",
+        60..=69 => "D",
+        _ => "F",
+    }
 }
 
 /// Print the violations table
@@ -490,5 +526,23 @@ mod tests {
         assert!(output.contains("1.1.1"));
         assert!(output.contains("Image missing"));
         assert!(output.contains("Add alt attribute"));
+    }
+
+    #[test]
+    fn test_render_dashboard_row_contains_score_and_grade() {
+        let row = render_dashboard_row("Security", 98, "A+");
+        assert!(row.contains("Security"));
+        assert!(row.contains("98/100"));
+        assert!(row.contains("A+"));
+    }
+
+    #[test]
+    fn test_score_grade_mapping() {
+        assert_eq!(score_grade(98), "A+");
+        assert_eq!(score_grade(92), "A");
+        assert_eq!(score_grade(84), "B");
+        assert_eq!(score_grade(74), "C");
+        assert_eq!(score_grade(61), "D");
+        assert_eq!(score_grade(49), "F");
     }
 }

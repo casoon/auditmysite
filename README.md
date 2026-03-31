@@ -46,13 +46,6 @@ auditmysite https://example.com -f json -o report.json --quiet
 
 ## Install
 
-### Homebrew
-
-```bash
-brew tap casoon/tap
-brew install auditmysite
-```
-
 ### curl installer (macOS/Linux)
 
 ```bash
@@ -61,11 +54,15 @@ curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh 
 
 The installer downloads the latest GitHub Release asset for your platform and verifies it against the published `.sha256` checksum before installing it.
 
-### Cargo
+Verify the installation:
 
 ```bash
-cargo install auditmysite
+auditmysite --version
+auditmysite --help
+auditmysite https://www.in-punkto.com
 ```
+
+That default command writes a PDF report into the current directory, for example `./in-punkto-com-2026-03-31-standard.pdf`.
 
 ### Prebuilt binaries
 
@@ -295,6 +292,21 @@ It validates:
 - Unsure about the full CLI surface: run `auditmysite --help`
 
 ## Contributing
+
+## Library / Development
+
+For library development or local work from the repository:
+
+```bash
+cargo build
+cargo test
+```
+
+If you want the current local repository state as an installed binary while developing:
+
+```bash
+cargo install --path . --force
+```
 
 Contributions are welcome. At minimum before opening a PR:
 

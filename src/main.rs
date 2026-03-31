@@ -438,37 +438,37 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                 let path = args.output.clone().unwrap_or_else(|| {
                     default_single_pdf_output_path(report.url.as_str(), args.report_level)
                 });
-                let history_preview = path
-                    .parent()
-                    .and_then(|dir| preview_report_history(dir, &path, &normalized).ok())
-                    .flatten()
-                    .map(
-                        |preview| auditmysite::output::report_model::ReportHistoryPreview {
-                            previous_date: preview.previous_date,
-                            timeline_entries: preview.timeline_entries,
-                            previous_accessibility_score: preview.previous_accessibility_score,
-                            previous_overall_score: preview.previous_overall_score,
-                            delta_accessibility: preview.delta.accessibility_score_delta,
-                            delta_overall: preview.delta.overall_score_delta,
-                            delta_total_issues: preview.delta.total_issues_delta,
-                            delta_critical_issues: preview.delta.critical_issues_delta,
-                            recent_entries: preview
-                                .recent_entries
-                                .into_iter()
-                                .map(|entry| {
-                                    (
-                                        entry.timestamp.format("%d.%m.%Y").to_string(),
-                                        entry.accessibility_score,
-                                        entry.overall_score,
-                                        entry.grade,
-                                        entry.severity_counts.total as u32,
-                                    )
-                                })
-                                .collect(),
-                            new_findings: preview.delta.new_findings,
-                            resolved_findings: preview.delta.resolved_findings,
-                        },
-                    );
+                let history_preview =
+                    preview_report_history(output_directory(&path), &path, &normalized)
+                        .ok()
+                        .flatten()
+                        .map(
+                            |preview| auditmysite::output::report_model::ReportHistoryPreview {
+                                previous_date: preview.previous_date,
+                                timeline_entries: preview.timeline_entries,
+                                previous_accessibility_score: preview.previous_accessibility_score,
+                                previous_overall_score: preview.previous_overall_score,
+                                delta_accessibility: preview.delta.accessibility_score_delta,
+                                delta_overall: preview.delta.overall_score_delta,
+                                delta_total_issues: preview.delta.total_issues_delta,
+                                delta_critical_issues: preview.delta.critical_issues_delta,
+                                recent_entries: preview
+                                    .recent_entries
+                                    .into_iter()
+                                    .map(|entry| {
+                                        (
+                                            entry.timestamp.format("%d.%m.%Y").to_string(),
+                                            entry.accessibility_score,
+                                            entry.overall_score,
+                                            entry.grade,
+                                            entry.severity_counts.total as u32,
+                                        )
+                                    })
+                                    .collect(),
+                                new_findings: preview.delta.new_findings,
+                                resolved_findings: preview.delta.resolved_findings,
+                            },
+                        );
                 let config = ReportConfig {
                     level: args.report_level,
                     company_name: args.company_name.clone(),
@@ -500,10 +500,7 @@ fn maybe_write_single_history(
     normalized: &auditmysite::audit::NormalizedReport,
     quiet: bool,
 ) -> Result<()> {
-    let Some(reports_dir) = output_path.parent() else {
-        return Ok(());
-    };
-
+    let reports_dir = output_directory(output_path);
     let written = write_report_history(reports_dir, output_path, normalized)?;
     if !quiet {
         for path in written {
@@ -580,6 +577,13 @@ fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) 
     Ok(())
 }
 
+fn output_directory(path: &PathBuf) -> &std::path::Path {
+    match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => std::path::Path::new("."),
+    }
+}
+
 #[cfg(any(feature = "pdf", test))]
 fn default_single_pdf_output_path(
     url: &str,
@@ -623,9 +627,7 @@ fn report_subject_from_url(url: &str) -> String {
 /// Write binary content to file
 #[cfg(feature = "pdf")]
 fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
+    fs::create_dir_all(output_directory(path))?;
     fs::write(path, content)?;
     if !quiet {
         println!(
@@ -682,6 +684,12 @@ mod tests {
         assert!(rendered.ends_with("-standard.pdf"));
         assert!(rendered.contains("in-punkto-com-"));
         assert!(!rendered.contains('/'));
+    }
+
+    #[test]
+    fn test_output_directory_defaults_to_current_directory_for_bare_filename() {
+        let path = PathBuf::from("casoon-de-2026-03-31-standard.pdf");
+        assert_eq!(output_directory(&path), std::path::Path::new("."));
     }
 }
 
