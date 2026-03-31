@@ -5,7 +5,7 @@
 class Auditmysite < Formula
   desc "WCAG 2.1 accessibility checker using Chrome's Accessibility Tree"
   homepage "https://github.com/casoon/auditmysite"
-  version "0.4.4"
+  version "0.4.5"
   license "LGPL-3.0-or-later"
 
   on_macos do

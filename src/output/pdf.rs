@@ -111,9 +111,11 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         )
         .add_component(Label::new(&vm.cover.title).with_size("28pt").bold())
         .add_component(
-            Label::new("Automatisierter Accessibility-Report mit ergänzenden Qualitätsmodulen")
-                .with_size("12pt")
-                .with_color("#475569"),
+            Label::new(
+                "Technischer Website-Check mit Fokus auf Accessibility, SEO und Performance",
+            )
+            .with_size("12pt")
+            .with_color("#475569"),
         )
         .add_component(
             Label::new(&vm.cover.domain)
@@ -122,128 +124,43 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         )
         .add_component(build_cover_meta(&vm.cover))
         .add_component(build_cover_score_row(&vm.cover))
+        .add_component(
+            TextBlock::new(&vm.summary.verdict)
+                .with_size("11pt")
+                .with_line_height("1.4em")
+                .with_max_width("100%"),
+        )
         .add_component(PageBreak::new());
 
     if vm.meta.report_level != ReportLevel::Executive {
         builder = builder.add_component(TableOfContents::new().with_depth(1));
     }
 
-    // ── 1. Kurzfazit (Hero Summary) ──────────────────────────────────
+    // ── 1. Executive Summary ────────────────────────────────────────
     builder = builder
-        .add_component(Section::new(i18n.t("section-summary")).with_level(1))
+        .add_component(Section::new("Executive Summary").with_level(1))
         .add_component(build_summary_overview(&vm.summary))
-        .add_component(
-            TextBlock::new(&vm.summary.verdict)
-                .with_size("11pt")
-                .with_line_height("1.4em")
-                .with_max_width("100%"),
-        );
-
-    if !vm.summary.top_actions.is_empty() || !vm.summary.positive_aspects.is_empty() {
-        builder = builder.add_component(PageBreak::new());
-
-        if !vm.summary.top_actions.is_empty() {
-            let mut actions = List::new().with_title("Wichtigste Maßnahmen");
-            for action in &vm.summary.top_actions {
-                actions = actions.add_item(action);
-            }
-            builder = builder.add_component(actions);
-        }
-
-        if !vm.summary.positive_aspects.is_empty() {
-            let mut strengths = List::new().with_title("Stärken");
-            for aspect in &vm.summary.positive_aspects {
-                strengths = strengths.add_item(aspect);
-            }
-            builder = builder.add_component(strengths);
-        }
-    }
-
-    builder = builder.add_component(PageBreak::new());
-
-    // ── 2. Historie ──────────────────────────────────────────────────
-    if let Some(ref history) = vm.history {
-        let mut kv = KeyValueList::new().with_title("Trend zum letzten Lauf");
-        for (key, value) in &history.metrics {
-            kv = kv.add(key, value);
-        }
-
-        builder = builder
-            .add_component(Section::new("Historie und Trend").with_level(1))
-            .add_component(TextBlock::new(&history.summary))
-            .add_component(kv);
-
-        if !history.timeline_rows.is_empty() {
-            let mut table = AuditTable::new(vec![
-                TableColumn::new("Datum"),
-                TableColumn::new("Accessibility"),
-                TableColumn::new("Gesamt"),
-                TableColumn::new("Note"),
-                TableColumn::new("Issues"),
-            ])
-            .with_title("Verlauf der letzten Läufe");
-
-            for row in &history.timeline_rows {
-                table = table.add_row(vec![
-                    row.0.clone(),
-                    row.1.clone(),
-                    row.2.clone(),
-                    row.3.clone(),
-                    row.4.clone(),
-                ]);
-            }
-            builder = builder.add_component(table);
-        }
-
-        if !history.new_findings.is_empty() {
-            let mut list = List::new().with_title("Neue Findings seit dem letzten Lauf");
-            for finding in &history.new_findings {
-                list = list.add_item(finding);
-            }
-            builder = builder.add_component(list);
-        }
-
-        if !history.resolved_findings.is_empty() {
-            let mut list = List::new().with_title("Behobene Findings seit dem letzten Lauf");
-            for finding in &history.resolved_findings {
-                list = list.add_item(finding);
-            }
-            builder = builder.add_component(list);
-        }
-
-        builder = builder.add_component(PageBreak::new());
-    }
-
-    // ── 3. Methodik ──────────────────────────────────────────────────
-    builder = builder
-        .add_component(Section::new(i18n.t("section-methodology")).with_level(1))
-        .add_component(TextBlock::new(&vm.methodology.scope))
-        .add_component(TextBlock::new(&vm.methodology.method))
-        .add_component({
-            let mut table =
-                AuditTable::new(vec![TableColumn::new("Aspekt"), TableColumn::new("Wert")])
-                    .with_title("Audit-Kontext");
-
-            for (key, value) in &vm.methodology.audit_facts {
-                table = table.add_row(vec![key.clone(), value.clone()]);
-            }
-
-            table
-        })
-        .add_component(
-            Callout::info(&vm.methodology.limitations)
-                .with_title(i18n.t("callout-limitations-title")),
-        )
-        .add_component(
-            Callout::warning(&vm.methodology.disclaimer).with_title(i18n.t("callout-note-title")),
-        )
-        .add_component(TextBlock::new(i18n.t("certificate-thresholds")));
+        .add_component(build_executive_highlights_table(&vm))
+        .add_component(Callout::info(build_executive_recommendation(&vm)).with_title("Empfehlung"));
 
     // Executive level: compact view
     if vm.meta.report_level == ReportLevel::Executive {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(i18n.t("section-modules")).with_level(1));
+            .add_component(Section::new("Key Findings").with_level(1));
+
+        for (idx, group) in vm.findings.top_findings.iter().take(3).enumerate() {
+            if idx > 0 {
+                builder = builder.add_component(PageBreak::new());
+            }
+            builder = render_key_finding_block(builder, group, &i18n);
+        }
+
+        builder = builder
+            .add_component(PageBreak::new())
+            .add_component(Section::new(i18n.t("section-modules")).with_level(1))
+            .add_component(build_module_dashboard(&vm.modules))
+            .add_component(build_module_summary_table(&vm.modules));
 
         if vm.modules.dashboard.len() > 1 {
             builder = builder.add_component(build_module_comparison(&vm.modules));
@@ -251,9 +168,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(i18n.t("section-actions")).with_level(1))
+            .add_component(Section::new("Maßnahmenplan").with_level(1))
             .add_component(TextBlock::new(&vm.actions.intro_text))
             .add_component(build_action_roadmap(&vm.actions));
+
+        if let Some(ref history) = vm.history {
+            builder = render_history_section(builder, history);
+        }
+
+        builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
         let built_report = builder.build();
         return Ok(engine.render_pdf(&built_report)?);
@@ -261,85 +184,96 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     builder = builder.add_component(PageBreak::new());
 
-    // ── 4. Score Breakdown (Module Dashboard) ────────────────────────
+    // ── 2. Key Findings ─────────────────────────────────────────────
     builder = builder
-        .add_component(Section::new(i18n.t("section-modules")).with_level(1))
-        .add_component(build_module_dashboard(&vm.modules));
+        .add_component(Section::new("Key Findings").with_level(1))
+        .add_component(TextBlock::new(
+            "Die folgenden Themen sollten zuerst bearbeitet werden. Jeder Block zeigt kurz Problem, Relevanz und nächste Maßnahme.",
+        ));
+
+    for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
+        if idx > 0 {
+            builder = builder.add_component(PageBreak::new());
+        }
+        builder = render_key_finding_block(builder, group, &i18n);
+    }
+
+    // ── 3. Quick Wins ───────────────────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Quick Wins").with_level(1))
+        .add_component(TextBlock::new(
+            "Diese Punkte sind mit vergleichsweise wenig Aufwand umsetzbar und verbessern die Seite schnell sichtbar.",
+        ))
+        .add_component(build_quick_wins_table(&vm.actions));
+
+    // ── 4. Module Overview ──────────────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Modul-Übersicht").with_level(1))
+        .add_component(build_module_dashboard(&vm.modules))
+        .add_component(build_module_summary_table(&vm.modules));
 
     if let Some(ref overall_text) = vm.modules.overall_interpretation {
-        builder = builder
-            .add_component(Callout::info(overall_text).with_title("Einordnung der Zusatzmodule"));
+        builder =
+            builder.add_component(Callout::info(overall_text).with_title("Gesamtscore einordnen"));
     }
 
     if vm.modules.dashboard.len() > 1 {
         builder = builder.add_component(build_module_comparison(&vm.modules));
     }
 
-    // ── 5. Findings ──────────────────────────────────────────────────
-    match vm.meta.report_level {
-        ReportLevel::Technical => {
-            builder = builder
-                .add_component(PageBreak::new())
-                .add_component(Section::new(i18n.t("section-findings-overview")).with_level(1));
+    // ── 5. Maßnahmenplan ────────────────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Maßnahmenplan").with_level(1))
+        .add_component(TextBlock::new(&vm.actions.intro_text))
+        .add_component(build_action_roadmap(&vm.actions));
 
-            if !vm.severity.has_issues {
-                builder = builder.add_component(
-                    Callout::success(i18n.t("callout-no-issues-body"))
-                        .with_title(i18n.t("callout-no-issues-title")),
-                );
-            } else {
-                builder = builder.add_component(SeverityOverview::new(
-                    vm.severity.critical,
-                    vm.severity.high,
-                    vm.severity.medium,
-                    vm.severity.low,
-                ));
-                for group in vm.findings.top_findings.iter().take(5) {
-                    builder = render_finding_compact(builder, group, &i18n);
-                }
-            }
+    // ── 6. Historie ─────────────────────────────────────────────────
+    if let Some(ref history) = vm.history {
+        builder = render_history_section(builder, history);
+    }
 
-            if vm.severity.has_issues {
-                builder = builder.add_component(PageBreak::new()).add_component(
-                    Section::new(i18n.t("section-findings-technical")).with_level(1),
-                );
-                for group in &vm.findings.all_findings {
-                    builder = render_finding_technical(builder, group, &i18n);
-                }
-            }
-        }
-        _ => {
-            builder = builder
-                .add_component(PageBreak::new())
-                .add_component(Section::new(i18n.t("section-findings")).with_level(1));
+    // ── 7. Technischer Detailteil ───────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Technischer Detailteil").with_level(1))
+        .add_component(TextBlock::new(
+            "Ab hier folgt die technische Sicht für Entwicklung, Design und Redaktion. Die Abschnitte nennen betroffene Elemente, konkrete Maßnahmen und technische Hinweise.",
+        ));
 
-            if !vm.severity.has_issues {
-                builder = builder.add_component(
-                    Callout::success(i18n.t("callout-no-issues-body"))
-                        .with_title(i18n.t("callout-no-issues-title")),
-                );
-            } else {
-                builder = builder.add_component(SeverityOverview::new(
-                    vm.severity.critical,
-                    vm.severity.high,
-                    vm.severity.medium,
-                    vm.severity.low,
-                ));
-                for group in &vm.findings.all_findings {
-                    builder = render_finding_compact(builder, group, &i18n);
-                }
-            }
+    builder = builder
+        .add_component(Section::new("Problem-Details").with_level(2))
+        .add_component(if !vm.severity.has_issues {
+            Callout::success(i18n.t("callout-no-issues-body"))
+                .with_title(i18n.t("callout-no-issues-title"))
+        } else {
+            Callout::info(
+                "Die folgende Übersicht enthält die relevanten Problemgruppen mit technischer Einordnung.",
+            )
+            .with_title("Technische Übersicht")
+        });
+
+    if vm.severity.has_issues {
+        builder = builder.add_component(SeverityOverview::new(
+            vm.severity.critical,
+            vm.severity.high,
+            vm.severity.medium,
+            vm.severity.low,
+        ));
+        for group in &vm.findings.all_findings {
+            builder = render_finding_technical(builder, group, &i18n);
         }
     }
 
-    // ── 6. Module Details ────────────────────────────────────────────
+    // ── 8. Technische Metriken ──────────────────────────────────────
     if vm.module_details.has_any {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new("Weitere Analysen").with_level(1))
+            .add_component(Section::new("Technische Metriken").with_level(2))
             .add_component(TextBlock::new(
-                "Neben der Barrierefreiheit wurden auch Performance, SEO, Sicherheit und mobile Nutzbarkeit geprüft. \
-                 Die folgenden Detailseiten zeigen, wo die Website bereits stabil aufgestellt ist und wo noch technischer Verbesserungsbedarf besteht.",
+                "Zusätzliche technische Kennzahlen helfen bei Performance-, SEO-, Sicherheits- und Mobile-Themen. Die Werte sind als Arbeitsgrundlage für die Umsetzung gedacht.",
             ))
             .add_component(build_additional_analyses_overview(&vm.module_details))
             .add_component(build_analysis_focus_table());
@@ -358,14 +292,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = render_mobile(builder, mobile);
     }
 
-    // ── 7. Maßnahmenplan ─────────────────────────────────────────────
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-actions")).with_level(1))
-        .add_component(TextBlock::new(&vm.actions.intro_text))
-        .add_component(build_action_roadmap(&vm.actions));
-
-    // ── 8. Anhang ────────────────────────────────────────────────────
+    // ── 9. Anhang ───────────────────────────────────────────────────
     if vm.appendix.has_violations {
         builder = builder
             .add_component(PageBreak::new())
@@ -428,6 +355,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             builder = builder.add_component(table);
         }
     }
+
+    // ── 10. Methodik & Einschränkungen ──────────────────────────────
+    builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
     let built_report = builder.build();
     Ok(engine.render_pdf(&built_report)?)
@@ -705,6 +635,209 @@ fn build_summary_overview(summary: &SummaryBlock) -> Grid {
     grid
 }
 
+fn build_executive_highlights_table(vm: &ReportViewModel) -> AuditTable {
+    let problems = if vm.findings.top_findings.is_empty() {
+        vec!["Keine priorisierten Probleme im automatischen Test erkannt.".to_string()]
+    } else {
+        vm.findings
+            .top_findings
+            .iter()
+            .take(3)
+            .map(|finding| {
+                format!(
+                    "{}: {}",
+                    finding.title,
+                    simplify_for_summary(&finding.customer_description)
+                )
+            })
+            .collect()
+    };
+
+    let strengths = if vm.summary.positive_aspects.is_empty() {
+        vec!["Die Seite ist grundsätzlich erreichbar und technisch auswertbar.".to_string()]
+    } else {
+        vm.summary
+            .positive_aspects
+            .iter()
+            .take(3)
+            .cloned()
+            .collect()
+    };
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Wichtigste Probleme"),
+        TableColumn::new("Wichtigste Stärken"),
+    ])
+    .with_title("Kernaussagen");
+
+    let max_rows = problems.len().max(strengths.len());
+    for idx in 0..max_rows {
+        table = table.add_row(vec![
+            problems.get(idx).cloned().unwrap_or_default(),
+            strengths.get(idx).cloned().unwrap_or_default(),
+        ]);
+    }
+
+    table
+}
+
+fn build_executive_recommendation(vm: &ReportViewModel) -> String {
+    let lead = if let Some(first) = vm.findings.top_findings.first() {
+        first.recommendation.clone()
+    } else {
+        "Die aktuelle Qualität sichern und die automatischen Prüfungen regelmäßig wiederholen."
+            .to_string()
+    };
+
+    format!(
+        "Zuerst die {} kritischsten Themen beheben, danach die Quick Wins umsetzen. Startpunkt: {}",
+        vm.findings.top_findings.len().min(3),
+        simplify_for_summary(&lead)
+    )
+}
+
+fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Modul"),
+        TableColumn::new("Score"),
+        TableColumn::new("Einordnung"),
+    ])
+    .with_title("Kurzbewertung je Modul");
+
+    for module in &modules.dashboard {
+        table = table.add_row(vec![
+            module.name.clone(),
+            format!("{}/100", module.score),
+            simplify_for_summary(&module.interpretation),
+        ]);
+    }
+
+    table
+}
+
+fn build_quick_wins_table(actions: &ActionsBlock) -> AuditTable {
+    let quick_wins: Vec<&RoadmapItemData> = actions
+        .roadmap_columns
+        .iter()
+        .filter(|column| column.title.contains("Sofort") || column.title.contains("Quick"))
+        .flat_map(|column| column.items.iter())
+        .filter(|item| matches!(item.priority.as_str(), "Kritisch" | "Hoch"))
+        .take(5)
+        .collect();
+
+    let selected = if quick_wins.is_empty() {
+        actions
+            .roadmap_columns
+            .iter()
+            .flat_map(|column| column.items.iter())
+            .take(5)
+            .collect()
+    } else {
+        quick_wins
+    };
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Titel"),
+        TableColumn::new("Was tun"),
+        TableColumn::new("Warum lohnt sich das"),
+    ]);
+
+    for item in selected {
+        table = table.add_row(vec![
+            quick_win_title(item),
+            item.action.clone(),
+            simplify_for_summary(&item.benefit),
+        ]);
+    }
+
+    table
+}
+
+fn render_history_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    history: &HistoryTrendBlock,
+) -> renderreport::engine::ReportBuilder {
+    let mut kv = KeyValueList::new().with_title("Trend zum letzten Lauf");
+    for (key, value) in &history.metrics {
+        kv = kv.add(key, value);
+    }
+
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Historie und Trend").with_level(1))
+        .add_component(TextBlock::new(&history.summary))
+        .add_component(kv);
+
+    if !history.timeline_rows.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Datum"),
+            TableColumn::new("Accessibility"),
+            TableColumn::new("Gesamt"),
+            TableColumn::new("Note"),
+            TableColumn::new("Issues"),
+        ])
+        .with_title("Verlauf der letzten Läufe");
+
+        for row in &history.timeline_rows {
+            table = table.add_row(vec![
+                row.0.clone(),
+                row.1.clone(),
+                row.2.clone(),
+                row.3.clone(),
+                row.4.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !history.new_findings.is_empty() {
+        let mut list = List::new().with_title("Neue Themen seit dem letzten Lauf");
+        for finding in &history.new_findings {
+            list = list.add_item(finding);
+        }
+        builder = builder.add_component(list);
+    }
+
+    if !history.resolved_findings.is_empty() {
+        let mut list = List::new().with_title("Behobene Themen seit dem letzten Lauf");
+        for finding in &history.resolved_findings {
+            list = list.add_item(finding);
+        }
+        builder = builder.add_component(list);
+    }
+
+    builder
+}
+
+fn render_methodology_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    methodology: &MethodologyBlock,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let mut table = AuditTable::new(vec![TableColumn::new("Aspekt"), TableColumn::new("Wert")])
+        .with_title("Audit-Kontext");
+
+    for (key, value) in &methodology.audit_facts {
+        table = table.add_row(vec![key.clone(), value.clone()]);
+    }
+
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Methodik & Einschränkungen").with_level(1))
+        .add_component(TextBlock::new(&methodology.scope))
+        .add_component(TextBlock::new(&methodology.method))
+        .add_component(table)
+        .add_component(
+            Callout::info(&methodology.limitations).with_title(i18n.t("callout-limitations-title")),
+        )
+        .add_component(
+            Callout::warning(&methodology.disclaimer).with_title(i18n.t("callout-note-title")),
+        )
+        .add_component(TextBlock::new(i18n.t("certificate-thresholds")));
+
+    builder
+}
+
 fn build_cover_meta(cover: &CoverBlock) -> SummaryBox {
     SummaryBox::new("Audit-Rahmen")
         .add_item("Kunde", &cover.brand)
@@ -867,33 +1000,57 @@ fn score_status(
 
 // ─── Finding renderers ──────────────────────────────────────────────────────
 
-fn render_finding_compact(
-    builder: renderreport::engine::ReportBuilder,
+fn render_key_finding_block(
+    mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let tag = if !group.wcag_criterion.is_empty() {
-        format!(" (WCAG {})", group.wcag_criterion)
-    } else if let Some(ref dim) = group.dimension {
-        format!(" ({})", dim)
-    } else {
-        String::new()
-    };
-    let finding = Finding::new(
-        format!("{}{}", group.title, tag),
-        map_severity(&group.severity),
-        &group.customer_description,
-    )
-    .with_recommendation(&group.recommendation)
-    .with_category(format!(
-        "{}: {} | {} Vorkommen",
-        i18n.t("label-priority"),
-        priority_label_i18n(group.priority, i18n),
-        group.occurrence_count
-    ))
-    .with_affected(format!("{} Elemente betroffen", group.affected_elements));
+    let category = group
+        .dimension
+        .as_deref()
+        .or(group.issue_class.as_deref())
+        .unwrap_or("Barrierefreiheit");
 
-    builder.add_component(finding)
+    let details = AuditTable::new(vec![
+        TableColumn::new("Aspekt"),
+        TableColumn::new("Einordnung"),
+    ])
+    .add_row(vec![
+        "Problem".to_string(),
+        simplify_for_summary(&group.customer_description),
+    ])
+    .add_row(vec![
+        "Warum relevant".to_string(),
+        simplify_for_summary(&group.user_impact),
+    ])
+    .add_row(vec![
+        "Maßnahme".to_string(),
+        simplify_for_summary(&group.recommendation),
+    ])
+    .add_row(vec![
+        "Aufwand".to_string(),
+        effort_label_i18n(group.effort, i18n),
+    ])
+    .add_row(vec!["Impact".to_string(), impact_label(group).to_string()])
+    .add_row(vec![
+        "Rolle".to_string(),
+        role_label_i18n(group.responsible_role, i18n),
+    ]);
+
+    builder = builder
+        .add_component(
+            Label::new(format!(
+                "[{} | {}] {}",
+                severity_label_i18n(group.severity, i18n),
+                category,
+                group.title
+            ))
+            .bold()
+            .with_size("13pt"),
+        )
+        .add_component(details);
+
+    builder
 }
 
 fn render_finding_technical(
@@ -949,6 +1106,27 @@ fn render_finding_technical(
 
     builder = builder.add_component(finding);
 
+    let mut details = KeyValueList::new().with_title("Technische Einordnung");
+    details = details
+        .add(
+            "WCAG-Regel",
+            if group.wcag_criterion.is_empty() {
+                "—".to_string()
+            } else {
+                group.wcag_criterion.clone()
+            },
+        )
+        .add("Schweregrad", severity_label_i18n(group.severity, i18n))
+        .add(
+            "Betroffene Elemente",
+            format!("{}", group.affected_elements),
+        )
+        .add(
+            "Technische Empfehlung",
+            simplify_for_summary(&group.recommendation),
+        );
+    builder = builder.add_component(details);
+
     if !group.technical_note.is_empty() {
         builder = builder.add_component(
             Callout::info(&group.technical_note).with_title(i18n.t("label-tech-note")),
@@ -974,6 +1152,40 @@ fn render_finding_technical(
     }
 
     builder
+}
+
+fn simplify_for_summary(text: &str) -> String {
+    let single_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let trimmed = single_line.trim();
+    if trimmed.ends_with('.') {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}.")
+    }
+}
+
+fn impact_label(group: &FindingGroup) -> &'static str {
+    match (group.priority, group.severity) {
+        (Priority::Critical, _) | (_, crate::wcag::Severity::Critical) => "Hoch",
+        (Priority::High, _) | (_, crate::wcag::Severity::High) => "Hoch",
+        (Priority::Medium, _) | (_, crate::wcag::Severity::Medium) => "Mittel",
+        _ => "Niedrig",
+    }
+}
+
+fn quick_win_title(item: &RoadmapItemData) -> String {
+    let title = item
+        .action
+        .split(['.', ':'])
+        .next()
+        .unwrap_or(item.action.as_str())
+        .trim();
+    let shortened: String = title.chars().take(48).collect();
+    if title.chars().count() > 48 {
+        format!("{shortened}…")
+    } else {
+        shortened
+    }
 }
 
 fn render_finding_group(

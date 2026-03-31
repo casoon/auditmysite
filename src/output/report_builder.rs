@@ -356,21 +356,21 @@ fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
     let mut columns = Vec::new();
     if !plan.quick_wins.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Quick Wins".into(),
+            title: "Sofort (0-2 Wochen)".into(),
             accent_color: "#22c55e".into(),
             items: map_items(&plan.quick_wins, "Niedrig"),
         });
     }
     if !plan.medium_term.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Mittelfristig".into(),
+            title: "Mittelfristig (2-6 Wochen)".into(),
             accent_color: "#f59e0b".into(),
             items: map_items(&plan.medium_term, "Mittel"),
         });
     }
     if !plan.structural.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Strukturell".into(),
+            title: "Langfristig".into(),
             accent_color: "#2563eb".into(),
             items: map_items(&plan.structural, "Hoch"),
         });
@@ -379,10 +379,8 @@ fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
     ActionsBlock {
         roadmap_columns: columns,
         role_assignments: plan.role_assignments.clone(),
-        intro_text:
-            "Auf Basis der identifizierten Probleme empfehlen wir die folgenden Maßnahmen, \
-                     gegliedert nach Aufwand und Wirkung."
-                .to_string(),
+        intro_text: "Die Maßnahmen sind nach Zeithorizont, Aufwand und Wirkung geordnet. So lässt sich die Umsetzung schrittweise planen."
+            .to_string(),
     }
 }
 
