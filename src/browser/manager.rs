@@ -4,6 +4,7 @@
 //! managing CDP connections, and graceful shutdown.
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,6 +18,8 @@ use super::detection::{verify_executable, ChromeInfo};
 use super::resolver::{self, BrowserResolveOptions};
 use super::types::DetectedBrowser;
 use crate::error::{AuditError, Result};
+
+static BROWSER_PROFILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Browser configuration options
 #[derive(Debug, Clone)]
@@ -59,6 +62,7 @@ pub struct BrowserManager {
     browser: Browser,
     chrome_info: ChromeInfo,
     options: BrowserOptions,
+    user_data_dir: PathBuf,
     #[allow(dead_code)]
     handler: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
@@ -71,7 +75,8 @@ impl BrowserManager {
 
     /// Create a new BrowserManager with custom options
     pub async fn with_options(options: BrowserOptions) -> Result<Self> {
-        let args = Self::build_launch_args(&options);
+        let user_data_dir = Self::create_user_data_dir()?;
+        let args = Self::build_launch_args(&options, &user_data_dir);
         debug!("Chrome launch args: {:?}", args);
 
         // Use resolver to find browser
@@ -114,6 +119,7 @@ impl BrowserManager {
 
         let config = BrowserConfig::builder()
             .chrome_executable(&resolved.browser.path)
+            .user_data_dir(&user_data_dir)
             .args(args)
             .viewport(None)
             .build()
@@ -143,12 +149,13 @@ impl BrowserManager {
             browser,
             chrome_info,
             options,
+            user_data_dir,
             handler: Arc::new(Mutex::new(Some(handler_task))),
         })
     }
 
     /// Build Chrome launch arguments based on options
-    fn build_launch_args(options: &BrowserOptions) -> Vec<String> {
+    fn build_launch_args(options: &BrowserOptions, user_data_dir: &std::path::Path) -> Vec<String> {
         let mut args = vec![
             if options.headless {
                 "--headless".to_string()
@@ -166,6 +173,7 @@ impl BrowserManager {
             "--mute-audio".to_string(),
             "--disable-infobars".to_string(),
             "--disable-popup-blocking".to_string(),
+            format!("--user-data-dir={}", user_data_dir.display()),
             format!(
                 "--window-size={},{}",
                 options.window_size.0, options.window_size.1
@@ -188,6 +196,27 @@ impl BrowserManager {
         }
 
         args
+    }
+
+    fn create_user_data_dir() -> Result<PathBuf> {
+        let pid = std::process::id();
+        let nonce = BROWSER_PROFILE_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: format!("Failed to create browser profile timestamp: {}", e),
+            })?
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("auditmysite-chrome-{}-{}-{}", pid, unique, nonce));
+        std::fs::create_dir_all(&dir).map_err(|e| AuditError::BrowserLaunchFailed {
+            reason: format!(
+                "Failed to create browser profile directory {}: {}",
+                dir.display(),
+                e
+            ),
+        })?;
+        Ok(dir)
     }
 
     /// Create a new page (tab) in the browser
@@ -282,6 +311,14 @@ impl BrowserManager {
             }
         }
 
+        if let Err(e) = std::fs::remove_dir_all(&self.user_data_dir) {
+            warn!(
+                "Failed to remove browser profile directory {}: {}",
+                self.user_data_dir.display(),
+                e
+            );
+        }
+
         info!("Browser closed");
         Ok(())
     }
@@ -314,11 +351,13 @@ mod tests {
     #[test]
     fn test_build_launch_args_headless() {
         let opts = BrowserOptions::default();
-        let args = BrowserManager::build_launch_args(&opts);
+        let dir = std::env::temp_dir().join("auditmysite-test-profile-headless");
+        let args = BrowserManager::build_launch_args(&opts, &dir);
 
         assert!(args.iter().any(|a| a == "--headless"));
         assert!(args.iter().any(|a| a == "--disable-gpu"));
         assert!(args.iter().any(|a| a == "--no-first-run"));
+        assert!(args.iter().any(|a| a.starts_with("--user-data-dir=")));
         assert!(args.iter().any(|a| a.starts_with("--window-size=")));
     }
 
@@ -328,7 +367,8 @@ mod tests {
             no_sandbox: true,
             ..Default::default()
         };
-        let args = BrowserManager::build_launch_args(&opts);
+        let dir = std::env::temp_dir().join("auditmysite-test-profile-docker");
+        let args = BrowserManager::build_launch_args(&opts, &dir);
 
         assert!(args.iter().any(|a| a == "--no-sandbox"));
         assert!(args.iter().any(|a| a == "--disable-dev-shm-usage"));
@@ -340,7 +380,8 @@ mod tests {
             disable_images: true,
             ..Default::default()
         };
-        let args = BrowserManager::build_launch_args(&opts);
+        let dir = std::env::temp_dir().join("auditmysite-test-profile-images");
+        let args = BrowserManager::build_launch_args(&opts, &dir);
 
         assert!(args.iter().any(|a| a.contains("imagesEnabled=false")));
     }

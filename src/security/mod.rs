@@ -101,22 +101,26 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
 
     let https = url.starts_with("https://");
 
-    // Make a HEAD request to get headers
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(false)
         .build()
         .map_err(AuditError::HttpError)?;
 
-    let response = client
-        .head(url)
-        .send()
-        .await
-        .map_err(AuditError::HttpError)?;
+    let response = match client.head(url).send().await {
+        Ok(response) => Ok(response),
+        Err(_) => client.get(url).send().await,
+    };
 
-    let header_map = response.headers();
-
-    // Extract security headers
-    let headers = extract_security_headers(header_map);
+    let headers = match response {
+        Ok(response) => extract_security_headers(response.headers()),
+        Err(err) => {
+            info!(
+                "Security header request failed for {}; continuing with URL-only security analysis: {}",
+                url, err
+            );
+            SecurityHeaders::default()
+        }
+    };
 
     // Analyze SSL
     let ssl = analyze_ssl(https, &headers);

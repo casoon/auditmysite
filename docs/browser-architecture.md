@@ -1,14 +1,18 @@
 # Browser-Architektur: Technische Ausarbeitung
 
+> Statushinweis:
+> Dieses Dokument enthält neben dem Ist-Zustand auch Architekturideen und frühere Vorschläge.
+> Nicht jede hier beschriebene Option ist aktuell in der CLI implementiert.
+> Für den tatsächlichen Benutzerstand sind `auditmysite --help`, die [README](/Users/jseidel/GitHub/auditmysite/README.md) und [ARCHITECTURE.md](/Users/jseidel/GitHub/auditmysite/docs/ARCHITECTURE.md) maßgeblich.
+
 ## Status quo (Ist-Zustand)
 
-- Detection: `find_chrome()` sucht System-Chrome, dann `which`, dann Auto-Download
-- Installer: Holt Chrome for Testing v131.0.6778.108 nach `~/.auditmysite/chromium/`
-- Auto-Download passiert **still und ungefragt** wenn kein System-Chrome gefunden wird
-- Kein Edge/Brave/Ungoogled-Chromium Support
-- Keine `browser`-Subcommands
-- Keine `doctor`-Funktion
-- Hardcoded Chrome-Version im Installer
+- Browser-Auflösung über `resolver` mit `--browser-path`, `AUDITMYSITE_BROWSER`, System-Browsern und Managed Install
+- Managed Browser unter `~/.auditmysite/browsers/`
+- Kein stiller Auto-Download; Installation erfolgt explizit über `auditmysite browser install`
+- `browser`-Subcommands und `doctor` sind implementiert
+- `--chrome-path` ist nur noch Alias für `--browser-path`
+- Einige weiter unten beschriebene Flags wie `--browser`, `--fast` und `--strict` sind derzeit Vorschläge, nicht produktive CLI-Optionen
 
 ---
 
@@ -769,7 +773,7 @@ error!("CDP connection lost: {}", err);
 class Auditmysite < Formula
   desc "WCAG 2.1 Accessibility Checker with full audit reporting"
   homepage "https://github.com/casoon/auditmysite"
-  url "https://github.com/casoon/auditmysite/archive/refs/tags/v0.4.0.tar.gz"
+  url "https://github.com/casoon/auditmysite/archive/refs/tags/v0.4.1.tar.gz"
   sha256 "..."
   license "LGPL-3.0-or-later"
 

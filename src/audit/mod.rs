@@ -4,6 +4,7 @@
 
 pub mod artifacts;
 mod batch;
+pub mod history;
 pub mod normalized;
 mod pipeline;
 mod report;

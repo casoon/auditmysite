@@ -58,14 +58,15 @@ pub struct PipelineConfig {
 
 impl From<&Args> for PipelineConfig {
     fn from(args: &Args) -> Self {
+        let full_audit = args.full_audit_enabled();
         Self {
             wcag_level: args.level,
             timeout_secs: args.timeout,
             verbose: args.verbose,
-            check_performance: (args.full || args.performance) && !args.skip_performance,
-            check_seo: args.full || args.seo,
-            check_security: args.full || args.security,
-            check_mobile: (args.full || args.mobile) && !args.skip_mobile,
+            check_performance: (full_audit || args.performance) && !args.skip_performance,
+            check_seo: full_audit || args.seo,
+            check_security: full_audit || args.security,
+            check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
             persist_artifacts: true,
         }
     }
@@ -291,7 +292,7 @@ mod tests {
             sitemap: None,
             url_file: None,
             level: WcagLevel::AA,
-            format: crate::cli::OutputFormat::Table,
+            format: None,
             output: None,
             chrome_path: None,
             remote_debugging_port: None,
@@ -322,7 +323,9 @@ mod tests {
         assert_eq!(config.wcag_level, WcagLevel::AA);
         assert_eq!(config.timeout_secs, 30);
         assert!(config.verbose);
-        assert!(!config.check_performance);
-        assert!(!config.check_mobile);
+        assert!(config.check_performance);
+        assert!(config.check_mobile);
+        assert!(config.check_seo);
+        assert!(config.check_security);
     }
 }

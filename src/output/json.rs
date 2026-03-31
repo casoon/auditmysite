@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::audit::normalized::NormalizedReport;
-use crate::audit::AuditReport;
+use crate::audit::{AuditReport, BatchReport};
 use crate::error::Result;
 
 /// Generate JSON output from a normalized report
@@ -39,11 +39,45 @@ pub fn format_json_cached(normalized: &NormalizedReport, pretty: bool) -> Result
     let payload = CachedJsonReport {
         metadata: ReportMetadata {
             tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
-            timestamp: Utc::now(),
+            timestamp: normalized.timestamp,
             wcag_level: normalized.wcag_level.to_string(),
             execution_time_ms: normalized.duration_ms,
         },
         report: normalized,
+    };
+
+    let output = if pretty {
+        serde_json::to_string_pretty(&payload)
+    } else {
+        serde_json::to_string(&payload)
+    };
+
+    output.map_err(|e| crate::error::AuditError::OutputError {
+        reason: format!("JSON serialization failed: {}", e),
+    })
+}
+
+/// Generate deterministic JSON output for batch reports.
+pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<String> {
+    let normalized_reports: Vec<NormalizedReport> = batch_report
+        .reports
+        .iter()
+        .map(crate::audit::normalize)
+        .collect();
+
+    let payload = BatchJsonReport {
+        metadata: ReportMetadata {
+            tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
+            timestamp: batch_report_timestamp(batch_report),
+            wcag_level: normalized_reports
+                .first()
+                .map(|report| report.wcag_level.to_string())
+                .unwrap_or_else(|| "mixed".to_string()),
+            execution_time_ms: batch_report.total_duration_ms,
+        },
+        summary: &batch_report.summary,
+        errors: &batch_report.errors,
+        reports: normalized_reports,
     };
 
     let output = if pretty {
@@ -88,13 +122,22 @@ pub struct ReportMetadata {
     pub execution_time_ms: u64,
 }
 
+#[derive(Debug, Serialize)]
+struct BatchJsonReport<'a> {
+    pub metadata: ReportMetadata,
+    pub summary: &'a crate::audit::BatchSummary,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub errors: &'a Vec<crate::audit::BatchError>,
+    pub reports: Vec<NormalizedReport>,
+}
+
 impl JsonReport {
     /// Create a JSON report from normalized data + raw module data
     pub fn from_normalized(normalized: &NormalizedReport, raw: &AuditReport) -> Self {
         Self {
             metadata: ReportMetadata {
                 tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
-                timestamp: Utc::now(),
+                timestamp: raw.timestamp,
                 wcag_level: normalized.wcag_level.to_string(),
                 execution_time_ms: normalized.duration_ms,
             },
@@ -127,6 +170,15 @@ impl JsonReport {
             reason: format!("JSON serialization failed: {}", e),
         })
     }
+}
+
+fn batch_report_timestamp(batch_report: &BatchReport) -> DateTime<Utc> {
+    batch_report
+        .reports
+        .iter()
+        .map(|report| report.timestamp)
+        .max()
+        .unwrap_or(DateTime::<Utc>::UNIX_EPOCH)
 }
 
 #[cfg(test)]

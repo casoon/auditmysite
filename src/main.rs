@@ -6,16 +6,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[cfg(any(feature = "pdf", test))]
+use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+#[cfg(feature = "pdf")]
+use auditmysite::audit::history::preview_report_history;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    load_artifacts, parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit,
-    to_audit_report, BatchConfig, PipelineConfig,
+    history::write_report_history, load_artifacts, parse_sitemap, read_url_file,
+    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, PipelineConfig,
 };
 use auditmysite::browser::{
     detect_all_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserManager,
@@ -26,7 +30,7 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_json_cached, format_json_normalized, print_batch_table, print_report,
+    format_json_batch, format_json_cached, format_json_normalized, print_batch_table, print_report,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
@@ -270,7 +274,7 @@ async fn run_single_mode(args: &Args) -> Result<f64> {
                 );
             }
 
-            match args.format {
+            match args.effective_format() {
                 OutputFormat::Json => {
                     let output = format_json_cached(&cached.audit, true)?;
                     output_text(&output, &args.output, "JSON", args.quiet)?;
@@ -367,7 +371,7 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
     let batch_config = BatchConfig::from(args);
 
     let progress_bar = if !args.quiet {
-        let pb = ProgressBar::new(urls.len() as u64);
+        let pb = ProgressBar::new(total_urls as u64);
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")
@@ -415,11 +419,14 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
 
 /// Output a single audit report in the requested format
 fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
-    match args.format {
+    match args.effective_format() {
         OutputFormat::Json => {
             let normalized = normalize(report);
             let output = format_json_normalized(&normalized, report, true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
+            if let Some(path) = args.output.as_ref() {
+                maybe_write_single_history(path, &normalized, args.quiet)?;
+            }
         }
         OutputFormat::Table => {
             print_report(report, args.level);
@@ -427,22 +434,55 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]
             {
+                let normalized = normalize(report);
+                let path = args.output.clone().unwrap_or_else(|| {
+                    default_single_pdf_output_path(report.url.as_str(), args.report_level)
+                });
+                let history_preview = path
+                    .parent()
+                    .and_then(|dir| preview_report_history(dir, &path, &normalized).ok())
+                    .flatten()
+                    .map(
+                        |preview| auditmysite::output::report_model::ReportHistoryPreview {
+                            previous_date: preview.previous_date,
+                            timeline_entries: preview.timeline_entries,
+                            previous_accessibility_score: preview.previous_accessibility_score,
+                            previous_overall_score: preview.previous_overall_score,
+                            delta_accessibility: preview.delta.accessibility_score_delta,
+                            delta_overall: preview.delta.overall_score_delta,
+                            delta_total_issues: preview.delta.total_issues_delta,
+                            delta_critical_issues: preview.delta.critical_issues_delta,
+                            recent_entries: preview
+                                .recent_entries
+                                .into_iter()
+                                .map(|entry| {
+                                    (
+                                        entry.timestamp.format("%d.%m.%Y").to_string(),
+                                        entry.accessibility_score,
+                                        entry.overall_score,
+                                        entry.grade,
+                                        entry.severity_counts.total as u32,
+                                    )
+                                })
+                                .collect(),
+                            new_findings: preview.delta.new_findings,
+                            resolved_findings: preview.delta.resolved_findings,
+                        },
+                    );
                 let config = ReportConfig {
                     level: args.report_level,
                     company_name: args.company_name.clone(),
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
+                    history_preview,
                 };
                 let pdf_bytes = generate_pdf(report, &config).map_err(|e| {
                     AuditError::ReportGenerationFailed {
                         reason: e.to_string(),
                     }
                 })?;
-                let path = args
-                    .output
-                    .clone()
-                    .unwrap_or_else(|| PathBuf::from("reports/audit-report.pdf"));
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
+                maybe_write_single_history(&path, &normalized, args.quiet)?;
             }
             #[cfg(not(feature = "pdf"))]
             {
@@ -455,15 +495,33 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
     Ok(())
 }
 
+fn maybe_write_single_history(
+    output_path: &PathBuf,
+    normalized: &auditmysite::audit::NormalizedReport,
+    quiet: bool,
+) -> Result<()> {
+    let Some(reports_dir) = output_path.parent() else {
+        return Ok(());
+    };
+
+    let written = write_report_history(reports_dir, output_path, normalized)?;
+    if !quiet {
+        for path in written {
+            println!(
+                "{} History updated: {}",
+                "Info:".cyan().bold(),
+                path.display()
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Output batch audit results in the requested format
 fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Args) -> Result<()> {
-    match args.format {
+    match args.effective_format() {
         OutputFormat::Json => {
-            let output = serde_json::to_string_pretty(batch_report).map_err(|e| {
-                AuditError::OutputError {
-                    reason: e.to_string(),
-                }
-            })?;
+            let output = format_json_batch(batch_report, true)?;
             output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
@@ -477,6 +535,7 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
                     company_name: args.company_name.clone(),
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
+                    history_preview: None,
                 };
                 let pdf_bytes = generate_batch_pdf(batch_report, &config).map_err(|e| {
                     AuditError::ReportGenerationFailed {
@@ -521,6 +580,46 @@ fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) 
     Ok(())
 }
 
+#[cfg(any(feature = "pdf", test))]
+fn default_single_pdf_output_path(
+    url: &str,
+    report_level: auditmysite::cli::ReportLevel,
+) -> PathBuf {
+    let date = Local::now().format("%Y-%m-%d");
+    let subject = report_subject_from_url(url);
+    PathBuf::from(format!("{subject}-{date}-{report_level}.pdf"))
+}
+
+#[cfg(any(feature = "pdf", test))]
+fn report_subject_from_url(url: &str) -> String {
+    let fallback = "audit-report".to_string();
+    let Ok(parsed) = url::Url::parse(url) else {
+        return fallback;
+    };
+    let Some(host) = parsed.host_str() else {
+        return fallback;
+    };
+
+    let host = host.strip_prefix("www.").unwrap_or(host);
+    let slug: String = host
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+
+    let slug = slug.trim_matches('-').to_string();
+    if slug.is_empty() {
+        fallback
+    } else {
+        slug
+    }
+}
+
 /// Write binary content to file
 #[cfg(feature = "pdf")]
 fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Result<()> {
@@ -559,6 +658,30 @@ fn detect_chrome_command(args: &Args) -> Result<f64> {
             println!("{}", e);
             Err(e)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use auditmysite::cli::ReportLevel;
+
+    #[test]
+    fn test_report_subject_from_url_strips_www_and_normalizes() {
+        assert_eq!(
+            report_subject_from_url("https://www.in-punkto.com"),
+            "in-punkto-com"
+        );
+    }
+
+    #[test]
+    fn test_default_single_pdf_output_path_uses_current_directory_filename() {
+        let path =
+            default_single_pdf_output_path("https://www.in-punkto.com", ReportLevel::Standard);
+        let rendered = path.display().to_string();
+        assert!(rendered.ends_with("-standard.pdf"));
+        assert!(rendered.contains("in-punkto-com-"));
+        assert!(!rendered.contains('/'));
     }
 }
 

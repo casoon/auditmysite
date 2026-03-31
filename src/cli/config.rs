@@ -37,7 +37,7 @@ pub struct AuditConfig {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct OutputConfig {
-    /// Default output format: "table", "json", "html", "markdown", "pdf"
+    /// Default output format: "table", "json", or "pdf"
     pub format: Option<String>,
     /// Default output path
     pub path: Option<String>,
@@ -115,12 +115,11 @@ impl Config {
 
         // Output settings
         if let Some(ref fmt) = self.output.format {
-            if args.format == OutputFormat::Table {
-                // default
+            if args.format.is_none() {
                 match fmt.to_lowercase().as_str() {
-                    "json" => args.format = OutputFormat::Json,
-                    "pdf" => args.format = OutputFormat::Pdf,
-                    "table" => {}
+                    "json" => args.format = Some(OutputFormat::Json),
+                    "pdf" => args.format = Some(OutputFormat::Pdf),
+                    "table" => args.format = Some(OutputFormat::Table),
                     _ => tracing::warn!("Invalid format in config: {}", fmt),
                 }
             }
@@ -190,7 +189,7 @@ timeout = 60
 concurrency = 5
 
 [output]
-format = "html"
+format = "pdf"
 path = "reports/"
 
 [modules]
@@ -210,7 +209,7 @@ min_score = 70
         assert_eq!(config.audit.level.as_deref(), Some("aaa"));
         assert_eq!(config.audit.timeout, Some(60));
         assert_eq!(config.audit.concurrency, Some(5));
-        assert_eq!(config.output.format.as_deref(), Some("html"));
+        assert_eq!(config.output.format.as_deref(), Some("pdf"));
         assert_eq!(config.output.path.as_deref(), Some("reports/"));
         assert!(config.modules.performance.unwrap());
         assert_eq!(config.rules.ignore.as_ref().unwrap().len(), 1);

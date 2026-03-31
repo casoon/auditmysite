@@ -1,5 +1,7 @@
 # auditmysite Architecture
 
+This document describes the current implementation. For older browser-design explorations and proposals that are not fully implemented, see [browser-architecture.md](/Users/jseidel/GitHub/auditmysite/docs/browser-architecture.md).
+
 ## Overview
 
 auditmysite is a WCAG 2.1 accessibility checker written in Rust. It uses Chrome DevTools Protocol (CDP) to extract the browser's native Accessibility Tree and analyze it for violations.
@@ -60,7 +62,8 @@ src/
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
 │   ├── rules.rs         # Rule definitions with metadata
-│   └── lookup.rs        # RuleLookup for WCAG ID → taxonomy mapping
+│   ├── score.rs         # Taxonomy-based score impact helpers
+│   └── severity.rs      # Severity mapping helpers
 │
 ├── audit/               # Audit orchestration
 │   ├── mod.rs

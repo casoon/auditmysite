@@ -72,9 +72,30 @@ get_latest_version() {
     curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
+verify_checksum() {
+    local archive_path checksum_path expected actual
+
+    archive_path="$1"
+    checksum_path="$2"
+
+    expected=$(awk '{print $1}' "$checksum_path")
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$archive_path" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$archive_path" | awk '{print $1}')
+    else
+        error "sha256sum or shasum is required for checksum verification"
+    fi
+
+    if [ "$actual" != "$expected" ]; then
+        error "Checksum verification failed for $(basename "$archive_path")"
+    fi
+}
+
 # Download and install
 install() {
-    local platform version url tmp_dir
+    local platform version archive_name checksum_name url checksum_url tmp_dir
 
     platform=$(detect_platform)
     version=$(get_latest_version)
@@ -85,16 +106,25 @@ install() {
 
     info "Installing $BINARY_NAME $version for $platform"
 
-    url="https://github.com/$REPO/releases/download/$version/${BINARY_NAME}-${platform}.tar.gz"
+    archive_name="${BINARY_NAME}-${version}-${platform}.tar.gz"
+    checksum_name="${archive_name}.sha256"
+    url="https://github.com/$REPO/releases/download/$version/${archive_name}"
+    checksum_url="https://github.com/$REPO/releases/download/$version/${checksum_name}"
 
     tmp_dir=$(mktemp -d)
     trap "rm -rf $tmp_dir" EXIT
 
     info "Downloading from $url"
-    curl -fsSL "$url" -o "$tmp_dir/auditmysite.tar.gz"
+    curl -fsSL "$url" -o "$tmp_dir/$archive_name"
+
+    info "Downloading checksum from $checksum_url"
+    curl -fsSL "$checksum_url" -o "$tmp_dir/$checksum_name"
+
+    info "Verifying checksum"
+    verify_checksum "$tmp_dir/$archive_name" "$tmp_dir/$checksum_name"
 
     info "Extracting..."
-    tar -xzf "$tmp_dir/auditmysite.tar.gz" -C "$tmp_dir"
+    tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"
 
     # Create install directory if it doesn't exist
     mkdir -p "$INSTALL_DIR"
@@ -126,6 +156,10 @@ check_dependencies() {
 
     if ! command -v tar &> /dev/null; then
         error "tar is required but not installed"
+    fi
+
+    if ! command -v sha256sum &> /dev/null && ! command -v shasum &> /dev/null; then
+        error "sha256sum or shasum is required but not installed"
     fi
 
     # Check for Chrome (optional but recommended)

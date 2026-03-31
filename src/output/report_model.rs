@@ -18,6 +18,7 @@ pub struct ReportConfig {
     pub company_name: Option<String>,
     pub logo_path: Option<PathBuf>,
     pub locale: String,
+    pub history_preview: Option<ReportHistoryPreview>,
 }
 
 impl Default for ReportConfig {
@@ -27,6 +28,7 @@ impl Default for ReportConfig {
             company_name: None,
             logo_path: None,
             locale: "de".to_string(),
+            history_preview: None,
         }
     }
 }
@@ -99,6 +101,7 @@ pub struct ReportViewModel {
     pub meta: MetaBlock,
     pub cover: CoverBlock,
     pub summary: SummaryBlock,
+    pub history: Option<HistoryTrendBlock>,
     pub methodology: MethodologyBlock,
     pub modules: ModulesBlock,
     pub severity: SeverityBlock,
@@ -154,12 +157,37 @@ pub struct MetricItem {
     pub accent_color: Option<String>,
 }
 
+pub struct ReportHistoryPreview {
+    pub previous_date: String,
+    pub timeline_entries: usize,
+    pub previous_accessibility_score: u32,
+    pub previous_overall_score: u32,
+    pub delta_accessibility: i32,
+    pub delta_overall: i32,
+    pub delta_total_issues: i32,
+    pub delta_critical_issues: i32,
+    pub recent_entries: Vec<(String, u32, u32, String, u32)>,
+    pub new_findings: Vec<String>,
+    pub resolved_findings: Vec<String>,
+}
+
+pub struct HistoryTrendBlock {
+    pub previous_date: String,
+    pub timeline_entries: usize,
+    pub summary: String,
+    pub metrics: Vec<(String, String)>,
+    pub timeline_rows: Vec<(String, String, String, String, String)>,
+    pub new_findings: Vec<String>,
+    pub resolved_findings: Vec<String>,
+}
+
 /// Methodology section
 pub struct MethodologyBlock {
     pub scope: String,
     pub method: String,
     pub limitations: String,
     pub disclaimer: String,
+    pub audit_facts: Vec<(String, String)>,
 }
 
 /// Module scores for dashboard and comparison

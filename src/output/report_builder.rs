@@ -7,7 +7,6 @@
 use std::collections::HashMap;
 
 use crate::audit::normalized::NormalizedReport;
-use crate::audit::AccessibilityScorer;
 use crate::audit::BatchReport;
 use crate::cli::ReportLevel;
 use crate::output::explanations::get_explanation;
@@ -15,6 +14,8 @@ use crate::output::report_model::*;
 use crate::taxonomy::RuleLookup;
 use crate::util::truncate_url;
 use crate::wcag::Severity;
+
+const NBSP: &str = "\u{00A0}";
 
 // ─── Single Report ViewModel ────────────────────────────────────────────────
 
@@ -51,10 +52,18 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             .then_with(|| impact_score(b).cmp(&impact_score(a)))
     });
 
-    let score = normalized.overall_score;
-    let grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
-    let certificate = AccessibilityScorer::calculate_certificate(score as f32).to_string();
+    let score = normalized.score;
+    let grade = normalized.grade.clone();
+    let certificate = normalized.certificate.clone();
     let date = normalized.timestamp.format("%d.%m.%Y").to_string();
+    let report_title = localized_report_title(&config.locale);
+    let report_subtitle = localized_report_subtitle(&config.locale);
+    let report_author = config
+        .company_name
+        .as_deref()
+        .unwrap_or("AuditMySite")
+        .to_string();
+    let has_quality_modules = normalized.module_scores.len() > 1;
 
     let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
     let positive_aspects = derive_positive_aspects_from_normalized(normalized);
@@ -89,45 +98,37 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let modules = build_modules_block_from_normalized(normalized);
 
     // Build summary metrics
-    let best_module = find_best_module_name_from_normalized(normalized);
     let quick_win_count = action_plan.quick_wins.len();
     let critical_count =
         (normalized.severity_counts.critical + normalized.severity_counts.high) as u32;
     let total_violations = normalized.severity_counts.total as u32;
+    let nodes_analyzed = normalized.nodes_analyzed;
 
     // Build actions block (pre-mapped for ActionRoadmap component)
     let actions = build_actions_block(&action_plan);
 
     // Build module details from raw data
     let module_details = build_module_details_from_normalized(normalized);
-
-    let author = config
-        .company_name
-        .as_deref()
-        .unwrap_or("AuditMySite")
-        .to_string();
+    let history = config
+        .history_preview
+        .as_ref()
+        .map(build_history_trend_block);
 
     ReportViewModel {
         meta: MetaBlock {
-            title: "Web Accessibility Audit Report".to_string(),
+            title: report_title.clone(),
             subtitle: normalized.url.clone(),
             date: date.clone(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            author,
+            author: report_author.clone(),
             report_level: config.level,
             score_label: format!("{}/100", score),
         },
         cover: CoverBlock {
-            brand: config
-                .company_name
-                .as_deref()
-                .unwrap_or("AuditMySite")
-                .to_string(),
-            title: "Web Accessibility Audit Report".to_string(),
+            brand: report_author,
+            title: report_title,
             domain: normalized.url.clone(),
-            subtitle:
-                "Automatisierte Analyse zu Accessibility, Performance, SEO, Sicherheit und Mobile."
-                    .to_string(),
+            subtitle: report_subtitle.to_string(),
             date: date.clone(),
             score,
             grade: grade.clone(),
@@ -145,7 +146,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             verdict: build_verdict_text(&normalized.url, score as f32),
             metrics: vec![
                 MetricItem {
-                    title: "Verstöße gesamt".into(),
+                    title: format!("Verstöße{NBSP}gesamt"),
                     value: total_violations.to_string(),
                     accent_color: None,
                 },
@@ -155,14 +156,43 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                     accent_color: Some("#ef4444".into()),
                 },
                 MetricItem {
-                    title: "Stärkstes Modul".into(),
-                    value: best_module,
+                    title: if has_quality_modules {
+                        format!("Gesamtscore{NBSP}Website")
+                    } else {
+                        format!("Geprüfte{NBSP}Knoten")
+                    },
+                    value: if has_quality_modules {
+                        format!("{}/100", normalized.overall_score)
+                    } else {
+                        nodes_analyzed.to_string()
+                    },
                     accent_color: Some("#22c55e".into()),
                 },
                 MetricItem {
-                    title: "Quick Wins".into(),
-                    value: quick_win_count.to_string(),
+                    title: if has_quality_modules {
+                        format!("Geprüfte{NBSP}Knoten")
+                    } else {
+                        "Quick Wins".into()
+                    },
+                    value: if has_quality_modules {
+                        nodes_analyzed.to_string()
+                    } else {
+                        quick_win_count.to_string()
+                    },
                     accent_color: Some("#2563eb".into()),
+                },
+                MetricItem {
+                    title: if has_quality_modules {
+                        "Quick Wins".into()
+                    } else {
+                        "WCAG-Level".into()
+                    },
+                    value: if has_quality_modules {
+                        quick_win_count.to_string()
+                    } else {
+                        normalized.wcag_level.to_string()
+                    },
+                    accent_color: Some("#7c3aed".into()),
                 },
             ],
             top_actions: top_findings
@@ -175,7 +205,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                 .map(|a| format!("{}: {}", a.area, a.description))
                 .collect(),
         },
-        methodology: build_methodology(&normalized.url),
+        history,
+        methodology: build_methodology(normalized),
         modules,
         severity,
         findings: FindingsBlock {
@@ -185,6 +216,58 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         module_details,
         actions,
         appendix: build_appendix_block_from_normalized(normalized),
+    }
+}
+
+fn build_history_trend_block(preview: &ReportHistoryPreview) -> HistoryTrendBlock {
+    HistoryTrendBlock {
+        previous_date: preview.previous_date.clone(),
+        timeline_entries: preview.timeline_entries,
+        summary: format!(
+            "Vergleich zum letzten verfügbaren Lauf vom {}. Die Historie umfasst aktuell {} verwertbare Snapshots im Report-Ordner.",
+            preview.previous_date, preview.timeline_entries
+        ),
+        metrics: vec![
+            (
+                "Accessibility-Delta".to_string(),
+                format!("{:+}", preview.delta_accessibility),
+            ),
+            (
+                "Gesamt-Delta".to_string(),
+                format!("{:+}", preview.delta_overall),
+            ),
+            (
+                "Issue-Delta".to_string(),
+                format!("{:+}", preview.delta_total_issues),
+            ),
+            (
+                "Kritisch+Hoch-Delta".to_string(),
+                format!("{:+}", preview.delta_critical_issues),
+            ),
+            (
+                "Vorher Accessibility".to_string(),
+                preview.previous_accessibility_score.to_string(),
+            ),
+            (
+                "Vorher Gesamt".to_string(),
+                preview.previous_overall_score.to_string(),
+            ),
+        ],
+        timeline_rows: preview
+            .recent_entries
+            .iter()
+            .map(|entry| {
+                (
+                    entry.0.clone(),
+                    entry.1.to_string(),
+                    entry.2.to_string(),
+                    entry.3.clone(),
+                    entry.4.to_string(),
+                )
+            })
+            .collect(),
+        new_findings: preview.new_findings.clone(),
+        resolved_findings: preview.resolved_findings.clone(),
     }
 }
 
@@ -340,12 +423,19 @@ fn build_appendix_block_from_normalized(normalized: &NormalizedReport) -> Append
     }
 }
 
-fn build_methodology(url: &str) -> MethodologyBlock {
+fn build_methodology(normalized: &NormalizedReport) -> MethodologyBlock {
+    let active_modules = normalized
+        .module_scores
+        .iter()
+        .map(|m| m.name.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+
     MethodologyBlock {
         scope: format!(
-            "Automatisierte Prüfung der Seite {} auf Barrierefreiheit nach WCAG 2.1 (Level AA). \
+            "Automatisierte Prüfung der Seite {} auf Barrierefreiheit nach WCAG 2.1 (Level {}). \
              Zusätzlich wurden Performance, SEO, Sicherheit und mobile Nutzbarkeit analysiert.",
-            url
+            normalized.url, normalized.wcag_level
         ),
         method: "Die Prüfung erfolgte über den Chrome DevTools Protocol (CDP) und den \
                  nativen Accessibility Tree des Browsers. 21 WCAG-Regeln wurden automatisiert \
@@ -361,6 +451,29 @@ fn build_methodology(url: &str) -> MethodologyBlock {
                      Für eine rechtsverbindliche Aussage zur Barrierefreiheit ist eine \
                      umfassende manuelle Prüfung durch Experten erforderlich."
             .to_string(),
+        audit_facts: vec![
+            (
+                "Primärscore".to_string(),
+                format!("Accessibility {} / 100", normalized.score),
+            ),
+            (
+                "Gesamtscore".to_string(),
+                format!(
+                    "{} / 100 (gewichteter Mix aktiver Module)",
+                    normalized.overall_score
+                ),
+            ),
+            ("WCAG-Level".to_string(), normalized.wcag_level.to_string()),
+            (
+                "Geprüfte Knoten".to_string(),
+                normalized.nodes_analyzed.to_string(),
+            ),
+            (
+                "Laufzeit".to_string(),
+                format!("{:.1} s", normalized.duration_ms as f64 / 1000.0),
+            ),
+            ("Aktive Module".to_string(), active_modules),
+        ],
     }
 }
 
@@ -865,7 +978,7 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
     } else if a11y_score >= 80.0 {
         positives.push(PositiveAspect {
             area: "Barrierefreiheit".into(),
-            description: format!("Guter Score von {:.0}/100 — die Basis stimmt.", a11y_score),
+            description: "Solide Grundqualität mit gezielt priorisierbaren Restpunkten.".into(),
         });
     }
 
@@ -873,7 +986,8 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
         if perf.score.overall >= 80 {
             positives.push(PositiveAspect {
                 area: "Performance".into(),
-                description: format!("Gute Ladezeiten mit {}/100 Punkten.", perf.score.overall),
+                description: "Stabile Ladezeiten und insgesamt reaktionsschneller Seitenaufbau."
+                    .into(),
             });
         }
     }
@@ -881,7 +995,7 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
         if seo.score >= 80 {
             positives.push(PositiveAspect {
                 area: "SEO".into(),
-                description: format!("Solide SEO-Basis mit {}/100 Punkten.", seo.score),
+                description: "Saubere Basis für Auffindbarkeit, Struktur und Meta-Daten.".into(),
             });
         }
     }
@@ -889,10 +1003,7 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
         if sec.score >= 80 {
             positives.push(PositiveAspect {
                 area: "Sicherheit".into(),
-                description: format!(
-                    "Gute Security-Konfiguration mit {}/100 Punkten (Grade {}).",
-                    sec.score, sec.grade
-                ),
+                description: "Wichtige Sicherheitsmechanismen sind grundsätzlich vorhanden.".into(),
             });
         }
     }
@@ -900,7 +1011,7 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
         if mobile.score >= 80 {
             positives.push(PositiveAspect {
                 area: "Mobile".into(),
-                description: format!("Gute mobile Nutzbarkeit mit {}/100 Punkten.", mobile.score),
+                description: "Die Seite ist auf kleinen Displays gut bedienbar und lesbar.".into(),
             });
         }
     }
@@ -912,31 +1023,6 @@ fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec
         });
     }
     positives
-}
-
-fn find_best_module_name_from_normalized(normalized: &NormalizedReport) -> String {
-    let mut best = ("Barrierefreiheit", normalized.score);
-    if let Some(ref p) = normalized.raw_performance {
-        if p.score.overall > best.1 {
-            best = ("Performance", p.score.overall);
-        }
-    }
-    if let Some(ref s) = normalized.raw_seo {
-        if s.score > best.1 {
-            best = ("SEO", s.score);
-        }
-    }
-    if let Some(ref s) = normalized.raw_security {
-        if s.score > best.1 {
-            best = ("Sicherheit", s.score);
-        }
-    }
-    if let Some(ref m) = normalized.raw_mobile {
-        if m.score > best.1 {
-            best = ("Mobile", m.score);
-        }
-    }
-    best.0.to_string()
 }
 
 // ─── Batch Report Builder (unchanged) ───────────────────────────────────────
@@ -1310,25 +1396,93 @@ fn impact_score(group: &FindingGroup) -> u32 {
 fn build_verdict_text(url: &str, score: f32) -> String {
     if score >= 90.0 {
         format!(
-            "Die Website {} erreicht mit {:.0}/100 Punkten ein sehr gutes Ergebnis. \
-                 Die Barrierefreiheit ist weitgehend gewährleistet.",
+            "Die Website {} erreicht im Accessibility-Audit {:.0}/100 Punkte. \
+                 Die technische Basis ist stark; verbleibende Barrieren sind gezielt und gut priorisierbar.",
             url, score
         )
     } else if score >= 70.0 {
         format!(
-            "Die Website {} erreicht {:.0}/100 Punkte — eine solide Basis, \
-                 aber mit relevanten Barrieren, die behoben werden sollten.",
+            "Die Website {} erreicht im Accessibility-Audit {:.0}/100 Punkte. \
+                 Die Basis ist solide, es bestehen aber relevante Barrieren mit klarem Verbesserungshebel.",
             url, score
         )
     } else if score >= 50.0 {
-        format!("Die Website {} erreicht nur {:.0}/100 Punkte. \
-                 Es bestehen erhebliche Barrierefreiheitsprobleme, die zeitnah behoben werden müssen.", url, score)
-    } else {
         format!(
-            "Die Website {} erreicht nur {:.0}/100 Punkte. \
-                 Die Barrierefreiheit ist stark eingeschränkt — dringender Handlungsbedarf.",
+            "Die Website {} erreicht im Accessibility-Audit nur {:.0}/100 Punkte. \
+                 Es bestehen deutliche Barrieren, die zeitnah priorisiert und behoben werden sollten.",
             url, score
         )
+    } else {
+        format!(
+            "Die Website {} erreicht im Accessibility-Audit nur {:.0}/100 Punkte. \
+                 Die Barrierefreiheit ist stark eingeschränkt; es besteht akuter Handlungsbedarf.",
+            url, score
+        )
+    }
+}
+
+fn localized_report_title(locale: &str) -> String {
+    match locale {
+        "en" => "Accessibility Audit Report".to_string(),
+        _ => "Barrierefreiheits-Prüfbericht".to_string(),
+    }
+}
+
+fn localized_report_subtitle(locale: &str) -> &'static str {
+    match locale {
+        "en" => "Automated accessibility audit with optional website quality modules.",
+        _ => "Automatisierter Accessibility-Report mit ergänzenden Qualitätsmodulen.",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::normalize;
+    use crate::audit::AuditReport;
+    use crate::cli::WcagLevel;
+    use crate::output::report_model::ReportConfig;
+    use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+    use crate::seo::SeoAnalysis;
+    use crate::wcag::{Violation, WcagResults};
+
+    #[test]
+    fn test_view_model_uses_accessibility_score_as_primary_score() {
+        let mut wcag = WcagResults::new();
+        wcag.add_violation(Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            crate::taxonomy::Severity::High,
+            "Missing alt text",
+            "n1",
+        ));
+
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, wcag, 1500)
+            .with_performance(crate::audit::PerformanceResults {
+                vitals: WebVitals::default(),
+                score: PerformanceScore {
+                    overall: 60,
+                    grade: PerformanceGrade::NeedsImprovement,
+                    lcp_score: 15,
+                    fcp_score: 15,
+                    cls_score: 15,
+                    interactivity_score: 15,
+                },
+            })
+            .with_seo(SeoAnalysis::default());
+
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        assert_eq!(vm.summary.score, normalized.score);
+        assert_eq!(vm.summary.grade, normalized.grade);
+        assert_eq!(vm.summary.certificate, normalized.certificate);
+        assert!(vm
+            .summary
+            .metrics
+            .iter()
+            .any(|m| m.title == format!("Gesamtscore{NBSP}Website")));
     }
 }
 

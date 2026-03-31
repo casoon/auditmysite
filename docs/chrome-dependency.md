@@ -52,6 +52,8 @@ Suchreihenfolge:
    - Windows: `Program Files/Google/Chrome/Application/chrome.exe`
 4. Managed Install unter `~/.auditmysite/browsers/`
 
+`CHROME_PATH` wird weiterhin als Kompatibilitätsquelle unterstützt, die Benutzeroberfläche des Projekts dokumentiert aber primär `--browser-path` und `AUDITMYSITE_BROWSER`.
+
 ### 2. Chrome installieren (`src/browser/installer.rs`)
 
 Falls kein Chrome gefunden wird, muss der Benutzer explizit installieren:

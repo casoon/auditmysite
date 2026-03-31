@@ -17,12 +17,14 @@ use std::path::PathBuf;
     author,
     about = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust",
     long_about = "AuditMySit analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
-                  It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
-                  - Missing alt text on images (1.1.1)\n\
-                  - Heading hierarchy issues (2.4.6)\n\
-                  - Unlabeled form controls (4.1.2)\n\
-                  - Insufficient color contrast (1.4.3)\n\n\
-                  Supports single URLs, sitemaps, and URL list files."
+It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
+- Missing alt text on images (1.1.1)\n\
+- Heading hierarchy issues (2.4.6)\n\
+- Unlabeled form controls (4.1.2)\n\
+- Insufficient color contrast (1.4.3)\n\n\
+Supported output formats: json, table, pdf.\n\
+Supported inputs: a single URL, --sitemap, or --url-file.\n\n\
+Default single-URL behavior: generate a PDF report in the current directory."
 )]
 pub struct Args {
     /// Subcommand
@@ -47,23 +49,25 @@ pub struct Args {
     #[arg(short = 'u', long, value_name = "FILE")]
     pub url_file: Option<PathBuf>,
 
-    /// WCAG conformance level to check
+    /// WCAG conformance level to check.
     ///
-    /// A: Level A only (minimum)
-    /// AA: Level A + AA (recommended)
-    /// AAA: Level A + AA + AAA (maximum)
+    /// `A` checks only level A.
+    /// `AA` checks level A and AA.
+    /// `AAA` checks levels A, AA, and AAA.
     #[arg(short = 'l', long, default_value = "aa", value_enum)]
     pub level: WcagLevel,
 
-    /// Output format
+    /// Output format: `json`, `table`, or `pdf`.
     ///
-    /// json: Machine-readable JSON
-    /// table: Human-readable CLI table
-    /// html: Interactive HTML report
-    #[arg(short = 'f', long, default_value = "table", value_enum)]
-    pub format: OutputFormat,
+    /// Default for a single URL without `-f`: `pdf`.
+    /// Default for batch inputs without `-f`: `table`.
+    #[arg(short = 'f', long, value_enum)]
+    pub format: Option<OutputFormat>,
 
-    /// Output file path (stdout if not specified)
+    /// Output file path.
+    ///
+    /// Single URL + default PDF mode writes to `./<domain>-<date>-<report-level>.pdf`.
+    /// JSON without `-o` prints to stdout.
     #[arg(short = 'o', long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
@@ -119,6 +123,8 @@ pub struct Args {
     pub detect_chrome: bool,
 
     /// Run all checks (Performance + SEO + Security + Mobile)
+    ///
+    /// This is already the default for standard single-page audits.
     #[arg(long)]
     pub full: bool,
 
@@ -154,11 +160,7 @@ pub struct Args {
     #[arg(long)]
     pub force_refresh: bool,
 
-    /// Report detail level (PDF only)
-    ///
-    /// executive: Compact overview (Kurzfazit + Summary + Maßnahmenplan)
-    /// standard: All chapters (default)
-    /// technical: Extended appendix with full technical details
+    /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum)]
     pub report_level: ReportLevel,
 
@@ -268,6 +270,16 @@ pub enum ReportLevel {
     Technical,
 }
 
+impl std::fmt::Display for ReportLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReportLevel::Executive => write!(f, "executive"),
+            ReportLevel::Standard => write!(f, "standard"),
+            ReportLevel::Technical => write!(f, "technical"),
+        }
+    }
+}
+
 impl std::fmt::Display for OutputFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -279,6 +291,24 @@ impl std::fmt::Display for OutputFormat {
 }
 
 impl Args {
+    pub fn effective_format(&self) -> OutputFormat {
+        match self.format {
+            Some(format) => format,
+            None if self.url.is_some() => OutputFormat::Pdf,
+            None => OutputFormat::Table,
+        }
+    }
+
+    pub fn full_audit_enabled(&self) -> bool {
+        self.full
+            || (!self.performance
+                && !self.seo
+                && !self.security
+                && !self.mobile
+                && !self.skip_performance
+                && !self.skip_mobile)
+    }
+
     /// Validate arguments
     pub fn validate(&self) -> Result<(), String> {
         // Subcommands don't need URL validation
@@ -353,6 +383,7 @@ impl Args {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
 
     #[test]
     fn test_wcag_level_display() {
@@ -368,6 +399,24 @@ mod tests {
         assert_eq!(OutputFormat::Pdf.to_string(), "pdf");
     }
 
+    #[test]
+    fn test_help_does_not_reference_removed_formats_or_flags() {
+        let mut command = Args::command();
+        let help = command.render_long_help().to_string();
+
+        assert!(help.contains("--browser-path"));
+        assert!(help.contains("--url-file"));
+        assert!(help.contains("json"));
+        assert!(help.contains("table"));
+        assert!(help.contains("pdf"));
+        assert!(help.contains(
+            "Default single-URL behavior: generate a PDF report in the current directory."
+        ));
+        assert!(!help.contains("html"));
+        assert!(!help.contains("markdown"));
+        assert!(!help.contains("--urls"));
+    }
+
     fn test_args(url: Option<&str>) -> Args {
         Args {
             command: None,
@@ -375,7 +424,7 @@ mod tests {
             sitemap: None,
             url_file: None,
             level: WcagLevel::AA,
-            format: OutputFormat::Table,
+            format: None,
             output: None,
             chrome_path: None,
             remote_debugging_port: None,
@@ -432,5 +481,31 @@ mod tests {
         args.reuse_cache = true;
         args.force_refresh = true;
         assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_effective_format_defaults_to_pdf_for_single_url() {
+        let args = test_args(Some("https://example.com"));
+        assert_eq!(args.effective_format(), OutputFormat::Pdf);
+    }
+
+    #[test]
+    fn test_effective_format_defaults_to_table_for_batch() {
+        let mut args = test_args(None);
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        assert_eq!(args.effective_format(), OutputFormat::Table);
+    }
+
+    #[test]
+    fn test_full_audit_enabled_by_default() {
+        let args = test_args(Some("https://example.com"));
+        assert!(args.full_audit_enabled());
+    }
+
+    #[test]
+    fn test_full_audit_disabled_when_only_skip_flags_are_used() {
+        let mut args = test_args(Some("https://example.com"));
+        args.skip_mobile = true;
+        assert!(!args.full_audit_enabled());
     }
 }
