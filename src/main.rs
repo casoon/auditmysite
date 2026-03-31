@@ -511,7 +511,7 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
 }
 
 fn maybe_write_single_history(
-    output_path: &PathBuf,
+    output_path: &std::path::Path,
     normalized: &auditmysite::audit::NormalizedReport,
     quiet: bool,
 ) -> Result<()> {
