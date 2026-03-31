@@ -7,7 +7,6 @@ All files in this directory (except this README) are gitignored.
 Single-page reports written into this directory now also generate convention-based history files:
 
 - `<subject>-history.json` for machine-readable timelines
-- `<subject>-history.md` for human-readable trend summaries
 
 The history is built from all compatible JSON reports in this directory that belong to the same audited host. The more snapshots you keep here, the richer the timeline becomes.
 

@@ -3,16 +3,14 @@
 //! The history model is built from normalized JSON report snapshots that live
 //! next to generated PDF/JSON artifacts. No database is required.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use url::Url;
-
 use crate::audit::normalized::{ModuleScoreEntry, NormalizedReport, SeverityCounts};
 use crate::error::{AuditError, Result};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryFindingSummary {
@@ -137,7 +135,6 @@ pub fn write_report_history(
     };
 
     let json_path = reports_dir.join(format!("{subject}-history.json"));
-    let md_path = reports_dir.join(format!("{subject}-history.md"));
 
     fs::write(
         &json_path,
@@ -145,9 +142,7 @@ pub fn write_report_history(
             reason: format!("Failed to serialize history JSON: {e}"),
         })?,
     )?;
-    fs::write(&md_path, render_history_markdown(&history))?;
-
-    Ok(vec![json_path, md_path])
+    Ok(vec![json_path])
 }
 
 pub fn preview_report_history(
@@ -383,137 +378,35 @@ fn collapse_same_day(entries: Vec<HistorySnapshot>) -> Vec<HistorySnapshot> {
     collapsed
 }
 
-fn render_history_markdown(history: &ReportHistory) -> String {
-    let mut out = String::new();
-    out.push_str(&format!("# Report History: {}\n\n", history.subject));
-    out.push_str(&format!("- Host: `{}`\n", history.host));
-    out.push_str(&format!("- URL: `{}`\n", history.url));
-    out.push_str(&format!("- Einträge: `{}`\n", history.entry_count));
-    out.push_str(&format!(
-        "- Generiert: `{}`\n\n",
-        history.generated_at.format("%Y-%m-%d %H:%M:%S UTC")
-    ));
-
-    out.push_str("## Aktueller Stand\n\n");
-    out.push_str(&format!(
-        "- Accessibility: `{}`\n- Website gesamt: `{}`\n- Note/Zertifikat: `{}` / `{}`\n- Issues gesamt: `{}`\n- Kritisch+Hoch: `{}`\n\n",
-        history.latest.accessibility_score,
-        history.latest.overall_score,
-        history.latest.grade,
-        history.latest.certificate,
-        history.latest.severity_counts.total,
-        history.latest.severity_counts.critical + history.latest.severity_counts.high,
-    ));
-
-    if let Some(delta) = &history.latest_delta {
-        out.push_str("## Veränderung zum letzten Lauf\n\n");
-        out.push_str(&format!(
-            "- Accessibility-Delta: `{:+}`\n- Gesamt-Delta: `{:+}`\n- Issue-Delta: `{:+}`\n- Kritisch+Hoch-Delta: `{:+}`\n",
-            delta.accessibility_score_delta,
-            delta.overall_score_delta,
-            delta.total_issues_delta,
-            delta.critical_issues_delta,
-        ));
-        if !delta.new_findings.is_empty() {
-            out.push_str(&format!(
-                "- Neue Findings: {}\n",
-                delta.new_findings.join(", ")
-            ));
-        }
-        if !delta.resolved_findings.is_empty() {
-            out.push_str(&format!(
-                "- Behobene Findings: {}\n",
-                delta.resolved_findings.join(", ")
-            ));
-        }
-        out.push('\n');
-    }
-
-    out.push_str("## Verlauf\n\n");
-    out.push_str("| Datum | Accessibility | Gesamt | Note | Zertifikat | Issues |\n");
-    out.push_str("| --- | ---: | ---: | --- | --- | ---: |\n");
-    for entry in &history.entries {
-        out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} |\n",
-            entry.timestamp.format("%Y-%m-%d"),
-            entry.accessibility_score,
-            entry.overall_score,
-            entry.grade,
-            entry.certificate,
-            entry.severity_counts.total
-        ));
-    }
-
-    let all_rules: BTreeSet<String> = history
-        .entries
-        .iter()
-        .flat_map(|entry| {
-            entry
-                .top_findings
-                .iter()
-                .map(|finding| finding.title.clone())
-        })
-        .collect();
-    if !all_rules.is_empty() {
-        out.push_str("\n## Häufige Findings im Verlauf\n\n");
-        for rule in all_rules {
-            let appearances = history
-                .entries
-                .iter()
-                .filter(|entry| {
-                    entry
-                        .top_findings
-                        .iter()
-                        .any(|finding| finding.title == rule)
-                })
-                .count();
-            out.push_str(&format!("- {} (`{}` Läufe)\n", rule, appearances));
-        }
-    }
-
-    out
-}
-
 fn host_from_url(url: &str) -> Result<String> {
-    let parsed = Url::parse(url)
-        .map_err(|e| AuditError::ConfigError(format!("Invalid URL for history: {e}")))?;
+    let parsed = url::Url::parse(url).map_err(|e| AuditError::ConfigError(e.to_string()))?;
     parsed
         .host_str()
         .map(|host| host.to_string())
-        .ok_or_else(|| AuditError::ConfigError("URL has no host for history".to_string()))
+        .ok_or_else(|| AuditError::ConfigError(format!("Missing host in URL: {url}")))
 }
 
 fn derive_history_subject(output_path: &Path, host: &str) -> String {
-    let fallback = host.replace('.', "-");
-    let stem = match output_path.file_stem().and_then(|stem| stem.to_str()) {
-        Some(stem) if !stem.is_empty() => stem,
-        _ => return fallback,
-    };
+    let stem = output_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default();
 
-    let parts: Vec<&str> = stem.split('-').collect();
-    for idx in 0..parts.len().saturating_sub(2) {
-        let year = parts[idx];
-        let month = parts[idx + 1];
-        let day = parts[idx + 2];
-        if year.len() == 4
-            && month.len() == 2
-            && day.len() == 2
-            && year.chars().all(|c| c.is_ascii_digit())
-            && month.chars().all(|c| c.is_ascii_digit())
-            && day.chars().all(|c| c.is_ascii_digit())
-        {
-            let prefix = parts[..idx].join("-");
-            if !prefix.is_empty() {
-                return prefix;
+    if !stem.is_empty() {
+        let without_suffix = stem
+            .strip_suffix("-standard")
+            .or_else(|| stem.strip_suffix("-executive"))
+            .or_else(|| stem.strip_suffix("-technical"))
+            .unwrap_or(stem);
+
+        if let Some(subject) = without_suffix.split("-20").next() {
+            if !subject.is_empty() {
+                return subject.to_string();
             }
         }
     }
 
-    if stem == "audit-report" || stem == "batch-audit-report" {
-        fallback
-    } else {
-        stem.to_string()
-    }
+    host.strip_prefix("www.").unwrap_or(host).replace('.', "-")
 }
 
 #[cfg(test)]
@@ -630,14 +523,9 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(written.len(), 2);
+        assert_eq!(written.len(), 1);
         let history_json = fs::read_to_string(reports_dir.join("casoon-history.json")).unwrap();
         assert!(history_json.contains("\"entry_count\": 2"));
         assert!(history_json.contains("\"accessibility_score_delta\": 4"));
-
-        let history_md = fs::read_to_string(reports_dir.join("casoon-history.md")).unwrap();
-        assert!(history_md.contains("Veränderung zum letzten Lauf"));
-        assert!(history_md.contains("| 2026-03-01 | 88 | 82 |"));
-        assert!(history_md.contains("| 2026-03-31 | 92 | 86 |"));
     }
 }
