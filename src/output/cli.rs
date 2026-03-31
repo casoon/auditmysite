@@ -139,7 +139,7 @@ fn render_dashboard_row(label: &str, score: u32, grade: &str) -> String {
 
 fn render_score_bar(score: u32) -> String {
     let slots = 18usize;
-    let filled = min((score as usize * slots + 99) / 100, slots);
+    let filled = min((score as usize * slots).div_ceil(100), slots);
     let filled_text = "█".repeat(filled);
     let empty_text = "░".repeat(slots - filled).truecolor(55, 68, 92);
     format!("{}{}", bar_color(score, &filled_text), empty_text)
@@ -157,11 +157,11 @@ fn render_issue_summary(critical: usize, high: usize, medium: usize, low: usize)
     )
 }
 
-fn colorize_score<'a>(score: u32, text: &'a str) -> colored::ColoredString {
+fn colorize_score(score: u32, text: &str) -> colored::ColoredString {
     bar_color(score, text)
 }
 
-fn colorize_grade<'a>(grade: &str, text: &'a str) -> colored::ColoredString {
+fn colorize_grade(grade: &str, text: &str) -> colored::ColoredString {
     match grade {
         "A+" | "A" => text.green(),
         "B" => text.yellow(),
@@ -171,7 +171,7 @@ fn colorize_grade<'a>(grade: &str, text: &'a str) -> colored::ColoredString {
     }
 }
 
-fn bar_color<'a>(score: u32, text: &'a str) -> colored::ColoredString {
+fn bar_color(score: u32, text: &str) -> colored::ColoredString {
     if score >= 90 {
         text.green()
     } else if score >= 80 {

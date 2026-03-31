@@ -592,7 +592,7 @@ fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) 
     Ok(())
 }
 
-fn output_directory(path: &PathBuf) -> &std::path::Path {
+fn output_directory(path: &std::path::Path) -> &std::path::Path {
     match path.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => std::path::Path::new("."),
