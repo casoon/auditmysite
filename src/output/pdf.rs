@@ -11,8 +11,8 @@ use renderreport::Engine;
 
 // Composite components
 use renderreport::components::{
-    ActionRoadmap, BenchmarkRow, BenchmarkSummary, BenchmarkTable, ComparisonModule, MetricCard,
-    ModuleComparison, RoadmapColumn, RoadmapItem, ScoreCard, SeverityOverview, SummaryBox,
+    BenchmarkRow, BenchmarkSummary, BenchmarkTable, ComparisonModule, MetricCard, ModuleComparison,
+    ScoreCard, SeverityOverview, SummaryBox,
 };
 
 use crate::audit::{normalize, AuditReport, BatchReport};
@@ -169,8 +169,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = builder
             .add_component(PageBreak::new())
             .add_component(Section::new("Maßnahmenplan").with_level(1))
-            .add_component(TextBlock::new(&vm.actions.intro_text))
-            .add_component(build_action_roadmap(&vm.actions));
+            .add_component(TextBlock::new(&vm.actions.intro_text));
+        builder = render_action_plan_tables(builder, &vm.actions);
 
         if let Some(ref history) = vm.history {
             builder = render_history_section(builder, history);
@@ -188,7 +188,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     builder = builder
         .add_component(Section::new("Key Findings").with_level(1))
         .add_component(TextBlock::new(
-            "Die folgenden Themen sollten zuerst bearbeitet werden. Jeder Block zeigt kurz Problem, Relevanz und nächste Maßnahme.",
+            "Diese Themen sollten Sie zuerst angehen. Jeder Block zeigt kurz Problem, Relevanz und die empfohlene nächste Maßnahme.",
         ));
 
     for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
@@ -227,8 +227,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new("Maßnahmenplan").with_level(1))
-        .add_component(TextBlock::new(&vm.actions.intro_text))
-        .add_component(build_action_roadmap(&vm.actions));
+        .add_component(TextBlock::new(&vm.actions.intro_text));
+    builder = render_action_plan_tables(builder, &vm.actions);
 
     // ── 6. Historie ─────────────────────────────────────────────────
     if let Some(ref history) = vm.history {
@@ -588,29 +588,6 @@ fn build_module_comparison(modules: &ModulesBlock) -> ModuleComparison {
     ModuleComparison::new(comparison_modules)
 }
 
-fn build_action_roadmap(actions: &ActionsBlock) -> ActionRoadmap {
-    let columns: Vec<RoadmapColumn> = actions
-        .roadmap_columns
-        .iter()
-        .map(|c| RoadmapColumn {
-            title: c.title.clone(),
-            accent_color: Some(c.accent_color.clone()),
-            items: c
-                .items
-                .iter()
-                .map(|i| RoadmapItem {
-                    action: i.action.clone(),
-                    role: i.role.clone(),
-                    priority: i.priority.clone(),
-                    effort: Some(i.effort.clone()),
-                    benefit: i.benefit.clone(),
-                })
-                .collect(),
-        })
-        .collect();
-    ActionRoadmap::new(columns)
-}
-
 fn build_summary_overview(summary: &SummaryBlock) -> Grid {
     let score_card = serde_json::json!({
         "type": "score-card",
@@ -633,6 +610,32 @@ fn build_summary_overview(summary: &SummaryBlock) -> Grid {
     }
 
     grid
+}
+
+fn render_action_plan_tables(
+    mut builder: renderreport::engine::ReportBuilder,
+    actions: &ActionsBlock,
+) -> renderreport::engine::ReportBuilder {
+    for column in &actions.roadmap_columns {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Maßnahme"),
+            TableColumn::new("Priorität"),
+            TableColumn::new("Aufwand"),
+        ])
+        .with_title(&column.title);
+
+        for item in &column.items {
+            table = table.add_row(vec![
+                item.action.clone(),
+                item.execution_priority.clone(),
+                item.effort.clone(),
+            ]);
+        }
+
+        builder = builder.add_component(table);
+    }
+
+    builder
 }
 
 fn build_executive_highlights_table(vm: &ReportViewModel) -> AuditTable {
@@ -700,7 +703,7 @@ fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
     let mut table = AuditTable::new(vec![
         TableColumn::new("Modul"),
         TableColumn::new("Score"),
-        TableColumn::new("Einordnung"),
+        TableColumn::new("Größter Hebel"),
     ])
     .with_title("Kurzbewertung je Modul");
 
@@ -708,7 +711,7 @@ fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
         table = table.add_row(vec![
             module.name.clone(),
             format!("{}/100", module.score),
-            simplify_for_summary(&module.interpretation),
+            simplify_for_summary(&module.key_lever),
         ]);
     }
 
@@ -746,7 +749,7 @@ fn build_quick_wins_table(actions: &ActionsBlock) -> AuditTable {
         table = table.add_row(vec![
             quick_win_title(item),
             item.action.clone(),
-            simplify_for_summary(&item.benefit),
+            simplify_for_summary(&item.execution_priority),
         ]);
     }
 
@@ -1024,8 +1027,16 @@ fn render_key_finding_block(
         simplify_for_summary(&group.user_impact),
     ])
     .add_row(vec![
+        "Business-Auswirkung".to_string(),
+        simplify_for_summary(&group.business_impact),
+    ])
+    .add_row(vec![
         "Maßnahme".to_string(),
         simplify_for_summary(&group.recommendation),
+    ])
+    .add_row(vec![
+        "Priorität".to_string(),
+        execution_priority_label(group.execution_priority).to_string(),
     ])
     .add_row(vec![
         "Aufwand".to_string(),
@@ -1124,6 +1135,14 @@ fn render_finding_technical(
         .add(
             "Technische Empfehlung",
             simplify_for_summary(&group.recommendation),
+        )
+        .add(
+            "Business-Auswirkung",
+            simplify_for_summary(&group.business_impact),
+        )
+        .add(
+            "Umsetzungspriorität",
+            execution_priority_label(group.execution_priority).to_string(),
         );
     builder = builder.add_component(details);
 
@@ -1170,6 +1189,14 @@ fn impact_label(group: &FindingGroup) -> &'static str {
         (Priority::High, _) | (_, crate::wcag::Severity::High) => "Hoch",
         (Priority::Medium, _) | (_, crate::wcag::Severity::Medium) => "Mittel",
         _ => "Niedrig",
+    }
+}
+
+fn execution_priority_label(priority: ExecutionPriority) -> &'static str {
+    match priority {
+        ExecutionPriority::Immediate => "Sofort beheben",
+        ExecutionPriority::Important => "Wichtig",
+        ExecutionPriority::Optional => "Optional",
     }
 }
 

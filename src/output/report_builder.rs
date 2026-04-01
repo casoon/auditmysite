@@ -220,12 +220,20 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
 }
 
 fn build_history_trend_block(preview: &ReportHistoryPreview) -> HistoryTrendBlock {
+    let trend_interpretation = if preview.delta_accessibility > 0 {
+        "Die Barrierefreiheit hat sich gegenüber dem letzten Lauf verbessert."
+    } else if preview.delta_accessibility < 0 {
+        "Die Barrierefreiheit ist gegenüber dem letzten Lauf leicht zurückgegangen."
+    } else {
+        "Die Barrierefreiheit ist gegenüber dem letzten Lauf stabil geblieben."
+    };
+
     HistoryTrendBlock {
         previous_date: preview.previous_date.clone(),
         timeline_entries: preview.timeline_entries,
         summary: format!(
-            "Vergleich zum letzten verfügbaren Lauf vom {}. Die Historie umfasst aktuell {} verwertbare Snapshots im Report-Ordner.",
-            preview.previous_date, preview.timeline_entries
+            "Vergleich zum letzten verfügbaren Lauf vom {}. {} Die Historie umfasst aktuell {} verwertbare Snapshots im Report-Ordner.",
+            preview.previous_date, trend_interpretation, preview.timeline_entries
         ),
         metrics: vec![
             (
@@ -279,6 +287,7 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
         name: "Barrierefreiheit".into(),
         score: a11y_score.round() as u32,
         interpretation: interpret_score(a11y_score, "Barrierefreiheit"),
+        key_lever: derive_accessibility_lever(normalized),
         good_threshold: 75,
         warn_threshold: 50,
     }];
@@ -288,6 +297,7 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "Performance".into(),
             score: p.score.overall,
             interpretation: interpret_score(p.score.overall as f32, "Performance"),
+            key_lever: derive_performance_lever(p),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -297,6 +307,7 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "SEO".into(),
             score: s.score,
             interpretation: interpret_score(s.score as f32, "SEO"),
+            key_lever: derive_seo_lever(s),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -306,6 +317,7 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "Sicherheit".into(),
             score: s.score,
             interpretation: interpret_score(s.score as f32, "Sicherheit"),
+            key_lever: derive_security_lever(s),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -315,6 +327,7 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "Mobile".into(),
             score: m.score,
             interpretation: interpret_score(m.score as f32, "mobile Nutzbarkeit"),
+            key_lever: derive_mobile_lever(m),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -347,6 +360,7 @@ fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
                 action: i.action.clone(),
                 role: i.role.label().to_string(),
                 priority: i.priority.label().to_string(),
+                execution_priority: i.execution_priority.label().to_string(),
                 effort: effort.to_string(),
                 benefit: i.benefit.clone(),
             })
@@ -906,27 +920,32 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
         title,
         customer_desc,
         user_impact_text,
+        business_impact,
         typical_cause,
         recommendation,
         technical_note,
         role,
         effort,
+        execution_priority,
     ) = if let Some(expl) = explanation {
         (
             expl.customer_title.to_string(),
             expl.customer_description.to_string(),
             expl.user_impact.to_string(),
+            derive_business_impact(expl.user_impact, f.dimension.as_str(), f.severity),
             expl.typical_cause.to_string(),
             expl.recommendation.to_string(),
             expl.technical_note.to_string(),
             expl.responsible_role,
             expl.effort_estimate,
+            derive_execution_priority(f.severity, expl.effort_estimate, f.dimension.as_str()),
         )
     } else {
         (
             f.title.clone(),
             f.description.clone(),
             f.user_impact.clone(),
+            derive_business_impact(&f.user_impact, f.dimension.as_str(), f.severity),
             "Automatisch erkanntes Problem.".to_string(),
             f.occurrences
                 .first()
@@ -935,6 +954,7 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
             String::new(),
             Role::Development,
             Effort::Medium,
+            derive_execution_priority(f.severity, Effort::Medium, f.dimension.as_str()),
         )
     };
 
@@ -952,6 +972,7 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
         priority: severity_to_priority(f.severity),
         customer_description: customer_desc,
         user_impact: user_impact_text,
+        business_impact,
         typical_cause,
         recommendation,
         technical_note,
@@ -960,6 +981,7 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
         affected_elements: f.occurrence_count,
         responsible_role: role,
         effort,
+        execution_priority,
         examples,
     }
 }
@@ -1233,32 +1255,47 @@ fn group_violations(
         .map(|(rule_id, (violations, count))| {
             let first = violations[0];
             let explanation = get_explanation(&rule_id);
+            let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&rule_id);
+            let dimension_label = dimension.as_deref().unwrap_or("Accessibility");
 
             let (
                 title,
                 customer_desc,
                 user_impact_text,
+                business_impact,
                 typical_cause,
                 recommendation,
                 technical_note,
                 role,
                 effort,
+                execution_priority,
             ) = if let Some(expl) = explanation {
                 (
                     expl.customer_title.to_string(),
                     expl.customer_description.to_string(),
                     expl.user_impact.to_string(),
+                    derive_business_impact(expl.user_impact, dimension_label, first.severity),
                     expl.typical_cause.to_string(),
                     expl.recommendation.to_string(),
                     expl.technical_note.to_string(),
                     expl.responsible_role,
                     expl.effort_estimate,
+                    derive_execution_priority(
+                        first.severity,
+                        expl.effort_estimate,
+                        dimension_label,
+                    ),
                 )
             } else {
                 (
                     format!("{} — {}", first.rule, first.rule_name),
                     first.message.clone(),
                     "Nutzer mit Einschränkungen können betroffen sein.".to_string(),
+                    derive_business_impact(
+                        "Nutzer mit Einschränkungen können betroffen sein.",
+                        dimension_label,
+                        first.severity,
+                    ),
                     "Automatisch erkanntes Problem.".to_string(),
                     first
                         .fix_suggestion
@@ -1267,11 +1304,11 @@ fn group_violations(
                     first.fix_suggestion.clone().unwrap_or_default(),
                     Role::Development,
                     Effort::Medium,
+                    derive_execution_priority(first.severity, Effort::Medium, dimension_label),
                 )
             };
 
             let examples = explanation.map(|e| e.examples()).unwrap_or_default();
-            let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&rule_id);
 
             FindingGroup {
                 title,
@@ -1285,6 +1322,7 @@ fn group_violations(
                 priority: severity_to_priority(first.severity),
                 customer_description: customer_desc,
                 user_impact: user_impact_text,
+                business_impact,
                 typical_cause,
                 recommendation,
                 technical_note,
@@ -1293,6 +1331,7 @@ fn group_violations(
                 affected_elements: count,
                 responsible_role: role,
                 effort,
+                execution_priority,
                 examples,
             }
         })
@@ -1301,40 +1340,47 @@ fn group_violations(
 
 fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup {
     let explanation = get_explanation(&acc.rule);
+    let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&acc.rule);
+    let dimension_label = dimension.as_deref().unwrap_or("Accessibility");
     let (
         title,
         customer_desc,
         user_impact_text,
+        business_impact,
         typical_cause,
         recommendation,
         technical_note,
         role,
         effort,
+        execution_priority,
     ) = if let Some(expl) = explanation {
         (
             expl.customer_title.to_string(),
             expl.customer_description.to_string(),
             expl.user_impact.to_string(),
+            derive_business_impact(expl.user_impact, dimension_label, acc.severity),
             expl.typical_cause.to_string(),
             expl.recommendation.to_string(),
             expl.technical_note.to_string(),
             expl.responsible_role,
             expl.effort_estimate,
+            derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),
         )
     } else {
         (
             format!("{} — {}", acc.rule, acc.rule_name),
             String::new(),
             String::new(),
+            derive_business_impact("", dimension_label, acc.severity),
             String::new(),
             String::new(),
             String::new(),
             Role::Development,
             Effort::Medium,
+            derive_execution_priority(acc.severity, Effort::Medium, dimension_label),
         )
     };
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
-    let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&acc.rule);
 
     FindingGroup {
         title,
@@ -1348,6 +1394,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
         priority: severity_to_priority(acc.severity),
         customer_description: customer_desc,
         user_impact: user_impact_text,
+        business_impact,
         typical_cause,
         recommendation,
         technical_note,
@@ -1356,6 +1403,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
         affected_elements: acc.count,
         responsible_role: role,
         effort,
+        execution_priority,
         examples,
     }
 }
@@ -1492,9 +1540,11 @@ fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
     for group in finding_groups {
         let item = ActionItem {
             action: group.recommendation.clone(),
-            benefit: group.user_impact.clone(),
+            benefit: group.business_impact.clone(),
             role: group.responsible_role,
             priority: group.priority,
+            execution_priority: group.execution_priority,
+            effort: group.effort,
         };
         match group.effort {
             Effort::Quick => quick_wins.push(item),
@@ -1503,9 +1553,9 @@ fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
         }
     }
 
-    quick_wins.sort_by(|a, b| b.priority.cmp(&a.priority));
-    medium_term.sort_by(|a, b| b.priority.cmp(&a.priority));
-    structural.sort_by(|a, b| b.priority.cmp(&a.priority));
+    quick_wins.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
+    medium_term.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
+    structural.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
 
     let mut role_map: HashMap<Role, Vec<String>> = HashMap::new();
     for group in finding_groups {
@@ -1539,6 +1589,117 @@ fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
         medium_term,
         structural,
         role_assignments,
+    }
+}
+
+fn derive_accessibility_lever(normalized: &NormalizedReport) -> String {
+    if let Some(finding) = normalized
+        .findings
+        .iter()
+        .max_by_key(|f| f.occurrence_count)
+    {
+        format!("Größter Hebel: {}", finding.title)
+    } else {
+        "Größter Hebel: Ergebnisse stabil halten und manuell nachprüfen".to_string()
+    }
+}
+
+fn derive_performance_lever(perf: &crate::audit::PerformanceResults) -> String {
+    if let Some(dom_nodes) = perf.vitals.dom_nodes {
+        if dom_nodes > 1500 {
+            return format!("Größter Hebel: DOM-Größe reduzieren ({dom_nodes} Knoten)");
+        }
+    }
+    if let Some(load) = perf.vitals.load_time {
+        if load > 2_500.0 {
+            return format!("Größter Hebel: Ladezeit senken ({load:.0} ms)");
+        }
+    }
+    "Größter Hebel: Render-Pfad und Asset-Größe weiter optimieren".to_string()
+}
+
+fn derive_seo_lever(seo: &crate::seo::SeoAnalysis) -> String {
+    if !seo.meta_issues.is_empty() {
+        return format!(
+            "Größter Hebel: Meta-Daten bereinigen ({} offene Punkte)",
+            seo.meta_issues.len()
+        );
+    }
+    if seo.social.completeness < 80 {
+        return "Größter Hebel: Social-Meta-Daten vervollständigen".to_string();
+    }
+    "Größter Hebel: Struktur- und Inhalts-Signale weiter schärfen".to_string()
+}
+
+fn derive_security_lever(sec: &crate::security::SecurityAnalysis) -> String {
+    let missing_headers = sec.headers.content_security_policy.is_none() as usize
+        + sec.headers.strict_transport_security.is_none() as usize
+        + sec.headers.permissions_policy.is_none() as usize
+        + sec.headers.referrer_policy.is_none() as usize;
+    if missing_headers > 0 {
+        return format!(
+            "Größter Hebel: fehlende Security-Header ergänzen ({missing_headers} Kernheader)"
+        );
+    }
+    "Größter Hebel: Header-Regeln und TLS-Setup weiter härten".to_string()
+}
+
+fn derive_mobile_lever(mobile: &crate::mobile::MobileFriendliness) -> String {
+    if mobile.touch_targets.small_targets > 0 {
+        return format!(
+            "Größter Hebel: Touch Targets vergrößern ({} zu klein)",
+            mobile.touch_targets.small_targets
+        );
+    }
+    if mobile.touch_targets.crowded_targets > 0 {
+        return format!(
+            "Größter Hebel: Abstände mobiler Bedienelemente erhöhen ({})",
+            mobile.touch_targets.crowded_targets
+        );
+    }
+    "Größter Hebel: mobile Lesbarkeit und Touch-Flows weiter optimieren".to_string()
+}
+
+fn derive_business_impact(user_impact: &str, dimension: &str, severity: Severity) -> String {
+    match dimension {
+        "SEO" => {
+            "Kann Auffindbarkeit, Klickrate und organischen Traffic spürbar schwächen.".to_string()
+        }
+        "Security" => {
+            "Kann Vertrauen senken und das technische Risiko für Angriffe erhöhen.".to_string()
+        }
+        "Performance" => {
+            "Kann zu Absprüngen, geringerer Interaktion und schwächerer Conversion führen."
+                .to_string()
+        }
+        "Mobile" => {
+            "Kann Nutzung auf Smartphones erschweren und mobile Abschlüsse kosten.".to_string()
+        }
+        _ => match severity {
+            Severity::Critical | Severity::High => {
+                "Kann Nutzer ausschließen und zugleich rechtliches Risiko erhöhen.".to_string()
+            }
+            _ if user_impact.contains("Sprachsteuerung") => {
+                "Kann Nutzungshürden erhöhen und Interaktionen mit zentralen Elementen verhindern."
+                    .to_string()
+            }
+            _ => "Kann Nutzung, Conversion und Wahrnehmung der Website verschlechtern.".to_string(),
+        },
+    }
+}
+
+fn derive_execution_priority(
+    severity: Severity,
+    effort: Effort,
+    dimension: &str,
+) -> ExecutionPriority {
+    match (severity, effort, dimension) {
+        (Severity::Critical, _, _) => ExecutionPriority::Immediate,
+        (Severity::High, _, "Accessibility") => ExecutionPriority::Immediate,
+        (Severity::High, Effort::Quick, _) => ExecutionPriority::Important,
+        (Severity::High, _, _) => ExecutionPriority::Important,
+        (Severity::Medium, Effort::Quick, _) => ExecutionPriority::Important,
+        _ => ExecutionPriority::Optional,
     }
 }
 
@@ -1669,6 +1830,7 @@ impl Clone for FindingGroup {
             priority: self.priority,
             customer_description: self.customer_description.clone(),
             user_impact: self.user_impact.clone(),
+            business_impact: self.business_impact.clone(),
             typical_cause: self.typical_cause.clone(),
             recommendation: self.recommendation.clone(),
             technical_note: self.technical_note.clone(),
@@ -1677,6 +1839,7 @@ impl Clone for FindingGroup {
             affected_elements: self.affected_elements,
             responsible_role: self.responsible_role,
             effort: self.effort,
+            execution_priority: self.execution_priority,
             examples: self.examples.clone(),
         }
     }

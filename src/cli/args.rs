@@ -10,7 +10,7 @@ use std::path::PathBuf;
 ///
 /// Analyzes web pages for WCAG accessibility violations using
 /// Chrome DevTools Protocol and the Accessibility Tree.
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(
     name = "auditmysite",
     version,
@@ -160,6 +160,14 @@ pub struct Args {
     #[arg(long)]
     pub force_refresh: bool,
 
+    /// Do not suggest scanning a discovered sitemap for base URLs
+    #[arg(long)]
+    pub no_sitemap_suggest: bool,
+
+    /// If a populated sitemap is discovered for a base URL, scan it directly
+    #[arg(long)]
+    pub prefer_sitemap: bool,
+
     /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum)]
     pub report_level: ReportLevel,
@@ -178,7 +186,7 @@ pub struct Args {
 }
 
 /// Subcommands
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum Command {
     /// Manage browser detection and installation
     Browser {
@@ -190,7 +198,7 @@ pub enum Command {
 }
 
 /// Browser management actions
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum BrowserAction {
     /// Detect all installed browsers
     Detect,
@@ -376,6 +384,12 @@ impl Args {
             return Err("Cannot use --reuse-cache and --force-refresh together".to_string());
         }
 
+        if self.no_sitemap_suggest && self.prefer_sitemap {
+            return Err(
+                "Cannot use --no-sitemap-suggest and --prefer-sitemap together".to_string(),
+            );
+        }
+
         Ok(())
     }
 }
@@ -445,6 +459,8 @@ mod tests {
             skip_mobile: false,
             reuse_cache: false,
             force_refresh: false,
+            no_sitemap_suggest: false,
+            prefer_sitemap: false,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
             company_name: None,
@@ -480,6 +496,14 @@ mod tests {
         let mut args = test_args(Some("https://example.com"));
         args.reuse_cache = true;
         args.force_refresh = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_sitemap_suggest_flags_conflict() {
+        let mut args = test_args(Some("https://example.com"));
+        args.no_sitemap_suggest = true;
+        args.prefer_sitemap = true;
         assert!(args.validate().is_err());
     }
 

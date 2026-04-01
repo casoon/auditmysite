@@ -93,6 +93,23 @@ impl Effort {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ExecutionPriority {
+    Optional,
+    Important,
+    Immediate,
+}
+
+impl ExecutionPriority {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ExecutionPriority::Immediate => "Sofort beheben",
+            ExecutionPriority::Important => "Wichtig",
+            ExecutionPriority::Optional => "Optional",
+        }
+    }
+}
+
 // ─── Report ViewModel (Single Report) ───────────────────────────────────────
 
 /// Complete ViewModel for a single audit report.
@@ -202,6 +219,7 @@ pub struct ModuleScore {
     pub name: String,
     pub score: u32,
     pub interpretation: String,
+    pub key_lever: String,
     pub good_threshold: u32,
     pub warn_threshold: u32,
 }
@@ -248,6 +266,7 @@ pub struct RoadmapItemData {
     pub action: String,
     pub role: String,
     pub priority: String,
+    pub execution_priority: String,
     pub effort: String,
     pub benefit: String,
 }
@@ -274,6 +293,7 @@ pub struct FindingGroup {
     pub priority: Priority,
     pub customer_description: String,
     pub user_impact: String,
+    pub business_impact: String,
     pub typical_cause: String,
     pub recommendation: String,
     pub technical_note: String,
@@ -282,6 +302,7 @@ pub struct FindingGroup {
     pub affected_elements: usize,
     pub responsible_role: Role,
     pub effort: Effort,
+    pub execution_priority: ExecutionPriority,
     pub examples: Vec<ExampleBlock>,
 }
 
@@ -369,6 +390,8 @@ pub struct ActionItem {
     pub benefit: String,
     pub role: Role,
     pub priority: Priority,
+    pub execution_priority: ExecutionPriority,
+    pub effort: Effort,
 }
 
 pub struct RoleAssignment {

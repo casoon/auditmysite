@@ -3,6 +3,7 @@
 //! Resource-efficient WCAG 2.1 Accessibility Checker in Rust
 
 use std::fs;
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -262,6 +263,10 @@ async fn run_single_mode(args: &Args) -> Result<f64> {
         .as_ref()
         .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
+    if let Some(batch_score) = maybe_offer_sitemap_scan(args, url).await? {
+        return Ok(batch_score);
+    }
+
     info!("Starting audit for: {}", url);
 
     if args.reuse_cache && !args.force_refresh {
@@ -322,6 +327,145 @@ async fn run_single_mode(args: &Args) -> Result<f64> {
     output_single_report(&report, args)?;
 
     Ok(report.score as f64)
+}
+
+async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>> {
+    if args.no_sitemap_suggest {
+        return Ok(None);
+    }
+    if args.quiet || !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        return Ok(None);
+    }
+    if !looks_like_base_url(url) {
+        return Ok(None);
+    }
+
+    let Some((sitemap_url, url_count)) = discover_populated_sitemap(url).await? else {
+        return Ok(None);
+    };
+
+    if args.prefer_sitemap {
+        let mut batch_args = args.clone();
+        batch_args.url = None;
+        batch_args.sitemap = Some(sitemap_url);
+        return run_batch_mode(&batch_args).await.map(Some);
+    }
+
+    println!();
+    println!("{}", "Sitemap gefunden".cyan().bold());
+    println!(
+        "  {} {} ({} URLs)",
+        "Quelle:".dimmed(),
+        sitemap_url,
+        url_count
+    );
+    println!(
+        "  {}",
+        "Für eine Basis-URL ist oft ein vollständiger Sitemap-Scan sinnvoller als nur die Startseite."
+            .dimmed()
+    );
+    println!();
+    println!("  [s] Sitemap scannen");
+    println!("  [e] Einzelne URL prüfen (Standard)");
+    print!("Auswahl [e]: ");
+    io::stdout().flush().map_err(AuditError::IoError)?;
+
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .map_err(AuditError::IoError)?;
+
+    let choice = input.trim().to_lowercase();
+    if choice == "s" || choice == "y" || choice == "j" || choice == "yes" {
+        let mut batch_args = args.clone();
+        batch_args.url = None;
+        batch_args.sitemap = Some(sitemap_url);
+        println!();
+        return run_batch_mode(&batch_args).await.map(Some);
+    }
+
+    println!();
+    Ok(None)
+}
+
+async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
+    let mut candidates = sitemap_candidates(base_url)?;
+    for robots_sitemap in sitemap_candidates_from_robots(base_url).await {
+        if !candidates.contains(&robots_sitemap) {
+            candidates.push(robots_sitemap);
+        }
+    }
+
+    for candidate in candidates {
+        match parse_sitemap(&candidate).await {
+            Ok(urls) if !urls.is_empty() => return Ok(Some((candidate, urls.len()))),
+            Ok(_) => continue,
+            Err(_) => continue,
+        }
+    }
+
+    Ok(None)
+}
+
+fn sitemap_candidates(base_url: &str) -> Result<Vec<String>> {
+    let parsed = url::Url::parse(base_url).map_err(|e| AuditError::ConfigError(e.to_string()))?;
+    let base = parsed
+        .join("/")
+        .map_err(|e| AuditError::ConfigError(e.to_string()))?;
+
+    let usual_suspects = [
+        "sitemap.xml",
+        "sitemap_index.xml",
+        "sitemap-index.xml",
+        "sitemaps.xml",
+        "post-sitemap.xml",
+        "page-sitemap.xml",
+    ];
+
+    let mut urls = Vec::new();
+    for path in usual_suspects {
+        if let Ok(candidate) = base.join(path) {
+            urls.push(candidate.to_string());
+        }
+    }
+    Ok(urls)
+}
+
+async fn sitemap_candidates_from_robots(base_url: &str) -> Vec<String> {
+    let Ok(parsed) = url::Url::parse(base_url) else {
+        return Vec::new();
+    };
+    let Ok(robots_url) = parsed.join("/robots.txt") else {
+        return Vec::new();
+    };
+
+    let Ok(response) = reqwest::get(robots_url.clone()).await else {
+        return Vec::new();
+    };
+    let Ok(body) = response.text().await else {
+        return Vec::new();
+    };
+
+    body.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            let (key, value) = trimmed.split_once(':')?;
+            if key.trim().eq_ignore_ascii_case("sitemap") {
+                Some(value.trim().to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn looks_like_base_url(url: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(url) else {
+        return false;
+    };
+    (parsed.path().is_empty() || parsed.path() == "/")
+        && parsed.query().is_none()
+        && parsed.fragment().is_none()
 }
 
 /// Run batch audit mode (sitemap or URL file)
@@ -719,6 +863,22 @@ mod tests {
             default_single_json_output_path(&pdf_path),
             PathBuf::from("casoon-de-2026-03-31-standard.json")
         );
+    }
+
+    #[test]
+    fn test_looks_like_base_url_accepts_root_url() {
+        assert!(looks_like_base_url("https://www.casoon.de"));
+        assert!(looks_like_base_url("https://www.casoon.de/"));
+        assert!(!looks_like_base_url("https://www.casoon.de/blog"));
+        assert!(!looks_like_base_url("https://www.casoon.de/?p=1"));
+    }
+
+    #[test]
+    fn test_sitemap_candidates_include_usual_suspects() {
+        let candidates = sitemap_candidates("https://www.casoon.de").unwrap();
+        assert!(candidates.contains(&"https://www.casoon.de/sitemap.xml".to_string()));
+        assert!(candidates.contains(&"https://www.casoon.de/sitemap_index.xml".to_string()));
+        assert!(candidates.contains(&"https://www.casoon.de/page-sitemap.xml".to_string()));
     }
 }
 
