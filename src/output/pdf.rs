@@ -3,8 +3,6 @@
 //! Pure layout layer — receives pre-computed ViewModel blocks and maps them
 //! directly to renderreport components. Zero data transformation here.
 
-use std::{env, fs, path::PathBuf};
-
 use renderreport::components::advanced::{Grid, KeyValueList, List, PageBreak, TableOfContents};
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::prelude::*;
@@ -476,44 +474,69 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         builder = builder.add_component(insights);
     }
 
-    if !pres.portfolio_summary.strongest_content_pages.is_empty()
-        || !pres.portfolio_summary.weakest_content_pages.is_empty()
-    {
-        let mut grid = Grid::new(2);
+    if !pres.portfolio_summary.top_topics.is_empty() {
+        let mut topics =
+            AuditTable::new(vec![TableColumn::new("Thema"), TableColumn::new("Seiten")])
+                .with_title("Top-Themen der Domain");
 
-        if !pres.portfolio_summary.strongest_content_pages.is_empty() {
-            let mut strengths = List::new().with_title("Stärkste Seitenprofile");
-            for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
-                strengths = strengths.add_item(format!(
-                    "{} — {} ({} / 100)",
-                    truncate_url(url, 42),
-                    page_type,
-                    score
-                ));
-            }
-            grid = grid.add_item(serde_json::json!({
-                "type": "list",
-                "data": strengths.to_data()
-            }));
+        for (topic, count) in &pres.portfolio_summary.top_topics {
+            topics = topics.add_row(vec![topic.clone(), count.to_string()]);
         }
+        builder = builder.add_component(topics);
+    }
 
-        if !pres.portfolio_summary.weakest_content_pages.is_empty() {
-            let mut weaknesses = List::new().with_title("Schwächste Seitenprofile");
-            for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
-                weaknesses = weaknesses.add_item(format!(
-                    "{} — {} ({} / 100)",
-                    truncate_url(url, 42),
-                    page_type,
-                    score
-                ));
-            }
-            grid = grid.add_item(serde_json::json!({
-                "type": "list",
-                "data": weaknesses.to_data()
-            }));
+    if !pres.portfolio_summary.overlap_pairs.is_empty() {
+        let mut overlap = AuditTable::new(vec![
+            TableColumn::new("Seite A"),
+            TableColumn::new("Seite B"),
+            TableColumn::new("Ähnlichkeit"),
+        ])
+        .with_title("Thematische Überschneidungen");
+
+        for (left, right, score) in &pres.portfolio_summary.overlap_pairs {
+            overlap = overlap.add_row(vec![
+                truncate_url(left, 30),
+                truncate_url(right, 30),
+                format!("{score}%"),
+            ]);
         }
+        builder = builder.add_component(overlap);
+    }
 
-        builder = builder.add_component(grid);
+    if !pres.portfolio_summary.strongest_content_pages.is_empty() {
+        let mut strengths = AuditTable::new(vec![
+            TableColumn::new("URL"),
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Profil"),
+        ])
+        .with_title("Stärkste Seitenprofile");
+
+        for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
+            strengths = strengths.add_row(vec![
+                truncate_url(url, 42),
+                page_type.clone(),
+                format!("{score} / 100"),
+            ]);
+        }
+        builder = builder.add_component(strengths);
+    }
+
+    if !pres.portfolio_summary.weakest_content_pages.is_empty() {
+        let mut weaknesses = AuditTable::new(vec![
+            TableColumn::new("URL"),
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Profil"),
+        ])
+        .with_title("Schwächste Seitenprofile");
+
+        for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
+            weaknesses = weaknesses.add_row(vec![
+                truncate_url(url, 42),
+                page_type.clone(),
+                format!("{score} / 100"),
+            ]);
+        }
+        builder = builder.add_component(weaknesses);
     }
 
     builder = builder.add_component(PageBreak::new());
@@ -524,13 +547,37 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .iter()
         .enumerate()
         .map(|(i, u)| {
-            BenchmarkRow::new(
+            let mut row = BenchmarkRow::new(
                 (i + 1) as u32,
                 &truncate_url(&u.url, 35),
                 u.score as u32,
                 u.score as u32,
                 u.critical_violations as u32,
-            )
+            );
+            if let Some(detail) = pres.url_details.iter().find(|detail| detail.url == u.url) {
+                if let Some((_, score)) = detail
+                    .module_scores
+                    .iter()
+                    .find(|(module, _)| module == "SEO")
+                {
+                    row = row.with_seo(*score);
+                }
+                if let Some((_, score)) = detail
+                    .module_scores
+                    .iter()
+                    .find(|(module, _)| module == "Performance")
+                {
+                    row = row.with_performance(*score);
+                }
+                if let Some((_, score)) = detail
+                    .module_scores
+                    .iter()
+                    .find(|(module, _)| module == "Security")
+                {
+                    row = row.with_security(*score);
+                }
+            }
+            row
         })
         .collect();
 
@@ -603,6 +650,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         TableColumn::new("Krit.+Hoch"),
         TableColumn::new("Gesamt"),
         TableColumn::new("Profil"),
+        TableColumn::new("Themen"),
         TableColumn::new("Größter Hebel"),
     ])
     .with_title("Kompakte Seitenübersicht");
@@ -618,6 +666,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 .page_semantic_score
                 .map(|score| format!("{score}/100"))
                 .unwrap_or_else(|| "—".to_string()),
+            if detail.topic_terms.is_empty() {
+                "—".to_string()
+            } else {
+                truncate_url(&detail.topic_terms.join(", "), 30)
+            },
             truncate_url(&detail.biggest_lever, 46),
         ]);
     }
@@ -627,6 +680,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         let mut focus_table = AuditTable::new(vec![
             TableColumn::new("URL"),
             TableColumn::new("Seitentyp"),
+            TableColumn::new("Themen"),
             TableColumn::new("Merkmale"),
             TableColumn::new("Top-Probleme"),
         ])
@@ -636,6 +690,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             focus_table = focus_table.add_row(vec![
                 truncate_url(&detail.url, 38),
                 detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
+                if detail.topic_terms.is_empty() {
+                    "—".to_string()
+                } else {
+                    truncate_url(&detail.topic_terms.join(", "), 28)
+                },
                 if detail.page_attributes.is_empty() {
                     "—".to_string()
                 } else {
@@ -988,16 +1047,10 @@ fn build_cover_score_row(cover: &CoverBlock) -> Grid {
     }));
 
     grid = grid.add_item(serde_json::json!({
-        "type": "image",
-        "data": Image::new(
-            write_certificate_badge_svg(
-                "single-cover",
-                cover.score,
-                &cover.grade,
-                &cover.certificate
-            ).unwrap_or_default()
-        )
-            .with_width("100%")
+        "type": "metric-card",
+        "data": MetricCard::new("Zertifikat", &cover.grade)
+            .with_subtitle(format!("{} • {} / 100", cover.certificate, cover.score))
+            .with_accent_color(certificate_accent_color(&cover.certificate))
             .to_data()
     }));
 
@@ -1028,14 +1081,10 @@ fn build_batch_cover_score_row(
     }));
 
     grid = grid.add_item(serde_json::json!({
-        "type": "image",
-        "data": Image::new(write_certificate_badge_svg(
-            "batch-cover",
-            avg_score,
-            grade,
-            certificate
-        )?)
-            .with_width("100%")
+        "type": "metric-card",
+        "data": MetricCard::new("Zertifikat", grade)
+            .with_subtitle(format!("{certificate} • {avg_score} / 100"))
+            .with_accent_color(certificate_accent_color(certificate))
             .to_data()
     }));
 
@@ -1048,46 +1097,13 @@ fn build_batch_cover_score_row(
     })))
 }
 
-fn write_certificate_badge_svg(
-    namespace: &str,
-    score: u32,
-    grade: &str,
-    certificate: &str,
-) -> anyhow::Result<String> {
-    let (ring, fill, text) = certificate_badge_palette(certificate);
-    let filename = format!(
-        "auditmysite-{}-{}-{}.svg",
-        namespace,
-        grade.to_lowercase().replace('+', "plus"),
-        certificate.to_lowercase()
-    );
-    let path: PathBuf = env::temp_dir().join(filename);
-    let svg = format!(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
-  <defs>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.16"/>
-    </filter>
-  </defs>
-  <circle cx="160" cy="160" r="122" fill="{fill}" stroke="{ring}" stroke-width="18" filter="url(#shadow)"/>
-  <circle cx="160" cy="160" r="96" fill="#ffffff" fill-opacity="0.94" stroke="{ring}" stroke-width="4"/>
-  <text x="160" y="105" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="{ring}">ZERTIFIKAT</text>
-  <text x="160" y="174" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="88" font-weight="800" fill="{text}">{grade}</text>
-  <text x="160" y="214" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="{ring}">{certificate}</text>
-  <text x="160" y="246" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="500" fill="#475569">{score}/100 Punkte</text>
-</svg>"##,
-    );
-    fs::write(&path, svg)?;
-    Ok(path.to_string_lossy().to_string())
-}
-
-fn certificate_badge_palette(certificate: &str) -> (&'static str, &'static str, &'static str) {
+fn certificate_accent_color(certificate: &str) -> &'static str {
     match certificate {
-        "PLATINUM" => ("#0f766e", "#ccfbf1", "#115e59"),
-        "GOLD" => ("#b45309", "#fef3c7", "#92400e"),
-        "SILVER" => ("#475569", "#e2e8f0", "#334155"),
-        "BRONZE" => ("#9a3412", "#fed7aa", "#7c2d12"),
-        _ => ("#2563eb", "#dbeafe", "#1d4ed8"),
+        "PLATINUM" => "#0f766e",
+        "GOLD" => "#b45309",
+        "SILVER" => "#475569",
+        "BRONZE" => "#9a3412",
+        _ => "#2563eb",
     }
 }
 

@@ -10,7 +10,7 @@ mod pdf;
 pub mod report_builder;
 pub mod report_model;
 
-pub use cli::{format_violations_list, print_batch_table, print_report};
+pub use cli::{format_batch_table, format_violations_list, print_batch_table, print_report};
 pub use json::{format_json_batch, format_json_cached, format_json_normalized, JsonReport};
 #[cfg(feature = "pdf")]
 pub use pdf::{generate_batch_pdf, generate_pdf};

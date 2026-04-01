@@ -468,6 +468,8 @@ pub struct PortfolioSummary {
     pub distribution_insights: Vec<String>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
     pub weakest_content_pages: Vec<(String, String, u32)>,
+    pub top_topics: Vec<(String, usize)>,
+    pub overlap_pairs: Vec<(String, String, u32)>,
 }
 
 pub struct SeverityDistribution {
@@ -505,6 +507,7 @@ pub struct CompactUrlSummary {
     pub page_attributes: Vec<String>,
     pub page_semantic_score: Option<u32>,
     pub biggest_lever: String,
+    pub topic_terms: Vec<String>,
     pub top_issues: Vec<String>,
     pub module_scores: Vec<(String, u32)>,
 }

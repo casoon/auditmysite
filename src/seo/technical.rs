@@ -38,6 +38,8 @@ pub struct TechnicalSeo {
     pub external_links: u32,
     /// Broken links found
     pub broken_links: Vec<String>,
+    /// Visible text excerpt for topic analysis and redundancy checks
+    pub text_excerpt: String,
     /// Issues found
     pub issues: Vec<TechnicalIssue>,
 }
@@ -90,6 +92,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         // Word count (approximate)
         const text = document.body ? document.body.innerText : '';
         result.wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+        result.textExcerpt = text.slice(0, 4000);
 
         // Links
         const links = document.querySelectorAll('a[href]');
@@ -149,6 +152,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let word_count = parsed["wordCount"].as_u64().unwrap_or(0) as u32;
     let internal_links = parsed["internalLinks"].as_u64().unwrap_or(0) as u32;
     let external_links = parsed["externalLinks"].as_u64().unwrap_or(0) as u32;
+    let text_excerpt = parsed["textExcerpt"].as_str().unwrap_or("").to_string();
 
     // Generate issues
     let mut issues = Vec::new();
@@ -218,6 +222,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         internal_links,
         external_links,
         broken_links: vec![],
+        text_excerpt,
         issues,
     })
 }

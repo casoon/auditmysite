@@ -2,7 +2,7 @@
 //!
 //! Generates human-readable terminal output for interactive use and batch tables.
 
-use colored::Colorize;
+use colored::{control::set_override, Colorize};
 use prettytable::{format, Cell, Row, Table};
 use std::cmp::min;
 
@@ -403,49 +403,66 @@ fn print_mobile_section(mobile: &MobileFriendliness) {
 
 /// Print batch results as a table
 pub fn print_batch_table(batch_report: &BatchReport, level: WcagLevel) {
+    print!("{}", format_batch_table(batch_report, level, true));
+}
+
+/// Format batch results as a table string for terminal or file output
+pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_color: bool) -> String {
+    set_override(use_color);
+    let mut output = String::new();
+
     println!();
-    println!("{} WCAG {} Batch Audit Results", "═══".cyan(), level);
-    println!();
+    output.push('\n');
+    output.push_str(&format!(
+        "{} WCAG {} Batch Audit Results\n\n",
+        "═══".cyan(),
+        level
+    ));
 
     // Summary
-    println!(
+    output.push_str(&format!(
         "  {} {} URLs audited",
         "Total:".bold(),
         batch_report.summary.total_urls
-    );
-    println!(
+    ));
+    output.push('\n');
+    output.push_str(&format!(
         "  {} {} passed, {} failed",
         "Status:".bold(),
         batch_report.summary.passed.to_string().green(),
         batch_report.summary.failed.to_string().red()
-    );
-    println!(
+    ));
+    output.push('\n');
+    output.push_str(&format!(
         "  {} {:.1}",
         "Avg Score:".bold(),
         batch_report.summary.average_score
-    );
-    println!(
+    ));
+    output.push('\n');
+    output.push_str(&format!(
         "  {} {}",
         "Total Violations:".bold(),
         batch_report.summary.total_violations
-    );
-    println!(
+    ));
+    output.push('\n');
+    output.push_str(&format!(
         "  {} {}ms",
         "Duration:".bold(),
         batch_report.total_duration_ms
-    );
-    println!();
+    ));
+    output.push_str("\n\n");
 
     // Individual results
-    println!("{}", "─".repeat(80));
-    println!(
+    output.push_str(&format!("{}\n", "─".repeat(80)));
+    output.push_str(&format!(
         "{:<50} {:>8} {:>10} {:>8}",
         "URL".bold(),
         "Score".bold(),
         "Violations".bold(),
         "Status".bold()
-    );
-    println!("{}", "─".repeat(80));
+    ));
+    output.push('\n');
+    output.push_str(&format!("{}\n", "─".repeat(80)));
 
     for report in &batch_report.reports {
         let status = if report.passed() {
@@ -462,25 +479,28 @@ pub fn print_batch_table(batch_report: &BatchReport, level: WcagLevel) {
             format!("{:.1}", report.score).red()
         };
 
-        println!(
+        output.push_str(&format!(
             "{:<50} {:>8} {:>10} {:>8}",
             truncate_url(&report.url, 48),
             score_color,
             report.violation_count(),
             status
-        );
+        ));
+        output.push('\n');
     }
 
     // Show errors if any
     if !batch_report.errors.is_empty() {
-        println!();
-        println!("{}", "Errors:".red().bold());
+        output.push('\n');
+        output.push_str(&format!("{}\n", "Errors:".red().bold()));
         for err in &batch_report.errors {
-            println!("  {} {}: {}", "✗".red(), err.url, err.error);
+            output.push_str(&format!("  {} {}: {}\n", "✗".red(), err.url, err.error));
         }
     }
 
-    println!("{}", "─".repeat(80));
+    output.push_str(&format!("{}\n", "─".repeat(80)));
+    set_override(false);
+    output
 }
 
 /// Format violations as a simple list (for non-interactive output)
@@ -544,5 +564,21 @@ mod tests {
         assert_eq!(score_grade(74), "C");
         assert_eq!(score_grade(61), "D");
         assert_eq!(score_grade(49), "F");
+    }
+
+    #[test]
+    fn test_format_batch_table_contains_summary_and_urls() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            42,
+        );
+        let batch = BatchReport::from_reports(vec![report], vec![], 1500);
+        let text = format_batch_table(&batch, WcagLevel::AA, false);
+
+        assert!(text.contains("WCAG AA Batch Audit Results"));
+        assert!(text.contains("https://example.com"));
+        assert!(text.contains("Total Violations:"));
     }
 }

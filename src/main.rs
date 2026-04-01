@@ -31,7 +31,8 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_json_batch, format_json_cached, format_json_normalized, print_batch_table, print_report,
+    format_batch_table, format_json_batch, format_json_cached, format_json_normalized,
+    print_batch_table, print_report,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
@@ -82,7 +83,7 @@ fn setup_logging(args: &Args) {
     let filter = if args.quiet {
         "error,chromiumoxide=off,tungstenite=off".to_string()
     } else if args.verbose {
-        "debug,chromiumoxide=info,tungstenite=warn".to_string()
+        "debug,chromiumoxide=error,tungstenite=error,auditmysite=debug".to_string()
     } else {
         "warn,chromiumoxide=off,tungstenite=off,auditmysite=warn".to_string()
     };
@@ -682,7 +683,12 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
             output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
-            print_batch_table(batch_report, args.level);
+            if let Some(path) = &args.output {
+                let output = format_batch_table(batch_report, args.level, false);
+                output_text(&output, &Some(path.clone()), "Table batch", args.quiet)?;
+            } else {
+                print_batch_table(batch_report, args.level);
+            }
         }
         OutputFormat::Pdf => {
             #[cfg(feature = "pdf")]

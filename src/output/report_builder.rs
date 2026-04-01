@@ -4,7 +4,7 @@
 //! structured ViewModels with grouped findings, aggregated statistics,
 //! and pre-computed presentation data. The renderer does zero data transformation.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::audit::normalized::NormalizedReport;
 use crate::audit::BatchReport;
@@ -1150,6 +1150,8 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                 module_scores.push(("Mobile".to_string(), m.score));
             }
 
+            let topic_terms = extract_page_topics(r);
+
             CompactUrlSummary {
                 url: r.url.clone(),
                 score: r.score,
@@ -1188,6 +1190,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                         })
                     })
                     .unwrap_or_else(|| "Ergebnisse stabil halten".to_string()),
+                topic_terms,
                 top_issues: top_issue_titles,
                 module_scores,
             }
@@ -1293,6 +1296,8 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     page_semantic_scores.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
     let strongest_content_pages = page_semantic_scores.iter().take(5).cloned().collect();
     let weakest_content_pages = page_semantic_scores.iter().rev().take(5).cloned().collect();
+    let top_topics = derive_domain_topics(&url_details);
+    let overlap_pairs = derive_topic_overlap_pairs(&url_details);
 
     BatchPresentation {
         cover: CoverData {
@@ -1316,6 +1321,8 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             distribution_insights,
             strongest_content_pages,
             weakest_content_pages,
+            top_topics,
+            overlap_pairs,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -1597,12 +1604,13 @@ fn localized_report_subtitle(locale: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audit::normalize;
-    use crate::audit::AuditReport;
+    use crate::audit::{normalize, AuditReport, BatchReport};
     use crate::cli::WcagLevel;
     use crate::output::report_model::ReportConfig;
     use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+    use crate::seo::technical::TechnicalSeo;
     use crate::seo::SeoAnalysis;
+    use crate::seo::{HeadingStructure, MetaTags};
     use crate::wcag::{Violation, WcagResults};
 
     #[test]
@@ -1642,6 +1650,256 @@ mod tests {
             .metrics
             .iter()
             .any(|m| m.title == format!("Gesamtscore{NBSP}Website")));
+    }
+
+    #[test]
+    fn test_batch_presentation_includes_topics_and_overlap() {
+        let reports = vec![
+            make_topic_report(
+                "https://example.com/cloud-entwicklung/",
+                "Container Deployment Plattform Architektur",
+                "Container Deployment fuer Plattformen und Kubernetes Betrieb.",
+                &["Container Deployment", "Plattform Architektur"],
+                "Container Deployment Kubernetes Plattform Architektur Betrieb",
+                72.0,
+            ),
+            make_topic_report(
+                "https://example.com/cloud-migration/",
+                "Container Deployment Migration Plattform",
+                "Container Deployment fuer Migration und Plattform Betrieb.",
+                &["Container Deployment", "Migration Plattform"],
+                "Container Deployment Migration Plattform Betrieb",
+                68.0,
+            ),
+        ];
+
+        let batch = BatchReport::from_reports(reports, vec![], 1200);
+        let pres = build_batch_presentation(&batch);
+
+        assert!(!pres.portfolio_summary.top_topics.is_empty());
+        assert!(pres
+            .portfolio_summary
+            .top_topics
+            .iter()
+            .any(|(topic, _)| topic == "container" || topic == "deployment"));
+        assert!(!pres.portfolio_summary.overlap_pairs.is_empty());
+        assert!(pres
+            .url_details
+            .iter()
+            .all(|detail| !detail.topic_terms.is_empty()));
+    }
+
+    #[test]
+    fn test_batch_presentation_filters_generic_topic_tokens() {
+        let report = make_topic_report(
+            "https://example.com/arbeitsweise/",
+            "Klare Arbeitsweise fuer digitale Projekte",
+            "Willkommen. Drei Schritte fuer transparente Zusammenarbeit.",
+            &["Klare Arbeitsweise", "Drei Schritte"],
+            "Willkommen transparente Zusammenarbeit drei Schritte fuer Projekte",
+            71.0,
+        );
+        let batch = BatchReport::from_reports(vec![report], vec![], 800);
+        let pres = build_batch_presentation(&batch);
+        let terms = &pres.url_details[0].topic_terms;
+
+        assert!(!terms.iter().any(|term| term == "fuer" || term == "drei"));
+    }
+
+    #[test]
+    fn test_batch_presentation_populates_ranking_and_matrix_inputs() {
+        let first = make_topic_report_with_modules(
+            "https://example.com/arbeitsweise/",
+            "Container Deployment Plattform Architektur",
+            "Container Deployment fuer Plattformen und Kubernetes Betrieb.",
+            &["Container Deployment", "Plattform Architektur"],
+            "Container Deployment Kubernetes Plattform Architektur Betrieb",
+            72.0,
+            91,
+            63,
+            95,
+        );
+
+        let second = make_topic_report_with_modules(
+            "https://example.com/datenschutz/",
+            "Datenschutz und DSGVO Grundlagen",
+            "Datenschutz Hinweise fuer Website und DSGVO Prozesse.",
+            &["Datenschutz", "DSGVO Grundlagen"],
+            "Datenschutz DSGVO Website Prozesse Hinweise Rechtsgrundlagen",
+            68.0,
+            88,
+            57,
+            93,
+        );
+
+        let batch = BatchReport::from_reports(vec![first, second], vec![], 1400);
+        let pres = build_batch_presentation(&batch);
+
+        assert_eq!(pres.url_details.len(), 2);
+        assert!(pres
+            .url_details
+            .iter()
+            .all(|detail| !detail.topic_terms.is_empty()));
+        assert!(pres.url_details.iter().all(|detail| detail
+            .module_scores
+            .iter()
+            .any(|(module, _)| module == "SEO")));
+        assert!(pres.url_details.iter().all(|detail| detail
+            .module_scores
+            .iter()
+            .any(|(module, _)| module == "Performance")));
+        assert!(pres.url_details.iter().all(|detail| detail
+            .module_scores
+            .iter()
+            .any(|(module, _)| module == "Security")));
+        assert!(pres
+            .portfolio_summary
+            .top_topics
+            .iter()
+            .any(|(topic, _)| topic == "container" || topic == "datenschutz"));
+    }
+
+    fn make_topic_report_with_modules(
+        url: &str,
+        title: &str,
+        description: &str,
+        headings: &[&str],
+        text_excerpt: &str,
+        score: f32,
+        seo_score: u32,
+        performance_score: u32,
+        security_score: u32,
+    ) -> AuditReport {
+        make_topic_report(url, title, description, headings, text_excerpt, score)
+            .with_performance(crate::audit::PerformanceResults {
+                vitals: WebVitals::default(),
+                score: PerformanceScore {
+                    overall: performance_score,
+                    grade: PerformanceGrade::NeedsImprovement,
+                    lcp_score: 15,
+                    fcp_score: 15,
+                    cls_score: 15,
+                    interactivity_score: 15,
+                },
+            })
+            .with_security(crate::security::SecurityAnalysis {
+                score: security_score,
+                grade: "A".to_string(),
+                headers: crate::security::SecurityHeaders {
+                    content_security_policy: Some("default-src 'self'".to_string()),
+                    x_frame_options: Some("DENY".to_string()),
+                    x_content_type_options: Some("nosniff".to_string()),
+                    x_xss_protection: Some("1; mode=block".to_string()),
+                    referrer_policy: Some("strict-origin-when-cross-origin".to_string()),
+                    permissions_policy: None,
+                    strict_transport_security: Some(
+                        "max-age=31536000; includeSubDomains".to_string(),
+                    ),
+                    cross_origin_opener_policy: None,
+                    cross_origin_resource_policy: None,
+                },
+                ssl: crate::security::SslInfo {
+                    https: true,
+                    valid_certificate: true,
+                    has_hsts: true,
+                    hsts_max_age: Some(31536000),
+                    hsts_include_subdomains: true,
+                    hsts_preload: false,
+                },
+                issues: vec![],
+                recommendations: vec![],
+            })
+            .with_seo({
+                let mut seo = SeoAnalysis::default();
+                seo.meta = MetaTags {
+                    title: Some(title.to_string()),
+                    description: Some(description.to_string()),
+                    keywords: None,
+                    robots: None,
+                    author: None,
+                    viewport: Some("width=device-width, initial-scale=1".to_string()),
+                    charset: Some("utf-8".to_string()),
+                    canonical: Some(url.to_string()),
+                    lang: Some("de".to_string()),
+                };
+                let mut heading_structure = HeadingStructure::default();
+                heading_structure.h1_count = 1;
+                heading_structure.h1_text = headings.first().map(|value| (*value).to_string());
+                heading_structure.total_count = headings.len();
+                seo.headings = heading_structure;
+                seo.technical = TechnicalSeo {
+                    https: true,
+                    has_canonical: true,
+                    canonical_url: Some(url.to_string()),
+                    has_lang: true,
+                    lang: Some("de".to_string()),
+                    has_robots_meta: false,
+                    robots_meta: None,
+                    has_hreflang: false,
+                    hreflang: vec![],
+                    word_count: 650,
+                    internal_links: 12,
+                    external_links: 1,
+                    broken_links: vec![],
+                    text_excerpt: text_excerpt.to_string(),
+                    issues: vec![],
+                };
+                seo.content_profile = Some(crate::seo::build_content_profile(&seo));
+                seo.score = seo_score;
+                seo
+            })
+    }
+
+    fn make_topic_report(
+        url: &str,
+        title: &str,
+        description: &str,
+        headings: &[&str],
+        text_excerpt: &str,
+        score: f32,
+    ) -> AuditReport {
+        let mut seo = SeoAnalysis::default();
+        seo.meta = MetaTags {
+            title: Some(title.to_string()),
+            description: Some(description.to_string()),
+            keywords: None,
+            robots: None,
+            author: None,
+            viewport: Some("width=device-width, initial-scale=1".to_string()),
+            charset: Some("utf-8".to_string()),
+            canonical: None,
+            lang: Some("de".to_string()),
+        };
+        let mut heading_structure = HeadingStructure::default();
+        heading_structure.h1_count = 1;
+        heading_structure.h1_text = headings.first().map(|value| (*value).to_string());
+        heading_structure.total_count = headings.len();
+        seo.headings = heading_structure;
+        seo.technical = TechnicalSeo {
+            https: true,
+            has_canonical: true,
+            canonical_url: Some(url.to_string()),
+            has_lang: true,
+            lang: Some("de".to_string()),
+            has_robots_meta: false,
+            robots_meta: None,
+            has_hreflang: false,
+            hreflang: vec![],
+            word_count: 650,
+            internal_links: 12,
+            external_links: 1,
+            broken_links: vec![],
+            text_excerpt: text_excerpt.to_string(),
+            issues: vec![],
+        };
+        seo.content_profile = Some(crate::seo::build_content_profile(&seo));
+        seo.score = 92;
+
+        let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 1500)
+            .with_seo(seo);
+        report.score = score;
+        report.grade = grade_label(score.round() as u32).to_string();
+        report
     }
 }
 
@@ -1867,6 +2125,223 @@ fn page_profile_optimization_note(profile: &crate::seo::profile::SeoContentProfi
     }
     "Die Seite passt insgesamt gut zu ihrem Seitentyp. Der größte Hebel liegt in weiterer inhaltlicher Schärfung statt in Grundsatzumbauten."
         .to_string()
+}
+
+fn extract_page_topics(report: &crate::audit::AuditReport) -> Vec<String> {
+    let mut weighted_segments: Vec<(String, usize)> = Vec::new();
+    if let Some(ref seo) = report.seo {
+        if let Some(ref title) = seo.meta.title {
+            weighted_segments.push((title.clone(), 4));
+        }
+        if let Some(ref description) = seo.meta.description {
+            weighted_segments.push((description.clone(), 2));
+        }
+        for heading in &seo.headings.headings {
+            weighted_segments.push((heading.text.clone(), if heading.level <= 2 { 3 } else { 2 }));
+        }
+        weighted_segments.push((seo.technical.text_excerpt.clone(), 1));
+    }
+
+    top_terms_from_segments(&weighted_segments, 5)
+}
+
+fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, usize)> {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for detail in url_details {
+        for term in &detail.topic_terms {
+            *counts.entry(term.clone()).or_default() += 1;
+        }
+    }
+
+    let mut topics: Vec<(String, usize)> = counts.into_iter().collect();
+    topics.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    topics.into_iter().take(8).collect()
+}
+
+fn derive_topic_overlap_pairs(url_details: &[CompactUrlSummary]) -> Vec<(String, String, u32)> {
+    let mut pairs = Vec::new();
+    for (idx, left) in url_details.iter().enumerate() {
+        let left_terms: HashSet<&str> = left.topic_terms.iter().map(String::as_str).collect();
+        if left_terms.len() < 3 {
+            continue;
+        }
+
+        for right in url_details.iter().skip(idx + 1) {
+            let right_terms: HashSet<&str> = right.topic_terms.iter().map(String::as_str).collect();
+            if right_terms.len() < 3 {
+                continue;
+            }
+
+            let intersection = left_terms.intersection(&right_terms).count();
+            if intersection < 2 {
+                continue;
+            }
+
+            let overlap_ratio =
+                intersection as f64 / left_terms.len().min(right_terms.len()) as f64;
+            let union = left_terms.union(&right_terms).count();
+            let jaccard = intersection as f64 / union as f64;
+            let similarity = ((jaccard * 0.55 + overlap_ratio * 0.45) * 100.0).round() as u32;
+            if similarity >= 45 {
+                pairs.push((left.url.clone(), right.url.clone(), similarity));
+            }
+        }
+    }
+
+    pairs.sort_by(|a, b| {
+        b.2.cmp(&a.2)
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| a.1.cmp(&b.1))
+    });
+    pairs.into_iter().take(6).collect()
+}
+
+fn top_terms_from_segments(segments: &[(String, usize)], limit: usize) -> Vec<String> {
+    let stopwords = german_stopwords();
+    let mut counts: HashMap<String, usize> = HashMap::new();
+
+    for (segment, weight) in segments {
+        for token in segment
+            .split(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
+            .filter(|token| !token.is_empty())
+        {
+            let normalized = normalize_topic_token(token);
+            if normalized.len() < 4
+                || normalized.chars().all(|ch| ch.is_ascii_digit())
+                || stopwords.contains(normalized.as_str())
+            {
+                continue;
+            }
+            *counts.entry(normalized).or_default() += *weight;
+        }
+    }
+
+    let mut terms: Vec<(String, usize)> = counts.into_iter().collect();
+    terms.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    terms
+        .into_iter()
+        .take(limit)
+        .map(|(term, _)| term)
+        .collect()
+}
+
+fn normalize_topic_token(token: &str) -> String {
+    token
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_lowercase()
+        .replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("ß", "ss")
+}
+
+fn german_stopwords() -> HashSet<&'static str> {
+    [
+        "2026",
+        "aber",
+        "allem",
+        "alle",
+        "auch",
+        "auf",
+        "aus",
+        "autor",
+        "bei",
+        "bereits",
+        "bietet",
+        "bild",
+        "bilder",
+        "casoon",
+        "checker",
+        "cloud",
+        "content",
+        "damit",
+        "dass",
+        "deine",
+        "diese",
+        "dieser",
+        "drei",
+        "durch",
+        "eine",
+        "einem",
+        "einen",
+        "einer",
+        "eines",
+        "einfach",
+        "entwickelt",
+        "entwicklung",
+        "erfahren",
+        "fuer",
+        "für",
+        "gmbh",
+        "heute",
+        "hier",
+        "ihre",
+        "ihren",
+        "ihrer",
+        "ihres",
+        "inklusive",
+        "inhalt",
+        "jetzt",
+        "keine",
+        "kunden",
+        "launch",
+        "lesen",
+        "mehr",
+        "moderne",
+        "klare",
+        "oder",
+        "page",
+        "pages",
+        "projekt",
+        "projekten",
+        "recht",
+        "rund",
+        "seite",
+        "seiten",
+        "seine",
+        "seiner",
+        "sich",
+        "sind",
+        "site",
+        "statt",
+        "systeme",
+        "technik",
+        "themen",
+        "thema",
+        "über",
+        "und",
+        "unsere",
+        "unserer",
+        "unsers",
+        "unter",
+        "transparent",
+        "viele",
+        "vom",
+        "von",
+        "web",
+        "websites",
+        "webentwicklung",
+        "website",
+        "weiter",
+        "werden",
+        "wird",
+        "wenig",
+        "willkommen",
+        "zeigen",
+        "ziel",
+        "with",
+        "your",
+        "about",
+        "into",
+        "that",
+        "this",
+        "from",
+        "haben",
+        "sowie",
+        "digitale",
+    ]
+    .into_iter()
+    .collect()
 }
 
 fn grade_label(score: u32) -> &'static str {
