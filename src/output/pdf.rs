@@ -3,6 +3,8 @@
 //! Pure layout layer — receives pre-computed ViewModel blocks and maps them
 //! directly to renderreport components. Zero data transformation here.
 
+use std::{env, fs, path::PathBuf};
+
 use renderreport::components::advanced::{Grid, KeyValueList, List, PageBreak, TableOfContents};
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::prelude::*;
@@ -388,7 +390,38 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         }
     }
 
-    builder = builder.add_component(PageBreak::new());
+    let batch_score = pres.portfolio_summary.average_score.round() as u32;
+    builder = builder
+        .add_component(
+            Label::new(author)
+                .with_size("10pt")
+                .bold()
+                .with_color("#0f766e"),
+        )
+        .add_component(
+            Label::new("Domainweiter Accessibility-Check")
+                .with_size("24pt")
+                .bold(),
+        )
+        .add_component(
+            Label::new(&pres.cover.url)
+                .with_size("14pt")
+                .with_color("#475569"),
+        )
+        .add_component(build_batch_cover_score_row(
+            batch_score,
+            batch_grade_label(batch_score),
+            batch_certificate_label(batch_score),
+            pres.portfolio_summary.total_urls as u32,
+            pres.portfolio_summary.total_violations as u32,
+        )?)
+        .add_component(
+            TextBlock::new(&pres.portfolio_summary.verdict_text)
+                .with_size("11pt")
+                .with_line_height("1.4em")
+                .with_max_width("100%"),
+        )
+        .add_component(PageBreak::new());
     if config.level != ReportLevel::Executive {
         builder = builder.add_component(TableOfContents::new().with_depth(1));
     }
@@ -541,7 +574,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         builder = builder.add_component(freq_table);
     }
 
-    for group in &pres.top_issues {
+    for group in pres.top_issues.iter().take(3) {
         builder = render_finding_group(builder, group, &i18n);
     }
 
@@ -555,52 +588,71 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         ));
     builder = render_action_plan(builder, &pres.action_plan, &i18n);
 
-    // ── 5. URL-Summaries ────────────────────────────────────────────
+    // ── 5. URL-Matrix ───────────────────────────────────────────────
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new("Einzelergebnisse je URL").with_level(1))
+        .add_component(Section::new("URL-Matrix").with_level(1))
         .add_component(TextBlock::new(
-            "Kompakte Zusammenfassung der Ergebnisse pro geprüfter URL. \
-             Detaillierte technische Daten finden sich im Anhang.",
+            "Verdichtete Übersicht aller geprüften URLs. Jede Zeile zeigt Seitentyp, Score, Problemintensität und den größten Hebel für die nächste Optimierungsrunde.",
         ));
 
+    let mut matrix = AuditTable::new(vec![
+        TableColumn::new("URL"),
+        TableColumn::new("Typ"),
+        TableColumn::new("Score"),
+        TableColumn::new("Krit.+Hoch"),
+        TableColumn::new("Gesamt"),
+        TableColumn::new("Profil"),
+        TableColumn::new("Größter Hebel"),
+    ])
+    .with_title("Kompakte Seitenübersicht");
+
     for detail in &pres.url_details {
-        builder = builder
-            .add_component(Section::new(truncate_url(&detail.url, 70)).with_level(2))
-            .add_component(
-                ScoreCard::new("Score", detail.score.round() as u32)
-                    .with_description(format!("Note: {}", detail.grade))
-                    .with_thresholds(70, 50),
-            );
+        matrix = matrix.add_row(vec![
+            truncate_url(&detail.url, 38),
+            detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
+            format!("{}/100", detail.score.round() as u32),
+            detail.critical_violations.to_string(),
+            detail.total_violations.to_string(),
+            detail
+                .page_semantic_score
+                .map(|score| format!("{score}/100"))
+                .unwrap_or_else(|| "—".to_string()),
+            truncate_url(&detail.biggest_lever, 46),
+        ]);
+    }
+    builder = builder.add_component(matrix);
 
-        if let Some(ref page_type) = detail.page_type {
-            let mut profile = SummaryBox::new("Seitenprofil");
-            profile = profile.add_item("Typ", page_type);
-            if !detail.page_attributes.is_empty() {
-                profile = profile.add_item("Attribute", detail.page_attributes.join(", "));
-            }
-            builder = builder.add_component(profile);
-        }
+    if config.level != ReportLevel::Executive {
+        let mut focus_table = AuditTable::new(vec![
+            TableColumn::new("URL"),
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Merkmale"),
+            TableColumn::new("Top-Probleme"),
+        ])
+        .with_title("Fokus auf problematische Seiten");
 
-        if !detail.module_scores.is_empty() {
-            let mut scores = SummaryBox::new("Modul-Scores");
-            for (module, score) in &detail.module_scores {
-                scores = scores.add_item(module, format!("{}/100", score));
-            }
-            builder = builder.add_component(scores);
+        for detail in pres.url_details.iter().take(10) {
+            focus_table = focus_table.add_row(vec![
+                truncate_url(&detail.url, 38),
+                detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
+                if detail.page_attributes.is_empty() {
+                    "—".to_string()
+                } else {
+                    truncate_url(&detail.page_attributes.join(", "), 40)
+                },
+                if detail.top_issues.is_empty() {
+                    "—".to_string()
+                } else {
+                    truncate_url(&detail.top_issues.join(", "), 52)
+                },
+            ]);
         }
-
-        if !detail.top_issues.is_empty() {
-            let mut issues = List::new().with_title("Wichtigste Probleme");
-            for issue in &detail.top_issues {
-                issues = issues.add_item(issue);
-            }
-            builder = builder.add_component(issues);
-        }
+        builder = builder.add_component(focus_table);
     }
 
     // ── 6. Anhang ───────────────────────────────────────────────────
-    if !pres.appendix.per_url.is_empty() {
+    if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
         builder = builder
             .add_component(PageBreak::new())
             .add_component(Section::new("Anhang: Technische Details").with_level(1))
@@ -936,10 +988,16 @@ fn build_cover_score_row(cover: &CoverBlock) -> Grid {
     }));
 
     grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new("Grade", &cover.grade)
-            .with_subtitle(format!("Zertifikat: {}", cover.certificate))
-            .with_accent_color("#0f766e")
+        "type": "image",
+        "data": Image::new(
+            write_certificate_badge_svg(
+                "single-cover",
+                cover.score,
+                &cover.grade,
+                &cover.certificate
+            ).unwrap_or_default()
+        )
+            .with_width("100%")
             .to_data()
     }));
 
@@ -950,6 +1008,108 @@ fn build_cover_score_row(cover: &CoverBlock) -> Grid {
             .with_accent_color("#dc2626")
             .to_data()
     }))
+}
+
+fn build_batch_cover_score_row(
+    avg_score: u32,
+    grade: &str,
+    certificate: &str,
+    total_urls: u32,
+    total_violations: u32,
+) -> anyhow::Result<Grid> {
+    let mut grid = Grid::new(3);
+
+    grid = grid.add_item(serde_json::json!({
+        "type": "score-card",
+        "data": ScoreCard::new("Durchschnitt", avg_score)
+            .with_description("Domain-Score")
+            .with_thresholds(70, 50)
+            .to_data()
+    }));
+
+    grid = grid.add_item(serde_json::json!({
+        "type": "image",
+        "data": Image::new(write_certificate_badge_svg(
+            "batch-cover",
+            avg_score,
+            grade,
+            certificate
+        )?)
+            .with_width("100%")
+            .to_data()
+    }));
+
+    Ok(grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new("URLs", total_urls.to_string())
+            .with_subtitle(format!("{} Verstöße", total_violations))
+            .with_accent_color("#dc2626")
+            .to_data()
+    })))
+}
+
+fn write_certificate_badge_svg(
+    namespace: &str,
+    score: u32,
+    grade: &str,
+    certificate: &str,
+) -> anyhow::Result<String> {
+    let (ring, fill, text) = certificate_badge_palette(certificate);
+    let filename = format!(
+        "auditmysite-{}-{}-{}.svg",
+        namespace,
+        grade.to_lowercase().replace('+', "plus"),
+        certificate.to_lowercase()
+    );
+    let path: PathBuf = env::temp_dir().join(filename);
+    let svg = format!(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <circle cx="160" cy="160" r="122" fill="{fill}" stroke="{ring}" stroke-width="18" filter="url(#shadow)"/>
+  <circle cx="160" cy="160" r="96" fill="#ffffff" fill-opacity="0.94" stroke="{ring}" stroke-width="4"/>
+  <text x="160" y="105" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="{ring}">ZERTIFIKAT</text>
+  <text x="160" y="174" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="88" font-weight="800" fill="{text}">{grade}</text>
+  <text x="160" y="214" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="{ring}">{certificate}</text>
+  <text x="160" y="246" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="500" fill="#475569">{score}/100 Punkte</text>
+</svg>"##,
+    );
+    fs::write(&path, svg)?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+fn certificate_badge_palette(certificate: &str) -> (&'static str, &'static str, &'static str) {
+    match certificate {
+        "PLATINUM" => ("#0f766e", "#ccfbf1", "#115e59"),
+        "GOLD" => ("#b45309", "#fef3c7", "#92400e"),
+        "SILVER" => ("#475569", "#e2e8f0", "#334155"),
+        "BRONZE" => ("#9a3412", "#fed7aa", "#7c2d12"),
+        _ => ("#2563eb", "#dbeafe", "#1d4ed8"),
+    }
+}
+
+fn batch_grade_label(score: u32) -> &'static str {
+    match score {
+        95..=100 => "A+",
+        90..=94 => "A",
+        80..=89 => "B",
+        70..=79 => "C",
+        60..=69 => "D",
+        _ => "F",
+    }
+}
+
+fn batch_certificate_label(score: u32) -> &'static str {
+    match score {
+        95..=100 => "PLATINUM",
+        85..=94 => "GOLD",
+        75..=84 => "SILVER",
+        60..=74 => "BRONZE",
+        _ => "BASIC",
+    }
 }
 
 fn build_module_dashboard(modules: &ModulesBlock) -> Grid {

@@ -499,8 +499,12 @@ pub struct CompactUrlSummary {
     pub url: String,
     pub score: f32,
     pub grade: String,
+    pub critical_violations: usize,
+    pub total_violations: usize,
     pub page_type: Option<String>,
     pub page_attributes: Vec<String>,
+    pub page_semantic_score: Option<u32>,
+    pub biggest_lever: String,
     pub top_issues: Vec<String>,
     pub module_scores: Vec<(String, u32)>,
 }

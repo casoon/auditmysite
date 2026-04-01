@@ -1154,6 +1154,13 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                 url: r.url.clone(),
                 score: r.score,
                 grade: r.grade.clone(),
+                critical_violations: r
+                    .wcag_results
+                    .violations
+                    .iter()
+                    .filter(|v| matches!(v.severity, Severity::Critical | Severity::High))
+                    .count(),
+                total_violations: r.wcag_results.violations.len(),
                 page_type: r
                     .seo
                     .as_ref()
@@ -1165,6 +1172,22 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                     .and_then(|seo| seo.content_profile.as_ref())
                     .map(|profile| profile.page_classification.attributes.clone())
                     .unwrap_or_default(),
+                page_semantic_score: r
+                    .seo
+                    .as_ref()
+                    .and_then(|seo| seo.content_profile.as_ref())
+                    .map(|profile| average_page_semantic_score(&profile.page_classification)),
+                biggest_lever: sorted
+                    .first()
+                    .map(|g| g.title.clone())
+                    .or_else(|| {
+                        r.seo.as_ref().and_then(|seo| {
+                            seo.content_profile
+                                .as_ref()
+                                .map(|profile| page_profile_optimization_note(profile))
+                        })
+                    })
+                    .unwrap_or_else(|| "Ergebnisse stabil halten".to_string()),
                 top_issues: top_issue_titles,
                 module_scores,
             }

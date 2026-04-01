@@ -333,9 +333,6 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
     if args.no_sitemap_suggest {
         return Ok(None);
     }
-    if args.quiet || !io::stdin().is_terminal() || !io::stdout().is_terminal() {
-        return Ok(None);
-    }
     if !looks_like_base_url(url) {
         return Ok(None);
     }
@@ -349,6 +346,10 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         batch_args.url = None;
         batch_args.sitemap = Some(sitemap_url);
         return run_batch_mode(&batch_args).await.map(Some);
+    }
+
+    if args.quiet || !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        return Ok(None);
     }
 
     println!();
