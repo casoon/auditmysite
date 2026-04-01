@@ -11,6 +11,7 @@ use crate::audit::BatchReport;
 use crate::cli::ReportLevel;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::*;
+use crate::seo::profile::PageType;
 use crate::taxonomy::RuleLookup;
 use crate::util::truncate_url;
 use crate::wcag::Severity;
@@ -704,6 +705,14 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                     .clone()
                     .unwrap_or_else(|| "—".to_string()),
                 category_hints: cp.content_identity.category_hints.clone(),
+                page_type: cp.page_classification.primary_type.label().to_string(),
+                page_attributes: cp.page_classification.attributes.clone(),
+                content_depth_score: cp.page_classification.content_depth_score,
+                structural_richness_score: cp.page_classification.structural_richness_score,
+                media_text_balance_score: cp.page_classification.media_text_balance_score,
+                intent_fit_score: cp.page_classification.intent_fit_score,
+                page_profile_summary: summarize_page_profile(cp),
+                optimization_note: page_profile_optimization_note(cp),
                 schema_rows,
                 schema_count: cp.schema_inventory.total_count,
                 signal_rows,
@@ -1145,6 +1154,17 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                 url: r.url.clone(),
                 score: r.score,
                 grade: r.grade.clone(),
+                page_type: r
+                    .seo
+                    .as_ref()
+                    .and_then(|seo| seo.content_profile.as_ref())
+                    .map(|profile| profile.page_classification.primary_type.label().to_string()),
+                page_attributes: r
+                    .seo
+                    .as_ref()
+                    .and_then(|seo| seo.content_profile.as_ref())
+                    .map(|profile| profile.page_classification.attributes.clone())
+                    .unwrap_or_default(),
                 top_issues: top_issue_titles,
                 module_scores,
             }
@@ -1185,6 +1205,72 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         }
     };
 
+    let mut page_type_counts: HashMap<String, usize> = HashMap::new();
+    let mut page_semantic_scores: Vec<(String, String, u32)> = Vec::new();
+    let mut thin_pages = 0usize;
+    let mut editorial_pages = 0usize;
+    let mut marketing_pages = 0usize;
+    for report in &batch.reports {
+        if let Some(profile) = report
+            .seo
+            .as_ref()
+            .and_then(|seo| seo.content_profile.as_ref())
+        {
+            let label = profile.page_classification.primary_type.label().to_string();
+            *page_type_counts.entry(label).or_default() += 1;
+            let semantic_score = average_page_semantic_score(&profile.page_classification);
+            page_semantic_scores.push((
+                report.url.clone(),
+                profile.page_classification.primary_type.label().to_string(),
+                semantic_score,
+            ));
+            match profile.page_classification.primary_type {
+                PageType::ThinContent => thin_pages += 1,
+                PageType::Editorial => editorial_pages += 1,
+                PageType::MarketingLanding => marketing_pages += 1,
+                _ => {}
+            }
+        }
+    }
+    let mut page_type_distribution: Vec<(String, usize, u32)> = page_type_counts
+        .into_iter()
+        .map(|(label, count)| {
+            let pct = ((count as f64 / batch.summary.total_urls as f64) * 100.0).round() as u32;
+            (label, count, pct)
+        })
+        .collect();
+    page_type_distribution.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    let mut distribution_insights = Vec::new();
+    if thin_pages > 0 && (thin_pages as f64 / batch.summary.total_urls as f64) >= 0.2 {
+        distribution_insights.push(
+            "Hoher Anteil an Thin-Content-Seiten: Das kann Informationswert und SEO-Potenzial begrenzen."
+                .to_string(),
+        );
+    }
+    if editorial_pages == 0 {
+        distribution_insights.push(
+            "Editoriale Inhaltsseiten fehlen: Wissensaufbau und Suchintentionen werden kaum bedient."
+                .to_string(),
+        );
+    }
+    if marketing_pages > 0 && (marketing_pages as f64 / batch.summary.total_urls as f64) >= 0.5 {
+        distribution_insights.push(
+            "Marketing- und Landingpages dominieren: Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren."
+                .to_string(),
+        );
+    }
+    if distribution_insights.is_empty() && !page_type_distribution.is_empty() {
+        distribution_insights.push(
+            "Die Seitentypen sind insgesamt ausgewogen verteilt, ohne klar dominierende Schwachmuster."
+                .to_string(),
+        );
+    }
+
+    page_semantic_scores.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+    let strongest_content_pages = page_semantic_scores.iter().take(5).cloned().collect();
+    let weakest_content_pages = page_semantic_scores.iter().rev().take(5).cloned().collect();
+
     BatchPresentation {
         cover: CoverData {
             title: "Web Accessibility Batch Audit Report".to_string(),
@@ -1203,6 +1289,10 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             worst_urls,
             best_urls,
             severity_distribution,
+            page_type_distribution,
+            distribution_insights,
+            strongest_content_pages,
+            weakest_content_pages,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -1701,6 +1791,59 @@ fn derive_execution_priority(
         (Severity::Medium, Effort::Quick, _) => ExecutionPriority::Important,
         _ => ExecutionPriority::Optional,
     }
+}
+
+fn average_page_semantic_score(classification: &crate::seo::profile::PageClassification) -> u32 {
+    let total = classification.content_depth_score
+        + classification.structural_richness_score
+        + classification.media_text_balance_score
+        + classification.intent_fit_score;
+    total / 4
+}
+
+fn summarize_page_profile(profile: &crate::seo::profile::SeoContentProfile) -> String {
+    let classification = &profile.page_classification;
+    let avg = average_page_semantic_score(classification);
+    let quality = match avg {
+        85..=100 => "sehr stimmig aufgebaut",
+        70..=84 => "inhaltlich solide aufgestellt",
+        50..=69 => "nur teilweise klar strukturiert",
+        _ => "aktuell inhaltlich und strukturell schwach ausgeprägt",
+    };
+
+    let mut traits = classification.attributes.clone();
+    if traits.is_empty() {
+        traits.push("ohne klare Zusatzmerkmale".to_string());
+    }
+
+    format!(
+        "Die Seite wirkt wie „{}“ und ist {}. Auffällig sind {}.",
+        classification.primary_type.label(),
+        quality,
+        traits.join(", ")
+    )
+}
+
+fn page_profile_optimization_note(profile: &crate::seo::profile::SeoContentProfile) -> String {
+    let classification = &profile.page_classification;
+    if classification.content_depth_score < 45 {
+        return "Mehr inhaltliche Tiefe und klar gegliederte Abschnitte würden den Nutzwert erhöhen."
+            .to_string();
+    }
+    if classification.structural_richness_score < 55 {
+        return "Mehr Zwischenüberschriften und eine klarere Inhaltsstruktur würden die Seite besser scannbar machen."
+            .to_string();
+    }
+    if classification.media_text_balance_score < 55 {
+        return "Das Verhältnis aus Text und visuellen Elementen ist unausgewogen; mehr erklärender Kontext würde helfen."
+            .to_string();
+    }
+    if classification.intent_fit_score < 65 {
+        return "Die Seite bedient ihren Seitentyp noch nicht sauber; Aufbau und Inhalte sollten stärker auf das eigentliche Nutzerziel einzahlen."
+            .to_string();
+    }
+    "Die Seite passt insgesamt gut zu ihrem Seitentyp. Der größte Hebel liegt in weiterer inhaltlicher Schärfung statt in Grundsatzumbauten."
+        .to_string()
 }
 
 fn grade_label(score: u32) -> &'static str {

@@ -348,6 +348,15 @@ pub struct SeoProfilePresentation {
     pub content_type: String,
     pub language: String,
     pub category_hints: Vec<String>,
+    // Page Classification
+    pub page_type: String,
+    pub page_attributes: Vec<String>,
+    pub content_depth_score: u32,
+    pub structural_richness_score: u32,
+    pub media_text_balance_score: u32,
+    pub intent_fit_score: u32,
+    pub page_profile_summary: String,
+    pub optimization_note: String,
     // Schema Inventory: (type, completeness%, details)
     pub schema_rows: Vec<(String, String, String)>,
     pub schema_count: usize,
@@ -455,6 +464,10 @@ pub struct PortfolioSummary {
     pub worst_urls: Vec<(String, f32)>,
     pub best_urls: Vec<(String, f32)>,
     pub severity_distribution: SeverityDistribution,
+    pub page_type_distribution: Vec<(String, usize, u32)>,
+    pub distribution_insights: Vec<String>,
+    pub strongest_content_pages: Vec<(String, String, u32)>,
+    pub weakest_content_pages: Vec<(String, String, u32)>,
 }
 
 pub struct SeverityDistribution {
@@ -486,6 +499,8 @@ pub struct CompactUrlSummary {
     pub url: String,
     pub score: f32,
     pub grade: String,
+    pub page_type: Option<String>,
+    pub page_attributes: Vec<String>,
     pub top_issues: Vec<String>,
     pub module_scores: Vec<(String, u32)>,
 }

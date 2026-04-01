@@ -417,8 +417,73 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     builder = builder
         .add_component(Section::new("Gesamtübersicht").with_level(1))
         .add_component(benchmark)
-        .add_component(TextBlock::new(&pres.portfolio_summary.verdict_text))
-        .add_component(PageBreak::new());
+        .add_component(TextBlock::new(&pres.portfolio_summary.verdict_text));
+
+    if !pres.portfolio_summary.page_type_distribution.is_empty() {
+        let mut type_table = AuditTable::new(vec![
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Seiten"),
+            TableColumn::new("Anteil"),
+        ])
+        .with_title("Seitentyp-Verteilung");
+
+        for (label, count, pct) in &pres.portfolio_summary.page_type_distribution {
+            type_table =
+                type_table.add_row(vec![label.clone(), count.to_string(), format!("{pct}%")]);
+        }
+
+        builder = builder.add_component(type_table);
+    }
+
+    if !pres.portfolio_summary.distribution_insights.is_empty() {
+        let mut insights = List::new().with_title("Auffälligkeiten");
+        for insight in &pres.portfolio_summary.distribution_insights {
+            insights = insights.add_item(insight);
+        }
+        builder = builder.add_component(insights);
+    }
+
+    if !pres.portfolio_summary.strongest_content_pages.is_empty()
+        || !pres.portfolio_summary.weakest_content_pages.is_empty()
+    {
+        let mut grid = Grid::new(2);
+
+        if !pres.portfolio_summary.strongest_content_pages.is_empty() {
+            let mut strengths = List::new().with_title("Stärkste Seitenprofile");
+            for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
+                strengths = strengths.add_item(format!(
+                    "{} — {} ({} / 100)",
+                    truncate_url(url, 42),
+                    page_type,
+                    score
+                ));
+            }
+            grid = grid.add_item(serde_json::json!({
+                "type": "list",
+                "data": strengths.to_data()
+            }));
+        }
+
+        if !pres.portfolio_summary.weakest_content_pages.is_empty() {
+            let mut weaknesses = List::new().with_title("Schwächste Seitenprofile");
+            for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
+                weaknesses = weaknesses.add_item(format!(
+                    "{} — {} ({} / 100)",
+                    truncate_url(url, 42),
+                    page_type,
+                    score
+                ));
+            }
+            grid = grid.add_item(serde_json::json!({
+                "type": "list",
+                "data": weaknesses.to_data()
+            }));
+        }
+
+        builder = builder.add_component(grid);
+    }
+
+    builder = builder.add_component(PageBreak::new());
 
     // ── 2. URL-Ranking ──────────────────────────────────────────────
     let rows: Vec<BenchmarkRow> = pres
@@ -507,6 +572,15 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                     .with_description(format!("Note: {}", detail.grade))
                     .with_thresholds(70, 50),
             );
+
+        if let Some(ref page_type) = detail.page_type {
+            let mut profile = SummaryBox::new("Seitenprofil");
+            profile = profile.add_item("Typ", page_type);
+            if !detail.page_attributes.is_empty() {
+                profile = profile.add_item("Attribute", detail.page_attributes.join(", "));
+            }
+            builder = builder.add_component(profile);
+        }
 
         if !detail.module_scores.is_empty() {
             let mut scores = SummaryBox::new("Modul-Scores");
@@ -915,6 +989,24 @@ fn build_module_dashboard(modules: &ModulesBlock) -> Grid {
     }
 
     grid
+}
+
+fn score_quality_label(score: u32) -> &'static str {
+    match score {
+        85..=100 => "Stark",
+        70..=84 => "Solide",
+        50..=69 => "Uneinheitlich",
+        _ => "Schwach",
+    }
+}
+
+fn score_quality_color(score: u32) -> &'static str {
+    match score {
+        85..=100 => "#16a34a",
+        70..=84 => "#0f766e",
+        50..=69 => "#d97706",
+        _ => "#dc2626",
+    }
 }
 
 fn build_additional_analyses_overview(details: &ModuleDetailsBlock) -> Grid {
@@ -1413,7 +1505,53 @@ fn render_seo_profile(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(Section::new("SEO-Inhaltsprofil").with_level(3))
-        .add_component(Callout::info(&profile.identity_summary).with_title("Inhaltsprofil"));
+        .add_component(Callout::info(&profile.identity_summary).with_title("Inhaltsprofil"))
+        .add_component(Callout::info(&profile.page_profile_summary).with_title("Seitenprofil"));
+
+    let mut profile_box = SummaryBox::new("Seitentyp");
+    profile_box = profile_box.add_item("Einordnung", &profile.page_type);
+    if !profile.page_attributes.is_empty() {
+        profile_box = profile_box.add_item("Merkmale", profile.page_attributes.join(", "));
+    }
+    profile_box = profile_box.add_item("Hinweis", &profile.optimization_note);
+    builder = builder.add_component(profile_box);
+
+    let mut score_grid = Grid::new(2);
+    for (title, score, subtitle, accent) in [
+        (
+            "Content-Tiefe",
+            profile.content_depth_score,
+            score_quality_label(profile.content_depth_score),
+            score_quality_color(profile.content_depth_score),
+        ),
+        (
+            "Strukturqualität",
+            profile.structural_richness_score,
+            score_quality_label(profile.structural_richness_score),
+            score_quality_color(profile.structural_richness_score),
+        ),
+        (
+            "Medienbalance",
+            profile.media_text_balance_score,
+            score_quality_label(profile.media_text_balance_score),
+            score_quality_color(profile.media_text_balance_score),
+        ),
+        (
+            "Intent-Fit",
+            profile.intent_fit_score,
+            score_quality_label(profile.intent_fit_score),
+            score_quality_color(profile.intent_fit_score),
+        ),
+    ] {
+        score_grid = score_grid.add_item(serde_json::json!({
+            "type": "metric-card",
+            "data": MetricCard::new(title, format!("{} / 100", score))
+                .with_subtitle(subtitle)
+                .with_accent_color(accent)
+                .to_data()
+        }));
+    }
+    builder = builder.add_component(score_grid);
 
     // Content Identity
     let mut identity = KeyValueList::new().with_title("Website-Identität");

@@ -54,10 +54,47 @@ impl SeoMaturityLevel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SeoContentProfile {
     pub content_identity: ContentIdentity,
+    pub page_classification: PageClassification,
     pub schema_inventory: SchemaInventory,
     pub signal_strength: SeoSignalStrength,
     pub maturity: SeoMaturityLevel,
     pub maturity_techniques: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum PageType {
+    Editorial,
+    StructuredContent,
+    MarketingLanding,
+    MediaHeavy,
+    Utility,
+    NavigationHub,
+    ThinContent,
+}
+
+impl PageType {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Editorial => "Editorial / Artikel",
+            Self::StructuredContent => "Strukturierter Wissensinhalt",
+            Self::MarketingLanding => "Marketing / Landing Page",
+            Self::MediaHeavy => "Medienorientierte Seite",
+            Self::Utility => "Transaktional / Utility",
+            Self::NavigationHub => "Navigations- / Hub-Seite",
+            Self::ThinContent => "Thin / Minimal Content",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PageClassification {
+    pub primary_type: PageType,
+    pub attributes: Vec<String>,
+    pub content_depth_score: u32,
+    pub structural_richness_score: u32,
+    pub media_text_balance_score: u32,
+    pub intent_fit_score: u32,
 }
 
 // ─── Content Identity ───────────────────────────────────────────────────────
@@ -167,6 +204,7 @@ pub struct SignalCheck {
 
 pub fn build_content_profile(seo: &SeoAnalysis) -> SeoContentProfile {
     let content_identity = build_identity(seo);
+    let page_classification = classify_page(seo);
     let schema_inventory = build_schema_inventory(seo);
     let signal_strength = build_signal_strength(seo);
     let maturity_techniques = count_techniques(seo);
@@ -174,10 +212,196 @@ pub fn build_content_profile(seo: &SeoAnalysis) -> SeoContentProfile {
 
     SeoContentProfile {
         content_identity,
+        page_classification,
         schema_inventory,
         signal_strength,
         maturity,
         maturity_techniques,
+    }
+}
+
+fn classify_page(seo: &SeoAnalysis) -> PageClassification {
+    let word_count = seo.technical.word_count;
+    let heading_count = seo.headings.total_count as u32;
+    let h2_plus_count = seo
+        .headings
+        .headings
+        .iter()
+        .filter(|h| h.level >= 2)
+        .count() as u32;
+    let internal_links = seo.technical.internal_links;
+    let has_faq = seo.structured_data.types.contains(&SchemaType::FAQPage);
+    let has_article_schema = seo.structured_data.types.iter().any(|t| {
+        matches!(
+            t,
+            SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle
+        )
+    });
+    let has_product_schema = seo.structured_data.types.contains(&SchemaType::Product);
+    let has_search_schema = seo.structured_data.types.contains(&SchemaType::WebSite);
+
+    let content_depth_score = score_content_depth(word_count, h2_plus_count, heading_count);
+    let structural_richness_score = score_structural_richness(
+        heading_count,
+        h2_plus_count,
+        has_faq,
+        seo.headings.issues.len(),
+    );
+    let media_text_balance_score = score_media_text_balance(
+        word_count,
+        seo.social.open_graph.is_some(),
+        has_product_schema,
+    );
+
+    let is_utility_title = seo
+        .meta
+        .title
+        .as_deref()
+        .map(|t| t.contains("Kontakt") || t.contains("Login"))
+        .unwrap_or(false);
+    let looks_like_marketing_page = has_product_schema
+        || seo.social.open_graph.is_some()
+        || (word_count <= 700 && h2_plus_count >= 2);
+    let looks_like_hub_page = internal_links >= 40 || has_search_schema;
+
+    let primary_type = if has_article_schema || (word_count >= 1200 && h2_plus_count >= 3) {
+        PageType::Editorial
+    } else if has_faq || (word_count >= 600 && (h2_plus_count >= 4 || heading_count >= 6)) {
+        PageType::StructuredContent
+    } else if looks_like_hub_page {
+        PageType::NavigationHub
+    } else if is_utility_title {
+        PageType::Utility
+    } else if looks_like_marketing_page {
+        PageType::MarketingLanding
+    } else if word_count < 300 {
+        PageType::ThinContent
+    } else {
+        PageType::MediaHeavy
+    };
+
+    let intent_fit_score =
+        score_intent_fit(&primary_type, word_count, h2_plus_count, internal_links);
+    let mut attributes = Vec::new();
+    if word_count >= 1200 {
+        attributes.push("textstark".to_string());
+    } else if word_count < 300 {
+        attributes.push("sehr kurz".to_string());
+    }
+    if h2_plus_count >= 3 {
+        attributes.push("strukturiert".to_string());
+    }
+    if internal_links >= 30 {
+        attributes.push("navigationslastig".to_string());
+    }
+    if seo.social.open_graph.is_some() {
+        attributes.push("visuell geprägt".to_string());
+    }
+    if has_faq {
+        attributes.push("wissensorientiert".to_string());
+    }
+    if matches!(primary_type, PageType::MarketingLanding) {
+        attributes.push("conversionorientiert".to_string());
+    }
+    if matches!(primary_type, PageType::Utility) {
+        attributes.push("zweckgebunden".to_string());
+    }
+    if matches!(primary_type, PageType::ThinContent) {
+        attributes.push("dünn".to_string());
+    }
+    attributes.sort();
+    attributes.dedup();
+
+    PageClassification {
+        primary_type,
+        attributes,
+        content_depth_score,
+        structural_richness_score,
+        media_text_balance_score,
+        intent_fit_score,
+    }
+}
+
+fn score_content_depth(word_count: u32, h2_plus_count: u32, heading_count: u32) -> u32 {
+    let word_component = match word_count {
+        0..=149 => 10,
+        150..=299 => 25,
+        300..=599 => 45,
+        600..=1199 => 70,
+        _ => 90,
+    };
+    let structure_bonus = (h2_plus_count * 5 + heading_count.min(6) * 2).min(20);
+    (word_component + structure_bonus).min(100)
+}
+
+fn score_structural_richness(
+    heading_count: u32,
+    h2_plus_count: u32,
+    has_faq: bool,
+    heading_issues: usize,
+) -> u32 {
+    let mut score = (heading_count * 10).min(60) + (h2_plus_count * 8).min(24);
+    if has_faq {
+        score += 8;
+    }
+    score = score.saturating_sub((heading_issues as u32) * 6);
+    score.min(100)
+}
+
+fn score_media_text_balance(word_count: u32, has_og: bool, has_product_schema: bool) -> u32 {
+    let mut score: u32 = match word_count {
+        0..=199 => 35,
+        200..=499 => 55,
+        500..=999 => 75,
+        _ => 85,
+    };
+    if has_og {
+        score = (score + 5).min(100);
+    }
+    if has_product_schema {
+        score = score.saturating_sub(5);
+    }
+    score
+}
+
+fn score_intent_fit(
+    page_type: &PageType,
+    word_count: u32,
+    h2_plus_count: u32,
+    internal_links: u32,
+) -> u32 {
+    match page_type {
+        PageType::Editorial => {
+            if word_count >= 1000 && h2_plus_count >= 3 {
+                88
+            } else {
+                72
+            }
+        }
+        PageType::StructuredContent => {
+            if h2_plus_count >= 4 {
+                84
+            } else {
+                68
+            }
+        }
+        PageType::MarketingLanding => {
+            if word_count >= 250 && word_count <= 900 {
+                80
+            } else {
+                65
+            }
+        }
+        PageType::MediaHeavy => 62,
+        PageType::Utility => 78,
+        PageType::NavigationHub => {
+            if internal_links >= 30 {
+                82
+            } else {
+                60
+            }
+        }
+        PageType::ThinContent => 28,
     }
 }
 
@@ -931,6 +1155,7 @@ fn count_techniques(seo: &SeoAnalysis) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::seo::headings::HeadingInfo;
     use crate::seo::*;
 
     fn minimal_seo() -> SeoAnalysis {
@@ -1074,5 +1299,57 @@ mod tests {
             SeoMaturityLevel::from_count(10),
             SeoMaturityLevel::Professional
         );
+    }
+
+    #[test]
+    fn test_classify_editorial_page() {
+        let mut seo = minimal_seo();
+        seo.technical.word_count = 1800;
+        seo.headings.headings = vec![
+            HeadingInfo {
+                level: 1,
+                text: "Titel".into(),
+                length: 5,
+            },
+            HeadingInfo {
+                level: 2,
+                text: "A".into(),
+                length: 1,
+            },
+            HeadingInfo {
+                level: 2,
+                text: "B".into(),
+                length: 1,
+            },
+            HeadingInfo {
+                level: 3,
+                text: "C".into(),
+                length: 1,
+            },
+        ];
+        seo.headings.total_count = seo.headings.headings.len();
+        seo.structured_data.types.push(SchemaType::Article);
+
+        let profile = build_content_profile(&seo);
+        assert_eq!(
+            profile.page_classification.primary_type,
+            PageType::Editorial
+        );
+        assert!(profile
+            .page_classification
+            .attributes
+            .contains(&"textstark".to_string()));
+    }
+
+    #[test]
+    fn test_classify_thin_page() {
+        let mut seo = minimal_seo();
+        seo.technical.word_count = 120;
+        let profile = build_content_profile(&seo);
+        assert_eq!(
+            profile.page_classification.primary_type,
+            PageType::ThinContent
+        );
+        assert!(profile.page_classification.content_depth_score < 40);
     }
 }
