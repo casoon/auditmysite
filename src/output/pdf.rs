@@ -2792,6 +2792,14 @@ fn render_action_plan(
     builder
 }
 
+fn extract_domain(url: &str) -> String {
+    let without_scheme = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    let host = without_scheme.split('/').next().unwrap_or(without_scheme);
+    host.trim_start_matches("www.").to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2807,12 +2815,4 @@ mod tests {
             "https://example.com"
         );
     }
-}
-
-fn extract_domain(url: &str) -> String {
-    let without_scheme = url
-        .trim_start_matches("https://")
-        .trim_start_matches("http://");
-    let host = without_scheme.split('/').next().unwrap_or(without_scheme);
-    host.trim_start_matches("www.").to_string()
 }
