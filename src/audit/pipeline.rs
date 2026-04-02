@@ -357,7 +357,6 @@ mod tests {
             per_page_reports: false,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
-            company_name: None,
             logo: None,
             compare: vec![],
         };

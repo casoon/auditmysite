@@ -884,7 +884,7 @@ fn output_comparison_report(
                 use auditmysite::output::report_model::ReportConfig;
                 let config = ReportConfig {
                     level: args.report_level,
-                    company_name: args.company_name.clone(),
+
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
                     history_preview: None,
@@ -973,7 +973,7 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                         );
                 let config = ReportConfig {
                     level: args.report_level,
-                    company_name: args.company_name.clone(),
+
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
                     history_preview,
@@ -1043,7 +1043,7 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
             {
                 let config = ReportConfig {
                     level: args.report_level,
-                    company_name: args.company_name.clone(),
+
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
                     history_preview: None,

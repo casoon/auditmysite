@@ -200,10 +200,6 @@ pub struct Args {
     #[arg(long, default_value = "de", value_parser = ["de", "en"])]
     pub lang: String,
 
-    /// Company name for report branding (appears in footer)
-    #[arg(long, value_name = "NAME")]
-    pub company_name: Option<String>,
-
     /// Logo image path for PDF cover page
     #[arg(long, value_name = "PATH")]
     pub logo: Option<PathBuf>,
@@ -533,7 +529,6 @@ mod tests {
             per_page_reports: false,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
-            company_name: None,
             logo: None,
             compare: vec![],
         }

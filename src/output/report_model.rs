@@ -15,7 +15,6 @@ pub type SignalDetails = Vec<(String, Vec<(String, bool, String)>)>;
 /// Configuration for PDF report generation
 pub struct ReportConfig {
     pub level: ReportLevel,
-    pub company_name: Option<String>,
     pub logo_path: Option<PathBuf>,
     pub locale: String,
     pub history_preview: Option<ReportHistoryPreview>,
@@ -25,7 +24,6 @@ impl Default for ReportConfig {
     fn default() -> Self {
         Self {
             level: ReportLevel::Standard,
-            company_name: None,
             logo_path: None,
             locale: "de".to_string(),
             history_preview: None,
