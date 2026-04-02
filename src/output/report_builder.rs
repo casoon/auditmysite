@@ -1347,7 +1347,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                         r.seo.as_ref().and_then(|seo| {
                             seo.content_profile
                                 .as_ref()
-                                .map(|profile| page_profile_optimization_note(profile))
+                                .map(page_profile_optimization_note)
                         })
                     })
                     .unwrap_or_else(|| "Ergebnisse stabil halten".to_string()),

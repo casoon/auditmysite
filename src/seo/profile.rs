@@ -399,7 +399,7 @@ fn score_intent_fit(
             }
         }
         PageType::MarketingLanding => {
-            if word_count >= 250 && word_count <= 900 {
+            if (250..=900).contains(&word_count) {
                 80
             } else {
                 65
