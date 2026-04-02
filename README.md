@@ -16,7 +16,7 @@ It is designed for teams that want a fast local check, stable JSON for automatio
 ## Why use it
 
 - Real browser signals instead of static guesses
-- Works for single pages, sitemaps, and URL lists
+- Works for single pages, sitemaps, URL lists, and same-domain crawl discovery
 - Outputs as terminal table, JSON, or PDF
 - JSON output is schema-backed and tested for release stability
 - Ships as a Rust binary instead of a Node-based toolchain
@@ -137,6 +137,9 @@ auditmysite https://example.com -l AAA
 # explicit sitemap
 auditmysite --sitemap https://example.com/sitemap.xml
 
+# crawl from a base URL and discover same-domain pages automatically
+auditmysite https://example.com --crawl --crawl-depth 2
+
 # base URL: probe robots.txt / common sitemap locations first
 auditmysite https://example.com
 
@@ -166,6 +169,7 @@ Primary commands:
 - `auditmysite <url>`: run a full single-page audit and write PDF/JSON/history into the current directory
 - `auditmysite --sitemap <url>`: audit sitemap URLs
 - `auditmysite --url-file <file>`: audit URLs from file
+- `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
 - `auditmysite browser detect`: show available browsers
 - `auditmysite browser install`: install managed Chrome for Testing
 - `auditmysite doctor`: run local diagnostics
@@ -173,6 +177,7 @@ Primary commands:
 Useful flags:
 - `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
 - `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
+- `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
 
 For the full current interface, use:
 
@@ -245,6 +250,12 @@ auditmysite https://example.com -f json -o report.json --quiet
 
 ```bash
 auditmysite --sitemap https://example.com/sitemap.xml -f json -o sitemap-report.json
+```
+
+### Batch audit from crawl discovery
+
+```bash
+auditmysite https://example.com --crawl --crawl-depth 2 --max-pages 50 -f json -o crawl-report.json
 ```
 
 ### Base URL with sitemap suggestion

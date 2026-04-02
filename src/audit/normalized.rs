@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::audit::report::{AuditReport, PerformanceResults};
 use crate::audit::scoring::AccessibilityScorer;
 use crate::cli::WcagLevel;
+use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
@@ -55,6 +56,8 @@ pub struct NormalizedReport {
     pub raw_security: Option<SecurityAnalysis>,
     #[serde(skip)]
     pub raw_mobile: Option<MobileFriendliness>,
+    #[serde(skip)]
+    pub raw_dark_mode: Option<DarkModeAnalysis>,
     #[serde(skip)]
     pub raw_wcag: WcagResults,
 }
@@ -382,6 +385,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),
         raw_mobile: report.mobile.clone(),
+        raw_dark_mode: report.dark_mode.clone(),
         raw_wcag: report.wcag_results.clone(),
     }
 }

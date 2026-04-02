@@ -76,6 +76,7 @@ pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<Str
             execution_time_ms: batch_report.total_duration_ms,
         },
         summary: &batch_report.summary,
+        crawl_diagnostics: batch_report.crawl_diagnostics.as_ref(),
         errors: &batch_report.errors,
         reports: normalized_reports,
     };
@@ -126,6 +127,8 @@ pub struct ReportMetadata {
 struct BatchJsonReport<'a> {
     pub metadata: ReportMetadata,
     pub summary: &'a crate::audit::BatchSummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub crawl_diagnostics: Option<&'a crate::audit::CrawlDiagnostics>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: &'a Vec<crate::audit::BatchError>,
     pub reports: Vec<NormalizedReport>,

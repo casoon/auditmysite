@@ -1,4 +1,4 @@
-//! AuditMySit - Resource-efficient WCAG 2.1 Accessibility Checker
+//! AuditMySite - Resource-efficient WCAG 2.1 Accessibility Checker
 //!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
@@ -76,6 +76,7 @@ pub mod accessibility;
 pub mod audit;
 pub mod browser;
 pub mod cli;
+pub mod dark_mode;
 pub mod error;
 pub mod i18n;
 pub mod mobile;
@@ -90,8 +91,9 @@ pub mod wcag;
 // Re-export commonly used types
 pub use accessibility::{AXNode, AXTree};
 pub use audit::{
-    audit_page, parse_sitemap, read_url_file, run_concurrent_batch, AuditReport, BatchConfig,
-    BatchReport, PerformanceResults, PipelineConfig,
+    analyze_crawl_links, audit_page, crawl_site, parse_sitemap, read_url_file,
+    run_concurrent_batch, AuditReport, BatchConfig, BatchReport, BrokenLink, BrokenLinkSeverity,
+    CrawlDiagnostics, CrawlNode, CrawlResult, PerformanceResults, PipelineConfig, RedirectChain,
 };
 pub use browser::{
     detect_all_browsers, resolve_browser, BrowserInstaller, BrowserKind, BrowserManager,
@@ -100,6 +102,7 @@ pub use browser::{
 };
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use error::{AuditError, Result};
+pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{

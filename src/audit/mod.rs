@@ -4,6 +4,10 @@
 
 pub mod artifacts;
 mod batch;
+pub mod budget;
+mod crawl;
+pub mod comparison;
+pub mod duplicate;
 pub mod history;
 pub mod normalized;
 mod pipeline;
@@ -15,7 +19,14 @@ pub use artifacts::{
     SnapshotArtifact,
 };
 pub use batch::{parse_sitemap, read_url_file, run_concurrent_batch, BatchConfig, BatchResult};
+pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
+pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use normalized::{normalize, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
-pub use report::{AuditReport, BatchError, BatchReport, BatchSummary, PerformanceResults};
+pub use report::{
+    AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
+    CrawlDiagnostics, PerformanceResults, RedirectChain,
+};
+pub use comparison::{ComparisonEntry, ComparisonReport};
+pub use duplicate::{detect_near_duplicates, DuplicatePair};
 pub use scoring::{AccessibilityScorer, ViolationStatistics};

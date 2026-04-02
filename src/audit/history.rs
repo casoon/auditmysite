@@ -513,6 +513,7 @@ mod tests {
             raw_seo: None,
             raw_security: None,
             raw_mobile: None,
+            raw_dark_mode: None,
             raw_wcag: crate::wcag::WcagResults::new(),
         };
 

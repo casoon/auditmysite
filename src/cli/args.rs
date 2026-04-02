@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// AuditMySit - Resource-efficient WCAG 2.1 Accessibility Checker
+/// AuditMySite - Resource-efficient WCAG 2.1 Accessibility Checker
 ///
 /// Analyzes web pages for WCAG accessibility violations using
 /// Chrome DevTools Protocol and the Accessibility Tree.
@@ -16,7 +16,7 @@ use std::path::PathBuf;
     version,
     author,
     about = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust",
-    long_about = "AuditMySit analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
+    long_about = "AuditMySite analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
 It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
 - Missing alt text on images (1.1.1)\n\
 - Heading hierarchy issues (2.4.6)\n\
@@ -48,6 +48,15 @@ pub struct Args {
     /// Example: --url-file urls.txt
     #[arg(short = 'u', long, value_name = "FILE")]
     pub url_file: Option<PathBuf>,
+
+    /// Crawl a site from the given base URL and discover same-domain pages automatically.
+    ///
+    /// NOTE: Crawl mode sends additional HTTP requests beyond the browser-based audit —
+    /// one HEAD/GET per discovered link (including external links up to a cap of 100 unique targets).
+    /// This generates observable traffic to third-party domains and increases audit time.
+    /// Use --crawl deliberately, not in every CI run, to avoid repeated external traffic.
+    #[arg(long)]
+    pub crawl: bool,
 
     /// WCAG conformance level to check.
     ///
@@ -92,6 +101,13 @@ pub struct Args {
     /// Maximum number of pages to audit (0 = unlimited)
     #[arg(short = 'm', long, default_value = "0", value_name = "NUM")]
     pub max_pages: usize,
+
+    /// Maximum crawl depth for `--crawl` (BFS levels from seed URL).
+    ///
+    /// Depth 1 = only links on the seed page. Depth 2 = seed + one level deeper.
+    /// Higher values multiply the number of HTTP link-check requests.
+    #[arg(long, default_value = "2", value_name = "NUM")]
+    pub crawl_depth: usize,
 
     /// Number of concurrent browser tabs
     #[arg(short = 'c', long, default_value = "3", value_name = "NUM")]
@@ -191,6 +207,12 @@ pub struct Args {
     /// Logo image path for PDF cover page
     #[arg(long, value_name = "PATH")]
     pub logo: Option<PathBuf>,
+
+    /// Audit multiple domains and compare them side-by-side
+    ///
+    /// Example: --compare https://a.com https://b.com https://c.com
+    #[arg(long, value_name = "URL", num_args = 2..=10)]
+    pub compare: Vec<String>,
 }
 
 /// Subcommands
@@ -310,6 +332,7 @@ impl Args {
     pub fn effective_format(&self) -> OutputFormat {
         match self.format {
             Some(format) => format,
+            None if !self.compare.is_empty() => OutputFormat::Pdf,
             None if self.per_page_reports => OutputFormat::Pdf,
             None if self.url.is_some() => OutputFormat::Pdf,
             None => OutputFormat::Table,
@@ -330,6 +353,29 @@ impl Args {
     pub fn validate(&self) -> Result<(), String> {
         // Subcommands don't need URL validation
         if self.command.is_some() {
+            return Ok(());
+        }
+
+        // --compare mode: validate compare URLs and no other input source
+        if !self.compare.is_empty() {
+            let other_inputs = self.url.is_some()
+                || self.sitemap.is_some()
+                || self.url_file.is_some()
+                || self.crawl;
+            if other_inputs {
+                return Err(
+                    "--compare cannot be combined with URL, --sitemap, --url-file, or --crawl."
+                        .to_string(),
+                );
+            }
+            for url in &self.compare {
+                url::Url::parse(url)
+                    .map_err(|e| format!("Invalid compare URL '{}': {}", url, e))?;
+            }
+            // Skip remaining validation for compare mode
+            if self.verbose && self.quiet {
+                return Err("Cannot use --verbose and --quiet together".to_string());
+            }
             return Ok(());
         }
 
@@ -358,6 +404,14 @@ impl Args {
             );
         }
 
+        if self.crawl && self.url.is_none() {
+            return Err("--crawl requires a base URL input".to_string());
+        }
+
+        if self.crawl && (self.sitemap.is_some() || self.url_file.is_some()) {
+            return Err("--crawl can only be combined with a single base URL".to_string());
+        }
+
         // Validate URL format if provided
         if let Some(ref url) = self.url {
             url::Url::parse(url).map_err(|e| format!("Invalid URL '{}': {}", url, e))?;
@@ -382,6 +436,10 @@ impl Args {
         }
         if self.concurrency > 10 {
             return Err("Concurrency cannot exceed 10".to_string());
+        }
+
+        if self.crawl_depth == 0 {
+            return Err("Crawl depth must be at least 1".to_string());
         }
 
         // Cannot be both verbose and quiet
@@ -446,12 +504,14 @@ mod tests {
             url: url.map(|s| s.to_string()),
             sitemap: None,
             url_file: None,
+            crawl: false,
             level: WcagLevel::AA,
             format: None,
             output: None,
             chrome_path: None,
             remote_debugging_port: None,
             max_pages: 0,
+            crawl_depth: 2,
             concurrency: 3,
             timeout: 30,
             no_sandbox: false,
@@ -475,6 +535,7 @@ mod tests {
             lang: "de".to_string(),
             company_name: None,
             logo: None,
+            compare: vec![],
         }
     }
 
@@ -514,6 +575,21 @@ mod tests {
         let mut args = test_args(Some("https://example.com"));
         args.no_sitemap_suggest = true;
         args.prefer_sitemap = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_requires_url() {
+        let mut args = test_args(None);
+        args.crawl = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_conflicts_with_sitemap() {
+        let mut args = test_args(Some("https://example.com"));
+        args.crawl = true;
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
         assert!(args.validate().is_err());
     }
 

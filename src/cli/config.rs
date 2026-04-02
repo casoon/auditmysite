@@ -23,6 +23,8 @@ pub struct Config {
     pub rules: RulesConfig,
     #[serde(default)]
     pub thresholds: ThresholdsConfig,
+    #[serde(default)]
+    pub budgets: BudgetConfig,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -65,6 +67,45 @@ pub struct RulesConfig {
 pub struct ThresholdsConfig {
     /// Minimum score to pass (exit code 0)
     pub min_score: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct BudgetConfig {
+    /// Maximum LCP in milliseconds (good: ≤ 2500)
+    pub max_lcp_ms: Option<f64>,
+    /// Maximum FCP in milliseconds (good: ≤ 1800)
+    pub max_fcp_ms: Option<f64>,
+    /// Maximum CLS (good: ≤ 0.1)
+    pub max_cls: Option<f64>,
+    /// Maximum TBT in milliseconds (good: ≤ 200)
+    pub max_tbt_ms: Option<f64>,
+    /// Maximum total JavaScript size in KB
+    pub max_js_kb: Option<f64>,
+    /// Maximum total CSS size in KB
+    pub max_css_kb: Option<f64>,
+    /// Maximum total page size in KB
+    pub max_total_kb: Option<f64>,
+    /// Maximum number of render-blocking scripts
+    pub max_blocking_scripts: Option<u32>,
+    /// Maximum third-party transfer size in KB
+    pub max_third_party_kb: Option<f64>,
+    /// Maximum number of HTTP requests
+    pub max_request_count: Option<u32>,
+}
+
+impl BudgetConfig {
+    pub fn is_empty(&self) -> bool {
+        self.max_lcp_ms.is_none()
+            && self.max_fcp_ms.is_none()
+            && self.max_cls.is_none()
+            && self.max_tbt_ms.is_none()
+            && self.max_js_kb.is_none()
+            && self.max_css_kb.is_none()
+            && self.max_total_kb.is_none()
+            && self.max_blocking_scripts.is_none()
+            && self.max_third_party_kb.is_none()
+            && self.max_request_count.is_none()
+    }
 }
 
 impl Config {
@@ -203,6 +244,18 @@ ignore = ["1.4.3"]
 
 [thresholds]
 min_score = 70
+
+# [budgets]
+# max_lcp_ms = 2500
+# max_fcp_ms = 1800
+# max_cls = 0.1
+# max_tbt_ms = 200
+# max_js_kb = 400
+# max_css_kb = 100
+# max_total_kb = 1500
+# max_blocking_scripts = 0
+# max_third_party_kb = 200
+# max_request_count = 80
 "#;
 
         let config: Config = toml::from_str(toml_str).unwrap();

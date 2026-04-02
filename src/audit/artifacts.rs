@@ -157,6 +157,8 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         seo: artifacts.snapshot.seo.clone(),
         security: artifacts.snapshot.security.clone(),
         mobile: artifacts.snapshot.mobile.clone(),
+        budget_violations: Vec::new(),
+        dark_mode: None,
     };
 
     // Keep consistency with what a live run would expose on report-level metadata.

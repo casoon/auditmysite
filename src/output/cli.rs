@@ -3,10 +3,10 @@
 //! Generates human-readable terminal output for interactive use and batch tables.
 
 use colored::{control::set_override, Colorize};
-use prettytable::{format, Cell, Row, Table};
+use comfy_table::{presets, Attribute, Cell, Color, ContentArrangement, Table};
 use std::cmp::min;
 
-use crate::audit::{AuditReport, BatchReport, PerformanceResults};
+use crate::audit::{AuditReport, BatchReport, BudgetSeverity, PerformanceResults};
 use crate::cli::WcagLevel;
 use crate::mobile::MobileFriendliness;
 use crate::security::SecurityAnalysis;
@@ -35,6 +35,13 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
     }
     if let Some(ref mobile) = report.mobile {
         print_mobile_section(mobile);
+    }
+
+    if !report.budget_violations.is_empty() {
+        print_budget_violations_section(&report.budget_violations);
+    }
+    if let Some(ref dm) = report.dark_mode {
+        print_dark_mode_section(dm);
     }
 
     print_footer(report);
@@ -202,50 +209,41 @@ fn print_violations_table(violations: &[Violation]) {
     println!();
 
     let mut table = Table::new();
-    table.set_format(*format::consts::FORMAT_BOX_CHARS);
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec![
+            Cell::new("Regel").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Level").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Severity").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Beschreibung").add_attribute(Attribute::Bold).fg(Color::Cyan),
+        ]);
 
-    // Header row
-    table.add_row(Row::new(vec![
-        Cell::new("Rule").style_spec("bFc"),
-        Cell::new("Level").style_spec("bFc"),
-        Cell::new("Severity").style_spec("bFc"),
-        Cell::new("Message").style_spec("bFc"),
-    ]));
-
-    // Add violations
     for violation in violations {
         let severity_cell = match violation.severity {
-            Severity::Critical => Cell::new("Kritisch").style_spec("Fr"),
-            Severity::High => Cell::new("Hoch").style_spec("Fy"),
-            Severity::Medium => Cell::new("Mittel").style_spec("Fw"),
-            Severity::Low => Cell::new("Niedrig").style_spec("Fd"),
+            Severity::Critical => Cell::new("Kritisch").fg(Color::Red).add_attribute(Attribute::Bold),
+            Severity::High => Cell::new("Hoch").fg(Color::Yellow).add_attribute(Attribute::Bold),
+            Severity::Medium => Cell::new("Mittel").fg(Color::White),
+            Severity::Low => Cell::new("Niedrig").fg(Color::DarkGrey),
         };
 
-        let level_cell = match violation.level {
-            WcagLevel::A => Cell::new("A"),
-            WcagLevel::AA => Cell::new("AA"),
-            WcagLevel::AAA => Cell::new("AAA"),
-        };
-
-        // Truncate message if too long
-        let message = if violation.message.len() > 50 {
-            format!("{}...", &violation.message[..47])
+        let message = if violation.message.len() > 60 {
+            format!("{}…", &violation.message[..57])
         } else {
             violation.message.clone()
         };
 
-        table.add_row(Row::new(vec![
+        table.add_row(vec![
             Cell::new(&violation.rule),
-            level_cell,
+            Cell::new(violation.level.to_string()),
             severity_cell,
-            Cell::new(&message),
-        ]));
+            Cell::new(message),
+        ]);
     }
 
-    table.printstd();
+    println!("{table}");
     println!();
 
-    // Print detailed fix suggestions
     if !violations.is_empty() {
         print_fix_suggestions(violations);
     }
@@ -401,6 +399,80 @@ fn print_mobile_section(mobile: &MobileFriendliness) {
     println!();
 }
 
+/// Print dark mode analysis section
+fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
+    println!("{}", "Dark Mode".bold().underline());
+    println!();
+
+    let support_label = if dm.supported {
+        "Unterstützt".green().bold().to_string()
+    } else {
+        "Nicht unterstützt".yellow().to_string()
+    };
+    println!("  {} {}", "Status:".bold(), support_label);
+    println!("  {} {}/100", "Score:".bold(), dm.score);
+
+    if !dm.detection_methods.is_empty() {
+        println!("  {} {}", "Methoden:".bold(), dm.detection_methods.join(", ").dimmed());
+    }
+    if dm.css_custom_properties > 0 {
+        println!("  {} {}", "CSS Custom Properties:".bold(), dm.css_custom_properties);
+    }
+    if dm.supported {
+        if dm.dark_only_violations > 0 {
+            println!(
+                "  {} {} (nur im Dark Mode)",
+                "Kontrast-Probleme:".bold(),
+                dm.dark_only_violations.to_string().red()
+            );
+        } else if dm.dark_contrast_violations == 0 {
+            println!("  {} {}", "Kontrast Dark Mode:".bold(), "Keine Probleme".green());
+        }
+        if dm.light_only_violations > 0 {
+            println!(
+                "  {} {} (nur im Light Mode)",
+                "Behoben in Dark:".bold(),
+                dm.light_only_violations.to_string().cyan()
+            );
+        }
+    }
+    if !dm.issues.is_empty() {
+        println!();
+        for issue in &dm.issues {
+            let icon = match issue.severity.as_str() {
+                "high" => "✗".red().bold().to_string(),
+                "medium" => "⚠".yellow().bold().to_string(),
+                _ => "·".dimmed().to_string(),
+            };
+            println!("  {} {}", icon, issue.description.dimmed());
+        }
+    }
+    println!();
+}
+
+/// Print budget violations section
+fn print_budget_violations_section(violations: &[crate::audit::BudgetViolation]) {
+    println!("{}", "Performance Budgets".bold().underline());
+    println!();
+
+    for v in violations {
+        let (icon, label) = match v.severity {
+            BudgetSeverity::Error => ("✗".red().bold(), v.severity.label().red().bold()),
+            BudgetSeverity::Warning => ("⚠".yellow().bold(), v.severity.label().yellow().bold()),
+        };
+        println!(
+            "  {} {} {}: {} (Budget: {}, +{:.0}%)",
+            icon,
+            label,
+            v.metric.bold(),
+            v.actual_label,
+            v.budget_label,
+            v.exceeded_by_pct,
+        );
+    }
+    println!();
+}
+
 /// Print batch results as a table
 pub fn print_batch_table(batch_report: &BatchReport, level: WcagLevel) {
     print!("{}", format_batch_table(batch_report, level, true));
@@ -409,9 +481,8 @@ pub fn print_batch_table(batch_report: &BatchReport, level: WcagLevel) {
 /// Format batch results as a table string for terminal or file output
 pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_color: bool) -> String {
     set_override(use_color);
-    let mut output = String::new();
 
-    println!();
+    let mut output = String::new();
     output.push('\n');
     output.push_str(&format!(
         "{} WCAG {} Batch Audit Results\n\n",
@@ -419,77 +490,55 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
         level
     ));
 
-    // Summary
+    // Summary block
     output.push_str(&format!(
-        "  {} {} URLs audited",
-        "Total:".bold(),
-        batch_report.summary.total_urls
-    ));
-    output.push('\n');
-    output.push_str(&format!(
-        "  {} {} passed, {} failed",
-        "Status:".bold(),
-        batch_report.summary.passed.to_string().green(),
-        batch_report.summary.failed.to_string().red()
-    ));
-    output.push('\n');
-    output.push_str(&format!(
-        "  {} {:.1}",
-        "Avg Score:".bold(),
-        batch_report.summary.average_score
-    ));
-    output.push('\n');
-    output.push_str(&format!(
-        "  {} {}",
-        "Total Violations:".bold(),
-        batch_report.summary.total_violations
-    ));
-    output.push('\n');
-    output.push_str(&format!(
-        "  {} {}ms",
+        "  {}  {}   {}  {:.1}   {}  {}   {}  {}ms\n\n",
+        "URLs:".bold(),
+        batch_report.summary.total_urls,
+        "Passed:".bold(),
+        batch_report.summary.average_score,
+        "Violations:".bold(),
+        batch_report.summary.total_violations,
         "Duration:".bold(),
-        batch_report.total_duration_ms
+        batch_report.total_duration_ms,
     ));
-    output.push_str("\n\n");
 
-    // Individual results
-    output.push_str(&format!("{}\n", "─".repeat(80)));
-    output.push_str(&format!(
-        "{:<50} {:>8} {:>10} {:>8}",
-        "URL".bold(),
-        "Score".bold(),
-        "Violations".bold(),
-        "Status".bold()
-    ));
-    output.push('\n');
-    output.push_str(&format!("{}\n", "─".repeat(80)));
+    // Per-URL table
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec![
+            Cell::new("URL").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Score").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Violations").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Status").add_attribute(Attribute::Bold).fg(Color::Cyan),
+        ]);
 
     for report in &batch_report.reports {
-        let status = if report.passed() {
-            "PASS".green()
+        let (status_cell, score_color) = if report.passed() {
+            (
+                Cell::new("PASS").fg(Color::Green).add_attribute(Attribute::Bold),
+                Color::Green,
+            )
         } else {
-            "FAIL".red()
+            (
+                Cell::new("FAIL").fg(Color::Red).add_attribute(Attribute::Bold),
+                if report.score >= 70.0 { Color::Yellow } else { Color::Red },
+            )
         };
 
-        let score_color = if report.score >= 90.0 {
-            format!("{:.1}", report.score).green()
-        } else if report.score >= 70.0 {
-            format!("{:.1}", report.score).yellow()
-        } else {
-            format!("{:.1}", report.score).red()
-        };
-
-        output.push_str(&format!(
-            "{:<50} {:>8} {:>10} {:>8}",
-            truncate_url(&report.url, 48),
-            score_color,
-            report.violation_count(),
-            status
-        ));
-        output.push('\n');
+        table.add_row(vec![
+            Cell::new(truncate_url(&report.url, 55)),
+            Cell::new(format!("{:.1}", report.score)).fg(score_color),
+            Cell::new(report.violation_count().to_string()),
+            status_cell,
+        ]);
     }
 
-    // Show errors if any
+    output.push_str(&table.to_string());
+    output.push('\n');
+
     if !batch_report.errors.is_empty() {
         output.push('\n');
         output.push_str(&format!("{}\n", "Errors:".red().bold()));
@@ -498,7 +547,6 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
         }
     }
 
-    output.push_str(&format!("{}\n", "─".repeat(80)));
     set_override(false);
     output
 }
@@ -579,6 +627,6 @@ mod tests {
 
         assert!(text.contains("WCAG AA Batch Audit Results"));
         assert!(text.contains("https://example.com"));
-        assert!(text.contains("Total Violations:"));
+        assert!(text.contains("Violations:"));
     }
 }

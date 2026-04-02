@@ -1,6 +1,6 @@
 [package]
 name = "auditmysite"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
@@ -31,8 +31,9 @@ thiserror = "1.0"
 
 # Output formatting
 colored = "2.0"
-prettytable-rs = "0.10"
+comfy-table = "7"
 indicatif = "0.17"
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
 
 # URL handling
 url = "2.5"

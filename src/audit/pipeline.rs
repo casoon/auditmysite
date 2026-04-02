@@ -13,12 +13,16 @@ use super::artifacts::{
 };
 use super::normalize;
 use super::report::{AuditReport, PerformanceResults};
-use crate::accessibility::{extract_ax_tree, AXTree};
+use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::error::Result;
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
-use crate::performance::{calculate_performance_score, extract_web_vitals};
+use crate::performance::{
+    analyze_content_weight, analyze_render_blocking, calculate_performance_score,
+    extract_web_vitals,
+};
+use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
 use crate::wcag::{self, WcagResults};
@@ -33,6 +37,7 @@ struct SnapshotData {
     seo: Option<SeoAnalysis>,
     security: Option<SecurityAnalysis>,
     mobile: Option<MobileFriendliness>,
+    dark_mode: Option<DarkModeAnalysis>,
 }
 
 /// Audit pipeline configuration
@@ -148,7 +153,26 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         match extract_web_vitals(page).await {
             Ok(vitals) => {
                 let score = calculate_performance_score(&vitals);
-                Some(PerformanceResults { vitals, score })
+                let render_blocking = match analyze_render_blocking(page, url).await {
+                    Ok(rb) => Some(rb),
+                    Err(e) => {
+                        warn!("Render-blocking analysis failed: {}", e);
+                        None
+                    }
+                };
+                let content_weight = match analyze_content_weight(page).await {
+                    Ok(cw) => Some(cw),
+                    Err(e) => {
+                        warn!("Content-weight analysis failed: {}", e);
+                        None
+                    }
+                };
+                Some(PerformanceResults {
+                    vitals,
+                    score,
+                    render_blocking,
+                    content_weight,
+                })
             }
             Err(e) => {
                 warn!("Performance analysis failed: {}", e);
@@ -195,12 +219,21 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
+    let dark_mode = match analyze_dark_mode(page, config.wcag_level).await {
+        Ok(dm) => Some(dm),
+        Err(e) => {
+            warn!("Dark mode analysis failed: {}", e);
+            None
+        }
+    };
+
     Ok(SnapshotData {
         ax_tree,
         performance,
         seo,
         security,
         mobile,
+        dark_mode,
     })
 }
 
@@ -216,6 +249,9 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.violations.extend(contrast_violations);
     }
+
+    // Enrich violation selectors with actual DOM locations (img src, form ids, etc.)
+    enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
 
     wcag_results
 }
@@ -245,6 +281,9 @@ fn aggregate_report(
     }
     if let Some(mobile) = snapshot.mobile.clone() {
         report = report.with_mobile(mobile);
+    }
+    if let Some(dark_mode) = snapshot.dark_mode.clone() {
+        report = report.with_dark_mode(dark_mode);
     }
 
     report
@@ -291,12 +330,14 @@ mod tests {
             url: Some("https://example.com".to_string()),
             sitemap: None,
             url_file: None,
+            crawl: false,
             level: WcagLevel::AA,
             format: None,
             output: None,
             chrome_path: None,
             remote_debugging_port: None,
             max_pages: 0,
+            crawl_depth: 2,
             concurrency: 3,
             timeout: 30,
             no_sandbox: false,
@@ -320,6 +361,7 @@ mod tests {
             lang: "de".to_string(),
             company_name: None,
             logo: None,
+            compare: vec![],
         };
 
         let config = PipelineConfig::from(&args);

@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use chromiumoxide::browser::{Browser, BrowserConfig};
+use chromiumoxide::browser::{Browser, BrowserConfig, HeadlessMode};
 use chromiumoxide::Page;
 use futures::StreamExt;
 use tokio::sync::Mutex;
@@ -117,9 +117,16 @@ impl BrowserManager {
 
         verify_executable(&resolved.browser.path)?;
 
+        let headless_mode = if options.headless {
+            HeadlessMode::New
+        } else {
+            HeadlessMode::False
+        };
+
         let config = BrowserConfig::builder()
             .chrome_executable(&resolved.browser.path)
             .user_data_dir(&user_data_dir)
+            .headless_mode(headless_mode)
             .args(args)
             .viewport(None)
             .build()
@@ -157,11 +164,7 @@ impl BrowserManager {
     /// Build Chrome launch arguments based on options
     fn build_launch_args(options: &BrowserOptions, user_data_dir: &std::path::Path) -> Vec<String> {
         let mut args = vec![
-            if options.headless {
-                "--headless".to_string()
-            } else {
-                "--no-headless".to_string()
-            },
+            // Note: --headless / --headless=new is set via BrowserConfig::headless_mode()
             "--no-first-run".to_string(),
             "--no-default-browser-check".to_string(),
             "--disable-extensions".to_string(),
@@ -354,7 +357,8 @@ mod tests {
         let dir = std::env::temp_dir().join("auditmysite-test-profile-headless");
         let args = BrowserManager::build_launch_args(&opts, &dir);
 
-        assert!(args.iter().any(|a| a == "--headless"));
+        // --headless is now applied via BrowserConfig::headless_mode(), not in args
+        assert!(args.iter().all(|a| a != "--headless" && a != "--headless=new"));
         assert!(args.iter().any(|a| a == "--disable-gpu"));
         assert!(args.iter().any(|a| a == "--no-first-run"));
         assert!(args.iter().any(|a| a.starts_with("--user-data-dir=")));

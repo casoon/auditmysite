@@ -7,7 +7,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::audit::normalized::NormalizedReport;
-use crate::audit::BatchReport;
+use crate::audit::{BatchReport, BrokenLinkSeverity};
 use crate::cli::ReportLevel;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::*;
@@ -567,6 +567,48 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
 
         let recommendations = derive_performance_recommendations(p);
 
+        // Render-blocking data
+        let mut render_blocking_metrics = Vec::new();
+        let mut render_blocking_suggestions = Vec::new();
+        let mut has_render_blocking = false;
+
+        if let Some(ref rb) = p.render_blocking {
+            if rb.has_blocking() || rb.third_party_bytes > 100_000 {
+                has_render_blocking = true;
+                render_blocking_metrics.push((
+                    "Blocking Scripts".to_string(),
+                    rb.blocking_scripts.len().to_string(),
+                ));
+                render_blocking_metrics.push((
+                    "Blocking CSS".to_string(),
+                    rb.blocking_css.len().to_string(),
+                ));
+                if rb.blocking_transfer_bytes > 0 {
+                    render_blocking_metrics.push((
+                        "Blocking Transfer".to_string(),
+                        format!("{:.1} KB", rb.blocking_transfer_bytes as f64 / 1024.0),
+                    ));
+                }
+                if rb.third_party_bytes > 0 {
+                    render_blocking_metrics.push((
+                        "Third-Party".to_string(),
+                        format!(
+                            "{:.1} KB ({} Domains)",
+                            rb.third_party_bytes as f64 / 1024.0,
+                            rb.third_party_origin_count
+                        ),
+                    ));
+                }
+                if rb.first_party_bytes > 0 {
+                    render_blocking_metrics.push((
+                        "First-Party".to_string(),
+                        format!("{:.1} KB", rb.first_party_bytes as f64 / 1024.0),
+                    ));
+                }
+                render_blocking_suggestions = rb.suggestions.clone();
+            }
+        }
+
         PerformancePresentation {
             score: p.score.overall,
             grade: p.score.grade.label().to_string(),
@@ -574,6 +616,9 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             vitals,
             additional_metrics: additional,
             recommendations,
+            render_blocking_metrics,
+            render_blocking_suggestions,
+            has_render_blocking,
         }
     });
 
@@ -1052,12 +1097,33 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             .collect(),
     });
 
-    let has_any = performance.is_some() || seo.is_some() || security.is_some() || mobile.is_some();
+    let dark_mode = normalized.raw_dark_mode.as_ref().map(|dm| {
+        DarkModePresentation {
+            supported: dm.supported,
+            score: dm.score,
+            detection_methods: dm.detection_methods.clone(),
+            color_scheme_css: dm.color_scheme_css,
+            meta_color_scheme: dm.meta_color_scheme.clone(),
+            css_custom_properties: dm.css_custom_properties,
+            dark_contrast_violations: dm.dark_contrast_violations,
+            dark_only_violations: dm.dark_only_violations,
+            light_only_violations: dm.light_only_violations,
+            issues: dm
+                .issues
+                .iter()
+                .map(|i| (i.severity.clone(), i.description.clone()))
+                .collect(),
+        }
+    });
+
+    let has_any =
+        performance.is_some() || seo.is_some() || security.is_some() || mobile.is_some() || dark_mode.is_some();
     ModuleDetailsBlock {
         performance,
         seo,
         security,
         mobile,
+        dark_mode,
         has_any,
     }
 }
@@ -1460,6 +1526,139 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     let top_topics = derive_domain_topics(&url_details);
     let overlap_pairs = derive_topic_overlap_pairs(&url_details);
 
+    // Near-duplicate detection via SimHash on page text excerpts
+    let dup_inputs: Vec<(String, String)> = batch
+        .reports
+        .iter()
+        .filter_map(|r| {
+            r.seo
+                .as_ref()
+                .filter(|seo| !seo.technical.text_excerpt.is_empty())
+                .map(|seo| (r.url.clone(), seo.technical.text_excerpt.clone()))
+        })
+        .collect();
+
+    let near_duplicates: Vec<(String, String, u8)> = if dup_inputs.len() >= 2 {
+        crate::audit::duplicate::detect_near_duplicates(&dup_inputs, 80, 80)
+            .into_iter()
+            .take(10)
+            .map(|p| (p.url_a, p.url_b, p.similarity))
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    // ── Budget violations: aggregate across all pages ──────────────────────
+    // Count how many URLs violated each budget metric and pick the worst severity.
+    let budget_summary: Vec<(String, String, usize, String)> = {
+        use std::collections::HashMap;
+        // key: metric label → (budget_label, url_count, worst_severity)
+        let mut map: HashMap<String, (String, usize, &str)> = HashMap::new();
+        for r in &batch.reports {
+            for v in &r.budget_violations {
+                let entry = map
+                    .entry(v.metric.clone())
+                    .or_insert_with(|| (v.budget_label.clone(), 0, "Warning"));
+                entry.1 += 1;
+                if v.severity == crate::audit::budget::BudgetSeverity::Error {
+                    entry.2 = "Error";
+                }
+            }
+        }
+        let mut rows: Vec<_> = map
+            .into_iter()
+            .map(|(metric, (budget, count, sev))| (metric, budget, count, sev.to_string()))
+            .collect();
+        rows.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+        rows
+    };
+
+    // ── Render-blocking: aggregate across all pages ─────────────────────────
+    let render_blocking_summary: Vec<(String, String)> = {
+        let pages_with_data: Vec<_> = batch
+            .reports
+            .iter()
+            .filter_map(|r| r.performance.as_ref().and_then(|p| p.render_blocking.as_ref()))
+            .collect();
+        if pages_with_data.is_empty() {
+            Vec::new()
+        } else {
+            let n = pages_with_data.len() as f64;
+            let total_blocking: usize = pages_with_data.iter().map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len()).sum();
+            let total_third_party_bytes: u64 = pages_with_data.iter().map(|rb| rb.third_party_bytes).sum();
+            let pages_with_blocking = pages_with_data.iter().filter(|rb| rb.has_blocking()).count();
+            vec![
+                ("Seiten analysiert".to_string(), format!("{} von {}", pages_with_data.len(), batch.reports.len())),
+                ("Seiten mit Blocking".to_string(), format!("{} ({:.0}%)", pages_with_blocking, pages_with_blocking as f64 / n * 100.0)),
+                ("Blocking-Ressourcen gesamt".to_string(), total_blocking.to_string()),
+                ("Third-Party-Traffic gesamt".to_string(), format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0)),
+            ]
+        }
+    };
+
+    let crawl_links = batch
+        .crawl_diagnostics
+        .as_ref()
+        .map(|crawl| CrawlLinkSummary {
+            seed_url: crawl.seed_url.clone(),
+            checked_internal_links: crawl.checked_internal_links,
+            broken_internal_links: crawl
+                .broken_internal_links
+                .iter()
+                .take(20)
+                .map(|link| BrokenLinkRow {
+                    source_url: link.source_url.clone(),
+                    target_url: link.target_url.clone(),
+                    status: match (link.status_code, link.error.as_deref()) {
+                        (Some(code), _) => code.to_string(),
+                        (None, Some(err)) => err.to_string(),
+                        (None, None) => "Unbekannt".to_string(),
+                    },
+                    is_external: link.is_external,
+                    severity: match link.severity {
+                        BrokenLinkSeverity::High => "high".to_string(),
+                        BrokenLinkSeverity::Medium => "medium".to_string(),
+                        BrokenLinkSeverity::Low => "low".to_string(),
+                    },
+                    redirect_hops: link.redirect_hops,
+                })
+                .collect(),
+            checked_external_links: crawl.checked_external_links,
+            broken_external_links: crawl
+                .broken_external_links
+                .iter()
+                .take(20)
+                .map(|link| BrokenLinkRow {
+                    source_url: link.source_url.clone(),
+                    target_url: link.target_url.clone(),
+                    status: match (link.status_code, link.error.as_deref()) {
+                        (Some(code), _) => code.to_string(),
+                        (None, Some(err)) => err.to_string(),
+                        (None, None) => "Unbekannt".to_string(),
+                    },
+                    is_external: link.is_external,
+                    severity: match link.severity {
+                        BrokenLinkSeverity::High => "high".to_string(),
+                        BrokenLinkSeverity::Medium => "medium".to_string(),
+                        BrokenLinkSeverity::Low => "low".to_string(),
+                    },
+                    redirect_hops: link.redirect_hops,
+                })
+                .collect(),
+            redirect_chains: crawl
+                .redirect_chains
+                .iter()
+                .take(20)
+                .map(|chain| RedirectChainRow {
+                    source_url: chain.source_url.clone(),
+                    target_url: chain.target_url.clone(),
+                    final_url: chain.final_url.clone(),
+                    hops: chain.hops,
+                    is_external: chain.is_external,
+                })
+                .collect(),
+        });
+
     BatchPresentation {
         cover: CoverData {
             title: "Web Accessibility Batch Audit Report".to_string(),
@@ -1484,6 +1683,10 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             weakest_content_pages,
             top_topics,
             overlap_pairs,
+            near_duplicates,
+            crawl_links,
+            budget_summary,
+            render_blocking_summary,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -1855,6 +2058,8 @@ mod tests {
                     cls_score: 15,
                     interactivity_score: 15,
                 },
+                render_blocking: None,
+                content_weight: None,
             })
             .with_seo(SeoAnalysis::default());
 
@@ -2000,6 +2205,8 @@ mod tests {
                     cls_score: 15,
                     interactivity_score: 15,
                 },
+                render_blocking: None,
+                content_weight: None,
             })
             .with_security(crate::security::SecurityAnalysis {
                 score: security_score,

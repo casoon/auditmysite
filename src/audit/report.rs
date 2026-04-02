@@ -7,8 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::cli::WcagLevel;
+use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
-use crate::performance::{PerformanceScore, WebVitals};
+use crate::performance::{ContentWeight, PerformanceScore, RenderBlockingAnalysis, WebVitals};
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::wcag::WcagResults;
@@ -48,6 +49,12 @@ pub struct AuditReport {
     /// Mobile friendliness analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile: Option<MobileFriendliness>,
+    /// Budget violations detected for this page
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
+    /// Dark mode support and quality analysis (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dark_mode: Option<DarkModeAnalysis>,
 }
 
 /// Performance analysis results wrapper
@@ -57,6 +64,12 @@ pub struct PerformanceResults {
     pub vitals: WebVitals,
     /// Performance score
     pub score: PerformanceScore,
+    /// Render-blocking resource analysis
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub render_blocking: Option<RenderBlockingAnalysis>,
+    /// Page content weight / resource breakdown
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_weight: Option<ContentWeight>,
 }
 
 impl AuditReport {
@@ -88,6 +101,8 @@ impl AuditReport {
             seo: None,
             security: None,
             mobile: None,
+            budget_violations: Vec::new(),
+            dark_mode: None,
         }
     }
 
@@ -112,6 +127,12 @@ impl AuditReport {
     /// Set mobile friendliness results
     pub fn with_mobile(mut self, mobile: MobileFriendliness) -> Self {
         self.mobile = Some(mobile);
+        self
+    }
+
+    /// Set dark mode analysis results
+    pub fn with_dark_mode(mut self, dark_mode: DarkModeAnalysis) -> Self {
+        self.dark_mode = Some(dark_mode);
         self
     }
 
@@ -173,8 +194,79 @@ pub struct BatchReport {
     pub errors: Vec<BatchError>,
     /// Summary statistics
     pub summary: BatchSummary,
+    /// Optional crawl/link diagnostics if the batch originated from crawler discovery
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub crawl_diagnostics: Option<CrawlDiagnostics>,
     /// Total execution time
     pub total_duration_ms: u64,
+}
+
+/// Severity of a broken or problematic link finding
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BrokenLinkSeverity {
+    High,
+    Medium,
+    Low,
+}
+
+/// A redirect chain with more than 1 hop detected during link checking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedirectChain {
+    /// Page that contains the link
+    pub source_url: String,
+    /// Original link target
+    pub target_url: String,
+    /// Final resolved URL after all redirects
+    pub final_url: String,
+    /// Number of redirect hops
+    pub hops: u8,
+    /// Whether the link points to an external domain
+    pub is_external: bool,
+}
+
+/// Optional crawl/link diagnostics attached to crawler-driven batch reports.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrawlDiagnostics {
+    /// Seed URL that started discovery
+    pub seed_url: String,
+    /// Number of discovered pages in the crawl set
+    pub discovered_urls: usize,
+    /// Number of unique internal links that were status-checked
+    pub checked_internal_links: usize,
+    /// Broken internal links (4xx/5xx or fetch failure)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub broken_internal_links: Vec<BrokenLink>,
+    /// Number of unique external links that were status-checked
+    pub checked_external_links: usize,
+    /// Broken external links (4xx/5xx or fetch failure)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub broken_external_links: Vec<BrokenLink>,
+    /// Links with more than 1 redirect hop
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub redirect_chains: Vec<RedirectChain>,
+}
+
+/// A broken internal link found during crawl-based link checking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrokenLink {
+    /// Page that contains the broken link
+    pub source_url: String,
+    /// Link target that failed
+    pub target_url: String,
+    /// HTTP status code if available
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    /// Error reason for network/content failures
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// Whether the link points to an external domain
+    pub is_external: bool,
+    /// Number of redirect hops before reaching the final status (0 = direct)
+    #[serde(default)]
+    pub redirect_hops: u8,
+    /// Severity derived from link type and status
+    pub severity: BrokenLinkSeverity,
 }
 
 /// A failed URL audit
@@ -230,8 +322,14 @@ impl BatchReport {
                 average_score,
                 total_violations,
             },
+            crawl_diagnostics: None,
             total_duration_ms,
         }
+    }
+
+    pub fn with_crawl_diagnostics(mut self, diagnostics: CrawlDiagnostics) -> Self {
+        self.crawl_diagnostics = Some(diagnostics);
+        self
     }
 }
 

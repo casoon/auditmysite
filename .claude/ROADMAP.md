@@ -156,7 +156,7 @@ Alle JSON-Parsing-Stellen mit warn!() versehen:
 | Build Warnings | 9 | 0 | 0 ✅ |
 | `.expect()` calls | 4 | 0 | 0 ✅ |
 | Silent `.unwrap_or()` | 8 | 0 | 0 ✅ |
-| Unit Tests | 151 | 151 | 151 ✅ |
+| Unit Tests | 151 | 267 | 151 ✅ |
 | Integration Tests | 0 | 19 | 10+ ✅ |
 | Security Tests | 0 | 8 | 5+ ✅ |
 

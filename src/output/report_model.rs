@@ -250,7 +250,23 @@ pub struct ModuleDetailsBlock {
     pub seo: Option<SeoPresentation>,
     pub security: Option<SecurityPresentation>,
     pub mobile: Option<MobilePresentation>,
+    pub dark_mode: Option<DarkModePresentation>,
     pub has_any: bool,
+}
+
+/// Dark mode analysis presentation block
+pub struct DarkModePresentation {
+    pub supported: bool,
+    pub score: u32,
+    pub detection_methods: Vec<String>,
+    pub color_scheme_css: bool,
+    pub meta_color_scheme: Option<String>,
+    pub css_custom_properties: u32,
+    pub dark_contrast_violations: u32,
+    pub dark_only_violations: u32,
+    pub light_only_violations: u32,
+    /// (severity, description) pairs for issues
+    pub issues: Vec<(String, String)>,
 }
 
 /// Action plan as pre-mapped roadmap columns
@@ -333,6 +349,12 @@ pub struct PerformancePresentation {
     pub vitals: Vec<(String, String, String)>,
     pub additional_metrics: Vec<(String, String)>,
     pub recommendations: Vec<String>,
+    /// Render-blocking: (label, value) pairs for display
+    pub render_blocking_metrics: Vec<(String, String)>,
+    /// Render-blocking suggestions
+    pub render_blocking_suggestions: Vec<String>,
+    /// Whether render-blocking or heavy third-party load was detected
+    pub has_render_blocking: bool,
 }
 
 pub struct SeoPresentation {
@@ -480,6 +502,39 @@ pub struct PortfolioSummary {
     pub weakest_content_pages: Vec<(String, String, u32)>,
     pub top_topics: Vec<(String, usize)>,
     pub overlap_pairs: Vec<(String, String, u32)>,
+    /// Near-duplicate content pairs detected via SimHash (url_a, url_b, similarity_pct)
+    pub near_duplicates: Vec<(String, String, u8)>,
+    pub crawl_links: Option<CrawlLinkSummary>,
+    /// Aggregated budget violations across all pages (metric, budget_label, #urls_violated, severity_label)
+    pub budget_summary: Vec<(String, String, usize, String)>,
+    /// Aggregated render-blocking summary across all pages (metric_label, value_label)
+    pub render_blocking_summary: Vec<(String, String)>,
+}
+
+pub struct CrawlLinkSummary {
+    pub seed_url: String,
+    pub checked_internal_links: usize,
+    pub broken_internal_links: Vec<BrokenLinkRow>,
+    pub checked_external_links: usize,
+    pub broken_external_links: Vec<BrokenLinkRow>,
+    pub redirect_chains: Vec<RedirectChainRow>,
+}
+
+pub struct BrokenLinkRow {
+    pub source_url: String,
+    pub target_url: String,
+    pub status: String,
+    pub is_external: bool,
+    pub severity: String,
+    pub redirect_hops: u8,
+}
+
+pub struct RedirectChainRow {
+    pub source_url: String,
+    pub target_url: String,
+    pub final_url: String,
+    pub hops: u8,
+    pub is_external: bool,
 }
 
 pub struct SeverityDistribution {

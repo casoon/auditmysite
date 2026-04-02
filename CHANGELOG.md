@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-04-02
+
+### Added
+- **Crawler + URL-Discovery** (`--crawl`, `--crawl-depth`): BFS-Crawler entdeckt intern verlinkte Seiten einer Domain automatisch
+- **Broken Links**: Erkennt interne/externe 4xx/5xx und Redirect-Ketten (bis 6 Hops); HEAD→GET-Fallback; Severity-Stufen; PDF-Sektion
+- **Duplicate / Near-Duplicate Content**: SimHash-64 mit 2-Wort-Shingles; Boilerplate-Filter; Duplikat (≥ 95 %) vs. Near-Duplicate (80–94 %); Batch-PDF-Sektion
+- **Render Blocking & Asset-Größen** (`src/performance/render_blocking.rs`): erkennt blocking `<script>`/CSS in `<head>`, First-/Third-Party-Aufteilung; PDF-Sektion
+- **Performance Budgets** (`[budgets]` in `auditmysite.toml`): 10 konfigurierbare Limits (LCP, FCP, CLS, TBT, JS-KB, CSS-KB, Größe, Requests, Blocking-Scripts, Third-Party-KB); Severity Error/Warning; JSON, CLI und PDF
+- **Wettbewerbsvergleich** (`--compare`): 2–10 Domains in einem Lauf vergleichen; Domain-Ranking, Modul-Vergleich, Top-Findings; PDF, JSON, CSV
+- **Dark Mode Detection** (`src/dark_mode/`): erkennt `@media (prefers-color-scheme: dark)`, `color-scheme`-Property, Meta-Tags, CSS Custom Properties; CDP-Emulation für Kontrastvergleich; Score + PDF-Sektion
+- **Fundstellen-Enrichment** (`src/accessibility/enrichment.rs`): ersetzt „AX-Node 103" durch echte DOM-Selektoren via CDP `DOM.describeNode` + `DOM.resolveNode`; zeigt `img.hero [src: …]`, `a.nav-link > svg` etc.
+- **Batch PDF**: Render-Blocking-Aggregation und Budget-Violations-Aggregation über alle URLs
+- **comfy-table** ersetzt prettytable-rs für UTF-8-Box-Drawing-Tabellen mit farbigen Severity-Zellen
+- **dialoguer** ersetzt manuelles stdin-Parsing für interaktive Prompts (Domain-Input, Sitemap-Auswahl)
+- `--crawl` erklärt nun im CLI-Help warum externes Traffic erzeugt wird
+
+### Changed
+- CLI-Tabellen nutzen jetzt `comfy_table` mit `UTF8_FULL`-Preset und dynamischer Spaltenbreite
+- Domain-Eingabe und Sitemap-Auswahl im interaktiven Modus über `dialoguer::Input` / `Select`
+
 ## [0.3.2] - 2026-01-30
 
 ### Fixed
