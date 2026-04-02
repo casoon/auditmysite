@@ -4,7 +4,7 @@
 
 use std::fs;
 use std::io::{self, IsTerminal};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::Local;
@@ -374,8 +374,7 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
     // Evaluate performance budgets from config
     if let Some(ref cfg) = *config {
         if !cfg.budgets.is_empty() {
-            report.budget_violations =
-                auditmysite::audit::evaluate_budgets(&report, &cfg.budgets);
+            report.budget_violations = auditmysite::audit::evaluate_budgets(&report, &cfg.budgets);
             if !report.budget_violations.is_empty() && !args.quiet {
                 use auditmysite::audit::BudgetSeverity;
                 let errors = report
@@ -392,7 +391,11 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
                     "{} {} Budget-Verletzung{}: {} Error{}, {} Warning{}",
                     "Budget:".yellow().bold(),
                     report.budget_violations.len(),
-                    if report.budget_violations.len() == 1 { "" } else { "en" },
+                    if report.budget_violations.len() == 1 {
+                        ""
+                    } else {
+                        "en"
+                    },
                     errors,
                     if errors == 1 { "" } else { "s" },
                     warnings,
@@ -792,8 +795,7 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
     }
 
     let total_ms = start.elapsed().as_millis() as u64;
-    let comparison =
-        auditmysite::audit::ComparisonReport::from_reports(reports, total_ms);
+    let comparison = auditmysite::audit::ComparisonReport::from_reports(reports, total_ms);
 
     if !args.quiet {
         if failed > 0 {
@@ -836,15 +838,16 @@ fn output_comparison_report(
 ) -> Result<()> {
     match args.effective_format() {
         OutputFormat::Json => {
-            let output = serde_json::to_string_pretty(comparison)
-                .map_err(|e| AuditError::OutputError { reason: e.to_string() })?;
+            let output =
+                serde_json::to_string_pretty(comparison).map_err(|e| AuditError::OutputError {
+                    reason: e.to_string(),
+                })?;
             output_text(&output, &args.output, "JSON comparison", args.quiet)?;
         }
         OutputFormat::Table => {
             // Summary table already printed inline above
             if let Some(path) = &args.output {
-                let mut lines =
-                    vec!["Rank,Domain,Score,Grade,Violations,Critical".to_string()];
+                let mut lines = vec!["Rank,Domain,Score,Grade,Violations,Critical".to_string()];
                 for (i, e) in comparison.entries.iter().enumerate() {
                     lines.push(format!(
                         "{},{},{},{},{},{}",
@@ -1119,7 +1122,7 @@ fn output_directory(path: &std::path::Path) -> &std::path::Path {
 }
 
 #[cfg(feature = "pdf")]
-fn default_single_json_output_path(pdf_path: &PathBuf) -> PathBuf {
+fn default_single_json_output_path(pdf_path: &Path) -> PathBuf {
     pdf_path.with_extension("json")
 }
 
@@ -1235,6 +1238,7 @@ fn detect_chrome_command(args: &Args) -> Result<f64> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use auditmysite::cli::ReportLevel;

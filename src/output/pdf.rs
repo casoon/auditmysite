@@ -501,8 +501,8 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                     pres.portfolio_summary.total_violations as u32,
                     (dist.critical + dist.high) as u32,
                     pres.portfolio_summary.crawl_links.as_ref().map(|links| {
-                        (links.broken_internal_links.len()
-                            + links.broken_external_links.len()) as u32
+                        (links.broken_internal_links.len() + links.broken_external_links.len())
+                            as u32
                     }),
                 )),
                 component_json(build_batch_overview_comparison(best, worst)),
@@ -907,7 +907,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .with_title("Near-Duplicate-Paare");
 
         for (url_a, url_b, sim) in &pres.portfolio_summary.near_duplicates {
-            let kind = if *sim >= 95 { "Duplikat" } else { "Near-Duplicate" };
+            let kind = if *sim >= 95 {
+                "Duplikat"
+            } else {
+                "Near-Duplicate"
+            };
             table = table.add_row(vec![
                 truncate_url(url_a, 38),
                 truncate_url(url_b, 38),
@@ -1056,7 +1060,7 @@ pub fn generate_comparison_pdf(
 
     let mut builder = engine
         .report("wcag-comparison")
-        .metadata("date", &chrono::Local::now().format("%d.%m.%Y").to_string())
+        .metadata("date", chrono::Local::now().format("%d.%m.%Y").to_string())
         .metadata("author", author)
         .metadata("footer_prefix", "Erstellt mit")
         .metadata("footer_link_url", "https://auditmysite.casoon.dev");
@@ -2209,7 +2213,8 @@ fn render_performance(
     }
 
     if perf.has_render_blocking {
-        builder = builder.add_component(Section::new("Render Blocking & Asset-Größen").with_level(3));
+        builder =
+            builder.add_component(Section::new("Render Blocking & Asset-Größen").with_level(3));
 
         if !perf.render_blocking_metrics.is_empty() {
             let mut kv = KeyValueList::new().with_title("Render-Blocking Analyse");

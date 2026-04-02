@@ -282,7 +282,10 @@ mod tests {
     #[test]
     fn test_budget_config_is_empty() {
         assert!(BudgetConfig::default().is_empty());
-        let c = BudgetConfig { max_lcp_ms: Some(2500.0), ..Default::default() };
+        let c = BudgetConfig {
+            max_lcp_ms: Some(2500.0),
+            ..Default::default()
+        };
         assert!(!c.is_empty());
     }
 }

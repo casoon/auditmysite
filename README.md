@@ -298,9 +298,14 @@ cargo build --release
 ./target/release/auditmysite https://example.com
 ```
 
-### Pre-commit secret scan
+### Pre-commit checks
 
-This repository uses `nosecrets` in the Git `pre-commit` hook.
+This repository uses the Git `pre-commit` hook to run:
+
+- `nosecrets` on staged changes
+- `cargo fmt -- --check`
+- `cargo clippy --all-targets --all-features -- -D warnings`
+- `cargo test`
 
 Enable the repo hook path:
 
@@ -314,6 +319,12 @@ Install `nosecrets` as a real binary first:
 npm install -g @casoon/nosecrets
 # or
 cargo install nosecrets-cli
+```
+
+Skip the Rust checks only when you intentionally need to bypass them:
+
+```bash
+SKIP_RUST_CHECKS=1 git commit -m "..."
 ```
 
 The hook expects `nosecrets` to be available in `PATH`.

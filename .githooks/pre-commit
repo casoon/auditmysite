@@ -11,3 +11,10 @@ fi
 
 echo "nosecrets: scanning staged changes"
 "$REPO_ROOT/scripts/run-nosecrets.sh"
+
+if [ "${SKIP_RUST_CHECKS:-0}" = "1" ]; then
+  echo "pre-commit: skipping Rust checks because SKIP_RUST_CHECKS=1"
+  exit 0
+fi
+
+"$REPO_ROOT/scripts/pre-commit-check.sh"

@@ -297,10 +297,12 @@ mod tests {
 
     #[test]
     fn test_web_vitals_good_count() {
-        let mut vitals = WebVitals::default();
-        vitals.lcp = Some(VitalMetric::new(2000.0, 2500.0, 4000.0));
-        vitals.fcp = Some(VitalMetric::new(1500.0, 1800.0, 3000.0));
-        vitals.cls = Some(VitalMetric::new(0.05, 0.1, 0.25));
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(2000.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(1500.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.05, 0.1, 0.25)),
+            ..Default::default()
+        };
 
         assert_eq!(vitals.good_count(), 3);
         assert_eq!(vitals.available_count(), 3);

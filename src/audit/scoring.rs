@@ -253,7 +253,7 @@ mod tests {
                     WcagLevel::A,
                     Severity::Critical,
                     "Error",
-                    &format!("n{}", i),
+                    format!("n{}", i),
                 ));
             }
         }

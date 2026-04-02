@@ -53,7 +53,10 @@ impl RenderBlockingAnalysis {
 }
 
 /// Analyze render-blocking resources on a loaded page via CDP.
-pub async fn analyze_render_blocking(page: &Page, page_url: &str) -> Result<RenderBlockingAnalysis> {
+pub async fn analyze_render_blocking(
+    page: &Page,
+    page_url: &str,
+) -> Result<RenderBlockingAnalysis> {
     info!("Analyzing render-blocking resources...");
 
     let js = r#"
@@ -109,12 +112,7 @@ pub async fn analyze_render_blocking(page: &Page, page_url: &str) -> Result<Rend
         .cloned()
         .unwrap_or_default();
 
-    let lookup_size = |url: &str| -> u64 {
-        timing
-            .get(url)
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0)
-    };
+    let lookup_size = |url: &str| -> u64 { timing.get(url).and_then(|v| v.as_u64()).unwrap_or(0) };
 
     let blocking_scripts: Vec<BlockingResource> = parsed["blockingScriptUrls"]
         .as_array()
@@ -140,7 +138,9 @@ pub async fn analyze_render_blocking(page: &Page, page_url: &str) -> Result<Rend
         })
         .collect();
 
-    let blocking_transfer_bytes: u64 = blocking_scripts.iter().chain(blocking_css.iter())
+    let blocking_transfer_bytes: u64 = blocking_scripts
+        .iter()
+        .chain(blocking_css.iter())
         .map(|r| r.transfer_bytes)
         .sum();
 
@@ -281,12 +281,22 @@ mod tests {
     #[test]
     fn test_blocking_count() {
         let analysis = RenderBlockingAnalysis {
-            blocking_scripts: vec![
-                BlockingResource { url: "a.js".into(), transfer_bytes: 1000, kind: "script".into() },
-            ],
+            blocking_scripts: vec![BlockingResource {
+                url: "a.js".into(),
+                transfer_bytes: 1000,
+                kind: "script".into(),
+            }],
             blocking_css: vec![
-                BlockingResource { url: "b.css".into(), transfer_bytes: 500, kind: "css".into() },
-                BlockingResource { url: "c.css".into(), transfer_bytes: 300, kind: "css".into() },
+                BlockingResource {
+                    url: "b.css".into(),
+                    transfer_bytes: 500,
+                    kind: "css".into(),
+                },
+                BlockingResource {
+                    url: "c.css".into(),
+                    transfer_bytes: 300,
+                    kind: "css".into(),
+                },
             ],
             blocking_transfer_bytes: 1800,
             first_party_bytes: 10000,

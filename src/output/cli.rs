@@ -213,16 +213,28 @@ fn print_violations_table(violations: &[Violation]) {
         .load_preset(presets::UTF8_FULL)
         .set_content_arrangement(ContentArrangement::Dynamic)
         .set_header(vec![
-            Cell::new("Regel").add_attribute(Attribute::Bold).fg(Color::Cyan),
-            Cell::new("Level").add_attribute(Attribute::Bold).fg(Color::Cyan),
-            Cell::new("Severity").add_attribute(Attribute::Bold).fg(Color::Cyan),
-            Cell::new("Beschreibung").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("Regel")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
+            Cell::new("Level")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
+            Cell::new("Severity")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
+            Cell::new("Beschreibung")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
         ]);
 
     for violation in violations {
         let severity_cell = match violation.severity {
-            Severity::Critical => Cell::new("Kritisch").fg(Color::Red).add_attribute(Attribute::Bold),
-            Severity::High => Cell::new("Hoch").fg(Color::Yellow).add_attribute(Attribute::Bold),
+            Severity::Critical => Cell::new("Kritisch")
+                .fg(Color::Red)
+                .add_attribute(Attribute::Bold),
+            Severity::High => Cell::new("Hoch")
+                .fg(Color::Yellow)
+                .add_attribute(Attribute::Bold),
             Severity::Medium => Cell::new("Mittel").fg(Color::White),
             Severity::Low => Cell::new("Niedrig").fg(Color::DarkGrey),
         };
@@ -413,10 +425,18 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
     println!("  {} {}/100", "Score:".bold(), dm.score);
 
     if !dm.detection_methods.is_empty() {
-        println!("  {} {}", "Methoden:".bold(), dm.detection_methods.join(", ").dimmed());
+        println!(
+            "  {} {}",
+            "Methoden:".bold(),
+            dm.detection_methods.join(", ").dimmed()
+        );
     }
     if dm.css_custom_properties > 0 {
-        println!("  {} {}", "CSS Custom Properties:".bold(), dm.css_custom_properties);
+        println!(
+            "  {} {}",
+            "CSS Custom Properties:".bold(),
+            dm.css_custom_properties
+        );
     }
     if dm.supported {
         if dm.dark_only_violations > 0 {
@@ -426,7 +446,11 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
                 dm.dark_only_violations.to_string().red()
             );
         } else if dm.dark_contrast_violations == 0 {
-            println!("  {} {}", "Kontrast Dark Mode:".bold(), "Keine Probleme".green());
+            println!(
+                "  {} {}",
+                "Kontrast Dark Mode:".bold(),
+                "Keine Probleme".green()
+            );
         }
         if dm.light_only_violations > 0 {
             println!(
@@ -509,22 +533,38 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
         .load_preset(presets::UTF8_FULL)
         .set_content_arrangement(ContentArrangement::Dynamic)
         .set_header(vec![
-            Cell::new("URL").add_attribute(Attribute::Bold).fg(Color::Cyan),
-            Cell::new("Score").add_attribute(Attribute::Bold).fg(Color::Cyan),
-            Cell::new("Violations").add_attribute(Attribute::Bold).fg(Color::Cyan),
-            Cell::new("Status").add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new("URL")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
+            Cell::new("Score")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
+            Cell::new("Violations")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
+            Cell::new("Status")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
         ]);
 
     for report in &batch_report.reports {
         let (status_cell, score_color) = if report.passed() {
             (
-                Cell::new("PASS").fg(Color::Green).add_attribute(Attribute::Bold),
+                Cell::new("PASS")
+                    .fg(Color::Green)
+                    .add_attribute(Attribute::Bold),
                 Color::Green,
             )
         } else {
             (
-                Cell::new("FAIL").fg(Color::Red).add_attribute(Attribute::Bold),
-                if report.score >= 70.0 { Color::Yellow } else { Color::Red },
+                Cell::new("FAIL")
+                    .fg(Color::Red)
+                    .add_attribute(Attribute::Bold),
+                if report.score >= 70.0 {
+                    Color::Yellow
+                } else {
+                    Color::Red
+                },
             )
         };
 

@@ -107,8 +107,8 @@ fn simhash(text: &str) -> u64 {
     }
 
     let mut fingerprint = 0u64;
-    for bit in 0..64 {
-        if v[bit] > 0 {
+    for (bit, weight) in v.iter().enumerate() {
+        if *weight > 0 {
             fingerprint |= 1u64 << bit;
         }
     }
@@ -187,12 +187,17 @@ mod tests {
                     Kontaktieren Sie uns noch heute für ein kostenloses Erstgespräch.";
         let dist = hamming_distance(simhash(base), simhash(variant));
         // Very similar texts should have low Hamming distance
-        assert!(dist <= 10, "Expected low hamming distance for near-duplicates, got {}", dist);
+        assert!(
+            dist <= 10,
+            "Expected low hamming distance for near-duplicates, got {}",
+            dist
+        );
     }
 
     #[test]
     fn test_strip_boilerplate_removes_short_lines() {
-        let text = "Home\nAbout\nContact\nThis is a full sentence with enough words to pass the filter.";
+        let text =
+            "Home\nAbout\nContact\nThis is a full sentence with enough words to pass the filter.";
         let cleaned = strip_boilerplate(text);
         assert!(!cleaned.contains("Home"));
         assert!(cleaned.contains("This is a full sentence"));

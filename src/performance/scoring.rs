@@ -209,11 +209,13 @@ mod tests {
 
     #[test]
     fn test_calculate_performance_score() {
-        let mut vitals = WebVitals::default();
-        vitals.lcp = Some(VitalMetric::new(1500.0, 2500.0, 4000.0));
-        vitals.fcp = Some(VitalMetric::new(1200.0, 1800.0, 3000.0));
-        vitals.cls = Some(VitalMetric::new(0.05, 0.1, 0.25));
-        vitals.tbt = Some(VitalMetric::new(150.0, 200.0, 600.0));
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(1500.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(1200.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.05, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(150.0, 200.0, 600.0)),
+            ..Default::default()
+        };
 
         let score = calculate_performance_score(&vitals);
         assert!(score.overall >= 80);

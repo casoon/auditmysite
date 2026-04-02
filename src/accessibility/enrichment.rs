@@ -9,7 +9,9 @@
 //! `DOM.resolveNode` + `Runtime.callFunctionOn` to include parent context
 //! so the developer can locate the element in the DOM.
 
-use chromiumoxide::cdp::browser_protocol::dom::{BackendNodeId, DescribeNodeParams, ResolveNodeParams};
+use chromiumoxide::cdp::browser_protocol::dom::{
+    BackendNodeId, DescribeNodeParams, ResolveNodeParams,
+};
 use chromiumoxide::cdp::js_protocol::runtime::CallFunctionOnParams;
 use chromiumoxide::Page;
 use tracing::warn;
@@ -27,7 +29,7 @@ use crate::wcag::types::Violation;
 /// (1.4.3) already carry selectors from the style extractor and are skipped.
 pub async fn enrich_violations_with_page(
     page: &Page,
-    violations: &mut Vec<Violation>,
+    violations: &mut [Violation],
     ax_tree: &AXTree,
 ) {
     for violation in violations.iter_mut() {

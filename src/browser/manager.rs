@@ -358,7 +358,9 @@ mod tests {
         let args = BrowserManager::build_launch_args(&opts, &dir);
 
         // --headless is now applied via BrowserConfig::headless_mode(), not in args
-        assert!(args.iter().all(|a| a != "--headless" && a != "--headless=new"));
+        assert!(args
+            .iter()
+            .all(|a| a != "--headless" && a != "--headless=new"));
         assert!(args.iter().any(|a| a == "--disable-gpu"));
         assert!(args.iter().any(|a| a == "--no-first-run"));
         assert!(args.iter().any(|a| a.starts_with("--user-data-dir=")));

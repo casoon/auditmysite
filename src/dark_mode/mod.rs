@@ -287,10 +287,7 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
         .await
         .map_err(|e| AuditError::CdpError(format!("Dark mode detection failed: {e}")))?;
 
-    let json_str = js_result
-        .value()
-        .and_then(|v| v.as_str())
-        .unwrap_or("{}");
+    let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
     let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
     Ok(StaticDarkModeInfo {
@@ -309,13 +306,10 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
 
 /// Runs contrast checks in light mode (current state) and dark mode (after CDP emulation).
 /// Returns `(dark_total, light_only, dark_only)`.
-async fn compare_contrast(
-    page: &Page,
-    level: WcagLevel,
-) -> (u32, u32, u32) {
+async fn compare_contrast(page: &Page, level: WcagLevel) -> (u32, u32, u32) {
     // Light mode violation selectors (already rendered in light mode)
-    let light_violations = ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level)
-        .await;
+    let light_violations =
+        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level).await;
     let light_selectors: std::collections::HashSet<String> = light_violations
         .iter()
         .map(|v| v.selector.clone().unwrap_or_default())
@@ -335,8 +329,8 @@ async fn compare_contrast(
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
     // Contrast check in dark mode
-    let dark_violations = ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level)
-        .await;
+    let dark_violations =
+        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level).await;
     let dark_selectors: std::collections::HashSet<String> = dark_violations
         .iter()
         .map(|v| v.selector.clone().unwrap_or_default())
@@ -405,7 +399,11 @@ mod tests {
         StaticDarkModeInfo {
             has_dark_media_query: has_dark,
             color_scheme_css: color_scheme,
-            meta_color_scheme: if meta { Some("dark light".into()) } else { None },
+            meta_color_scheme: if meta {
+                Some("dark light".into())
+            } else {
+                None
+            },
             meta_theme_color_dark: theme_color,
             css_custom_properties: props,
         }

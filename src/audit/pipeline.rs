@@ -16,13 +16,13 @@ use super::report::{AuditReport, PerformanceResults};
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
+use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::error::Result;
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{
     analyze_content_weight, analyze_render_blocking, calculate_performance_score,
     extract_web_vitals,
 };
-use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
 use crate::wcag::{self, WcagResults};
@@ -316,9 +316,7 @@ fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
     }
 }
 
-/// Run audits on multiple URLs
-///
-
+/// Run audits on multiple URLs.
 #[cfg(test)]
 mod tests {
     use super::*;

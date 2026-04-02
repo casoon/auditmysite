@@ -57,10 +57,7 @@ async fn check_link(client: &Client, url: &str) -> LinkCheckResult {
             Ok(resp) => {
                 let status = resp.status();
                 if status.is_redirection() && hops < MAX_HOPS {
-                    if let Some(loc) = resp
-                        .headers()
-                        .get("location")
-                        .and_then(|v| v.to_str().ok())
+                    if let Some(loc) = resp.headers().get("location").and_then(|v| v.to_str().ok())
                     {
                         let next = if let Ok(base) = Url::parse(&current) {
                             base.join(loc)
@@ -133,10 +130,10 @@ fn broken_link_severity(
     error: &Option<String>,
 ) -> BrokenLinkSeverity {
     match (is_external, status) {
-        (false, Some(s)) if s >= 400 && s < 500 => BrokenLinkSeverity::High,
+        (false, Some(s)) if (400..500).contains(&s) => BrokenLinkSeverity::High,
         (false, Some(s)) if s >= 500 => BrokenLinkSeverity::Medium,
         (false, None) if error.is_some() => BrokenLinkSeverity::High,
-        (true, Some(s)) if s >= 400 && s < 500 => BrokenLinkSeverity::Medium,
+        (true, Some(s)) if (400..500).contains(&s) => BrokenLinkSeverity::Medium,
         (true, Some(s)) if s >= 500 => BrokenLinkSeverity::Low,
         (true, None) if error.is_some() => BrokenLinkSeverity::Low,
         _ => BrokenLinkSeverity::Low,
@@ -391,11 +388,7 @@ async fn fetch_html(url: &str) -> Result<String> {
     Ok(response.text().await?)
 }
 
-fn extract_links(
-    base_url: &str,
-    expected_host: &str,
-    html: &str,
-) -> (Vec<String>, Vec<String>) {
+fn extract_links(base_url: &str, expected_host: &str, html: &str) -> (Vec<String>, Vec<String>) {
     let mut internal_links = Vec::new();
     let mut external_links = Vec::new();
     let bytes = html.as_bytes();

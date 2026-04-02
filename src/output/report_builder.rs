@@ -1097,8 +1097,10 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             .collect(),
     });
 
-    let dark_mode = normalized.raw_dark_mode.as_ref().map(|dm| {
-        DarkModePresentation {
+    let dark_mode = normalized
+        .raw_dark_mode
+        .as_ref()
+        .map(|dm| DarkModePresentation {
             supported: dm.supported,
             score: dm.score,
             detection_methods: dm.detection_methods.clone(),
@@ -1113,11 +1115,13 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 .iter()
                 .map(|i| (i.severity.clone(), i.description.clone()))
                 .collect(),
-        }
-    });
+        });
 
-    let has_any =
-        performance.is_some() || seo.is_some() || security.is_some() || mobile.is_some() || dark_mode.is_some();
+    let has_any = performance.is_some()
+        || seo.is_some()
+        || security.is_some()
+        || mobile.is_some()
+        || dark_mode.is_some();
     ModuleDetailsBlock {
         performance,
         seo,
@@ -1578,20 +1582,47 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         let pages_with_data: Vec<_> = batch
             .reports
             .iter()
-            .filter_map(|r| r.performance.as_ref().and_then(|p| p.render_blocking.as_ref()))
+            .filter_map(|r| {
+                r.performance
+                    .as_ref()
+                    .and_then(|p| p.render_blocking.as_ref())
+            })
             .collect();
         if pages_with_data.is_empty() {
             Vec::new()
         } else {
             let n = pages_with_data.len() as f64;
-            let total_blocking: usize = pages_with_data.iter().map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len()).sum();
-            let total_third_party_bytes: u64 = pages_with_data.iter().map(|rb| rb.third_party_bytes).sum();
-            let pages_with_blocking = pages_with_data.iter().filter(|rb| rb.has_blocking()).count();
+            let total_blocking: usize = pages_with_data
+                .iter()
+                .map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len())
+                .sum();
+            let total_third_party_bytes: u64 =
+                pages_with_data.iter().map(|rb| rb.third_party_bytes).sum();
+            let pages_with_blocking = pages_with_data
+                .iter()
+                .filter(|rb| rb.has_blocking())
+                .count();
             vec![
-                ("Seiten analysiert".to_string(), format!("{} von {}", pages_with_data.len(), batch.reports.len())),
-                ("Seiten mit Blocking".to_string(), format!("{} ({:.0}%)", pages_with_blocking, pages_with_blocking as f64 / n * 100.0)),
-                ("Blocking-Ressourcen gesamt".to_string(), total_blocking.to_string()),
-                ("Third-Party-Traffic gesamt".to_string(), format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0)),
+                (
+                    "Seiten analysiert".to_string(),
+                    format!("{} von {}", pages_with_data.len(), batch.reports.len()),
+                ),
+                (
+                    "Seiten mit Blocking".to_string(),
+                    format!(
+                        "{} ({:.0}%)",
+                        pages_with_blocking,
+                        pages_with_blocking as f64 / n * 100.0
+                    ),
+                ),
+                (
+                    "Blocking-Ressourcen gesamt".to_string(),
+                    total_blocking.to_string(),
+                ),
+                (
+                    "Third-Party-Traffic gesamt".to_string(),
+                    format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0),
+                ),
             ]
         }
     };
@@ -2024,6 +2055,11 @@ fn localized_report_subtitle(locale: &str) -> &'static str {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::items_after_test_module,
+    clippy::too_many_arguments,
+    clippy::field_reassign_with_default
+)]
 mod tests {
     use super::*;
     use crate::audit::{normalize, AuditReport, BatchReport};

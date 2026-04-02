@@ -48,10 +48,8 @@ pub struct ComparisonEntry {
 impl ComparisonReport {
     /// Build from a list of single-page audit reports.
     pub fn from_reports(reports: Vec<AuditReport>, total_duration_ms: u64) -> Self {
-        let mut entries: Vec<ComparisonEntry> = reports
-            .iter()
-            .map(ComparisonEntry::from_report)
-            .collect();
+        let mut entries: Vec<ComparisonEntry> =
+            reports.iter().map(ComparisonEntry::from_report).collect();
 
         // Sort by overall score descending (rank 1 = best)
         entries.sort_by(|a, b| b.overall_score.cmp(&a.overall_score));
@@ -79,10 +77,10 @@ impl ComparisonEntry {
         let accessibility_score = report.score.round() as u32;
         let overall_score = report.overall_score();
 
-        let seo_score = report.seo.as_ref().map(|s| s.score as u32);
-        let performance_score = report.performance.as_ref().map(|p| p.score.overall as u32);
-        let security_score = report.security.as_ref().map(|s| s.score as u32);
-        let mobile_score = report.mobile.as_ref().map(|m| m.score as u32);
+        let seo_score = report.seo.as_ref().map(|s| s.score);
+        let performance_score = report.performance.as_ref().map(|p| p.score.overall);
+        let security_score = report.security.as_ref().map(|s| s.score);
+        let mobile_score = report.mobile.as_ref().map(|m| m.score);
 
         let critical_violations = report
             .wcag_results
@@ -132,7 +130,10 @@ mod tests {
 
     #[test]
     fn test_extract_domain_strips_www() {
-        assert_eq!(extract_domain("https://www.example.com/page"), "example.com");
+        assert_eq!(
+            extract_domain("https://www.example.com/page"),
+            "example.com"
+        );
     }
 
     #[test]
@@ -148,9 +149,8 @@ mod tests {
         use crate::cli::WcagLevel;
         use crate::wcag::WcagResults;
 
-        let make = |url: &str| {
-            AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::default(), 0)
-        };
+        let make =
+            |url: &str| AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::default(), 0);
 
         let reports = vec![make("https://a.com"), make("https://b.com")];
         let report = ComparisonReport::from_reports(reports, 1000);

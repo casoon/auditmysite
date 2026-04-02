@@ -101,8 +101,8 @@ pub use browser::{
     DetectedBrowser, InstallTarget, PoolConfig, ResolvedBrowser,
 };
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
-pub use error::{AuditError, Result};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
+pub use error::{AuditError, Result};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{
