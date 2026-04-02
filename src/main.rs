@@ -7,7 +7,6 @@ use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-#[cfg(any(feature = "pdf", test))]
 use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
@@ -558,6 +557,11 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
         );
     }
 
+    if args.per_page_reports {
+        output_batch_as_single_reports(&batch_report, args)?;
+        return Ok(batch_report.summary.average_score);
+    }
+
     output_batch_report(&batch_report, args)?;
 
     Ok(batch_report.summary.average_score)
@@ -722,9 +726,42 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
     Ok(())
 }
 
+fn output_batch_as_single_reports(
+    batch_report: &auditmysite::audit::BatchReport,
+    args: &Args,
+) -> Result<()> {
+    let base_dir = per_page_output_directory(args);
+
+    if !args.quiet {
+        println!(
+            "{} {} Einzelreports nach {}",
+            "Info:".cyan().bold(),
+            batch_report.reports.len(),
+            base_dir.display()
+        );
+    }
+
+    for report in &batch_report.reports {
+        let mut single_args = args.clone();
+        single_args.url = Some(report.url.clone());
+        single_args.sitemap = None;
+        single_args.url_file = None;
+        single_args.output = Some(per_page_output_path(
+            &base_dir,
+            &report.url,
+            single_args.effective_format(),
+            single_args.report_level,
+        ));
+        output_single_report(report, &single_args)?;
+    }
+
+    Ok(())
+}
+
 /// Write text content to file or stdout
 fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) -> Result<()> {
     if let Some(path) = path {
+        fs::create_dir_all(output_directory(path))?;
         fs::write(path, content).map_err(|e| AuditError::FileError {
             path: path.clone(),
             reason: e.to_string(),
@@ -750,12 +787,45 @@ fn output_directory(path: &std::path::Path) -> &std::path::Path {
     }
 }
 
-#[cfg(any(feature = "pdf", test))]
+#[cfg(feature = "pdf")]
 fn default_single_json_output_path(pdf_path: &PathBuf) -> PathBuf {
     pdf_path.with_extension("json")
 }
 
-#[cfg(any(feature = "pdf", test))]
+fn per_page_output_directory(args: &Args) -> PathBuf {
+    match args.output.as_ref() {
+        Some(path) if path.extension().is_none() => path.clone(),
+        Some(path) => output_directory(path).to_path_buf(),
+        None => PathBuf::from("."),
+    }
+}
+
+fn per_page_output_path(
+    base_dir: &std::path::Path,
+    url: &str,
+    format: OutputFormat,
+    report_level: auditmysite::cli::ReportLevel,
+) -> PathBuf {
+    let filename = match format {
+        OutputFormat::Pdf => default_single_pdf_output_path(url, report_level),
+        OutputFormat::Json => {
+            let date = Local::now().format("%Y-%m-%d");
+            let subject = report_subject_from_url(url);
+            PathBuf::from(format!("{subject}-{date}-{report_level}.json"))
+        }
+        OutputFormat::Table => {
+            let date = Local::now().format("%Y-%m-%d");
+            let subject = report_subject_from_url(url);
+            PathBuf::from(format!("{subject}-{date}-{report_level}.txt"))
+        }
+    };
+
+    match filename.file_name() {
+        Some(name) => base_dir.join(name),
+        None => base_dir.join(filename),
+    }
+}
+
 fn default_single_pdf_output_path(
     url: &str,
     report_level: auditmysite::cli::ReportLevel,
@@ -765,7 +835,6 @@ fn default_single_pdf_output_path(
     PathBuf::from(format!("{subject}-{date}-{report_level}.pdf"))
 }
 
-#[cfg(any(feature = "pdf", test))]
 fn report_subject_from_url(url: &str) -> String {
     let fallback = "audit-report".to_string();
     let Ok(parsed) = url::Url::parse(url) else {
@@ -870,6 +939,39 @@ mod tests {
             default_single_json_output_path(&pdf_path),
             PathBuf::from("casoon-de-2026-03-31-standard.json")
         );
+    }
+
+    #[test]
+    fn test_per_page_output_directory_uses_output_directory_for_file_path() {
+        let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
+        args.per_page_reports = true;
+        args.output = Some(PathBuf::from("reports/custom-name.pdf"));
+        assert_eq!(per_page_output_directory(&args), PathBuf::from("reports"));
+    }
+
+    #[test]
+    fn test_per_page_output_directory_uses_path_directly_for_directory_like_output() {
+        let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
+        args.per_page_reports = true;
+        args.output = Some(PathBuf::from("reports/per-page"));
+        assert_eq!(
+            per_page_output_directory(&args),
+            PathBuf::from("reports/per-page")
+        );
+    }
+
+    #[test]
+    fn test_per_page_output_path_uses_url_slug_and_extension() {
+        let path = per_page_output_path(
+            std::path::Path::new("reports"),
+            "https://www.in-punkto.com/leistungen/",
+            OutputFormat::Pdf,
+            ReportLevel::Standard,
+        );
+        let rendered = path.display().to_string();
+        assert!(rendered.starts_with("reports/"));
+        assert!(rendered.ends_with("-standard.pdf"));
+        assert!(rendered.contains("in-punkto-com-"));
     }
 
     #[test]

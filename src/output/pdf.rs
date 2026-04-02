@@ -3,7 +3,11 @@
 //! Pure layout layer — receives pre-computed ViewModel blocks and maps them
 //! directly to renderreport components. Zero data transformation here.
 
-use renderreport::components::advanced::{Grid, KeyValueList, List, PageBreak, TableOfContents};
+use std::{env, fs, path::PathBuf};
+
+use renderreport::components::advanced::{
+    FlowGroup, Grid, KeyValueList, List, PageBreak, TableOfContents,
+};
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::prelude::*;
 use renderreport::theme::{Theme, TokenValue};
@@ -11,7 +15,7 @@ use renderreport::Engine;
 
 // Composite components
 use renderreport::components::{
-    BenchmarkRow, BenchmarkSummary, BenchmarkTable, ComparisonModule, MetricCard, ModuleComparison,
+    BenchmarkRow, BenchmarkTable, ComparisonModule, Component, MetricCard, ModuleComparison,
     ScoreCard, SeverityOverview, SummaryBox,
 };
 
@@ -99,13 +103,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .metadata("date", &vm.meta.date)
         .metadata("version", &vm.meta.version)
         .metadata("author", &vm.meta.author)
-        .metadata("score", &vm.meta.score_label);
+        .metadata("score", &vm.meta.score_label)
+        .metadata("footer_prefix", "Erstellt mit")
+        .metadata("footer_link_url", "https://auditmysite.casoon.dev");
 
     // ── Cover Page ───────────────────────────────────────────────────
     builder = builder
         .add_component(
-            Label::new(&vm.cover.brand)
-                .with_size("10pt")
+            Label::new("Automatisierter Audit-Report")
+                .with_size("11pt")
                 .bold()
                 .with_color("#0f766e"),
         )
@@ -117,13 +123,21 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             .with_size("12pt")
             .with_color("#475569"),
         )
-        .add_component(
-            Label::new(&vm.cover.domain)
-                .with_size("16pt")
-                .with_color("#0f766e"),
-        )
-        .add_component(build_cover_meta(&vm.cover))
-        .add_component(build_cover_score_row(&vm.cover))
+        .add_component(build_cover_meta(&vm.cover));
+
+    let single_badge_asset = "/certificate-badge-single.svg";
+    let single_badge_enabled = if let Ok(path) = certificate_badge_path(&vm.cover.certificate) {
+        builder = builder.asset(single_badge_asset, path);
+        true
+    } else {
+        false
+    };
+
+    builder = builder
+        .add_component(build_cover_score_row(
+            &vm.cover,
+            single_badge_enabled.then_some(single_badge_asset),
+        ))
         .add_component(
             TextBlock::new(&vm.summary.verdict)
                 .with_size("11pt")
@@ -138,10 +152,19 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     // ── 1. Executive Summary ────────────────────────────────────────
     builder = builder
-        .add_component(Section::new("Executive Summary").with_level(1))
-        .add_component(build_summary_overview(&vm.summary))
-        .add_component(build_executive_highlights_table(&vm))
-        .add_component(Callout::info(build_executive_recommendation(&vm)).with_title("Empfehlung"));
+        .add_component(soft_flow_group(
+            "320pt",
+            vec![
+                component_json(Section::new("Executive Summary").with_level(1)),
+                component_json(Callout::info(&vm.summary.executive_lead).with_title("Einordnung")),
+                component_json(build_summary_overview(&vm.summary)),
+                component_json(build_executive_highlights_table(&vm)),
+            ],
+        ))
+        .add_component(
+            Callout::info(build_executive_recommendation(&vm))
+                .with_title("Empfehlung und Einordnung"),
+        );
 
     // Executive level: compact view
     if vm.meta.report_level == ReportLevel::Executive {
@@ -158,9 +181,14 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(i18n.t("section-modules")).with_level(1))
-            .add_component(build_module_dashboard(&vm.modules))
-            .add_component(build_module_summary_table(&vm.modules));
+            .add_component(soft_flow_group(
+                "320pt",
+                vec![
+                    component_json(Section::new(i18n.t("section-modules")).with_level(1)),
+                    component_json(build_module_dashboard(&vm.modules)),
+                    component_json(build_module_summary_table(&vm.modules)),
+                ],
+            ));
 
         if vm.modules.dashboard.len() > 1 {
             builder = builder.add_component(build_module_comparison(&vm.modules));
@@ -210,9 +238,14 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── 4. Module Overview ──────────────────────────────────────────
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new("Modul-Übersicht").with_level(1))
-        .add_component(build_module_dashboard(&vm.modules))
-        .add_component(build_module_summary_table(&vm.modules));
+        .add_component(soft_flow_group(
+            "320pt",
+            vec![
+                component_json(Section::new("Modul-Übersicht").with_level(1)),
+                component_json(build_module_dashboard(&vm.modules)),
+                component_json(build_module_summary_table(&vm.modules)),
+            ],
+        ));
 
     if let Some(ref overall_text) = vm.modules.overall_interpretation {
         builder =
@@ -238,22 +271,25 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── 7. Technischer Detailteil ───────────────────────────────────
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new("Technischer Detailteil").with_level(1))
-        .add_component(TextBlock::new(
-            "Ab hier folgt die technische Sicht für Entwicklung, Design und Redaktion. Die Abschnitte nennen betroffene Elemente, konkrete Maßnahmen und technische Hinweise.",
+        .add_component(soft_flow_group(
+            "260pt",
+            vec![
+                component_json(Section::new("Technische Analyse und Umsetzung").with_level(1)),
+                component_json(TextBlock::new(
+                    "Ab hier folgt die technische Sicht für Entwicklung, Design und Redaktion. Die folgenden Abschnitte zeigen betroffene Elemente, konkrete Maßnahmen und technische Hinweise für die Umsetzung.",
+                )),
+                component_json(Section::new("Problem-Details").with_level(2)),
+                component_json(if !vm.severity.has_issues {
+                    Callout::success(i18n.t("callout-no-issues-body"))
+                        .with_title(i18n.t("callout-no-issues-title"))
+                } else {
+                    Callout::info(
+                        "Die folgende Übersicht enthält die relevanten Problemgruppen mit technischer Einordnung.",
+                    )
+                    .with_title("Technische Übersicht")
+                }),
+            ],
         ));
-
-    builder = builder
-        .add_component(Section::new("Problem-Details").with_level(2))
-        .add_component(if !vm.severity.has_issues {
-            Callout::success(i18n.t("callout-no-issues-body"))
-                .with_title(i18n.t("callout-no-issues-title"))
-        } else {
-            Callout::info(
-                "Die folgende Übersicht enthält die relevanten Problemgruppen mit technischer Einordnung.",
-            )
-            .with_title("Technische Übersicht")
-        });
 
     if vm.severity.has_issues {
         builder = builder.add_component(SeverityOverview::new(
@@ -271,12 +307,16 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     if vm.module_details.has_any {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new("Technische Metriken").with_level(2))
-            .add_component(TextBlock::new(
-                "Zusätzliche technische Kennzahlen helfen bei Performance-, SEO-, Sicherheits- und Mobile-Themen. Die Werte sind als Arbeitsgrundlage für die Umsetzung gedacht.",
-            ))
-            .add_component(build_additional_analyses_overview(&vm.module_details))
-            .add_component(build_analysis_focus_table());
+            .add_component(soft_flow_group(
+                "220pt",
+                vec![
+                    component_json(Section::new("Technische Detailmetriken").with_level(2)),
+                    component_json(TextBlock::new(
+                        "Die folgenden Kennzahlen ergänzen die Modul-Übersicht um technische Detailwerte für Analyse und Umsetzung.",
+                    )),
+                    component_json(build_analysis_focus_table()),
+                ],
+            ));
     }
 
     if let Some(ref perf) = vm.module_details.performance {
@@ -378,7 +418,9 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .subtitle(&pres.cover.url)
         .metadata("date", &pres.cover.date)
         .metadata("version", &pres.cover.version)
-        .metadata("author", author);
+        .metadata("author", author)
+        .metadata("footer_prefix", "Erstellt mit")
+        .metadata("footer_link_url", "https://auditmysite.casoon.dev");
 
     if let Some(ref logo_path) = config.logo_path {
         if logo_path.exists() {
@@ -405,13 +447,23 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             Label::new(&pres.cover.url)
                 .with_size("14pt")
                 .with_color("#475569"),
-        )
+        );
+
+    let batch_badge_asset = "/certificate-badge-batch.svg";
+    let batch_badge_enabled =
+        if let Ok(path) = certificate_badge_path(batch_certificate_label(batch_score)) {
+            builder = builder.asset(batch_badge_asset, path);
+            true
+        } else {
+            false
+        };
+
+    builder = builder
         .add_component(build_batch_cover_score_row(
             batch_score,
-            batch_grade_label(batch_score),
-            batch_certificate_label(batch_score),
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
+            batch_badge_enabled.then_some(batch_badge_asset),
         )?)
         .add_component(
             TextBlock::new(&pres.portfolio_summary.verdict_text)
@@ -429,115 +481,21 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let worst = pres.url_ranking.first();
     let dist = &pres.portfolio_summary.severity_distribution;
 
-    let mut benchmark = BenchmarkSummary::new(
-        pres.portfolio_summary.total_urls as u32,
-        pres.portfolio_summary.average_score.round() as u32,
-    )
-    .with_issues(
-        pres.portfolio_summary.total_violations as u32,
-        (dist.critical + dist.high) as u32,
-    );
-
-    if let Some(b) = best {
-        benchmark = benchmark.with_best(&truncate_url(&b.url, 35), b.score as u32);
-    }
-    if let Some(w) = worst {
-        benchmark = benchmark.with_worst(&truncate_url(&w.url, 35), w.score as u32);
-    }
-
     builder = builder
-        .add_component(Section::new("Gesamtübersicht").with_level(1))
-        .add_component(benchmark)
+        .add_component(soft_flow_group(
+            "300pt",
+            vec![
+                component_json(Section::new("Gesamtübersicht").with_level(1)),
+                component_json(build_batch_overview_grid(
+                    pres.portfolio_summary.total_urls as u32,
+                    pres.portfolio_summary.average_score.round() as u32,
+                    pres.portfolio_summary.total_violations as u32,
+                    (dist.critical + dist.high) as u32,
+                )),
+                component_json(build_batch_overview_comparison(best, worst)),
+            ],
+        ))
         .add_component(TextBlock::new(&pres.portfolio_summary.verdict_text));
-
-    if !pres.portfolio_summary.page_type_distribution.is_empty() {
-        let mut type_table = AuditTable::new(vec![
-            TableColumn::new("Seitentyp"),
-            TableColumn::new("Seiten"),
-            TableColumn::new("Anteil"),
-        ])
-        .with_title("Seitentyp-Verteilung");
-
-        for (label, count, pct) in &pres.portfolio_summary.page_type_distribution {
-            type_table =
-                type_table.add_row(vec![label.clone(), count.to_string(), format!("{pct}%")]);
-        }
-
-        builder = builder.add_component(type_table);
-    }
-
-    if !pres.portfolio_summary.distribution_insights.is_empty() {
-        let mut insights = List::new().with_title("Auffälligkeiten");
-        for insight in &pres.portfolio_summary.distribution_insights {
-            insights = insights.add_item(insight);
-        }
-        builder = builder.add_component(insights);
-    }
-
-    if !pres.portfolio_summary.top_topics.is_empty() {
-        let mut topics =
-            AuditTable::new(vec![TableColumn::new("Thema"), TableColumn::new("Seiten")])
-                .with_title("Top-Themen der Domain");
-
-        for (topic, count) in &pres.portfolio_summary.top_topics {
-            topics = topics.add_row(vec![topic.clone(), count.to_string()]);
-        }
-        builder = builder.add_component(topics);
-    }
-
-    if !pres.portfolio_summary.overlap_pairs.is_empty() {
-        let mut overlap = AuditTable::new(vec![
-            TableColumn::new("Seite A"),
-            TableColumn::new("Seite B"),
-            TableColumn::new("Ähnlichkeit"),
-        ])
-        .with_title("Thematische Überschneidungen");
-
-        for (left, right, score) in &pres.portfolio_summary.overlap_pairs {
-            overlap = overlap.add_row(vec![
-                truncate_url(left, 30),
-                truncate_url(right, 30),
-                format!("{score}%"),
-            ]);
-        }
-        builder = builder.add_component(overlap);
-    }
-
-    if !pres.portfolio_summary.strongest_content_pages.is_empty() {
-        let mut strengths = AuditTable::new(vec![
-            TableColumn::new("URL"),
-            TableColumn::new("Seitentyp"),
-            TableColumn::new("Profil"),
-        ])
-        .with_title("Stärkste Seitenprofile");
-
-        for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
-            strengths = strengths.add_row(vec![
-                truncate_url(url, 42),
-                page_type.clone(),
-                format!("{score} / 100"),
-            ]);
-        }
-        builder = builder.add_component(strengths);
-    }
-
-    if !pres.portfolio_summary.weakest_content_pages.is_empty() {
-        let mut weaknesses = AuditTable::new(vec![
-            TableColumn::new("URL"),
-            TableColumn::new("Seitentyp"),
-            TableColumn::new("Profil"),
-        ])
-        .with_title("Schwächste Seitenprofile");
-
-        for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
-            weaknesses = weaknesses.add_row(vec![
-                truncate_url(url, 42),
-                page_type.clone(),
-                format!("{score} / 100"),
-            ]);
-        }
-        builder = builder.add_component(weaknesses);
-    }
 
     builder = builder.add_component(PageBreak::new());
 
@@ -635,12 +593,12 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         ));
     builder = render_action_plan(builder, &pres.action_plan, &i18n);
 
-    // ── 5. URL-Matrix ───────────────────────────────────────────────
+    // ── 5. Technische URL-Matrix ───────────────────────────────────
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new("URL-Matrix").with_level(1))
+        .add_component(Section::new("Technische URL-Matrix").with_level(1))
         .add_component(TextBlock::new(
-            "Verdichtete Übersicht aller geprüften URLs. Jede Zeile zeigt Seitentyp, Score, Problemintensität und den größten Hebel für die nächste Optimierungsrunde.",
+            "Verdichtete Übersicht aller geprüften URLs mit Fokus auf technische Priorisierung. Jede Zeile zeigt Score, Problemintensität und den größten Hebel für die nächste Optimierungsrunde.",
         ));
 
     let mut matrix = AuditTable::new(vec![
@@ -649,11 +607,9 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         TableColumn::new("Score"),
         TableColumn::new("Krit.+Hoch"),
         TableColumn::new("Gesamt"),
-        TableColumn::new("Profil"),
-        TableColumn::new("Themen"),
         TableColumn::new("Größter Hebel"),
     ])
-    .with_title("Kompakte Seitenübersicht");
+    .with_title("Technische Seitenübersicht");
 
     for detail in &pres.url_details {
         matrix = matrix.add_row(vec![
@@ -662,15 +618,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             format!("{}/100", detail.score.round() as u32),
             detail.critical_violations.to_string(),
             detail.total_violations.to_string(),
-            detail
-                .page_semantic_score
-                .map(|score| format!("{score}/100"))
-                .unwrap_or_else(|| "—".to_string()),
-            if detail.topic_terms.is_empty() {
-                "—".to_string()
-            } else {
-                truncate_url(&detail.topic_terms.join(", "), 30)
-            },
             truncate_url(&detail.biggest_lever, 46),
         ]);
     }
@@ -680,7 +627,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         let mut focus_table = AuditTable::new(vec![
             TableColumn::new("URL"),
             TableColumn::new("Seitentyp"),
-            TableColumn::new("Themen"),
             TableColumn::new("Merkmale"),
             TableColumn::new("Top-Probleme"),
         ])
@@ -690,11 +636,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             focus_table = focus_table.add_row(vec![
                 truncate_url(&detail.url, 38),
                 detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
-                if detail.topic_terms.is_empty() {
-                    "—".to_string()
-                } else {
-                    truncate_url(&detail.topic_terms.join(", "), 28)
-                },
                 if detail.page_attributes.is_empty() {
                     "—".to_string()
                 } else {
@@ -710,7 +651,129 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         builder = builder.add_component(focus_table);
     }
 
-    // ── 6. Anhang ───────────────────────────────────────────────────
+    // ── 6. Content- und Seitenprofil ───────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Content- und Seitenprofil").with_level(1))
+        .add_component(TextBlock::new(
+            "Die folgenden Auswertungen ordnen Inhalt, Seitentypen und thematische Schwerpunkte ein. Dieser Block ist bewusst nachgelagert und ergänzt die technische Priorisierung um SEO- und Content-Signale.",
+        ));
+
+    if !pres.portfolio_summary.page_type_distribution.is_empty() {
+        let mut type_table = AuditTable::new(vec![
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Seiten"),
+            TableColumn::new("Anteil"),
+        ])
+        .with_title("Seitentyp-Verteilung");
+
+        for (label, count, pct) in &pres.portfolio_summary.page_type_distribution {
+            type_table =
+                type_table.add_row(vec![label.clone(), count.to_string(), format!("{pct}%")]);
+        }
+
+        builder = builder.add_component(type_table);
+    }
+
+    if !pres.portfolio_summary.distribution_insights.is_empty() {
+        let mut insights = List::new().with_title("Content-Auffälligkeiten");
+        for insight in &pres.portfolio_summary.distribution_insights {
+            insights = insights.add_item(insight);
+        }
+        builder = builder.add_component(insights);
+    }
+
+    if !pres.portfolio_summary.top_topics.is_empty() {
+        let mut topics =
+            AuditTable::new(vec![TableColumn::new("Thema"), TableColumn::new("Seiten")])
+                .with_title("Top-Themen der Domain");
+
+        for (topic, count) in &pres.portfolio_summary.top_topics {
+            topics = topics.add_row(vec![topic.clone(), count.to_string()]);
+        }
+        builder = builder.add_component(topics);
+    }
+
+    if !pres.portfolio_summary.overlap_pairs.is_empty() {
+        let mut overlap = AuditTable::new(vec![
+            TableColumn::new("Seite A"),
+            TableColumn::new("Seite B"),
+            TableColumn::new("Ähnlichkeit"),
+        ])
+        .with_title("Thematische Überschneidungen");
+
+        for (left, right, score) in &pres.portfolio_summary.overlap_pairs {
+            overlap = overlap.add_row(vec![
+                truncate_url(left, 30),
+                truncate_url(right, 30),
+                format!("{score}%"),
+            ]);
+        }
+        builder = builder.add_component(overlap);
+    }
+
+    let mut content_matrix = AuditTable::new(vec![
+        TableColumn::new("URL"),
+        TableColumn::new("Typ"),
+        TableColumn::new("Profil"),
+        TableColumn::new("Themen"),
+    ])
+    .with_title("Content-Übersicht");
+
+    for detail in &pres.url_details {
+        content_matrix = content_matrix.add_row(vec![
+            truncate_url(&detail.url, 38),
+            detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
+            detail
+                .page_semantic_score
+                .map(|score| format!("{score}/100"))
+                .unwrap_or_else(|| "—".to_string()),
+            if detail.topic_terms.is_empty() {
+                "—".to_string()
+            } else {
+                truncate_url(&detail.topic_terms.join(", "), 34)
+            },
+        ]);
+    }
+    builder = builder.add_component(content_matrix);
+
+    if !pres.portfolio_summary.strongest_content_pages.is_empty() {
+        let mut strengths = AuditTable::new(vec![
+            TableColumn::new("URL"),
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Profil"),
+        ])
+        .with_title("Stärkste Seitenprofile");
+
+        for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
+            strengths = strengths.add_row(vec![
+                truncate_url(url, 42),
+                page_type.clone(),
+                format!("{score} / 100"),
+            ]);
+        }
+        builder = builder.add_component(strengths);
+    }
+
+    if !pres.portfolio_summary.weakest_content_pages.is_empty() {
+        let mut weaknesses = AuditTable::new(vec![
+            TableColumn::new("URL"),
+            TableColumn::new("Seitentyp"),
+            TableColumn::new("Profil"),
+        ])
+        .with_title("Schwächste Seitenprofile");
+
+        for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
+            weaknesses = weaknesses.add_row(vec![
+                truncate_url(url, 42),
+                page_type.clone(),
+                format!("{score} / 100"),
+            ]);
+        }
+        builder = builder.add_component(weaknesses);
+    }
+
+    // ── 7. Anhang ───────────────────────────────────────────────────
     if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
         builder = builder
             .add_component(PageBreak::new())
@@ -779,12 +842,15 @@ fn build_summary_overview(summary: &SummaryBlock) -> Grid {
         "data": ScoreCard::new("Accessibility-Score", summary.score)
             .with_description(format!("Grade {} — {}", summary.grade, summary.certificate))
             .with_thresholds(70, 50)
+            .with_height("100%")
             .to_data()
     });
-    let mut grid = Grid::new(2).add_item(score_card);
+    let mut grid = Grid::new(2)
+        .with_item_min_height("132pt")
+        .add_item(score_card);
 
     for metric in summary.metrics.iter().take(3) {
-        let mut card = MetricCard::new(&metric.title, &metric.value);
+        let mut card = MetricCard::new(&metric.title, &metric.value).with_height("100%");
         if let Some(ref color) = metric.accent_color {
             card = card.with_accent_color(color);
         }
@@ -795,6 +861,76 @@ fn build_summary_overview(summary: &SummaryBlock) -> Grid {
     }
 
     grid
+}
+
+fn build_batch_overview_grid(
+    total_urls: u32,
+    average_score: u32,
+    total_violations: u32,
+    critical_and_high: u32,
+) -> Grid {
+    let metrics = [
+        (
+            "Durchschnitt",
+            format!("{average_score} / 100"),
+            Some(score_quality_color(average_score)),
+        ),
+        ("Geprüfte Websites", total_urls.to_string(), Some("#0f766e")),
+        (
+            "Verstöße gesamt",
+            total_violations.to_string(),
+            Some("#b45309"),
+        ),
+        (
+            "Kritisch + Hoch",
+            critical_and_high.to_string(),
+            Some("#dc2626"),
+        ),
+    ];
+
+    let mut grid = Grid::new(2);
+    for (title, value, accent) in metrics {
+        let mut card = MetricCard::new(title, value);
+        if let Some(color) = accent {
+            card = card.with_accent_color(color);
+        }
+        grid = grid.add_item(serde_json::json!({
+            "type": "metric-card",
+            "data": card.to_data()
+        }));
+    }
+
+    grid
+}
+
+fn build_batch_overview_comparison(
+    best: Option<&UrlSummary>,
+    worst: Option<&UrlSummary>,
+) -> AuditTable {
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Vergleich"),
+        TableColumn::new("URL"),
+        TableColumn::new("Score"),
+    ])
+    .with_title("Spannweite im aktuellen Batch");
+
+    if let Some(best) = best {
+        table = table.add_row(vec![
+            "Stärkste Seite".to_string(),
+            truncate_url(&best.url, 48),
+            format!("{} / 100", best.score.round() as u32),
+        ]);
+    }
+
+    if let Some(worst) = worst {
+        table = table.add_row(vec![
+            "Schwächste Seite".to_string(),
+            truncate_url(&worst.url, 48),
+            format!("{} / 100", worst.score.round() as u32),
+        ]);
+    }
+
+    table
 }
 
 fn render_action_plan_tables(
@@ -876,18 +1012,31 @@ fn build_executive_recommendation(vm: &ReportViewModel) -> String {
         "Die aktuelle Qualität sichern und die automatischen Prüfungen regelmäßig wiederholen."
             .to_string()
     };
+    let focus_count = vm.findings.top_findings.len().min(3);
+    let focus_text = match focus_count {
+        0 => "Zuerst die wichtigsten Themen priorisieren".to_string(),
+        1 => "Zuerst das kritischste Thema beheben".to_string(),
+        n => format!("Zuerst die {n} kritischsten Themen beheben"),
+    };
 
-    format!(
-        "Zuerst die {} kritischsten Themen beheben, danach die Quick Wins umsetzen. Startpunkt: {}",
-        vm.findings.top_findings.len().min(3),
+    let recommendation = format!(
+        "{focus_text}, danach die Quick Wins umsetzen. Startpunkt: {}",
         simplify_for_summary(&lead)
-    )
+    );
+
+    if let Some(score_note) = vm.summary.score_note.as_deref() {
+        format!("{recommendation}\n\nHinweis zum Score: {score_note}")
+    } else {
+        recommendation
+    }
 }
 
 fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
     let mut table = AuditTable::new(vec![
         TableColumn::new("Modul"),
         TableColumn::new("Score"),
+        TableColumn::new("Einordnung"),
+        TableColumn::new("Wodurch der Wert entsteht"),
         TableColumn::new("Größter Hebel"),
     ])
     .with_title("Kurzbewertung je Modul");
@@ -896,6 +1045,8 @@ fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
         table = table.add_row(vec![
             module.name.clone(),
             format!("{}/100", module.score),
+            module.interpretation.clone(),
+            simplify_for_summary(&module.score_context),
             simplify_for_summary(&module.key_lever),
         ]);
     }
@@ -927,7 +1078,7 @@ fn build_quick_wins_table(actions: &ActionsBlock) -> AuditTable {
     let mut table = AuditTable::new(vec![
         TableColumn::new("Titel"),
         TableColumn::new("Was tun"),
-        TableColumn::new("Warum lohnt sich das"),
+        TableColumn::new("Nutzen"),
     ]);
 
     for item in selected {
@@ -950,11 +1101,14 @@ fn render_history_section(
         kv = kv.add(key, value);
     }
 
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new("Historie und Trend").with_level(1))
-        .add_component(TextBlock::new(&history.summary))
-        .add_component(kv);
+    builder = builder.add_component(soft_flow_group(
+        "220pt",
+        vec![
+            component_json(Section::new("Historie und Trend").with_level(1)),
+            component_json(TextBlock::new(&history.summary)),
+            component_json(kv),
+        ],
+    ));
 
     if !history.timeline_rows.is_empty() {
         let mut table = AuditTable::new(vec![
@@ -1035,22 +1189,45 @@ fn build_cover_meta(cover: &CoverBlock) -> SummaryBox {
         .add_item("Aktive Module", cover.modules.join(", "))
 }
 
-fn build_cover_score_row(cover: &CoverBlock) -> Grid {
-    let mut grid = Grid::new(3);
+fn component_json<C: Component>(component: C) -> serde_json::Value {
+    serde_json::json!({
+        "type": component.component_id(),
+        "data": component.to_data()
+    })
+}
+
+fn soft_flow_group(threshold: &str, items: Vec<serde_json::Value>) -> FlowGroup {
+    let mut group = FlowGroup::new().with_spacing("12pt");
+    for item in items {
+        group = group.add_item(item);
+    }
+    group.with_keep_together_if_under(threshold)
+}
+
+fn build_cover_score_row(cover: &CoverBlock, badge_asset: Option<&str>) -> Grid {
+    let mut grid = Grid::new(3).with_item_min_height("142pt");
+
+    if let Some(asset_name) = badge_asset {
+        grid = grid.add_item(serde_json::json!({
+            "type": "image",
+            "data": Image::new(asset_name).with_width("68%").to_data()
+        }));
+    } else {
+        grid = grid.add_item(serde_json::json!({
+            "type": "metric-card",
+            "data": MetricCard::new("Zertifikat", &cover.grade)
+                .with_subtitle(format!("{} • {} / 100", cover.certificate, cover.score))
+                .with_accent_color(certificate_accent_color(&cover.certificate))
+                .with_height("100%")
+                .to_data()
+        }));
+    }
 
     grid = grid.add_item(serde_json::json!({
         "type": "score-card",
         "data": ScoreCard::new("Accessibility", cover.score)
-            .with_description("Primärscore")
             .with_thresholds(70, 50)
-            .to_data()
-    }));
-
-    grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new("Zertifikat", &cover.grade)
-            .with_subtitle(format!("{} • {} / 100", cover.certificate, cover.score))
-            .with_accent_color(certificate_accent_color(&cover.certificate))
+            .with_height("100%")
             .to_data()
     }));
 
@@ -1059,32 +1236,40 @@ fn build_cover_score_row(cover: &CoverBlock) -> Grid {
         "data": MetricCard::new("Issues", cover.total_issues.to_string())
             .with_subtitle(format!("{} kritisch", cover.critical_issues))
             .with_accent_color("#dc2626")
+            .with_height("100%")
             .to_data()
     }))
 }
 
 fn build_batch_cover_score_row(
     avg_score: u32,
-    grade: &str,
-    certificate: &str,
     total_urls: u32,
     total_violations: u32,
+    badge_asset: Option<&str>,
 ) -> anyhow::Result<Grid> {
-    let mut grid = Grid::new(3);
+    let mut grid = Grid::new(3).with_item_min_height("142pt");
+
+    if let Some(asset_name) = badge_asset {
+        grid = grid.add_item(serde_json::json!({
+            "type": "image",
+            "data": Image::new(asset_name).with_width("68%").to_data()
+        }));
+    } else {
+        grid = grid.add_item(serde_json::json!({
+            "type": "metric-card",
+            "data": MetricCard::new("Zertifikat", batch_grade_label(avg_score))
+                .with_subtitle(format!("{} • {} / 100", batch_certificate_label(avg_score), avg_score))
+                .with_accent_color(certificate_accent_color(batch_certificate_label(avg_score)))
+                .with_height("100%")
+                .to_data()
+        }));
+    }
 
     grid = grid.add_item(serde_json::json!({
         "type": "score-card",
         "data": ScoreCard::new("Durchschnitt", avg_score)
-            .with_description("Domain-Score")
             .with_thresholds(70, 50)
-            .to_data()
-    }));
-
-    grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new("Zertifikat", grade)
-            .with_subtitle(format!("{certificate} • {avg_score} / 100"))
-            .with_accent_color(certificate_accent_color(certificate))
+            .with_height("100%")
             .to_data()
     }));
 
@@ -1093,6 +1278,7 @@ fn build_batch_cover_score_row(
         "data": MetricCard::new("URLs", total_urls.to_string())
             .with_subtitle(format!("{} Verstöße", total_violations))
             .with_accent_color("#dc2626")
+            .with_height("100%")
             .to_data()
     })))
 }
@@ -1103,6 +1289,7 @@ fn certificate_accent_color(certificate: &str) -> &'static str {
         "GOLD" => "#b45309",
         "SILVER" => "#475569",
         "BRONZE" => "#9a3412",
+        "FAILED" => "#dc2626",
         _ => "#2563eb",
     }
 }
@@ -1123,9 +1310,40 @@ fn batch_certificate_label(score: u32) -> &'static str {
         95..=100 => "PLATINUM",
         85..=94 => "GOLD",
         75..=84 => "SILVER",
-        60..=74 => "BRONZE",
-        _ => "BASIC",
+        65..=74 => "BRONZE",
+        _ => "FAILED",
     }
+}
+
+fn certificate_badge_path(certificate: &str) -> anyhow::Result<String> {
+    let (filename, svg) = match certificate {
+        "PLATINUM" => (
+            "auditmysite-certificate-platinum.svg",
+            include_str!("../../assets/certificates/platinum.svg"),
+        ),
+        "GOLD" => (
+            "auditmysite-certificate-gold.svg",
+            include_str!("../../assets/certificates/gold.svg"),
+        ),
+        "SILVER" => (
+            "auditmysite-certificate-silver.svg",
+            include_str!("../../assets/certificates/silver.svg"),
+        ),
+        "BRONZE" => (
+            "auditmysite-certificate-bronze.svg",
+            include_str!("../../assets/certificates/bronze.svg"),
+        ),
+        "FAILED" => (
+            "auditmysite-certificate-failed.svg",
+            include_str!("../../assets/certificates/failed.svg"),
+        ),
+        _ => return Err(anyhow::anyhow!("unknown certificate badge: {certificate}")),
+    };
+
+    let path: PathBuf = env::temp_dir().join(filename);
+    fs::write(&path, svg)?;
+
+    Ok(path.to_string_lossy().to_string())
 }
 
 fn build_module_dashboard(modules: &ModulesBlock) -> Grid {
@@ -1155,7 +1373,7 @@ fn build_module_dashboard(modules: &ModulesBlock) -> Grid {
         };
 
         let card = MetricCard::new(&module.name, format!("{} / 100", module.score))
-            .with_subtitle(status)
+            .with_subtitle(format!("{} · {}", status, module.card_context))
             .with_accent_color(accent);
 
         grid = grid.add_item(serde_json::json!({
@@ -1185,44 +1403,6 @@ fn score_quality_color(score: u32) -> &'static str {
     }
 }
 
-fn build_additional_analyses_overview(details: &ModuleDetailsBlock) -> Grid {
-    let mut grid = Grid::new(2);
-
-    if let Some(ref perf) = details.performance {
-        grid = grid.add_item(metric_card_json(
-            "Performance",
-            perf.score,
-            "Ladezeit, Interaktivität und technische Effizienz",
-        ));
-    }
-
-    if let Some(ref seo) = details.seo {
-        grid = grid.add_item(metric_card_json(
-            "SEO",
-            seo.score,
-            "Meta-Daten, Struktur und Suchmaschinen-Signale",
-        ));
-    }
-
-    if let Some(ref sec) = details.security {
-        grid = grid.add_item(metric_card_json(
-            "Sicherheit",
-            sec.score,
-            "Header, HTTPS-Konfiguration und Schutzmechanismen",
-        ));
-    }
-
-    if let Some(ref mobile) = details.mobile {
-        grid = grid.add_item(metric_card_json(
-            "Mobile",
-            mobile.score,
-            "Viewport, Touch Targets und Lesbarkeit auf kleinen Displays",
-        ));
-    }
-
-    grid
-}
-
 fn build_analysis_focus_table() -> AuditTable {
     AuditTable::new(vec![TableColumn::new("Modul"), TableColumn::new("Fokus")])
         .with_title("Analysefokus")
@@ -1242,31 +1422,6 @@ fn build_analysis_focus_table() -> AuditTable {
             "Mobile".to_string(),
             "Bedienbarkeit, Responsiveness und Lesbarkeit".to_string(),
         ])
-}
-
-fn metric_card_json(title: &str, score: u32, subtitle: &str) -> serde_json::Value {
-    let (status, accent) = score_status(score, 80, 50);
-    serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new(title, format!("{} / 100", score))
-            .with_subtitle(format!("{} · {}", status, subtitle))
-            .with_accent_color(accent)
-            .to_data()
-    })
-}
-
-fn score_status(
-    score: u32,
-    good_threshold: u32,
-    warn_threshold: u32,
-) -> (&'static str, &'static str) {
-    if score >= good_threshold {
-        ("Sehr gut", "#16a34a")
-    } else if score >= warn_threshold {
-        ("Solide", "#d97706")
-    } else {
-        ("Ausbaufähig", "#dc2626")
-    }
 }
 
 // ─── Finding renderers ──────────────────────────────────────────────────────
@@ -1401,6 +1556,14 @@ fn render_finding_technical(
             format!("{}", group.affected_elements),
         )
         .add(
+            "Fundstellen",
+            if group.location_hints.is_empty() {
+                "Keine genaue Lokalisierung verfügbar".to_string()
+            } else {
+                group.location_hints.join(", ")
+            },
+        )
+        .add(
             "Technische Empfehlung",
             simplify_for_summary(&group.recommendation),
         )
@@ -1418,6 +1581,14 @@ fn render_finding_technical(
         builder = builder.add_component(
             Callout::info(&group.technical_note).with_title(i18n.t("label-tech-note")),
         );
+    }
+
+    if !group.location_hints.is_empty() {
+        let mut locations = List::new().with_title("Betroffene Fundstellen");
+        for hint in &group.location_hints {
+            locations = locations.add_item(hint);
+        }
+        builder = builder.add_component(locations);
     }
 
     for example in &group.examples {
@@ -1444,10 +1615,16 @@ fn render_finding_technical(
 fn simplify_for_summary(text: &str) -> String {
     let single_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
     let trimmed = single_line.trim();
-    if trimmed.ends_with('.') {
-        trimmed.to_string()
+    let normalized = match trimmed {
+        "Sofort beheben" | "Sofort beheben." => "Direkt angehen",
+        "Wichtig" | "Wichtig." => "Als Nächstes einplanen",
+        "Optional" | "Optional." => "Bei der nächsten Optimierungsrunde mitnehmen",
+        _ => trimmed,
+    };
+    if normalized.ends_with('.') {
+        normalized.to_string()
     } else {
-        format!("{trimmed}.")
+        format!("{normalized}.")
     }
 }
 
@@ -1462,9 +1639,9 @@ fn impact_label(group: &FindingGroup) -> &'static str {
 
 fn execution_priority_label(priority: ExecutionPriority) -> &'static str {
     match priority {
-        ExecutionPriority::Immediate => "Sofort beheben",
-        ExecutionPriority::Important => "Wichtig",
-        ExecutionPriority::Optional => "Optional",
+        ExecutionPriority::Immediate => "Direkt angehen",
+        ExecutionPriority::Important => "Als Nächstes einplanen",
+        ExecutionPriority::Optional => "Bei der nächsten Optimierungsrunde mitnehmen",
     }
 }
 
@@ -1621,6 +1798,14 @@ fn render_performance(
         }
         builder = builder.add_component(metrics);
     }
+
+    if !perf.recommendations.is_empty() {
+        let mut rec_list = List::new().with_title("Verbesserungsvorschläge");
+        for recommendation in &perf.recommendations {
+            rec_list = rec_list.add_item(recommendation);
+        }
+        builder = builder.add_component(rec_list);
+    }
     builder
 }
 
@@ -1635,11 +1820,15 @@ fn render_seo(
         .add_component(ScoreCard::new("SEO Score", seo.score).with_thresholds(80, 50));
 
     if !seo.meta_tags.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Meta-Tags");
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Feld").with_width("24%"),
+            TableColumn::new("Wert").with_width("76%"),
+        ])
+        .with_title("Meta-Tags");
         for (k, v) in &seo.meta_tags {
-            kv = kv.add(k, v);
+            table = table.add_row(vec![k.clone(), v.clone()]);
         }
-        builder = builder.add_component(kv);
+        builder = builder.add_component(table);
     }
 
     if !seo.meta_issues.is_empty() {
@@ -1658,6 +1847,20 @@ fn render_seo(
     builder = builder
         .add_component(TextBlock::new(&seo.heading_summary))
         .add_component(TextBlock::new(&seo.social_summary));
+
+    if !seo.tracking_summary.is_empty() {
+        let mut tracking_table = AuditTable::new(vec![
+            TableColumn::new("Signal").with_width("32%"),
+            TableColumn::new("Status").with_width("68%"),
+        ])
+        .with_title("Tracking und externe Dienste");
+        for (k, v) in &seo.tracking_summary {
+            tracking_table = tracking_table.add_row(vec![k.clone(), v.clone()]);
+        }
+        builder = builder
+            .add_component(Callout::info(&seo.tracking_summary_text).with_title("Einordnung"))
+            .add_component(tracking_table);
+    }
 
     if !seo.technical_summary.is_empty() {
         let mut kv = KeyValueList::new().with_title("Technisches SEO");
@@ -1679,18 +1882,30 @@ fn render_seo_profile(
     mut builder: renderreport::engine::ReportBuilder,
     profile: &SeoProfilePresentation,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder
-        .add_component(Section::new("SEO-Inhaltsprofil").with_level(3))
-        .add_component(Callout::info(&profile.identity_summary).with_title("Inhaltsprofil"))
-        .add_component(Callout::info(&profile.page_profile_summary).with_title("Seitenprofil"));
+    builder = builder.add_component(Section::new("SEO-Inhaltsprofil").with_level(3));
 
-    let mut profile_box = SummaryBox::new("Seitentyp");
-    profile_box = profile_box.add_item("Einordnung", &profile.page_type);
-    if !profile.page_attributes.is_empty() {
-        profile_box = profile_box.add_item("Merkmale", profile.page_attributes.join(", "));
+    let mut identity_table = AuditTable::new(vec![
+        TableColumn::new("Aspekt").with_width("24%"),
+        TableColumn::new("Wert").with_width("76%"),
+    ])
+    .with_title("Inhaltsprofil");
+    for (key, value) in &profile.identity_facts {
+        identity_table = identity_table.add_row(vec![key.clone(), value.clone()]);
     }
-    profile_box = profile_box.add_item("Hinweis", &profile.optimization_note);
-    builder = builder.add_component(profile_box);
+
+    let mut page_profile_table = AuditTable::new(vec![
+        TableColumn::new("Aspekt").with_width("24%"),
+        TableColumn::new("Wert").with_width("76%"),
+    ])
+    .with_title("Seitenprofil");
+    for (key, value) in &profile.page_profile_facts {
+        page_profile_table = page_profile_table.add_row(vec![key.clone(), value.clone()]);
+    }
+
+    builder = builder
+        .add_component(Callout::info(&profile.identity_summary).with_title("Einordnung"))
+        .add_component(identity_table)
+        .add_component(page_profile_table);
 
     let mut score_grid = Grid::new(2);
     for (title, score, subtitle, accent) in [
@@ -1844,7 +2059,7 @@ fn render_security(
     }
 
     if !sec.recommendations.is_empty() {
-        let mut rec_list = List::new().with_title("Empfehlungen");
+        let mut rec_list = List::new().with_title("Verbesserungsvorschläge");
         for rec in &sec.recommendations {
             rec_list = rec_list.add_item(rec);
         }

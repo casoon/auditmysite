@@ -98,9 +98,9 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  CMS-Felder für Alt-Texte als Pflichtfeld konfigurieren.",
             responsible_role: Role::Editorial,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<img src=\"hero.jpg\">"),
-            example_good: Some("<img src=\"hero.jpg\" alt=\"Team von Casoon im Workshop\">"),
-            example_decorative: Some("<img src=\"ornament.svg\" alt=\"\">"),
+            example_bad: None,
+            example_good: None,
+            example_decorative: None,
         },
     ),
     (

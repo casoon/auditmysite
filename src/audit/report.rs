@@ -28,7 +28,7 @@ pub struct AuditReport {
     pub score: f32,
     /// Letter grade (A-F)
     pub grade: String,
-    /// Certificate level (PLATINUM, GOLD, SILVER, BRONZE, NEEDS_IMPROVEMENT)
+    /// Certificate level (PLATINUM, GOLD, SILVER, BRONZE, FAILED)
     pub certificate: String,
     /// Detailed violation statistics
     pub statistics: ViolationStatistics,

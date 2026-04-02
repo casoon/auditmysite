@@ -7,7 +7,7 @@ Resource-efficient WCAG 2.1 Accessibility Checker written in Rust. Audits web pa
 - **Language:** Rust (async with tokio)
 - **Browser:** Chrome/Chromium via `chromiumoxide` (CDP)
 - **CLI:** `clap` with derive macros
-- **PDF:** `renderreport` (Typst-based, optional `pdf` feature, local path `../renderreport`)
+- **PDF:** `renderreport` (Typst-based, optional `pdf` feature, crate `0.1.0-alpha.3`)
 - **Config:** Optional `auditmysite.toml` files
 
 ## Module Structure
@@ -36,6 +36,19 @@ src/
 - Full audit: `--full` (enables performance, seo, security, mobile)
 - Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
 - Output formats: `--format {json|table|pdf}`
+
+## Report Intent
+- **Single URL audit** is intentionally detailed and page-specific.
+- Use it when one concrete page should be reviewed deeply, with findings, explanations, module detail, and implementation guidance for that page.
+- **Sitemap / batch audit** is intentionally aggregated and domain-wide.
+- Use it when multiple URLs should be compared, averaged, and prioritized across the site.
+- Batch reports must focus on cross-page information such as:
+  - average scores
+  - strongest / weakest URLs
+  - recurring issues
+  - URL ranking and compact URL matrices
+  - distribution patterns across the scanned set
+- Batch reports must **not** devolve into a stack of single-page reports. Per-URL detail should stay compressed unless a dedicated technical appendix is explicitly intended.
 
 ## Reports Directory
 - **All manually generated test reports MUST be saved to `reports/`**

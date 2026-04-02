@@ -26,6 +26,9 @@ pub struct StructuredData {
 pub struct JsonLdSchema {
     /// Schema @type
     pub schema_type: String,
+    /// All schema @type values found on the root object
+    #[serde(default)]
+    pub schema_types: Vec<String>,
     /// Raw JSON content
     pub content: serde_json::Value,
     /// Is valid JSON-LD
@@ -169,6 +172,7 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
 
             json_ld.push(JsonLdSchema {
                 schema_type: schema_types.first().cloned().unwrap_or_default(),
+                schema_types,
                 content: schema.clone(),
                 is_valid,
             });

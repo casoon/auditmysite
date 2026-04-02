@@ -144,7 +144,9 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             certificate: certificate.clone(),
             domain: normalized.url.clone(),
             date: date.clone(),
+            executive_lead: build_executive_lead(normalized),
             verdict: build_verdict_text(&normalized.url, score as f32),
+            score_note: build_score_note(normalized),
             metrics: vec![
                 MetricItem {
                     title: format!("Verstöße{NBSP}gesamt"),
@@ -288,6 +290,8 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
         name: "Barrierefreiheit".into(),
         score: a11y_score.round() as u32,
         interpretation: interpret_score(a11y_score, "Barrierefreiheit"),
+        card_context: derive_accessibility_card_context(normalized),
+        score_context: derive_accessibility_context(normalized),
         key_lever: derive_accessibility_lever(normalized),
         good_threshold: 75,
         warn_threshold: 50,
@@ -298,6 +302,8 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "Performance".into(),
             score: p.score.overall,
             interpretation: interpret_score(p.score.overall as f32, "Performance"),
+            card_context: derive_performance_card_context(p),
+            score_context: derive_performance_context(p),
             key_lever: derive_performance_lever(p),
             good_threshold: 75,
             warn_threshold: 50,
@@ -308,6 +314,8 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "SEO".into(),
             score: s.score,
             interpretation: interpret_score(s.score as f32, "SEO"),
+            card_context: derive_seo_card_context(s),
+            score_context: derive_seo_context(s),
             key_lever: derive_seo_lever(s),
             good_threshold: 75,
             warn_threshold: 50,
@@ -318,6 +326,8 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "Sicherheit".into(),
             score: s.score,
             interpretation: interpret_score(s.score as f32, "Sicherheit"),
+            card_context: derive_security_card_context(s),
+            score_context: derive_security_context(s),
             key_lever: derive_security_lever(s),
             good_threshold: 75,
             warn_threshold: 50,
@@ -328,6 +338,8 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             name: "Mobile".into(),
             score: m.score,
             interpretation: interpret_score(m.score as f32, "mobile Nutzbarkeit"),
+            card_context: derive_mobile_card_context(m),
+            score_context: derive_mobile_context(m),
             key_lever: derive_mobile_lever(m),
             good_threshold: 75,
             warn_threshold: 50,
@@ -371,14 +383,14 @@ fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
     let mut columns = Vec::new();
     if !plan.quick_wins.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Sofort (0-2 Wochen)".into(),
+            title: "Sofort".into(),
             accent_color: "#22c55e".into(),
             items: map_items(&plan.quick_wins, "Niedrig"),
         });
     }
     if !plan.medium_term.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Mittelfristig (2-6 Wochen)".into(),
+            title: "Als Nächstes".into(),
             accent_color: "#f59e0b".into(),
             items: map_items(&plan.medium_term, "Mittel"),
         });
@@ -394,7 +406,7 @@ fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
     ActionsBlock {
         roadmap_columns: columns,
         role_assignments: plan.role_assignments.clone(),
-        intro_text: "Die Maßnahmen sind nach Zeithorizont, Aufwand und Wirkung geordnet. So lässt sich die Umsetzung schrittweise planen."
+        intro_text: "Die Maßnahmen sind nach Priorität, Aufwand und Wirkung geordnet. So lässt sich die Umsetzung klar staffeln."
             .to_string(),
     }
 }
@@ -553,12 +565,15 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             additional.push(("DOM Content Loaded".to_string(), format!("{:.0}ms", dcl)));
         }
 
+        let recommendations = derive_performance_recommendations(p);
+
         PerformancePresentation {
             score: p.score.overall,
             grade: p.score.grade.label().to_string(),
             interpretation: interpret_score(p.score.overall as f32, "Performance"),
             vitals,
             additional_metrics: additional,
+            recommendations,
         }
     });
 
@@ -635,6 +650,41 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                             name.as_deref().unwrap_or(""),
                             if *has_search_action { " (Suche)" } else { "" }
                         ),
+                        SchemaExtracted::WebPage {
+                            name,
+                            author,
+                            in_language,
+                            ..
+                        } => format!(
+                            "{}{}{}",
+                            name.as_deref().unwrap_or(""),
+                            author
+                                .as_ref()
+                                .map(|a| format!(" ({})", a))
+                                .unwrap_or_default(),
+                            in_language
+                                .as_ref()
+                                .map(|lang| format!(" · {}", lang))
+                                .unwrap_or_default()
+                        ),
+                        SchemaExtracted::Service {
+                            name,
+                            address,
+                            area_served_count,
+                            ..
+                        } => format!(
+                            "{}{}{}",
+                            name.as_deref().unwrap_or(""),
+                            address
+                                .as_ref()
+                                .map(|a| format!(" — {}", a))
+                                .unwrap_or_default(),
+                            if *area_served_count > 0 {
+                                format!(" · {} Regionen", area_served_count)
+                            } else {
+                                String::new()
+                            }
+                        ),
                         SchemaExtracted::BreadcrumbList { item_count } => {
                             format!("{} Ebenen", item_count)
                         }
@@ -705,6 +755,34 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                     .clone()
                     .unwrap_or_else(|| "—".to_string()),
                 category_hints: cp.content_identity.category_hints.clone(),
+                identity_facts: vec![
+                    (
+                        "Seitentitel".to_string(),
+                        cp.content_identity
+                            .site_name
+                            .clone()
+                            .unwrap_or_else(|| "—".to_string()),
+                    ),
+                    (
+                        "Inhaltstyp".to_string(),
+                        cp.content_identity.content_type.clone(),
+                    ),
+                    (
+                        "Sprache".to_string(),
+                        cp.content_identity
+                            .language
+                            .clone()
+                            .unwrap_or_else(|| "—".to_string()),
+                    ),
+                    (
+                        "Themenhinweise".to_string(),
+                        if cp.content_identity.category_hints.is_empty() {
+                            "Keine klaren Themenhinweise erkannt".to_string()
+                        } else {
+                            cp.content_identity.category_hints.join(", ")
+                        },
+                    ),
+                ],
                 page_type: cp.page_classification.primary_type.label().to_string(),
                 page_attributes: cp.page_classification.attributes.clone(),
                 content_depth_score: cp.page_classification.content_depth_score,
@@ -713,6 +791,22 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 intent_fit_score: cp.page_classification.intent_fit_score,
                 page_profile_summary: summarize_page_profile(cp),
                 optimization_note: page_profile_optimization_note(cp),
+                page_profile_facts: vec![
+                    (
+                        "Seitentyp".to_string(),
+                        cp.page_classification.primary_type.label().to_string(),
+                    ),
+                    (
+                        "Merkmale".to_string(),
+                        if cp.page_classification.attributes.is_empty() {
+                            "Keine prägenden Merkmale erkannt".to_string()
+                        } else {
+                            format!("{}.", cp.page_classification.attributes.join(", "))
+                        },
+                    ),
+                    ("Einordnung".to_string(), summarize_page_profile(cp)),
+                    ("Empfehlung".to_string(), page_profile_optimization_note(cp)),
+                ],
                 schema_rows,
                 schema_count: cp.schema_inventory.total_count,
                 signal_rows,
@@ -756,6 +850,53 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 ("Sprachangabe".to_string(), yes_no(s.technical.has_lang)),
                 ("Wortanzahl".to_string(), s.technical.word_count.to_string()),
             ],
+            tracking_summary: vec![
+                (
+                    "Google Fonts (extern)".to_string(),
+                    if s.technical.uses_remote_google_fonts {
+                        format!(
+                            "Ja ({})",
+                            truncate_url_list(&s.technical.google_fonts_sources, 2, 48)
+                        )
+                    } else {
+                        "Nein".to_string()
+                    },
+                ),
+                (
+                    "Tracking-Cookies".to_string(),
+                    if s.technical.tracking_cookies.is_empty() {
+                        "Keine erkannt".to_string()
+                    } else {
+                        format!(
+                            "{} ({})",
+                            s.technical.tracking_cookies.len(),
+                            s.technical
+                                .tracking_cookies
+                                .iter()
+                                .map(|c| c.name.clone())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                    },
+                ),
+                (
+                    "Tracking-Signale".to_string(),
+                    if s.technical.tracking_signals.is_empty() {
+                        "Keine erkannt".to_string()
+                    } else {
+                        truncate_list(&s.technical.tracking_signals, 3)
+                    },
+                ),
+                (
+                    "Zaraz".to_string(),
+                    if s.technical.zaraz.detected {
+                        format!("Erkannt ({})", truncate_list(&s.technical.zaraz.signals, 2))
+                    } else {
+                        "Nicht erkannt".to_string()
+                    },
+                ),
+            ],
+            tracking_summary_text: build_tracking_summary_text(&s.technical),
             profile,
         }
     });
@@ -827,7 +968,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 .iter()
                 .map(|i| (i.header.clone(), i.severity, i.message.clone()))
                 .collect(),
-            recommendations: sec.recommendations.clone(),
+            recommendations: derive_security_recommendations(sec),
         }
     });
 
@@ -968,6 +1109,7 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
     };
 
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
+    let location_hints = build_location_hints(&f.occurrences);
 
     FindingGroup {
         title,
@@ -988,11 +1130,30 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
         occurrence_count: f.occurrence_count,
         affected_urls: Vec::new(),
         affected_elements: f.occurrence_count,
+        location_hints,
         responsible_role: role,
         effort,
         execution_priority,
         examples,
     }
+}
+
+fn build_location_hints(occurrences: &[crate::audit::normalized::OccurrenceDetail]) -> Vec<String> {
+    let mut hints = Vec::new();
+    for occ in occurrences {
+        let hint = if let Some(selector) = &occ.selector {
+            selector.trim().to_string()
+        } else {
+            format!("AX-Node {}", occ.node_id)
+        };
+        if !hint.is_empty() && !hints.contains(&hint) {
+            hints.push(hint);
+        }
+        if hints.len() >= 5 {
+            break;
+        }
+    }
+    hints
 }
 
 fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec<PositiveAspect> {
@@ -1429,6 +1590,15 @@ fn group_violations(
             };
 
             let examples = explanation.map(|e| e.examples()).unwrap_or_default();
+            let location_hints = violations
+                .iter()
+                .filter_map(|occ| {
+                    occ.selector
+                        .clone()
+                        .or_else(|| Some(format!("AX-Node {}", occ.node_id)))
+                })
+                .take(5)
+                .collect();
 
             FindingGroup {
                 title,
@@ -1449,6 +1619,7 @@ fn group_violations(
                 occurrence_count: count,
                 affected_urls: Vec::new(),
                 affected_elements: count,
+                location_hints,
                 responsible_role: role,
                 effort,
                 execution_priority,
@@ -1501,6 +1672,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
         )
     };
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
+    let location_hints = Vec::new();
 
     FindingGroup {
         title,
@@ -1521,6 +1693,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
         occurrence_count: acc.count,
         affected_urls: acc.urls.clone(),
         affected_elements: acc.count,
+        location_hints,
         responsible_role: role,
         effort,
         execution_priority,
@@ -1584,6 +1757,52 @@ fn build_verdict_text(url: &str, score: f32) -> String {
                  Die Barrierefreiheit ist stark eingeschränkt; es besteht akuter Handlungsbedarf.",
             url, score
         )
+    }
+}
+
+fn build_executive_lead(normalized: &NormalizedReport) -> String {
+    let score = normalized.score as f32;
+    let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
+
+    if score >= 90.0 && critical_topics == 0 {
+        "Die Website ist technisch auf sehr hohem Niveau und aktuell ohne dringende Accessibility-Risiken aufgestellt."
+            .to_string()
+    } else if score >= 90.0 {
+        format!(
+            "Die Website ist technisch auf sehr hohem Niveau. {} Thema{} mit hoher Priorität sollte{} kurzfristig bearbeitet werden.",
+            critical_topics,
+            if critical_topics == 1 { "" } else { "n" },
+            if critical_topics == 1 { "" } else { "n" }
+        )
+    } else if score >= 75.0 && critical_topics == 0 {
+        "Sehr gute technische Basis mit klarer Struktur und überschaubarem Optimierungsbedarf."
+            .to_string()
+    } else if score >= 75.0 {
+        format!(
+            "Sehr gute technische Basis mit gezieltem Optimierungsbedarf. {} priorisierte{} Thema{} sollte{} zuerst angegangen werden.",
+            critical_topics,
+            if critical_topics == 1 { "s" } else { "" },
+            if critical_topics == 1 { "" } else { "en" },
+            if critical_topics == 1 { "" } else { "n" }
+        )
+    } else if score >= 50.0 {
+        "Die Website hat eine brauchbare Basis, weist aber relevante Barrieren auf, die geordnet priorisiert werden sollten."
+            .to_string()
+    } else {
+        "Die Website hat deutliche Accessibility-Schwächen und sollte kurzfristig technisch stabilisiert werden."
+            .to_string()
+    }
+}
+
+fn build_score_note(normalized: &NormalizedReport) -> Option<String> {
+    let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
+    if normalized.score >= 90 && critical_topics > 0 {
+        Some(
+            "Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen."
+                .to_string(),
+        )
+    } else {
+        None
     }
 }
 
@@ -1842,6 +2061,11 @@ mod tests {
                     external_links: 1,
                     broken_links: vec![],
                     text_excerpt: text_excerpt.to_string(),
+                    uses_remote_google_fonts: false,
+                    google_fonts_sources: vec![],
+                    tracking_cookies: vec![],
+                    tracking_signals: vec![],
+                    zaraz: crate::seo::technical::ZarazDetection::default(),
                     issues: vec![],
                 };
                 seo.content_profile = Some(crate::seo::build_content_profile(&seo));
@@ -1890,6 +2114,11 @@ mod tests {
             external_links: 1,
             broken_links: vec![],
             text_excerpt: text_excerpt.to_string(),
+            uses_remote_google_fonts: false,
+            google_fonts_sources: vec![],
+            tracking_cookies: vec![],
+            tracking_signals: vec![],
+            zaraz: crate::seo::technical::ZarazDetection::default(),
             issues: vec![],
         };
         seo.content_profile = Some(crate::seo::build_content_profile(&seo));
@@ -1975,6 +2204,35 @@ fn derive_accessibility_lever(normalized: &NormalizedReport) -> String {
     }
 }
 
+fn derive_accessibility_context(normalized: &NormalizedReport) -> String {
+    let high = normalized
+        .findings
+        .iter()
+        .filter(|f| matches!(f.severity, Severity::High | Severity::Critical))
+        .count();
+    let total = normalized.findings.len();
+    if total == 0 {
+        return "Keine automatisch erkannten Barrieren im aktuellen Lauf.".to_string();
+    }
+    format!(
+        "{} erkannte Problemgruppe(n), davon {} mit hoher Priorität.",
+        total, high
+    )
+}
+
+fn derive_accessibility_card_context(normalized: &NormalizedReport) -> String {
+    let high = normalized
+        .findings
+        .iter()
+        .filter(|f| matches!(f.severity, Severity::High | Severity::Critical))
+        .count();
+    if high == 0 {
+        "Keine High-Priority-Funde".to_string()
+    } else {
+        format!("{high} Problemgruppe(n) mit hoher Priorität")
+    }
+}
+
 fn derive_performance_lever(perf: &crate::audit::PerformanceResults) -> String {
     if let Some(dom_nodes) = perf.vitals.dom_nodes {
         if dom_nodes > 1500 {
@@ -1987,6 +2245,105 @@ fn derive_performance_lever(perf: &crate::audit::PerformanceResults) -> String {
         }
     }
     "Größter Hebel: Render-Pfad und Asset-Größe weiter optimieren".to_string()
+}
+
+fn derive_performance_context(perf: &crate::audit::PerformanceResults) -> String {
+    let fcp = perf
+        .vitals
+        .fcp
+        .as_ref()
+        .map(|v| format!("FCP {:.0} ms", v.value))
+        .unwrap_or_else(|| "FCP n/a".to_string());
+    let ttfb = perf
+        .vitals
+        .ttfb
+        .as_ref()
+        .map(|v| format!("TTFB {:.0} ms", v.value))
+        .unwrap_or_else(|| "TTFB n/a".to_string());
+    let dom = perf
+        .vitals
+        .dom_nodes
+        .map(|n| format!("{n} DOM-Knoten"))
+        .unwrap_or_else(|| "DOM-Knoten n/a".to_string());
+    format!("{fcp}, {ttfb}, {dom}.")
+}
+
+fn derive_performance_card_context(perf: &crate::audit::PerformanceResults) -> String {
+    if let Some(dom_nodes) = perf.vitals.dom_nodes {
+        return format!("{dom_nodes} DOM-Knoten");
+    }
+    if let Some(load) = perf.vitals.load_time {
+        return format!("Ladezeit {:.0} ms", load);
+    }
+    "Render-Pfad weiter optimieren".to_string()
+}
+
+fn derive_performance_recommendations(perf: &crate::audit::PerformanceResults) -> Vec<String> {
+    let mut recommendations = Vec::new();
+
+    if let Some(lcp) = &perf.vitals.lcp {
+        if lcp.value > 2500.0 {
+            recommendations.push(
+                "Größtes sichtbares Element schneller laden: Hero-Bilder optimieren, priorisieren und kritische Styles früher ausliefern."
+                    .to_string(),
+            );
+        }
+    }
+
+    if let Some(fcp) = &perf.vitals.fcp {
+        if fcp.value > 1800.0 {
+            recommendations.push(
+                "Ersten sichtbaren Inhalt früher ausliefern: render-blockierende CSS- und JavaScript-Dateien reduzieren."
+                    .to_string(),
+            );
+        }
+    }
+
+    if let Some(interactivity) = perf.vitals.inp.as_ref().or(perf.vitals.tbt.as_ref()) {
+        if interactivity.value > 200.0 {
+            recommendations.push(
+                "Haupt-Thread entlasten: große JavaScript-Aufgaben aufteilen und nicht benötigte Skripte später laden."
+                    .to_string(),
+            );
+        }
+    }
+
+    if let Some(cls) = &perf.vitals.cls {
+        if cls.value > 0.1 {
+            recommendations.push(
+                "Layout-Verschiebungen vermeiden: Medien, Banner und dynamische Inhalte mit festen Platzhaltern reservieren."
+                    .to_string(),
+            );
+        }
+    }
+
+    if let Some(dom_nodes) = perf.vitals.dom_nodes {
+        if dom_nodes > 1200 {
+            recommendations.push(
+                "DOM-Struktur verschlanken: große Komponenten, tiefe Container-Hierarchien und wiederholte Markup-Blöcke reduzieren."
+                    .to_string(),
+            );
+        }
+    }
+
+    if let Some(load_time) = perf.vitals.load_time {
+        if load_time > 3000.0 {
+            recommendations.push(
+                "Gesamte Ladezeit senken: große Assets komprimieren, Caching schärfen und Drittanbieter-Skripte prüfen."
+                    .to_string(),
+            );
+        }
+    }
+
+    if recommendations.is_empty() {
+        recommendations.push(
+            "Die Kernmetriken sind stabil. Nächster Hebel: Seitengröße und Drittanbieter-Skripte regelmäßig überwachen, damit das Niveau gehalten wird."
+                .to_string(),
+        );
+    }
+
+    recommendations.truncate(3);
+    recommendations
 }
 
 fn derive_seo_lever(seo: &crate::seo::SeoAnalysis) -> String {
@@ -2002,6 +2359,26 @@ fn derive_seo_lever(seo: &crate::seo::SeoAnalysis) -> String {
     "Größter Hebel: Struktur- und Inhalts-Signale weiter schärfen".to_string()
 }
 
+fn derive_seo_context(seo: &crate::seo::SeoAnalysis) -> String {
+    let meta_issues = seo.meta_issues.len();
+    let schema_count = seo.structured_data.json_ld.len();
+    let h1 = seo.headings.h1_count;
+    format!(
+        "{} Meta-Probleme, {} H1, {} strukturierte Daten erkannt.",
+        meta_issues, h1, schema_count
+    )
+}
+
+fn derive_seo_card_context(seo: &crate::seo::SeoAnalysis) -> String {
+    if !seo.meta_issues.is_empty() {
+        return format!("{} Meta-Probleme offen", seo.meta_issues.len());
+    }
+    format!(
+        "{} strukturierte Daten erkannt",
+        seo.structured_data.json_ld.len()
+    )
+}
+
 fn derive_security_lever(sec: &crate::security::SecurityAnalysis) -> String {
     let missing_headers = sec.headers.content_security_policy.is_none() as usize
         + sec.headers.strict_transport_security.is_none() as usize
@@ -2013,6 +2390,128 @@ fn derive_security_lever(sec: &crate::security::SecurityAnalysis) -> String {
         );
     }
     "Größter Hebel: Header-Regeln und TLS-Setup weiter härten".to_string()
+}
+
+fn derive_security_context(sec: &crate::security::SecurityAnalysis) -> String {
+    let present_headers = [
+        sec.headers.content_security_policy.is_some(),
+        sec.headers.strict_transport_security.is_some(),
+        sec.headers.x_content_type_options.is_some(),
+        sec.headers.x_frame_options.is_some(),
+        sec.headers.x_xss_protection.is_some(),
+        sec.headers.referrer_policy.is_some(),
+        sec.headers.permissions_policy.is_some(),
+        sec.headers.cross_origin_opener_policy.is_some(),
+        sec.headers.cross_origin_resource_policy.is_some(),
+    ]
+    .into_iter()
+    .filter(|p| *p)
+    .count();
+    format!(
+        "{} von 9 Kern-Headern vorhanden, HTTPS {}.",
+        present_headers,
+        if sec.ssl.https { "aktiv" } else { "fehlt" }
+    )
+}
+
+fn derive_security_card_context(sec: &crate::security::SecurityAnalysis) -> String {
+    let present_headers = [
+        sec.headers.content_security_policy.is_some(),
+        sec.headers.strict_transport_security.is_some(),
+        sec.headers.x_content_type_options.is_some(),
+        sec.headers.x_frame_options.is_some(),
+        sec.headers.x_xss_protection.is_some(),
+        sec.headers.referrer_policy.is_some(),
+        sec.headers.permissions_policy.is_some(),
+        sec.headers.cross_origin_opener_policy.is_some(),
+        sec.headers.cross_origin_resource_policy.is_some(),
+    ]
+    .into_iter()
+    .filter(|p| *p)
+    .count();
+    format!("{present_headers} von 9 Kern-Headern vorhanden")
+}
+
+fn build_tracking_summary_text(technical: &crate::seo::technical::TechnicalSeo) -> String {
+    if technical.zaraz.detected {
+        if technical.tracking_cookies.is_empty() && technical.tracking_signals.is_empty() {
+            return "Zaraz ist auf der Seite erkennbar. Zusätzlich wurden im Lauf keine weiteren Tracking-Cookies oder externen Tracking-Signale festgestellt.".to_string();
+        }
+        return "Auf der Seite sind Tracking- oder Consent-nahe Signale erkennbar. Prüfen Sie insbesondere externe Einbindungen, Cookie-Setzung und den tatsächlichen Auslösezeitpunkt nach Einwilligung.".to_string();
+    }
+
+    if technical.uses_remote_google_fonts {
+        return "Es werden extern gehostete Google Fonts geladen. Das ist datenschutz- und performance-relevant und sollte bewusst geprüft werden.".to_string();
+    }
+
+    if !technical.tracking_cookies.is_empty() || !technical.tracking_signals.is_empty() {
+        return "Es wurden Tracking-Signale erkannt. Prüfen Sie Einwilligung, Auslösezeitpunkt und die Herkunft der eingebundenen Dienste.".to_string();
+    }
+
+    "Im aktuellen Lauf wurden keine externen Google Fonts, keine Tracking-Cookies und keine weiteren Tracking-Signale erkannt.".to_string()
+}
+
+fn derive_security_recommendations(sec: &crate::security::SecurityAnalysis) -> Vec<String> {
+    let mut recommendations = Vec::new();
+
+    if !sec.ssl.https {
+        recommendations.push(
+            "HTTPS durchgängig erzwingen und ein gültiges TLS-Zertifikat für alle Varianten der Domain sicherstellen."
+                .to_string(),
+        );
+    }
+
+    if sec.headers.content_security_policy.is_none() {
+        recommendations.push(
+            "Content-Security-Policy ergänzen und nur die tatsächlich benötigten Skript-, Style- und Medienquellen erlauben."
+                .to_string(),
+        );
+    }
+
+    if sec.headers.strict_transport_security.is_none() && sec.ssl.https {
+        recommendations.push(
+            "HSTS ergänzen, damit Browser die Seite dauerhaft nur noch per HTTPS laden."
+                .to_string(),
+        );
+    }
+
+    if sec.headers.cross_origin_opener_policy.is_none() {
+        recommendations.push(
+            "Cross-Origin-Opener-Policy prüfen und setzen, um die Isolation des Browser-Kontexts für moderne Webfunktionen zu stärken."
+                .to_string(),
+        );
+    }
+
+    if sec.headers.cross_origin_resource_policy.is_none() {
+        recommendations.push(
+            "Cross-Origin-Resource-Policy ergänzen, damit eingebundene Ressourcen nicht unnötig von fremden Origins mitgenutzt werden können."
+                .to_string(),
+        );
+    }
+
+    if sec.headers.permissions_policy.is_none() {
+        recommendations.push(
+            "Permissions-Policy definieren und nur die Browser-Funktionen freigeben, die auf der Seite wirklich benötigt werden."
+                .to_string(),
+        );
+    }
+
+    if sec.headers.referrer_policy.is_none() {
+        recommendations.push(
+            "Referrer-Policy setzen, damit bei Weiterleitungen und externen Aufrufen nicht mehr Informationen als nötig übergeben werden."
+                .to_string(),
+        );
+    }
+
+    if recommendations.is_empty() {
+        recommendations.push(
+            "Die grundlegenden Security-Header sind sauber gesetzt. Nächster Schritt: Richtlinien regelmäßig prüfen und an neue Skript- oder Integrationsquellen anpassen."
+                .to_string(),
+        );
+    }
+
+    recommendations.truncate(4);
+    recommendations
 }
 
 fn derive_mobile_lever(mobile: &crate::mobile::MobileFriendliness) -> String {
@@ -2029,6 +2528,34 @@ fn derive_mobile_lever(mobile: &crate::mobile::MobileFriendliness) -> String {
         );
     }
     "Größter Hebel: mobile Lesbarkeit und Touch-Flows weiter optimieren".to_string()
+}
+
+fn derive_mobile_context(mobile: &crate::mobile::MobileFriendliness) -> String {
+    format!(
+        "Viewport {}, {} zu kleine Touch Targets, {} zu enge Abstände.",
+        if mobile.viewport.is_properly_configured {
+            "korrekt gesetzt"
+        } else {
+            "nicht sauber konfiguriert"
+        },
+        mobile.touch_targets.small_targets,
+        mobile.touch_targets.crowded_targets
+    )
+}
+
+fn derive_mobile_card_context(mobile: &crate::mobile::MobileFriendliness) -> String {
+    if mobile.touch_targets.small_targets > 0 {
+        format!(
+            "{} zu kleine Touch Targets",
+            mobile.touch_targets.small_targets
+        )
+    } else if mobile.touch_targets.crowded_targets > 0 {
+        format!("{} zu enge Abstände", mobile.touch_targets.crowded_targets)
+    } else if mobile.viewport.is_properly_configured {
+        "Viewport korrekt gesetzt".to_string()
+    } else {
+        "Viewport prüfen".to_string()
+    }
 }
 
 fn derive_business_impact(user_impact: &str, dimension: &str, severity: Severity) -> String {
@@ -2116,7 +2643,7 @@ fn page_profile_optimization_note(profile: &crate::seo::profile::SeoContentProfi
             .to_string();
     }
     if classification.media_text_balance_score < 55 {
-        return "Das Verhältnis aus Text und visuellen Elementen ist unausgewogen; mehr erklärender Kontext würde helfen."
+        return "Die Seite wirkt stark visuell. Mehr erklärender Text und klarer Kontext würden Nutzen und Orientierung verbessern."
             .to_string();
     }
     if classification.intent_fit_score < 65 {
@@ -2455,6 +2982,31 @@ fn yes_no(val: bool) -> String {
     }
 }
 
+fn truncate_list(items: &[String], limit: usize) -> String {
+    let mut values: Vec<String> = items
+        .iter()
+        .filter(|item| !item.trim().is_empty())
+        .cloned()
+        .collect();
+    values.sort();
+    values.dedup();
+
+    let shown: Vec<String> = values.iter().take(limit).cloned().collect();
+    if values.len() > limit {
+        format!("{} +{}", shown.join(", "), values.len() - limit)
+    } else {
+        shown.join(", ")
+    }
+}
+
+fn truncate_url_list(items: &[String], limit: usize, max_len: usize) -> String {
+    let shortened: Vec<String> = items
+        .iter()
+        .map(|item| truncate_url(item, max_len))
+        .collect();
+    truncate_list(&shortened, limit)
+}
+
 // ─── Clone implementations ──────────────────────────────────────────────────
 
 impl Clone for FindingGroup {
@@ -2478,6 +3030,7 @@ impl Clone for FindingGroup {
             occurrence_count: self.occurrence_count,
             affected_urls: self.affected_urls.clone(),
             affected_elements: self.affected_elements,
+            location_hints: self.location_hints.clone(),
             responsible_role: self.responsible_role,
             effort: self.effort,
             execution_priority: self.execution_priority,

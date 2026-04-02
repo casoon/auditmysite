@@ -36,7 +36,11 @@ Most accessibility CLIs either depend on static parsing or require a heavier run
 auditmysite https://example.com
 ```
 
-By default, a single URL audit runs the full analysis set and writes a PDF report into the current working directory, for example `./example-com-2026-03-31-standard.pdf`.
+By default, a single URL audit runs the full analysis set, prints a compact terminal summary, and writes report artifacts into the current working directory:
+
+- `./example-com-YYYY-MM-DD-standard.pdf`
+- `./example-com-YYYY-MM-DD-standard.json`
+- `./example-com-history.json`
 
 For CI or machine-readable output:
 
@@ -62,7 +66,11 @@ auditmysite --help
 auditmysite https://www.in-punkto.com
 ```
 
-That default command writes a PDF report into the current directory, for example `./in-punkto-com-2026-03-31-standard.pdf`.
+That default command writes report artifacts into the current directory, for example:
+
+- `./in-punkto-com-YYYY-MM-DD-standard.pdf`
+- `./in-punkto-com-YYYY-MM-DD-standard.json`
+- `./in-punkto-com-history.json`
 
 ### Prebuilt binaries
 
@@ -101,7 +109,7 @@ The fastest way to validate your setup:
 auditmysite https://example.com
 ```
 
-That creates a PDF report in the current directory. For machine-readable output:
+That creates the default report set in the current directory. For machine-readable output only:
 
 ```bash
 auditmysite https://example.com -f json -o report.json
@@ -110,7 +118,7 @@ auditmysite https://example.com -f json -o report.json
 ### Single page
 
 ```bash
-# default: full audit + PDF in current directory
+# default: full audit + terminal summary + PDF/JSON/history in current directory
 auditmysite https://example.com
 
 # JSON
@@ -126,8 +134,17 @@ auditmysite https://example.com -l AAA
 ### Batch audits
 
 ```bash
-# sitemap
+# explicit sitemap
 auditmysite --sitemap https://example.com/sitemap.xml
+
+# base URL: probe robots.txt / common sitemap locations first
+auditmysite https://example.com
+
+# prefer sitemap automatically if one is found
+auditmysite https://example.com --prefer-sitemap
+
+# suppress sitemap suggestion and stay on the single page
+auditmysite https://example.com --no-sitemap-suggest
 
 # URL file
 auditmysite --url-file urls.txt
@@ -146,12 +163,16 @@ auditmysite [OPTIONS] [URL] [COMMAND]
 ```
 
 Primary commands:
-- `auditmysite <url>`: run a full single-page audit and write a PDF into the current directory
+- `auditmysite <url>`: run a full single-page audit and write PDF/JSON/history into the current directory
 - `auditmysite --sitemap <url>`: audit sitemap URLs
 - `auditmysite --url-file <file>`: audit URLs from file
 - `auditmysite browser detect`: show available browsers
 - `auditmysite browser install`: install managed Chrome for Testing
 - `auditmysite doctor`: run local diagnostics
+
+Useful flags:
+- `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
+- `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
 
 For the full current interface, use:
 
@@ -186,9 +207,18 @@ AAA is not fully implemented yet.
 
 Additional modules:
 - Performance: Core Web Vitals and score interpretation
-- SEO: meta tags, headings, structured data, content profile
+- SEO: meta tags, headings, structured data, content profile, tracking/external services signals
 - Security: HTTPS and header checks
 - Mobile: viewport, touch-target, and readability checks
+
+## Report Modes
+
+Single-page reports and sitemap reports are intentionally different.
+
+- Single-page report: detailed, page-specific, with executive summary, prioritized findings, technical implementation notes, SEO content profile, and module detail sections.
+- Sitemap/batch report: aggregated, domain-wide, with averages, ranking, recurring issues, URL matrix, and compact content/domain patterns.
+
+Batch reports are not intended to become a stack of single-page reports.
 
 ## Compared to typical setups
 
@@ -215,6 +245,16 @@ auditmysite https://example.com -f json -o report.json --quiet
 
 ```bash
 auditmysite --sitemap https://example.com/sitemap.xml -f json -o sitemap-report.json
+```
+
+### Base URL with sitemap suggestion
+
+```bash
+# ask first if a sitemap is found
+auditmysite https://example.com
+
+# switch directly to sitemap mode
+auditmysite https://example.com --prefer-sitemap
 ```
 
 ## Architecture

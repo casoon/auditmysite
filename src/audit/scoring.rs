@@ -86,14 +86,14 @@ impl AccessibilityScorer {
     /// - GOLD: ≥85% (excellent accessibility)
     /// - SILVER: ≥75% (good accessibility)
     /// - BRONZE: ≥65% (acceptable accessibility)
-    /// - NEEDS_IMPROVEMENT: <65% (significant issues)
+    /// - FAILED: <65% (significant issues)
     pub fn calculate_certificate(score: f32) -> &'static str {
         match score.round() as u32 {
             95..=100 => "PLATINUM",
             85..=94 => "GOLD",
             75..=84 => "SILVER",
             65..=74 => "BRONZE",
-            _ => "NEEDS_IMPROVEMENT",
+            _ => "FAILED",
         }
     }
 
@@ -261,10 +261,7 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 0.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "F");
-        assert_eq!(
-            AccessibilityScorer::calculate_certificate(score),
-            "NEEDS_IMPROVEMENT"
-        );
+        assert_eq!(AccessibilityScorer::calculate_certificate(score), "FAILED");
     }
 
     #[test]

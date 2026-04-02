@@ -315,6 +315,7 @@ mod tests {
             force_refresh: false,
             no_sitemap_suggest: false,
             prefer_sitemap: false,
+            per_page_reports: false,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
             company_name: None,

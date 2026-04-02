@@ -170,6 +170,19 @@ pub enum SchemaExtracted {
         url: Option<String>,
         has_search_action: bool,
     },
+    WebPage {
+        name: Option<String>,
+        url: Option<String>,
+        author: Option<String>,
+        in_language: Option<String>,
+    },
+    Service {
+        name: Option<String>,
+        address: Option<String>,
+        phone: Option<String>,
+        price_range: Option<String>,
+        area_served_count: usize,
+    },
     BreadcrumbList {
         item_count: usize,
     },
@@ -441,7 +454,14 @@ fn build_identity(seo: &SeoAnalysis) -> ContentIdentity {
 
 fn find_org_name(json_ld: &[crate::seo::schema::JsonLdSchema]) -> Option<String> {
     for schema in json_ld {
-        if schema.schema_type == "Organization" || schema.schema_type == "LocalBusiness" {
+        if schema
+            .schema_types
+            .iter()
+            .any(|t| t == "Organization" || t == "LocalBusiness" || t == "ProfessionalService")
+            || schema.schema_type == "Organization"
+            || schema.schema_type == "LocalBusiness"
+            || schema.schema_type == "ProfessionalService"
+        {
             if let Some(name) = schema.content["name"].as_str() {
                 return Some(name.to_string());
             }
@@ -522,18 +542,34 @@ fn build_schema_inventory(seo: &SeoAnalysis) -> SchemaInventory {
         if !json_ld.is_valid {
             continue;
         }
-        // Process the root level
-        let detail = analyze_schema(&json_ld.schema_type, &json_ld.content);
-        if let Some(d) = detail {
-            schemas.push(d);
+        let root_types = if json_ld.schema_types.is_empty() {
+            vec![json_ld.schema_type.clone()]
+        } else {
+            json_ld.schema_types.clone()
+        };
+
+        for schema_type in root_types {
+            if let Some(d) = analyze_schema(&schema_type, &json_ld.content) {
+                schemas.push(d);
+                break;
+            }
         }
 
         // Process @graph items
         if let Some(graph) = json_ld.content["@graph"].as_array() {
             for item in graph {
-                let item_type = item["@type"].as_str().unwrap_or("Unknown");
-                if let Some(d) = analyze_schema(item_type, item) {
-                    schemas.push(d);
+                let mut item_types = Vec::new();
+                if let Some(item_type) = item["@type"].as_str() {
+                    item_types.push(item_type.to_string());
+                } else if let Some(arr) = item["@type"].as_array() {
+                    item_types.extend(arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())));
+                }
+
+                for item_type in item_types {
+                    if let Some(d) = analyze_schema(&item_type, item) {
+                        schemas.push(d);
+                        break;
+                    }
                 }
             }
         }
@@ -550,10 +586,12 @@ fn analyze_schema(schema_type: &str, content: &serde_json::Value) -> Option<Sche
     let (expected, extracted) = match schema_type {
         "Organization" => analyze_organization(content),
         "LocalBusiness" => analyze_local_business(content),
+        "ProfessionalService" => analyze_service(content),
         "Article" | "BlogPosting" | "NewsArticle" => analyze_article(content),
         "FAQPage" => analyze_faq(content),
         "Product" => analyze_product(content),
         "WebSite" => analyze_website(content),
+        "WebPage" => analyze_webpage(content),
         "BreadcrumbList" => analyze_breadcrumb(content),
         _ => analyze_generic(content),
     };
@@ -728,6 +766,59 @@ fn analyze_website(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted
         name: str_opt(v, "name"),
         url: str_opt(v, "url"),
         has_search_action,
+    };
+    (expected, extracted)
+}
+
+fn analyze_webpage(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
+    let expected = vec![
+        "name",
+        "description",
+        "url",
+        "image",
+        "inLanguage",
+        "author",
+        "publisher",
+    ];
+
+    let author = v["author"]["name"]
+        .as_str()
+        .map(|s| s.to_string())
+        .or_else(|| str_opt(v, "author"));
+
+    let extracted = SchemaExtracted::WebPage {
+        name: str_opt(v, "name"),
+        url: str_opt(v, "url"),
+        author,
+        in_language: str_opt(v, "inLanguage"),
+    };
+    (expected, extracted)
+}
+
+fn analyze_service(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
+    let expected = vec![
+        "name",
+        "description",
+        "url",
+        "telephone",
+        "address",
+        "serviceType",
+        "areaServed",
+        "priceRange",
+    ];
+
+    let address = v["address"]["streetAddress"]
+        .as_str()
+        .map(|s| s.to_string())
+        .or_else(|| str_opt(v, "address"));
+    let area_served_count = v["areaServed"].as_array().map(|arr| arr.len()).unwrap_or(0);
+
+    let extracted = SchemaExtracted::Service {
+        name: str_opt(v, "name"),
+        address,
+        phone: str_opt(v, "telephone"),
+        price_range: str_opt(v, "priceRange"),
+        area_served_count,
     };
     (expected, extracted)
 }
@@ -1214,6 +1305,7 @@ mod tests {
         });
         seo.structured_data.json_ld.push(schema::JsonLdSchema {
             schema_type: "FAQPage".to_string(),
+            schema_types: vec!["FAQPage".to_string()],
             content: faq_content,
             is_valid: true,
         });
@@ -1287,6 +1379,75 @@ mod tests {
             profile.maturity,
             SeoMaturityLevel::Advanced | SeoMaturityLevel::Professional
         ));
+    }
+
+    #[test]
+    fn test_schema_inventory_handles_webpage_and_professional_service() {
+        let mut seo = minimal_seo();
+        let webpage = serde_json::json!({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "CASOON Startseite",
+            "description": "Webentwicklung und digitale Systeme.",
+            "url": "https://www.casoon.de/",
+            "image": "https://www.casoon.de/og.webp",
+            "inLanguage": "de-DE",
+            "author": {"@type": "Person", "name": "Jörn Seidel"},
+            "publisher": {"@type": "Organization", "name": "CASOON"}
+        });
+        let service = serde_json::json!({
+            "@context": "https://schema.org",
+            "@type": ["ProfessionalService", "LocalBusiness"],
+            "name": "CASOON",
+            "description": "Webentwicklung und digitale Systeme.",
+            "url": "https://www.casoon.de/",
+            "telephone": "+49 381 448840",
+            "address": {"@type": "PostalAddress", "streetAddress": "Zur Häusler-Reihe 10"},
+            "serviceType": ["Webentwicklung", "SEO"],
+            "areaServed": [{"@type": "City", "name": "Rostock"}],
+            "priceRange": "$$"
+        });
+
+        seo.structured_data.json_ld.push(schema::JsonLdSchema {
+            schema_type: "WebPage".to_string(),
+            schema_types: vec!["WebPage".to_string()],
+            content: webpage,
+            is_valid: true,
+        });
+        seo.structured_data.json_ld.push(schema::JsonLdSchema {
+            schema_type: "ProfessionalService".to_string(),
+            schema_types: vec![
+                "ProfessionalService".to_string(),
+                "LocalBusiness".to_string(),
+            ],
+            content: service,
+            is_valid: true,
+        });
+        seo.structured_data.types.push(SchemaType::WebPage);
+        seo.structured_data
+            .types
+            .push(SchemaType::Other("ProfessionalService".to_string()));
+        seo.structured_data.types.push(SchemaType::LocalBusiness);
+        seo.structured_data.has_structured_data = true;
+
+        let profile = build_content_profile(&seo);
+        assert_eq!(profile.schema_inventory.total_count, 2);
+
+        let webpage_detail = profile
+            .schema_inventory
+            .schemas
+            .iter()
+            .find(|s| s.schema_type == "WebPage")
+            .expect("WebPage schema missing");
+        assert!(webpage_detail.completeness_pct >= 85);
+
+        let service_detail = profile
+            .schema_inventory
+            .schemas
+            .iter()
+            .find(|s| s.schema_type == "ProfessionalService")
+            .expect("ProfessionalService schema missing");
+        assert!(service_detail.completeness_pct >= 75);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "auditmysite"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
@@ -62,8 +62,7 @@ fluent-syntax = "0.11"
 unic-langid = "0.9"
 
 # PDF report generation via Typst
-# Pin a known-good revision to avoid unexpected breakage from upstream `main`.
-renderreport = { git = "https://github.com/casoon/renderreport.git", rev = "d7f6164ccfaed61bf53c59a5307489bb09896f86", optional = true }
+renderreport = { version = "0.1.0-alpha.3", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

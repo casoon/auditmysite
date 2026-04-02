@@ -68,6 +68,7 @@ pub struct Args {
     ///
     /// Single URL + default PDF mode writes to `./<domain>-<date>-<report-level>.pdf`.
     /// JSON without `-o` prints to stdout.
+    /// With `--per-page-reports`, `-o` is treated as the target directory.
     #[arg(short = 'o', long, value_name = "FILE")]
     pub output: Option<PathBuf>,
 
@@ -167,6 +168,13 @@ pub struct Args {
     /// If a populated sitemap is discovered for a base URL, scan it directly
     #[arg(long)]
     pub prefer_sitemap: bool,
+
+    /// For sitemap or URL-file inputs, generate one single-page report per URL
+    ///
+    /// Batch inputs normally create one aggregated domain report. With this flag,
+    /// auditmysite still scans all URLs but writes individual reports per page.
+    #[arg(long)]
+    pub per_page_reports: bool,
 
     /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum)]
@@ -302,6 +310,7 @@ impl Args {
     pub fn effective_format(&self) -> OutputFormat {
         match self.format {
             Some(format) => format,
+            None if self.per_page_reports => OutputFormat::Pdf,
             None if self.url.is_some() => OutputFormat::Pdf,
             None => OutputFormat::Table,
         }
@@ -461,6 +470,7 @@ mod tests {
             force_refresh: false,
             no_sitemap_suggest: false,
             prefer_sitemap: false,
+            per_page_reports: false,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
             company_name: None,
@@ -518,6 +528,14 @@ mod tests {
         let mut args = test_args(None);
         args.sitemap = Some("https://example.com/sitemap.xml".to_string());
         assert_eq!(args.effective_format(), OutputFormat::Table);
+    }
+
+    #[test]
+    fn test_effective_format_defaults_to_pdf_for_per_page_batch_reports() {
+        let mut args = test_args(None);
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        args.per_page_reports = true;
+        assert_eq!(args.effective_format(), OutputFormat::Pdf);
     }
 
     #[test]

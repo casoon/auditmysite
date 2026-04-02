@@ -161,7 +161,9 @@ pub struct SummaryBlock {
     pub certificate: String,
     pub domain: String,
     pub date: String,
+    pub executive_lead: String,
     pub verdict: String,
+    pub score_note: Option<String>,
     pub metrics: Vec<MetricItem>,
     pub top_actions: Vec<String>,
     pub positive_aspects: Vec<String>,
@@ -219,6 +221,8 @@ pub struct ModuleScore {
     pub name: String,
     pub score: u32,
     pub interpretation: String,
+    pub card_context: String,
+    pub score_context: String,
     pub key_lever: String,
     pub good_threshold: u32,
     pub warn_threshold: u32,
@@ -300,6 +304,7 @@ pub struct FindingGroup {
     pub occurrence_count: usize,
     pub affected_urls: Vec<String>,
     pub affected_elements: usize,
+    pub location_hints: Vec<String>,
     pub responsible_role: Role,
     pub effort: Effort,
     pub execution_priority: ExecutionPriority,
@@ -327,6 +332,7 @@ pub struct PerformancePresentation {
     pub interpretation: String,
     pub vitals: Vec<(String, String, String)>,
     pub additional_metrics: Vec<(String, String)>,
+    pub recommendations: Vec<String>,
 }
 
 pub struct SeoPresentation {
@@ -337,6 +343,8 @@ pub struct SeoPresentation {
     pub heading_summary: String,
     pub social_summary: String,
     pub technical_summary: Vec<(String, String)>,
+    pub tracking_summary: Vec<(String, String)>,
+    pub tracking_summary_text: String,
     pub profile: Option<SeoProfilePresentation>,
 }
 
@@ -348,6 +356,7 @@ pub struct SeoProfilePresentation {
     pub content_type: String,
     pub language: String,
     pub category_hints: Vec<String>,
+    pub identity_facts: Vec<(String, String)>,
     // Page Classification
     pub page_type: String,
     pub page_attributes: Vec<String>,
@@ -357,6 +366,7 @@ pub struct SeoProfilePresentation {
     pub intent_fit_score: u32,
     pub page_profile_summary: String,
     pub optimization_note: String,
+    pub page_profile_facts: Vec<(String, String)>,
     // Schema Inventory: (type, completeness%, details)
     pub schema_rows: Vec<(String, String, String)>,
     pub schema_count: usize,
