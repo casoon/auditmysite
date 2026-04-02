@@ -431,7 +431,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let i18n = I18n::new(&config.locale)?;
     let pres = build_batch_presentation(batch);
 
-    let author = config.company_name.as_deref().unwrap_or("AuditMySite");
+    let author = extract_domain(&pres.cover.url);
 
     let mut builder = engine
         .report("wcag-batch-audit")
@@ -439,7 +439,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .subtitle(&pres.cover.url)
         .metadata("date", &pres.cover.date)
         .metadata("version", &pres.cover.version)
-        .metadata("author", author)
+        .metadata("author", &author)
         .metadata("footer_prefix", "Erstellt mit")
         .metadata("footer_link_url", "https://auditmysite.casoon.dev");
 
@@ -454,7 +454,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let batch_score = pres.portfolio_summary.average_score.round() as u32;
     builder = builder
         .add_component(
-            Label::new(author)
+            Label::new(&author)
                 .with_size("10pt")
                 .bold()
                 .with_color("#0f766e"),
@@ -1053,7 +1053,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 /// Generate a competitive comparison PDF report.
 pub fn generate_comparison_pdf(
     comparison: &crate::audit::ComparisonReport,
-    config: &ReportConfig,
+    _config: &ReportConfig,
 ) -> anyhow::Result<Vec<u8>> {
     let engine = create_engine()?;
 
@@ -1068,18 +1068,22 @@ pub fn generate_comparison_pdf(
             / comparison.entries.len() as u64) as u32
     };
 
-    let author = config.company_name.as_deref().unwrap_or("AuditMySite");
+    let author = comparison
+        .entries
+        .first()
+        .map(|e| extract_domain(&e.url))
+        .unwrap_or_default();
 
     let mut builder = engine
         .report("wcag-comparison")
         .metadata("date", chrono::Local::now().format("%d.%m.%Y").to_string())
-        .metadata("author", author)
+        .metadata("author", &author)
         .metadata("footer_prefix", "Erstellt mit")
         .metadata("footer_link_url", "https://auditmysite.casoon.dev");
 
     builder = builder
         .add_component(
-            Label::new(author)
+            Label::new(&author)
                 .with_size("10pt")
                 .bold()
                 .with_color("#0f766e"),
@@ -2803,4 +2807,12 @@ mod tests {
             "https://example.com"
         );
     }
+}
+
+fn extract_domain(url: &str) -> String {
+    let without_scheme = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    let host = without_scheme.split('/').next().unwrap_or(without_scheme);
+    host.trim_start_matches("www.").to_string()
 }

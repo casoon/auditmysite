@@ -59,11 +59,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let date = normalized.timestamp.format("%d.%m.%Y").to_string();
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
-    let report_author = config
-        .company_name
-        .as_deref()
-        .unwrap_or("AuditMySite")
-        .to_string();
+    let report_author = extract_domain(&normalized.url);
     let has_quality_modules = normalized.module_scores.len() > 1;
 
     let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
@@ -3299,4 +3295,13 @@ impl Clone for RoleAssignment {
             responsibilities: self.responsibilities.clone(),
         }
     }
+}
+
+/// Extract the bare domain from a URL (strips scheme, www, trailing slash).
+fn extract_domain(url: &str) -> String {
+    let without_scheme = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    let host = without_scheme.split('/').next().unwrap_or(without_scheme);
+    host.trim_start_matches("www.").to_string()
 }
