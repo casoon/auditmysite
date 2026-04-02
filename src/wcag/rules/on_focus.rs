@@ -19,6 +19,8 @@ pub const ON_FOCUS_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "Receiving focus does not initiate a change of context",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/on-focus.html",
+    axe_id: "focus-no-context-change",
+    tags: &["wcag2a", "wcag321", "cat.keyboard"],
 };
 
 pub fn check_on_focus(tree: &AXTree) -> WcagResults {

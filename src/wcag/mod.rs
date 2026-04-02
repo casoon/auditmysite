@@ -6,5 +6,5 @@ pub mod engine;
 pub mod rules;
 pub mod types;
 
-pub use engine::check_all;
+pub use engine::{check_all, check_all_with_config, RuleFilterConfig};
 pub use types::{RuleMetadata, Severity, Violation, WcagResults};

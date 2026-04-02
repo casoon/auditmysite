@@ -15,6 +15,8 @@ pub const INSTRUCTIONS_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "Labels or instructions are provided when content requires user input",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
+    axe_id: "label",
+    tags: &["wcag2a", "wcag332", "cat.forms"],
 };
 
 /// Check for labels and instructions on form controls

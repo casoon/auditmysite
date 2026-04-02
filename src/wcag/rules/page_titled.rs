@@ -15,6 +15,8 @@ pub const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "Web pages have titles that describe topic or purpose",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/page-titled.html",
+    axe_id: "document-title",
+    tags: &["wcag2a", "wcag242", "cat.text-alternatives"],
 };
 
 /// Check for proper page title

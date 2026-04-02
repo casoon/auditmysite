@@ -15,6 +15,8 @@ pub const LANGUAGE_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "The default human language of each Web page can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
+    axe_id: "html-has-lang",
+    tags: &["wcag2a", "wcag311", "cat.language"],
 };
 
 /// Check for valid lang attribute on the document

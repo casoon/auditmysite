@@ -5,15 +5,36 @@
 use tracing::{debug, info};
 
 use super::rules::{
-    check_bypass_blocks, check_focus_order, check_focus_visible, check_headings,
+    check_accessible_name, check_aria_relationships, check_aria_roles, check_bypass_blocks,
+    check_dialog_rules, check_focus_order, check_focus_visible, check_form_rules, check_headings,
     check_info_relationships, check_input_purpose, check_instructions, check_keyboard,
-    check_label_in_name, check_labels, check_language, check_link_purpose, check_non_text_contrast,
-    check_on_focus, check_on_input, check_page_titled, check_resize_text, check_section_headings,
-    check_text_alternatives,
+    check_label_in_name, check_labels, check_landmarks, check_language, check_link_purpose,
+    check_list_structure, check_media_rules, check_non_text_contrast, check_on_focus,
+    check_on_input, check_page_titled, check_resize_text, check_section_headings, check_svg_rules,
+    check_table_rules, check_text_alternatives, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
+
+/// Rule filtering configuration (subset of cli::config::RulesConfig for the engine)
+#[derive(Debug, Clone, Default)]
+pub struct RuleFilterConfig {
+    /// axe_ids of rules to disable
+    pub disabled_rules: Vec<String>,
+    /// If non-empty, only run these rules (by axe_id)
+    pub enabled_only_rules: Vec<String>,
+}
+
+impl RuleFilterConfig {
+    /// Returns true if the rule with the given axe_id should be run
+    pub fn should_run(&self, axe_id: &str) -> bool {
+        if !self.enabled_only_rules.is_empty() {
+            return self.enabled_only_rules.iter().any(|r| r == axe_id);
+        }
+        !self.disabled_rules.iter().any(|r| r == axe_id)
+    }
+}
 
 /// Run all WCAG checks against an AXTree
 ///
@@ -24,6 +45,23 @@ use crate::cli::WcagLevel;
 /// # Returns
 /// Results containing all violations found
 pub fn check_all(tree: &AXTree, level: WcagLevel) -> WcagResults {
+    check_all_with_config(tree, level, &RuleFilterConfig::default())
+}
+
+/// Run all WCAG checks against an AXTree with optional rule filtering
+///
+/// # Arguments
+/// * `tree` - The accessibility tree to check
+/// * `level` - The WCAG conformance level to check against
+/// * `filter` - Rule filter configuration (disabled/enabled_only rules)
+///
+/// # Returns
+/// Results containing all violations found
+pub fn check_all_with_config(
+    tree: &AXTree,
+    level: WcagLevel,
+    filter: &RuleFilterConfig,
+) -> WcagResults {
     info!("Running WCAG checks at level {}", level);
 
     let mut results = WcagResults::new();
@@ -31,18 +69,18 @@ pub fn check_all(tree: &AXTree, level: WcagLevel) -> WcagResults {
 
     // Run Level A rules
     debug!("Running Level A rules...");
-    run_level_a_rules(tree, &mut results);
+    run_level_a_rules(tree, &mut results, filter);
 
     // Run Level AA rules if requested
     if matches!(level, WcagLevel::AA | WcagLevel::AAA) {
         debug!("Running Level AA rules...");
-        run_level_aa_rules(tree, &mut results);
+        run_level_aa_rules(tree, &mut results, filter);
     }
 
     // Run Level AAA rules if requested
     if level == WcagLevel::AAA {
         debug!("Running Level AAA rules...");
-        run_level_aaa_rules(tree, &mut results);
+        run_level_aaa_rules(tree, &mut results, filter);
     }
 
     info!(
@@ -53,95 +91,191 @@ pub fn check_all(tree: &AXTree, level: WcagLevel) -> WcagResults {
     results
 }
 
+/// Merge rule results only if the filter allows the given axe_id
+macro_rules! run_if_allowed {
+    ($filter:expr, $axe_id:expr, $check_fn:expr, $results:expr, $tree:expr) => {
+        if $filter.should_run($axe_id) {
+            let rule_results = $check_fn($tree);
+            $results.merge(rule_results);
+        }
+    };
+}
+
 /// Run all Level A rules
-fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults) {
+fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
     // 1.1.1 Non-text Content (Level A)
-    let alt_results = check_text_alternatives(tree);
-    results.merge(alt_results);
+    run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
 
     // 1.3.1 Info and Relationships (Level A)
-    let info_results = check_info_relationships(tree);
-    results.merge(info_results);
+    run_if_allowed!(
+        filter,
+        "definition-list",
+        check_info_relationships,
+        results,
+        tree
+    );
 
     // 2.1.1 Keyboard (Level A)
-    let keyboard_results = check_keyboard(tree);
-    results.merge(keyboard_results);
+    run_if_allowed!(filter, "keyboard", check_keyboard, results, tree);
 
     // 2.4.1 Bypass Blocks (Level A)
-    let bypass_results = check_bypass_blocks(tree);
-    results.merge(bypass_results);
+    run_if_allowed!(filter, "bypass", check_bypass_blocks, results, tree);
 
     // 2.4.2 Page Titled (Level A)
-    let page_titled_results = check_page_titled(tree);
-    results.merge(page_titled_results);
+    run_if_allowed!(filter, "document-title", check_page_titled, results, tree);
 
     // 2.4.4 Link Purpose (In Context) (Level A)
-    let link_results = check_link_purpose(tree);
-    results.merge(link_results);
+    run_if_allowed!(filter, "link-name", check_link_purpose, results, tree);
 
     // 3.1.1 Language of Page (Level A)
-    let language_results = check_language(tree);
-    results.merge(language_results);
+    run_if_allowed!(filter, "html-has-lang", check_language, results, tree);
 
     // 3.3.2 Labels or Instructions (Level A)
-    let instructions_results = check_instructions(tree);
-    results.merge(instructions_results);
+    run_if_allowed!(filter, "label", check_instructions, results, tree);
 
     // 2.4.3 Focus Order (Level A)
-    let focus_order_results = check_focus_order(tree);
-    results.merge(focus_order_results);
+    run_if_allowed!(
+        filter,
+        "focus-order-semantics",
+        check_focus_order,
+        results,
+        tree
+    );
 
     // 2.5.3 Label in Name (Level A)
-    let label_in_name_results = check_label_in_name(tree);
-    results.merge(label_in_name_results);
+    run_if_allowed!(
+        filter,
+        "label-content-name-mismatch",
+        check_label_in_name,
+        results,
+        tree
+    );
 
     // 3.2.1 On Focus (Level A)
-    let on_focus_results = check_on_focus(tree);
-    results.merge(on_focus_results);
+    run_if_allowed!(
+        filter,
+        "focus-no-context-change",
+        check_on_focus,
+        results,
+        tree
+    );
 
     // 3.2.2 On Input (Level A)
-    let on_input_results = check_on_input(tree);
-    results.merge(on_input_results);
+    run_if_allowed!(
+        filter,
+        "input-no-context-change",
+        check_on_input,
+        results,
+        tree
+    );
 
     // 4.1.2 Name, Role, Value (Level A)
-    let label_results = check_labels(tree);
-    results.merge(label_results);
+    run_if_allowed!(filter, "label", check_labels, results, tree);
+
+    // 4.1.2 ARIA Role Validity (Level A)
+    run_if_allowed!(filter, "aria-roles", check_aria_roles, results, tree);
+
+    // 4.1.2 Accessible Name Extended (Level A)
+    run_if_allowed!(filter, "aria-label", check_accessible_name, results, tree);
+
+    // 4.1.2 ARIA Relationship Attributes (Level A)
+    run_if_allowed!(
+        filter,
+        "aria-valid-attr",
+        check_aria_relationships,
+        results,
+        tree
+    );
+
+    // 1.3.1 / 4.1.2 Table Rules (Level A) - P1
+    run_if_allowed!(
+        filter,
+        "table-duplicate-name",
+        check_table_rules,
+        results,
+        tree
+    );
+
+    // 1.3.1 / 3.3.1 / 3.3.2 Form Rules (Level A) - P1
+    run_if_allowed!(
+        filter,
+        "form-field-multiple-labels",
+        check_form_rules,
+        results,
+        tree
+    );
+
+    // 1.3.1 List Structure (Level A) - P1
+    run_if_allowed!(filter, "list", check_list_structure, results, tree);
+
+    // 4.1.2 / 2.4.3 Dialog Rules (Level A) - P1
+    run_if_allowed!(filter, "dialog-name", check_dialog_rules, results, tree);
+
+    // 4.1.2 / 2.1.1 Widget Rules (Level A) - P2
+    run_if_allowed!(
+        filter,
+        "aria-required-children",
+        check_widget_rules,
+        results,
+        tree
+    );
+
+    // 1.2.1 / 1.1.1 Media Rules (Level A) - P2
+    run_if_allowed!(filter, "video-caption", check_media_rules, results, tree);
+
+    // 1.1.1 SVG Rules (Level A) - P2
+    run_if_allowed!(filter, "svg-img-alt", check_svg_rules, results, tree);
 }
 
 /// Run all Level AA rules
-fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults) {
+fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
     // Note: 1.4.3 Contrast (Minimum) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
     // 1.3.5 Identify Input Purpose (Level AA)
-    let input_purpose_results = check_input_purpose(tree);
-    results.merge(input_purpose_results);
+    run_if_allowed!(
+        filter,
+        "autocomplete-valid",
+        check_input_purpose,
+        results,
+        tree
+    );
 
     // 1.4.4 Resize Text (Level AA)
-    let resize_results = check_resize_text(tree);
-    results.merge(resize_results);
+    run_if_allowed!(filter, "meta-viewport", check_resize_text, results, tree);
 
     // 1.4.11 Non-text Contrast (Level AA)
-    let non_text_contrast_results = check_non_text_contrast(tree);
-    results.merge(non_text_contrast_results);
+    run_if_allowed!(
+        filter,
+        "non-text-contrast",
+        check_non_text_contrast,
+        results,
+        tree
+    );
 
     // 2.4.6 Headings and Labels (Level AA)
-    let heading_results = check_headings(tree);
-    results.merge(heading_results);
+    run_if_allowed!(filter, "heading-order", check_headings, results, tree);
 
     // 2.4.7 Focus Visible (Level AA)
-    let focus_visible_results = check_focus_visible(tree);
-    results.merge(focus_visible_results);
+    run_if_allowed!(filter, "focus-visible", check_focus_visible, results, tree);
+
+    // 2.4.1 / 1.3.6 Landmark Regions (Level AA)
+    run_if_allowed!(filter, "landmark-one-main", check_landmarks, results, tree);
 }
 
 /// Run all Level AAA rules
-fn run_level_aaa_rules(tree: &AXTree, results: &mut WcagResults) {
+fn run_level_aaa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
     // Note: 1.4.6 Contrast (Enhanced) requires CDP page access and is
     // handled separately in the pipeline via ContrastRule::check_with_page
 
     // 2.4.10 Section Headings (Level AAA)
-    let section_results = check_section_headings(tree);
-    results.merge(section_results);
+    run_if_allowed!(
+        filter,
+        "heading-order",
+        check_section_headings,
+        results,
+        tree
+    );
 
     debug!("Level AAA rules executed");
 }

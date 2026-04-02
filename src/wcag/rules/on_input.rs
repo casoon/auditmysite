@@ -20,6 +20,8 @@ pub const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "Changing a setting does not automatically cause a change of context",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/on-input.html",
+    axe_id: "input-no-context-change",
+    tags: &["wcag2a", "wcag322", "cat.keyboard"],
 };
 
 pub fn check_on_input(tree: &AXTree) -> WcagResults {

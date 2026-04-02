@@ -16,6 +16,8 @@ pub const INPUT_PURPOSE_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "The purpose of each input field can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/identify-input-purpose.html",
+    axe_id: "autocomplete-valid",
+    tags: &["wcag2aa", "wcag135", "cat.forms"],
 };
 
 /// Known autocomplete token values per HTML spec

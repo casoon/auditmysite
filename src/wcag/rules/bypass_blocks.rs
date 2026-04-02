@@ -15,6 +15,8 @@ pub const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "A mechanism is available to bypass blocks of content that are repeated",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html",
+    axe_id: "bypass",
+    tags: &["wcag2a", "wcag241", "cat.keyboard"],
 };
 
 /// Check for bypass block mechanisms (skip links, landmarks)

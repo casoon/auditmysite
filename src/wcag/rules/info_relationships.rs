@@ -16,6 +16,8 @@ pub const INFO_RELATIONSHIPS_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "Information, structure, and relationships can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    axe_id: "definition-list",
+    tags: &["wcag2a", "wcag131", "cat.structure"],
 };
 
 /// Check for proper info and relationships

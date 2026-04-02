@@ -2,6 +2,9 @@
 //!
 //! Analyzes viewport, touch targets, font sizes, and responsive layout.
 
+pub mod ux_heuristics;
+pub use ux_heuristics::{analyze_ux_heuristics, UxHeuristicFinding, UxHeuristics};
+
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::info;

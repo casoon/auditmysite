@@ -20,6 +20,8 @@ pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "Text must have sufficient color contrast with background",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html",
+    axe_id: "color-contrast",
+    tags: &["wcag2aa", "wcag143", "cat.color"],
 };
 
 /// WCAG 1.4.3: Contrast (Minimum)

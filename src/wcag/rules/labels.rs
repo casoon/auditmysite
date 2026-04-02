@@ -16,6 +16,8 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     description:
         "For all user interface components, the name and role can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    axe_id: "label",
+    tags: &["wcag2a", "wcag412", "cat.forms"],
 };
 
 /// Check that form controls and interactive elements have accessible names

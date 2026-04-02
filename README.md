@@ -38,8 +38,8 @@ auditmysite https://example.com
 
 By default, a single URL audit runs the full analysis set, prints a compact terminal summary, and writes report artifacts into the current working directory:
 
-- `./example-com-YYYY-MM-DD-standard.pdf`
-- `./example-com-YYYY-MM-DD-standard.json`
+- `./example-com-YYYY-MM-DD-single-report.pdf`
+- `./example-com-YYYY-MM-DD-single-report.json`
 - `./example-com-history.json`
 
 For CI or machine-readable output:
@@ -68,8 +68,8 @@ auditmysite https://www.in-punkto.com
 
 That default command writes report artifacts into the current directory, for example:
 
-- `./in-punkto-com-YYYY-MM-DD-standard.pdf`
-- `./in-punkto-com-YYYY-MM-DD-standard.json`
+- `./in-punkto-com-YYYY-MM-DD-single-report.pdf`
+- `./in-punkto-com-YYYY-MM-DD-single-report.json`
 - `./in-punkto-com-history.json`
 
 ### Prebuilt binaries
@@ -198,32 +198,78 @@ The repository validates these contracts in automated tests.
 
 ## Feature Scope
 
-WCAG coverage currently includes key rules across level A and AA, including:
-- Non-text content
-- Keyboard access
-- Bypass blocks
-- Language of page
-- Name, role, value / form labeling
-- Contrast (minimum)
-- Headings and labels
-- Labels or instructions
+### WCAG rules (Level A and AA)
+
+Core rules:
+- Non-text content (1.1.1)
+- Keyboard access (2.1.1)
+- Bypass blocks (2.4.1)
+- Language of page (3.1.1)
+- Name, role, value / form labeling (4.1.2)
+- Contrast minimum (1.4.3) and non-text contrast (1.4.11)
+- Headings and labels (2.4.6)
+- Labels or instructions (3.3.2)
+- Focus order (2.4.3) and focus visible (2.4.7)
+- Label in name (2.5.3)
+
+ARIA and semantics:
+- ARIA role validation — invalid roles, required owned elements, required context
+- Accessible name checks — icon-only controls, empty aria-labelledby/describedby, name/description conflicts
+- ARIA relationship checks — aria-controls, aria-owns, aria-activedescendant, duplicate IDs
+- Landmark structure — main, navigation, banner, contentinfo (presence, duplicates, labels for multiple same-type landmarks)
+- Table rules — caption/name, header cells, presentational tables, cell placement
+- Form rules — fieldset/legend for grouped controls, required field indication, error description
+- List structure — listitem context, empty lists, definition list integrity
+- Dialog rules — accessible name, aria-modal, alert region labeling
+- Widget rules — tab/tabpanel pairing, selected state, combobox options, slider value, tree context
+- Media rules — application and image-role elements without accessible names
+- SVG rules — SVG image accessible names
+
+Each violation carries a stable axe-core-compatible `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
 AAA is not fully implemented yet.
 
-Additional modules:
+### Additional modules
+
 - Performance: Core Web Vitals and score interpretation
 - SEO: meta tags, headings, structured data, content profile, tracking/external services signals
 - Security: HTTPS and header checks
-- Mobile: viewport, touch-target, and readability checks
+- Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
+
+### Rule configuration
+
+Rules can be selectively disabled or filtered via `auditmysite.toml`:
+
+```toml
+[rules]
+disabled = ["heading-order", "landmark-one-main"]
+# enabled_only = ["image-alt", "label"]  # run only these rules
+```
+
+### Baseline and CI diff
+
+Save a baseline snapshot and compare future runs against it:
+
+```bash
+# Save baseline
+auditmysite https://example.com -f json -o baseline.json
+
+# Future CI runs can diff against the baseline programmatically via the Rust API
+```
+
+The `Baseline` type in the `audit` module supports `from_violations`, `diff`, `load`, and `save`.
 
 ## Report Modes
 
-Single-page reports and sitemap reports are intentionally different.
+Single-page reports and sitemap/batch reports are intentionally different.
 
-- Single-page report: detailed, page-specific, with executive summary, prioritized findings, technical implementation notes, SEO content profile, and module detail sections.
-- Sitemap/batch report: aggregated, domain-wide, with averages, ranking, recurring issues, URL matrix, and compact content/domain patterns.
+**Single-page report** is structured in two layers:
+- Top (decision layer): hero block with score, top 3 problems, next 3 steps, overall assessment (UX/Accessibility, Technik/Sicherheit, SEO), trend
+- Bottom (implementation layer): task block ("Was jetzt tun?" with role, effort, impact, priority), module overview, key findings, technical implementation details, detailed metrics
 
-Batch reports are not intended to become a stack of single-page reports.
+**Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics.
+
+Batch reports are not a stack of single-page reports.
 
 ## Compared to typical setups
 
@@ -231,6 +277,7 @@ Batch reports are not intended to become a stack of single-page reports.
 - Easier to distribute than a multi-package browser toolchain
 - More automation-friendly than ad hoc console output because the JSON contract is explicit and tested
 - Broader reporting surface than a pure accessibility-only checker when you also want performance, SEO, security, and mobile signals
+- Violations carry axe-core-compatible `rule_id`, `tags`, and `impact` — easier to integrate with existing tooling or dashboards
 
 ## Typical Workflows
 

@@ -150,24 +150,55 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = builder.add_component(TableOfContents::new().with_depth(1));
     }
 
-    // ── 1. Executive Summary ────────────────────────────────────────
+    // ── 1. Hero / Ergebnisblock ─────────────────────────────────────
     builder = builder
         .add_component(soft_flow_group(
             "320pt",
             vec![
-                component_json(Section::new("Executive Summary").with_level(1)),
+                component_json(Section::new("Ergebnisblock").with_level(1)),
                 component_json(Callout::info(&vm.summary.executive_lead).with_title("Einordnung")),
                 component_json(build_summary_overview(&vm.summary)),
-                component_json(build_executive_highlights_table(&vm)),
+                component_json(build_hero_highlights_table(&vm, &i18n)),
             ],
         ))
         .add_component(
             Callout::info(build_executive_recommendation(&vm))
-                .with_title("Empfehlung und Einordnung"),
+                .with_title("Empfehlung und nächste Schritte"),
         );
 
     // Executive level: compact view
     if vm.meta.report_level == ReportLevel::Executive {
+        // ── 2. Gesamtbewertung (Executive) ──────────────────────────
+        builder = builder
+            .add_component(PageBreak::new())
+            .add_component(soft_flow_group(
+                "280pt",
+                vec![
+                    component_json(Section::new("Gesamtbewertung").with_level(1)),
+                    component_json(build_gesamtbewertung_grid(&vm.modules)),
+                    component_json(build_module_summary_table(&vm.modules)),
+                ],
+            ));
+
+        if vm.modules.dashboard.len() > 1 {
+            builder = builder.add_component(build_module_comparison(&vm.modules));
+        }
+
+        // ── 3. Trend (Executive) ─────────────────────────────────────
+        if let Some(ref history) = vm.history {
+            builder = render_history_section(builder, history);
+        }
+
+        // ── 4. Was jetzt tun? (Executive) ────────────────────────────
+        builder = builder
+            .add_component(PageBreak::new())
+            .add_component(Section::new("Was jetzt tun?").with_level(1))
+            .add_component(TextBlock::new(
+                "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist direkt umsetzbar — kein Abstract, keine langen Tabellen.",
+            ));
+        builder = render_was_jetzt_tun_table(builder, &vm);
+
+        // ── 5. Key Findings (Executive) ──────────────────────────────
         builder = builder
             .add_component(PageBreak::new())
             .add_component(Section::new("Key Findings").with_level(1));
@@ -179,31 +210,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             builder = render_key_finding_block(builder, group, &i18n);
         }
 
-        builder = builder
-            .add_component(PageBreak::new())
-            .add_component(soft_flow_group(
-                "320pt",
-                vec![
-                    component_json(Section::new(i18n.t("section-modules")).with_level(1)),
-                    component_json(build_module_dashboard(&vm.modules)),
-                    component_json(build_module_summary_table(&vm.modules)),
-                ],
-            ));
-
-        if vm.modules.dashboard.len() > 1 {
-            builder = builder.add_component(build_module_comparison(&vm.modules));
-        }
-
-        builder = builder
-            .add_component(PageBreak::new())
-            .add_component(Section::new("Maßnahmenplan").with_level(1))
-            .add_component(TextBlock::new(&vm.actions.intro_text));
-        builder = render_action_plan_tables(builder, &vm.actions);
-
-        if let Some(ref history) = vm.history {
-            builder = render_history_section(builder, history);
-        }
-
         builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
         let built_report = builder.build();
@@ -212,40 +218,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     builder = builder.add_component(PageBreak::new());
 
-    // ── 2. Key Findings ─────────────────────────────────────────────
-    builder = builder
-        .add_component(Section::new("Key Findings").with_level(1))
-        .add_component(TextBlock::new(
-            "Diese Themen sollten Sie zuerst angehen. Jeder Block zeigt kurz Problem, Relevanz und die empfohlene nächste Maßnahme.",
-        ));
-
-    for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
-        if idx > 0 {
-            builder = builder.add_component(PageBreak::new());
-        }
-        builder = render_key_finding_block(builder, group, &i18n);
-    }
-
-    // ── 3. Quick Wins ───────────────────────────────────────────────
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new("Quick Wins").with_level(1))
-        .add_component(TextBlock::new(
-            "Diese Punkte sind mit vergleichsweise wenig Aufwand umsetzbar und verbessern die Seite schnell sichtbar.",
-        ))
-        .add_component(build_quick_wins_table(&vm.actions));
-
-    // ── 4. Module Overview ──────────────────────────────────────────
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(soft_flow_group(
-            "320pt",
-            vec![
-                component_json(Section::new("Modul-Übersicht").with_level(1)),
-                component_json(build_module_dashboard(&vm.modules)),
-                component_json(build_module_summary_table(&vm.modules)),
-            ],
-        ));
+    // ── 2. Gesamtbewertung ──────────────────────────────────────────
+    builder = builder.add_component(soft_flow_group(
+        "320pt",
+        vec![
+            component_json(Section::new("Gesamtbewertung").with_level(1)),
+            component_json(build_gesamtbewertung_grid(&vm.modules)),
+            component_json(build_module_summary_table(&vm.modules)),
+        ],
+    ));
 
     if let Some(ref overall_text) = vm.modules.overall_interpretation {
         builder =
@@ -256,16 +237,47 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = builder.add_component(build_module_comparison(&vm.modules));
     }
 
-    // ── 5. Maßnahmenplan ────────────────────────────────────────────
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new("Maßnahmenplan").with_level(1))
-        .add_component(TextBlock::new(&vm.actions.intro_text));
-    builder = render_action_plan_tables(builder, &vm.actions);
-
-    // ── 6. Historie ─────────────────────────────────────────────────
+    // ── 3. Entwicklung / Trend ──────────────────────────────────────
     if let Some(ref history) = vm.history {
         builder = render_history_section(builder, history);
+    }
+
+    // ── 4. Was jetzt tun? ───────────────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Was jetzt tun?").with_level(1))
+        .add_component(TextBlock::new(
+            "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist als direkter Task formuliert — mit Rolle, Aufwand, Wirkung und Priorität.",
+        ));
+    builder = render_was_jetzt_tun_table(builder, &vm);
+
+    // ── 5. Modulübersicht ───────────────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(soft_flow_group(
+            "280pt",
+            vec![
+                component_json(Section::new("Modulübersicht").with_level(1)),
+                component_json(TextBlock::new(
+                    "Jedes Modul beantwortet eine Frage: Was ist der aktuelle Stand, was ist die Bedeutung, und wo ist der größte Hebel?",
+                )),
+                component_json(build_module_detail_table(&vm.modules)),
+            ],
+        ));
+
+    // ── 6. Key Findings ─────────────────────────────────────────────
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Key Findings").with_level(1))
+        .add_component(TextBlock::new(
+            "Diese Themen sollten zuerst angegangen werden. Jeder Block zeigt Problem, Impact und die empfohlene Maßnahme — technische Details folgen im nächsten Abschnitt.",
+        ));
+
+    for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
+        if idx > 0 {
+            builder = builder.add_component(PageBreak::new());
+        }
+        builder = render_key_finding_block(builder, group, &i18n);
     }
 
     // ── 7. Technischer Detailteil ───────────────────────────────────
@@ -1283,78 +1295,6 @@ fn build_batch_overview_comparison(
     table
 }
 
-fn render_action_plan_tables(
-    mut builder: renderreport::engine::ReportBuilder,
-    actions: &ActionsBlock,
-) -> renderreport::engine::ReportBuilder {
-    for column in &actions.roadmap_columns {
-        let mut table = AuditTable::new(vec![
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Priorität"),
-            TableColumn::new("Aufwand"),
-        ])
-        .with_title(&column.title);
-
-        for item in &column.items {
-            table = table.add_row(vec![
-                item.action.clone(),
-                item.execution_priority.clone(),
-                item.effort.clone(),
-            ]);
-        }
-
-        builder = builder.add_component(table);
-    }
-
-    builder
-}
-
-fn build_executive_highlights_table(vm: &ReportViewModel) -> AuditTable {
-    let problems = if vm.findings.top_findings.is_empty() {
-        vec!["Keine priorisierten Probleme im automatischen Test erkannt.".to_string()]
-    } else {
-        vm.findings
-            .top_findings
-            .iter()
-            .take(3)
-            .map(|finding| {
-                format!(
-                    "{}: {}",
-                    finding.title,
-                    simplify_for_summary(&finding.customer_description)
-                )
-            })
-            .collect()
-    };
-
-    let strengths = if vm.summary.positive_aspects.is_empty() {
-        vec!["Die Seite ist grundsätzlich erreichbar und technisch auswertbar.".to_string()]
-    } else {
-        vm.summary
-            .positive_aspects
-            .iter()
-            .take(3)
-            .cloned()
-            .collect()
-    };
-
-    let mut table = AuditTable::new(vec![
-        TableColumn::new("Wichtigste Probleme"),
-        TableColumn::new("Wichtigste Stärken"),
-    ])
-    .with_title("Kernaussagen");
-
-    let max_rows = problems.len().max(strengths.len());
-    for idx in 0..max_rows {
-        table = table.add_row(vec![
-            problems.get(idx).cloned().unwrap_or_default(),
-            strengths.get(idx).cloned().unwrap_or_default(),
-        ]);
-    }
-
-    table
-}
-
 fn build_executive_recommendation(vm: &ReportViewModel) -> String {
     let lead = if let Some(first) = vm.findings.top_findings.first() {
         first.recommendation.clone()
@@ -1381,6 +1321,276 @@ fn build_executive_recommendation(vm: &ReportViewModel) -> String {
     }
 }
 
+/// Build the hero block highlights table: top 3 problems + top 3 next steps
+fn build_hero_highlights_table(vm: &ReportViewModel, i18n: &I18n) -> AuditTable {
+    let problems: Vec<String> = if vm.findings.top_findings.is_empty() {
+        vec!["Keine priorisierten Probleme im automatischen Test erkannt.".to_string()]
+    } else {
+        vm.findings
+            .top_findings
+            .iter()
+            .take(3)
+            .map(|f| {
+                format!(
+                    "[{}] {}: {}",
+                    severity_label_i18n(f.severity, i18n),
+                    f.title,
+                    simplify_for_summary(&f.customer_description)
+                )
+            })
+            .collect()
+    };
+
+    let next_steps: Vec<String> = if vm.summary.top_actions.is_empty() {
+        vec!["Qualität sichern und regelmäßige Audits einplanen.".to_string()]
+    } else {
+        vm.summary
+            .top_actions
+            .iter()
+            .take(3)
+            .map(|a| simplify_for_summary(a))
+            .collect()
+    };
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Top 3 Probleme"),
+        TableColumn::new("Nächste 3 Schritte"),
+    ])
+    .with_title("Sofortübersicht");
+
+    let max_rows = problems.len().max(next_steps.len());
+    for idx in 0..max_rows {
+        table = table.add_row(vec![
+            problems.get(idx).cloned().unwrap_or_default(),
+            next_steps.get(idx).cloned().unwrap_or_default(),
+        ]);
+    }
+
+    table
+}
+
+/// Build a 3-group overview grid: UX/Accessibility, Technik/Sicherheit, Sichtbarkeit/SEO
+fn build_gesamtbewertung_grid(modules: &ModulesBlock) -> Grid {
+    // Group modules thematically
+    let a11y = modules
+        .dashboard
+        .iter()
+        .find(|m| m.name == "Barrierefreiheit");
+    let perf = modules.dashboard.iter().find(|m| m.name == "Performance");
+    let seo = modules.dashboard.iter().find(|m| m.name == "SEO");
+    let sec = modules.dashboard.iter().find(|m| m.name == "Sicherheit");
+    let mob = modules.dashboard.iter().find(|m| m.name == "Mobile");
+
+    // UX/Accessibility: average of a11y + mobile
+    let ux_score = match (a11y, mob) {
+        (Some(a), Some(m)) => (a.score + m.score) / 2,
+        (Some(a), None) => a.score,
+        (None, Some(m)) => m.score,
+        (None, None) => 0,
+    };
+    let ux_label = match ux_score {
+        85..=100 => "Stark",
+        70..=84 => "Solide",
+        50..=69 => "Ausbaufähig",
+        _ => "Kritisch",
+    };
+
+    // Technik/Sicherheit: average of performance + security
+    let tech_score = match (perf, sec) {
+        (Some(p), Some(s)) => (p.score + s.score) / 2,
+        (Some(p), None) => p.score,
+        (None, Some(s)) => s.score,
+        (None, None) => 0,
+    };
+    let tech_label = match tech_score {
+        85..=100 => "Stark",
+        70..=84 => "Solide",
+        50..=69 => "Ausbaufähig",
+        _ => "Kritisch",
+    };
+
+    // Sichtbarkeit/SEO
+    let seo_score = seo.map(|s| s.score).unwrap_or(0);
+    let seo_label = match seo_score {
+        85..=100 => "Stark",
+        70..=84 => "Solide",
+        50..=69 => "Ausbaufähig",
+        _ => "Kritisch",
+    };
+
+    let mut grid = Grid::new(3);
+
+    // UX / Accessibility card
+    let ux_accent = score_quality_color(ux_score);
+    let ux_subtitle = if let Some(a) = a11y {
+        format!(
+            "{} · {}",
+            ux_label,
+            a.key_lever.split('.').next().unwrap_or("").trim()
+        )
+    } else {
+        ux_label.to_string()
+    };
+    grid = grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new("UX / Barrierefreiheit", format!("{ux_score} / 100"))
+            .with_subtitle(ux_subtitle)
+            .with_accent_color(ux_accent)
+            .to_data()
+    }));
+
+    // Technik / Sicherheit card
+    let tech_accent = score_quality_color(tech_score);
+    let tech_subtitle = if let Some(p) = perf {
+        format!(
+            "{} · {}",
+            tech_label,
+            p.key_lever.split('.').next().unwrap_or("").trim()
+        )
+    } else {
+        tech_label.to_string()
+    };
+    grid = grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new("Technik / Sicherheit", format!("{tech_score} / 100"))
+            .with_subtitle(tech_subtitle)
+            .with_accent_color(tech_accent)
+            .to_data()
+    }));
+
+    // Sichtbarkeit / SEO card
+    let seo_accent = score_quality_color(seo_score);
+    let seo_subtitle = if let Some(s) = seo {
+        format!(
+            "{} · {}",
+            seo_label,
+            s.key_lever.split('.').next().unwrap_or("").trim()
+        )
+    } else {
+        seo_label.to_string()
+    };
+    grid = grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new("Sichtbarkeit / SEO", format!("{seo_score} / 100"))
+            .with_subtitle(seo_subtitle)
+            .with_accent_color(seo_accent)
+            .to_data()
+    }));
+
+    grid
+}
+
+/// Build interpretive module detail table: Status + Bedeutung + größter Hebel
+fn build_module_detail_table(modules: &ModulesBlock) -> AuditTable {
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Modul"),
+        TableColumn::new("Score"),
+        TableColumn::new("Status"),
+        TableColumn::new("Bedeutung"),
+        TableColumn::new("Größter Hebel"),
+    ])
+    .with_title("Modulübersicht — Status und Interpretation");
+
+    for module in &modules.dashboard {
+        let status = if module.score >= module.good_threshold {
+            "Gut"
+        } else if module.score >= module.warn_threshold {
+            "Solide"
+        } else {
+            "Handlungsbedarf"
+        };
+
+        let bedeutung = module_bedeutung(&module.name);
+
+        table = table.add_row(vec![
+            module.name.clone(),
+            format!("{}/100", module.score),
+            status.to_string(),
+            bedeutung.to_string(),
+            simplify_for_summary(&module.key_lever),
+        ]);
+    }
+
+    table
+}
+
+fn module_bedeutung(name: &str) -> &'static str {
+    match name {
+        "Barrierefreiheit" => "Nutzbarkeit für alle — rechtliche Grundlage, UX-Qualität",
+        "Performance" => "Ladezeit und Reaktionsverhalten — direkt spürbar für Nutzer",
+        "SEO" => "Auffindbarkeit in Suchmaschinen — Reichweite und organischer Traffic",
+        "Sicherheit" => "Schutz vor Angriffen und Datenlecks — Vertrauen und Compliance",
+        "Mobile" => "Bedienbarkeit auf kleinen Bildschirmen — Mehrheit der Nutzer",
+        _ => "Qualitätsmerkmal der Website",
+    }
+}
+
+/// Render the "Was jetzt tun?" task block (max 5 actions, Maßnahme/Rolle/Aufwand/Wirkung/Priorität)
+fn render_was_jetzt_tun_table(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+) -> renderreport::engine::ReportBuilder {
+    // Collect top items from action roadmap, prioritize by execution priority
+    let all_items: Vec<&RoadmapItemData> = vm
+        .actions
+        .roadmap_columns
+        .iter()
+        .flat_map(|col| col.items.iter())
+        .collect();
+
+    // Sort: Sofort beheben / Direkt angehen first
+    let mut sorted: Vec<&RoadmapItemData> = all_items.clone();
+    sorted.sort_by_key(|i| {
+        let ep = i.execution_priority.as_str();
+        if ep.contains("Direkt") || ep.contains("Sofort") {
+            0u8
+        } else if ep.contains("Nächstes") || ep.contains("Wichtig") {
+            1
+        } else {
+            2
+        }
+    });
+
+    let selected: Vec<&RoadmapItemData> = sorted.into_iter().take(5).collect();
+
+    if selected.is_empty() {
+        builder = builder.add_component(
+            Callout::success(
+                "Keine priorisierten Maßnahmen identifiziert — Qualität sichern und regelmäßige Audits einplanen.",
+            )
+            .with_title("Aktuell keine offenen Maßnahmen"),
+        );
+        return builder;
+    }
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Maßnahme"),
+        TableColumn::new("Rolle"),
+        TableColumn::new("Aufwand"),
+        TableColumn::new("Wirkung"),
+        TableColumn::new("Priorität"),
+    ])
+    .with_title("Maßnahmenplan (Top 5)");
+
+    for item in selected {
+        let wirkung = if item.benefit.is_empty() {
+            item.execution_priority.clone()
+        } else {
+            simplify_for_summary(&item.benefit)
+        };
+        table = table.add_row(vec![
+            item.action.clone(),
+            item.role.clone(),
+            item.effort.clone(),
+            wirkung,
+            item.execution_priority.clone(),
+        ]);
+    }
+
+    builder = builder.add_component(table);
+    builder
+}
+
 fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
     let mut table = AuditTable::new(vec![
         TableColumn::new("Modul"),
@@ -1398,44 +1608,6 @@ fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {
             module.interpretation.clone(),
             simplify_for_summary(&module.score_context),
             simplify_for_summary(&module.key_lever),
-        ]);
-    }
-
-    table
-}
-
-fn build_quick_wins_table(actions: &ActionsBlock) -> AuditTable {
-    let quick_wins: Vec<&RoadmapItemData> = actions
-        .roadmap_columns
-        .iter()
-        .filter(|column| column.title.contains("Sofort") || column.title.contains("Quick"))
-        .flat_map(|column| column.items.iter())
-        .filter(|item| matches!(item.priority.as_str(), "Kritisch" | "Hoch"))
-        .take(5)
-        .collect();
-
-    let selected = if quick_wins.is_empty() {
-        actions
-            .roadmap_columns
-            .iter()
-            .flat_map(|column| column.items.iter())
-            .take(5)
-            .collect()
-    } else {
-        quick_wins
-    };
-
-    let mut table = AuditTable::new(vec![
-        TableColumn::new("Titel"),
-        TableColumn::new("Was tun"),
-        TableColumn::new("Nutzen"),
-    ]);
-
-    for item in selected {
-        table = table.add_row(vec![
-            quick_win_title(item),
-            item.action.clone(),
-            simplify_for_summary(&item.execution_priority),
         ]);
     }
 
@@ -1696,45 +1868,6 @@ fn certificate_badge_path(certificate: &str) -> anyhow::Result<String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-fn build_module_dashboard(modules: &ModulesBlock) -> Grid {
-    let columns = match modules.dashboard.len() {
-        0 | 1 => 1,
-        2 => 2,
-        _ => 3,
-    };
-
-    let mut grid = Grid::new(columns);
-
-    for module in &modules.dashboard {
-        let status = if module.score >= module.good_threshold {
-            "Sehr gut"
-        } else if module.score >= module.warn_threshold {
-            "Solide"
-        } else {
-            "Ausbaufähig"
-        };
-
-        let accent = if module.score >= module.good_threshold {
-            "#16a34a"
-        } else if module.score >= module.warn_threshold {
-            "#d97706"
-        } else {
-            "#dc2626"
-        };
-
-        let card = MetricCard::new(&module.name, format!("{} / 100", module.score))
-            .with_subtitle(format!("{} · {}", status, module.card_context))
-            .with_accent_color(accent);
-
-        grid = grid.add_item(serde_json::json!({
-            "type": "metric-card",
-            "data": card.to_data()
-        }));
-    }
-
-    grid
-}
-
 fn score_quality_label(score: u32) -> &'static str {
     match score {
         85..=100 => "Stark",
@@ -1992,21 +2125,6 @@ fn execution_priority_label(priority: ExecutionPriority) -> &'static str {
         ExecutionPriority::Immediate => "Direkt angehen",
         ExecutionPriority::Important => "Als Nächstes einplanen",
         ExecutionPriority::Optional => "Bei der nächsten Optimierungsrunde mitnehmen",
-    }
-}
-
-fn quick_win_title(item: &RoadmapItemData) -> String {
-    let title = item
-        .action
-        .split(['.', ':'])
-        .next()
-        .unwrap_or(item.action.as_str())
-        .trim();
-    let shortened: String = title.chars().take(48).collect();
-    if title.chars().count() > 48 {
-        format!("{shortened}…")
-    } else {
-        shortened
     }
 }
 

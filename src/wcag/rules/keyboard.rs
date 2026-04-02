@@ -15,6 +15,8 @@ pub const KEYBOARD_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Critical,
     description: "All functionality must be operable through a keyboard interface",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/keyboard.html",
+    axe_id: "keyboard",
+    tags: &["wcag2a", "wcag211", "cat.keyboard"],
 };
 
 /// Rule metadata for 2.1.2
@@ -25,6 +27,8 @@ pub const NO_KEYBOARD_TRAP_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Critical,
     description: "If keyboard focus can be moved to a component, focus can be moved away",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/no-keyboard-trap.html",
+    axe_id: "keyboard-trap",
+    tags: &["wcag2a", "wcag212", "cat.keyboard"],
 };
 
 /// Check for keyboard accessibility issues

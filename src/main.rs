@@ -4,7 +4,7 @@
 
 use std::fs;
 use std::io::{self, IsTerminal};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use chrono::Local;
@@ -423,9 +423,7 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
     };
 
     if args.prefer_sitemap {
-        let mut batch_args = args.clone();
-        batch_args.url = None;
-        batch_args.sitemap = Some(sitemap_url);
+        let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
         return run_batch_mode(&batch_args).await.map(Some);
     }
 
@@ -460,15 +458,27 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         .map_err(|e| AuditError::ConfigError(e.to_string()))?;
 
     if selection == 1 {
-        let mut batch_args = args.clone();
-        batch_args.url = None;
-        batch_args.sitemap = Some(sitemap_url);
+        let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
         println!();
         return run_batch_mode(&batch_args).await.map(Some);
     }
 
     println!();
     Ok(None)
+}
+
+fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
+    let mut batch_args = args.clone();
+    batch_args.url = None;
+    batch_args.sitemap = Some(sitemap_url);
+
+    // A user who started a single-URL audit without an explicit format expects a
+    // generated report file even when switching into sitemap mode interactively.
+    if batch_args.format.is_none() {
+        batch_args.format = Some(OutputFormat::Pdf);
+    }
+
+    batch_args
 }
 
 async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
@@ -1046,7 +1056,7 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
                 let path = args
                     .output
                     .clone()
-                    .unwrap_or_else(|| PathBuf::from("reports/batch-audit-report.pdf"));
+                    .unwrap_or_else(|| default_batch_pdf_output_path(args));
                 output_bytes(&pdf_bytes, &path, "PDF batch", args.quiet)?;
             }
             #[cfg(not(feature = "pdf"))]
@@ -1122,7 +1132,7 @@ fn output_directory(path: &std::path::Path) -> &std::path::Path {
 }
 
 #[cfg(feature = "pdf")]
-fn default_single_json_output_path(pdf_path: &Path) -> PathBuf {
+fn default_single_json_output_path(pdf_path: &std::path::Path) -> PathBuf {
     pdf_path.with_extension("json")
 }
 
@@ -1140,18 +1150,13 @@ fn per_page_output_path(
     format: OutputFormat,
     report_level: auditmysite::cli::ReportLevel,
 ) -> PathBuf {
+    let _ = report_level;
+    let date = Local::now().format("%Y-%m-%d");
+    let subject = report_subject_from_url(url);
     let filename = match format {
         OutputFormat::Pdf => default_single_pdf_output_path(url, report_level),
-        OutputFormat::Json => {
-            let date = Local::now().format("%Y-%m-%d");
-            let subject = report_subject_from_url(url);
-            PathBuf::from(format!("{subject}-{date}-{report_level}.json"))
-        }
-        OutputFormat::Table => {
-            let date = Local::now().format("%Y-%m-%d");
-            let subject = report_subject_from_url(url);
-            PathBuf::from(format!("{subject}-{date}-{report_level}.txt"))
-        }
+        OutputFormat::Json => PathBuf::from(format!("{subject}-{date}-single-report.json")),
+        OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
     };
 
     match filename.file_name() {
@@ -1164,9 +1169,22 @@ fn default_single_pdf_output_path(
     url: &str,
     report_level: auditmysite::cli::ReportLevel,
 ) -> PathBuf {
+    let _ = report_level;
     let date = Local::now().format("%Y-%m-%d");
     let subject = report_subject_from_url(url);
-    PathBuf::from(format!("{subject}-{date}-{report_level}.pdf"))
+    PathBuf::from(format!("{subject}-{date}-single-report.pdf"))
+}
+
+fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
+    let date = Local::now().format("%Y-%m-%d");
+    let kind = if args.sitemap.is_some() {
+        "sitemap"
+    } else if args.crawl {
+        "crawl"
+    } else {
+        "batch"
+    };
+    PathBuf::from(format!("reports/{kind}-report-{date}.pdf"))
 }
 
 fn report_subject_from_url(url: &str) -> String {
@@ -1256,23 +1274,23 @@ mod tests {
         let path =
             default_single_pdf_output_path("https://www.in-punkto.com", ReportLevel::Standard);
         let rendered = path.display().to_string();
-        assert!(rendered.ends_with("-standard.pdf"));
+        assert!(rendered.ends_with("-single-report.pdf"));
         assert!(rendered.contains("in-punkto-com-"));
         assert!(!rendered.contains('/'));
     }
 
     #[test]
     fn test_output_directory_defaults_to_current_directory_for_bare_filename() {
-        let path = PathBuf::from("casoon-de-2026-03-31-standard.pdf");
+        let path = PathBuf::from("casoon-de-2026-03-31-single-report.pdf");
         assert_eq!(output_directory(&path), std::path::Path::new("."));
     }
 
     #[test]
     fn test_default_single_json_output_path_matches_pdf_basename() {
-        let pdf_path = PathBuf::from("casoon-de-2026-03-31-standard.pdf");
+        let pdf_path = PathBuf::from("casoon-de-2026-03-31-single-report.pdf");
         assert_eq!(
             default_single_json_output_path(&pdf_path),
-            PathBuf::from("casoon-de-2026-03-31-standard.json")
+            PathBuf::from("casoon-de-2026-03-31-single-report.json")
         );
     }
 
@@ -1305,8 +1323,41 @@ mod tests {
         );
         let rendered = path.display().to_string();
         assert!(rendered.starts_with("reports/"));
-        assert!(rendered.ends_with("-standard.pdf"));
+        assert!(rendered.ends_with("-single-report.pdf"));
         assert!(rendered.contains("in-punkto-com-"));
+    }
+
+    #[test]
+    fn test_default_batch_pdf_output_path_uses_sitemap_kind() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+        ]);
+        let rendered = default_batch_pdf_output_path(&args).display().to_string();
+        assert!(rendered.starts_with("reports/"));
+        assert!(rendered.contains("sitemap-report-"));
+        assert!(rendered.ends_with(".pdf"));
+    }
+
+    #[test]
+    fn test_default_batch_pdf_output_path_uses_crawl_kind() {
+        let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
+        args.crawl = true;
+        let rendered = default_batch_pdf_output_path(&args).display().to_string();
+        assert!(rendered.contains("crawl-report-"));
+    }
+
+    #[test]
+    fn test_per_page_output_path_uses_single_report_name_for_json() {
+        let path = per_page_output_path(
+            std::path::Path::new("reports"),
+            "https://www.in-punkto.com/leistungen/",
+            OutputFormat::Json,
+            ReportLevel::Standard,
+        );
+        let rendered = path.display().to_string();
+        assert!(rendered.ends_with("-single-report.json"));
     }
 
     #[test]
@@ -1323,6 +1374,29 @@ mod tests {
         assert!(candidates.contains(&"https://www.casoon.de/sitemap.xml".to_string()));
         assert!(candidates.contains(&"https://www.casoon.de/sitemap_index.xml".to_string()));
         assert!(candidates.contains(&"https://www.casoon.de/page-sitemap.xml".to_string()));
+    }
+
+    #[test]
+    fn test_suggested_sitemap_batch_args_defaults_to_pdf() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        let batch_args =
+            suggested_sitemap_batch_args(&args, "https://example.com/sitemap.xml".into());
+
+        assert!(batch_args.url.is_none());
+        assert_eq!(
+            batch_args.sitemap.as_deref(),
+            Some("https://example.com/sitemap.xml")
+        );
+        assert_eq!(batch_args.format, Some(OutputFormat::Pdf));
+    }
+
+    #[test]
+    fn test_suggested_sitemap_batch_args_preserves_explicit_format() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
+        let batch_args =
+            suggested_sitemap_batch_args(&args, "https://example.com/sitemap.xml".into());
+
+        assert_eq!(batch_args.format, Some(OutputFormat::Json));
     }
 }
 

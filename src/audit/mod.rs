@@ -3,6 +3,7 @@
 //! Coordinates the audit pipeline from URL input to report output.
 
 pub mod artifacts;
+pub mod baseline;
 mod batch;
 pub mod budget;
 pub mod comparison;
@@ -18,6 +19,7 @@ pub use artifacts::{
     content_hash, load_artifacts, save_artifacts, to_audit_report, AuditArtifacts, FetchArtifact,
     SnapshotArtifact,
 };
+pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
 pub use batch::{parse_sitemap, read_url_file, run_concurrent_batch, BatchConfig, BatchResult};
 pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use comparison::{ComparisonEntry, ComparisonReport};

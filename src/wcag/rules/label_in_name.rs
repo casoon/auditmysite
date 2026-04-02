@@ -15,6 +15,8 @@ pub const LABEL_IN_NAME_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::High,
     description: "The accessible name contains the text that is presented visually",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/label-in-name.html",
+    axe_id: "label-content-name-mismatch",
+    tags: &["wcag2a", "wcag253", "cat.semantics"],
 };
 
 pub fn check_label_in_name(tree: &AXTree) -> WcagResults {

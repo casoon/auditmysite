@@ -15,6 +15,8 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "Headings and labels describe topic or purpose",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/headings-and-labels.html",
+    axe_id: "heading-order",
+    tags: &["wcag2aa", "wcag246", "best-practice"],
 };
 
 /// Check heading structure and labels

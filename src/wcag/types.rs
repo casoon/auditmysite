@@ -34,6 +34,15 @@ pub struct Violation {
     pub fix_suggestion: Option<String>,
     /// Link to WCAG documentation
     pub help_url: Option<String>,
+    /// Stable axe-core-compatible rule ID (e.g., "landmark-one-main", "aria-required-attr")
+    #[serde(default)]
+    pub rule_id: Option<String>,
+    /// Rule tags (e.g., ["wcag2a", "wcag412", "best-practice"])
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Impact level in axe-core terms: "critical", "serious", "moderate", "minor"
+    #[serde(default)]
+    pub impact: Option<String>,
 }
 
 impl Violation {
@@ -46,6 +55,8 @@ impl Violation {
         message: impl Into<String>,
         node_id: impl Into<String>,
     ) -> Self {
+        let sev = severity;
+        let impact = Some(Self::severity_to_impact(sev).to_string());
         Self {
             rule: rule.into(),
             rule_name: rule_name.into(),
@@ -58,7 +69,25 @@ impl Violation {
             selector: None,
             fix_suggestion: None,
             help_url: None,
+            rule_id: None,
+            tags: Vec::new(),
+            impact,
         }
+    }
+
+    /// Convert severity to axe-core impact string
+    fn severity_to_impact(severity: Severity) -> &'static str {
+        match severity {
+            Severity::Critical => "critical",
+            Severity::High => "serious",
+            Severity::Medium => "moderate",
+            Severity::Low => "minor",
+        }
+    }
+
+    /// Derive impact string from the violation's current severity
+    pub fn impact_str(&self) -> &str {
+        Self::severity_to_impact(self.severity)
     }
 
     /// Add element role
@@ -90,6 +119,18 @@ impl Violation {
         self.help_url = Some(url.into());
         self
     }
+
+    /// Set the stable axe-core-compatible rule ID
+    pub fn with_rule_id(mut self, id: impl Into<String>) -> Self {
+        self.rule_id = Some(id.into());
+        self
+    }
+
+    /// Set rule tags
+    pub fn with_tags(mut self, tags: Vec<String>) -> Self {
+        self.tags = tags;
+        self
+    }
 }
 
 // Severity enum is now defined in crate::taxonomy::severity
@@ -111,6 +152,10 @@ pub struct RuleMetadata {
     pub description: &'static str,
     /// URL to WCAG documentation
     pub help_url: &'static str,
+    /// Stable axe-core-compatible ID
+    pub axe_id: &'static str,
+    /// Tags for this rule
+    pub tags: &'static [&'static str],
 }
 
 /// Result of running all WCAG checks

@@ -15,6 +15,8 @@ pub const SECTION_HEADINGS_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Low,
     description: "Section headings are used to organize the content",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/section-headings.html",
+    axe_id: "heading-order",
+    tags: &["wcag2aaa", "wcag2410", "best-practice"],
 };
 
 /// Check for proper use of section headings

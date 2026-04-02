@@ -61,6 +61,12 @@ pub struct ModulesConfig {
 pub struct RulesConfig {
     /// List of rule IDs to ignore
     pub ignore: Option<Vec<String>>,
+    /// Disable specific rules by axe_id (e.g., ["heading-order", "landmark-one-main"])
+    #[serde(default)]
+    pub disabled: Vec<String>,
+    /// If non-empty, only run these rules (by axe_id)
+    #[serde(default)]
+    pub enabled_only: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
