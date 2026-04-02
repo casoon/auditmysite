@@ -300,10 +300,16 @@ cargo build --release
 
 ### Pre-commit checks
 
-This repository uses the Git `pre-commit` hook to run:
+This repository uses Git hooks with a fast local `pre-commit` gate and a full `pre-push` gate.
+
+`pre-commit` runs:
 
 - `nosecrets` on staged changes
 - `cargo fmt -- --check`
+- `cargo clippy --lib --bins --all-features -- -D warnings`
+
+`pre-push` runs:
+
 - `cargo clippy --all-targets --all-features -- -D warnings`
 - `cargo test`
 

@@ -67,6 +67,13 @@ pub struct BrowserManager {
     handler: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct LaunchPlan {
+    headless_mode: HeadlessMode,
+    disable_gpu: bool,
+    label: &'static str,
+}
+
 impl BrowserManager {
     /// Create a new BrowserManager with default options
     pub async fn new() -> Result<Self> {
@@ -76,7 +83,7 @@ impl BrowserManager {
     /// Create a new BrowserManager with custom options
     pub async fn with_options(options: BrowserOptions) -> Result<Self> {
         let user_data_dir = Self::create_user_data_dir()?;
-        let args = Self::build_launch_args(&options, &user_data_dir);
+        let args = Self::build_launch_args(&options, options.disable_gpu);
         debug!("Chrome launch args: {:?}", args);
 
         // Use resolver to find browser
@@ -117,32 +124,35 @@ impl BrowserManager {
 
         verify_executable(&resolved.browser.path)?;
 
-        let headless_mode = if options.headless {
-            HeadlessMode::New
-        } else {
-            HeadlessMode::False
-        };
-
-        let config = BrowserConfig::builder()
-            .chrome_executable(&resolved.browser.path)
-            .user_data_dir(&user_data_dir)
-            .headless_mode(headless_mode)
-            .args(args)
-            .viewport(None)
-            .build()
-            .map_err(|e| AuditError::BrowserLaunchFailed {
-                reason: e.to_string(),
-            })?;
-
         let chrome_info = ChromeInfo::from(&resolved.browser);
+        let mut launch_errors = Vec::new();
+        let mut launched = None;
 
-        // Launch browser
-        let (browser, mut handler) =
-            Browser::launch(config)
-                .await
-                .map_err(|e| AuditError::BrowserLaunchFailed {
-                    reason: e.to_string(),
-                })?;
+        for plan in Self::launch_plans(&options) {
+            let config =
+                Self::build_browser_config(&resolved.browser.path, &user_data_dir, &options, plan)?;
+
+            info!(
+                "Launching browser with strategy '{}' (headless={:?}, disable_gpu={})",
+                plan.label, plan.headless_mode, plan.disable_gpu
+            );
+
+            match Browser::launch(config).await {
+                Ok((browser, handler)) => {
+                    launched = Some((browser, handler, plan));
+                    break;
+                }
+                Err(e) => {
+                    warn!("Browser launch strategy '{}' failed: {}", plan.label, e);
+                    launch_errors.push(format!("{}: {}", plan.label, e));
+                }
+            }
+        }
+
+        let (browser, mut handler, plan) =
+            launched.ok_or_else(|| AuditError::BrowserLaunchFailed {
+                reason: launch_errors.join(" | "),
+            })?;
 
         let handler_task = tokio::spawn(async move {
             while let Some(event) = handler.next().await {
@@ -150,7 +160,10 @@ impl BrowserManager {
             }
         });
 
-        info!("Browser launched successfully");
+        info!(
+            "Browser launched successfully with strategy '{}'",
+            plan.label
+        );
 
         Ok(Self {
             browser,
@@ -162,36 +175,76 @@ impl BrowserManager {
     }
 
     /// Build Chrome launch arguments based on options
-    fn build_launch_args(options: &BrowserOptions, user_data_dir: &std::path::Path) -> Vec<String> {
-        let mut args = vec![
-            // Note: --headless / --headless=new is set via BrowserConfig::headless_mode()
-            "--no-first-run".to_string(),
-            "--no-default-browser-check".to_string(),
-            "--disable-extensions".to_string(),
-            "--disable-background-networking".to_string(),
-            "--disable-sync".to_string(),
-            "--disable-translate".to_string(),
-            "--disable-features=TranslateUI".to_string(),
-            "--metrics-recording-only".to_string(),
-            "--mute-audio".to_string(),
-            "--disable-infobars".to_string(),
-            "--disable-popup-blocking".to_string(),
-            format!("--user-data-dir={}", user_data_dir.display()),
-            format!(
-                "--window-size={},{}",
-                options.window_size.0, options.window_size.1
-            ),
+    fn launch_plans(options: &BrowserOptions) -> Vec<LaunchPlan> {
+        if !options.headless {
+            return vec![LaunchPlan {
+                headless_mode: HeadlessMode::False,
+                disable_gpu: options.disable_gpu,
+                label: "headful",
+            }];
+        }
+
+        let mut plans = vec![
+            LaunchPlan {
+                headless_mode: HeadlessMode::New,
+                disable_gpu: options.disable_gpu,
+                label: "headless-new",
+            },
+            LaunchPlan {
+                headless_mode: HeadlessMode::True,
+                disable_gpu: options.disable_gpu,
+                label: "headless-legacy",
+            },
         ];
 
         if options.disable_gpu {
-            args.push("--disable-gpu".to_string());
-            args.push("--disable-software-rasterizer".to_string());
+            plans.push(LaunchPlan {
+                headless_mode: HeadlessMode::True,
+                disable_gpu: false,
+                label: "headless-legacy-gpu-enabled",
+            });
         }
 
+        plans
+    }
+
+    fn build_browser_config(
+        browser_path: &std::path::Path,
+        user_data_dir: &std::path::Path,
+        options: &BrowserOptions,
+        plan: LaunchPlan,
+    ) -> Result<BrowserConfig> {
+        let mut builder = BrowserConfig::builder()
+            .chrome_executable(browser_path)
+            .user_data_dir(user_data_dir)
+            .window_size(options.window_size.0, options.window_size.1)
+            .headless_mode(plan.headless_mode)
+            .args(Self::build_launch_args(options, plan.disable_gpu))
+            .viewport(None);
+
         if options.no_sandbox {
-            args.push("--no-sandbox".to_string());
-            args.push("--disable-setuid-sandbox".to_string());
-            args.push("--disable-dev-shm-usage".to_string());
+            builder = builder.no_sandbox();
+        }
+
+        builder
+            .build()
+            .map_err(|e| AuditError::BrowserLaunchFailed {
+                reason: e.to_string(),
+            })
+    }
+
+    fn build_launch_args(options: &BrowserOptions, disable_gpu: bool) -> Vec<String> {
+        let mut args = vec![
+            // Note: headless mode, user data dir, window size, and sandbox
+            // are configured through BrowserConfig and should not be duplicated here.
+            "--no-default-browser-check".to_string(),
+            "--disable-translate".to_string(),
+            "--disable-infobars".to_string(),
+        ];
+
+        if disable_gpu {
+            args.push("--disable-gpu".to_string());
+            args.push("--disable-software-rasterizer".to_string());
         }
 
         if options.disable_images {
@@ -354,17 +407,16 @@ mod tests {
     #[test]
     fn test_build_launch_args_headless() {
         let opts = BrowserOptions::default();
-        let dir = std::env::temp_dir().join("auditmysite-test-profile-headless");
-        let args = BrowserManager::build_launch_args(&opts, &dir);
+        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu);
 
         // --headless is now applied via BrowserConfig::headless_mode(), not in args
         assert!(args
             .iter()
             .all(|a| a != "--headless" && a != "--headless=new"));
         assert!(args.iter().any(|a| a == "--disable-gpu"));
-        assert!(args.iter().any(|a| a == "--no-first-run"));
-        assert!(args.iter().any(|a| a.starts_with("--user-data-dir=")));
-        assert!(args.iter().any(|a| a.starts_with("--window-size=")));
+        assert!(args.iter().any(|a| a == "--no-default-browser-check"));
+        assert!(!args.iter().any(|a| a.starts_with("--user-data-dir=")));
+        assert!(!args.iter().any(|a| a.starts_with("--window-size=")));
     }
 
     #[test]
@@ -373,11 +425,10 @@ mod tests {
             no_sandbox: true,
             ..Default::default()
         };
-        let dir = std::env::temp_dir().join("auditmysite-test-profile-docker");
-        let args = BrowserManager::build_launch_args(&opts, &dir);
+        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu);
 
-        assert!(args.iter().any(|a| a == "--no-sandbox"));
-        assert!(args.iter().any(|a| a == "--disable-dev-shm-usage"));
+        assert!(!args.iter().any(|a| a == "--no-sandbox"));
+        assert!(!args.iter().any(|a| a == "--disable-dev-shm-usage"));
     }
 
     #[test]
@@ -386,9 +437,17 @@ mod tests {
             disable_images: true,
             ..Default::default()
         };
-        let dir = std::env::temp_dir().join("auditmysite-test-profile-images");
-        let args = BrowserManager::build_launch_args(&opts, &dir);
+        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu);
 
         assert!(args.iter().any(|a| a.contains("imagesEnabled=false")));
+    }
+
+    #[test]
+    fn test_launch_plans_include_fallbacks_for_headless() {
+        let plans = BrowserManager::launch_plans(&BrowserOptions::default());
+        assert_eq!(plans.len(), 3);
+        assert_eq!(plans[0].label, "headless-new");
+        assert_eq!(plans[1].label, "headless-legacy");
+        assert_eq!(plans[2].label, "headless-legacy-gpu-enabled");
     }
 }

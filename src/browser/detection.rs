@@ -252,9 +252,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_detect_all_browsers_runs() {
-        // Should not panic
-        let _ = detect_all_browsers();
+    fn test_get_browser_version_missing_binary_returns_none() {
+        assert!(get_browser_version(&PathBuf::from("/definitely/missing/browser")).is_none());
     }
 
     #[test]
