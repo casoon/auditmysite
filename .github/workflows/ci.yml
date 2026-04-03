@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_BACKTRACE: 1
 
 jobs:
   check:
@@ -38,7 +39,7 @@ jobs:
         run: cargo clippy --no-default-features -- -D warnings
 
       - name: Run tests
-        run: cargo test --no-default-features
+        run: cargo test --no-default-features -- --nocapture --test-threads=1
 
   format:
     name: Formatting
