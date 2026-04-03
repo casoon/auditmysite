@@ -22,10 +22,15 @@ fn test_read_url_file_nonexistent() {
 #[test]
 fn test_read_url_file_filters_invalid_urls() {
     use std::io::Write;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     // Create a temp file with mixed content
     let temp_dir = std::env::temp_dir();
-    let temp_file = temp_dir.join("test_urls.txt");
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before unix epoch")
+        .as_nanos();
+    let temp_file = temp_dir.join(format!("auditmysite-test-urls-{unique}.txt"));
 
     {
         let mut file = std::fs::File::create(&temp_file).unwrap();
