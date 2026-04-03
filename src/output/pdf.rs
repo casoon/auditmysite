@@ -192,13 +192,22 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         }
 
         // ── 4. Was jetzt tun? (Executive) ────────────────────────────
-        builder = builder
-            .add_component(PageBreak::new())
-            .add_component(Section::new("Was jetzt tun?").with_level(1))
-            .add_component(TextBlock::new(
-                "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist direkt umsetzbar — kein Abstract, keine langen Tabellen.",
-            ));
-        builder = render_was_jetzt_tun_table(builder, &vm);
+        {
+            let wjt_table = build_was_jetzt_tun_table(&vm);
+            let mut wjt_items = vec![
+                component_json(Section::new("Was jetzt tun?").with_level(1)),
+                component_json(TextBlock::new(
+                    "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist direkt umsetzbar — kein Abstract, keine langen Tabellen.",
+                )),
+            ];
+            match wjt_table {
+                WasJetztTunContent::Table(t) => wjt_items.push(component_json(t)),
+                WasJetztTunContent::Empty(c) => wjt_items.push(component_json(c)),
+            }
+            builder = builder
+                .add_component(PageBreak::new())
+                .add_component(soft_flow_group("300pt", wjt_items));
+        }
 
         // ── 5. Key Findings (Executive) ──────────────────────────────
         builder = builder
@@ -245,13 +254,22 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ── 4. Was jetzt tun? ───────────────────────────────────────────
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new("Was jetzt tun?").with_level(1))
-        .add_component(TextBlock::new(
-            "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist als direkter Task formuliert — mit Rolle, Aufwand, Wirkung und Priorität.",
-        ));
-    builder = render_was_jetzt_tun_table(builder, &vm);
+    {
+        let wjt_table = build_was_jetzt_tun_table(&vm);
+        let mut wjt_items = vec![
+            component_json(Section::new("Was jetzt tun?").with_level(1)),
+            component_json(TextBlock::new(
+                "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist als direkter Task formuliert — mit Rolle, Aufwand, Wirkung und Priorität.",
+            )),
+        ];
+        match wjt_table {
+            WasJetztTunContent::Table(t) => wjt_items.push(component_json(t)),
+            WasJetztTunContent::Empty(c) => wjt_items.push(component_json(c)),
+        }
+        builder = builder
+            .add_component(PageBreak::new())
+            .add_component(soft_flow_group("300pt", wjt_items));
+    }
 
     // ── 5. Modulübersicht ───────────────────────────────────────────
     builder = builder
@@ -1531,11 +1549,13 @@ fn module_bedeutung(name: &str) -> &'static str {
     }
 }
 
-/// Render the "Was jetzt tun?" task block (max 5 actions, Maßnahme/Rolle/Aufwand/Wirkung/Priorität)
-fn render_was_jetzt_tun_table(
-    mut builder: renderreport::engine::ReportBuilder,
-    vm: &ReportViewModel,
-) -> renderreport::engine::ReportBuilder {
+enum WasJetztTunContent {
+    Table(AuditTable),
+    Empty(Callout),
+}
+
+/// Build the "Was jetzt tun?" task table (max 5 actions)
+fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunContent {
     // Collect top items from action roadmap, prioritize by execution priority
     let all_items: Vec<&RoadmapItemData> = vm
         .actions
@@ -1545,7 +1565,7 @@ fn render_was_jetzt_tun_table(
         .collect();
 
     // Sort: Sofort beheben / Direkt angehen first
-    let mut sorted: Vec<&RoadmapItemData> = all_items.clone();
+    let mut sorted: Vec<&RoadmapItemData> = all_items;
     sorted.sort_by_key(|i| {
         let ep = i.execution_priority.as_str();
         if ep.contains("Direkt") || ep.contains("Sofort") {
@@ -1560,13 +1580,12 @@ fn render_was_jetzt_tun_table(
     let selected: Vec<&RoadmapItemData> = sorted.into_iter().take(5).collect();
 
     if selected.is_empty() {
-        builder = builder.add_component(
+        return WasJetztTunContent::Empty(
             Callout::success(
                 "Keine priorisierten Maßnahmen identifiziert — Qualität sichern und regelmäßige Audits einplanen.",
             )
             .with_title("Aktuell keine offenen Maßnahmen"),
         );
-        return builder;
     }
 
     let mut table = AuditTable::new(vec![
@@ -1593,8 +1612,7 @@ fn render_was_jetzt_tun_table(
         ]);
     }
 
-    builder = builder.add_component(table);
-    builder
+    WasJetztTunContent::Table(table)
 }
 
 fn build_module_summary_table(modules: &ModulesBlock) -> AuditTable {

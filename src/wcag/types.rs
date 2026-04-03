@@ -43,6 +43,12 @@ pub struct Violation {
     /// Impact level in axe-core terms: "critical", "serious", "moderate", "minor"
     #[serde(default)]
     pub impact: Option<String>,
+    /// Raw outer HTML of the problematic element (fetched from live DOM during enrichment)
+    #[serde(default)]
+    pub html_snippet: Option<String>,
+    /// Concrete code fix — the corrected HTML showing how the element should look
+    #[serde(default)]
+    pub suggested_code: Option<String>,
 }
 
 impl Violation {
@@ -72,6 +78,8 @@ impl Violation {
             rule_id: None,
             tags: Vec::new(),
             impact,
+            html_snippet: None,
+            suggested_code: None,
         }
     }
 
@@ -129,6 +137,18 @@ impl Violation {
     /// Set rule tags
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = tags;
+        self
+    }
+
+    /// Set raw HTML snippet of the affected element
+    pub fn with_html_snippet(mut self, snippet: impl Into<String>) -> Self {
+        self.html_snippet = Some(snippet.into());
+        self
+    }
+
+    /// Set the concrete code fix
+    pub fn with_suggested_code(mut self, code: impl Into<String>) -> Self {
+        self.suggested_code = Some(code.into());
         self
     }
 }

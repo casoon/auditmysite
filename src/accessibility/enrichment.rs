@@ -10,12 +10,13 @@
 //! so the developer can locate the element in the DOM.
 
 use chromiumoxide::cdp::browser_protocol::dom::{
-    BackendNodeId, DescribeNodeParams, ResolveNodeParams,
+    BackendNodeId, DescribeNodeParams, GetOuterHtmlParams, ResolveNodeParams,
 };
 use chromiumoxide::cdp::js_protocol::runtime::CallFunctionOnParams;
 use chromiumoxide::Page;
 use tracing::warn;
 
+use super::code_gen::{generate_suggested_code, truncate_html};
 use super::tree::AXTree;
 use crate::wcag::types::Violation;
 
@@ -51,6 +52,27 @@ pub async fn enrich_violations_with_page(
                 "Could not resolve backend DOM node {} for violation {}",
                 backend_id, violation.rule
             ),
+        }
+
+        // Fetch outer HTML and generate a concrete code fix
+        if let Some(raw_html) = get_outer_html(page, backend_id).await {
+            let snippet = truncate_html(raw_html);
+            let suggested = generate_suggested_code(
+                &violation.rule,
+                Some(&snippet),
+                violation.role.as_deref(),
+                violation.fix_suggestion.as_deref(),
+            );
+            violation.html_snippet = Some(snippet);
+            violation.suggested_code = suggested;
+        } else {
+            // No live DOM available — still try to generate a template fix
+            violation.suggested_code = generate_suggested_code(
+                &violation.rule,
+                None,
+                violation.role.as_deref(),
+                violation.fix_suggestion.as_deref(),
+            );
         }
     }
 }
@@ -206,6 +228,27 @@ async fn parent_context_selector(page: &Page, backend_node_id: i64) -> Option<St
         .and_then(serde_json::Value::as_str)
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
+}
+
+/// Call CDP `DOM.getOuterHTML` for the given backend node ID.
+/// Returns the raw HTML string, or `None` on failure.
+async fn get_outer_html(page: &Page, backend_node_id: i64) -> Option<String> {
+    let params = GetOuterHtmlParams::builder()
+        .backend_node_id(BackendNodeId::new(backend_node_id))
+        .build();
+
+    let response = page
+        .execute(params)
+        .await
+        .map_err(|e| warn!("DOM.getOuterHTML failed: {}", e))
+        .ok()?;
+
+    let html = response.outer_html.trim().to_string();
+    if html.is_empty() {
+        None
+    } else {
+        Some(html)
+    }
 }
 
 /// Truncate a URL to at most 55 characters, keeping the tail.

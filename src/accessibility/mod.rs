@@ -2,6 +2,7 @@
 //!
 //! Provides AXTree extraction and accessibility-related utilities.
 
+pub(crate) mod code_gen;
 mod enrichment;
 mod extractor;
 mod styles;

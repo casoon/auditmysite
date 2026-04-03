@@ -17,7 +17,7 @@ It is designed for teams that want a fast local check, stable JSON for automatio
 
 - Real browser signals instead of static guesses
 - Works for single pages, sitemaps, URL lists, and same-domain crawl discovery
-- Outputs as terminal table, JSON, or PDF
+- Outputs as terminal table, JSON, PDF, or AI-optimized task list
 - JSON output is schema-backed and tested for release stability
 - Ships as a Rust binary instead of a Node-based toolchain
 
@@ -246,6 +246,16 @@ disabled = ["heading-order", "landmark-one-main"]
 # enabled_only = ["image-alt", "label"]  # run only these rules
 ```
 
+### AI / LLM output format
+
+Export findings as a task-oriented JSON list for direct LLM processing:
+
+```bash
+auditmysite https://example.com -f ai -o findings.json
+```
+
+Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, and `help_url` — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
+
 ### Baseline and CI diff
 
 Save a baseline snapshot and compare future runs against it:
@@ -325,7 +335,7 @@ Key layers:
 - `browser/`: browser detection, resolution, install, lifecycle, pooling
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
-- `output/`: CLI, JSON, PDF
+- `output/`: CLI, JSON, PDF, AI format
 - `seo/`, `security/`, `performance/`, `mobile/`: optional analysis modules
 
 More detail:

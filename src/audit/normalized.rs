@@ -157,6 +157,12 @@ pub struct OccurrenceDetail {
     pub message: String,
     pub selector: Option<String>,
     pub fix_suggestion: Option<String>,
+    /// Raw outer HTML of the affected element
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub html_snippet: Option<String>,
+    /// Concrete code fix — the corrected HTML
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_code: Option<String>,
 }
 
 /// Score-Eintrag pro Modul
@@ -250,6 +256,8 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     message: v.message.clone(),
                     selector: v.selector.clone(),
                     fix_suggestion: v.fix_suggestion.clone(),
+                    html_snippet: v.html_snippet.clone(),
+                    suggested_code: v.suggested_code.clone(),
                 })
                 .collect();
 
