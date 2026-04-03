@@ -7,6 +7,9 @@ cd "$REPO_ROOT"
 
 mkdir -p target/release-check
 
+echo "release-check: version/tag consistency"
+"$REPO_ROOT/scripts/check-version-match.sh" "$@"
+
 echo "release-check: cargo test"
 cargo test
 

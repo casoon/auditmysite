@@ -49,3 +49,25 @@ fn test_readme_documents_curl_installer() {
     assert!(readme.contains("install.sh | bash"));
     assert!(readme.contains(".sha256"));
 }
+
+#[test]
+fn test_release_and_pre_push_use_shared_version_check() {
+    let pre_push = read_repo_file("scripts/pre-push-check.sh");
+    let release_yml = read_repo_file(".github/workflows/release.yml");
+    let version_check = read_repo_file("scripts/check-version-match.sh");
+
+    assert!(
+        pre_push.contains("./scripts/check-version-match.sh")
+            || pre_push.contains("\"$REPO_ROOT/scripts/check-version-match.sh\""),
+        "pre-push must run the shared version check"
+    );
+    assert!(
+        release_yml.contains("./scripts/check-version-match.sh"),
+        "release workflow must run the shared version check"
+    );
+    assert!(
+        version_check
+            .contains("Tag version $tag_name does not match Cargo.toml version $CARGO_VERSION"),
+        "shared version check must fail clearly on mismatched versions"
+    );
+}

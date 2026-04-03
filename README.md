@@ -367,6 +367,7 @@ This repository uses Git hooks with a fast local `pre-commit` gate and a full `p
 
 `pre-push` runs:
 
+- `scripts/check-version-match.sh` for pushed `v*` tags
 - `cargo clippy --all-targets --all-features -- -D warnings`
 - `cargo test`
 
