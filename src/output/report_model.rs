@@ -147,6 +147,8 @@ pub struct CoverBlock {
     pub score: u32,
     pub grade: String,
     pub certificate: String,
+    /// 4-level maturity label for cover display
+    pub maturity_label: String,
     pub total_issues: u32,
     pub critical_issues: u32,
     pub modules: Vec<String>,
@@ -157,6 +159,10 @@ pub struct SummaryBlock {
     pub score: u32,
     pub grade: String,
     pub certificate: String,
+    /// 4-level maturity classification: "Kritisch" / "Instabil" / "Solide Basis" / "Stark"
+    pub maturity_label: String,
+    /// Problem distribution: "Strukturelle Defizite" / "Kritische Einzelprobleme" / "Feinschliff"
+    pub problem_type: String,
     pub domain: String,
     pub date: String,
     pub executive_lead: String,
@@ -165,6 +171,16 @@ pub struct SummaryBlock {
     pub metrics: Vec<MetricItem>,
     pub top_actions: Vec<String>,
     pub positive_aspects: Vec<String>,
+    /// Overall impact assessment: [(label, value), ...] e.g. ("Nutzer", "eingeschränkt")
+    pub overall_impact: Vec<(String, String)>,
+    /// Cross-module technical insights: short bullet strings
+    pub technical_overview: Vec<String>,
+    /// Score-range benchmark context (e.g. "Besser als ~60% der geprüften Seiten")
+    pub benchmark_context: String,
+    /// Concrete current business impact (1 sentence for KV: "Die Seite wird schlechter gefunden…")
+    pub business_consequence: String,
+    /// Forward-looking consequence: what happens if nothing is fixed
+    pub consequence: String,
 }
 
 /// A single KPI metric for the hero summary
@@ -192,6 +208,8 @@ pub struct HistoryTrendBlock {
     pub previous_date: String,
     pub timeline_entries: usize,
     pub summary: String,
+    /// Magnitude-based trend status: "Deutlich verbessert" / "Verbessert" / "Stabil" / "Zurückgegangen" / "Deutlich verschlechtert"
+    pub trend_label: String,
     pub metrics: Vec<(String, String)>,
     pub timeline_rows: Vec<(String, String, String, String, String)>,
     pub new_findings: Vec<String>,
@@ -272,6 +290,10 @@ pub struct ActionsBlock {
     pub roadmap_columns: Vec<RoadmapColumnData>,
     pub role_assignments: Vec<RoleAssignment>,
     pub intro_text: String,
+    /// Visual phase overview shown before the detailed roadmap
+    pub phase_preview: Vec<PhasePreview>,
+    /// Label for the entire action block, context-sensitive
+    pub block_title: String,
 }
 
 pub struct RoadmapColumnData {
@@ -287,6 +309,21 @@ pub struct RoadmapItemData {
     pub execution_priority: String,
     pub effort: String,
     pub benefit: String,
+    /// Business-oriented effect on users (e.g. "Screenreader-Nutzer können navigieren")
+    pub user_effect: String,
+    /// Risk reduction effect (e.g. "Reduziert WCAG-Verstoßrisiko")
+    pub risk_effect: String,
+    /// Conversion/UX effect (e.g. "Verbessert Orientierung und Klickrate")
+    pub conversion_effect: String,
+}
+
+/// A single phase in the visual phase overview (shown before the detailed roadmap)
+pub struct PhasePreview {
+    pub phase_label: String,
+    pub accent_color: String,
+    pub description: String,
+    pub item_count: usize,
+    pub top_items: Vec<String>,
 }
 
 /// Technical appendix
@@ -424,6 +461,7 @@ pub struct MobilePresentation {
 
 // ─── Shared Helper Types ────────────────────────────────────────────────────
 
+#[derive(Clone)]
 pub struct ActionItem {
     pub action: String,
     pub benefit: String,

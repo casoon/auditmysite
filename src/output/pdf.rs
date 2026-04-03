@@ -154,19 +154,45 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // The "Empfehlung und nächste Schritte" callout is included inside the
     // soft_flow_group so it stays on the same page as the section header and
     // does not trigger a standalone page break.
-    builder = builder.add_component(soft_flow_group(
-        "320pt",
-        vec![
+    {
+        let mut ergebnis_items = vec![
             component_json(Section::new("Ergebnisblock").with_level(1)),
             component_json(Callout::info(&vm.summary.executive_lead).with_title("Einordnung")),
             component_json(build_summary_overview(&vm.summary)),
-            component_json(build_hero_highlights_table(&vm, &i18n)),
-            component_json(
-                Callout::info(build_executive_recommendation(&vm))
-                    .with_title("Empfehlung und nächste Schritte"),
-            ),
-        ],
-    ));
+        ];
+        {
+            let mut kv = KeyValueList::new().with_title("Gesamtauswirkung");
+            kv = kv.add("Problemtyp", &vm.summary.problem_type);
+            if !vm.summary.business_consequence.is_empty() {
+                kv = kv.add("Konsequenz", &vm.summary.business_consequence);
+            }
+            for (label, value) in &vm.summary.overall_impact {
+                kv = kv.add(label, value);
+            }
+            if !vm.summary.benchmark_context.is_empty() {
+                kv = kv.add("Benchmark", &vm.summary.benchmark_context);
+            }
+            ergebnis_items.push(component_json(kv));
+        }
+        if !vm.summary.technical_overview.is_empty() {
+            let mut list = List::new().with_title("Technische Gesamteinschätzung");
+            for insight in &vm.summary.technical_overview {
+                list = list.add_item(insight);
+            }
+            ergebnis_items.push(component_json(list));
+        }
+        ergebnis_items.push(component_json(build_hero_highlights_table(&vm, &i18n)));
+        if !vm.summary.consequence.is_empty() {
+            ergebnis_items.push(component_json(
+                Callout::warning(&vm.summary.consequence).with_title("Ohne Maßnahmen"),
+            ));
+        }
+        ergebnis_items.push(component_json(
+            Callout::info(build_executive_recommendation(&vm))
+                .with_title("Empfehlung und nächste Schritte"),
+        ));
+        builder = builder.add_component(soft_flow_group("360pt", ergebnis_items));
+    }
 
     // Executive level: compact view
     if vm.meta.report_level == ReportLevel::Executive {
@@ -257,18 +283,44 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     {
         let wjt_table = build_was_jetzt_tun_table(&vm);
         let mut wjt_items = vec![
-            component_json(Section::new("Was jetzt tun?").with_level(1)),
-            component_json(TextBlock::new(
-                "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist als direkter Task formuliert — mit Rolle, Aufwand, Wirkung und Priorität.",
-            )),
+            component_json(Section::new(&vm.actions.block_title).with_level(1)),
+            component_json(TextBlock::new(&vm.actions.intro_text)),
         ];
+        // Phase-Preview: visual overview — label → impact arrow, then action bullets
+        if !vm.actions.phase_preview.is_empty() {
+            for phase in &vm.actions.phase_preview {
+                // Title: "Phase 1 – Sofort  ·  4 Maßnahmen"
+                let count_label = if phase.item_count == 1 {
+                    "1 Maßnahme".to_string()
+                } else {
+                    format!("{} Maßnahmen", phase.item_count)
+                };
+                let title = format!("{}  ·  {}", phase.phase_label, count_label);
+                let mut phase_list = List::new().with_title(&title);
+                // First item: impact arrow — what this phase achieves
+                phase_list = phase_list.add_item(format!("→ {}", phase.description));
+                // Action bullets
+                for item in &phase.top_items {
+                    phase_list = phase_list.add_item(item);
+                }
+                // Show remaining count if list was capped
+                let shown = phase.top_items.len();
+                if phase.item_count > shown {
+                    phase_list = phase_list.add_item(format!(
+                        "+ {} weitere im Detail unten",
+                        phase.item_count - shown
+                    ));
+                }
+                wjt_items.push(component_json(phase_list));
+            }
+        }
         match wjt_table {
             WasJetztTunContent::Table(t) => wjt_items.push(component_json(t)),
             WasJetztTunContent::Empty(c) => wjt_items.push(component_json(c)),
         }
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(soft_flow_group("300pt", wjt_items));
+            .add_component(soft_flow_group("340pt", wjt_items));
     }
 
     // ── 5. Modulübersicht ───────────────────────────────────────────
@@ -286,12 +338,25 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         ));
 
     // ── 6. Key Findings ─────────────────────────────────────────────
+    let findings_count = vm.findings.top_findings.len();
+    let findings_title = if vm.summary.score >= 85 && findings_count <= 2 {
+        match findings_count {
+            0 => "Keine offenen Themen".to_string(),
+            1 => "1 offenes Thema".to_string(),
+            n => format!("{n} offene Themen"),
+        }
+    } else {
+        "Key Findings".to_string()
+    };
+    let findings_intro = if vm.summary.score >= 85 && findings_count <= 2 {
+        "Die Seite ist technisch stark. Die folgenden Punkte sind letzte Feinschliff-Hebel ohne strukturellen Druck."
+    } else {
+        "Diese Themen sollten zuerst angegangen werden. Jeder Block zeigt Problem, Impact und die empfohlene Maßnahme — technische Details folgen im nächsten Abschnitt."
+    };
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new("Key Findings").with_level(1))
-        .add_component(TextBlock::new(
-            "Diese Themen sollten zuerst angegangen werden. Jeder Block zeigt Problem, Impact und die empfohlene Maßnahme — technische Details folgen im nächsten Abschnitt.",
-        ));
+        .add_component(Section::new(&findings_title).with_level(1))
+        .add_component(TextBlock::new(findings_intro));
 
     for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
         if idx > 0 {
@@ -1217,7 +1282,7 @@ fn build_summary_overview(summary: &SummaryBlock) -> Grid {
     let score_card = serde_json::json!({
         "type": "score-card",
         "data": ScoreCard::new("Accessibility-Score", summary.score)
-            .with_description(format!("Grade {} — {}", summary.grade, summary.certificate))
+            .with_description(format!("Grade {} — {}", summary.grade, summary.maturity_label))
             .with_thresholds(70, 50)
             .with_height("100%")
             .to_data()
@@ -1376,9 +1441,15 @@ fn build_hero_highlights_table(vm: &ReportViewModel, i18n: &I18n) -> AuditTable 
             .collect()
     };
 
+    let problems_label = match vm.findings.top_findings.len() {
+        0 => "Offene Themen".to_string(),
+        1 => "1 offenes Thema".to_string(),
+        n if vm.summary.score >= 85 => format!("{n} offene Themen"),
+        _ => "Top 3 Probleme".to_string(),
+    };
     let mut table = AuditTable::new(vec![
-        TableColumn::new("Top 3 Probleme"),
-        TableColumn::new("Nächste 3 Schritte"),
+        TableColumn::new(&problems_label),
+        TableColumn::new("Nächste Schritte"),
     ])
     .with_title("Sofortübersicht");
 
@@ -1590,25 +1661,20 @@ fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunContent {
 
     let mut table = AuditTable::new(vec![
         TableColumn::new("Maßnahme"),
-        TableColumn::new("Rolle"),
-        TableColumn::new("Aufwand"),
-        TableColumn::new("Wirkung"),
-        TableColumn::new("Priorität"),
+        TableColumn::new("Nutzer-Effekt"),
+        TableColumn::new("Risiko"),
+        TableColumn::new("Conversion"),
+        TableColumn::new("Rolle / Aufwand"),
     ])
-    .with_title("Maßnahmenplan (Top 5)");
+    .with_title("Maßnahmenplan (Top 5) — Executive View");
 
     for item in selected {
-        let wirkung = if item.benefit.is_empty() {
-            item.execution_priority.clone()
-        } else {
-            simplify_for_summary(&item.benefit)
-        };
         table = table.add_row(vec![
             item.action.clone(),
-            item.role.clone(),
-            item.effort.clone(),
-            wirkung,
-            item.execution_priority.clone(),
+            item.user_effect.clone(),
+            item.risk_effect.clone(),
+            item.conversion_effect.clone(),
+            format!("{} / {}", item.role, item.effort),
         ]);
     }
 
@@ -1647,10 +1713,22 @@ fn render_history_section(
         kv = kv.add(key, value);
     }
 
+    let trend_color = match history.trend_label.as_str() {
+        "Deutlich verbessert" | "Verbessert" => "#22c55e",
+        "Stabil" => "#2563eb",
+        _ => "#ef4444",
+    };
+
     builder = builder.add_component(soft_flow_group(
-        "220pt",
+        "240pt",
         vec![
             component_json(Section::new("Historie und Trend").with_level(1)),
+            component_json(
+                Label::new(&history.trend_label)
+                    .with_size("13pt")
+                    .bold()
+                    .with_color(trend_color),
+            ),
             component_json(TextBlock::new(&history.summary)),
             component_json(kv),
         ],
@@ -1772,6 +1850,7 @@ fn build_cover_score_row(cover: &CoverBlock, badge_asset: Option<&str>) -> Grid 
     grid = grid.add_item(serde_json::json!({
         "type": "score-card",
         "data": ScoreCard::new("Accessibility", cover.score)
+            .with_description(&cover.maturity_label)
             .with_thresholds(70, 50)
             .with_height("100%")
             .to_data()

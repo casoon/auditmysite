@@ -59,6 +59,7 @@ pub struct ReportHistory {
     pub entries: Vec<HistorySnapshot>,
 }
 
+#[derive(Debug, Serialize)]
 pub struct HistoryPreview {
     pub previous_date: String,
     pub timeline_entries: usize,

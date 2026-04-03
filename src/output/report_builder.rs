@@ -56,13 +56,41 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let score = normalized.score;
     let grade = normalized.grade.clone();
     let certificate = normalized.certificate.clone();
+    let maturity_label = build_maturity_label(
+        score,
+        normalized.severity_counts.critical,
+        normalized.severity_counts.high,
+    );
+    let problem_type = build_problem_type(normalized);
+    let technical_overview = build_technical_overview(normalized);
+    let overall_impact = build_overall_impact(normalized);
     let date = normalized.timestamp.format("%d.%m.%Y").to_string();
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
     let report_author = extract_domain(&normalized.url);
     let has_quality_modules = normalized.module_scores.len() > 1;
 
-    let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
+    // Top findings: Critical/High severity first (max 5), then fill with next-highest priority
+    let top_findings: Vec<FindingGroup> = {
+        let mut urgent: Vec<FindingGroup> = sorted_groups
+            .iter()
+            .filter(|f| matches!(f.severity, Severity::Critical | Severity::High))
+            .take(5)
+            .cloned()
+            .collect();
+        if urgent.len() < 5 {
+            let urgent_ids: std::collections::HashSet<String> =
+                urgent.iter().map(|f| f.rule_id.clone()).collect();
+            let remaining: Vec<FindingGroup> = sorted_groups
+                .iter()
+                .filter(|f| !urgent_ids.contains(&f.rule_id))
+                .take(5 - urgent.len())
+                .cloned()
+                .collect();
+            urgent.extend(remaining);
+        }
+        urgent
+    };
     let positive_aspects = derive_positive_aspects_from_normalized(normalized);
     let action_plan = derive_action_plan(&sorted_groups);
 
@@ -102,7 +130,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let nodes_analyzed = normalized.nodes_analyzed;
 
     // Build actions block (pre-mapped for ActionRoadmap component)
-    let actions = build_actions_block(&action_plan);
+    let actions = build_actions_block(&action_plan, score as f32);
 
     // Build module details from raw data
     let module_details = build_module_details_from_normalized(normalized);
@@ -130,6 +158,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             score,
             grade: grade.clone(),
             certificate: certificate.clone(),
+            maturity_label: maturity_label.clone(),
             total_issues: total_violations,
             critical_issues: critical_count,
             modules: module_names,
@@ -138,6 +167,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             score,
             grade: grade.clone(),
             certificate: certificate.clone(),
+            maturity_label: maturity_label.clone(),
+            problem_type: problem_type.clone(),
             domain: normalized.url.clone(),
             date: date.clone(),
             executive_lead: build_executive_lead(normalized),
@@ -197,12 +228,17 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             top_actions: top_findings
                 .iter()
                 .take(3)
-                .map(|f| f.recommendation.clone())
+                .map(|f| humanize_action_text(&f.recommendation))
                 .collect(),
             positive_aspects: positive_aspects
                 .iter()
                 .map(|a| format!("{}: {}", a.area, a.description))
                 .collect(),
+            overall_impact,
+            technical_overview,
+            benchmark_context: build_benchmark_context(score as f32),
+            business_consequence: build_business_consequence(normalized),
+            consequence: build_consequence_text(normalized),
         },
         history,
         methodology: build_methodology(normalized),
@@ -219,20 +255,42 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
 }
 
 fn build_history_trend_block(preview: &ReportHistoryPreview) -> HistoryTrendBlock {
-    let trend_interpretation = if preview.delta_accessibility > 0 {
-        "Die Barrierefreiheit hat sich gegenüber dem letzten Lauf verbessert."
-    } else if preview.delta_accessibility < 0 {
-        "Die Barrierefreiheit ist gegenüber dem letzten Lauf leicht zurückgegangen."
-    } else {
-        "Die Barrierefreiheit ist gegenüber dem letzten Lauf stabil geblieben."
+    let trend_label = build_trend_label(preview.delta_accessibility, preview.delta_total_issues);
+
+    let trend_interpretation = match trend_label.as_str() {
+        "Deutlich verbessert" => format!(
+            "Die Barrierefreiheit hat sich gegenüber dem letzten Lauf vom {} deutlich verbessert (+{} Punkte, {} Issues weniger).",
+            preview.previous_date,
+            preview.delta_accessibility,
+            -preview.delta_total_issues
+        ),
+        "Verbessert" => format!(
+            "Die Barrierefreiheit hat sich gegenüber dem letzten Lauf vom {} verbessert.",
+            preview.previous_date
+        ),
+        "Stabil" => format!(
+            "Die Barrierefreiheit ist gegenüber dem letzten Lauf vom {} unverändert stabil.",
+            preview.previous_date
+        ),
+        "Deutlich verschlechtert" => format!(
+            "Die Barrierefreiheit ist gegenüber dem letzten Lauf vom {} deutlich zurückgegangen ({} Punkte, +{} Issues). Handlungsbedarf.",
+            preview.previous_date,
+            preview.delta_accessibility,
+            preview.delta_total_issues
+        ),
+        _ => format!(
+            "Die Barrierefreiheit ist gegenüber dem letzten Lauf vom {} leicht zurückgegangen.",
+            preview.previous_date
+        ),
     };
 
     HistoryTrendBlock {
         previous_date: preview.previous_date.clone(),
         timeline_entries: preview.timeline_entries,
+        trend_label,
         summary: format!(
-            "Vergleich zum letzten verfügbaren Lauf vom {}. {} Die Historie umfasst aktuell {} verwertbare Snapshots im Report-Ordner.",
-            preview.previous_date, trend_interpretation, preview.timeline_entries
+            "{} Die Historie umfasst {} verwertbare Snapshots.",
+            trend_interpretation, preview.timeline_entries
         ),
         metrics: vec![
             (
@@ -309,7 +367,7 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
         dashboard.push(ModuleScore {
             name: "SEO".into(),
             score: s.score,
-            interpretation: interpret_score(s.score as f32, "SEO"),
+            interpretation: build_seo_interpretation(s),
             card_context: derive_seo_card_context(s),
             score_context: derive_seo_context(s),
             key_lever: derive_seo_lever(s),
@@ -361,49 +419,133 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
     }
 }
 
-fn build_actions_block(plan: &ActionPlan) -> ActionsBlock {
-    let map_items = |items: &[ActionItem], effort: &str| -> Vec<RoadmapItemData> {
+fn build_actions_block(plan: &ActionPlan, score: f32) -> ActionsBlock {
+    // Good site: high score or very few remaining actions
+    let is_good_site = score >= 85.0
+        || (plan.quick_wins.is_empty() && plan.medium_term.len() + plan.structural.len() <= 3);
+    // Cap items per column for good sites to keep the section compact
+    let item_cap: usize = if is_good_site { 2 } else { usize::MAX };
+
+    let map_items = |items: &[ActionItem]| -> Vec<RoadmapItemData> {
         items
             .iter()
-            .map(|i| RoadmapItemData {
-                action: i.action.clone(),
-                role: i.role.label().to_string(),
-                priority: i.priority.label().to_string(),
-                execution_priority: i.execution_priority.label().to_string(),
-                effort: effort.to_string(),
-                benefit: i.benefit.clone(),
+            .map(|i| {
+                // Build effects from the finding group context (approximated from ActionItem)
+                let user_effect = derive_user_effect_from_action(&i.action, i.effort);
+                let risk_effect = match i.priority {
+                    Priority::Critical => {
+                        "Reduziert kritisches WCAG-Verstoßrisiko direkt".to_string()
+                    }
+                    Priority::High => "Reduziert hohes Compliance-Risiko".to_string(),
+                    Priority::Medium => "Verringert mittleres Barrierefreiheitsrisiko".to_string(),
+                    Priority::Low => "Verbessert WCAG-Konformität im Detail".to_string(),
+                };
+                let conversion_effect = derive_conversion_effect_from_action(&i.action, i.effort);
+                RoadmapItemData {
+                    action: i.action.clone(),
+                    role: i.role.label().to_string(),
+                    priority: i.priority.label().to_string(),
+                    execution_priority: i.execution_priority.label().to_string(),
+                    effort: i.effort.label().to_string(),
+                    benefit: i.benefit.clone(),
+                    user_effect,
+                    risk_effect,
+                    conversion_effect,
+                }
             })
             .collect()
+    };
+
+    // Build phase preview
+    let mut phase_preview = Vec::new();
+    if !plan.quick_wins.is_empty() {
+        phase_preview.push(PhasePreview {
+            phase_label: "Phase 1 – Sofort beheben".into(),
+            accent_color: "#dc2626".into(),
+            description: "Blockierende Issues — direkter Impact auf Nutzbarkeit".into(),
+            item_count: plan.quick_wins.len(),
+            top_items: plan
+                .quick_wins
+                .iter()
+                .take(3)
+                .map(|i| i.action.clone())
+                .collect(),
+        });
+    }
+    if !plan.medium_term.is_empty() {
+        phase_preview.push(PhasePreview {
+            phase_label: "Phase 2 – Struktur verbessern".into(),
+            accent_color: "#f59e0b".into(),
+            description: "Semantik, Navigation und Barrierefreiheits-Struktur".into(),
+            item_count: plan.medium_term.len(),
+            top_items: plan
+                .medium_term
+                .iter()
+                .take(3)
+                .map(|i| i.action.clone())
+                .collect(),
+        });
+    }
+    if !plan.structural.is_empty() {
+        phase_preview.push(PhasePreview {
+            phase_label: "Phase 3 – Optimierung".into(),
+            accent_color: "#2563eb".into(),
+            description: "Langfristige Qualität, SEO und Performance".into(),
+            item_count: plan.structural.len(),
+            top_items: plan
+                .structural
+                .iter()
+                .take(3)
+                .map(|i| i.action.clone())
+                .collect(),
+        });
+    }
+
+    let capped = |items: &[ActionItem]| -> Vec<ActionItem> {
+        items.iter().take(item_cap).cloned().collect()
     };
 
     let mut columns = Vec::new();
     if !plan.quick_wins.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Sofort".into(),
-            accent_color: "#22c55e".into(),
-            items: map_items(&plan.quick_wins, "Niedrig"),
+            title: "Phase 1 – Sofort".into(),
+            accent_color: "#dc2626".into(),
+            items: map_items(&capped(&plan.quick_wins)),
         });
     }
     if !plan.medium_term.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Als Nächstes".into(),
+            title: "Phase 2 – Als Nächstes".into(),
             accent_color: "#f59e0b".into(),
-            items: map_items(&plan.medium_term, "Mittel"),
+            items: map_items(&capped(&plan.medium_term)),
         });
     }
     if !plan.structural.is_empty() {
         columns.push(RoadmapColumnData {
-            title: "Langfristig".into(),
+            title: "Phase 3 – Langfristig".into(),
             accent_color: "#2563eb".into(),
-            items: map_items(&plan.structural, "Hoch"),
+            items: map_items(&capped(&plan.structural)),
         });
     }
+
+    let block_title = if is_good_site {
+        "Letzte Optimierungsschritte".to_string()
+    } else {
+        "Maßnahmenplan nach Phasen".to_string()
+    };
+
+    let intro_text = if is_good_site {
+        "Die Seite ist technisch stark aufgestellt. Die folgenden Punkte sind letzte Optimierungshebel ohne strukturellen Druck.".to_string()
+    } else {
+        "Phase 1 enthält blockierende Issues mit sofortiger Wirkung. Phase 2 verbessert die Struktur. Phase 3 optimiert langfristig. Jede Phase baut auf der vorherigen auf.".to_string()
+    };
 
     ActionsBlock {
         roadmap_columns: columns,
         role_assignments: plan.role_assignments.clone(),
-        intro_text: "Die Maßnahmen sind nach Priorität, Aufwand und Wirkung geordnet. So lässt sich die Umsetzung klar staffeln."
-            .to_string(),
+        intro_text,
+        phase_preview,
+        block_title,
     }
 }
 
@@ -862,7 +1004,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
 
         SeoPresentation {
             score: s.score,
-            interpretation: interpret_score(s.score as f32, "SEO"),
+            interpretation: build_seo_interpretation(s),
             meta_tags,
             meta_issues,
             heading_summary: format!(
@@ -1981,62 +2123,106 @@ fn impact_score(group: &FindingGroup) -> u32 {
 fn build_verdict_text(url: &str, score: f32) -> String {
     if score >= 90.0 {
         format!(
-            "Die Website {} erreicht im Accessibility-Audit {:.0}/100 Punkte. \
-                 Die technische Basis ist stark; verbleibende Barrieren sind gezielt und gut priorisierbar.",
-            url, score
+            "{url} erreicht {score:.0}/100 im Accessibility-Audit. \
+             Die verbleibenden Findings sind letzte Optimierungshebel — kein strukturelles Problem, sondern Feinschliff.",
         )
     } else if score >= 70.0 {
         format!(
-            "Die Website {} erreicht im Accessibility-Audit {:.0}/100 Punkte. \
-                 Die Basis ist solide, es bestehen aber relevante Barrieren mit klarem Verbesserungshebel.",
-            url, score
+            "{url} erreicht {score:.0}/100 im Accessibility-Audit. \
+             Die Basis ist solide — klarer Verbesserungshebel mit überschaubarem Aufwand.",
         )
     } else if score >= 50.0 {
         format!(
-            "Die Website {} erreicht im Accessibility-Audit nur {:.0}/100 Punkte. \
-                 Es bestehen deutliche Barrieren, die zeitnah priorisiert und behoben werden sollten.",
-            url, score
+            "{url} erreicht {score:.0}/100 im Accessibility-Audit. \
+             Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.",
         )
     } else {
         format!(
-            "Die Website {} erreicht im Accessibility-Audit nur {:.0}/100 Punkte. \
-                 Die Barrierefreiheit ist stark eingeschränkt; es besteht akuter Handlungsbedarf.",
-            url, score
+            "{url} erreicht nur {score:.0}/100 im Accessibility-Audit. \
+             Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.",
         )
     }
 }
 
 fn build_executive_lead(normalized: &NormalizedReport) -> String {
-    let score = normalized.score as f32;
-    let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
+    let score = normalized.score;
+    let critical = normalized.severity_counts.critical;
+    let high = normalized.severity_counts.high;
+    let urgent = critical + high;
+    let total = normalized.severity_counts.total;
 
-    if score >= 90.0 && critical_topics == 0 {
-        "Die Website ist technisch auf sehr hohem Niveau und aktuell ohne dringende Accessibility-Risiken aufgestellt."
-            .to_string()
-    } else if score >= 90.0 {
-        format!(
-            "Die Website ist technisch auf sehr hohem Niveau. {} Thema{} mit hoher Priorität sollte{} kurzfristig bearbeitet werden.",
-            critical_topics,
-            if critical_topics == 1 { "" } else { "n" },
-            if critical_topics == 1 { "" } else { "n" }
-        )
-    } else if score >= 75.0 && critical_topics == 0 {
-        "Sehr gute technische Basis mit klarer Struktur und überschaubarem Optimierungsbedarf."
-            .to_string()
-    } else if score >= 75.0 {
-        format!(
-            "Sehr gute technische Basis mit gezieltem Optimierungsbedarf. {} priorisierte{} Thema{} sollte{} zuerst angegangen werden.",
-            critical_topics,
-            if critical_topics == 1 { "s" } else { "" },
-            if critical_topics == 1 { "" } else { "en" },
-            if critical_topics == 1 { "" } else { "n" }
-        )
-    } else if score >= 50.0 {
-        "Die Website hat eine brauchbare Basis, weist aber relevante Barrieren auf, die geordnet priorisiert werden sollten."
-            .to_string()
+    // Gather cross-module signals for richer context
+    let has_security_issues = normalized
+        .raw_security
+        .as_ref()
+        .map(|s| s.score < 60)
+        .unwrap_or(false);
+    let has_mobile_issues = normalized
+        .raw_mobile
+        .as_ref()
+        .map(|m| m.score < 60)
+        .unwrap_or(false);
+    let high_dom = normalized.nodes_analyzed > 1500;
+
+    // Detect structural overlap: SEO issues that are simultaneously accessibility issues
+    let has_weak_seo = normalized
+        .raw_seo
+        .as_ref()
+        .map(|s| s.score < 65)
+        .unwrap_or(false);
+    let has_heading_issues = normalized.findings.iter().any(|f| {
+        f.rule_id.to_lowercase().contains("heading")
+            || f.title.to_lowercase().contains("überschrift")
+            || f.title.to_lowercase().contains("h1")
+    });
+    let seo_a11y_overlap = has_weak_seo && has_heading_issues;
+
+    // Build a cross-module context hint when multiple weak areas align
+    let context_hint = if seo_a11y_overlap {
+        " Fehlende Struktur (Überschriften, Inhalt) betrifft gleichzeitig SEO-Sichtbarkeit und Zugänglichkeit."
     } else {
-        "Die Website hat deutliche Accessibility-Schwächen und sollte kurzfristig technisch stabilisiert werden."
-            .to_string()
+        match (has_security_issues, has_mobile_issues, high_dom) {
+            (true, true, _) => " Auch Security und Mobile weisen Optimierungsbedarf auf — die Schwächen ziehen sich durch mehrere Bereiche.",
+            (true, false, _) => " Zusätzlich bestehen offene Security-Themen.",
+            (false, true, _) => " Mobile-Nutzbarkeit ist ebenfalls verbesserungswürdig.",
+            (false, false, true) => " Die hohe DOM-Komplexität erschwert automatisierte Prüfungen.",
+            _ => "",
+        }
+    };
+
+    // Systematic scale: 40+ issues signals a process problem, not individual failures
+    let is_systematic = total > 40 || (critical >= 5 && total > 25);
+
+    if is_systematic {
+        format!(
+            "Kein Einzelproblem — {total} Verstöße über {critical} kritische und {high} hohe Themen sind ein systematisches Muster. Betrifft große Teile der Seite, nicht einzelne Stellen.{context_hint}"
+        )
+    } else if score >= 90 && urgent == 0 {
+        format!("Sehr gutes Ergebnis — keine dringenden Barrieren.{context_hint} Das Niveau halten und regelmäßig nachprüfen.")
+    } else if score >= 90 {
+        format!(
+            "Technisch stark aufgestellt. {urgent} kritische{} Thema{} {} — jetzt gezielt beheben, bevor sie sich häufen.{context_hint}",
+            if urgent == 1 { "s" } else { "" },
+            if urgent == 1 { "" } else { "n" },
+            if urgent == 1 { "wartet" } else { "warten" },
+        )
+    } else if score >= 75 && urgent == 0 {
+        format!("Solide Basis ohne akute Risiken. {total} Verbesserungen möglich — gut priorisierbar und umzusetzen.{context_hint}")
+    } else if score >= 75 {
+        format!(
+            "Gute Basis, aber {urgent} priorisierte{} Thema{} braucht{} sofortige Aufmerksamkeit.{context_hint}",
+            if urgent == 1 { "s" } else { "" },
+            if urgent == 1 { "" } else { "n" },
+            if urgent == 1 { "" } else { "n" }
+        )
+    } else if score >= 50 {
+        format!(
+            "Relevante Barrieren vorhanden — {urgent} davon kritisch oder hoch. Jetzt strukturiert priorisieren und Phase 1 starten.{context_hint}"
+        )
+    } else {
+        format!(
+            "Akuter Handlungsbedarf: {critical} kritische, {high} hohe Issues. Die Seite ist für einen Teil der Nutzer schwer nutzbar — sofort Phase 1 starten.{context_hint}"
+        )
     }
 }
 
@@ -2049,6 +2235,319 @@ fn build_score_note(normalized: &NormalizedReport) -> Option<String> {
         )
     } else {
         None
+    }
+}
+
+/// 4-level maturity classification based on score and severity profile
+fn build_maturity_label(score: u32, critical: usize, high: usize) -> String {
+    let urgent = critical + high;
+    if score < 50 || critical >= 3 {
+        "Kritisch".to_string()
+    } else if score < 70 || (critical >= 1 && urgent >= 3) {
+        "Instabil".to_string()
+    } else if score < 88 || urgent > 0 {
+        "Solide Basis".to_string()
+    } else {
+        "Stark".to_string()
+    }
+}
+
+/// Overall impact assessment for the summary — user experience, risk, conversion effect
+fn build_overall_impact(normalized: &NormalizedReport) -> Vec<(String, String)> {
+    let score = normalized.score;
+    let critical = normalized.severity_counts.critical;
+    let high = normalized.severity_counts.high;
+    let urgent = critical + high;
+
+    let user_rating = if score >= 90 && urgent == 0 {
+        "Sehr gut — keine relevanten Barrieren"
+    } else if score >= 75 {
+        "Gut — einzelne Barrieren für Hilfstechnologien"
+    } else if score >= 50 {
+        "Eingeschränkt — spürbare Barrieren für Screenreader-Nutzer"
+    } else {
+        "Stark eingeschränkt — wesentliche Inhalte nicht zugänglich"
+    };
+
+    let risk_level = if critical >= 2 {
+        "Hoch — BITV/WCAG-Verstoßrisiko akut"
+    } else if critical >= 1 || urgent >= 3 {
+        "Mittel — kritische Themen vorhanden"
+    } else if score < 70 {
+        "Mittel — kumulierter Nachholbedarf"
+    } else {
+        "Niedrig"
+    };
+
+    let conversion = if score < 50 {
+        "Hoch wahrscheinlich negativ"
+    } else if score < 75 {
+        "Möglicherweise negativ (Navigation, Formulare)"
+    } else {
+        "Gering — gute Nutzbarkeit"
+    };
+
+    vec![
+        ("Nutzererlebnis".to_string(), user_rating.to_string()),
+        ("Risiko-Level".to_string(), risk_level.to_string()),
+        ("Conversion-Effekt".to_string(), conversion.to_string()),
+    ]
+}
+
+/// Magnitude-based trend label for history deltas
+fn build_trend_label(delta_accessibility: i32, delta_issues: i32) -> String {
+    if delta_accessibility >= 10 || (delta_accessibility >= 5 && delta_issues <= -5) {
+        "Deutlich verbessert".to_string()
+    } else if delta_accessibility > 0 || delta_issues < 0 {
+        "Verbessert".to_string()
+    } else if delta_accessibility == 0 && delta_issues == 0 {
+        "Stabil".to_string()
+    } else if delta_accessibility >= -5 && delta_issues <= 5 {
+        "Leicht zurückgegangen".to_string()
+    } else {
+        "Deutlich verschlechtert".to_string()
+    }
+}
+
+/// Problem distribution type based on issue count, severity spread, and rule diversity
+fn build_problem_type(normalized: &NormalizedReport) -> String {
+    let total = normalized.severity_counts.total;
+    let critical = normalized.severity_counts.critical;
+    let high = normalized.severity_counts.high;
+    let rule_count = normalized
+        .findings
+        .iter()
+        .map(|f| f.wcag_criterion.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+
+    // "Structural" requires flächendeckend: many issues AND broad rule spread
+    // Concentrated critical problems (e.g. 2 critical, 9 high but only 18 total) are "Einzelprobleme"
+    let is_structural = total > 30
+        || (critical >= 5 && total > 20)
+        || (rule_count >= 7 && total > 25 && (critical + high) >= 15);
+
+    if is_structural {
+        "Strukturelle Defizite — flächendeckende Barrieren in mehreren Bereichen".to_string()
+    } else if total > 8 || critical >= 2 || (critical + high) >= 5 {
+        "Mehrere kritische Einzelprobleme — konzentriert und gezielt behebbar".to_string()
+    } else if total > 0 {
+        "Feinschliff — keine strukturellen Defizite, letzte Optimierungshebel".to_string()
+    } else {
+        "Keine Verstöße gefunden — volle Konformität im geprüften Umfang".to_string()
+    }
+}
+
+/// Cross-module technical overview: always exactly 4 categories for consistent framework feel
+fn build_technical_overview(normalized: &NormalizedReport) -> Vec<String> {
+    let mut insights = Vec::new();
+
+    let critical = normalized.severity_counts.critical;
+    let high = normalized.severity_counts.high;
+    let total = normalized.severity_counts.total;
+    let rule_count = normalized.findings.len();
+
+    // 1. Accessibility-Systematik — always present
+    let a11y = if total == 0 {
+        "Accessibility-Systematik: Keine Verstöße — Basis vollständig konform".to_string()
+    } else if critical >= 5 && total > 30 {
+        format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regeltypen, {total} Instanzen) — Prozess-Problem, kein Einzelfall")
+    } else if critical >= 3 || (critical >= 2 && rule_count >= 5) {
+        format!("Accessibility-Systematik: Mehrere kritische Blockaden ({critical} kritisch, {high} hoch) — direkte Screenreader-Barrieren")
+    } else if total > 10 {
+        format!("Accessibility-Systematik: Verteilt über {rule_count} Regeltypen — kein Muster, einzeln behebbar")
+    } else {
+        format!("Accessibility-Systematik: {total} Verstöße in {rule_count} Bereichen — konzentriert und gezielt behebbar")
+    };
+    insights.push(a11y);
+
+    // 2. SEO-Level — always present
+    let seo = if let Some(ref s) = normalized.raw_seo {
+        if s.score >= 85 {
+            format!(
+                "SEO-Level: {} Pkt — technische Ranking-Voraussetzungen erfüllt",
+                s.score
+            )
+        } else if s.score >= 65 {
+            format!(
+                "SEO-Level: {} Pkt — Basis vorhanden, gezielte Optimierungen möglich",
+                s.score
+            )
+        } else if s.score >= 45 {
+            format!(
+                "SEO-Level: {} Pkt — relevante Signale fehlen, Sichtbarkeit eingeschränkt",
+                s.score
+            )
+        } else {
+            format!(
+                "SEO-Level: {} Pkt — strukturelle Basis fehlt, Ranking praktisch ausgeschlossen",
+                s.score
+            )
+        }
+    } else {
+        "SEO-Level: Nicht geprüft (--full für vollständige Analyse)".to_string()
+    };
+    insights.push(seo);
+
+    // 3. Security-Level — always present
+    let sec = if let Some(ref s) = normalized.raw_security {
+        if s.score >= 80 {
+            format!(
+                "Security-Level: {} Pkt — HTTP-Security-Header vollständig gesetzt",
+                s.score
+            )
+        } else if s.score >= 55 {
+            format!(
+                "Security-Level: {} Pkt — Grundschutz vorhanden, einzelne Header fehlen",
+                s.score
+            )
+        } else if s.score >= 30 {
+            format!(
+                "Security-Level: {} Pkt — mehrere kritische Security-Header fehlen",
+                s.score
+            )
+        } else {
+            format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — hohes Risiko, schnell behebbar", s.score)
+        }
+    } else {
+        "Security-Level: Nicht geprüft (--full für vollständige Analyse)".to_string()
+    };
+    insights.push(sec);
+
+    // 4. Tech-Komplexität — DOM + performance combined
+    let dom = normalized.nodes_analyzed;
+    let perf_score = normalized.raw_performance.as_ref().map(|p| p.score.overall);
+    let tech = match (dom, perf_score) {
+        (d, Some(p)) if d > 2000 && p < 60 => format!(
+            "Tech-Komplexität: Hoch — {d} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"
+        ),
+        (d, Some(p)) if d > 2000 => format!(
+            "Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten (Performance {p} Pkt stabil)"
+        ),
+        (d, Some(p)) if p < 60 => format!(
+            "Tech-Komplexität: Performance kritisch ({p} Pkt) — {d} DOM-Knoten analysiert"
+        ),
+        (d, Some(p)) if p < 80 => format!(
+            "Tech-Komplexität: Gering — {d} DOM-Knoten, Performance optimierbar ({p} Pkt)"
+        ),
+        (d, Some(p)) => format!(
+            "Tech-Komplexität: Gering — {d} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"
+        ),
+        (d, None) if d > 2000 => format!(
+            "Tech-Komplexität: Hoch — {d} DOM-Knoten (Performance nicht geprüft)"
+        ),
+        (d, None) => format!(
+            "Tech-Komplexität: {d} DOM-Knoten analysiert (Performance nicht geprüft, --full)"
+        ),
+    };
+    insights.push(tech);
+
+    insights
+}
+
+/// Generate executive-oriented effects for an action item based on its finding context
+/// SEO interpretation: contextual reading of the SEO score
+/// Score-range benchmark: contextualizes the score against a typical distribution
+/// Based on internal reference data from audited sites (approximate percentile buckets).
+fn build_benchmark_context(score: f32) -> String {
+    if score >= 95.0 {
+        "Top 5% — Ausnahmeniveau. Kein struktureller Handlungsdruck.".to_string()
+    } else if score >= 90.0 {
+        "Top 15% — Deutlich besser als die Mehrheit. Feinschliff genügt.".to_string()
+    } else if score >= 80.0 {
+        "Oberes Drittel — Guter Stand, einzelne Optimierungen lohnen sich.".to_string()
+    } else if score >= 70.0 {
+        "Mittleres Feld — Verbesserungspotenzial vorhanden, kein akuter Notfall.".to_string()
+    } else if score >= 55.0 {
+        "Unteres Mittelfeld — Deutlicher Rückstand gegenüber vergleichbaren Websites.".to_string()
+    } else if score >= 40.0 {
+        "Unteres Drittel — Erheblicher Rückstand, strukturelle Defizite häufig.".to_string()
+    } else {
+        "Kritisch — Zu den schwächsten geprüften Seiten. Sofortiger Handlungsbedarf.".to_string()
+    }
+}
+
+/// Forward-looking consequence: what happens without action, tailored to problem profile
+/// Concrete current-state business consequence for the KV list ("Konsequenz" row)
+fn build_business_consequence(normalized: &NormalizedReport) -> String {
+    let critical = normalized.severity_counts.critical;
+    let total = normalized.severity_counts.total;
+    let score = normalized.score;
+
+    if total == 0 {
+        return "Keine bekannten Barrieren — gutes Fundament für alle Nutzergruppen.".to_string();
+    }
+
+    let has_weak_seo = normalized.raw_seo.as_ref().is_some_and(|s| s.score < 65);
+    let has_heading_issues = normalized.findings.iter().any(|f| {
+        f.rule_id.to_lowercase().contains("heading")
+            || f.title.to_lowercase().contains("überschrift")
+    });
+
+    if score < 50 || (critical >= 5 && total > 30) {
+        "Weite Teile der Seite sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
+            .to_string()
+    } else if has_weak_seo && has_heading_issues {
+        "Seite wird schlechter gefunden und ist für Teile der Nutzer strukturell nicht zugänglich."
+            .to_string()
+    } else if critical >= 2 {
+        "Einzelne Kernfunktionen sind für Screenreader-Nutzer blockiert oder fehleranfällig."
+            .to_string()
+    } else {
+        "Nutzbarkeit ist gegeben — gezielte Verbesserungen erhöhen Qualität und Reichweite."
+            .to_string()
+    }
+}
+
+/// Forward-looking consequence: what happens without action, concretely framed
+fn build_consequence_text(normalized: &NormalizedReport) -> String {
+    let critical = normalized.severity_counts.critical;
+    let total = normalized.severity_counts.total;
+    let score = normalized.score;
+
+    if total == 0 {
+        return String::new();
+    }
+
+    let weak_module_count = [
+        normalized
+            .raw_security
+            .as_ref()
+            .is_some_and(|s| s.score < 60),
+        normalized.raw_seo.as_ref().is_some_and(|s| s.score < 60),
+        normalized
+            .raw_performance
+            .as_ref()
+            .is_some_and(|p| p.score.overall < 70),
+        normalized.raw_mobile.as_ref().is_some_and(|m| m.score < 65),
+    ]
+    .iter()
+    .filter(|&&v| v)
+    .count();
+
+    if score < 50 || (critical >= 5 && total > 30) {
+        "Neue Inhalte und Funktionen erben die bestehenden Fehler — Korrekturaufwand wächst mit jeder Erweiterung.".to_string()
+    } else if critical >= 3 || weak_module_count >= 3 {
+        "Aufwand für spätere Korrekturen steigt deutlich — besonders bei Relaunch oder größerem Content-Ausbau.".to_string()
+    } else if score >= 85 {
+        "Kein akuter Handlungsdruck. Regelmäßige Checks sichern das Niveau nach Updates und Erweiterungen.".to_string()
+    } else {
+        "Ohne Korrektur bleibt die Seite hinter erreichbarem Standard — Verbesserungspotenzial wird nicht genutzt.".to_string()
+    }
+}
+
+fn build_seo_interpretation(seo: &crate::seo::SeoAnalysis) -> String {
+    if seo.score >= 90 {
+        "Sehr gute SEO-Basis — technische Voraussetzungen für gutes Ranking erfüllt.".to_string()
+    } else if seo.score >= 70 {
+        "Solide SEO-Basis mit gezieltem Optimierungspotenzial.".to_string()
+    } else if seo.score >= 55 {
+        "SEO-Basis lückenhaft — relevante Ranking-Signale fehlen, Sichtbarkeit deutlich eingeschränkt.".to_string()
+    } else if seo.score >= 35 {
+        "SEO unzureichend — wesentliche Grundlagen fehlen. Ranking in kompetitiven Bereichen quasi unmöglich.".to_string()
+    } else {
+        "SEO kritisch — Seite ist für Suchmaschinen kaum indexierbar. Nicht wettbewerbsfähig."
+            .to_string()
     }
 }
 
@@ -2387,6 +2886,122 @@ mod tests {
     }
 }
 
+fn derive_user_effect_from_action(action: &str, effort: Effort) -> String {
+    let a = action.to_lowercase();
+    // Match against humanized action texts for maximum specificity
+    if a.contains("buttons") || a.contains("schaltflächen") {
+        "Nutzer verstehen Schaltflächen sofort — weniger Fehlklicks".to_string()
+    } else if a.contains("links verständlich") || a.contains("links eindeutig") {
+        "Navigation klarer — Nutzer finden Ziele schneller".to_string()
+    } else if a.contains("interaktive elemente") || a.contains("aria-label") {
+        "Alle Bedienelemente klar benannt — Screenreader-Nutzung ohne Ratespiel".to_string()
+    } else if a.contains("bilder") || a.contains("alternativtext") || a.contains("alt-text") {
+        "Bilder verständlich für Nutzer ohne Sehvermögen".to_string()
+    } else if a.contains("kontrast") || a.contains("farbkontrast") {
+        "Text für alle Nutzer gut lesbar — auch bei schlechten Lichtverhältnissen".to_string()
+    } else if a.contains("formular") && a.contains("beschrift") {
+        "Formulare ausfüllbar ohne Verwirrung — weniger Abbrüche".to_string()
+    } else if a.contains("überschrift") || a.contains("heading") {
+        "Inhaltsstruktur sofort erfassbar — schnellere Orientierung".to_string()
+    } else if a.contains("sprunglink") || a.contains("skip") {
+        "Tastaturnutzer gelangen direkt zum Hauptinhalt".to_string()
+    } else if a.contains("tastatur") || a.contains("keyboard") || a.contains("fokus") {
+        "Vollständige Bedienbarkeit ohne Maus".to_string()
+    } else if a.contains("sprache") || a.contains("lang-attribut") {
+        "Screenreader liest Inhalte in korrekter Sprache und Betonung".to_string()
+    } else if a.contains("seitentitel") || a.contains("title") {
+        "Seite klar identifizierbar in Browser-Tab und Suche".to_string()
+    } else if a.contains("landmark") || a.contains("orientierungspunkt") {
+        "Screenreader-Nutzer navigieren strukturiert durch die Seite".to_string()
+    } else {
+        match effort {
+            Effort::Quick => "Direkte, spürbare Verbesserung der Nutzererfahrung".to_string(),
+            Effort::Medium => "Merkliche Verbesserung für betroffene Nutzergruppen".to_string(),
+            Effort::Structural => "Langfristig inklusivere Nutzererfahrung für alle".to_string(),
+        }
+    }
+}
+
+fn derive_conversion_effect_from_action(action: &str, effort: Effort) -> String {
+    let action_lower = action.to_lowercase();
+    if action_lower.contains("link") || action_lower.contains("navigation") {
+        "Klarere Navigation → weniger Absprünge".to_string()
+    } else if action_lower.contains("kontrast") || action_lower.contains("contrast") {
+        "Bessere Lesbarkeit → höhere Verweildauer".to_string()
+    } else if action_lower.contains("heading") || action_lower.contains("h1") {
+        "Strukturklarheit → schnellere Orientierung".to_string()
+    } else if action_lower.contains("lang") {
+        "Korrekte Sprachausgabe → keine Abbrüche durch Vorlesefehler".to_string()
+    } else {
+        match effort {
+            Effort::Quick => "Schnell wirksam — messbar innerhalb von Tagen".to_string(),
+            Effort::Medium => "Mittelfristig messbare UX-Verbesserung".to_string(),
+            Effort::Structural => "Solide technische Basis für weiteres Wachstum".to_string(),
+        }
+    }
+}
+
+/// Translate technical WCAG recommendation text into executive-friendly language.
+/// Keeps specificity where the original is already clear; only replaces recognizable
+/// technical shorthand that non-developers won't understand.
+fn humanize_action_text(action: &str) -> String {
+    let lower = action.to_lowercase();
+    // aria-label / accessible name
+    if lower.contains("aria-label") || lower.contains("aria_label") {
+        return "Interaktive Elemente (Buttons, Links) verständlich benennen".to_string();
+    }
+    // alt text / alternative text
+    if (lower.contains("alt-text") || lower.contains("alt text") || lower.contains("alt-attribut"))
+        && !lower.contains("kein")
+    {
+        return "Bilder mit beschreibendem Alternativtext versehen".to_string();
+    }
+    // color contrast
+    if lower.contains("kontrast") || lower.contains("contrast") {
+        return "Farbkontraste für Text und UI-Elemente verbessern".to_string();
+    }
+    // form labels
+    if (lower.contains("label") || lower.contains("beschriftung"))
+        && (lower.contains("formular") || lower.contains("input") || lower.contains("feld"))
+    {
+        return "Formularfelder eindeutig beschriften".to_string();
+    }
+    // heading structure
+    if lower.contains("überschrift") || (lower.contains("heading") && lower.contains("struktur")) {
+        return "Überschriften-Hierarchie logisch strukturieren".to_string();
+    }
+    // keyboard / focus
+    if lower.contains("tastatur")
+        || lower.contains("keyboard")
+        || lower.contains("fokus-reihenfolge")
+    {
+        return "Tastaturnavigation und Fokus-Reihenfolge sicherstellen".to_string();
+    }
+    // skip links
+    if lower.contains("sprunglink") || lower.contains("skip link") || lower.contains("skip-link") {
+        return "Sprunglinks für Screenreader-Nutzer ergänzen".to_string();
+    }
+    // language attribute
+    if lower.contains("lang-attribut") || (lower.contains("sprache") && lower.contains("attribut"))
+    {
+        return "Seitensprache korrekt im HTML auszeichnen".to_string();
+    }
+    // page title
+    if lower.contains("seitentitel") || (lower.contains("title") && lower.contains("tag")) {
+        return "Aussagekräftigen Seitentitel vergeben".to_string();
+    }
+    // link text
+    if lower.contains("linktext") || (lower.contains("link") && lower.contains("beschrift")) {
+        return "Links verständlich und eindeutig beschriften".to_string();
+    }
+    // ARIA roles / landmarks
+    if lower.contains("landmark") || (lower.contains("aria") && lower.contains("role")) {
+        return "Seitenstruktur mit Orientierungspunkten auszeichnen".to_string();
+    }
+    // No match — return original
+    action.to_string()
+}
+
 fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
     let mut quick_wins = Vec::new();
     let mut medium_term = Vec::new();
@@ -2394,7 +3009,7 @@ fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
 
     for group in finding_groups {
         let item = ActionItem {
-            action: group.recommendation.clone(),
+            action: humanize_action_text(&group.recommendation),
             benefit: group.business_impact.clone(),
             role: group.responsible_role,
             priority: group.priority,
@@ -2411,6 +3026,19 @@ fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan {
     quick_wins.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
     medium_term.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
     structural.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
+
+    // Deduplicate by action text across ALL phases (keep first occurrence = highest phase/priority)
+    let mut seen_actions: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let dedup =
+        |items: Vec<ActionItem>, seen: &mut std::collections::HashSet<String>| -> Vec<ActionItem> {
+            items
+                .into_iter()
+                .filter(|i| seen.insert(i.action.clone()))
+                .collect()
+        };
+    let quick_wins = dedup(quick_wins, &mut seen_actions);
+    let medium_term = dedup(medium_term, &mut seen_actions);
+    let structural = dedup(structural, &mut seen_actions);
 
     let mut role_map: HashMap<Role, Vec<String>> = HashMap::new();
     for group in finding_groups {

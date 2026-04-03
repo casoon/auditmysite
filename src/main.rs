@@ -33,7 +33,7 @@ use auditmysite::error::{AuditError, Result};
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
     format_ai_json, format_batch_table, format_json_batch, format_json_cached,
-    format_json_normalized, print_batch_table, print_report,
+    format_json_normalized, print_batch_table, print_report, JsonReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
@@ -923,7 +923,15 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
     match args.effective_format() {
         OutputFormat::Json => {
             let normalized = normalize(report);
-            let output = format_json_normalized(&normalized, report, true)?;
+            let mut json_report = JsonReport::from_normalized(&normalized, report);
+            if let Some(path) = args.output.as_ref() {
+                if let Ok(Some(preview)) =
+                    preview_report_history(output_directory(path), path, &normalized)
+                {
+                    json_report.history = serde_json::to_value(&preview).ok();
+                }
+            }
+            let output = json_report.to_json(true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
             if let Some(path) = args.output.as_ref() {
                 maybe_write_single_history(path, &normalized, args.quiet)?;
