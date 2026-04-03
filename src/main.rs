@@ -1194,6 +1194,7 @@ fn default_single_pdf_output_path(
     PathBuf::from(format!("{subject}-{date}-single-report.pdf"))
 }
 
+#[cfg(feature = "pdf")]
 fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
     let kind = if args.sitemap.is_some() {
@@ -1304,6 +1305,7 @@ mod tests {
         assert_eq!(output_directory(&path), std::path::Path::new("."));
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn test_default_single_json_output_path_matches_pdf_basename() {
         let pdf_path = PathBuf::from("casoon-de-2026-03-31-single-report.pdf");
@@ -1346,6 +1348,7 @@ mod tests {
         assert!(rendered.contains("in-punkto-com-"));
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn test_default_batch_pdf_output_path_uses_sitemap_kind() {
         let args = Args::parse_from([
@@ -1359,6 +1362,7 @@ mod tests {
         assert!(rendered.ends_with(".pdf"));
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn test_default_batch_pdf_output_path_uses_crawl_kind() {
         let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
