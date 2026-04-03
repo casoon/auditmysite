@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="72" viewBox="0 0 520 72" role="img" aria-label="auditmysite">
+  <rect width="520" height="72" rx="14" fill="#F8FAFC"/>
+  <text
+    x="28"
+    y="47"
+    fill="#0F172A"
+    font-family="'JetBrains Mono', 'JetBrainsMono Nerd Font', monospace"
+    font-size="30"
+    font-weight="700"
+    letter-spacing="-0.8"
+  >auditmysite</text>
+</svg>

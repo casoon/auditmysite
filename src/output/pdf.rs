@@ -39,7 +39,7 @@ fn create_engine() -> anyhow::Result<Engine> {
         .set("font.heading", TokenValue::Font("Helvetica".into()));
     theme
         .tokens
-        .set("font.mono", TokenValue::Font("Courier".into()));
+        .set("font.mono", TokenValue::Font("JetBrains Mono".into()));
     engine.set_default_theme(theme);
 
     Ok(engine)
@@ -97,6 +97,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     let normalized = normalize(report);
     let vm = build_view_model(&normalized, config);
     let i18n = I18n::new(&config.locale)?;
+    let wordmark_asset = "/auditmysite-wordmark.svg";
 
     let mut builder = engine
         .report("wcag-audit")
@@ -107,8 +108,13 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .metadata("footer_prefix", "Audit:")
         .metadata("footer_link_url", "");
 
+    if let Ok(path) = auditmysite_wordmark_path() {
+        builder = builder.asset(wordmark_asset, path);
+    }
+
     // ── Cover Page ───────────────────────────────────────────────────
     builder = builder
+        .add_component(Image::new(wordmark_asset).with_width("22%"))
         .add_component(
             Label::new("Automatisierter Audit-Report")
                 .with_size("11pt")
@@ -515,6 +521,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let engine = create_engine()?;
     let i18n = I18n::new(&config.locale)?;
     let pres = build_batch_presentation(batch);
+    let wordmark_asset = "/auditmysite-wordmark.svg";
 
     let author = extract_domain(&pres.cover.url);
 
@@ -528,6 +535,10 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .metadata("footer_prefix", "Audit:")
         .metadata("footer_link_url", "");
 
+    if let Ok(path) = auditmysite_wordmark_path() {
+        builder = builder.asset(wordmark_asset, path);
+    }
+
     if let Some(ref logo_path) = config.logo_path {
         if logo_path.exists() {
             builder = builder.add_component(
@@ -538,6 +549,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     let batch_score = pres.portfolio_summary.average_score.round() as u32;
     builder = builder
+        .add_component(Image::new(wordmark_asset).with_width("22%"))
         .add_component(
             Label::new(&author)
                 .with_size("10pt")
@@ -1158,6 +1170,7 @@ pub fn generate_comparison_pdf(
         .first()
         .map(|e| extract_domain(&e.url))
         .unwrap_or_default();
+    let wordmark_asset = "/auditmysite-wordmark.svg";
 
     let mut builder = engine
         .report("wcag-comparison")
@@ -1166,7 +1179,12 @@ pub fn generate_comparison_pdf(
         .metadata("footer_prefix", "Audit:")
         .metadata("footer_link_url", "");
 
+    if let Ok(path) = auditmysite_wordmark_path() {
+        builder = builder.asset(wordmark_asset, path);
+    }
+
     builder = builder
+        .add_component(Image::new(wordmark_asset).with_width("22%"))
         .add_component(
             Label::new(&author)
                 .with_size("10pt")
@@ -1968,6 +1986,15 @@ fn certificate_badge_path(certificate: &str) -> anyhow::Result<String> {
     let path: PathBuf = env::temp_dir().join(filename);
     fs::write(&path, svg)?;
 
+    Ok(path.to_string_lossy().to_string())
+}
+
+fn auditmysite_wordmark_path() -> anyhow::Result<String> {
+    let path: PathBuf = env::temp_dir().join("auditmysite-wordmark.svg");
+    fs::write(
+        &path,
+        include_str!("../../assets/brand/auditmysite-wordmark.svg"),
+    )?;
     Ok(path.to_string_lossy().to_string())
 }
 
