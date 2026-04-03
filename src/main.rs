@@ -32,8 +32,8 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_batch_table, format_json_batch, format_json_cached, format_json_normalized,
-    print_batch_table, print_report,
+    format_ai_json, format_batch_table, format_json_batch, format_json_cached,
+    format_json_normalized, print_batch_table, print_report,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
@@ -332,7 +332,7 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
                     output_text(&output, &args.output, "JSON", args.quiet)?;
                     return Ok(cached.audit.overall_score as f64);
                 }
-                OutputFormat::Table | OutputFormat::Pdf => {
+                OutputFormat::Table | OutputFormat::Pdf | OutputFormat::Ai => {
                     let report = to_audit_report(&cached);
                     output_single_report(&report, args)?;
                     return Ok(report.score as f64);
@@ -907,6 +907,13 @@ fn output_comparison_report(
                 ));
             }
         }
+        OutputFormat::Ai => {
+            let output =
+                serde_json::to_string_pretty(comparison).map_err(|e| AuditError::OutputError {
+                    reason: e.to_string(),
+                })?;
+            output_text(&output, &args.output, "AI JSON comparison", args.quiet)?;
+        }
     }
     Ok(())
 }
@@ -1000,6 +1007,10 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                 ));
             }
         }
+        OutputFormat::Ai => {
+            let output = format_ai_json(report);
+            output_text(&output, &args.output, "AI JSON", args.quiet)?;
+        }
     }
     Ok(())
 }
@@ -1065,6 +1076,13 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
                     "PDF output requires the 'pdf' feature. Rebuild with: cargo build --features pdf".to_string(),
                 ));
             }
+        }
+        OutputFormat::Ai => {
+            // For batch mode, emit one AI JSON document per URL.
+            // Each report is separated by a newline-delimited JSON array.
+            let outputs: Vec<String> = batch_report.reports.iter().map(format_ai_json).collect();
+            let combined = format!("[\n{}\n]", outputs.join(",\n"));
+            output_text(&combined, &args.output, "AI JSON batch", args.quiet)?;
         }
     }
     Ok(())
@@ -1157,6 +1175,7 @@ fn per_page_output_path(
         OutputFormat::Pdf => default_single_pdf_output_path(url, report_level),
         OutputFormat::Json => PathBuf::from(format!("{subject}-{date}-single-report.json")),
         OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
+        OutputFormat::Ai => PathBuf::from(format!("{subject}-{date}-single-report-ai.json")),
     };
 
     match filename.file_name() {

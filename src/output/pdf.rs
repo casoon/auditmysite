@@ -104,8 +104,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .metadata("version", &vm.meta.version)
         .metadata("author", &vm.meta.author)
         .metadata("score", &vm.meta.score_label)
-        .metadata("footer_prefix", "Erstellt mit")
-        .metadata("footer_link_url", "https://auditmysite.casoon.dev");
+        .metadata("footer_prefix", "Audit:")
+        .metadata("footer_link_url", "");
 
     // ── Cover Page ───────────────────────────────────────────────────
     builder = builder
@@ -151,20 +151,22 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ── 1. Hero / Ergebnisblock ─────────────────────────────────────
-    builder = builder
-        .add_component(soft_flow_group(
-            "320pt",
-            vec![
-                component_json(Section::new("Ergebnisblock").with_level(1)),
-                component_json(Callout::info(&vm.summary.executive_lead).with_title("Einordnung")),
-                component_json(build_summary_overview(&vm.summary)),
-                component_json(build_hero_highlights_table(&vm, &i18n)),
-            ],
-        ))
-        .add_component(
-            Callout::info(build_executive_recommendation(&vm))
-                .with_title("Empfehlung und nächste Schritte"),
-        );
+    // The "Empfehlung und nächste Schritte" callout is included inside the
+    // soft_flow_group so it stays on the same page as the section header and
+    // does not trigger a standalone page break.
+    builder = builder.add_component(soft_flow_group(
+        "320pt",
+        vec![
+            component_json(Section::new("Ergebnisblock").with_level(1)),
+            component_json(Callout::info(&vm.summary.executive_lead).with_title("Einordnung")),
+            component_json(build_summary_overview(&vm.summary)),
+            component_json(build_hero_highlights_table(&vm, &i18n)),
+            component_json(
+                Callout::info(build_executive_recommendation(&vm))
+                    .with_title("Empfehlung und nächste Schritte"),
+            ),
+        ],
+    ));
 
     // Executive level: compact view
     if vm.meta.report_level == ReportLevel::Executive {
@@ -440,8 +442,8 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .metadata("date", &pres.cover.date)
         .metadata("version", &pres.cover.version)
         .metadata("author", &author)
-        .metadata("footer_prefix", "Erstellt mit")
-        .metadata("footer_link_url", "https://auditmysite.casoon.dev");
+        .metadata("footer_prefix", "Audit:")
+        .metadata("footer_link_url", "");
 
     if let Some(ref logo_path) = config.logo_path {
         if logo_path.exists() {
@@ -1078,8 +1080,8 @@ pub fn generate_comparison_pdf(
         .report("wcag-comparison")
         .metadata("date", chrono::Local::now().format("%d.%m.%Y").to_string())
         .metadata("author", &author)
-        .metadata("footer_prefix", "Erstellt mit")
-        .metadata("footer_link_url", "https://auditmysite.casoon.dev");
+        .metadata("footer_prefix", "Audit:")
+        .metadata("footer_link_url", "");
 
     builder = builder
         .add_component(
@@ -1708,7 +1710,7 @@ fn render_methodology_section(
 
 fn build_cover_meta(cover: &CoverBlock) -> SummaryBox {
     SummaryBox::new("Audit-Rahmen")
-        .add_item("Kunde", &cover.brand)
+        .add_item("Domain", &cover.brand)
         .add_item("Prüfdatum", &cover.date)
         .add_item("Ziel", &cover.domain)
         .add_item("Zertifikat", &cover.certificate)

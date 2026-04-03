@@ -1148,7 +1148,12 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
             expl.customer_title.to_string(),
             expl.customer_description.to_string(),
             expl.user_impact.to_string(),
-            derive_business_impact(expl.user_impact, f.dimension.as_str(), f.severity),
+            derive_business_impact(
+                expl.user_impact,
+                f.dimension.as_str(),
+                f.severity,
+                Some(f.subcategory.as_str()),
+            ),
             expl.typical_cause.to_string(),
             expl.recommendation.to_string(),
             expl.technical_note.to_string(),
@@ -1161,7 +1166,12 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
             f.title.clone(),
             f.description.clone(),
             f.user_impact.clone(),
-            derive_business_impact(&f.user_impact, f.dimension.as_str(), f.severity),
+            derive_business_impact(
+                &f.user_impact,
+                f.dimension.as_str(),
+                f.severity,
+                Some(f.subcategory.as_str()),
+            ),
             "Automatisch erkanntes Problem.".to_string(),
             f.occurrences
                 .first()
@@ -1785,7 +1795,12 @@ fn group_violations(
                     expl.customer_title.to_string(),
                     expl.customer_description.to_string(),
                     expl.user_impact.to_string(),
-                    derive_business_impact(expl.user_impact, dimension_label, first.severity),
+                    derive_business_impact(
+                        expl.user_impact,
+                        dimension_label,
+                        first.severity,
+                        subcategory.as_deref(),
+                    ),
                     expl.typical_cause.to_string(),
                     expl.recommendation.to_string(),
                     expl.technical_note.to_string(),
@@ -1806,6 +1821,7 @@ fn group_violations(
                         "Nutzer mit Einschränkungen können betroffen sein.",
                         dimension_label,
                         first.severity,
+                        subcategory.as_deref(),
                     ),
                     "Automatisch erkanntes Problem.".to_string(),
                     first
@@ -1879,7 +1895,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
             expl.customer_title.to_string(),
             expl.customer_description.to_string(),
             expl.user_impact.to_string(),
-            derive_business_impact(expl.user_impact, dimension_label, acc.severity),
+            derive_business_impact(expl.user_impact, dimension_label, acc.severity, None),
             expl.typical_cause.to_string(),
             expl.recommendation.to_string(),
             expl.technical_note.to_string(),
@@ -1892,7 +1908,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
             format!("{} — {}", acc.rule, acc.rule_name),
             String::new(),
             String::new(),
-            derive_business_impact("", dimension_label, acc.severity),
+            derive_business_impact("", dimension_label, acc.severity, None),
             String::new(),
             String::new(),
             String::new(),
@@ -2797,30 +2813,49 @@ fn derive_mobile_card_context(mobile: &crate::mobile::MobileFriendliness) -> Str
     }
 }
 
-fn derive_business_impact(user_impact: &str, dimension: &str, severity: Severity) -> String {
+fn derive_business_impact(
+    user_impact: &str,
+    dimension: &str,
+    severity: Severity,
+    subcategory: Option<&str>,
+) -> String {
     match dimension {
-        "SEO" => {
-            "Kann Auffindbarkeit, Klickrate und organischen Traffic spürbar schwächen.".to_string()
-        }
-        "Security" => {
-            "Kann Vertrauen senken und das technische Risiko für Angriffe erhöhen.".to_string()
-        }
+        "SEO" => "Kann Sichtbarkeit in Suchmaschinen reduzieren und organischen Traffic senken."
+            .to_string(),
+        "Security" => "Erhöht Angriffsfläche und Risiko für Datenverlust.".to_string(),
         "Performance" => {
-            "Kann zu Absprüngen, geringerer Interaktion und schwächerer Conversion führen."
-                .to_string()
+            "Verschlechtert Ladezeit und Nutzererlebnis, erhöht Absprungrate.".to_string()
         }
-        "Mobile" => {
-            "Kann Nutzung auf Smartphones erschweren und mobile Abschlüsse kosten.".to_string()
+        "Mobile" => "Beeinträchtigt mobile Nutzbarkeit für die Mehrheit der Nutzer.".to_string(),
+        "Accessibility" => {
+            // Differentiate by subcategory or content of user_impact
+            if subcategory == Some("Visuelle Darstellung")
+                || user_impact.contains("Kontrast")
+                || user_impact.contains("Lesbarkeit")
+            {
+                "Beeinträchtigt Lesbarkeit für Nutzer mit Sehschwäche.".to_string()
+            } else {
+                match severity {
+                    Severity::Critical | Severity::High => {
+                        "Kann Nutzer ausschließen und rechtliches Risiko erhöhen.".to_string()
+                    }
+                    _ if user_impact.contains("Sprachsteuerung") => {
+                        "Kann Nutzungshürden erhöhen und Interaktionen mit zentralen Elementen verhindern."
+                            .to_string()
+                    }
+                    _ => "Beeinträchtigt Qualität und Nutzererlebnis der Website.".to_string(),
+                }
+            }
         }
         _ => match severity {
             Severity::Critical | Severity::High => {
-                "Kann Nutzer ausschließen und zugleich rechtliches Risiko erhöhen.".to_string()
+                "Kann Nutzer ausschließen und rechtliches Risiko erhöhen.".to_string()
             }
             _ if user_impact.contains("Sprachsteuerung") => {
                 "Kann Nutzungshürden erhöhen und Interaktionen mit zentralen Elementen verhindern."
                     .to_string()
             }
-            _ => "Kann Nutzung, Conversion und Wahrnehmung der Website verschlechtern.".to_string(),
+            _ => "Beeinträchtigt Qualität und Nutzererlebnis der Website.".to_string(),
         },
     }
 }

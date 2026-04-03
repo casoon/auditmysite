@@ -287,6 +287,9 @@ pub enum OutputFormat {
     /// PDF report output (via Typst)
     #[value(name = "pdf")]
     Pdf,
+    /// AI/LLM-optimised JSON output (task-oriented, impact-sorted)
+    #[value(name = "ai")]
+    Ai,
 }
 
 /// Report detail level for PDF reports
@@ -320,6 +323,7 @@ impl std::fmt::Display for OutputFormat {
             OutputFormat::Json => write!(f, "json"),
             OutputFormat::Table => write!(f, "table"),
             OutputFormat::Pdf => write!(f, "pdf"),
+            OutputFormat::Ai => write!(f, "ai"),
         }
     }
 }
