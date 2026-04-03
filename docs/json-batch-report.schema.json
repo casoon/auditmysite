@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/casoon/auditmysite/docs/json-batch-report.schema.json",
+  "title": "auditmysite batch report",
+  "type": "object",
+  "required": ["metadata", "summary", "reports"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "summary": {
+      "type": "object",
+      "required": ["total_urls", "passed", "failed", "average_score", "total_violations"],
+      "additionalProperties": false,
+      "properties": {
+        "total_urls": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "average_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "total_violations": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["url", "error"],
+        "additionalProperties": false,
+        "properties": {
+          "url": { "type": "string" },
+          "error": { "type": "string" }
+        }
+      }
+    },
+    "reports": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/normalizedReport" }
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "required": ["tool", "timestamp", "wcag_level", "execution_time_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "wcag_level": { "type": "string" },
+        "execution_time_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "severityCounts": {
+      "type": "object",
+      "required": ["critical", "high", "medium", "low", "total"],
+      "additionalProperties": false,
+      "properties": {
+        "critical": { "type": "integer", "minimum": 0 },
+        "high": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 },
+        "low": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "moduleScore": {
+      "type": "object",
+      "required": ["name", "score", "grade", "weight_pct"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string" },
+        "weight_pct": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "required": ["node_id", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "node_id": { "type": "string" },
+        "message": { "type": "string" },
+        "selector": { "type": ["string", "null"] },
+        "fix_suggestion": { "type": ["string", "null"] }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": [
+        "rule_id",
+        "wcag_criterion",
+        "wcag_level",
+        "dimension",
+        "subcategory",
+        "issue_class",
+        "severity",
+        "user_impact",
+        "technical_impact",
+        "score_impact",
+        "aggregation_key",
+        "title",
+        "description",
+        "occurrence_count",
+        "priority_score",
+        "occurrences"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "rule_id": { "type": "string" },
+        "wcag_criterion": { "type": "string" },
+        "wcag_level": { "type": "string" },
+        "dimension": { "type": "string" },
+        "subcategory": { "type": "string" },
+        "issue_class": { "type": "string" },
+        "severity": { "type": "string" },
+        "user_impact": { "type": "string" },
+        "technical_impact": { "type": "string" },
+        "score_impact": {
+          "type": "object",
+          "required": ["base_penalty", "max_penalty", "scaling"],
+          "additionalProperties": false,
+          "properties": {
+            "base_penalty": { "type": "number" },
+            "max_penalty": { "type": "number" },
+            "scaling": { "type": "string" }
+          }
+        },
+        "aggregation_key": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "occurrence_count": { "type": "integer", "minimum": 0 },
+        "priority_score": { "type": "number" },
+        "occurrences": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/occurrence" }
+        }
+      }
+    },
+    "normalizedReport": {
+      "type": "object",
+      "required": [
+        "url",
+        "wcag_level",
+        "timestamp",
+        "duration_ms",
+        "nodes_analyzed",
+        "score",
+        "grade",
+        "certificate",
+        "findings",
+        "severity_counts",
+        "module_scores",
+        "overall_score"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "url": { "type": "string" },
+        "wcag_level": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "nodes_analyzed": { "type": "integer", "minimum": 0 },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string" },
+        "certificate": { "type": "string" },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "severity_counts": { "$ref": "#/$defs/severityCounts" },
+        "module_scores": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/moduleScore" }
+        },
+        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    }
+  }
+}
