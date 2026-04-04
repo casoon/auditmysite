@@ -3,7 +3,7 @@
 use renderreport::components::advanced::WrongRightBlock;
 use renderreport::components::advanced::{KeyValueList, List};
 use renderreport::components::text::{Label, TextBlock};
-use renderreport::components::{AuditTable, Finding, TableColumn};
+use renderreport::components::Finding;
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -268,25 +268,4 @@ pub(super) fn render_finding_group(
     }
 
     builder
-}
-
-pub(super) fn build_analysis_focus_table() -> AuditTable {
-    AuditTable::new(vec![TableColumn::new("Modul"), TableColumn::new("Fokus")])
-        .with_title("Analysefokus")
-        .add_row(vec![
-            "Performance".to_string(),
-            "Nutzerwahrnehmung, Ladezeit und Reaktionsverhalten".to_string(),
-        ])
-        .add_row(vec![
-            "SEO".to_string(),
-            "Indexierbarkeit, Struktur und inhaltliche Signale".to_string(),
-        ])
-        .add_row(vec![
-            "Sicherheit".to_string(),
-            "HTTP-Header, TLS-Setup und fehlende Schutzmechanismen".to_string(),
-        ])
-        .add_row(vec![
-            "Mobile".to_string(),
-            "Bedienbarkeit, Responsiveness und Lesbarkeit".to_string(),
-        ])
 }

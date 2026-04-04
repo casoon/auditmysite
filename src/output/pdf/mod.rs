@@ -12,8 +12,8 @@ mod history;
 mod modules;
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, Divider, DominantIssueSpotlight,
-    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, PhaseBlock, RecommendationCard,
+    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, DominantIssueSpotlight,
+    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, RecommendationCard,
     SectionHeaderSplit, TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
@@ -42,20 +42,24 @@ use self::detail_modules::{
     render_budget_violations, render_dark_mode, render_mobile, render_performance, render_security,
     render_seo,
 };
-use self::findings::{
-    build_analysis_focus_table, render_finding_group, render_finding_technical,
-    render_key_finding_block,
-};
+use self::findings::{render_finding_group, render_finding_technical, render_key_finding_block};
 use self::helpers::{
     component_json, create_engine, extract_domain, severity_label_i18n, soft_flow_group,
 };
-use self::history::{render_history_section, render_methodology_section};
+use self::history::render_methodology_section;
 use self::modules::{
-    build_module_cards_grid, build_module_radar_chart, build_overall_score_card,
     build_summary_overview, build_top_hebel_table, build_was_jetzt_tun_table, WasJetztTunContent,
 };
 
 // ─── Single Report ──────────────────────────────────────────────────────────
+//
+// 6-page structure:
+//   Page 1 — Hero / Entry (pitch: status, scores, impact, consequences)
+//   Page 2 — Dominant Issue (focus: biggest problem, top fixes, leverage)
+//   Page 3 — Key Findings (bridge: Problem/Impact/Ursache/Fix cards)
+//   Page 4 — Action Plan (decide: quick wins, action table, execution note)
+//   Page 5 — Tech Entry (transition: intro + severity overview)
+//   Page 6+ — Tech Details (implement: WCAG details, code examples, modules)
 
 pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
     let engine = create_engine()?;
@@ -116,304 +120,262 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         )
         .add_component(PageBreak::new());
 
-    if vm.meta.report_level != ReportLevel::Executive {
-        builder = builder.add_component(TableOfContents::new().with_depth(1));
-    }
-
-    // ── 1. Hero / Ergebnisblock ─────────────────────────────────────
-    // Split into two flow groups so the ImpactGrid never breaks across pages.
-    // Group A: Section + Hero + KPI-Strip
-    // Group B: Impact triad + Text summary
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE 1 — HERO / ENTRY
+    // Goal: sell the problem — status, scores, impact, consequences
+    // ─────────────────────────────────────────────────────────────────
     {
-        let hero_items = vec![
-            component_json(Section::new("Ergebnisblock").with_level(1)),
-            // ROW 1: HERO — score card + 3 metric cards
-            component_json(build_summary_overview(&vm.summary)),
-            component_json(Divider::new()),
-            // ROW 2: KPI STRIP — counts
-            component_json(MetricStrip::new(vec![
-                MetricStripItem::new("Issues gesamt", vm.severity.total.to_string()),
-                MetricStripItem::new("Kritisch", vm.severity.critical.to_string())
+        // HeroAssessment — status statement
+        let status_text = if vm.summary.score < 50 {
+            "Diese Website ist aktuell nicht barrierefrei nutzbar. Zentrale Funktionen sind für einen Teil der Nutzer nicht erreichbar."
+        } else if vm.summary.score < 70 {
+            "Diese Website weist strukturelle Accessibility-Probleme auf. Wichtige Bereiche sind eingeschränkt nutzbar."
+        } else if vm.summary.score < 85 {
+            "Diese Website ist grundsätzlich nutzbar, hat aber spürbare Schwächen in einzelnen Bereichen."
+        } else {
+            "Diese Website ist überwiegend barrierefrei. Letzte Optimierungen sind möglich."
+        };
+        let priority_text = if vm.severity.critical > 0 {
+            "Priorität: Sofort starten"
+        } else if vm.severity.high > 0 {
+            "Priorität: Hoch"
+        } else {
+            "Priorität: Bei nächster Optimierung"
+        };
+
+        builder = builder.add_component(soft_flow_group(
+            "180pt",
+            vec![
+                component_json(Section::new("Status der Website").with_level(1)),
+                component_json(Callout::error(status_text).with_title(priority_text)),
+            ],
+        ));
+
+        // ScoreBlock — scores + issue counts
+        builder = builder.add_component(soft_flow_group(
+            "200pt",
+            vec![
+                component_json(build_summary_overview(&vm.summary)),
+                component_json(MetricStrip::new(vec![
+                    MetricStripItem::new("Probleme erkannt", vm.severity.total.to_string()),
+                    MetricStripItem::new(
+                        "Kritisch / Hoch",
+                        format!("{}", vm.severity.critical + vm.severity.high),
+                    )
                     .with_status("bad"),
-                MetricStripItem::new("Hoch", vm.severity.high.to_string()).with_status("warn"),
-                MetricStripItem::new("Problemgruppen", vm.findings.top_findings.len().to_string()),
-            ])),
-            component_json(Divider::new()),
-        ];
-        builder = builder.add_component(soft_flow_group("240pt", hero_items));
+                ])),
+            ],
+        ));
 
-        // ROW 3: IMPACT — Nutzer | Business | Risiko (as KeyValueList for full content)
-        let mut impact_items = Vec::new();
+        // ImpactOverview — Nutzer / Business / Risiko
         {
-            let mut impact_kv = KeyValueList::new().with_title("Auswirkungen");
-
             let nutzer_text = if !vm.summary.overall_impact.is_empty() {
                 vm.summary.overall_impact[0].1.clone()
-            } else if !vm.summary.business_consequence.is_empty() {
-                vm.summary.business_consequence.clone()
             } else {
-                vm.summary.executive_lead.clone()
+                "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen.".to_string()
             };
-            impact_kv = impact_kv.add("Nutzer erleben", nutzer_text);
-
             let business_text = if !vm.summary.business_consequence.is_empty() {
                 vm.summary.business_consequence.clone()
             } else {
-                vm.summary.problem_type.clone()
+                "Nutzer brechen Prozesse ab oder erreichen Ziele nicht.".to_string()
             };
-            impact_kv = impact_kv.add("Business-Auswirkung", business_text);
 
-            impact_kv = impact_kv.add(
-                "Risiko",
-                "WCAG-Verstöße können rechtliche Relevanz haben (BFSG).",
-            );
+            let impact_kv = KeyValueList::new()
+                .with_title("Auswirkungen")
+                .add("Nutzer", nutzer_text)
+                .add("Business", business_text)
+                .add(
+                    "Risiko",
+                    "WCAG-Verstöße — potenziell rechtlich relevant (BFSG).",
+                );
+            builder = builder.add_component(impact_kv);
+        }
 
-            impact_items.push(component_json(impact_kv));
-            impact_items.push(component_json(Divider::new()));
+        // ConsequenceBlock — consequences of inaction
+        if vm.severity.critical > 0 || vm.severity.high > 3 {
+            let mut consequences = List::new().with_title("Folgen bei Nichtbehebung");
+            consequences = consequences.add_item("Nutzer werden ausgeschlossen");
+            consequences = consequences.add_item("Conversion und Leads gehen verloren");
+            consequences = consequences.add_item("Rechtliches Risiko steigt (BFSG)");
+            builder = builder.add_component(consequences);
         }
-        // ROW 4: TEXT — Einordnung · Problemtyp · Benchmark
-        {
-            let mut kv = KeyValueList::new();
-            kv = kv
-                .add("Einordnung", vm.summary.executive_lead.clone())
-                .add("Problemtyp", vm.summary.problem_type.clone())
-                .add("Benchmark", vm.summary.benchmark_context.clone());
-            impact_items.push(component_json(kv));
-        }
-        builder = builder.add_component(soft_flow_group("200pt", impact_items));
     }
 
-    // ── Top-Hebel-Block ──────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE 2 — DOMINANT ISSUE
+    // Goal: focus — one problem, leverage, top fixes table
+    // ─────────────────────────────────────────────────────────────────
+    builder = builder.add_component(PageBreak::new());
     {
         let total_ch = (vm.severity.critical + vm.severity.high) as usize;
-        if let Some(table) = build_top_hebel_table(&vm.findings, total_ch) {
-            let mut items = vec![
-                component_json(SectionHeaderSplit::new(
-                    "Top-Hebel",
-                    "Die drei häufigsten Probleme und ihr Anteil an den kritischen Findings — wenn du nur eine Sache angehst, dann diese.",
-                ).with_level(1)),
-                component_json(table),
-            ];
-            if let Some(ref note) = vm.summary.dominant_issue_note {
-                if let Some(top) = vm.findings.top_findings.first() {
-                    let spotlight = DominantIssueSpotlight::new(
-                        &top.title,
-                        format!("{:?}", top.severity).to_lowercase(),
-                        note,
-                        &top.user_impact,
-                        &top.recommendation,
-                    )
-                    .with_eyebrow("Dominierendes Problem")
-                    .with_affected_count(top.affected_elements as u32);
-                    items.push(component_json(spotlight));
+
+        // DominantIssueHero
+        if let Some(ref note) = vm.summary.dominant_issue_note {
+            if let Some(top) = vm.findings.top_findings.first() {
+                let share = if total_ch > 0 {
+                    top.occurrence_count * 100 / total_ch
                 } else {
-                    items.push(component_json(
-                        Callout::warning(note).with_title("Dominierendes Problem"),
-                    ));
-                }
+                    0
+                };
+                let spotlight = DominantIssueSpotlight::new(
+                    &top.title,
+                    format!("{:?}", top.severity).to_lowercase(),
+                    note,
+                    &top.user_impact,
+                    &top.recommendation,
+                )
+                .with_eyebrow("Hauptproblem der Website")
+                .with_affected_count(share as u32);
+                builder = builder.add_component(spotlight);
             }
-            builder = builder.add_component(soft_flow_group("280pt", items));
+        }
+
+        // TopFixesTable
+        if let Some(table) = build_top_hebel_table(&vm.findings, total_ch) {
+            builder =
+                builder.add_component(table.with_title("Die wichtigsten Probleme im Überblick"));
+        }
+
+        // LeverageBlock — what fixing achieves
+        if total_ch > 0 {
+            if let Some(top) = vm.findings.top_findings.first() {
+                let share = top.occurrence_count * 100 / total_ch;
+                let leverage_text = format!(
+                    "Behebung des Hauptproblems reduziert ca. {}% der kritischen Fehler. Sofort spürbare Verbesserung der Nutzbarkeit bei geringerem Aufwand als erwartet.",
+                    share.min(99)
+                );
+                builder = builder.add_component(
+                    Callout::success(&leverage_text).with_title("Wirkung einer Behebung"),
+                );
+            }
         }
     }
 
-    // Executive level: compact view
-    if vm.meta.report_level == ReportLevel::Executive {
-        // ── 2. Gesamtbewertung (Executive) ──────────────────────────
-        {
-            let mut items = vec![component_json(
-                Section::new("Gesamtbewertung").with_level(1),
-            )];
-            if let Some(overall) = vm.modules.overall_score {
-                items.push(component_json(build_overall_score_card(overall)));
-                items.push(component_json(Divider::new()));
-            }
-            items.push(component_json(build_module_cards_grid(&vm.modules)));
-            if vm.modules.dashboard.len() >= 2 {
-                items.push(component_json(build_module_radar_chart(&vm.modules)));
-            }
-            if let Some(ref overall_text) = vm.modules.overall_interpretation {
-                items.push(component_json(
-                    Callout::info(overall_text).with_title("Gesamtscore einordnen"),
-                ));
-            }
-            builder = builder
-                .add_component(PageBreak::new())
-                .add_component(soft_flow_group("280pt", items));
-        }
-
-        // ── 3. Trend (Executive) ─────────────────────────────────────
-        if let Some(ref history) = vm.history {
-            builder = render_history_section(builder, history);
-        }
-
-        // ── 4. Was jetzt tun? (Executive) ────────────────────────────
-        {
-            let wjt_table = build_was_jetzt_tun_table(&vm);
-            let mut wjt_items = vec![
-                component_json(SectionHeaderSplit::new(
-                    "Was jetzt tun?",
-                    "Die folgenden Maßnahmen haben die höchste Wirkung. Jede Maßnahme ist direkt umsetzbar — kein Abstract, keine langen Tabellen.",
-                ).with_level(1)),
-            ];
-            match wjt_table {
-                WasJetztTunContent::Table(t) => wjt_items.push(component_json(t)),
-                WasJetztTunContent::Empty(c) => wjt_items.push(component_json(c)),
-            }
-            builder = builder
-                .add_component(PageBreak::new())
-                .add_component(soft_flow_group("300pt", wjt_items));
-        }
-
-        // ── 5. Key Findings (Executive) ──────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE 3 — KEY FINDINGS
+    // Goal: understand — compact cards, no tech detail here
+    // ─────────────────────────────────────────────────────────────────
+    builder = builder.add_component(PageBreak::new());
+    {
+        let findings_count = vm.findings.top_findings.len();
+        let findings_intro = if vm.summary.score >= 85 && findings_count <= 2 {
+            "Technisch stark — die folgenden Punkte sind Feinschliff-Hebel."
+        } else {
+            "Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen ab Seite 5."
+        };
         builder = builder
-            .add_component(PageBreak::new())
-            .add_component(Section::new("Key Findings").with_level(1));
+            .add_component(SectionHeaderSplit::new("Key Findings", findings_intro).with_level(1));
 
-        for (idx, group) in vm.findings.top_findings.iter().take(3).enumerate() {
-            if idx > 0 {
-                builder = builder.add_component(PageBreak::new());
-            }
+        // FindingCards — compact: Problem/Impact/Ursache/Fix
+        for group in vm.findings.top_findings.iter().take(5) {
             builder = render_key_finding_block(builder, group, &i18n);
         }
+    }
 
+    // Executive level stops here
+    if vm.meta.report_level == ReportLevel::Executive {
         builder = render_methodology_section(builder, &vm.methodology, &i18n);
-
         let built_report = builder.build();
         return Ok(engine.render_pdf(&built_report)?);
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE 4 — ACTION PLAN
+    // Goal: decide — quick wins, prioritized actions, execution note
+    // ─────────────────────────────────────────────────────────────────
     builder = builder.add_component(PageBreak::new());
-
-    // ── 2. Gesamtbewertung ──────────────────────────────────────────
     {
-        let mut items = vec![component_json(
-            Section::new("Gesamtbewertung").with_level(1),
-        )];
-        if let Some(overall) = vm.modules.overall_score {
-            items.push(component_json(build_overall_score_card(overall)));
-            items.push(component_json(Divider::new()));
-        }
-        items.push(component_json(build_module_cards_grid(&vm.modules)));
-        if vm.modules.dashboard.len() >= 2 {
-            items.push(component_json(build_module_radar_chart(&vm.modules)));
-        }
-        if let Some(ref overall_text) = vm.modules.overall_interpretation {
-            items.push(component_json(
-                Callout::info(overall_text).with_title("Gesamtscore einordnen"),
-            ));
-        }
-        builder = builder.add_component(soft_flow_group("320pt", items));
-    }
+        builder = builder.add_component(
+            SectionHeaderSplit::new(
+                "Maßnahmenplan",
+                "Priorisiert nach Wirkung und Aufwand. Jede Maßnahme ist direkt umsetzbar.",
+            )
+            .with_level(1),
+        );
 
-    // ── 3. Entwicklung / Trend ──────────────────────────────────────
-    if let Some(ref history) = vm.history {
-        builder = render_history_section(builder, history);
-    }
+        // QuickWins — immediate actions
+        let quick_items: Vec<&RoadmapItemData> = vm
+            .actions
+            .roadmap_columns
+            .iter()
+            .flat_map(|col| col.items.iter())
+            .filter(|i| {
+                i.execution_priority.contains("Direkt") || i.execution_priority.contains("Sofort")
+            })
+            .take(5)
+            .collect();
 
-    // ── 4. Was jetzt tun? ───────────────────────────────────────────
-    {
+        if !quick_items.is_empty() {
+            let rows: Vec<ChecklistRow> = quick_items
+                .iter()
+                .map(|item| ChecklistRow::new(&item.action, &item.user_effect).with_status("warn"))
+                .collect();
+            builder =
+                builder.add_component(ChecklistPanel::new(rows).with_title("Sofort umsetzbar"));
+        }
+
+        // ActionTable — full prioritized table
         let wjt_table = build_was_jetzt_tun_table(&vm);
-        let mut wjt_items = vec![component_json(
-            SectionHeaderSplit::new(&vm.actions.block_title, &vm.actions.intro_text).with_level(1),
-        )];
-        // Phase-Preview: visual overview using PhaseBlock (FIX 5: priority grouping)
-        if !vm.actions.phase_preview.is_empty() {
-            let phase_count = vm.actions.phase_preview.len();
-            for (i, phase) in vm.actions.phase_preview.iter().enumerate() {
-                let mut block =
-                    PhaseBlock::new((i + 1) as u8, &phase.phase_label, &phase.description)
-                        .with_items(phase.top_items.clone())
-                        .with_total(phase.item_count);
-                if !phase.accent_color.is_empty() {
-                    block = block.with_color(&phase.accent_color);
-                }
-                wjt_items.push(component_json(block));
-                if i + 1 < phase_count {
-                    wjt_items.push(component_json(Divider::new()));
-                }
-            }
-            wjt_items.push(component_json(Divider::new()));
-        }
         match wjt_table {
-            WasJetztTunContent::Table(t) => wjt_items.push(component_json(t)),
-            WasJetztTunContent::Empty(c) => wjt_items.push(component_json(c)),
+            WasJetztTunContent::Table(t) => builder = builder.add_component(t),
+            WasJetztTunContent::Empty(c) => builder = builder.add_component(c),
         }
-        builder = builder
-            .add_component(PageBreak::new())
-            .add_component(soft_flow_group("340pt", wjt_items));
+
+        // ExecutionNote
+        builder = builder.add_component(Callout::info(
+            "Die Umsetzung kann intern oder extern erfolgen. Die folgenden Abschnitte zeigen die konkrete technische Umsetzung.",
+        ).with_title("Hinweis"));
     }
 
-    // ── 5. Key Findings ─────────────────────────────────────────────
-    let findings_count = vm.findings.top_findings.len();
-    let findings_title = if vm.summary.score >= 85 && findings_count <= 2 {
-        match findings_count {
-            0 => "Keine offenen Themen".to_string(),
-            1 => "1 offenes Thema".to_string(),
-            n => format!("{n} offene Themen"),
-        }
-    } else {
-        "Key Findings".to_string()
-    };
-    let findings_intro = if vm.summary.score >= 85 && findings_count <= 2 {
-        "Die Seite ist technisch stark. Die folgenden Punkte sind letzte Feinschliff-Hebel ohne strukturellen Druck."
-    } else {
-        "Diese Themen sollten zuerst angegangen werden. Jeder Block zeigt Problem, Impact und die empfohlene Maßnahme — technische Details folgen im nächsten Abschnitt."
-    };
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(SectionHeaderSplit::new(&findings_title, findings_intro).with_level(1));
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE 5 — TECH ENTRY
+    // Goal: transition — intro for dev/design/content, severity overview
+    // ─────────────────────────────────────────────────────────────────
+    builder = builder.add_component(PageBreak::new());
+    {
+        builder = builder.add_component(
+            SectionHeaderSplit::new(
+                "Technische Umsetzung",
+                "Die folgenden Abschnitte richten sich an Entwicklung, Design und Redaktion. Für jedes Problem: betroffene Elemente, konkrete Umsetzung, Code-Beispiele.",
+            )
+            .with_level(1),
+        );
 
-    for (idx, group) in vm.findings.top_findings.iter().take(5).enumerate() {
-        if idx > 0 {
-            builder = builder.add_component(PageBreak::new());
-        }
-        builder = render_key_finding_block(builder, group, &i18n);
-    }
+        // TechOverview — severity strip
+        builder = builder.add_component(MetricStrip::new(vec![
+            MetricStripItem::new("Kritisch", vm.severity.critical.to_string()).with_status("bad"),
+            MetricStripItem::new("Hoch", vm.severity.high.to_string()).with_status("warn"),
+            MetricStripItem::new("Moderat", vm.severity.medium.to_string()).with_status("neutral"),
+        ]));
 
-    // ── 7. Technischer Detailteil ───────────────────────────────────
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(soft_flow_group(
-            "260pt",
-            vec![
-                component_json(SectionHeaderSplit::new(
-                    "Technische Analyse und Umsetzung",
-                    "Ab hier folgt die technische Sicht für Entwicklung, Design und Redaktion. Die folgenden Abschnitte zeigen betroffene Elemente, konkrete Maßnahmen und technische Hinweise für die Umsetzung.",
-                ).with_level(1)),
-                component_json(Section::new("Problem-Details").with_level(2)),
-                component_json(if !vm.severity.has_issues {
-                    Callout::success(i18n.t("callout-no-issues-body"))
-                        .with_title(i18n.t("callout-no-issues-title"))
-                } else {
-                    Callout::info(
-                        "Die folgende Übersicht enthält die relevanten Problemgruppen mit technischer Einordnung.",
-                    )
-                    .with_title("Technische Übersicht")
-                }),
-            ],
-        ));
-
-    if vm.severity.has_issues {
         // Module health diagnosis
-        let mut diag_rows = Vec::new();
-        for module in &vm.modules.dashboard {
-            let status = if module.score >= 80 {
-                "good"
-            } else if module.score >= 50 {
-                "warn"
-            } else {
-                "bad"
-            };
-            diag_rows.push(
-                DiagnosisRow::new(&module.name, format!("{}/100", module.score))
-                    .with_status(status),
-            );
-        }
-        if !diag_rows.is_empty() {
+        if !vm.modules.dashboard.is_empty() {
+            let diag_rows: Vec<DiagnosisRow> = vm
+                .modules
+                .dashboard
+                .iter()
+                .map(|module| {
+                    let status = if module.score >= 80 {
+                        "good"
+                    } else if module.score >= 50 {
+                        "warn"
+                    } else {
+                        "bad"
+                    };
+                    DiagnosisRow::new(&module.name, format!("{}/100", module.score))
+                        .with_status(status)
+                })
+                .collect();
             builder =
                 builder.add_component(DiagnosisPanel::new(diag_rows).with_title("Modulübersicht"));
         }
+    }
 
+    // ─────────────────────────────────────────────────────────────────
+    // PAGE 6+ — TECH DETAILS
+    // Goal: implement — WCAG details, code examples, module metrics
+    // ─────────────────────────────────────────────────────────────────
+    if vm.severity.has_issues {
         builder = builder.add_component(SeverityOverview::new(
             vm.severity.critical,
             vm.severity.high,
@@ -425,31 +387,19 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         }
     }
 
-    // ── 8. Technische Metriken ──────────────────────────────────────
+    // ── Module Detail Metrics ───────────────────────────────────────
     if vm.module_details.has_any {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(soft_flow_group(
-                "220pt",
-                vec![
-                    component_json(SectionHeaderSplit::new(
-                        "Technische Detailmetriken",
-                        "Die folgenden Kennzahlen ergänzen die Modul-Übersicht um technische Detailwerte für Analyse und Umsetzung.",
-                    ).with_level(2)),
-                    component_json(build_analysis_focus_table()),
-                ],
-            ));
+            .add_component(Section::new("Technische Detailmetriken").with_level(2));
     }
 
     if let Some(ref perf) = vm.module_details.performance {
         builder = render_performance(builder, perf);
     }
-
-    // ── Performance Budget Violations ───────────────────────────────
     if !report.budget_violations.is_empty() {
         builder = render_budget_violations(builder, &report.budget_violations);
     }
-
     if let Some(ref seo) = vm.module_details.seo {
         builder = render_seo(builder, seo);
     }
@@ -463,28 +413,22 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = render_dark_mode(builder, dm);
     }
 
-    // ── 9. Anhang ───────────────────────────────────────────────────
+    // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(Section::new(i18n.t("section-appendix")).with_level(1))
-            .add_component(TextBlock::new(
-                "Die folgende Tabelle enthält alle erkannten Verstöße mit \
-                 technischen Details für die Umsetzung.",
-            ))
-            .add_component(TextBlock::new(&vm.appendix.score_methodology));
+            .add_component(Section::new(i18n.t("section-appendix")).with_level(1));
 
         if vm.meta.report_level == ReportLevel::Technical {
             for v in &vm.appendix.violations {
                 let mut desc = v.message.clone();
                 if let Some(ref fix) = v.fix_suggestion {
-                    desc.push_str(&format!("\n\nEmpfohlener Fix: {}", fix));
+                    desc.push_str(&format!("\n\nFix: {}", fix));
                 }
                 desc.push_str(&format!(
-                    "\n\nVorkommen: {} Elemente betroffen",
+                    "\n\n{} Elemente betroffen",
                     v.affected_elements.len()
                 ));
-                // Only show selectors that look like real CSS selectors (contain . # [ or >)
                 let useful_selectors: Vec<&str> = v
                     .affected_elements
                     .iter()
@@ -527,7 +471,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         }
     }
 
-    // ── 10. Methodik & Einschränkungen ──────────────────────────────
+    // ── Methodology ─────────────────────────────────────────────────
     builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
     let built_report = builder.build();

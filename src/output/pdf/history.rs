@@ -10,6 +10,7 @@ use crate::output::report_model::*;
 
 use super::helpers::{component_json, soft_flow_group};
 
+#[allow(dead_code)]
 pub(super) fn render_history_section(
     mut builder: renderreport::engine::ReportBuilder,
     history: &HistoryTrendBlock,

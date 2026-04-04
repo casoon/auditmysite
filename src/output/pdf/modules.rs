@@ -1,13 +1,10 @@
 //! Module overview components for PDF reports.
 
 use renderreport::components::advanced::Grid;
-use renderreport::components::charts::{Chart, ChartType};
 use renderreport::components::{AuditTable, MetricCard, ScoreCard, TableColumn};
 use renderreport::prelude::*;
 
 use crate::output::report_model::*;
-
-use super::helpers::score_quality_color;
 
 pub(super) fn build_summary_overview(summary: &SummaryBlock) -> Grid {
     let score_card = serde_json::json!({
@@ -34,62 +31,6 @@ pub(super) fn build_summary_overview(summary: &SummaryBlock) -> Grid {
         }));
     }
 
-    grid
-}
-
-pub(super) fn build_overall_score_card(score: u32) -> Grid {
-    let (grade, description) = match score {
-        90..=100 => ("A", "Sehr gut — Maßstab für die Branche"),
-        80..=89 => ("B", "Gut — kleinere Schwächen, klarer Kurs"),
-        70..=79 => ("C", "Solide — spürbarer Nachbesserungsbedarf"),
-        60..=69 => ("D", "Ausbaufähig — strukturelle Defizite"),
-        _ => ("F", "Kritisch — dringender Handlungsbedarf"),
-    };
-    let description = format!("Note {grade}  ·  {description}");
-    Grid::new(1).add_item(serde_json::json!({
-        "type": "score-card",
-        "data": ScoreCard::new("Gesamtscore", score)
-            .with_description(description)
-            .with_thresholds(70, 50)
-            .to_data()
-    }))
-}
-
-pub(super) fn build_module_radar_chart(modules: &ModulesBlock) -> Chart {
-    let data: Vec<(String, f64)> = modules
-        .dashboard
-        .iter()
-        .map(|m| (m.name.clone(), m.score as f64))
-        .collect();
-    Chart::new("Modulscores im Überblick", ChartType::Radar).add_series("Score", data)
-}
-
-/// Build a card-per-module grid: score + status + key lever. No tables.
-pub(super) fn build_module_cards_grid(modules: &ModulesBlock) -> Grid {
-    let cols: usize = if modules.dashboard.len() <= 3 {
-        modules.dashboard.len()
-    } else {
-        3
-    };
-    let mut grid = Grid::new(cols).with_item_min_height("140pt");
-    for module in &modules.dashboard {
-        let status = if module.score >= module.good_threshold {
-            "Stark"
-        } else if module.score >= module.warn_threshold {
-            "Solide"
-        } else {
-            "Handlungsbedarf"
-        };
-        let accent = score_quality_color(module.score);
-        grid = grid.add_item(serde_json::json!({
-            "type": "metric-card",
-            "data": MetricCard::new(&module.name, format!("{}/100", module.score))
-                .with_subtitle(status.to_string())
-                .with_accent_color(accent)
-                .with_height("100%")
-                .to_data()
-        }));
-    }
     grid
 }
 
