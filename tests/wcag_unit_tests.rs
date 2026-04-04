@@ -94,7 +94,9 @@ fn test_111_image_without_alt_is_flagged() {
     let results = check_text_alternatives(&tree);
     assert_eq!(results.violations.len(), 1);
     assert_eq!(results.violations[0].rule, "1.1.1");
-    assert!(results.violations[0].message.contains("missing alternative text"));
+    assert!(results.violations[0]
+        .message
+        .contains("missing alternative text"));
 }
 
 #[test]
@@ -133,7 +135,11 @@ fn test_111_whitespace_only_name_treated_as_missing() {
 
 #[test]
 fn test_242_page_with_good_title_passes() {
-    let tree = AXTree::from_nodes(vec![node("1", "RootWebArea", Some("Shopping Cart - Example Store"))]);
+    let tree = AXTree::from_nodes(vec![node(
+        "1",
+        "RootWebArea",
+        Some("Shopping Cart - Example Store"),
+    )]);
     let results = check_page_titled(&tree);
     assert!(results.violations.is_empty());
     assert_eq!(results.passes, 1);
@@ -163,7 +169,11 @@ fn test_242_generic_title_home_flagged() {
 
 #[test]
 fn test_242_meaningful_title_passes() {
-    let tree = AXTree::from_nodes(vec![node("1", "RootWebArea", Some("Product Details - My Store"))]);
+    let tree = AXTree::from_nodes(vec![node(
+        "1",
+        "RootWebArea",
+        Some("Product Details - My Store"),
+    )]);
     let results = check_page_titled(&tree);
     assert!(results.violations.is_empty());
 }
@@ -177,7 +187,10 @@ fn test_244_empty_link_flagged() {
     let tree = AXTree::from_nodes(vec![node("1", "link", None)]);
     let results = check_link_purpose(&tree);
     assert!(!results.violations.is_empty());
-    assert!(results.violations.iter().any(|v| v.message.contains("no accessible text")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("no accessible text")));
 }
 
 #[test]
@@ -185,7 +198,10 @@ fn test_244_generic_click_here_flagged() {
     let tree = AXTree::from_nodes(vec![node("1", "link", Some("click here"))]);
     let results = check_link_purpose(&tree);
     assert!(!results.violations.is_empty());
-    assert!(results.violations.iter().any(|v| v.message.contains("generic text")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("generic text")));
 }
 
 #[test]
@@ -197,15 +213,26 @@ fn test_244_generic_read_more_flagged() {
 
 #[test]
 fn test_244_url_as_link_text_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "link", Some("https://example.com/long/path"))]);
+    let tree = AXTree::from_nodes(vec![node(
+        "1",
+        "link",
+        Some("https://example.com/long/path"),
+    )]);
     let results = check_link_purpose(&tree);
     assert!(!results.violations.is_empty());
-    assert!(results.violations.iter().any(|v| v.message.contains("raw URL")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("raw URL")));
 }
 
 #[test]
 fn test_244_descriptive_link_passes() {
-    let tree = AXTree::from_nodes(vec![node("1", "link", Some("View our accessibility statement"))]);
+    let tree = AXTree::from_nodes(vec![node(
+        "1",
+        "link",
+        Some("View our accessibility statement"),
+    )]);
     let results = check_link_purpose(&tree);
     assert!(results.violations.is_empty());
     assert_eq!(results.passes, 1);
@@ -235,8 +262,15 @@ fn test_246_valid_heading_hierarchy_passes() {
         heading("3", 3, Some("Subsection")),
     ]);
     let results = check_headings(&tree);
-    let hierarchy_violations: Vec<_> = results.violations.iter().filter(|v| v.message.contains("skipped")).collect();
-    assert!(hierarchy_violations.is_empty(), "Valid hierarchy should not produce skipped-level violations");
+    let hierarchy_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.message.contains("skipped"))
+        .collect();
+    assert!(
+        hierarchy_violations.is_empty(),
+        "Valid hierarchy should not produce skipped-level violations"
+    );
 }
 
 #[test]
@@ -246,7 +280,10 @@ fn test_246_skipped_heading_level_flagged() {
         heading("2", 4, Some("Jumped to h4")),
     ]);
     let results = check_headings(&tree);
-    assert!(results.violations.iter().any(|v| v.message.contains("skipped")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("skipped")));
 }
 
 #[test]
@@ -254,7 +291,10 @@ fn test_246_empty_heading_flagged() {
     let tree = AXTree::from_nodes(vec![heading("1", 1, None)]);
     let results = check_headings(&tree);
     assert!(!results.violations.is_empty());
-    assert!(results.violations.iter().any(|v| v.message.contains("empty")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("empty")));
 }
 
 #[test]
@@ -264,7 +304,10 @@ fn test_246_missing_h1_flagged() {
         heading("2", 3, Some("Subsection")),
     ]);
     let results = check_headings(&tree);
-    assert!(results.violations.iter().any(|v| v.message.contains("missing an h1")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("missing an h1")));
 }
 
 #[test]
@@ -274,7 +317,10 @@ fn test_246_multiple_h1_flagged() {
         heading("2", 1, Some("Second Title")),
     ]);
     let results = check_headings(&tree);
-    assert!(results.violations.iter().any(|v| v.message.contains("Multiple h1")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("Multiple h1")));
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +383,10 @@ fn test_412_invalid_role_flagged() {
     let tree = AXTree::from_nodes(vec![node("1", "superbutton", Some("Fake Button"))]);
     let results = check_aria_roles(&tree);
     assert!(!results.violations.is_empty());
-    assert!(results.violations.iter().any(|v| v.message.contains("invalid ARIA role")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("invalid ARIA role")));
 }
 
 #[test]
@@ -349,7 +398,10 @@ fn test_412_invalid_aria_attribute_flagged() {
     });
     let tree = AXTree::from_nodes(vec![n]);
     let results = check_aria_roles(&tree);
-    assert!(results.violations.iter().any(|v| v.message.contains("invalid ARIA attribute")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("invalid ARIA attribute")));
 }
 
 #[test]
@@ -359,7 +411,10 @@ fn test_412_listitem_without_list_context_flagged() {
         node_with_parent("2", "listitem", Some("Item"), "1"),
     ]);
     let results = check_aria_roles(&tree);
-    assert!(results.violations.iter().any(|v| v.message.contains("required parent context")));
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.contains("required parent context")));
 }
 
 #[test]
@@ -388,7 +443,10 @@ fn test_412_listitem_with_list_parent_passes() {
         .iter()
         .filter(|v| v.message.contains("required parent context") && v.node_id == "3")
         .collect();
-    assert!(context_violations.is_empty(), "listitem inside list should not be flagged for context");
+    assert!(
+        context_violations.is_empty(),
+        "listitem inside list should not be flagged for context"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -397,14 +455,18 @@ fn test_412_listitem_with_list_parent_passes() {
 
 #[test]
 fn test_144_normal_viewport_passes() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport("width=device-width, initial-scale=1")]);
+    let tree = AXTree::from_nodes(vec![root_with_viewport(
+        "width=device-width, initial-scale=1",
+    )]);
     let results = check_resize_text(&tree);
     assert_eq!(results.violations.len(), 0);
 }
 
 #[test]
 fn test_144_user_scalable_no_flagged() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport("width=device-width, user-scalable=no")]);
+    let tree = AXTree::from_nodes(vec![root_with_viewport(
+        "width=device-width, user-scalable=no",
+    )]);
     let results = check_resize_text(&tree);
     assert_eq!(results.violations.len(), 1);
     assert!(results.violations[0].message.contains("user-scalable=no"));
@@ -412,7 +474,9 @@ fn test_144_user_scalable_no_flagged() {
 
 #[test]
 fn test_144_maximum_scale_too_low_flagged() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport("width=device-width, maximum-scale=1.0")]);
+    let tree = AXTree::from_nodes(vec![root_with_viewport(
+        "width=device-width, maximum-scale=1.0",
+    )]);
     let results = check_resize_text(&tree);
     assert_eq!(results.violations.len(), 1);
     assert!(results.violations[0].message.contains("maximum-scale"));
@@ -420,7 +484,9 @@ fn test_144_maximum_scale_too_low_flagged() {
 
 #[test]
 fn test_144_maximum_scale_sufficient_passes() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport("width=device-width, maximum-scale=2.0")]);
+    let tree = AXTree::from_nodes(vec![root_with_viewport(
+        "width=device-width, maximum-scale=2.0",
+    )]);
     let results = check_resize_text(&tree);
     assert_eq!(results.violations.len(), 0);
 }
@@ -473,7 +539,11 @@ fn test_color_invalid_input_returns_none() {
 fn test_relative_luminance_white() {
     let white = Color::new(255, 255, 255);
     let lum = white.relative_luminance();
-    assert!((lum - 1.0).abs() < 0.01, "White luminance should be ~1.0, got {}", lum);
+    assert!(
+        (lum - 1.0).abs() < 0.01,
+        "White luminance should be ~1.0, got {}",
+        lum
+    );
 }
 
 #[test]
@@ -488,14 +558,22 @@ fn test_contrast_ratio_black_on_white() {
     let black = Color::new(0, 0, 0);
     let white = Color::new(255, 255, 255);
     let ratio = ContrastRule::calculate_contrast_ratio(&black, &white);
-    assert!((ratio - 21.0).abs() < 0.1, "Black/white contrast ratio should be ~21:1, got {}", ratio);
+    assert!(
+        (ratio - 21.0).abs() < 0.1,
+        "Black/white contrast ratio should be ~21:1, got {}",
+        ratio
+    );
 }
 
 #[test]
 fn test_contrast_ratio_identical_colors() {
     let red = Color::new(255, 0, 0);
     let ratio = ContrastRule::calculate_contrast_ratio(&red, &red);
-    assert!((ratio - 1.0).abs() < 0.01, "Same color should yield 1:1 ratio, got {}", ratio);
+    assert!(
+        (ratio - 1.0).abs() < 0.01,
+        "Same color should yield 1:1 ratio, got {}",
+        ratio
+    );
 }
 
 #[test]
@@ -577,8 +655,15 @@ fn test_engine_clean_tree_has_zero_image_alt_violations() {
         node("3", "image", Some("Company logo")),
     ]);
     let results = check_all(&tree, WcagLevel::A);
-    let alt_violations: Vec<_> = results.violations.iter().filter(|v| v.rule == "1.1.1").collect();
-    assert!(alt_violations.is_empty(), "Clean tree should have no 1.1.1 violations");
+    let alt_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.1.1")
+        .collect();
+    assert!(
+        alt_violations.is_empty(),
+        "Clean tree should have no 1.1.1 violations"
+    );
 }
 
 #[test]

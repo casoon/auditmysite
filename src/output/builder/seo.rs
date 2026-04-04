@@ -2,9 +2,9 @@
 
 use std::collections::HashMap;
 
+use super::helpers::{german_stopwords, normalize_topic_token};
 use crate::audit::AuditReport;
 use crate::output::report_model::CompactUrlSummary;
-use super::helpers::{german_stopwords, normalize_topic_token};
 
 pub(super) fn build_seo_interpretation(seo: &crate::seo::SeoAnalysis) -> String {
     if seo.score >= 90 {
@@ -65,8 +65,7 @@ pub(super) fn derive_topic_overlap_pairs(
         }
 
         for right in url_details.iter().skip(idx + 1) {
-            let right_terms: HashSet<&str> =
-                right.topic_terms.iter().map(String::as_str).collect();
+            let right_terms: HashSet<&str> = right.topic_terms.iter().map(String::as_str).collect();
             if right_terms.len() < 3 {
                 continue;
             }
@@ -95,10 +94,7 @@ pub(super) fn derive_topic_overlap_pairs(
     pairs.into_iter().take(6).collect()
 }
 
-pub(super) fn top_terms_from_segments(
-    segments: &[(String, usize)],
-    limit: usize,
-) -> Vec<String> {
+pub(super) fn top_terms_from_segments(segments: &[(String, usize)], limit: usize) -> Vec<String> {
     let stopwords = german_stopwords();
     let mut counts: HashMap<String, usize> = HashMap::new();
 

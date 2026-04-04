@@ -99,8 +99,14 @@ pub const RULE_SKIP_LINK: RuleMetadata = RuleMetadata {
 // ── Landmark roles ─────────────────────────────────────────────────────────────
 
 const LANDMARK_ROLES: &[&str] = &[
-    "banner", "complementary", "contentinfo", "form", "main",
-    "navigation", "region", "search",
+    "banner",
+    "complementary",
+    "contentinfo",
+    "form",
+    "main",
+    "navigation",
+    "region",
+    "search",
 ];
 
 // ── Public check function ──────────────────────────────────────────────────────
@@ -127,11 +133,17 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
                     RULE_NO_DUPLICATE_BANNER.name,
                     RULE_NO_DUPLICATE_BANNER.level,
                     RULE_NO_DUPLICATE_BANNER.severity,
-                    format!("Page has {} banner landmarks; only one is permitted", nodes.len()),
+                    format!(
+                        "Page has {} banner landmarks; only one is permitted",
+                        nodes.len()
+                    ),
                     &nodes[0].node_id,
                 )
-                .with_fix("Ensure the page has at most one <header> / role=\"banner\" at the top level")
-                .with_rule_id(RULE_NO_DUPLICATE_BANNER.axe_id).with_help_url(RULE_NO_DUPLICATE_BANNER.help_url),
+                .with_fix(
+                    "Ensure the page has at most one <header> / role=\"banner\" at the top level",
+                )
+                .with_rule_id(RULE_NO_DUPLICATE_BANNER.axe_id)
+                .with_help_url(RULE_NO_DUPLICATE_BANNER.help_url),
             );
         } else {
             results.passes += 1;
@@ -287,13 +299,24 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
             .unwrap_or("")
             .to_lowercase();
 
-        let name_hints = ["skip", "überspringen", "zum inhalt", "zum hauptinhalt",
-                          "direkt zum", "navigation überspringen"];
-        let href_hints = ["#main", "#content", "#inhalt", "#skip", "#maincontent",
-                          "#hauptinhalt"];
+        let name_hints = [
+            "skip",
+            "überspringen",
+            "zum inhalt",
+            "zum hauptinhalt",
+            "direkt zum",
+            "navigation überspringen",
+        ];
+        let href_hints = [
+            "#main",
+            "#content",
+            "#inhalt",
+            "#skip",
+            "#maincontent",
+            "#hauptinhalt",
+        ];
 
-        name_hints.iter().any(|h| name.contains(h))
-            || href_hints.iter().any(|h| href.contains(h))
+        name_hints.iter().any(|h| name.contains(h)) || href_hints.iter().any(|h| href.contains(h))
     });
 
     if has_skip_link {
@@ -326,10 +349,7 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
 /// Returns true if any ancestor of `node` (up to the document root) has a
 /// landmark role.  Used to enforce top-level placement of banner / contentinfo
 /// / main.
-fn is_inside_landmark(
-    node: &crate::accessibility::AXNode,
-    tree: &AXTree,
-) -> bool {
+fn is_inside_landmark(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {
     let mut current_parent_id = node.parent_id.as_deref();
     while let Some(pid) = current_parent_id {
         if let Some(parent) = tree.nodes.get(pid) {
@@ -376,7 +396,10 @@ mod tests {
             node("2", "banner", Some("Header 2"), Some("root")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("landmark-no-duplicate-banner")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-no-duplicate-banner")));
     }
 
     #[test]
@@ -386,7 +409,10 @@ mod tests {
             node("1", "banner", Some("Site Header"), Some("root")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(!r.violations.iter().any(|v| v.rule_id.as_deref() == Some("landmark-no-duplicate-banner")));
+        assert!(!r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-no-duplicate-banner")));
     }
 
     #[test]
@@ -397,7 +423,10 @@ mod tests {
             node("banner", "banner", Some("Header"), Some("main")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("landmark-banner-is-top-level")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-banner-is-top-level")));
     }
 
     #[test]
@@ -407,7 +436,10 @@ mod tests {
             node("banner", "banner", Some("Header"), Some("root")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(!r.violations.iter().any(|v| v.rule_id.as_deref() == Some("landmark-banner-is-top-level")));
+        assert!(!r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-banner-is-top-level")));
     }
 
     #[test]
@@ -418,7 +450,10 @@ mod tests {
             node("2", "navigation", Some("Main Nav"), Some("root")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("landmark-unique")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-unique")));
     }
 
     #[test]
@@ -429,7 +464,10 @@ mod tests {
             node("2", "navigation", Some("Footer Nav"), Some("root")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(!r.violations.iter().any(|v| v.rule_id.as_deref() == Some("landmark-unique")));
+        assert!(!r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("landmark-unique")));
     }
 
     #[test]
@@ -440,6 +478,9 @@ mod tests {
             node("main", "main", Some("Content"), Some("root")),
         ]);
         let r = check_landmark_extended(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("skip-link")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("skip-link")));
     }
 }

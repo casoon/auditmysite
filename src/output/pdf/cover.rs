@@ -38,7 +38,13 @@ pub(super) fn build_cover_score_row(cover: &CoverBlock, badge_asset: Option<&str
         }));
     }
 
-    let score_color = if cover.score >= 70 { "#22c55e" } else if cover.score >= 50 { "#f59e0b" } else { "#ef4444" };
+    let score_color = if cover.score >= 70 {
+        "#22c55e"
+    } else if cover.score >= 50 {
+        "#f59e0b"
+    } else {
+        "#ef4444"
+    };
     grid = grid.add_item(serde_json::json!({
         "type": "metric-card",
         "data": MetricCard::new("Accessibility", format!("{}/100", cover.score))

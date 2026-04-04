@@ -10,9 +10,9 @@
 //! Run with:
 //!   cargo test --test wcag_coverage
 
-use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
+use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
 use auditmysite::wcag::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships, check_aria_roles,
     check_bypass_blocks, check_dialog_rules, check_focus_order, check_focus_visible,
@@ -131,8 +131,14 @@ fn test_filter_config_disabled_rule_skipped() {
         disabled_rules: vec!["image-alt".to_string()],
         enabled_only_rules: vec![],
     };
-    assert!(!filter.should_run("image-alt"), "Disabled rule should not run");
-    assert!(filter.should_run("html-has-lang"), "Non-disabled rule should still run");
+    assert!(
+        !filter.should_run("image-alt"),
+        "Disabled rule should not run"
+    );
+    assert!(
+        filter.should_run("html-has-lang"),
+        "Non-disabled rule should still run"
+    );
 }
 
 #[test]
@@ -143,29 +149,30 @@ fn test_filter_config_enabled_only_restricts_to_list() {
     };
     assert!(filter.should_run("image-alt"));
     assert!(filter.should_run("html-has-lang"));
-    assert!(!filter.should_run("link-name"), "Rule not in enabled_only list should not run");
+    assert!(
+        !filter.should_run("link-name"),
+        "Rule not in enabled_only list should not run"
+    );
     assert!(!filter.should_run("aria-roles"));
 }
 
 #[test]
 fn test_filter_disabled_rule_does_not_produce_violations() {
     // Tree with missing image alt — would normally produce 1.1.1 violations
-    let tree = AXTree::from_nodes(vec![
-        AXNode {
-            node_id: "1".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".to_string()),
-            name: None,
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        },
-    ]);
+    let tree = AXTree::from_nodes(vec![AXNode {
+        node_id: "1".to_string(),
+        ignored: false,
+        ignored_reasons: vec![],
+        role: Some("image".to_string()),
+        name: None,
+        name_source: None,
+        description: None,
+        value: None,
+        properties: vec![],
+        child_ids: vec![],
+        parent_id: None,
+        backend_dom_node_id: None,
+    }]);
 
     let filter = RuleFilterConfig {
         disabled_rules: vec!["image-alt".to_string()],
@@ -173,8 +180,15 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
     };
 
     let results = check_all_with_config(&tree, WcagLevel::A, &filter);
-    let alt_violations: Vec<_> = results.violations.iter().filter(|v| v.rule == "1.1.1").collect();
-    assert!(alt_violations.is_empty(), "Disabled rule should produce no violations");
+    let alt_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.1.1")
+        .collect();
+    assert!(
+        alt_violations.is_empty(),
+        "Disabled rule should produce no violations"
+    );
 }
 
 #[test]
@@ -219,9 +233,19 @@ fn test_enabled_only_runs_exactly_those_rules() {
     let results = check_all_with_config(&tree, WcagLevel::A, &filter);
 
     // Should find 3.1.1 (missing lang) but NOT 1.1.1 (disabled by filter)
-    assert!(results.violations.iter().any(|v| v.rule == "3.1.1"), "3.1.1 should be found");
-    let alt_violations: Vec<_> = results.violations.iter().filter(|v| v.rule == "1.1.1").collect();
-    assert!(alt_violations.is_empty(), "1.1.1 should be suppressed by enabled_only filter");
+    assert!(
+        results.violations.iter().any(|v| v.rule == "3.1.1"),
+        "3.1.1 should be found"
+    );
+    let alt_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.1.1")
+        .collect();
+    assert!(
+        alt_violations.is_empty(),
+        "1.1.1 should be suppressed by enabled_only filter"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -253,31 +277,46 @@ fn test_level_a_does_not_run_aa_rules() {
     let results_aa = check_all_with_config(&tree, WcagLevel::AA, &RuleFilterConfig::default());
 
     // The 1.4.4 resize-text violation (meta-viewport rule) should only appear at AA+
-    let resize_violations_a: Vec<_> = results_a.violations.iter().filter(|v| v.rule == "1.4.4").collect();
-    let resize_violations_aa: Vec<_> = results_aa.violations.iter().filter(|v| v.rule == "1.4.4").collect();
+    let resize_violations_a: Vec<_> = results_a
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.4.4")
+        .collect();
+    let resize_violations_aa: Vec<_> = results_aa
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.4.4")
+        .collect();
 
-    assert!(resize_violations_a.is_empty(), "Level A should not check 1.4.4 (AA rule)");
-    assert!(!resize_violations_aa.is_empty(), "Level AA should check 1.4.4");
+    assert!(
+        resize_violations_a.is_empty(),
+        "Level A should not check 1.4.4 (AA rule)"
+    );
+    assert!(
+        !resize_violations_aa.is_empty(),
+        "Level AA should check 1.4.4"
+    );
 }
 
 #[test]
 fn test_nodes_checked_counter_is_populated() {
-    let tree = AXTree::from_nodes(vec![
-        AXNode {
-            node_id: "1".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".to_string()),
-            name: Some("Logo".to_string()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        },
-    ]);
+    let tree = AXTree::from_nodes(vec![AXNode {
+        node_id: "1".to_string(),
+        ignored: false,
+        ignored_reasons: vec![],
+        role: Some("image".to_string()),
+        name: Some("Logo".to_string()),
+        name_source: None,
+        description: None,
+        value: None,
+        properties: vec![],
+        child_ids: vec![],
+        parent_id: None,
+        backend_dom_node_id: None,
+    }]);
     let results = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
-    assert!(results.nodes_checked > 0, "nodes_checked should be non-zero after checking a non-empty tree");
+    assert!(
+        results.nodes_checked > 0,
+        "nodes_checked should be non-zero after checking a non-empty tree"
+    );
 }

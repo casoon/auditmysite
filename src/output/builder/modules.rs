@@ -386,4 +386,3 @@ pub(super) fn build_tracking_summary_text(
 
     "Im aktuellen Lauf wurden keine externen Google Fonts, keine Tracking-Cookies und keine weiteren Tracking-Signale erkannt.".to_string()
 }
-

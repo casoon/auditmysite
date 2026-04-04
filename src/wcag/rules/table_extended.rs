@@ -84,8 +84,11 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
                             &cell.node_id,
                         )
                         .with_role(cell.role.clone())
-                        .with_fix("Remove the headers attribute or reference valid th/header cell IDs")
-                        .with_rule_id(RULE_TD_HEADERS_ATTR.axe_id).with_help_url(RULE_TD_HEADERS_ATTR.help_url),
+                        .with_fix(
+                            "Remove the headers attribute or reference valid th/header cell IDs",
+                        )
+                        .with_rule_id(RULE_TD_HEADERS_ATTR.axe_id)
+                        .with_help_url(RULE_TD_HEADERS_ATTR.help_url),
                     );
                 } else {
                     let mut all_valid = true;
@@ -226,7 +229,9 @@ mod tests {
         let tree = AXTree::from_nodes(vec![table, header]);
         let r = check_table_extended(&tree);
         assert!(
-            r.violations.iter().any(|v| v.rule_id.as_deref() == Some("th-has-data-cells")),
+            r.violations
+                .iter()
+                .any(|v| v.rule_id.as_deref() == Some("th-has-data-cells")),
             "header without data cells should be flagged"
         );
     }
@@ -235,12 +240,19 @@ mod tests {
     fn test_dangling_headers_ref_flagged() {
         let mut table = node("t", "table", None, vec![]);
         let header = node("hdr", "columnheader", Some("t"), vec![]);
-        let data = node("d1", "gridcell", Some("t"), vec![("headers", "nonexistent-id")]);
+        let data = node(
+            "d1",
+            "gridcell",
+            Some("t"),
+            vec![("headers", "nonexistent-id")],
+        );
         table.child_ids = vec!["hdr".into(), "d1".into()];
         let tree = AXTree::from_nodes(vec![table, header, data]);
         let r = check_table_extended(&tree);
         assert!(
-            r.violations.iter().any(|v| v.rule_id.as_deref() == Some("td-headers-attr")),
+            r.violations
+                .iter()
+                .any(|v| v.rule_id.as_deref() == Some("td-headers-attr")),
             "dangling headers reference should be flagged"
         );
     }

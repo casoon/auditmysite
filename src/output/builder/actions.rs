@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 
 use crate::output::report_model::{
-    ActionItem, ActionPlan, Effort, ExecutionPriority, FindingGroup, Priority, Role,
-    RoleAssignment,
+    ActionItem, ActionPlan, Effort, ExecutionPriority, FindingGroup, Priority, Role, RoleAssignment,
 };
 use crate::wcag::Severity;
 

@@ -95,32 +95,6 @@ pub(super) fn soft_flow_group(threshold: &str, items: Vec<serde_json::Value>) ->
     group.with_keep_together_if_under(threshold)
 }
 
-/// Truncate a string to `max_chars` characters, appending "…" if cut.
-pub(super) fn truncate_str(text: &str, max_chars: usize) -> String {
-    let text = text.trim();
-    if text.chars().count() <= max_chars {
-        return text.to_string();
-    }
-    let cut: String = text.chars().take(max_chars.saturating_sub(1)).collect();
-    format!("{cut}…")
-}
-
-pub(super) fn simplify_for_summary(text: &str) -> String {
-    let single_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let trimmed = single_line.trim();
-    let normalized = match trimmed {
-        "Sofort beheben" | "Sofort beheben." => "Direkt angehen",
-        "Wichtig" | "Wichtig." => "Als Nächstes einplanen",
-        "Optional" | "Optional." => "Bei der nächsten Optimierungsrunde mitnehmen",
-        _ => trimmed,
-    };
-    if normalized.ends_with('.') {
-        normalized.to_string()
-    } else {
-        format!("{normalized}.")
-    }
-}
-
 pub(super) fn execution_priority_label(priority: ExecutionPriority) -> &'static str {
     match priority {
         ExecutionPriority::Immediate => "Direkt angehen",
@@ -146,14 +120,3 @@ pub(super) fn score_quality_color(score: u32) -> &'static str {
         _ => "#dc2626",
     }
 }
-
-/// Truncate to `max` chars using char boundaries, appending "…" if cut.
-pub(super) fn short_text(s: &str, max: usize) -> String {
-    let s = s.trim();
-    if s.chars().count() <= max {
-        return s.to_string();
-    }
-    let cut: String = s.chars().take(max.saturating_sub(1)).collect();
-    format!("{cut}…")
-}
-

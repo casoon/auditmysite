@@ -73,7 +73,10 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let problem_type = audit_summary.problem_type_label.clone();
     let mut technical_overview = build_technical_overview(normalized);
     for cross in &audit_summary.cross_impacts {
-        technical_overview.push(format!("Cross-Impact {}: {}", cross.dimensions, cross.description));
+        technical_overview.push(format!(
+            "Cross-Impact {}: {}",
+            cross.dimensions, cross.description
+        ));
     }
     let overall_impact = build_overall_impact(normalized);
     let date = normalized.timestamp.format("%d.%m.%Y").to_string();
@@ -500,11 +503,7 @@ fn build_actions_block(
             accent_color: "#dc2626".into(),
             description: phase1_desc.into(),
             item_count: plan.quick_wins.len(),
-            top_items: plan
-                .quick_wins
-                .iter()
-                .map(|i| i.action.clone())
-                .collect(),
+            top_items: plan.quick_wins.iter().map(|i| i.action.clone()).collect(),
         });
     }
     if !plan.medium_term.is_empty() {
@@ -513,11 +512,7 @@ fn build_actions_block(
             accent_color: "#f59e0b".into(),
             description: phase2_desc.into(),
             item_count: plan.medium_term.len(),
-            top_items: plan
-                .medium_term
-                .iter()
-                .map(|i| i.action.clone())
-                .collect(),
+            top_items: plan.medium_term.iter().map(|i| i.action.clone()).collect(),
         });
     }
     if !plan.structural.is_empty() {
@@ -526,11 +521,7 @@ fn build_actions_block(
             accent_color: "#2563eb".into(),
             description: phase3_desc.into(),
             item_count: plan.structural.len(),
-            top_items: plan
-                .structural
-                .iter()
-                .map(|i| i.action.clone())
-                .collect(),
+            top_items: plan.structural.iter().map(|i| i.action.clone()).collect(),
         });
     }
 
@@ -1386,9 +1377,7 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
     }
 }
 
-fn build_location_hints(
-    occurrences: &[crate::audit::normalized::OccurrenceDetail],
-) -> Vec<String> {
+fn build_location_hints(occurrences: &[crate::audit::normalized::OccurrenceDetail]) -> Vec<String> {
     let mut hints = Vec::new();
     for occ in occurrences {
         let hint = if let Some(selector) = &occ.selector {

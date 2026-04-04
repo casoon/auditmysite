@@ -13,8 +13,7 @@ pub const RULE_VALID_LANG: RuleMetadata = RuleMetadata {
     name: "Valid Language Code",
     level: WcagLevel::A,
     severity: Severity::Medium,
-    description:
-        "The lang attribute must contain a valid BCP 47 primary language subtag",
+    description: "The lang attribute must contain a valid BCP 47 primary language subtag",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/language-of-page.html",
     axe_id: "valid-lang",
     tags: &["wcag2a", "wcag311", "cat.language"],
@@ -49,7 +48,8 @@ pub fn check_language_extended(tree: &AXTree) -> WcagResults {
         results.nodes_checked += 1;
 
         let lang = node.get_property_str("lang").unwrap_or("").to_string();
-        let xml_lang = node.get_property_str("xmlLang")
+        let xml_lang = node
+            .get_property_str("xmlLang")
             .or_else(|| node.get_property_str("xml:lang"))
             .unwrap_or("")
             .to_string();
@@ -61,7 +61,10 @@ pub fn check_language_extended(tree: &AXTree) -> WcagResults {
                 RULE_VALID_LANG.name,
                 RULE_VALID_LANG.level,
                 RULE_VALID_LANG.severity,
-                &format!("lang=\"{}\" is not a recognised BCP 47 primary language subtag", lang),
+                format!(
+                    "lang=\"{}\" is not a recognised BCP 47 primary language subtag",
+                    lang
+                ),
                 &node.node_id,
             )
             .with_fix("Use a valid BCP 47 primary subtag such as lang=\"en\" or lang=\"de\"")
@@ -81,15 +84,13 @@ pub fn check_language_extended(tree: &AXTree) -> WcagResults {
                     RULE_LANG_MISMATCH.name,
                     RULE_LANG_MISMATCH.level,
                     RULE_LANG_MISMATCH.severity,
-                    &format!(
+                    format!(
                         "lang=\"{}\" and xml:lang=\"{}\" specify different primary languages",
                         lang, xml_lang
                     ),
                     &node.node_id,
                 )
-                .with_fix(
-                    "Ensure lang and xml:lang use the same primary language subtag",
-                )
+                .with_fix("Ensure lang and xml:lang use the same primary language subtag")
                 .with_help_url(RULE_LANG_MISMATCH.help_url);
                 results.add_violation(v);
             } else {
@@ -166,20 +167,29 @@ mod tests {
     fn test_invalid_lang_flagged() {
         let tree = AXTree::from_nodes(vec![doc_node(Some("x"), None)]);
         let r = check_language_extended(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_name == "Valid Language Code"));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_name == "Valid Language Code"));
     }
 
     #[test]
     fn test_lang_mismatch_flagged() {
         let tree = AXTree::from_nodes(vec![doc_node(Some("en"), Some("de"))]);
         let r = check_language_extended(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_name == "Language Attribute Mismatch"));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_name == "Language Attribute Mismatch"));
     }
 
     #[test]
     fn test_lang_no_mismatch_when_equal() {
         let tree = AXTree::from_nodes(vec![doc_node(Some("en"), Some("en-US"))]);
         let r = check_language_extended(&tree);
-        assert!(!r.violations.iter().any(|v| v.rule_name == "Language Attribute Mismatch"));
+        assert!(!r
+            .violations
+            .iter()
+            .any(|v| v.rule_name == "Language Attribute Mismatch"));
     }
 }

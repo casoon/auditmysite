@@ -214,18 +214,22 @@ Core rules:
 
 ARIA and semantics:
 - ARIA role validation — invalid roles, required owned elements, required context
-- Accessible name checks — icon-only controls, empty aria-labelledby/describedby, name/description conflicts
+- ARIA attribute checks — allowed attributes per role, required attributes, prohibited attributes
+- Accessible name checks — icon-only controls, empty aria-labelledby/describedby, name/description conflicts, naming by role type (command, input, meter, progressbar, toggle, dialog, treeitem)
 - ARIA relationship checks — aria-controls, aria-owns, aria-activedescendant, duplicate IDs
-- Landmark structure — main, navigation, banner, contentinfo (presence, duplicates, labels for multiple same-type landmarks)
+- Landmark structure — main, navigation, banner, contentinfo (presence, uniqueness, top-level nesting, no-duplicate for banner/contentinfo/main, required parent for landmarks)
+- Content in landmarks — region rule ensuring body content lives inside landmark regions
 - Table rules — caption/name, header cells, presentational tables, cell placement
-- Form rules — fieldset/legend for grouped controls, required field indication, error description
+- Form rules — fieldset/legend for grouped controls, required field indication, error description, label-title-only detection
 - List structure — listitem context, empty lists, definition list integrity
 - Dialog rules — accessible name, aria-modal, alert region labeling
-- Widget rules — tab/tabpanel pairing, selected state, combobox options, slider value, tree context
+- Widget rules — tab/tabpanel pairing, selected state, combobox options, slider value, tree context, summary element naming
 - Media rules — application and image-role elements without accessible names
 - SVG rules — SVG image accessible names
+- Server-side image maps — detection and flagging
+- Meta viewport — large maximum-scale restrictions
 
-Each violation carries a stable axe-core-compatible `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
+77 rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
 AAA is not fully implemented yet.
 
@@ -287,7 +291,7 @@ Batch reports are not a stack of single-page reports.
 - Easier to distribute than a multi-package browser toolchain
 - More automation-friendly than ad hoc console output because the JSON contract is explicit and tested
 - Broader reporting surface than a pure accessibility-only checker when you also want performance, SEO, security, and mobile signals
-- Violations carry axe-core-compatible `rule_id`, `tags`, and `impact` — easier to integrate with existing tooling or dashboards
+- Violations carry stable `rule_id`, `tags`, and `impact` — easier to integrate with existing tooling or dashboards
 
 ## Typical Workflows
 

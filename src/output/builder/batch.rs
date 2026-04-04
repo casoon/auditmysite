@@ -88,7 +88,11 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             }
         })
         .collect();
-    url_ranking.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+    url_ranking.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let url_details: Vec<CompactUrlSummary> = batch
         .reports
@@ -162,7 +166,11 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         .collect();
 
     let mut sorted_by_score: Vec<_> = batch.reports.iter().collect();
-    sorted_by_score.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal));
+    sorted_by_score.sort_by(|a, b| {
+        a.score
+            .partial_cmp(&b.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let worst_urls: Vec<(String, f32)> = sorted_by_score
         .iter()
         .take(3)
@@ -500,8 +508,7 @@ fn group_violations(
         .map(|(rule_id, (violations, count))| {
             let first = violations[0];
             let explanation = get_explanation(&rule_id);
-            let (dimension, subcategory, issue_class, mapped_rule_id) =
-                taxonomy_fields(&rule_id);
+            let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&rule_id);
             let dimension_label = dimension.as_deref().unwrap_or("Accessibility");
 
             let (

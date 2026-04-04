@@ -1,8 +1,9 @@
 //! Finding renderers for PDF reports.
 
+use renderreport::components::advanced::WrongRightBlock;
 use renderreport::components::advanced::{KeyValueList, List};
 use renderreport::components::text::{Label, TextBlock};
-use renderreport::components::{AuditTable, Finding, TableColumn, WrongRightBlock};
+use renderreport::components::{AuditTable, Finding, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -10,8 +11,7 @@ use crate::output::report_model::*;
 use crate::util::truncate_url;
 
 use super::helpers::{
-    effort_label_i18n, execution_priority_label, map_severity,
-    priority_label_i18n, role_label_i18n, short_text,
+    effort_label_i18n, execution_priority_label, map_severity, priority_label_i18n, role_label_i18n,
 };
 
 pub(super) fn render_key_finding_block(
@@ -19,6 +19,27 @@ pub(super) fn render_key_finding_block(
     group: &FindingGroup,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // ── Explain Layer (Bridge: Business → Tech) ──────────────────────
+    {
+        let has_cause = !group.typical_cause.is_empty();
+        let has_user = !group.user_impact.is_empty();
+        let has_business = !group.business_impact.is_empty();
+        if has_cause || has_user || has_business {
+            let mut kv = KeyValueList::new();
+            if has_user {
+                kv = kv.add("Nutzer erleben", &group.user_impact);
+            }
+            if has_business {
+                kv = kv.add("Business-Auswirkung", &group.business_impact);
+            }
+            if has_cause {
+                kv = kv.add("Warum passiert das", &group.typical_cause);
+            }
+            builder = builder.add_component(kv);
+        }
+    }
+
+    // ── Finding Card ─────────────────────────────────────────────────
     let category = format!(
         "{} | {} | {}",
         execution_priority_label(group.execution_priority),
@@ -29,9 +50,9 @@ pub(super) fn render_key_finding_block(
     let mut finding = Finding::new(
         &group.title,
         map_severity(&group.severity),
-        &short_text(&group.customer_description, 120),
+        &group.customer_description,
     )
-    .with_recommendation(&short_text(&group.recommendation, 120))
+    .with_recommendation(&group.recommendation)
     .with_category(category);
 
     if group.occurrence_count > 0 {
@@ -39,13 +60,6 @@ pub(super) fn render_key_finding_block(
     }
 
     builder = builder.add_component(finding);
-
-    if !group.user_impact.is_empty() {
-        builder = builder.add_component(
-            Callout::info(&short_text(&group.user_impact, 100))
-                .with_title(i18n.t("label-user-impact")),
-        );
-    }
 
     builder
 }
@@ -92,9 +106,9 @@ pub(super) fn render_finding_technical(
     let finding = Finding::new(
         &group.title,
         map_severity(&group.severity),
-        &short_text(&group.customer_description, 120),
+        &group.customer_description,
     )
-    .with_recommendation(&short_text(&group.recommendation, 120))
+    .with_recommendation(&group.recommendation)
     .with_category(category_parts.join(" | "))
     .with_affected(format!(
         "{} Vorkommen, {} Elemente",
@@ -124,8 +138,11 @@ pub(super) fn render_finding_technical(
     builder = builder.add_component(details);
 
     for example in &group.examples {
-        builder = builder
-            .add_component(WrongRightBlock::new(&example.bad, &example.good).code());
+        builder = builder.add_component(
+            WrongRightBlock::new(&example.bad, &example.good)
+                .code()
+                .with_labels("✕ Falsch", "✓ Richtig"),
+        );
         if let Some(ref dec) = example.decorative {
             builder =
                 builder.add_component(Callout::info(dec).with_title(i18n.t("label-decorative")));
@@ -174,9 +191,9 @@ pub(super) fn render_finding_group(
     let mut finding = Finding::new(
         &group.title,
         map_severity(&group.severity),
-        &short_text(&group.customer_description, 120),
+        &group.customer_description,
     )
-    .with_recommendation(&short_text(&group.recommendation, 120))
+    .with_recommendation(&group.recommendation)
     .with_category(format!(
         "{}: {} | {}: {} | {}: {}",
         i18n.t("label-priority"),
@@ -204,29 +221,32 @@ pub(super) fn render_finding_group(
 
     if !group.user_impact.is_empty() {
         builder = builder.add_component(
-            Callout::info(&short_text(&group.user_impact, 120)).with_title(i18n.t("label-user-impact")),
+            Callout::info(&group.user_impact).with_title(i18n.t("label-user-impact")),
         );
     }
     if !group.typical_cause.is_empty() {
         builder = builder.add_component(TextBlock::new(format!(
             "{}: {}",
             i18n.t("label-typical-cause"),
-            short_text(&group.typical_cause, 120)
+            &group.typical_cause
         )));
     }
     if !group.technical_note.is_empty() {
         builder = builder.add_component(TextBlock::new(format!(
             "{}: {}",
             i18n.t("label-tech-note"),
-            short_text(&group.technical_note, 120)
+            &group.technical_note
         )));
     }
 
     if !group.examples.is_empty() {
         builder = builder.add_component(Section::new(i18n.t("label-code-example")).with_level(3));
         for example in &group.examples {
-            builder = builder
-                .add_component(WrongRightBlock::new(&example.bad, &example.good).code());
+            builder = builder.add_component(
+                WrongRightBlock::new(&example.bad, &example.good)
+                    .code()
+                    .with_labels("✕ Falsch", "✓ Richtig"),
+            );
             if let Some(ref dec) = example.decorative {
                 builder = builder
                     .add_component(Callout::info(dec).with_title(i18n.t("label-decorative")));

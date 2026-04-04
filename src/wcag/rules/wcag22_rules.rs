@@ -5,7 +5,7 @@
 //! - `summary-name`:        <details> element without an accessible <summary> label
 //! - `meta-viewport-large`: viewport meta tag restricts zoom / maximum-scale
 //! - `target-size`:         interactive targets smaller than 24 × 24 CSS px (WCAG 2.2 AA)
-//!                          (informational stub — pixel dimensions not available in AX tree)
+//!   (informational stub — pixel dimensions not available in AX tree)
 
 use crate::accessibility::{AXTree, NameSource};
 use crate::cli::WcagLevel;
@@ -29,7 +29,8 @@ pub const RULE_LABEL_TITLE_ONLY: RuleMetadata = RuleMetadata {
     name: "Label Not Title Only",
     level: WcagLevel::A,
     severity: Severity::Medium,
-    description: "Form elements must not rely solely on the title attribute for their accessible name",
+    description:
+        "Form elements must not rely solely on the title attribute for their accessible name",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/labels-or-instructions.html",
     axe_id: "label-title-only",
     tags: &["wcag2a", "wcag332", "cat.forms"],
@@ -57,6 +58,7 @@ pub const RULE_META_VIEWPORT_LARGE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aa", "wcag144", "cat.sensory-and-visual-cues"],
 };
 
+#[allow(dead_code)]
 pub const RULE_TARGET_SIZE: RuleMetadata = RuleMetadata {
     id: "2.5.8",
     name: "Target Size",
@@ -71,16 +73,22 @@ pub const RULE_TARGET_SIZE: RuleMetadata = RuleMetadata {
 // ── Heading roles ──────────────────────────────────────────────────────────────
 
 const HEADING_ROLES: &[&str] = &[
-    "heading",
-    // Chrome CDP sometimes exposes concrete levels as separate roles
+    "heading", // Chrome CDP sometimes exposes concrete levels as separate roles
     "h1", "h2", "h3", "h4", "h5", "h6",
 ];
 
 // ── Form input roles that may use title as fallback label ─────────────────────
 
 const LABELED_INPUT_ROLES: &[&str] = &[
-    "textbox", "combobox", "listbox", "searchbox", "spinbutton",
-    "checkbox", "radio", "switch", "slider",
+    "textbox",
+    "combobox",
+    "listbox",
+    "searchbox",
+    "spinbutton",
+    "checkbox",
+    "radio",
+    "switch",
+    "slider",
 ];
 
 // ── Public check function ──────────────────────────────────────────────────────
@@ -273,7 +281,10 @@ mod tests {
     fn test_empty_heading_flagged() {
         let tree = AXTree::from_nodes(vec![simple_node("1", "heading", None)]);
         let r = check_wcag22_rules(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("empty-heading")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("empty-heading")));
     }
 
     #[test]
@@ -286,20 +297,25 @@ mod tests {
     #[test]
     fn test_label_title_only_flagged() {
         let node = node_with_props(
-            "1", "textbox",
+            "1",
+            "textbox",
             Some("Search"),
             Some(NameSource::Title),
             vec![],
         );
         let tree = AXTree::from_nodes(vec![node]);
         let r = check_wcag22_rules(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("label-title-only")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("label-title-only")));
     }
 
     #[test]
     fn test_label_from_attribute_passes() {
         let node = node_with_props(
-            "1", "textbox",
+            "1",
+            "textbox",
             Some("Search"),
             Some(NameSource::Attribute),
             vec![],
@@ -314,41 +330,56 @@ mod tests {
         let node = node_with_props("1", "group", None, None, vec![("htmlTag", "DETAILS")]);
         let tree = AXTree::from_nodes(vec![node]);
         let r = check_wcag22_rules(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("summary-name")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("summary-name")));
     }
 
     #[test]
     fn test_viewport_maximum_scale_1_flagged() {
         let node = node_with_props(
-            "root", "RootWebArea",
+            "root",
+            "RootWebArea",
             Some("Page"),
             None,
             vec![("viewport", "width=device-width, maximum-scale=1")],
         );
         let tree = AXTree::from_nodes(vec![node]);
         let r = check_wcag22_rules(&tree);
-        assert!(r.violations.iter().any(|v| v.rule_id.as_deref() == Some("meta-viewport-large")));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("meta-viewport-large")));
     }
 
     #[test]
     fn test_viewport_no_restriction_passes() {
         let node = node_with_props(
-            "root", "RootWebArea",
+            "root",
+            "RootWebArea",
             Some("Page"),
             None,
             vec![("viewport", "width=device-width, initial-scale=1")],
         );
         let tree = AXTree::from_nodes(vec![node]);
         let r = check_wcag22_rules(&tree);
-        assert!(!r.violations.iter().any(|v| v.rule_id.as_deref() == Some("meta-viewport-large")));
+        assert!(!r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("meta-viewport-large")));
     }
 
     #[test]
     fn test_is_viewport_zoom_restricted_large() {
-        assert!(is_viewport_zoom_restricted_large("width=device-width, maximum-scale=1"));
+        assert!(is_viewport_zoom_restricted_large(
+            "width=device-width, maximum-scale=1"
+        ));
         assert!(is_viewport_zoom_restricted_large("maximum-scale=2.9"));
         assert!(is_viewport_zoom_restricted_large("user-scalable=no"));
-        assert!(!is_viewport_zoom_restricted_large("width=device-width, initial-scale=1"));
+        assert!(!is_viewport_zoom_restricted_large(
+            "width=device-width, initial-scale=1"
+        ));
         assert!(!is_viewport_zoom_restricted_large("maximum-scale=5"));
         assert!(!is_viewport_zoom_restricted_large("maximum-scale=3"));
     }

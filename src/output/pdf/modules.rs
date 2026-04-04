@@ -40,20 +40,19 @@ pub(super) fn build_summary_overview(summary: &SummaryBlock) -> Grid {
 pub(super) fn build_overall_score_card(score: u32) -> Grid {
     let (grade, description) = match score {
         90..=100 => ("A", "Sehr gut — Maßstab für die Branche"),
-        80..=89  => ("B", "Gut — kleinere Schwächen, klarer Kurs"),
-        70..=79  => ("C", "Solide — spürbarer Nachbesserungsbedarf"),
-        60..=69  => ("D", "Ausbaufähig — strukturelle Defizite"),
-        _        => ("F", "Kritisch — dringender Handlungsbedarf"),
+        80..=89 => ("B", "Gut — kleinere Schwächen, klarer Kurs"),
+        70..=79 => ("C", "Solide — spürbarer Nachbesserungsbedarf"),
+        60..=69 => ("D", "Ausbaufähig — strukturelle Defizite"),
+        _ => ("F", "Kritisch — dringender Handlungsbedarf"),
     };
     let description = format!("Note {grade}  ·  {description}");
-    Grid::new(1)
-        .add_item(serde_json::json!({
-            "type": "score-card",
-            "data": ScoreCard::new("Gesamtscore", score)
-                .with_description(description)
-                .with_thresholds(70, 50)
-                .to_data()
-        }))
+    Grid::new(1).add_item(serde_json::json!({
+        "type": "score-card",
+        "data": ScoreCard::new("Gesamtscore", score)
+            .with_description(description)
+            .with_thresholds(70, 50)
+            .to_data()
+    }))
 }
 
 pub(super) fn build_module_radar_chart(modules: &ModulesBlock) -> Chart {
@@ -64,7 +63,6 @@ pub(super) fn build_module_radar_chart(modules: &ModulesBlock) -> Chart {
         .collect();
     Chart::new("Modulscores im Überblick", ChartType::Radar).add_series("Score", data)
 }
-
 
 /// Build a card-per-module grid: score + status + key lever. No tables.
 pub(super) fn build_module_cards_grid(modules: &ModulesBlock) -> Grid {
@@ -95,10 +93,49 @@ pub(super) fn build_module_cards_grid(modules: &ModulesBlock) -> Grid {
     grid
 }
 
-
 pub(super) enum WasJetztTunContent {
     Table(AuditTable),
     Empty(Callout),
+}
+
+/// Build the Top-Hebel table: top findings sorted by occurrence share, max 5 rows.
+pub(super) fn build_top_hebel_table(
+    findings: &FindingsBlock,
+    total_critical_high: usize,
+) -> Option<AuditTable> {
+    let mut groups: Vec<&FindingGroup> = findings.top_findings.iter().collect();
+    if groups.is_empty() {
+        return None;
+    }
+    // Sort by occurrence_count descending
+    groups.sort_by(|a, b| b.occurrence_count.cmp(&a.occurrence_count));
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Problem").with_width("42%"),
+        TableColumn::new("Anteil").with_width("13%"),
+        TableColumn::new("Wirkung").with_width("45%"),
+    ]);
+
+    for group in groups.iter().take(5) {
+        let share = if total_critical_high > 0 {
+            let pct = group.occurrence_count * 100 / total_critical_high;
+            format!("{}%", pct.min(99))
+        } else {
+            "—".to_string()
+        };
+        let impact = &group.user_impact;
+        table = table.add_row(vec![
+            group.title.clone(),
+            share,
+            if impact.is_empty() {
+                group.recommendation.clone()
+            } else {
+                impact.clone()
+            },
+        ]);
+    }
+
+    Some(table)
 }
 
 /// Build the "Was jetzt tun?" task table (max 5 actions)

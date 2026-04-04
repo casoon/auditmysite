@@ -5,13 +5,19 @@
 use tracing::{debug, info};
 
 use super::rules::{
-    check_accessible_name, check_aria_naming_rules, check_aria_relationships, check_aria_roles,
-    check_bypass_blocks, check_dialog_rules, check_focus_order, check_focus_visible,
-    check_form_rules, check_headings, check_image_input_rules, check_info_relationships,
-    check_input_purpose, check_instructions, check_keyboard, check_label_in_name, check_labels,
-    check_landmark_extended, check_landmarks, check_language, check_language_extended,
-    check_link_purpose, check_list_structure, check_media_rules, check_non_text_contrast,
-    check_on_focus, check_on_input, check_page_titled, check_resize_text, check_section_headings,
+    check_accessible_name, check_aria_allowed_attr, check_aria_naming_rules,
+    check_aria_prohibited_attr, check_aria_relationships, check_aria_required_attr,
+    check_aria_required_parent, check_aria_roles, check_bypass_blocks, check_dialog_rules,
+    check_focus_order, check_focus_visible, check_form_rules, check_headings,
+    check_image_input_rules, check_info_relationships, check_input_purpose, check_instructions,
+    check_keyboard, check_label_in_name, check_label_title_only, check_labels,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_landmark_extended, check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
+    check_landmark_unique, check_landmarks, check_language, check_language_extended,
+    check_link_purpose, check_list_structure, check_media_rules, check_meta_viewport_large,
+    check_non_text_contrast, check_on_focus, check_on_input, check_page_titled, check_region,
+    check_resize_text, check_section_headings, check_server_side_image_map, check_summary_name,
     check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
     check_wcag22_rules, check_widget_rules,
 };
@@ -110,6 +116,15 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 1.1.1 Area / input[type=image] / object alternatives (Level A)
     run_if_allowed!(filter, "area-alt", check_image_input_rules, results, tree);
 
+    // 1.1.1 Server-side image maps (Level A)
+    run_if_allowed!(
+        filter,
+        "server-side-image-map",
+        check_server_side_image_map,
+        results,
+        tree
+    );
+
     // 1.3.1 Info and Relationships (Level A)
     run_if_allowed!(
         filter,
@@ -181,6 +196,45 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 4.1.2 ARIA Role Validity (Level A)
     run_if_allowed!(filter, "aria-roles", check_aria_roles, results, tree);
 
+    // 4.1.2 ARIA Allowed Attributes (Level A)
+    run_if_allowed!(
+        filter,
+        "aria-allowed-attr",
+        check_aria_allowed_attr,
+        results,
+        tree
+    );
+
+    // 4.1.2 ARIA Required Attributes (Level A)
+    run_if_allowed!(
+        filter,
+        "aria-required-attr",
+        check_aria_required_attr,
+        results,
+        tree
+    );
+
+    // 4.1.2 ARIA Required Parent (Level A)
+    run_if_allowed!(
+        filter,
+        "aria-required-parent",
+        check_aria_required_parent,
+        results,
+        tree
+    );
+
+    // 4.1.2 ARIA Prohibited Attributes (Level A)
+    run_if_allowed!(
+        filter,
+        "aria-prohibited-attr",
+        check_aria_prohibited_attr,
+        results,
+        tree
+    );
+
+    // 1.3.1 Region / Landmark (Level A)
+    run_if_allowed!(filter, "region", check_region, results, tree);
+
     // 4.1.2 Accessible Name Extended (Level A)
     run_if_allowed!(filter, "aria-label", check_accessible_name, results, tree);
 
@@ -250,11 +304,74 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
         tree
     );
 
+    // 1.3.1 Granular Landmark Rules (Level A)
+    run_if_allowed!(
+        filter,
+        "landmark-unique",
+        check_landmark_unique,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-banner-is-top-level",
+        check_landmark_banner_is_top_level,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-contentinfo-is-top-level",
+        check_landmark_contentinfo_is_top_level,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-main-is-top-level",
+        check_landmark_main_is_top_level,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-no-duplicate-banner",
+        check_landmark_no_duplicate_banner,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-no-duplicate-contentinfo",
+        check_landmark_no_duplicate_contentinfo,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-no-duplicate-main",
+        check_landmark_no_duplicate_main,
+        results,
+        tree
+    );
+
     // 1.3.1 Extended Table Header Rules (Level A) - P1
     run_if_allowed!(
         filter,
         "td-headers-attr",
         check_table_extended,
+        results,
+        tree
+    );
+
+    // 4.1.2 Summary Accessible Name (Level A)
+    run_if_allowed!(filter, "summary-name", check_summary_name, results, tree);
+
+    // 1.3.1 Label Title Only (Level A)
+    run_if_allowed!(
+        filter,
+        "label-title-only",
+        check_label_title_only,
         results,
         tree
     );
@@ -284,7 +401,7 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
     run_if_allowed!(
         filter,
         "meta-viewport-large",
-        check_wcag22_rules,
+        check_meta_viewport_large,
         results,
         tree
     );

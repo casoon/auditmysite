@@ -101,9 +101,7 @@ pub fn check_image_input_rules(tree: &AXTree) -> WcagResults {
                 &node.node_id,
             )
             .with_role(node.role.clone())
-            .with_fix(
-                "Provide a text alternative inside the <object> element or via aria-label",
-            )
+            .with_fix("Provide a text alternative inside the <object> element or via aria-label")
             .with_help_url(RULE_OBJECT_ALT.help_url);
             results.add_violation(v);
         }
@@ -153,7 +151,7 @@ mod tests {
     use crate::accessibility::{AXNode, AXProperty, AXValue};
 
     fn node(id: &str, role: &str, name: Option<&str>, props: Vec<(&str, &str)>) -> AXNode {
-        let mut n = AXNode {
+        AXNode {
             node_id: id.into(),
             ignored: false,
             ignored_reasons: vec![],
@@ -172,8 +170,7 @@ mod tests {
             child_ids: vec![],
             parent_id: None,
             backend_dom_node_id: None,
-        };
-        n
+        }
     }
 
     #[test]
@@ -182,7 +179,11 @@ mod tests {
         let tree = AXTree::from_nodes(vec![n]);
         let results = check_image_input_rules(&tree);
         assert!(
-            results.violations.iter().any(|v| v.rule_id.as_deref() == Some("input-image-alt") || v.rule_name == "Image Button Alternative Text"),
+            results
+                .violations
+                .iter()
+                .any(|v| v.rule_id.as_deref() == Some("input-image-alt")
+                    || v.rule_name == "Image Button Alternative Text"),
             "input[type=image] without name should be flagged"
         );
     }
@@ -201,14 +202,22 @@ mod tests {
         let tree = AXTree::from_nodes(vec![n]);
         let results = check_image_input_rules(&tree);
         assert!(
-            results.violations.iter().any(|v| v.rule_name == "Object Alternative Text"),
+            results
+                .violations
+                .iter()
+                .any(|v| v.rule_name == "Object Alternative Text"),
             "object without name should be flagged"
         );
     }
 
     #[test]
     fn test_object_with_name_passes() {
-        let n = node("1", "group", Some("Product demo video"), vec![("htmlTag", "OBJECT")]);
+        let n = node(
+            "1",
+            "group",
+            Some("Product demo video"),
+            vec![("htmlTag", "OBJECT")],
+        );
         let tree = AXTree::from_nodes(vec![n]);
         let results = check_image_input_rules(&tree);
         assert!(results.violations.is_empty());
@@ -220,14 +229,22 @@ mod tests {
         let tree = AXTree::from_nodes(vec![n]);
         let results = check_image_input_rules(&tree);
         assert!(
-            results.violations.iter().any(|v| v.rule_name == "Area Alternative Text"),
+            results
+                .violations
+                .iter()
+                .any(|v| v.rule_name == "Area Alternative Text"),
             "area without alt should be flagged"
         );
     }
 
     #[test]
     fn test_area_with_alt_passes() {
-        let n = node("1", "link", Some("Go to contact page"), vec![("htmlTag", "AREA")]);
+        let n = node(
+            "1",
+            "link",
+            Some("Go to contact page"),
+            vec![("htmlTag", "AREA")],
+        );
         let tree = AXTree::from_nodes(vec![n]);
         let results = check_image_input_rules(&tree);
         assert!(results.violations.is_empty());

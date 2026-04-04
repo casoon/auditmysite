@@ -200,8 +200,8 @@ fn detect_dominant_issue(
     for f in findings {
         if matches!(f.severity, Severity::Critical | Severity::High) {
             let entry = rule_counts.entry(&f.rule_id).or_insert((f, 0, 0));
-            entry.1 += 1;                    // group count
-            entry.2 += f.occurrence_count;   // occurrence total
+            entry.1 += 1; // group count
+            entry.2 += f.occurrence_count; // occurrence total
         }
     }
 
@@ -287,6 +287,7 @@ fn detect_cross_impacts(normalized: &NormalizedReport) -> Vec<CrossImpact> {
     impacts
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_verdict_intro(
     site_state: &SiteState,
     dominant_issue: &Option<DominantIssue>,
@@ -425,7 +426,12 @@ mod tests {
     use crate::taxonomy::Severity;
     use crate::WcagLevel;
 
-    fn make_finding(rule_id: &str, title: &str, severity: Severity, count: usize) -> NormalizedFinding {
+    fn make_finding(
+        rule_id: &str,
+        title: &str,
+        severity: Severity,
+        count: usize,
+    ) -> NormalizedFinding {
         NormalizedFinding {
             rule_id: rule_id.into(),
             wcag_criterion: "1.1.1".into(),
@@ -452,10 +458,22 @@ mod tests {
     }
 
     fn make_report(score: u32, findings: Vec<NormalizedFinding>) -> NormalizedReport {
-        let critical = findings.iter().filter(|f| f.severity == Severity::Critical).count();
-        let high = findings.iter().filter(|f| f.severity == Severity::High).count();
-        let medium = findings.iter().filter(|f| f.severity == Severity::Medium).count();
-        let low = findings.iter().filter(|f| f.severity == Severity::Low).count();
+        let critical = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .count();
+        let high = findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .count();
+        let medium = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .count();
+        let low = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .count();
         let total = findings.len();
 
         NormalizedReport {

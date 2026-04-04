@@ -11,8 +11,8 @@ mod modules;
 mod seo;
 mod single;
 
-pub use single::build_view_model;
 pub use batch::build_batch_presentation;
+pub use single::build_view_model;
 
 #[cfg(test)]
 #[allow(

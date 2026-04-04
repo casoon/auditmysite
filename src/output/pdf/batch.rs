@@ -1,7 +1,7 @@
 //! Batch report components for PDF output.
 
 use renderreport::components::advanced::Grid;
-use renderreport::components::{AuditTable, BenchmarkSummary, MetricCard, TableColumn};
+use renderreport::components::{AuditTable, MetricCard, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -59,23 +59,38 @@ pub(super) fn build_batch_overview_grid(
     grid
 }
 
-pub(super) fn build_batch_benchmark_summary(pres: &BatchPresentation) -> BenchmarkSummary {
+pub(super) fn build_batch_benchmark_summary(pres: &BatchPresentation) -> Grid {
     let dist = &pres.portfolio_summary.severity_distribution;
-    let mut summary = BenchmarkSummary::new(
-        pres.portfolio_summary.total_urls as u32,
-        pres.portfolio_summary.average_score.round() as u32,
-    )
-    .with_issues(
-        pres.portfolio_summary.total_violations as u32,
-        dist.critical as u32,
-    );
-    if let Some(b) = pres.url_ranking.last() {
-        summary = summary.with_best(&truncate_url(&b.url, 40), b.score.round() as u32);
+    let avg = pres.portfolio_summary.average_score.round() as u32;
+    let accent = score_quality_color(avg);
+
+    let mut grid = Grid::new(3).with_item_min_height("110pt");
+    grid = grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new("Ø Score", format!("{}/100", avg))
+            .with_accent_color(accent)
+            .with_height("100%")
+            .to_data()
+    }));
+    grid = grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new("Verstöße gesamt", pres.portfolio_summary.total_violations.to_string())
+            .with_subtitle(format!("{} kritisch/hoch", dist.critical + dist.high))
+            .with_accent_color("#f59e0b")
+            .with_height("100%")
+            .to_data()
+    }));
+    if let Some(best) = pres.url_ranking.last() {
+        grid = grid.add_item(serde_json::json!({
+            "type": "metric-card",
+            "data": MetricCard::new("Beste URL", format!("{}/100", best.score.round() as u32))
+                .with_subtitle(truncate_url(&best.url, 30))
+                .with_accent_color("#22c55e")
+                .with_height("100%")
+                .to_data()
+        }));
     }
-    if let Some(w) = pres.url_ranking.first() {
-        summary = summary.with_worst(&truncate_url(&w.url, 40), w.score.round() as u32);
-    }
-    summary
+    grid
 }
 
 /// Render action plan for batch reports (using AuditTable)

@@ -251,10 +251,9 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
 fn fnv1a(data: &[u8]) -> u64 {
     const OFFSET_BASIS: u64 = 14695981039346656037;
     const PRIME: u64 = 1099511628211;
-    data.iter()
-        .fold(OFFSET_BASIS, |hash, &byte| {
-            (hash ^ byte as u64).wrapping_mul(PRIME)
-        })
+    data.iter().fold(OFFSET_BASIS, |hash, &byte| {
+        (hash ^ byte as u64).wrapping_mul(PRIME)
+    })
 }
 
 fn parse_wcag_level(level: &str) -> WcagLevel {

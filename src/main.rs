@@ -15,7 +15,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
-#[cfg(feature = "pdf")]
 use auditmysite::audit::history::preview_report_history;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
@@ -32,11 +31,11 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_ai_json, format_batch_table, format_json_batch, format_json_cached,
-    format_json_normalized, print_batch_table, print_report, JsonReport,
+    format_ai_json, format_batch_table, format_json_batch, format_json_cached, print_batch_table,
+    print_report, JsonReport,
 };
 #[cfg(feature = "pdf")]
-use auditmysite::output::{generate_batch_pdf, generate_pdf};
+use auditmysite::output::{format_json_normalized, generate_batch_pdf, generate_pdf};
 use auditmysite::util::truncate_url;
 
 #[tokio::main]
