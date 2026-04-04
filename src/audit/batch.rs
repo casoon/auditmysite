@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use tokio::sync::Semaphore;
+use futures::stream::{FuturesUnordered, StreamExt};
 use tracing::{debug, info, warn};
 
 use super::pipeline::{audit_page, PipelineConfig};
@@ -35,12 +35,12 @@ pub struct BatchConfig {
 impl From<&Args> for BatchConfig {
     fn from(args: &Args) -> Self {
         let pool_config = PoolConfig {
-            max_pages: args.concurrency,
+            max_pages: args.effective_concurrency(),
             browser_options: BrowserOptions {
                 chrome_path: args.chrome_path.clone(),
                 no_sandbox: args.no_sandbox,
                 disable_images: args.disable_images,
-                timeout_secs: args.timeout,
+                timeout_secs: args.effective_timeout(),
                 verbose: args.verbose,
                 ..BrowserOptions::default()
             },
@@ -49,7 +49,7 @@ impl From<&Args> for BatchConfig {
 
         Self {
             pipeline: PipelineConfig::from(args),
-            concurrency: args.concurrency,
+            concurrency: args.effective_concurrency(),
             max_urls: args.max_pages,
             pool_config,
         }
@@ -99,72 +99,66 @@ pub async fn run_concurrent_batch(
     let pool = Arc::new(BrowserPool::new(config.pool_config.clone()).await?);
     let pipeline_config = Arc::new(config.pipeline.clone());
 
-    // Semaphore for concurrency control
-    let semaphore = Arc::new(Semaphore::new(config.concurrency));
     let completed = Arc::new(AtomicUsize::new(0));
 
-    // Spawn tasks for each URL
-    let mut handles = Vec::with_capacity(total_urls);
+    // Bounded work queue: at most `concurrency` futures in flight at any time.
+    // No unbounded spawn — tasks are only created as slots free up.
+    let mut in_flight: FuturesUnordered<_> = FuturesUnordered::new();
+    let mut url_iter = urls.into_iter().take(total_urls);
 
-    for url in urls.into_iter().take(total_urls) {
-        let pool = Arc::clone(&pool);
-        let config = Arc::clone(&pipeline_config);
-        let semaphore = Arc::clone(&semaphore);
-        let completed = Arc::clone(&completed);
-        let progress = progress.clone();
-        let total = total_urls;
-
-        let handle = tokio::spawn(async move {
-            // Acquire semaphore permit
-            let _permit = match semaphore.acquire().await {
-                Ok(permit) => permit,
-                Err(_) => {
-                    return BatchResult {
-                        url: url.to_string(),
-                        result: Err("Semaphore closed".to_string()),
-                    }
-                }
-            };
-
+    let make_task = |url: String,
+                     pool: Arc<BrowserPool>,
+                     config: Arc<PipelineConfig>,
+                     completed: Arc<AtomicUsize>,
+                     progress: Option<ProgressCallback>,
+                     total: usize| {
+        async move {
             let result = audit_url_with_pool(&pool, &url, &config).await;
-
-            // Update progress
             let current = completed.fetch_add(1, Ordering::SeqCst) + 1;
             if let Some(ref cb) = progress {
                 cb(current, total, &url);
             }
-
             match &result.result {
-                Ok(report) => {
-                    info!(
-                        "[{}/{}] Completed: {} (score: {})",
-                        current, total, url, report.score
-                    );
-                }
-                Err(e) => {
-                    warn!("[{}/{}] Failed: {} - {}", current, total, url, e);
-                }
+                Ok(report) => info!(
+                    "[{}/{}] Completed: {} (score: {})",
+                    current, total, url, report.score
+                ),
+                Err(e) => warn!("[{}/{}] Failed: {} - {}", current, total, url, e),
             }
-
             result
-        });
+        }
+    };
 
-        handles.push(handle);
+    // Fill up to concurrency limit before starting the drain loop
+    for url in url_iter.by_ref().take(config.concurrency) {
+        in_flight.push(make_task(
+            url,
+            Arc::clone(&pool),
+            Arc::clone(&pipeline_config),
+            Arc::clone(&completed),
+            progress.clone(),
+            total_urls,
+        ));
     }
 
-    // Collect results
+    // Collect results, feeding new work in as slots free up
     let mut reports = Vec::with_capacity(total_urls);
     let mut errors = Vec::new();
 
-    for handle in handles {
-        match handle.await {
-            Ok(batch_result) => match batch_result.result {
-                Ok(report) => reports.push(report),
-                Err(e) => errors.push((batch_result.url, e)),
-            },
-            Err(e) => {
-                warn!("Task panicked: {}", e);
-            }
+    while let Some(batch_result) = in_flight.next().await {
+        match batch_result.result {
+            Ok(report) => reports.push(report),
+            Err(e) => errors.push((batch_result.url, e)),
+        }
+        if let Some(url) = url_iter.next() {
+            in_flight.push(make_task(
+                url,
+                Arc::clone(&pool),
+                Arc::clone(&pipeline_config),
+                Arc::clone(&completed),
+                progress.clone(),
+                total_urls,
+            ));
         }
     }
 

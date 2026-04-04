@@ -348,7 +348,7 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
         no_sandbox: args.no_sandbox,
         disable_images: args.disable_images,
         window_size: (1920, 1080),
-        timeout_secs: args.timeout,
+        timeout_secs: args.effective_timeout(),
         verbose: args.verbose,
     };
 
@@ -680,7 +680,7 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
             "{} {} URLs with {} concurrent workers\n",
             "Auditing:".cyan().bold(),
             total_urls,
-            args.concurrency
+            args.effective_concurrency()
         );
     }
 
@@ -770,7 +770,7 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
         no_sandbox: args.no_sandbox,
         disable_images: args.disable_images,
         window_size: (1920, 1080),
-        timeout_secs: args.timeout,
+        timeout_secs: args.effective_timeout(),
         verbose: args.verbose,
     };
 

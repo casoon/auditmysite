@@ -9,7 +9,7 @@ use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
 use super::artifacts::{
-    content_hash, save_artifacts, AuditArtifacts, FetchArtifact, SnapshotArtifact,
+    content_hash, save_artifacts, AuditArtifacts, CacheMeta, FetchArtifact, SnapshotArtifact,
 };
 use super::normalize;
 use super::report::{AuditReport, PerformanceResults};
@@ -66,7 +66,7 @@ impl From<&Args> for PipelineConfig {
         let full_audit = args.full_audit_enabled();
         Self {
             wcag_level: args.level,
-            timeout_secs: args.timeout,
+            timeout_secs: args.effective_timeout(),
             verbose: args.verbose,
             check_performance: (full_audit || args.performance) && !args.skip_performance,
             check_seo: full_audit || args.seo,
@@ -297,7 +297,15 @@ fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
         security: snapshot.security.clone(),
         mobile: snapshot.mobile.clone(),
     };
+    let hash = content_hash(&snapshot_artifact);
     let normalized = normalize(report);
+    let wcag_level = report.wcag_level.to_string();
+    let meta = CacheMeta {
+        auditmysite_version: env!("CARGO_PKG_VERSION").to_string(),
+        wcag_level: wcag_level.clone(),
+        cached_at: report.timestamp,
+        content_hash: hash.clone(),
+    };
     let artifacts = AuditArtifacts {
         fetch: FetchArtifact {
             requested_url: url.to_string(),
@@ -306,12 +314,13 @@ fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
             fetched_at: report.timestamp,
             duration_ms: report.duration_ms,
         },
-        snapshot: snapshot_artifact.clone(),
+        snapshot: snapshot_artifact,
         audit: normalized,
-        content_hash: content_hash(&snapshot_artifact),
+        content_hash: hash,
+        meta,
     };
 
-    if let Err(e) = save_artifacts(url, &artifacts) {
+    if let Err(e) = save_artifacts(url, &wcag_level, &artifacts) {
         warn!("Artifact persistence failed for {}: {}", url, e);
     }
 }
@@ -336,8 +345,8 @@ mod tests {
             remote_debugging_port: None,
             max_pages: 0,
             crawl_depth: 2,
-            concurrency: 3,
-            timeout: 30,
+            concurrency: None,
+            timeout: None,
             no_sandbox: false,
             disable_images: false,
             verbose: true,

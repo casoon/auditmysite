@@ -157,7 +157,9 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
             let schema_types = extract_types(schema);
 
             for type_str in &schema_types {
-                let schema_type: SchemaType = type_str.parse().unwrap();
+                let schema_type: SchemaType = type_str
+                    .parse()
+                    .unwrap_or(SchemaType::Other(type_str.to_string()));
 
                 if let Some(rich_snippet) = schema_type.rich_snippet_type() {
                     if !rich_snippets_potential.contains(&rich_snippet.to_string()) {

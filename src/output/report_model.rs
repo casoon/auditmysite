@@ -166,6 +166,8 @@ pub struct SummaryBlock {
     pub domain: String,
     pub date: String,
     pub executive_lead: String,
+    /// When a single rule dominates ≥ 45 % of urgent findings: highlighted note for callout display.
+    pub dominant_issue_note: Option<String>,
     pub verdict: String,
     pub score_note: Option<String>,
     pub metrics: Vec<MetricItem>,

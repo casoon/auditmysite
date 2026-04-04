@@ -147,16 +147,14 @@ impl Config {
         }
 
         if let Some(timeout) = self.audit.timeout {
-            if args.timeout == 30 {
-                // default
-                args.timeout = timeout;
+            if args.timeout.is_none() {
+                args.timeout = Some(timeout);
             }
         }
 
         if let Some(concurrency) = self.audit.concurrency {
-            if args.concurrency == 3 {
-                // default
-                args.concurrency = concurrency;
+            if args.concurrency.is_none() {
+                args.concurrency = Some(concurrency);
             }
         }
 

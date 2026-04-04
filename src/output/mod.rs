@@ -8,7 +8,7 @@ pub mod explanations;
 mod json;
 #[cfg(feature = "pdf")]
 mod pdf;
-pub mod report_builder;
+pub mod builder;
 pub mod report_model;
 
 pub use ai::format_ai_json;

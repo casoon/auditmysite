@@ -2845,8 +2845,6 @@ checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 [[package]]
 name = "renderreport"
 version = "0.1.0-alpha.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c08f90afcd8736b7688aa3a2c2eeeb30ef9d8c55b688fff2db6a9c1de452264"
 dependencies = [
  "anyhow",
  "barcoders",
@@ -3607,7 +3605,6 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

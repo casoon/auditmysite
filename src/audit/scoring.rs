@@ -65,7 +65,31 @@ impl AccessibilityScorer {
             total_penalty += impact.calculate_penalty(*count);
         }
 
-        (100.0 - total_penalty).clamp(0.0, 100.0)
+        let raw_score = (100.0 - total_penalty).clamp(0.0, 100.0);
+
+        // Semantic score cap: a site with open critical/high issues cannot be
+        // reported as near-perfect even if penalties are individually small.
+        let critical_count = violations
+            .iter()
+            .filter(|v| matches!(v.severity, Severity::Critical))
+            .count();
+        let urgent_count = critical_count
+            + violations
+                .iter()
+                .filter(|v| matches!(v.severity, Severity::High))
+                .count();
+
+        let score_cap: f32 = if critical_count >= 3 {
+            94.0
+        } else if critical_count >= 1 {
+            96.0
+        } else if urgent_count >= 5 {
+            92.0
+        } else {
+            100.0
+        };
+
+        raw_score.min(score_cap)
     }
 
     /// Calculate letter grade (A-F) based on score

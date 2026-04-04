@@ -14,6 +14,7 @@ pub mod normalized;
 mod pipeline;
 mod report;
 mod scoring;
+pub mod summary;
 
 pub use artifacts::{
     content_hash, load_artifacts, save_artifacts, to_audit_report, AuditArtifacts, FetchArtifact,

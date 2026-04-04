@@ -109,13 +109,13 @@ pub struct Args {
     #[arg(long, default_value = "2", value_name = "NUM")]
     pub crawl_depth: usize,
 
-    /// Number of concurrent browser tabs
-    #[arg(short = 'c', long, default_value = "3", value_name = "NUM")]
-    pub concurrency: usize,
+    /// Number of concurrent browser tabs [default: 3]
+    #[arg(short = 'c', long, value_name = "NUM")]
+    pub concurrency: Option<usize>,
 
-    /// Page load timeout in seconds
-    #[arg(short = 't', long, default_value = "30", value_name = "SECS")]
-    pub timeout: u64,
+    /// Page load timeout in seconds [default: 30]
+    #[arg(short = 't', long, value_name = "SECS")]
+    pub timeout: Option<u64>,
 
     /// Disable sandbox mode (required for Docker/root)
     ///
@@ -329,6 +329,16 @@ impl std::fmt::Display for OutputFormat {
 }
 
 impl Args {
+    /// Returns the effective timeout in seconds (CLI value or default 30).
+    pub fn effective_timeout(&self) -> u64 {
+        self.timeout.unwrap_or(30)
+    }
+
+    /// Returns the effective concurrency (CLI value or default 3).
+    pub fn effective_concurrency(&self) -> usize {
+        self.concurrency.unwrap_or(3)
+    }
+
     pub fn effective_format(&self) -> OutputFormat {
         match self.format {
             Some(format) => format,
@@ -431,10 +441,11 @@ impl Args {
         }
 
         // Validate concurrency
-        if self.concurrency == 0 {
+        let concurrency = self.effective_concurrency();
+        if concurrency == 0 {
             return Err("Concurrency must be at least 1".to_string());
         }
-        if self.concurrency > 10 {
+        if concurrency > 10 {
             return Err("Concurrency cannot exceed 10".to_string());
         }
 
@@ -512,8 +523,8 @@ mod tests {
             remote_debugging_port: None,
             max_pages: 0,
             crawl_depth: 2,
-            concurrency: 3,
-            timeout: 30,
+            concurrency: None,
+            timeout: None,
             no_sandbox: false,
             disable_images: false,
             verbose: false,

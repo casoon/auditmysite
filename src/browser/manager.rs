@@ -337,7 +337,10 @@ impl BrowserManager {
             }
         }
 
-        Err(last_error.unwrap())
+        Err(last_error.unwrap_or(AuditError::NavigationFailed {
+            url: url.to_string(),
+            reason: "Navigation failed with no recorded error".to_string(),
+        }))
     }
 
     /// Get Chrome installation info
