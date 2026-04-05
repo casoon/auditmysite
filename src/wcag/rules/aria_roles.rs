@@ -124,6 +124,10 @@ const VALID_ARIA_ROLES: &[&str] = &[
     "LayoutTableRow",
     "LayoutTableCell",
     "Unknown",
+    // Browser-internal implicit roles (not author errors)
+    "ListMarker",    // ::marker pseudo-elements
+    "sectionheader", // implicit role of <header>
+    "sectionfooter", // implicit role of <footer>
 ];
 
 /// Valid `aria-*` attribute names per the ARIA 1.2 specification
@@ -222,7 +226,7 @@ const REQUIRED_CONTEXT: &[(&str, &[&str])] = &[
 pub fn check_aria_roles(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }
@@ -302,6 +306,17 @@ fn check_required_owned_elements(
         Some(r) => r,
         None => return,
     };
+
+    // Collapsed containers (aria-expanded="false") legitimately have no
+    // visible children in the AX tree — don't flag them.
+    let is_collapsed = node
+        .get_property_str("expanded")
+        .map(|v| v == "false")
+        .unwrap_or(false)
+        || node.get_property_bool("expanded") == Some(false);
+    if is_collapsed {
+        return;
+    }
 
     // Check if any direct or shallow children have the required role
     let has_required_child = node.child_ids.iter().any(|child_id| {
@@ -458,6 +473,25 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("listitem")));
+    }
+
+    #[test]
+    fn test_collapsed_menu_not_flagged() {
+        let mut menu = make_node("2", "menu", Some("1"), vec![]);
+        menu.properties.push(AXProperty {
+            name: "expanded".to_string(),
+            value: AXValue::Bool(false),
+        });
+        let nodes = vec![
+            make_node("1", "WebArea", None, vec!["2"]),
+            menu,
+        ];
+        let tree = AXTree::from_nodes(nodes);
+        let results = check_aria_roles(&tree);
+        assert!(
+            !results.violations.iter().any(|v| v.message.contains("missing required child")),
+            "Collapsed menu should not be flagged for missing children"
+        );
     }
 
     #[test]

@@ -24,7 +24,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
 pub fn check_list_structure(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

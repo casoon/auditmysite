@@ -46,7 +46,7 @@ pub const RULE_OBJECT_ALT: RuleMetadata = RuleMetadata {
 pub fn check_image_input_rules(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

@@ -26,7 +26,7 @@ pub const RULE_META_VIEWPORT_LARGE: RuleMetadata = RuleMetadata {
 pub fn check_meta_viewport_large(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

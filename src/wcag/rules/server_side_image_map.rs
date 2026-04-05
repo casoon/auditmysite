@@ -25,7 +25,7 @@ pub const RULE_SERVER_SIDE_IMAGE_MAP: RuleMetadata = RuleMetadata {
 pub fn check_server_side_image_map(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

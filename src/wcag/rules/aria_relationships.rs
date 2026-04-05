@@ -50,7 +50,7 @@ pub fn check_aria_relationships(tree: &AXTree) -> WcagResults {
     // Track IDs for duplicate detection: id value -> list of node_ids that have it
     let mut id_map: HashMap<String, Vec<String>> = HashMap::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

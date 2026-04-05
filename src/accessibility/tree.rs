@@ -49,39 +49,42 @@ impl AXTree {
         self.root_id.as_ref().and_then(|id| self.nodes.get(id))
     }
 
-    /// Iterate over all nodes
+    /// Iterate over all auditable nodes (excludes browser-generated artifacts).
+    /// This is the default iterator that all WCAG rules should use.
     pub fn iter(&self) -> impl Iterator<Item = &AXNode> {
+        self.nodes.values().filter(|n| !n.is_browser_generated())
+    }
+
+    /// Iterate over ALL nodes including browser-generated artifacts.
+    /// Only use this for tree traversal, parent/child lookups, or non-WCAG analysis.
+    pub fn iter_all(&self) -> impl Iterator<Item = &AXNode> {
         self.nodes.values()
     }
 
-    /// Get all nodes with a specific role
+    /// Get all nodes with a specific role (excludes browser-generated nodes)
     pub fn nodes_with_role(&self, role: &str) -> Vec<&AXNode> {
-        self.nodes
-            .values()
+        self.iter()
             .filter(|n| n.role.as_deref() == Some(role))
             .collect()
     }
 
     /// Get all image nodes
     pub fn images(&self) -> Vec<&AXNode> {
-        self.nodes
-            .values()
+        self.iter()
             .filter(|n| matches!(n.role.as_deref(), Some("image") | Some("img")))
             .collect()
     }
 
     /// Get all heading nodes
     pub fn headings(&self) -> Vec<&AXNode> {
-        self.nodes
-            .values()
+        self.iter()
             .filter(|n| matches!(n.role.as_deref(), Some("heading")))
             .collect()
     }
 
     /// Get all form control nodes (excluding buttons, which are checked separately)
     pub fn form_controls(&self) -> Vec<&AXNode> {
-        self.nodes
-            .values()
+        self.iter()
             .filter(|n| {
                 matches!(
                     n.role.as_deref(),
@@ -215,6 +218,23 @@ impl AXNode {
     /// Check if the node has a specific role
     pub fn has_role(&self, role: &str) -> bool {
         self.role.as_deref() == Some(role)
+    }
+
+    /// Returns true if this node is a browser-generated artifact that no WCAG
+    /// rule should evaluate. These roles are injected by the rendering engine
+    /// and do not represent author content — flagging them is always a false
+    /// positive.
+    pub fn is_browser_generated(&self) -> bool {
+        matches!(
+            self.role.as_deref(),
+            Some("StaticText")
+                | Some("InlineTextBox")
+                | Some("LineBreak")
+                | Some("ListMarker")
+                | Some("LayoutTable")
+                | Some("LayoutTableRow")
+                | Some("LayoutTableCell")
+        )
     }
 
     /// Get the required property (for form validation)

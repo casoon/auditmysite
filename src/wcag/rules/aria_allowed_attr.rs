@@ -264,7 +264,7 @@ const ROLE_SPECIFIC_ATTRS: &[(&str, &[&str])] = &[
 pub fn check_aria_allowed_attr(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

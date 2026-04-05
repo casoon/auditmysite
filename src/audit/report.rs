@@ -62,6 +62,9 @@ pub struct AuditReport {
     /// Dark mode support and quality analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dark_mode: Option<DarkModeAnalysis>,
+    /// Source quality analysis (Substanz / Konsistenz / Autorität)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
 }
 
 /// Performance analysis results wrapper
@@ -112,6 +115,7 @@ impl AuditReport {
             journey: None,
             budget_violations: Vec::new(),
             dark_mode: None,
+            source_quality: None,
         }
     }
 

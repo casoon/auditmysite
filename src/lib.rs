@@ -85,6 +85,7 @@ pub mod output;
 pub mod performance;
 pub mod security;
 pub mod seo;
+pub mod source_quality;
 pub mod studio;
 pub mod taxonomy;
 pub mod util;
@@ -114,5 +115,6 @@ pub use performance::{
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
+pub use source_quality::{analyze_source_quality, SourceQualityAnalysis};
 pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

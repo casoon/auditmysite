@@ -124,7 +124,7 @@ const DIALOG_ROLES: &[&str] = &["dialog", "alertdialog"];
 pub fn check_aria_naming_rules(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

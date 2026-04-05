@@ -97,7 +97,7 @@ const LABELED_INPUT_ROLES: &[&str] = &[
 pub fn check_wcag22_rules(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

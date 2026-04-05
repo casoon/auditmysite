@@ -32,7 +32,7 @@ pub fn check_widget_rules(tree: &AXTree) -> WcagResults {
         .values()
         .any(|n| !n.ignored && n.role.as_deref() == Some("tabpanel"));
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

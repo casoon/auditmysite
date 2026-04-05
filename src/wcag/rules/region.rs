@@ -64,7 +64,7 @@ pub fn check_region(tree: &AXTree) -> WcagResults {
     }
 
     // Now check each node
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

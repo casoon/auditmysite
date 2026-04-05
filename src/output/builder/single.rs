@@ -1414,6 +1414,10 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         || ux.is_some()
         || journey.is_some()
         || dark_mode.is_some();
+    let source_quality = normalized.raw_source_quality.clone();
+
+    let has_any = has_any || source_quality.is_some();
+
     ModuleDetailsBlock {
         performance,
         seo,
@@ -1422,6 +1426,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         ux,
         journey,
         dark_mode,
+        source_quality,
         has_any,
     }
 }

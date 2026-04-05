@@ -30,7 +30,7 @@ pub const RULE_SUMMARY_NAME: RuleMetadata = RuleMetadata {
 pub fn check_summary_name(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

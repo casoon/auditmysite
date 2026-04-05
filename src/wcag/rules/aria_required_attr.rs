@@ -36,7 +36,7 @@ const REQUIRED_ATTRS: &[(&str, &[&str])] = &[
 pub fn check_aria_required_attr(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }
@@ -56,6 +56,10 @@ pub fn check_aria_required_attr(tree: &AXTree) -> WcagResults {
         let prop_names: Vec<&str> = node.properties.iter().map(|p| p.name.as_str()).collect();
 
         for &req_attr in *required {
+            // Native headings (h1-h6) have implicit aria-level via the "level" property
+            if req_attr == "aria-level" && role == "heading" && prop_names.contains(&"level") {
+                continue;
+            }
             if !prop_names.contains(&req_attr) {
                 let violation = Violation::new(
                     RULE_META.id,

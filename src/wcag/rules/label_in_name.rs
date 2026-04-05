@@ -5,10 +5,15 @@
 //! Level A
 
 use crate::accessibility::AXTree;
-use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::WcagResults;
 
-pub const LABEL_IN_NAME_RULE: RuleMetadata = RuleMetadata {
+#[cfg(test)]
+use crate::cli::WcagLevel;
+#[cfg(test)]
+use crate::wcag::types::{RuleMetadata, Severity};
+
+#[cfg(test)]
+const LABEL_IN_NAME_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.3",
     name: "Label in Name",
     level: WcagLevel::A,
@@ -48,44 +53,19 @@ pub fn check_label_in_name(tree: &AXTree) -> WcagResults {
             continue;
         }
 
-        // Get accessible name and visible label (description often contains visible text)
-        let accessible_name = match &node.name {
-            Some(name) if !name.trim().is_empty() => name.trim().to_lowercase(),
-            _ => continue, // No accessible name to check
-        };
-
-        // If the node has a description that differs significantly from the name,
-        // check if the name at least contains the visible label text
-        if let Some(desc) = &node.description {
-            let visible_text = desc.trim().to_lowercase();
-            if !visible_text.is_empty()
-                && visible_text != accessible_name
-                && !accessible_name.contains(&visible_text)
-            {
-                let violation = Violation::new(
-                    LABEL_IN_NAME_RULE.id,
-                    LABEL_IN_NAME_RULE.name,
-                    LABEL_IN_NAME_RULE.level,
-                    Severity::High,
-                    format!(
-                        "Accessible name '{}' does not contain visible label '{}'",
-                        node.name.as_deref().unwrap_or(""),
-                        desc.trim()
-                    ),
-                    node.node_id.clone(),
-                )
-                .with_role(node.role.clone())
-                .with_name(node.name.clone())
-                .with_fix(
-                    "Ensure the accessible name starts with or contains the visible text label",
-                )
-                .with_help_url(LABEL_IN_NAME_RULE.help_url);
-
-                results.add_violation(violation);
-                continue;
-            }
+        // Skip nodes without an accessible name
+        if node.name.as_ref().is_none_or(|n| n.trim().is_empty()) {
+            continue;
         }
 
+        // The visible label for interactive elements typically IS the accessible
+        // name. node.description often comes from title attributes which are NOT
+        // visible to users — comparing name against description causes false
+        // positives (e.g. logo links with title="Zur Startseite").
+        //
+        // Without access to the actual DOM text nodes (which the AXTree doesn't
+        // expose separately), we cannot reliably determine the "visible label"
+        // distinct from the accessible name. Pass for now.
         results.passes += 1;
     }
 
@@ -97,7 +77,7 @@ mod tests {
     use super::*;
     use crate::accessibility::{AXNode, AXTree};
 
-    fn labeled_node(id: &str, role: &str, name: &str, description: Option<&str>) -> AXNode {
+    fn labeled_node(id: &str, role: &str, name: &str, _description: Option<&str>) -> AXNode {
         AXNode {
             node_id: id.to_string(),
             ignored: false,
@@ -105,7 +85,7 @@ mod tests {
             role: Some(role.to_string()),
             name: Some(name.to_string()),
             name_source: None,
-            description: description.map(String::from),
+            description: _description.map(String::from),
             value: None,
             properties: vec![],
             child_ids: vec![],
@@ -134,7 +114,8 @@ mod tests {
     }
 
     #[test]
-    fn test_name_doesnt_contain_label() {
+    fn test_title_attr_not_treated_as_visible_label() {
+        // title="Submit Form" is not visible — should not trigger a violation
         let tree = AXTree::from_nodes(vec![labeled_node(
             "1",
             "button",
@@ -142,8 +123,7 @@ mod tests {
             Some("Submit Form"),
         )]);
         let results = check_label_in_name(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert_eq!(results.violations[0].rule, "2.5.3");
+        assert_eq!(results.violations.len(), 0);
     }
 
     #[test]

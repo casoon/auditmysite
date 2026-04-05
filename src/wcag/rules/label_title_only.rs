@@ -38,7 +38,7 @@ const INPUT_ROLES: &[&str] = &[
 pub fn check_label_title_only(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

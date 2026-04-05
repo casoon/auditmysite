@@ -109,7 +109,7 @@ fn check_grouped_controls(tree: &AXTree, results: &mut WcagResults) {
 fn check_required_field_indication(tree: &AXTree, results: &mut WcagResults) {
     let input_roles = ["textbox", "combobox", "spinbutton", "listbox"];
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }
@@ -159,7 +159,7 @@ fn check_required_field_indication(tree: &AXTree, results: &mut WcagResults) {
 
 /// Check that invalid fields have an accessible error description
 fn check_invalid_field_description(tree: &AXTree, results: &mut WcagResults) {
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

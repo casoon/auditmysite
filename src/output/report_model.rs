@@ -275,6 +275,7 @@ pub struct ModuleDetailsBlock {
     pub ux: Option<UxPresentation>,
     pub journey: Option<JourneyPresentation>,
     pub dark_mode: Option<DarkModePresentation>,
+    pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     pub has_any: bool,
 }
 

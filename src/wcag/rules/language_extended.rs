@@ -34,7 +34,7 @@ pub const RULE_LANG_MISMATCH: RuleMetadata = RuleMetadata {
 pub fn check_language_extended(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

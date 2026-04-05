@@ -63,7 +63,7 @@ fn has_ancestor_with_role(
 pub fn check_aria_required_parent(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

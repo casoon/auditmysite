@@ -561,3 +561,49 @@ pub(super) fn render_dark_mode(
 
     builder
 }
+
+pub(super) fn render_source_quality(
+    mut builder: renderreport::engine::ReportBuilder,
+    sq: &crate::source_quality::SourceQualityAnalysis,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("Quellenqualität").with_level(2))
+        .add_component(Callout::info(&sq.disclaimer).with_title("Hinweis"))
+        .add_component(
+            ScoreCard::new("Quellenqualität", sq.score)
+                .with_description(format!(
+                    "Grade: {} — {}",
+                    sq.grade,
+                    score_quality_label(sq.score)
+                ))
+                .with_thresholds(70, 50),
+        );
+
+    for dim in [&sq.substance, &sq.consistency, &sq.authority] {
+        builder = builder.add_component(Section::new(&dim.name).with_level(3));
+
+        builder = builder.add_component(
+            ScoreCard::new(&dim.name, dim.score)
+                .with_description(&dim.label)
+                .with_thresholds(70, 50),
+        );
+
+        if !dim.signals.is_empty() {
+            let mut table = AuditTable::new(vec![
+                TableColumn::new("Signal"),
+                TableColumn::new("Status"),
+                TableColumn::new("Detail"),
+            ])
+            .with_title(&dim.name);
+
+            for signal in &dim.signals {
+                let status = if signal.present { "✓" } else { "✗" };
+                table = table.add_row(vec![&signal.name, status, &signal.detail]);
+            }
+            builder = builder.add_component(table);
+        }
+    }
+
+    builder
+}

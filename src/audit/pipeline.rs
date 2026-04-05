@@ -312,6 +312,9 @@ fn aggregate_report(
         report = report.with_dark_mode(dark_mode);
     }
 
+    // Source quality is derived from all other modules — must run last
+    report.source_quality = Some(crate::source_quality::analyze_source_quality(&report));
+
     report
 }
 

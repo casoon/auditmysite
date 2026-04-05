@@ -530,6 +530,7 @@ mod tests {
             raw_ux: None,
             raw_journey: None,
             raw_dark_mode: None,
+            raw_source_quality: None,
             raw_wcag: crate::wcag::WcagResults::new(),
         };
 

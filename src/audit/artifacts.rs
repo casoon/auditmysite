@@ -236,6 +236,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         journey: None,
         budget_violations: Vec::new(),
         dark_mode: None,
+        source_quality: None,
     };
 
     if report.wcag_level != artifacts.audit.wcag_level {

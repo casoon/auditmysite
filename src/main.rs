@@ -18,9 +18,9 @@ use tracing_subscriber::EnvFilter;
 use auditmysite::audit::history::preview_report_history;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, crawl_site, load_artifacts, parse_sitemap,
-    read_url_file, run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig,
-    CrawlResult, PipelineConfig,
+    analyze_crawl_links, crawl_site, load_artifacts, parse_sitemap, read_url_file,
+    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
+    PipelineConfig,
 };
 use auditmysite::browser::{
     detect_all_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserManager,

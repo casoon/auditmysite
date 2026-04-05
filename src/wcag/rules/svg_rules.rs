@@ -26,7 +26,7 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
 pub fn check_svg_rules(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

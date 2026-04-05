@@ -285,7 +285,7 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
     // ── skip-link ─────────────────────────────────────────────────────────
     // Heuristic: look for a link near the top of the tree whose name or target
     // suggests it is a skip-navigation / skip-to-content link.
-    let has_skip_link = tree.nodes.values().any(|n| {
+    let has_skip_link = tree.iter().any(|n| {
         if n.ignored {
             return false;
         }

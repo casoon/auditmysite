@@ -41,7 +41,7 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
     // Collect all table nodes and their subtrees
-    for node in tree.nodes.values() {
+    for node in tree.iter() {
         if node.ignored {
             continue;
         }

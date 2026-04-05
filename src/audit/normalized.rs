@@ -66,6 +66,8 @@ pub struct NormalizedReport {
     #[serde(skip)]
     pub raw_dark_mode: Option<DarkModeAnalysis>,
     #[serde(skip)]
+    pub raw_source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
+    #[serde(skip)]
     pub raw_wcag: WcagResults,
 }
 
@@ -591,6 +593,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_ux: report.ux.clone(),
         raw_journey: report.journey.clone(),
         raw_dark_mode: report.dark_mode.clone(),
+        raw_source_quality: report.source_quality.clone(),
         raw_wcag: report.wcag_results.clone(),
     }
 }
