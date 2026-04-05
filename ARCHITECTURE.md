@@ -254,6 +254,39 @@ AuditReport
 
 ---
 
+## Vier Datenebenen
+
+Daten durchlaufen vier klar getrennte Ebenen — von der Rohmessung bis zur Endpräsentation.
+
+```
+Ebene 1: Messung / Extraktion
+  AXTree, CSS-Styles, HTTP-Header, Web Vitals, DOM-Größe
+  → Rohdaten, keine Bewertung
+
+Ebene 2: Befund
+  Violation, fehlende H1, schlechter Kontrast, leere Links
+  → Technische Fakten mit Regelzuordnung (rule_id, wcag_criterion)
+
+Ebene 3: Bewertung / Priorisierung
+  Severity, Score, RiskLevel, Aufwand, Rolle, Gruppencaps
+  → Gewichtung, Sättigungskurven, Aggregation zu Modul-Scores
+
+Ebene 4: Kommunikation / Storytelling
+  Kundenbeschreibung, Maßnahmenplan, PDF-Blöcke, Risiko-Callout
+  → Aufbereitet für Entscheider, keine Implementierungsdetails
+```
+
+| Ebene | Dateien | Datentypen |
+|-------|---------|------------|
+| 1 — Messung | `accessibility/`, `performance/`, `seo/`, `security/`, `mobile/` | `AXTree`, `WebVitals`, `SeoAnalysis`, `SecurityAnalysis` |
+| 2 — Befund | `wcag/types.rs`, `ux/analysis.rs`, `journey/analysis.rs` | `Violation`, `UxIssue`, `FrictionPoint` |
+| 3 — Bewertung | `audit/scoring.rs`, `audit/normalized.rs`, `ux/scoring.rs` | `NormalizedFinding`, `ModuleScoreEntry`, `RiskAssessment` |
+| 4 — Kommunikation | `output/report_model.rs`, `output/builder/`, `output/pdf/` | `ReportViewModel`, `FindingGroup`, `ActionsBlock` |
+
+**Flussrichtung ist strikt:** Ebene 4 liest nie direkt aus Ebene 1. Alle Berechnungen und Ableitungen finden in Ebene 3 (Builder) statt. Der PDF-Renderer in Ebene 4 transformiert nur noch das fertige ViewModel.
+
+---
+
 ## UX-Modul
 
 **Dateien:** `src/ux/analysis.rs`, `src/ux/scoring.rs`
@@ -457,3 +490,136 @@ Wichtige Varianten:
 **Regelfiles je Datei** — Jede WCAG-Regel lebt in einer eigenen Datei. Ermöglicht unabhängige Weiterentwicklung, einfaches Code-Review und minimale Merge-Konflikte.
 
 **Artefakt-Caching** — AXTree und Metriken werden unter `~/.auditmysite/cache/{domain}/{url_hash}/v{VERSION}/` gespeichert. Die Versions-Unterverzeichnis sorgt für automatische Invalidierung bei Binary-Upgrades. FNV-1a-Hash (deterministisch über Prozesse/Plattformen) dient als Content-Fingerprint für Delta-Erkennung. `--reuse-cache` lädt gespeicherte Artefakte bei erneutem Audit derselben URL. `--force-refresh` umgeht den Cache.
+
+---
+
+## Erkennungsgrenzen
+
+Ein automatisiertes Tool auf AXTree-Basis kann nicht alles prüfen, was ein manueller WCAG-Audit abdeckt. Die folgende Übersicht macht transparent, wo die Grenzen liegen.
+
+### Sicher erkennbar (automatisch)
+
+| Prüfung | Methode |
+|---------|---------|
+| Fehlende Alternativtexte (1.1.1) | AXTree-Analyse: `img`-Rollen ohne Name |
+| Kontrast-Minimum (1.4.3, 1.4.11) | CDP-Styles: berechnete Farben + WCAG-Algorithmus |
+| Fehlende Formular-Labels (4.1.2, 3.3.2) | AXTree: interaktive Elemente ohne Name |
+| Tastaturbedienbarkeit (2.1.1) | AXTree: focusable + keyboard-Attribute |
+| Heading-Hierarchie (1.3.1) | AXTree: Heading-Reihenfolge und -Ebenen |
+| Sprache der Seite (3.1.1) | DOM: `<html lang>` Attribut |
+| Landmark-Struktur | AXTree: Navigation, Main, Banner, Contentinfo |
+| ARIA-Validierung | AXTree: Rollen, Attribute, Beziehungen |
+| Security-Header | HTTP-Response-Header |
+| Core Web Vitals | CDP Performance-Metriken |
+
+### Heuristisch erkennbar (gute Annäherung, nicht fehlerfrei)
+
+| Prüfung | Einschränkung |
+|---------|---------------|
+| CTA-Erkennung (UX) | Keyword-basiert, kann domänenspezifische CTAs übersehen |
+| Trust-Signale (UX) | Link-Text-Analyse, erkennt nicht ob Zielseite existiert |
+| Seitentyp / PageIntent (Journey) | Keyword-Heuristik, kann bei untypischen Seiten fehlschlagen |
+| Cognitive Load | DOM-Größe als Proxy, nicht identisch mit visueller Komplexität |
+| Content Clarity | Wortanzahl als Proxy, keine semantische Textqualitätsanalyse |
+| SEO-Qualität | Meta-Tags und Struktur, kein Ranking-Signal |
+
+### Nicht prüfbar (erfordert menschliche Bewertung)
+
+| Prüfung | Grund |
+|---------|-------|
+| Sinnhaftigkeit von Alternativtexten | Tool erkennt Vorhandensein, nicht inhaltliche Qualität |
+| Verständlichkeit von Texten (3.1.5) | Erfordert Sprachkompetenz, kein AXTree-Signal |
+| Konsistente Navigation (3.2.3) | Multi-Page-Vergleich über Seitentypen nötig |
+| Reihenfolge bei Tabulator (2.4.3) | DOM-Reihenfolge ≠ visuelle Reihenfolge in allen Fällen |
+| Timing-abhängige Inhalte (2.2.1) | Erfordert Interaktions-Simulation |
+| Audio/Video-Untertitel (1.2.x) | Medieninhalte werden nicht analysiert |
+| Visuelles Design / Ästhetik | Grundsätzlich nicht automatisierbar |
+| Tatsächliche Nutzerführung | Erfordert echte User-Tests |
+
+### Empfehlung
+
+automatisiertes Audit ≠ vollständige WCAG-Konformitätsprüfung. Das Tool deckt ca. 50–60% der prüfbaren WCAG-2.1-Kriterien automatisch ab und liefert damit eine solide Grundlage. Für eine offizielle Konformitätserklärung ist zusätzlich eine manuelle Expert:innen-Prüfung erforderlich.
+
+---
+
+## Teststrategie
+
+### Testtypen
+
+| Typ | Umfang | Ausführung |
+|-----|--------|------------|
+| **Unit-Tests** (`--lib`) | 481+ Tests für Regeln, Scoring, Parsing, Normalisierung | `cargo test --lib` |
+| **Integration-Tests** (`tests/`) | Report-Konsistenz, JSON-Schema-Validierung, Modul-Gewichte | `cargo test` |
+| **Schema-Tests** | JSON-Output gegen `docs/json-report.schema.json` validiert | CI + `cargo test` |
+| **Browser-Tests** | Live-Audits gegen echte URLs (ignored by default) | `cargo test -- --ignored` |
+
+### Was getestet wird
+
+- **Regeln:** Jede WCAG-Regel hat mindestens einen Unit-Test der prüft, ob die Regel bei einem konstruierten AXTree die erwartete Violation auslöst.
+- **Scoring:** Sättigungskurven, Gruppencaps, Gewichtung, Grade/Certificate-Berechnung.
+- **Normalisierung:** Score-Konsistenz zwischen AuditReport → NormalizedReport → JSON.
+- **Report-Konsistenz:** Alle aktiven Module erscheinen in `module_scores`, Gewichte summieren korrekt, `overall_score` = gewichteter Durchschnitt, Risk ist unabhängig vom Score.
+- **JSON-Kontrakt:** Pflichtfelder vorhanden, Taxonomie-Felder vorhanden, fix_guidance mit Code-Beispielen.
+- **UX/Journey:** Dimensionen, Seitentyp-Erkennung, Friction-Points, Intent-Gewichte summieren auf 1.0.
+
+### Was nicht getestet wird (noch)
+
+- Kein Snapshot-Test für PDF-Rendering (Typst-Output ist binär)
+- Keine Fixture-basierte HTML-Testseiten (AXTree wird direkt konstruiert)
+- Kein Cross-Browser-Test (nur Chrome/Chromium via CDP)
+- Keine Performance-Regressionstests (Laufzeit-Schwankungen in CI)
+
+---
+
+## Observability und Diagnostik
+
+### Strukturiertes Logging
+
+**Crate:** `tracing` mit `tracing-subscriber`
+
+Alle Pipeline-Schritte loggen mit `info!`, `warn!`, `debug!`:
+
+```
+[INFO] Extracting 1247 nodes from AXTree
+[INFO] Running WCAG checks at level AA...
+[INFO] Found 3 contrast violations
+[INFO] UX analysis: score=85, issues=2
+[INFO] Journey analysis: score=72, intent=Marketing, friction_points=4
+[WARN] Render-blocking analysis failed: timeout
+```
+
+Verbosity über `--verbose` / `-v` steuerbar. Standardmäßig nur `INFO` und höher.
+
+### Pipeline-Timing
+
+Jeder Audit misst `duration_ms` (Gesamtlaufzeit pro URL). Modulspezifische Zeitmessung ist im `tracing`-Output sichtbar, aber noch nicht als strukturiertes Feld im Report.
+
+### Fehlerklassifikation
+
+| Fehlertyp | Handling |
+|-----------|----------|
+| Browser-/CDP-Fehler | `ChromeNotFound`, `PoolTimeout`, `PoolExhausted` — Audit wird abgebrochen |
+| Navigationsfehler | `NavigationFailed`, `PageLoadTimeout` — URL wird übersprungen, Retry (2x) |
+| Modulfehler | `warn!` + `None` — optionale Module degradieren graceful |
+| Report-Fehler | `ReportGenerationFailed` — nach allen Audits, nicht-fatal für Datenerfassung |
+
+### Batch-Diagnostik
+
+Bei Stapelverarbeitungen:
+- Atomarer Progress-Counter für Fortschrittsanzeige (`[3/15]`)
+- `BatchError` sammelt fehlgeschlagene URLs mit Fehlergrund
+- `CrawlDiagnostics` protokolliert entdeckte/übersprungene/fehlgeschlagene URLs
+
+### Cache-Transparenz
+
+- `--reuse-cache`: Lädt gespeicherte Artefakte (AXTree + Metriken)
+- `--force-refresh`: Ignoriert Cache vollständig
+- Cache-Hit/Miss ist im Debug-Log sichtbar, aber noch nicht als strukturierte Metrik im Report
+
+### doctor-Kommando
+
+`auditmysite doctor` prüft:
+- Browser-Erkennung und -Version
+- CDP-Verbindung
+- Schreibrechte für Cache-/Report-Verzeichnisse
+- Netzwerk-Konnektivität
