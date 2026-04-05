@@ -373,8 +373,28 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         });
     }
 
-    // Weighted overall score
-    let overall_score = report.overall_score();
+    // Weighted overall score — use corrected accessibility score, not raw
+    let overall_score = {
+        let mut weighted_sum = corrected_score as f64 * 40.0;
+        let mut total_weight = 40.0;
+        if let Some(ref perf) = report.performance {
+            weighted_sum += perf.score.overall as f64 * 20.0;
+            total_weight += 20.0;
+        }
+        if let Some(ref seo) = report.seo {
+            weighted_sum += seo.score as f64 * 20.0;
+            total_weight += 20.0;
+        }
+        if let Some(ref security) = report.security {
+            weighted_sum += security.score as f64 * 10.0;
+            total_weight += 10.0;
+        }
+        if let Some(ref mobile) = report.mobile {
+            weighted_sum += mobile.score as f64 * 10.0;
+            total_weight += 10.0;
+        }
+        (weighted_sum / total_weight).round() as u32
+    };
 
     NormalizedReport {
         url: report.url.clone(),

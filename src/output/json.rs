@@ -9,6 +9,7 @@ use serde::Serialize;
 use crate::audit::normalized::NormalizedReport;
 use crate::audit::{AuditReport, BatchReport};
 use crate::error::Result;
+use crate::output::explanations::get_explanation;
 
 /// Generate JSON output from a normalized report
 pub fn format_json_normalized(
@@ -99,6 +100,10 @@ pub struct JsonReport {
     pub metadata: ReportMetadata,
     /// Normalized audit results (score, grade, certificate, findings with taxonomy)
     pub report: NormalizedReport,
+    /// AI/LLM fix guidance — one entry per finding group with problem description,
+    /// user impact, root cause, recommendation, and code examples
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub fix_guidance: Vec<FixGuidance>,
     /// Module detail data (performance, SEO, security, mobile)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance: Option<serde_json::Value>,
@@ -111,6 +116,31 @@ pub struct JsonReport {
     /// Historical timeline for this URL (score trend, deltas, recent snapshots)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
+}
+
+/// AI-oriented fix guidance for a single finding group
+#[derive(Debug, Serialize)]
+pub struct FixGuidance {
+    pub rule_id: String,
+    pub title: String,
+    pub wcag_criterion: String,
+    pub severity: String,
+    pub occurrence_count: usize,
+    pub problem: String,
+    pub user_impact: String,
+    pub typical_cause: String,
+    pub recommendation: String,
+    pub technical_note: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code_example: Option<CodeExample>,
+    pub affected_selectors: Vec<String>,
+}
+
+/// Bad/good code example pair
+#[derive(Debug, Serialize)]
+pub struct CodeExample {
+    pub bad: String,
+    pub good: String,
 }
 
 /// Report metadata for JSON output
@@ -140,6 +170,9 @@ struct BatchJsonReport<'a> {
 impl JsonReport {
     /// Create a JSON report from normalized data + raw module data
     pub fn from_normalized(normalized: &NormalizedReport, raw: &AuditReport) -> Self {
+        // Build AI fix guidance from explanations + finding data
+        let fix_guidance = Self::build_fix_guidance(normalized);
+
         Self {
             metadata: ReportMetadata {
                 tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
@@ -148,6 +181,7 @@ impl JsonReport {
                 execution_time_ms: normalized.duration_ms,
             },
             report: normalized.clone(),
+            fix_guidance,
             performance: raw
                 .performance
                 .as_ref()
@@ -163,6 +197,71 @@ impl JsonReport {
                 .and_then(|m| serde_json::to_value(m).ok()),
             history: None,
         }
+    }
+
+    /// Build fix guidance entries from normalized findings + explanation database
+    fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidance> {
+        normalized
+            .findings
+            .iter()
+            .map(|finding| {
+                let expl = get_explanation(&finding.rule_id);
+
+                // Collect unique selectors from occurrences
+                let mut seen = std::collections::HashSet::new();
+                let affected_selectors: Vec<String> = finding
+                    .occurrences
+                    .iter()
+                    .filter_map(|o| o.selector.clone())
+                    .filter(|s| {
+                        (s.contains('.')
+                            || s.contains('#')
+                            || s.contains('[')
+                            || s.contains('>')
+                            || s.contains(' '))
+                            && seen.insert(s.clone())
+                    })
+                    .take(10)
+                    .collect();
+
+                let code_example = expl.and_then(|e| {
+                    match (e.example_bad, e.example_good) {
+                        (Some(bad), Some(good)) => Some(CodeExample {
+                            bad: bad.to_string(),
+                            good: good.to_string(),
+                        }),
+                        _ => None,
+                    }
+                });
+
+                FixGuidance {
+                    rule_id: finding.rule_id.clone(),
+                    title: expl
+                        .map(|e| e.customer_title.to_string())
+                        .unwrap_or_else(|| finding.title.clone()),
+                    wcag_criterion: finding.wcag_criterion.clone(),
+                    severity: format!("{:?}", finding.severity).to_lowercase(),
+                    occurrence_count: finding.occurrence_count,
+                    problem: expl
+                        .map(|e| e.customer_description.to_string())
+                        .unwrap_or_else(|| finding.description.clone()),
+                    user_impact: expl
+                        .map(|e| e.user_impact.to_string())
+                        .unwrap_or_else(|| finding.user_impact.clone()),
+                    typical_cause: expl
+                        .map(|e| e.typical_cause.to_string())
+                        .unwrap_or_default(),
+                    recommendation: expl
+                        .map(|e| e.recommendation.to_string())
+                        .unwrap_or_default(),
+                    technical_note: expl
+                        .map(|e| e.technical_note.to_string())
+                        .unwrap_or_default(),
+                    code_example,
+                    affected_selectors,
+                }
+            })
+            .collect()
     }
 
     /// Serialize to JSON string

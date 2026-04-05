@@ -121,7 +121,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .add_component(PageBreak::new());
 
     // ─────────────────────────────────────────────────────────────────
-    // PAGE 1 — HERO / ENTRY
+    // SECTION 1 — HERO / ENTRY
     // Goal: sell the problem — status, scores, impact, consequences
     // ─────────────────────────────────────────────────────────────────
     {
@@ -202,32 +202,46 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // PAGE 2 — DOMINANT ISSUE
+    // SECTION 2 — DOMINANT ISSUE
     // Goal: focus — one problem, leverage, top fixes table
     // ─────────────────────────────────────────────────────────────────
-    builder = builder.add_component(PageBreak::new());
     {
         let total_ch = (vm.severity.critical + vm.severity.high) as usize;
 
-        // DominantIssueHero
-        if let Some(ref note) = vm.summary.dominant_issue_note {
-            if let Some(top) = vm.findings.top_findings.first() {
-                let share = if total_ch > 0 {
-                    top.occurrence_count * 100 / total_ch
-                } else {
-                    0
-                };
-                let spotlight = DominantIssueSpotlight::new(
-                    &top.title,
-                    format!("{:?}", top.severity).to_lowercase(),
-                    note,
-                    &top.user_impact,
-                    &top.recommendation,
-                )
-                .with_eyebrow("Hauptproblem der Website")
-                .with_affected_count(share as u32);
-                builder = builder.add_component(spotlight);
-            }
+        // DominantIssueHero — percentage dominant, minimal text
+        if let Some(top) = vm.findings.top_findings.first() {
+            let share = if total_ch > 0 {
+                top.occurrence_count * 100 / total_ch
+            } else {
+                0
+            };
+            // One sentence summary — no technical details
+            let body = vm
+                .summary
+                .dominant_issue_note
+                .as_deref()
+                .unwrap_or("Der Großteil der kritischen Probleme entsteht durch dieses eine Thema.");
+            // One sentence each for impact and recommendation
+            let impact_short = top
+                .user_impact
+                .split('.')
+                .next()
+                .unwrap_or(&top.user_impact);
+            let rec_short = top
+                .recommendation
+                .split('.')
+                .next()
+                .unwrap_or(&top.recommendation);
+            let spotlight = DominantIssueSpotlight::new(
+                &top.title,
+                format!("{:?}", top.severity).to_lowercase(),
+                body,
+                impact_short,
+                rec_short,
+            )
+            .with_eyebrow("HAUPTPROBLEM")
+            .with_affected_count(share as u32);
+            builder = builder.add_component(spotlight);
         }
 
         // TopFixesTable
@@ -241,7 +255,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             if let Some(top) = vm.findings.top_findings.first() {
                 let share = top.occurrence_count * 100 / total_ch;
                 let leverage_text = format!(
-                    "Behebung des Hauptproblems reduziert ca. {}% der kritischen Fehler. Sofort spürbare Verbesserung der Nutzbarkeit bei geringerem Aufwand als erwartet.",
+                    "Behebung des Hauptproblems reduziert ca. {}% der kritischen Fehler. Sofort spürbare Verbesserung der Nutzbarkeit.",
                     share.min(99)
                 );
                 builder = builder.add_component(
@@ -252,16 +266,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // PAGE 3 — KEY FINDINGS
+    // SECTION 3 — KEY FINDINGS
     // Goal: understand — compact cards, no tech detail here
     // ─────────────────────────────────────────────────────────────────
-    builder = builder.add_component(PageBreak::new());
     {
         let findings_count = vm.findings.top_findings.len();
         let findings_intro = if vm.summary.score >= 85 && findings_count <= 2 {
             "Technisch stark — die folgenden Punkte sind Feinschliff-Hebel."
         } else {
-            "Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen ab Seite 5."
+            "Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt."
         };
         builder = builder
             .add_component(SectionHeaderSplit::new("Key Findings", findings_intro).with_level(1));
@@ -280,17 +293,24 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // PAGE 4 — ACTION PLAN
+    // SECTION 4 — ACTION PLAN
     // Goal: decide — quick wins, prioritized actions, execution note
     // ─────────────────────────────────────────────────────────────────
-    builder = builder.add_component(PageBreak::new());
     {
         builder = builder.add_component(
             SectionHeaderSplit::new(
                 "Maßnahmenplan",
-                "Priorisiert nach Wirkung und Aufwand. Jede Maßnahme ist direkt umsetzbar.",
+                "Priorisiert nach Wirkung und Aufwand. Die Maßnahmen sind klar umrissen und direkt planbar.",
             )
             .with_level(1),
+        );
+
+        // Empfohlene Vorgehensweise
+        builder = builder.add_component(
+            Callout::info(
+                "Beginne mit den Quick Wins: hoher Impact bei geringem Aufwand. Die nachfolgende Tabelle zeigt alle Maßnahmen in empfohlener Reihenfolge.",
+            )
+            .with_title("Empfohlene Vorgehensweise"),
         );
 
         // QuickWins — immediate actions
@@ -321,14 +341,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             WasJetztTunContent::Empty(c) => builder = builder.add_component(c),
         }
 
-        // ExecutionNote
-        builder = builder.add_component(Callout::info(
-            "Die Umsetzung kann intern oder extern erfolgen. Die folgenden Abschnitte zeigen die konkrete technische Umsetzung.",
-        ).with_title("Hinweis"));
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // PAGE 5 — TECH ENTRY
+    // SECTION 5 — TECH ENTRY (page break: executive → technical)
     // Goal: transition — intro for dev/design/content, severity overview
     // ─────────────────────────────────────────────────────────────────
     builder = builder.add_component(PageBreak::new());
@@ -336,17 +352,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = builder.add_component(
             SectionHeaderSplit::new(
                 "Technische Umsetzung",
-                "Die folgenden Abschnitte richten sich an Entwicklung, Design und Redaktion. Für jedes Problem: betroffene Elemente, konkrete Umsetzung, Code-Beispiele.",
+                "Ab hier folgt die konkrete Umsetzung für Entwicklung, Design und Redaktion. Jedes Problem enthält: betroffene Elemente, direkte Umsetzung, Code-Beispiele.",
             )
             .with_level(1),
         );
-
-        // TechOverview — severity strip
-        builder = builder.add_component(MetricStrip::new(vec![
-            MetricStripItem::new("Kritisch", vm.severity.critical.to_string()).with_status("bad"),
-            MetricStripItem::new("Hoch", vm.severity.high.to_string()).with_status("warn"),
-            MetricStripItem::new("Moderat", vm.severity.medium.to_string()).with_status("neutral"),
-        ]));
 
         // Module health diagnosis
         if !vm.modules.dashboard.is_empty() {
@@ -372,7 +381,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // PAGE 6+ — TECH DETAILS
+    // SECTION 6+ — TECH DETAILS
     // Goal: implement — WCAG details, code examples, module metrics
     // ─────────────────────────────────────────────────────────────────
     if vm.severity.has_issues {
