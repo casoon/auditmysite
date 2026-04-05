@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/casoon/auditmysite/docs/studio-contract.schema.json",
+  "title": "auditmysite Studio contract",
+  "description": "Data contract between auditmysite (CLI/library) and auditmysite_studio (GUI). Types defined in src/studio/mod.rs.",
+  "type": "object",
+  "required": [
+    "url", "timestamp", "accessibility_score", "overall_score", "grade",
+    "certificate", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
+    "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
+    "module_scores", "findings", "nodes_analyzed", "execution_time_ms", "json_report"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "url": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "grade": { "type": "string", "enum": ["A", "B", "C", "D", "F"] },
+    "certificate": { "type": "string", "enum": ["PLATINUM", "GOLD", "SILVER", "BRONZE", "FAILED"] },
+    "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "risk_summary": { "type": "string" },
+    "legal_flags": { "type": "integer", "minimum": 0 },
+    "blocking_issues": { "type": "integer", "minimum": 0 },
+    "critical_issues": { "type": "integer", "minimum": 0 },
+    "high_issues": { "type": "integer", "minimum": 0 },
+    "medium_issues": { "type": "integer", "minimum": 0 },
+    "low_issues": { "type": "integer", "minimum": 0 },
+    "total_issues": { "type": "integer", "minimum": 0 },
+    "module_scores": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/moduleScore" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/findingPreview" }
+    },
+    "nodes_analyzed": { "type": "integer", "minimum": 0 },
+    "execution_time_ms": { "type": "integer", "minimum": 0 },
+    "json_report": { "type": "string" }
+  },
+  "$defs": {
+    "moduleScore": {
+      "type": "object",
+      "required": ["name", "score", "grade", "weight_pct"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string" },
+        "weight_pct": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findingPreview": {
+      "type": "object",
+      "required": ["rule_id", "title", "severity", "occurrences", "user_impact", "wcag_criterion"],
+      "additionalProperties": false,
+      "properties": {
+        "rule_id": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "occurrences": { "type": "integer", "minimum": 0 },
+        "user_impact": { "type": "string" },
+        "wcag_criterion": { "type": "string" }
+      }
+    },
+    "historyEntry": {
+      "type": "object",
+      "required": [
+        "id", "url", "timestamp", "accessibility_score", "overall_score",
+        "grade", "certificate", "risk_level", "total_issues", "critical_issues",
+        "high_issues", "execution_time_ms", "module_scores"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "url": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string" },
+        "certificate": { "type": "string" },
+        "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "total_issues": { "type": "integer", "minimum": 0 },
+        "critical_issues": { "type": "integer", "minimum": 0 },
+        "high_issues": { "type": "integer", "minimum": 0 },
+        "execution_time_ms": { "type": "integer", "minimum": 0 },
+        "module_scores": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/moduleScore" }
+        }
+      }
+    }
+  }
+}

@@ -85,6 +85,7 @@ pub mod output;
 pub mod performance;
 pub mod security;
 pub mod seo;
+pub mod studio;
 pub mod taxonomy;
 pub mod util;
 pub mod ux;
