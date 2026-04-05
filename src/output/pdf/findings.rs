@@ -48,12 +48,22 @@ pub(super) fn render_key_finding_block(
 }
 
 /// Extract the first sentence from a text (up to first period + space, or full text).
-fn first_sentence(text: &str) -> &str {
-    if let Some(pos) = text.find(". ") {
-        &text[..pos + 1]
-    } else {
-        text
+/// Skips common German abbreviations like "z. B.", "d. h.", "u. a.".
+pub(super) fn first_sentence(text: &str) -> &str {
+    let mut search_from = 0;
+    while let Some(rel) = text[search_from..].find(". ") {
+        let pos = search_from + rel;
+        // Check for single-letter abbreviation pattern: " X. " (e.g. "z. B.", "d. h.")
+        if pos >= 2 {
+            let before = &text[pos - 2..pos];
+            if before.starts_with(' ') && before.as_bytes()[1].is_ascii_alphabetic() {
+                search_from = pos + 2;
+                continue;
+            }
+        }
+        return &text[..pos + 1];
     }
+    text
 }
 
 pub(super) fn render_finding_technical(

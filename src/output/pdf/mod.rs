@@ -42,7 +42,9 @@ use self::detail_modules::{
     render_budget_violations, render_dark_mode, render_mobile, render_performance, render_security,
     render_seo,
 };
-use self::findings::{render_finding_group, render_finding_technical, render_key_finding_block};
+use self::findings::{
+    first_sentence, render_finding_group, render_finding_technical, render_key_finding_block,
+};
 use self::helpers::{
     component_json, create_engine, extract_domain, severity_label_i18n, soft_flow_group,
 };
@@ -222,16 +224,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .as_deref()
                 .unwrap_or("Der Großteil der kritischen Probleme entsteht durch dieses eine Thema.");
             // One sentence each for impact and recommendation
-            let impact_short = top
-                .user_impact
-                .split('.')
-                .next()
-                .unwrap_or(&top.user_impact);
-            let rec_short = top
-                .recommendation
-                .split('.')
-                .next()
-                .unwrap_or(&top.recommendation);
+            let impact_short = first_sentence(&top.user_impact);
+            let rec_short = first_sentence(&top.recommendation);
             let spotlight = DominantIssueSpotlight::new(
                 &top.title,
                 format!("{:?}", top.severity).to_lowercase(),
