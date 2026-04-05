@@ -95,6 +95,7 @@ pub(super) fn soft_flow_group(threshold: &str, items: Vec<serde_json::Value>) ->
     group.with_keep_together_if_under(threshold)
 }
 
+#[allow(dead_code)]
 pub(super) fn execution_priority_label(priority: ExecutionPriority) -> &'static str {
     match priority {
         ExecutionPriority::Immediate => "Direkt angehen",

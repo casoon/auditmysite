@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::audit::{BatchReport, BrokenLinkSeverity};
+use crate::audit::{normalize, BatchReport, BrokenLinkSeverity};
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::*;
 use crate::seo::profile::PageType;
@@ -67,10 +67,14 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
     let action_plan = derive_action_plan(&top_issues);
 
+    // Normalize all reports early — needed for overall scores, risk, module averages
+    let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
+
     let mut url_ranking: Vec<UrlSummary> = batch
         .reports
         .iter()
-        .map(|r| {
+        .zip(normalized_reports.iter())
+        .map(|(r, nr)| {
             let critical_count = r
                 .wcag_results
                 .violations
@@ -80,6 +84,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             UrlSummary {
                 url: r.url.clone(),
                 score: r.score,
+                overall_score: nr.overall_score,
                 grade: r.grade.clone(),
                 critical_violations: critical_count,
                 total_violations: r.wcag_results.violations.len(),
@@ -182,8 +187,6 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         .take(3)
         .map(|r| (truncate_url(&r.url, 60), r.score))
         .collect();
-
-    let verdict_text = build_batch_verdict(batch);
 
     let severity_distribution = {
         let (mut critical, mut high, mut medium, mut low) = (0usize, 0usize, 0usize, 0usize);
@@ -429,6 +432,102 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                 .collect(),
         });
 
+    // ── Aggregated module scores, overall score, risk ──────────────
+    let average_overall_score = if normalized_reports.is_empty() {
+        0
+    } else {
+        let sum: u32 = normalized_reports.iter().map(|n| n.overall_score).sum();
+        sum / normalized_reports.len() as u32
+    };
+
+    let verdict_text = build_batch_verdict(batch.summary.total_urls, average_overall_score);
+
+    // Aggregate module averages
+    let module_averages = {
+        let mut module_sums: HashMap<String, (u32, usize)> = HashMap::new();
+        for nr in &normalized_reports {
+            for ms in &nr.module_scores {
+                let entry = module_sums.entry(ms.name.clone()).or_insert((0, 0));
+                entry.0 += ms.score;
+                entry.1 += 1;
+            }
+        }
+        let mut avgs: Vec<(String, u32)> = module_sums
+            .into_iter()
+            .map(|(name, (sum, count))| (name, sum / count as u32))
+            .collect();
+        // Stable order: Accessibility first, then alphabetical
+        avgs.sort_by(|a, b| {
+            if a.0 == "Accessibility" {
+                std::cmp::Ordering::Less
+            } else if b.0 == "Accessibility" {
+                std::cmp::Ordering::Greater
+            } else {
+                a.0.cmp(&b.0)
+            }
+        });
+        avgs
+    };
+
+    // Active modules (from first report that has data)
+    let active_modules: Vec<String> = module_averages.iter().map(|(n, _)| n.clone()).collect();
+
+    // Worst-case risk level across all URLs
+    let (risk_level, risk_summary) = {
+        use crate::audit::normalized::RiskLevel;
+        let worst = normalized_reports
+            .iter()
+            .map(|n| n.risk.level)
+            .max()
+            .unwrap_or(RiskLevel::Low);
+        let level_str = match worst {
+            RiskLevel::Low => "Gering",
+            RiskLevel::Medium => "Mittel",
+            RiskLevel::High => "Hoch",
+            RiskLevel::Critical => "Kritisch",
+        };
+        let summary = match worst {
+            RiskLevel::Low => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
+            RiskLevel::Medium => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
+            RiskLevel::High => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A-Verstößen.",
+            RiskLevel::Critical => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG). Sofortige Maßnahmen erforderlich.",
+        };
+        (level_str.to_string(), summary.to_string())
+    };
+
+    // Domain from first URL
+    let domain = batch
+        .reports
+        .first()
+        .map(|r| {
+            url::Url::parse(&r.url)
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_string()))
+                .unwrap_or_else(|| r.url.clone())
+        })
+        .unwrap_or_default();
+
+    // Certificate and grade based on overall score
+    let certificate = match average_overall_score {
+        95.. => "PLATINUM",
+        85.. => "GOLD",
+        70.. => "SILVER",
+        50.. => "BRONZE",
+        _ => "FAILED",
+    }
+    .to_string();
+
+    let grade = match average_overall_score {
+        95.. => "A+",
+        90.. => "A",
+        85.. => "B+",
+        80.. => "B",
+        70.. => "C",
+        60.. => "D",
+        _ => "F",
+    }
+    .to_string();
+
     BatchPresentation {
         cover: CoverData {
             title: "Web Accessibility Batch Audit Report".to_string(),
@@ -441,12 +540,20 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             passed: batch.summary.passed,
             failed: batch.summary.failed,
             average_score: batch.summary.average_score,
+            average_overall_score,
             total_violations: batch.summary.total_violations,
             duration_ms: batch.total_duration_ms,
             verdict_text,
             worst_urls,
             best_urls,
             severity_distribution,
+            risk_level,
+            risk_summary,
+            module_averages,
+            active_modules,
+            domain,
+            certificate,
+            grade,
             page_type_distribution,
             distribution_insights,
             strongest_content_pages,

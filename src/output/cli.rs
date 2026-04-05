@@ -69,6 +69,36 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
         )
         .dimmed()
     );
+
+    // Risk level (computed from violations)
+    let critical = report
+        .wcag_results
+        .violations
+        .iter()
+        .filter(|v| v.severity == Severity::Critical)
+        .count();
+    let high = report
+        .wcag_results
+        .violations
+        .iter()
+        .filter(|v| v.severity == Severity::High)
+        .count();
+    let risk_label = if critical >= 3 {
+        "CRITICAL"
+    } else if critical >= 1 && high >= 2 {
+        "HIGH"
+    } else if high >= 3 {
+        "MEDIUM"
+    } else {
+        "LOW"
+    };
+    let risk_colored = match risk_label {
+        "CRITICAL" => format!("Risk: {risk_label}").red().bold(),
+        "HIGH" => format!("Risk: {risk_label}").truecolor(255, 165, 0).bold(),
+        "MEDIUM" => format!("Risk: {risk_label}").yellow().bold(),
+        _ => format!("Risk: {risk_label}").green().bold(),
+    };
+    println!("  {risk_colored}");
     println!();
 }
 
@@ -101,6 +131,16 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
             "Mobile",
             mobile.score,
             score_grade(mobile.score),
+        ));
+    }
+    if let Some(ref ux) = report.ux {
+        rows.push(render_dashboard_row("UX", ux.score, &ux.grade));
+    }
+    if let Some(ref journey) = report.journey {
+        rows.push(render_dashboard_row(
+            "Journey",
+            journey.score,
+            &journey.grade,
         ));
     }
 

@@ -8,10 +8,17 @@
   "properties": {
     "metadata": { "$ref": "#/$defs/metadata" },
     "report": { "$ref": "#/$defs/normalizedReport" },
+    "fix_guidance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fixGuidance" }
+    },
     "performance": { "type": ["object", "null"] },
     "seo": { "type": ["object", "null"] },
     "security": { "type": ["object", "null"] },
-    "mobile": { "type": ["object", "null"] }
+    "mobile": { "type": ["object", "null"] },
+    "ux": { "type": ["object", "null"] },
+    "journey": { "type": ["object", "null"] },
+    "history": { "type": ["object", "null"] }
   },
   "$defs": {
     "metadata": {
@@ -51,12 +58,14 @@
     "occurrence": {
       "type": "object",
       "required": ["node_id", "message"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "node_id": { "type": "string" },
         "message": { "type": "string" },
         "selector": { "type": ["string", "null"] },
-        "fix_suggestion": { "type": ["string", "null"] }
+        "fix_suggestion": { "type": ["string", "null"] },
+        "html_snippet": { "type": ["string", "null"] },
+        "suggested_code": { "type": ["string", "null"] }
       }
     },
     "finding": {
@@ -111,6 +120,34 @@
         }
       }
     },
+    "fixGuidance": {
+      "type": "object",
+      "required": ["rule_id", "title", "wcag_criterion", "severity", "occurrence_count", "problem", "user_impact", "typical_cause", "recommendation", "technical_note", "affected_selectors"],
+      "additionalProperties": true,
+      "properties": {
+        "rule_id": { "type": "string" },
+        "title": { "type": "string" },
+        "wcag_criterion": { "type": "string" },
+        "severity": { "type": "string" },
+        "occurrence_count": { "type": "integer", "minimum": 0 },
+        "problem": { "type": "string" },
+        "user_impact": { "type": "string" },
+        "typical_cause": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "technical_note": { "type": "string" },
+        "code_example": {
+          "type": ["object", "null"],
+          "properties": {
+            "bad": { "type": "string" },
+            "good": { "type": "string" }
+          }
+        },
+        "affected_selectors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "normalizedReport": {
       "type": "object",
       "required": [
@@ -146,7 +183,21 @@
           "type": "array",
           "items": { "$ref": "#/$defs/moduleScore" }
         },
-        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "risk": { "$ref": "#/$defs/riskAssessment" }
+      }
+    },
+    "riskAssessment": {
+      "type": "object",
+      "required": ["level", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "critical_issues": { "type": "integer", "minimum": 0 },
+        "high_issues": { "type": "integer", "minimum": 0 },
+        "legal_flags": { "type": "integer", "minimum": 0 },
+        "blocking_issues": { "type": "integer", "minimum": 0 },
+        "summary": { "type": "string" }
       }
     }
   }

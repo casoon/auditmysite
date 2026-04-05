@@ -429,6 +429,72 @@ pub(super) fn render_mobile(
     builder
 }
 
+pub(super) fn render_ux(
+    mut builder: renderreport::engine::ReportBuilder,
+    ux: &UxPresentation,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("User Experience").with_level(2))
+        .add_component(TextBlock::new(&ux.interpretation))
+        .add_component(ScoreCard::new("UX Score", ux.score).with_thresholds(80, 50));
+
+    // Dimension scores as KeyValueList
+    let mut kv = KeyValueList::new().with_title("UX-Dimensionen");
+    for dim in &ux.dimensions {
+        kv = kv.add(&dim.name, format!("{}/100 — {}", dim.score, dim.summary));
+    }
+    builder = builder.add_component(kv);
+
+    // Issues as findings
+    for issue in &ux.issues {
+        let sev = map_severity(&match issue.severity.as_str() {
+            "high" => crate::taxonomy::Severity::High,
+            "medium" => crate::taxonomy::Severity::Medium,
+            "low" => crate::taxonomy::Severity::Low,
+            _ => crate::taxonomy::Severity::Medium,
+        });
+        let desc = format!("{} — {}", issue.impact, issue.recommendation);
+        builder = builder.add_component(Finding::new(&issue.dimension, sev, &desc));
+    }
+    builder
+}
+
+pub(super) fn render_journey(
+    mut builder: renderreport::engine::ReportBuilder,
+    journey: &JourneyPresentation,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new("User Journey").with_level(2))
+        .add_component(TextBlock::new(&journey.interpretation))
+        .add_component(ScoreCard::new("Journey Score", journey.score).with_thresholds(80, 50));
+
+    // Page intent
+    let mut kv = KeyValueList::new().with_title("Seitentyp & Dimensionen");
+    kv = kv.add("Erkannter Seitentyp", &journey.page_intent);
+    for dim in &journey.dimensions {
+        kv = kv.add(
+            format!("{} ({}%)", dim.name, dim.weight_pct),
+            format!("{}/100 — {}", dim.score, dim.summary),
+        );
+    }
+    builder = builder.add_component(kv);
+
+    // Friction points as findings
+    for fp in &journey.friction_points {
+        let sev = map_severity(&match fp.severity.as_str() {
+            "high" => crate::taxonomy::Severity::High,
+            "medium" => crate::taxonomy::Severity::Medium,
+            "low" => crate::taxonomy::Severity::Low,
+            _ => crate::taxonomy::Severity::Medium,
+        });
+        let desc = format!("[{}] {} — {}", fp.step, fp.impact, fp.recommendation);
+        builder = builder.add_component(Finding::new(&fp.problem, sev, &desc));
+    }
+    builder
+}
+
 pub(super) fn render_dark_mode(
     mut builder: renderreport::engine::ReportBuilder,
     dm: &DarkModePresentation,

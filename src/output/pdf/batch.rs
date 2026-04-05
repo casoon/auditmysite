@@ -1,14 +1,10 @@
 //! Batch report components for PDF output.
 
 use renderreport::components::advanced::Grid;
-use renderreport::components::{AuditTable, MetricCard, TableColumn};
-use renderreport::prelude::*;
+use renderreport::components::MetricCard;
+use renderreport::Component;
 
-use crate::i18n::I18n;
-use crate::output::report_model::*;
-use crate::util::truncate_url;
-
-use super::helpers::{priority_label_i18n, role_label_i18n, score_quality_color};
+use super::helpers::score_quality_color;
 
 pub(super) fn build_batch_overview_grid(
     total_urls: u32,
@@ -57,101 +53,4 @@ pub(super) fn build_batch_overview_grid(
     }
 
     grid
-}
-
-pub(super) fn build_batch_benchmark_summary(pres: &BatchPresentation) -> Grid {
-    let dist = &pres.portfolio_summary.severity_distribution;
-    let avg = pres.portfolio_summary.average_score.round() as u32;
-    let accent = score_quality_color(avg);
-
-    let mut grid = Grid::new(3).with_item_min_height("110pt");
-    grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new("Ø Score", format!("{}/100", avg))
-            .with_accent_color(accent)
-            .with_height("100%")
-            .to_data()
-    }));
-    grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new("Verstöße gesamt", pres.portfolio_summary.total_violations.to_string())
-            .with_subtitle(format!("{} kritisch/hoch", dist.critical + dist.high))
-            .with_accent_color("#f59e0b")
-            .with_height("100%")
-            .to_data()
-    }));
-    if let Some(best) = pres.url_ranking.last() {
-        grid = grid.add_item(serde_json::json!({
-            "type": "metric-card",
-            "data": MetricCard::new("Beste URL", format!("{}/100", best.score.round() as u32))
-                .with_subtitle(truncate_url(&best.url, 30))
-                .with_accent_color("#22c55e")
-                .with_height("100%")
-                .to_data()
-        }));
-    }
-    grid
-}
-
-/// Render action plan for batch reports (using AuditTable)
-pub(super) fn render_action_plan(
-    mut builder: renderreport::engine::ReportBuilder,
-    plan: &ActionPlan,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    if !plan.quick_wins.is_empty() {
-        builder = builder.add_component(Section::new("Quick Wins").with_level(2));
-        let mut table = AuditTable::new(vec![
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Nutzen"),
-            TableColumn::new("Rolle"),
-            TableColumn::new("Priorität"),
-        ]);
-        for item in &plan.quick_wins {
-            table = table.add_row(vec![
-                item.action.clone(),
-                item.benefit.clone(),
-                role_label_i18n(item.role, i18n),
-                priority_label_i18n(item.priority, i18n),
-            ]);
-        }
-        builder = builder.add_component(table);
-    }
-    if !plan.medium_term.is_empty() {
-        builder = builder.add_component(Section::new("Mittelfristige Maßnahmen").with_level(2));
-        let mut table = AuditTable::new(vec![
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Nutzen"),
-            TableColumn::new("Rolle"),
-            TableColumn::new("Priorität"),
-        ]);
-        for item in &plan.medium_term {
-            table = table.add_row(vec![
-                item.action.clone(),
-                item.benefit.clone(),
-                role_label_i18n(item.role, i18n),
-                priority_label_i18n(item.priority, i18n),
-            ]);
-        }
-        builder = builder.add_component(table);
-    }
-    if !plan.structural.is_empty() {
-        builder = builder.add_component(Section::new("Strukturelle Maßnahmen").with_level(2));
-        let mut table = AuditTable::new(vec![
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Nutzen"),
-            TableColumn::new("Rolle"),
-            TableColumn::new("Priorität"),
-        ]);
-        for item in &plan.structural {
-            table = table.add_row(vec![
-                item.action.clone(),
-                item.benefit.clone(),
-                role_label_i18n(item.role, i18n),
-                priority_label_i18n(item.priority, i18n),
-            ]);
-        }
-        builder = builder.add_component(table);
-    }
-    builder
 }

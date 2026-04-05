@@ -183,6 +183,10 @@ pub struct SummaryBlock {
     pub business_consequence: String,
     /// Forward-looking consequence: what happens if nothing is fixed
     pub consequence: String,
+    /// Risk level label (Gering / Mittel / Hoch / Kritisch)
+    pub risk_level: String,
+    /// Risk summary (one sentence)
+    pub risk_summary: String,
 }
 
 /// A single KPI metric for the hero summary
@@ -268,6 +272,8 @@ pub struct ModuleDetailsBlock {
     pub seo: Option<SeoPresentation>,
     pub security: Option<SecurityPresentation>,
     pub mobile: Option<MobilePresentation>,
+    pub ux: Option<UxPresentation>,
+    pub journey: Option<JourneyPresentation>,
     pub dark_mode: Option<DarkModePresentation>,
     pub has_any: bool,
 }
@@ -461,6 +467,53 @@ pub struct MobilePresentation {
     pub issues: Vec<(String, Severity, String)>,
 }
 
+/// UX analysis presentation block
+pub struct UxPresentation {
+    pub score: u32,
+    pub grade: String,
+    pub interpretation: String,
+    pub dimensions: Vec<UxDimensionPresentation>,
+    pub issues: Vec<UxIssuePresentation>,
+}
+
+pub struct UxDimensionPresentation {
+    pub name: String,
+    pub score: u32,
+    pub summary: String,
+}
+
+pub struct UxIssuePresentation {
+    pub dimension: String,
+    pub severity: String,
+    pub problem: String,
+    pub impact: String,
+    pub recommendation: String,
+}
+
+pub struct JourneyPresentation {
+    pub score: u32,
+    pub grade: String,
+    pub page_intent: String,
+    pub interpretation: String,
+    pub dimensions: Vec<JourneyDimensionPresentation>,
+    pub friction_points: Vec<FrictionPointPresentation>,
+}
+
+pub struct JourneyDimensionPresentation {
+    pub name: String,
+    pub score: u32,
+    pub weight_pct: u32,
+    pub summary: String,
+}
+
+pub struct FrictionPointPresentation {
+    pub step: String,
+    pub severity: String,
+    pub problem: String,
+    pub impact: String,
+    pub recommendation: String,
+}
+
 // ─── Shared Helper Types ────────────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -528,12 +581,28 @@ pub struct PortfolioSummary {
     pub passed: usize,
     pub failed: usize,
     pub average_score: f64,
+    /// Weighted overall score across all active modules (averaged over URLs)
+    pub average_overall_score: u32,
     pub total_violations: usize,
     pub duration_ms: u64,
     pub verdict_text: String,
     pub worst_urls: Vec<(String, f32)>,
     pub best_urls: Vec<(String, f32)>,
     pub severity_distribution: SeverityDistribution,
+    /// Aggregated risk level across all URLs (worst-case)
+    pub risk_level: String,
+    /// Risk summary text
+    pub risk_summary: String,
+    /// Averaged module scores across all URLs (module_name, average_score)
+    pub module_averages: Vec<(String, u32)>,
+    /// List of active module names
+    pub active_modules: Vec<String>,
+    /// Domain name (extracted from first URL)
+    pub domain: String,
+    /// Certificate label based on overall score
+    pub certificate: String,
+    /// Grade based on overall score
+    pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
     pub distribution_insights: Vec<String>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
@@ -593,6 +662,8 @@ pub struct IssueFrequency {
 pub struct UrlSummary {
     pub url: String,
     pub score: f32,
+    /// Weighted overall score across all active modules
+    pub overall_score: u32,
     pub grade: String,
     pub critical_violations: usize,
     pub total_violations: usize,

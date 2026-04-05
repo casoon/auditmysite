@@ -47,6 +47,9 @@ pub struct NormalizedReport {
     /// Gewichteter Gesamtscore über alle aktiven Module
     pub overall_score: u32,
 
+    /// Risk assessment — independent from score
+    pub risk: RiskAssessment,
+
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
     pub raw_performance: Option<PerformanceResults>,
@@ -56,6 +59,10 @@ pub struct NormalizedReport {
     pub raw_security: Option<SecurityAnalysis>,
     #[serde(skip)]
     pub raw_mobile: Option<MobileFriendliness>,
+    #[serde(skip)]
+    pub raw_ux: Option<crate::ux::UxAnalysis>,
+    #[serde(skip)]
+    pub raw_journey: Option<crate::journey::JourneyAnalysis>,
     #[serde(skip)]
     pub raw_dark_mode: Option<DarkModeAnalysis>,
     #[serde(skip)]
@@ -172,6 +179,45 @@ pub struct ModuleScoreEntry {
     pub score: u32,
     pub grade: String,
     pub weight_pct: u32,
+}
+
+/// Risk level — independent from score.
+/// Score = quality level, Risk = operational/legal relevance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl std::fmt::Display for RiskLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RiskLevel::Low => write!(f, "Gering"),
+            RiskLevel::Medium => write!(f, "Mittel"),
+            RiskLevel::High => write!(f, "Hoch"),
+            RiskLevel::Critical => write!(f, "Kritisch"),
+        }
+    }
+}
+
+/// Risk assessment — computed separately from score.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskAssessment {
+    /// Overall risk level
+    pub level: RiskLevel,
+    /// Number of critical accessibility issues
+    pub critical_issues: usize,
+    /// Number of high-severity issues
+    pub high_issues: usize,
+    /// Number of WCAG Level A violations (legally relevant under BFSG/EAA)
+    pub legal_flags: usize,
+    /// Number of blocking interaction issues (buttons/forms without names)
+    pub blocking_issues: usize,
+    /// Human-readable risk summary
+    pub summary: String,
 }
 
 /// Normalisiert einen rohen AuditReport.
@@ -372,9 +418,157 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             weight_pct: 10,
         });
     }
+    if let Some(ref ux) = report.ux {
+        // Accessibility flows into UX: critical a11y issues penalize UX score
+        // Rationale: for users with disabilities, Accessibility IS the UX
+        let a11y_penalty = {
+            let critical = severity_counts.critical;
+            let high = severity_counts.high;
+            if critical >= 10 {
+                25 // severe: many critical barriers
+            } else if critical >= 5 {
+                15
+            } else if critical > 0 {
+                10
+            } else if high >= 5 {
+                5
+            } else {
+                0
+            }
+        };
+        let adjusted_ux = ux.score.saturating_sub(a11y_penalty);
+        let adjusted_grade = match adjusted_ux {
+            90..=100 => "A",
+            80..=89 => "B",
+            70..=79 => "C",
+            60..=69 => "D",
+            _ => "F",
+        };
+        module_scores.push(ModuleScoreEntry {
+            name: "UX".to_string(),
+            score: adjusted_ux,
+            grade: adjusted_grade.to_string(),
+            weight_pct: 15,
+        });
+    }
+    if let Some(ref journey) = report.journey {
+        // Journey also gets a11y penalty — inaccessible journeys are broken journeys
+        let a11y_penalty = {
+            let critical = severity_counts.critical;
+            if critical >= 10 {
+                20
+            } else if critical >= 5 {
+                10
+            } else if critical > 0 {
+                5
+            } else {
+                0
+            }
+        };
+        let adjusted_journey = journey.score.saturating_sub(a11y_penalty);
+        let adjusted_grade = match adjusted_journey {
+            90..=100 => "A",
+            80..=89 => "B",
+            70..=79 => "C",
+            60..=69 => "D",
+            _ => "F",
+        };
+        module_scores.push(ModuleScoreEntry {
+            name: "Journey".to_string(),
+            score: adjusted_journey,
+            grade: adjusted_grade.to_string(),
+            weight_pct: 10,
+        });
+    }
 
-    // Weighted overall score
-    let overall_score = report.overall_score();
+    // Weighted overall score — use corrected accessibility score, not raw
+    let overall_score = {
+        let mut weighted_sum = corrected_score as f64 * 40.0;
+        let mut total_weight = 40.0;
+        if let Some(ref perf) = report.performance {
+            weighted_sum += perf.score.overall as f64 * 20.0;
+            total_weight += 20.0;
+        }
+        if let Some(ref seo) = report.seo {
+            weighted_sum += seo.score as f64 * 20.0;
+            total_weight += 20.0;
+        }
+        if let Some(ref security) = report.security {
+            weighted_sum += security.score as f64 * 10.0;
+            total_weight += 10.0;
+        }
+        if let Some(ref mobile) = report.mobile {
+            weighted_sum += mobile.score as f64 * 10.0;
+            total_weight += 10.0;
+        }
+        // Use adjusted UX/Journey scores from module_scores (with a11y penalty applied)
+        if let Some(ux_entry) = module_scores.iter().find(|m| m.name == "UX") {
+            weighted_sum += ux_entry.score as f64 * 15.0;
+            total_weight += 15.0;
+        }
+        if let Some(journey_entry) = module_scores.iter().find(|m| m.name == "Journey") {
+            weighted_sum += journey_entry.score as f64 * 10.0;
+            total_weight += 10.0;
+        }
+        (weighted_sum / total_weight).round() as u32
+    };
+
+    // ── Risk Assessment (independent from score) ──────────────────
+    let risk = {
+        let critical_issues = severity_counts.critical;
+        let high_issues = severity_counts.high;
+
+        // Legal flags: WCAG Level A violations are legally relevant (BFSG/EAA)
+        let legal_flags = findings
+            .iter()
+            .filter(|f| {
+                f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
+            })
+            .map(|f| f.occurrence_count)
+            .sum::<usize>();
+
+        // Blocking issues: interactive elements without accessible names (4.1.2)
+        let blocking_issues = findings
+            .iter()
+            .filter(|f| f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
+            .map(|f| f.occurrence_count)
+            .sum::<usize>();
+
+        let level = if legal_flags > 0 && critical_issues > 0 {
+            RiskLevel::Critical
+        } else if critical_issues >= 3 || blocking_issues >= 10 {
+            RiskLevel::High
+        } else if high_issues >= 3 || critical_issues >= 1 {
+            RiskLevel::Medium
+        } else {
+            RiskLevel::Low
+        };
+
+        let summary = match level {
+            RiskLevel::Critical => format!(
+                "Kritisches Risiko: {} WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG). {} Blocker bei Bedienelementen.",
+                legal_flags, blocking_issues
+            ),
+            RiskLevel::High => format!(
+                "Hohes Risiko: {} kritische und {} schwerwiegende Probleme. Nutzer werden aktiv ausgeschlossen.",
+                critical_issues, high_issues
+            ),
+            RiskLevel::Medium => format!(
+                "Mittleres Risiko: {} schwerwiegende Probleme erkannt. Einschränkungen für bestimmte Nutzergruppen.",
+                high_issues + critical_issues
+            ),
+            RiskLevel::Low => "Geringes Risiko: Keine kritischen Barrieren erkannt.".to_string(),
+        };
+
+        RiskAssessment {
+            level,
+            critical_issues,
+            high_issues,
+            legal_flags,
+            blocking_issues,
+            summary,
+        }
+    };
 
     NormalizedReport {
         url: report.url.clone(),
@@ -389,10 +583,13 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         severity_counts,
         module_scores,
         overall_score,
+        risk,
         raw_performance: report.performance.clone(),
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),
         raw_mobile: report.mobile.clone(),
+        raw_ux: report.ux.clone(),
+        raw_journey: report.journey.clone(),
         raw_dark_mode: report.dark_mode.clone(),
         raw_wcag: report.wcag_results.clone(),
     }

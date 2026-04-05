@@ -79,13 +79,16 @@ pub mod cli;
 pub mod dark_mode;
 pub mod error;
 pub mod i18n;
+pub mod journey;
 pub mod mobile;
 pub mod output;
 pub mod performance;
 pub mod security;
 pub mod seo;
+pub mod studio;
 pub mod taxonomy;
 pub mod util;
+pub mod ux;
 pub mod wcag;
 
 // Re-export commonly used types
@@ -103,6 +106,7 @@ pub use browser::{
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use error::{AuditError, Result};
+pub use journey::{analyze_journey, JourneyAnalysis, PageIntent};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{
@@ -110,4 +114,5 @@ pub use performance::{
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
+pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

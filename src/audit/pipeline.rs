@@ -18,6 +18,7 @@ use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::error::Result;
+use crate::journey::{analyze_journey, JourneyAnalysis};
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{
     analyze_content_weight, analyze_render_blocking, calculate_performance_score,
@@ -25,6 +26,7 @@ use crate::performance::{
 };
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
+use crate::ux::{analyze_ux, UxAnalysis};
 use crate::wcag::{self, WcagResults};
 
 /// Extracted snapshot data from a loaded page.
@@ -37,6 +39,8 @@ struct SnapshotData {
     seo: Option<SeoAnalysis>,
     security: Option<SecurityAnalysis>,
     mobile: Option<MobileFriendliness>,
+    ux: Option<UxAnalysis>,
+    journey: Option<JourneyAnalysis>,
     dark_mode: Option<DarkModeAnalysis>,
 }
 
@@ -219,6 +223,20 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
+    // UX analysis runs on AXTree data — no CDP calls needed
+    let ux = if config.check_mobile || config.check_seo {
+        Some(analyze_ux(&ax_tree))
+    } else {
+        None
+    };
+
+    // Journey analysis runs on AXTree data — no CDP calls needed
+    let journey = if config.check_mobile || config.check_seo {
+        Some(analyze_journey(&ax_tree))
+    } else {
+        None
+    };
+
     let dark_mode = match analyze_dark_mode(page, config.wcag_level).await {
         Ok(dm) => Some(dm),
         Err(e) => {
@@ -233,6 +251,8 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         seo,
         security,
         mobile,
+        ux,
+        journey,
         dark_mode,
     })
 }
@@ -281,6 +301,12 @@ fn aggregate_report(
     }
     if let Some(mobile) = snapshot.mobile.clone() {
         report = report.with_mobile(mobile);
+    }
+    if let Some(ux) = snapshot.ux.clone() {
+        report = report.with_ux(ux);
+    }
+    if let Some(journey) = snapshot.journey.clone() {
+        report = report.with_journey(journey);
     }
     if let Some(dark_mode) = snapshot.dark_mode.clone() {
         report = report.with_dark_mode(dark_mode);

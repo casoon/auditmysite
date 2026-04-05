@@ -232,6 +232,8 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         seo: artifacts.snapshot.seo.clone(),
         security: artifacts.snapshot.security.clone(),
         mobile: artifacts.snapshot.mobile.clone(),
+        ux: None,
+        journey: None,
         budget_violations: Vec::new(),
         dark_mode: None,
     };

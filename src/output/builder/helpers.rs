@@ -303,31 +303,27 @@ pub(super) fn build_score_note(normalized: &NormalizedReport) -> Option<String> 
     }
 }
 
-pub(super) fn build_batch_verdict(batch: &BatchReport) -> String {
-    let avg = batch.summary.average_score;
-    if avg >= 90.0 {
+pub(super) fn build_batch_verdict(total_urls: usize, overall_score: u32) -> String {
+    if overall_score >= 90 {
         format!(
-            "Über {} geprüfte URLs hinweg erreicht die Website einen durchschnittlichen \
-                 Accessibility-Score von {:.0}/100 — ein sehr gutes Ergebnis.",
-            batch.summary.total_urls, avg
+            "Über {total_urls} geprüfte URLs hinweg erreicht die Website einen \
+             Gesamtscore von {overall_score}/100 — ein sehr gutes Ergebnis."
         )
-    } else if avg >= 70.0 {
+    } else if overall_score >= 70 {
         format!(
-            "Im Durchschnitt erreichen die {} geprüften URLs {:.0}/100 Punkte. \
-                 Die Basis ist solide, es bestehen aber wiederkehrende Barrieren.",
-            batch.summary.total_urls, avg
+            "Im Durchschnitt erreichen die {total_urls} geprüften URLs einen \
+             Gesamtscore von {overall_score}/100. Die Basis ist solide, es bestehen \
+             aber wiederkehrende Probleme in einzelnen Modulen."
         )
-    } else if avg >= 50.0 {
+    } else if overall_score >= 50 {
         format!(
-            "Die {} geprüften URLs erreichen im Schnitt nur {:.0}/100 Punkte. \
-                 Es bestehen erhebliche systematische Barrierefreiheitsprobleme.",
-            batch.summary.total_urls, avg
+            "Die {total_urls} geprüften URLs erreichen im Schnitt nur {overall_score}/100 \
+             Punkte. Es bestehen erhebliche systematische Probleme."
         )
     } else {
         format!(
-            "Die {} geprüften URLs erreichen im Schnitt nur {:.0}/100 Punkte. \
-                 Die Barrierefreiheit ist stark eingeschränkt — dringender Handlungsbedarf.",
-            batch.summary.total_urls, avg
+            "Die {total_urls} geprüften URLs erreichen im Schnitt nur {overall_score}/100 \
+             Punkte. Dringender Handlungsbedarf in mehreren Modulen."
         )
     }
 }

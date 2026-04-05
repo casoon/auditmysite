@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use auditmysite::audit::{normalize, AuditReport, BatchReport};
 use auditmysite::cli::WcagLevel;
 use auditmysite::output::{format_json_batch, JsonReport};
+use auditmysite::studio::{StudioAuditResponse, StudioHistoryEntry};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
 
 fn create_test_report() -> AuditReport {
@@ -137,4 +138,92 @@ fn test_batch_json_report_generation() {
     assert_eq!(parsed["reports"][0]["url"], "https://example.com");
     assert!(parsed["reports"][0]["findings"].is_array());
     assert_matches_schema(&parsed, "json-batch-report.schema.json");
+}
+
+// ─── Studio Contract Tests ────────────────────────────────────────
+
+#[test]
+fn test_studio_response_matches_schema() {
+    let report = create_test_report();
+    let normalized = normalize(&report);
+    let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+
+    let json_value = serde_json::to_value(&response).expect("serialization must work");
+    assert_matches_schema(&json_value, "studio-contract.schema.json");
+}
+
+#[test]
+fn test_studio_history_entry_roundtrip() {
+    let report = create_test_report();
+    let normalized = normalize(&report);
+    let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+    let entry = StudioHistoryEntry::from_response(&response);
+
+    // Serialize and deserialize must round-trip
+    let json = serde_json::to_string(&entry).expect("serialization must work");
+    let parsed: StudioHistoryEntry =
+        serde_json::from_str(&json).expect("deserialization must work");
+
+    assert_eq!(parsed.url, entry.url);
+    assert_eq!(parsed.accessibility_score, entry.accessibility_score);
+    assert_eq!(parsed.risk_level, entry.risk_level);
+    assert_eq!(parsed.module_scores.len(), entry.module_scores.len());
+
+    // Required fields must be present in JSON
+    let obj: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let map = obj.as_object().unwrap();
+    for field in &[
+        "id",
+        "url",
+        "timestamp",
+        "accessibility_score",
+        "overall_score",
+        "grade",
+        "certificate",
+        "risk_level",
+        "total_issues",
+        "critical_issues",
+        "high_issues",
+        "execution_time_ms",
+        "module_scores",
+    ] {
+        assert!(map.contains_key(*field), "Missing field: {}", field);
+    }
+}
+
+#[test]
+fn test_studio_response_has_all_expected_fields() {
+    let report = create_test_report();
+    let normalized = normalize(&report);
+    let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+
+    let json_value = serde_json::to_value(&response).expect("serialization must work");
+    let obj = json_value.as_object().unwrap();
+
+    // Every required field must be present
+    let required = vec![
+        "url",
+        "timestamp",
+        "accessibility_score",
+        "overall_score",
+        "grade",
+        "certificate",
+        "risk_level",
+        "risk_summary",
+        "legal_flags",
+        "blocking_issues",
+        "critical_issues",
+        "high_issues",
+        "medium_issues",
+        "low_issues",
+        "total_issues",
+        "module_scores",
+        "findings",
+        "nodes_analyzed",
+        "execution_time_ms",
+        "json_report",
+    ];
+    for field in required {
+        assert!(obj.contains_key(field), "Missing required field: {}", field);
+    }
 }
