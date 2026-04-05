@@ -18,7 +18,7 @@ use tracing_subscriber::EnvFilter;
 use auditmysite::audit::history::preview_report_history;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, crawl_site, history::write_report_history, load_artifacts, parse_sitemap,
+    analyze_crawl_links, crawl_site, load_artifacts, parse_sitemap,
     read_url_file, run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig,
     CrawlResult, PipelineConfig,
 };
@@ -932,9 +932,6 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
             }
             let output = json_report.to_json(true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
-            if let Some(path) = args.output.as_ref() {
-                maybe_write_single_history(path, &normalized, args.quiet)?;
-            }
         }
         OutputFormat::Table => {
             print_report(report, args.level);
@@ -1000,12 +997,8 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
                 if let Some(json_path) = auto_json_path.as_ref() {
                     let json_output = format_json_normalized(&normalized, report, true)?;
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
-                    maybe_write_single_history(json_path, &normalized, args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
-                if auto_json_path.is_none() {
-                    maybe_write_single_history(&path, &normalized, args.quiet)?;
-                }
             }
             #[cfg(not(feature = "pdf"))]
             {
@@ -1017,25 +1010,6 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
         OutputFormat::Ai => {
             let output = format_ai_json(report);
             output_text(&output, &args.output, "AI JSON", args.quiet)?;
-        }
-    }
-    Ok(())
-}
-
-fn maybe_write_single_history(
-    output_path: &std::path::Path,
-    normalized: &auditmysite::audit::NormalizedReport,
-    quiet: bool,
-) -> Result<()> {
-    let reports_dir = output_directory(output_path);
-    let written = write_report_history(reports_dir, output_path, normalized)?;
-    if !quiet {
-        for path in written {
-            println!(
-                "{} History updated: {}",
-                "Info:".cyan().bold(),
-                path.display()
-            );
         }
     }
     Ok(())
