@@ -57,6 +57,8 @@ pub struct NormalizedReport {
     #[serde(skip)]
     pub raw_mobile: Option<MobileFriendliness>,
     #[serde(skip)]
+    pub raw_ux: Option<crate::ux::UxAnalysis>,
+    #[serde(skip)]
     pub raw_dark_mode: Option<DarkModeAnalysis>,
     #[serde(skip)]
     pub raw_wcag: WcagResults,
@@ -372,6 +374,14 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             weight_pct: 10,
         });
     }
+    if let Some(ref ux) = report.ux {
+        module_scores.push(ModuleScoreEntry {
+            name: "UX".to_string(),
+            score: ux.score,
+            grade: ux.grade.clone(),
+            weight_pct: 15,
+        });
+    }
 
     // Weighted overall score — use corrected accessibility score, not raw
     let overall_score = {
@@ -393,6 +403,10 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             weighted_sum += mobile.score as f64 * 10.0;
             total_weight += 10.0;
         }
+        if let Some(ref ux) = report.ux {
+            weighted_sum += ux.score as f64 * 15.0;
+            total_weight += 15.0;
+        }
         (weighted_sum / total_weight).round() as u32
     };
 
@@ -413,6 +427,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),
         raw_mobile: report.mobile.clone(),
+        raw_ux: report.ux.clone(),
         raw_dark_mode: report.dark_mode.clone(),
         raw_wcag: report.wcag_results.clone(),
     }

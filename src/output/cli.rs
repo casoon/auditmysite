@@ -103,6 +103,9 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
             score_grade(mobile.score),
         ));
     }
+    if let Some(ref ux) = report.ux {
+        rows.push(render_dashboard_row("UX", ux.score, &ux.grade));
+    }
 
     rows.push(String::new());
     rows.push(format!(

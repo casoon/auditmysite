@@ -40,7 +40,7 @@ use self::cover::{
 };
 use self::detail_modules::{
     render_budget_violations, render_dark_mode, render_mobile, render_performance, render_security,
-    render_seo,
+    render_seo, render_ux,
 };
 use self::findings::{
     first_sentence, render_finding_group, render_finding_technical, render_key_finding_block,
@@ -411,6 +411,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
     if let Some(ref mobile) = vm.module_details.mobile {
         builder = render_mobile(builder, mobile);
+    }
+    if let Some(ref ux) = vm.module_details.ux {
+        builder = render_ux(builder, ux);
     }
     if let Some(ref dm) = vm.module_details.dark_mode {
         builder = render_dark_mode(builder, dm);

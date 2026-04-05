@@ -86,6 +86,7 @@ pub mod security;
 pub mod seo;
 pub mod taxonomy;
 pub mod util;
+pub mod ux;
 pub mod wcag;
 
 // Re-export commonly used types
@@ -104,6 +105,7 @@ pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use error::{AuditError, Result};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
+pub use ux::{analyze_ux, UxAnalysis};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,

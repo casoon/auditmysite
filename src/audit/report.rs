@@ -9,6 +9,7 @@ use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::cli::WcagLevel;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
+use crate::ux::UxAnalysis;
 use crate::performance::{ContentWeight, PerformanceScore, RenderBlockingAnalysis, WebVitals};
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
@@ -52,6 +53,9 @@ pub struct AuditReport {
     /// Budget violations detected for this page
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
+    /// UX analysis (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ux: Option<UxAnalysis>,
     /// Dark mode support and quality analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dark_mode: Option<DarkModeAnalysis>,
@@ -101,6 +105,7 @@ impl AuditReport {
             seo: None,
             security: None,
             mobile: None,
+            ux: None,
             budget_violations: Vec::new(),
             dark_mode: None,
         }
@@ -127,6 +132,12 @@ impl AuditReport {
     /// Set mobile friendliness results
     pub fn with_mobile(mut self, mobile: MobileFriendliness) -> Self {
         self.mobile = Some(mobile);
+        self
+    }
+
+    /// Set UX analysis results
+    pub fn with_ux(mut self, ux: UxAnalysis) -> Self {
+        self.ux = Some(ux);
         self
     }
 

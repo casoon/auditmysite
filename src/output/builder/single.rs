@@ -121,6 +121,9 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     if normalized.raw_mobile.is_some() {
         module_names.push("Mobile".into());
     }
+    if normalized.raw_ux.is_some() {
+        module_names.push("UX".into());
+    }
 
     let severity = SeverityBlock {
         critical: normalized.severity_counts.critical as u32,
@@ -406,6 +409,31 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
             warn_threshold: 50,
         });
     }
+    if let Some(ref u) = normalized.raw_ux {
+        let ux_context = format!(
+            "CTA Clarity {}/100, Visual Hierarchy {}/100, Content Clarity {}/100, Trust Signals {}/100, Cognitive Load {}/100",
+            u.cta_clarity.score, u.visual_hierarchy.score, u.content_clarity.score, u.trust_signals.score, u.cognitive_load.score
+        );
+        let ux_lever = if u.cta_clarity.score < 60 {
+            "CTA-Texte klarer und spezifischer formulieren".into()
+        } else if u.trust_signals.score < 60 {
+            "Vertrauenssignale (Kontakt, Impressum) ergänzen".into()
+        } else if u.visual_hierarchy.score < 60 {
+            "Heading-Struktur bereinigen (H1 → H2 → H3)".into()
+        } else {
+            "UX-Qualität auf gutem Niveau halten".into()
+        };
+        dashboard.push(ModuleScore {
+            name: "UX".into(),
+            score: u.score,
+            interpretation: interpret_score(u.score as f32, "User Experience"),
+            card_context: ux_context.clone(),
+            score_context: ux_context,
+            key_lever: ux_lever,
+            good_threshold: 80,
+            warn_threshold: 55,
+        });
+    }
 
     let has_multiple = dashboard.len() > 1;
     let overall_score = if has_multiple {
@@ -414,8 +442,8 @@ fn build_modules_block_from_normalized(normalized: &NormalizedReport) -> Modules
         None
     };
     let overall_interpretation = overall_score.map(|_| {
-        "Gewichteter Durchschnitt aller aktiven Module. Accessibility fließt mit 40% ein, \
-         Performance und SEO mit je 20%, Sicherheit und Mobile mit je 10%."
+        "Gewichteter Durchschnitt aller aktiven Module. Accessibility 40%, Performance 20%, \
+         SEO 20%, UX 15%, Sicherheit 10%, Mobile 10%."
             .to_string()
     });
 
@@ -1277,16 +1305,62 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 .collect(),
         });
 
+    let ux = normalized.raw_ux.as_ref().map(|u| UxPresentation {
+        score: u.score,
+        grade: u.grade.clone(),
+        interpretation: interpret_score(u.score as f32, "User Experience"),
+        dimensions: vec![
+            UxDimensionPresentation {
+                name: u.cta_clarity.name.clone(),
+                score: u.cta_clarity.score,
+                summary: u.cta_clarity.summary.clone(),
+            },
+            UxDimensionPresentation {
+                name: u.visual_hierarchy.name.clone(),
+                score: u.visual_hierarchy.score,
+                summary: u.visual_hierarchy.summary.clone(),
+            },
+            UxDimensionPresentation {
+                name: u.content_clarity.name.clone(),
+                score: u.content_clarity.score,
+                summary: u.content_clarity.summary.clone(),
+            },
+            UxDimensionPresentation {
+                name: u.trust_signals.name.clone(),
+                score: u.trust_signals.score,
+                summary: u.trust_signals.summary.clone(),
+            },
+            UxDimensionPresentation {
+                name: u.cognitive_load.name.clone(),
+                score: u.cognitive_load.score,
+                summary: u.cognitive_load.summary.clone(),
+            },
+        ],
+        issues: u
+            .issues
+            .iter()
+            .map(|i| UxIssuePresentation {
+                dimension: i.dimension.clone(),
+                severity: i.severity.clone(),
+                problem: i.problem.clone(),
+                impact: i.impact.clone(),
+                recommendation: i.recommendation.clone(),
+            })
+            .collect(),
+    });
+
     let has_any = performance.is_some()
         || seo.is_some()
         || security.is_some()
         || mobile.is_some()
+        || ux.is_some()
         || dark_mode.is_some();
     ModuleDetailsBlock {
         performance,
         seo,
         security,
         mobile,
+        ux,
         dark_mode,
         has_any,
     }

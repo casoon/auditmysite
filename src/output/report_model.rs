@@ -268,6 +268,7 @@ pub struct ModuleDetailsBlock {
     pub seo: Option<SeoPresentation>,
     pub security: Option<SecurityPresentation>,
     pub mobile: Option<MobilePresentation>,
+    pub ux: Option<UxPresentation>,
     pub dark_mode: Option<DarkModePresentation>,
     pub has_any: bool,
 }
@@ -459,6 +460,29 @@ pub struct MobilePresentation {
     pub font_analysis: Vec<(String, String)>,
     pub content_sizing: Vec<(String, String)>,
     pub issues: Vec<(String, Severity, String)>,
+}
+
+/// UX analysis presentation block
+pub struct UxPresentation {
+    pub score: u32,
+    pub grade: String,
+    pub interpretation: String,
+    pub dimensions: Vec<UxDimensionPresentation>,
+    pub issues: Vec<UxIssuePresentation>,
+}
+
+pub struct UxDimensionPresentation {
+    pub name: String,
+    pub score: u32,
+    pub summary: String,
+}
+
+pub struct UxIssuePresentation {
+    pub dimension: String,
+    pub severity: String,
+    pub problem: String,
+    pub impact: String,
+    pub recommendation: String,
 }
 
 // ─── Shared Helper Types ────────────────────────────────────────────────────

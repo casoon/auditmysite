@@ -113,6 +113,9 @@ pub struct JsonReport {
     pub security: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile: Option<serde_json::Value>,
+    /// UX analysis (CTA clarity, visual hierarchy, trust signals, etc.)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ux: Option<serde_json::Value>,
     /// Historical timeline for this URL (score trend, deltas, recent snapshots)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
@@ -195,6 +198,10 @@ impl JsonReport {
                 .mobile
                 .as_ref()
                 .and_then(|m| serde_json::to_value(m).ok()),
+            ux: raw
+                .ux
+                .as_ref()
+                .and_then(|u| serde_json::to_value(u).ok()),
             history: None,
         }
     }
