@@ -1004,13 +1004,13 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             .add("Prüfdatum", &pres.cover.date)
             .add(
                 "Geprüfte URLs",
-                &format!("{}", pres.portfolio_summary.total_urls),
+                format!("{}", pres.portfolio_summary.total_urls),
             )
             .add("Zertifikat", &pres.portfolio_summary.certificate)
             .add("Aktive Module", &modules_str)
             .add(
                 "Tool-Version",
-                &format!("auditmysite v{}", pres.cover.version),
+                format!("auditmysite v{}", pres.cover.version),
             );
         builder = builder.add_component(cover_meta);
     }
@@ -1512,8 +1512,8 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 "Optimierungspotenzial für SEO"
             };
             issues_kv = issues_kv.add(
-                &format!("{} (Profil: {}/100)", truncate_url(url, 35), score),
-                &format!(
+                format!("{} (Profil: {}/100)", truncate_url(url, 35), score),
+                format!(
                     "{} — {} → +300–800 Wörter strukturierter Inhalt empfohlen",
                     page_type, impact
                 ),

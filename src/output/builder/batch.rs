@@ -68,7 +68,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     let action_plan = derive_action_plan(&top_issues);
 
     // Normalize all reports early — needed for overall scores, risk, module averages
-    let normalized_reports: Vec<_> = batch.reports.iter().map(|r| normalize(r)).collect();
+    let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
 
     let mut url_ranking: Vec<UrlSummary> = batch
         .reports

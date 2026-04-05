@@ -221,7 +221,7 @@ pub fn detect_page_intent(tree: &AXTree) -> PageIntent {
         best_intent
     } else {
         // Marketing is the default for landing-page-like structure
-        if link_count < 30 && buttons.len() >= 1 && approx_words < 300 {
+        if link_count < 30 && !buttons.is_empty() && approx_words < 300 {
             PageIntent::Marketing
         } else {
             PageIntent::Unknown

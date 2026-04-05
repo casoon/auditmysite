@@ -380,7 +380,7 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
     // Empty / unnamed links
     let empty_links = links
         .iter()
-        .filter(|l| l.name.as_deref().map_or(true, |n| n.trim().is_empty()))
+        .filter(|l| l.name.as_deref().is_none_or(|n| n.trim().is_empty()))
         .count();
 
     if empty_links > 0 {
@@ -458,7 +458,7 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     // Buttons without accessible names
     let unnamed_buttons = buttons
         .iter()
-        .filter(|b| b.name.as_deref().map_or(true, |n| n.trim().is_empty()))
+        .filter(|b| b.name.as_deref().is_none_or(|n| n.trim().is_empty()))
         .count();
 
     if unnamed_buttons > 0 {
@@ -476,7 +476,7 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     // Form controls without labels
     let unlabeled_forms = form_controls
         .iter()
-        .filter(|fc| fc.name.as_deref().map_or(true, |n| n.trim().is_empty()))
+        .filter(|fc| fc.name.as_deref().is_none_or(|n| n.trim().is_empty()))
         .count();
 
     if unlabeled_forms > 0 {
