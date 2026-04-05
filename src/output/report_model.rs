@@ -183,6 +183,10 @@ pub struct SummaryBlock {
     pub business_consequence: String,
     /// Forward-looking consequence: what happens if nothing is fixed
     pub consequence: String,
+    /// Risk level label (Gering / Mittel / Hoch / Kritisch)
+    pub risk_level: String,
+    /// Risk summary (one sentence)
+    pub risk_summary: String,
 }
 
 /// A single KPI metric for the hero summary

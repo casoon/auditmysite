@@ -47,6 +47,9 @@ pub struct NormalizedReport {
     /// Gewichteter Gesamtscore über alle aktiven Module
     pub overall_score: u32,
 
+    /// Risk assessment — independent from score
+    pub risk: RiskAssessment,
+
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
     pub raw_performance: Option<PerformanceResults>,
@@ -174,6 +177,45 @@ pub struct ModuleScoreEntry {
     pub score: u32,
     pub grade: String,
     pub weight_pct: u32,
+}
+
+/// Risk level — independent from score.
+/// Score = quality level, Risk = operational/legal relevance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+impl std::fmt::Display for RiskLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RiskLevel::Low => write!(f, "Gering"),
+            RiskLevel::Medium => write!(f, "Mittel"),
+            RiskLevel::High => write!(f, "Hoch"),
+            RiskLevel::Critical => write!(f, "Kritisch"),
+        }
+    }
+}
+
+/// Risk assessment — computed separately from score.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskAssessment {
+    /// Overall risk level
+    pub level: RiskLevel,
+    /// Number of critical accessibility issues
+    pub critical_issues: usize,
+    /// Number of high-severity issues
+    pub high_issues: usize,
+    /// Number of WCAG Level A violations (legally relevant under BFSG/EAA)
+    pub legal_flags: usize,
+    /// Number of blocking interaction issues (buttons/forms without names)
+    pub blocking_issues: usize,
+    /// Human-readable risk summary
+    pub summary: String,
 }
 
 /// Normalisiert einen rohen AuditReport.
@@ -410,6 +452,61 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         (weighted_sum / total_weight).round() as u32
     };
 
+    // ── Risk Assessment (independent from score) ──────────────────
+    let risk = {
+        let critical_issues = severity_counts.critical;
+        let high_issues = severity_counts.high;
+
+        // Legal flags: WCAG Level A violations are legally relevant (BFSG/EAA)
+        let legal_flags = findings
+            .iter()
+            .filter(|f| f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High))
+            .map(|f| f.occurrence_count)
+            .sum::<usize>();
+
+        // Blocking issues: interactive elements without accessible names (4.1.2)
+        let blocking_issues = findings
+            .iter()
+            .filter(|f| f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
+            .map(|f| f.occurrence_count)
+            .sum::<usize>();
+
+        let level = if legal_flags > 0 && critical_issues > 0 {
+            RiskLevel::Critical
+        } else if critical_issues >= 3 || blocking_issues >= 10 {
+            RiskLevel::High
+        } else if high_issues >= 3 || critical_issues >= 1 {
+            RiskLevel::Medium
+        } else {
+            RiskLevel::Low
+        };
+
+        let summary = match level {
+            RiskLevel::Critical => format!(
+                "Kritisches Risiko: {} WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG). {} Blocker bei Bedienelementen.",
+                legal_flags, blocking_issues
+            ),
+            RiskLevel::High => format!(
+                "Hohes Risiko: {} kritische und {} schwerwiegende Probleme. Nutzer werden aktiv ausgeschlossen.",
+                critical_issues, high_issues
+            ),
+            RiskLevel::Medium => format!(
+                "Mittleres Risiko: {} schwerwiegende Probleme erkannt. Einschränkungen für bestimmte Nutzergruppen.",
+                high_issues + critical_issues
+            ),
+            RiskLevel::Low => "Geringes Risiko: Keine kritischen Barrieren erkannt.".to_string(),
+        };
+
+        RiskAssessment {
+            level,
+            critical_issues,
+            high_issues,
+            legal_flags,
+            blocking_issues,
+            summary,
+        }
+    };
+
     NormalizedReport {
         url: report.url.clone(),
         wcag_level: report.wcag_level,
@@ -423,6 +520,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         severity_counts,
         module_scores,
         overall_score,
+        risk,
         raw_performance: report.performance.clone(),
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),

@@ -501,3 +501,85 @@ fn test_json_field_order_fix_guidance_before_history() {
         "fix_guidance should appear before history in JSON"
     );
 }
+
+// ─── Risk Assessment Tests ────────────────────────────────────────
+
+#[test]
+fn test_risk_critical_with_level_a_violations() {
+    // Full report has 5 Critical + 3 Medium, all WCAG Level A
+    let report = make_full_report();
+    let normalized = normalize(&report);
+
+    assert_eq!(
+        normalized.risk.level,
+        auditmysite::audit::normalized::RiskLevel::Critical,
+        "Expected Critical risk for report with critical Level A violations"
+    );
+    assert!(normalized.risk.legal_flags > 0, "Should have legal flags for Level A violations");
+    assert!(normalized.risk.blocking_issues > 0, "Should have blocking issues for 4.1.2 violations");
+}
+
+#[test]
+fn test_risk_low_without_violations() {
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        500,
+    );
+    let normalized = normalize(&report);
+
+    assert_eq!(
+        normalized.risk.level,
+        auditmysite::audit::normalized::RiskLevel::Low,
+        "Expected Low risk for report without violations"
+    );
+    assert_eq!(normalized.risk.critical_issues, 0);
+    assert_eq!(normalized.risk.legal_flags, 0);
+}
+
+#[test]
+fn test_risk_in_json_output() {
+    let report = make_full_report();
+    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
+    let json_str = json_report.to_json(true).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+    let risk = &parsed["report"]["risk"];
+    assert!(risk.is_object(), "risk object missing from JSON report");
+    assert_eq!(risk["level"].as_str().unwrap(), "critical");
+    assert!(risk["critical_issues"].as_u64().unwrap() > 0);
+    assert!(risk["summary"].as_str().unwrap().len() > 0);
+}
+
+#[test]
+fn test_risk_independent_from_score() {
+    // A report can have good score but still high risk
+    let mut results = WcagResults::new();
+    results.passes = 200; // lots of passes = high score
+
+    // But 3 critical Level A violations
+    for i in 0..3 {
+        results.add_violation(Violation::new(
+            "4.1.2", "Name, Role, Value", WcagLevel::A,
+            Severity::Critical, "Missing name", &format!("n-{}", i),
+        ));
+    }
+
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        100,
+    );
+    let normalized = normalize(&report);
+
+    // Score should be decent (many passes)
+    assert!(normalized.score >= 50, "Score should be decent with many passes");
+    // But risk should be critical
+    assert_eq!(
+        normalized.risk.level,
+        auditmysite::audit::normalized::RiskLevel::Critical,
+        "Risk should be Critical despite decent score — score != risk"
+    );
+}

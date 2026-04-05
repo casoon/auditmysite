@@ -181,7 +181,21 @@
           "type": "array",
           "items": { "$ref": "#/$defs/moduleScore" }
         },
-        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "risk": { "$ref": "#/$defs/riskAssessment" }
+      }
+    },
+    "riskAssessment": {
+      "type": "object",
+      "required": ["level", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "critical_issues": { "type": "integer", "minimum": 0 },
+        "high_issues": { "type": "integer", "minimum": 0 },
+        "legal_flags": { "type": "integer", "minimum": 0 },
+        "blocking_issues": { "type": "integer", "minimum": 0 },
+        "summary": { "type": "string" }
       }
     }
   }

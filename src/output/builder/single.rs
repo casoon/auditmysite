@@ -251,6 +251,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             benchmark_context: build_benchmark_context(score as f32),
             business_consequence: build_business_consequence(normalized),
             consequence: build_consequence_text(normalized),
+            risk_level: normalized.risk.level.to_string(),
+            risk_summary: normalized.risk.summary.clone(),
         },
         history,
         methodology: build_methodology(normalized),

@@ -137,19 +137,29 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         } else {
             "Diese Website ist überwiegend barrierefrei. Letzte Optimierungen sind möglich."
         };
-        let priority_text = if vm.severity.critical > 0 {
-            "Priorität: Sofort starten"
-        } else if vm.severity.high > 0 {
-            "Priorität: Hoch"
-        } else {
-            "Priorität: Bei nächster Optimierung"
+        let risk_title = format!("Risiko: {} — {}", vm.summary.risk_level,
+            match vm.summary.risk_level.as_str() {
+                "Kritisch" => "Sofort handeln",
+                "Hoch" => "Zeitnah beheben",
+                "Mittel" => "Bei nächster Optimierung",
+                _ => "Kein akuter Handlungsbedarf",
+            }
+        );
+
+        let risk_callout = match vm.summary.risk_level.as_str() {
+            "Kritisch" => Callout::error(&format!("{}\n\n{}", status_text, vm.summary.risk_summary))
+                .with_title(&risk_title),
+            "Hoch" => Callout::warning(&format!("{}\n\n{}", status_text, vm.summary.risk_summary))
+                .with_title(&risk_title),
+            _ => Callout::info(&format!("{}\n\n{}", status_text, vm.summary.risk_summary))
+                .with_title(&risk_title),
         };
 
         builder = builder.add_component(soft_flow_group(
             "180pt",
             vec![
                 component_json(Section::new("Status der Website").with_level(1)),
-                component_json(Callout::error(status_text).with_title(priority_text)),
+                component_json(risk_callout),
             ],
         ));
 
