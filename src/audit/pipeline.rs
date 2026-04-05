@@ -25,6 +25,7 @@ use crate::performance::{
 };
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
+use crate::journey::{analyze_journey, JourneyAnalysis};
 use crate::ux::{analyze_ux, UxAnalysis};
 use crate::wcag::{self, WcagResults};
 
@@ -39,6 +40,7 @@ struct SnapshotData {
     security: Option<SecurityAnalysis>,
     mobile: Option<MobileFriendliness>,
     ux: Option<UxAnalysis>,
+    journey: Option<JourneyAnalysis>,
     dark_mode: Option<DarkModeAnalysis>,
 }
 
@@ -228,6 +230,13 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
+    // Journey analysis runs on AXTree data — no CDP calls needed
+    let journey = if config.check_mobile || config.check_seo {
+        Some(analyze_journey(&ax_tree))
+    } else {
+        None
+    };
+
     let dark_mode = match analyze_dark_mode(page, config.wcag_level).await {
         Ok(dm) => Some(dm),
         Err(e) => {
@@ -243,6 +252,7 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         security,
         mobile,
         ux,
+        journey,
         dark_mode,
     })
 }
@@ -294,6 +304,9 @@ fn aggregate_report(
     }
     if let Some(ux) = snapshot.ux.clone() {
         report = report.with_ux(ux);
+    }
+    if let Some(journey) = snapshot.journey.clone() {
+        report = report.with_journey(journey);
     }
     if let Some(dark_mode) = snapshot.dark_mode.clone() {
         report = report.with_dark_mode(dark_mode);

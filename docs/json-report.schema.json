@@ -16,6 +16,8 @@
     "seo": { "type": ["object", "null"] },
     "security": { "type": ["object", "null"] },
     "mobile": { "type": ["object", "null"] },
+    "ux": { "type": ["object", "null"] },
+    "journey": { "type": ["object", "null"] },
     "history": { "type": ["object", "null"] }
   },
   "$defs": {

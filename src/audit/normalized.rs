@@ -62,6 +62,8 @@ pub struct NormalizedReport {
     #[serde(skip)]
     pub raw_ux: Option<crate::ux::UxAnalysis>,
     #[serde(skip)]
+    pub raw_journey: Option<crate::journey::JourneyAnalysis>,
+    #[serde(skip)]
     pub raw_dark_mode: Option<DarkModeAnalysis>,
     #[serde(skip)]
     pub raw_wcag: WcagResults,
@@ -424,6 +426,14 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             weight_pct: 15,
         });
     }
+    if let Some(ref journey) = report.journey {
+        module_scores.push(ModuleScoreEntry {
+            name: "Journey".to_string(),
+            score: journey.score,
+            grade: journey.grade.clone(),
+            weight_pct: 10,
+        });
+    }
 
     // Weighted overall score — use corrected accessibility score, not raw
     let overall_score = {
@@ -448,6 +458,10 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         if let Some(ref ux) = report.ux {
             weighted_sum += ux.score as f64 * 15.0;
             total_weight += 15.0;
+        }
+        if let Some(ref journey) = report.journey {
+            weighted_sum += journey.score as f64 * 10.0;
+            total_weight += 10.0;
         }
         (weighted_sum / total_weight).round() as u32
     };
@@ -526,6 +540,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_security: report.security.clone(),
         raw_mobile: report.mobile.clone(),
         raw_ux: report.ux.clone(),
+        raw_journey: report.journey.clone(),
         raw_dark_mode: report.dark_mode.clone(),
         raw_wcag: report.wcag_results.clone(),
     }

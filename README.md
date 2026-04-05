@@ -240,6 +240,7 @@ AAA is not fully implemented yet.
 - Security: HTTPS and header checks
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
 - UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
+- Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
 
 ### Risk assessment
 
@@ -345,7 +346,7 @@ Key layers:
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI format
-- `seo/`, `security/`, `performance/`, `mobile/`, `ux/`: optional analysis modules
+- `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
 
 More detail:
 - Current implementation: [docs/ARCHITECTURE.md](/Users/jseidel/GitHub/auditmysite/docs/ARCHITECTURE.md)

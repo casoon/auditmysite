@@ -118,6 +118,9 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
     if let Some(ref ux) = report.ux {
         rows.push(render_dashboard_row("UX", ux.score, &ux.grade));
     }
+    if let Some(ref journey) = report.journey {
+        rows.push(render_dashboard_row("Journey", journey.score, &journey.grade));
+    }
 
     rows.push(String::new());
     rows.push(format!(

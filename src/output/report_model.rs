@@ -273,6 +273,7 @@ pub struct ModuleDetailsBlock {
     pub security: Option<SecurityPresentation>,
     pub mobile: Option<MobilePresentation>,
     pub ux: Option<UxPresentation>,
+    pub journey: Option<JourneyPresentation>,
     pub dark_mode: Option<DarkModePresentation>,
     pub has_any: bool,
 }
@@ -483,6 +484,30 @@ pub struct UxDimensionPresentation {
 
 pub struct UxIssuePresentation {
     pub dimension: String,
+    pub severity: String,
+    pub problem: String,
+    pub impact: String,
+    pub recommendation: String,
+}
+
+pub struct JourneyPresentation {
+    pub score: u32,
+    pub grade: String,
+    pub page_intent: String,
+    pub interpretation: String,
+    pub dimensions: Vec<JourneyDimensionPresentation>,
+    pub friction_points: Vec<FrictionPointPresentation>,
+}
+
+pub struct JourneyDimensionPresentation {
+    pub name: String,
+    pub score: u32,
+    pub weight_pct: u32,
+    pub summary: String,
+}
+
+pub struct FrictionPointPresentation {
+    pub step: String,
     pub severity: String,
     pub problem: String,
     pub impact: String,

@@ -523,6 +523,7 @@ mod tests {
                 summary: String::new(),
             },
             raw_ux: None,
+            raw_journey: None,
             raw_dark_mode: None,
             raw_wcag: crate::wcag::WcagResults::new(),
         };

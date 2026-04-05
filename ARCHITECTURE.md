@@ -96,6 +96,11 @@ src/
 │   ├── mod.rs                 # Modul-Exports
 │   ├── analysis.rs            # 5-Dimensionen-Analyse auf AXTree-Basis
 │   └── scoring.rs             # Sättigungskurven, Dimensions-Score, gewichteter Durchschnitt
+├── journey/                   # Journey-Analyse (Nutzerfluss, Seitentyp-Erkennung)
+│   ├── mod.rs                 # Modul-Exports
+│   ├── analysis.rs            # 5-Dimensionen-Journey-Analyse auf AXTree-Basis
+│   ├── page_intent.rs         # Seitentyp-Erkennung (Shop, LeadGen, Editorial, etc.)
+│   └── scoring.rs             # Dimensions-Score, gewichteter Durchschnitt mit Intent-Gewichten
 ├── dark_mode/                 # Dark-Mode-Support-Analyse
 ├── i18n/                      # Project Fluent (.ftl), Standard-Sprache: Deutsch
 └── taxonomy/                  # Severity, Dimensions, IssueClass, Score-Enums
@@ -125,6 +130,7 @@ pub struct AuditReport {
     pub security: Option<SecurityAnalysis>,
     pub mobile: Option<MobileFriendliness>,
     pub ux: Option<UxAnalysis>,
+    pub journey: Option<JourneyAnalysis>,
     pub dark_mode: Option<DarkModeAnalysis>,
     pub budget_violations: Vec<BudgetViolation>,
 }
@@ -218,7 +224,8 @@ audit_page():
   1. AXTree-Extraktion via CDP
   2. [--full] Performance-Metriken, SEO, Security, Mobile parallel
   3. [--full] UX-Analyse auf AXTree (kein CDP nötig)
-  4. wcag::check_all(&ax_tree, level) → Vec<Violation>
+  4. [--full] Journey-Analyse auf AXTree (kein CDP nötig)
+  5. wcag::check_all(&ax_tree, level) → Vec<Violation>
   5. [AA/AAA] ContrastRule::check_with_page() → CDP-Styles + Kontrastberechnung
   6. enrich_violations_with_page() → CSS-Selektoren, HTML-Snippets
   7. AccessibilityScorer::calculate_score() → f32
@@ -276,6 +283,40 @@ Wenige Verstöße werden stark bestraft, weitere Verstöße desselben Typs haben
 ### Integration
 
 UX läuft im `audit_page()`-Pipeline wenn `--full` aktiv ist. Der Score fließt mit Gewicht 15% in den `overall_score` ein.
+
+---
+
+## Journey-Modul
+
+**Dateien:** `src/journey/analysis.rs`, `src/journey/page_intent.rs`, `src/journey/scoring.rs`
+
+Das Journey-Modul analysiert, wie gut eine Seite einen typischen Nutzerfluss unterstützt — vollständig auf Basis des AXTree, ohne zusätzliche CDP-Aufrufe.
+
+### 5 Dimensionen
+
+| Dimension | Beschreibung |
+|-----------|-------------|
+| Entry Clarity | Ist der Seitenzweck sofort erkennbar? (H1, Titel, Above-the-fold-Content) |
+| Orientation | Kann der Nutzer sich orientieren? (Navigation, Landmarks, Heading-Struktur) |
+| Navigation | Sind Links verständlich, eindeutig und strukturiert? |
+| Interaction | Können Nutzer mit Controls effektiv interagieren? (Button-Labels, Form-Labels) |
+| Conversion | Kann der Nutzer das Seitenziel erreichen? (CTA-Präsenz, Dialog-Blocker, Formular-Komplexität) |
+
+### Seitentyp-Erkennung (PageIntent)
+
+```rust
+pub enum PageIntent { Shop, LeadGen, Editorial, Marketing, Corporate, Hub, Unknown }
+```
+
+Der erkannte Seitentyp steuert die Gewichtung der Dimensionen. Ein Shop gewichtet Conversion und Trust höher, eine Editorial-Seite Content Clarity und Navigation.
+
+### Friction Points
+
+Automatisch abgeleitete Reibungspunkte im Nutzerpfad, jedem Journey-Schritt zugeordnet und nach Severity priorisiert.
+
+### Integration
+
+Journey läuft im `audit_page()`-Pipeline wenn `--full` aktiv ist. Der Score fließt mit Gewicht 10% in den `overall_score` ein.
 
 ---
 

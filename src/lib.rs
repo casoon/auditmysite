@@ -79,6 +79,7 @@ pub mod cli;
 pub mod dark_mode;
 pub mod error;
 pub mod i18n;
+pub mod journey;
 pub mod mobile;
 pub mod output;
 pub mod performance;
@@ -105,6 +106,7 @@ pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use error::{AuditError, Result};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
+pub use journey::{analyze_journey, JourneyAnalysis, PageIntent};
 pub use ux::{analyze_ux, UxAnalysis};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{

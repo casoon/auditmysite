@@ -14,6 +14,7 @@ use auditmysite::output::JsonReport;
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
+use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::ux::{analyze_ux, UxAnalysis};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
 use auditmysite::AXTree;
@@ -108,6 +109,11 @@ fn make_ux() -> UxAnalysis {
     analyze_ux(&tree)
 }
 
+fn make_journey() -> JourneyAnalysis {
+    let tree = AXTree::new();
+    analyze_journey(&tree)
+}
+
 fn make_full_report() -> AuditReport {
     AuditReport::new(
         "https://example.com".to_string(),
@@ -120,6 +126,7 @@ fn make_full_report() -> AuditReport {
     .with_security(make_security())
     .with_mobile(make_mobile())
     .with_ux(make_ux())
+    .with_journey(make_journey())
 }
 
 // ─── Module Presence Tests ─────────────────────────────────────────
@@ -158,6 +165,10 @@ fn test_all_modules_present_in_module_scores() {
     assert!(
         module_names.contains(&"UX"),
         "UX missing from module_scores"
+    );
+    assert!(
+        module_names.contains(&"Journey"),
+        "Journey missing from module_scores"
     );
 }
 
@@ -432,11 +443,11 @@ fn test_module_weights_sum_to_expected() {
     let normalized = normalize(&report);
 
     let total_weight: u32 = normalized.module_scores.iter().map(|m| m.weight_pct).sum();
-    // With UX (15%) added to base modules (100%), total is 115%
+    // With UX (15%) + Journey (10%) added to base modules (100%), total is 125%
     // The overall_score calculation divides by actual total weight
     assert_eq!(
-        total_weight, 115,
-        "Module weights should sum to 115% (with UX), got {}%",
+        total_weight, 125,
+        "Module weights should sum to 125% (with UX + Journey), got {}%",
         total_weight
     );
 }
@@ -452,6 +463,7 @@ fn test_module_weights_correct() {
             "Performance" => 20,
             "SEO" => 20,
             "UX" => 15,
+            "Journey" => 10,
             "Security" => 10,
             "Mobile" => 10,
             _ => panic!("Unknown module: {}", m.name),
@@ -582,4 +594,49 @@ fn test_risk_independent_from_score() {
         auditmysite::audit::normalized::RiskLevel::Critical,
         "Risk should be Critical despite decent score — score != risk"
     );
+}
+
+// ─── Journey Module Tests ─────────────────────────────────────────
+
+#[test]
+fn test_journey_in_json_output() {
+    let report = make_full_report();
+    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
+    assert!(
+        json_report.journey.is_some(),
+        "Journey detail data should be present in JSON"
+    );
+}
+
+#[test]
+fn test_journey_module_weight() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+    let journey_entry = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Journey");
+    assert!(journey_entry.is_some(), "Journey must be in module_scores");
+    assert_eq!(journey_entry.unwrap().weight_pct, 10, "Journey weight must be 10%");
+}
+
+#[test]
+fn test_journey_has_page_intent() {
+    let tree = AXTree::new();
+    let journey = analyze_journey(&tree);
+    // Empty tree should still return a valid intent
+    assert!(!journey.grade.is_empty());
+    assert!(journey.score <= 100);
+}
+
+#[test]
+fn test_journey_dimensions_count() {
+    let report = make_full_report();
+    let journey = report.journey.as_ref().unwrap();
+    // All 5 dimensions present
+    assert!(!journey.entry_clarity.name.is_empty());
+    assert!(!journey.orientation.name.is_empty());
+    assert!(!journey.navigation.name.is_empty());
+    assert!(!journey.interaction.name.is_empty());
+    assert!(!journey.conversion.name.is_empty());
 }

@@ -56,6 +56,9 @@ pub struct AuditReport {
     /// UX analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ux: Option<UxAnalysis>,
+    /// Journey analysis (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub journey: Option<crate::journey::JourneyAnalysis>,
     /// Dark mode support and quality analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dark_mode: Option<DarkModeAnalysis>,
@@ -106,6 +109,7 @@ impl AuditReport {
             security: None,
             mobile: None,
             ux: None,
+            journey: None,
             budget_violations: Vec::new(),
             dark_mode: None,
         }
@@ -138,6 +142,12 @@ impl AuditReport {
     /// Set UX analysis results
     pub fn with_ux(mut self, ux: UxAnalysis) -> Self {
         self.ux = Some(ux);
+        self
+    }
+
+    /// Set journey analysis results
+    pub fn with_journey(mut self, journey: crate::journey::JourneyAnalysis) -> Self {
+        self.journey = Some(journey);
         self
     }
 
