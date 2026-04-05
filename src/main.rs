@@ -1211,7 +1211,7 @@ fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
     } else {
         "batch"
     };
-    PathBuf::from(format!("reports/{kind}-report-{date}.pdf"))
+    PathBuf::from(format!("{kind}-report-{date}.pdf"))
 }
 
 fn report_subject_from_url(url: &str) -> String {
@@ -1364,9 +1364,9 @@ mod tests {
             "https://example.com/sitemap.xml",
         ]);
         let rendered = default_batch_pdf_output_path(&args).display().to_string();
-        assert!(rendered.starts_with("reports/"));
         assert!(rendered.contains("sitemap-report-"));
         assert!(rendered.ends_with(".pdf"));
+        assert!(!rendered.contains("reports/"));
     }
 
     #[cfg(feature = "pdf")]

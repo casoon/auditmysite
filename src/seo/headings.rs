@@ -158,11 +158,17 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() > max {
-        format!("{}...", &s[..max])
-    } else {
-        s.to_string()
+    if s.len() <= max {
+        return s.to_string();
     }
+    let target = max.saturating_sub(3);
+    let boundary = s
+        .char_indices()
+        .take_while(|(i, _)| *i <= target)
+        .last()
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    format!("{}...", &s[..boundary])
 }
 
 #[cfg(test)]
