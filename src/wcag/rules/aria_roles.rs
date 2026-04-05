@@ -482,14 +482,14 @@ mod tests {
             name: "expanded".to_string(),
             value: AXValue::Bool(false),
         });
-        let nodes = vec![
-            make_node("1", "WebArea", None, vec!["2"]),
-            menu,
-        ];
+        let nodes = vec![make_node("1", "WebArea", None, vec!["2"]), menu];
         let tree = AXTree::from_nodes(nodes);
         let results = check_aria_roles(&tree);
         assert!(
-            !results.violations.iter().any(|v| v.message.contains("missing required child")),
+            !results
+                .violations
+                .iter()
+                .any(|v| v.message.contains("missing required child")),
             "Collapsed menu should not be flagged for missing children"
         );
     }

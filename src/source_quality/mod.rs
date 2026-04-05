@@ -96,10 +96,8 @@ pub fn analyze_source_quality_batch(reports: &[AuditReport]) -> SourceQualityAna
     }
 
     // Average substance and authority across pages
-    let substance_scores: Vec<DimensionScore> =
-        reports.iter().map(evaluate_substance).collect();
-    let authority_scores: Vec<DimensionScore> =
-        reports.iter().map(evaluate_authority).collect();
+    let substance_scores: Vec<DimensionScore> = reports.iter().map(evaluate_substance).collect();
+    let authority_scores: Vec<DimensionScore> = reports.iter().map(evaluate_authority).collect();
 
     let avg_substance = average_dimensions(&substance_scores, "Substanz");
     let avg_authority = average_dimensions(&authority_scores, "Autorität");
@@ -131,7 +129,13 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
     // 1. Heading structure depth
     if let Some(seo) = &report.seo {
         let has_h1 = seo.headings.h1_count > 0;
-        let depth = seo.headings.headings.iter().map(|h| h.level).max().unwrap_or(0);
+        let depth = seo
+            .headings
+            .headings
+            .iter()
+            .map(|h| h.level)
+            .max()
+            .unwrap_or(0);
         let good_depth = depth >= 3;
 
         signals.push(QualitySignal {
@@ -154,7 +158,11 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
             name: "Inhaltsumfang".into(),
             present: substantial,
             weight: 0.15,
-            detail: format!("{} Wörter{}", word_count, if substantial { "" } else { " (dünn)" }),
+            detail: format!(
+                "{} Wörter{}",
+                word_count,
+                if substantial { "" } else { " (dünn)" }
+            ),
         });
 
         // 3. Schema.org structured data
@@ -177,11 +185,7 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
         });
 
         // 4. Meta description
-        let has_meta_desc = seo
-            .meta
-            .description
-            .as_ref()
-            .is_some_and(|d| d.len() >= 50);
+        let has_meta_desc = seo.meta.description.as_ref().is_some_and(|d| d.len() >= 50);
         signals.push(QualitySignal {
             name: "Meta-Beschreibung".into(),
             present: has_meta_desc,
@@ -292,11 +296,11 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
     // 3. Schema.org Organization / Author
     if let Some(seo) = &report.seo {
         let authority_types = ["Organization", "LocalBusiness", "Person", "WebSite"];
-        let has_org = seo.structured_data.types.iter().any(|t| {
-            authority_types
-                .iter()
-                .any(|at| t.as_str().contains(at))
-        });
+        let has_org = seo
+            .structured_data
+            .types
+            .iter()
+            .any(|t| authority_types.iter().any(|at| t.as_str().contains(at)));
         signals.push(QualitySignal {
             name: "Herausgeber-Identität".into(),
             present: has_org,
@@ -533,19 +537,13 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     });
 
     // 6. No pages with critical violations
-    let pages_with_critical: usize = reports
-        .iter()
-        .filter(|r| r.statistics.critical > 0)
-        .count();
+    let pages_with_critical: usize = reports.iter().filter(|r| r.statistics.critical > 0).count();
     let clean_pct = ((total as usize - pages_with_critical) as f32 / total * 100.0) as u32;
     signals.push(QualitySignal {
         name: "Fehlerfreie Seiten".into(),
         present: pages_with_critical == 0,
         weight: 0.20,
-        detail: format!(
-            "{}% der Seiten ohne kritische Fehler",
-            clean_pct
-        ),
+        detail: format!("{}% der Seiten ohne kritische Fehler", clean_pct),
     });
 
     build_dimension("Konsistenz", &signals)
@@ -568,7 +566,13 @@ fn build_dimension(name: &str, signals: &[QualitySignal]) -> DimensionScore {
     let score = if total_weight > 0.0 {
         let raw: f32 = signals
             .iter()
-            .map(|s| if s.present { s.weight / total_weight * 100.0 } else { 0.0 })
+            .map(|s| {
+                if s.present {
+                    s.weight / total_weight * 100.0
+                } else {
+                    0.0
+                }
+            })
             .sum();
         raw.round() as u32
     } else {

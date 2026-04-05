@@ -1190,7 +1190,14 @@ fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
     } else {
         "batch"
     };
-    PathBuf::from(format!("{kind}-report-{date}.pdf"))
+    // Derive domain from sitemap URL, crawl URL, or url-file name
+    let source_url = args
+        .sitemap
+        .as_deref()
+        .or(args.url.as_deref())
+        .unwrap_or("");
+    let subject = report_subject_from_url(source_url);
+    PathBuf::from(format!("{subject}-{date}-{kind}-report.pdf"))
 }
 
 fn report_subject_from_url(url: &str) -> String {
@@ -1343,7 +1350,8 @@ mod tests {
             "https://example.com/sitemap.xml",
         ]);
         let rendered = default_batch_pdf_output_path(&args).display().to_string();
-        assert!(rendered.contains("sitemap-report-"));
+        assert!(rendered.contains("example-com-"));
+        assert!(rendered.contains("-sitemap-report.pdf"));
         assert!(rendered.ends_with(".pdf"));
         assert!(!rendered.contains("reports/"));
     }
@@ -1354,7 +1362,8 @@ mod tests {
         let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
         args.crawl = true;
         let rendered = default_batch_pdf_output_path(&args).display().to_string();
-        assert!(rendered.contains("crawl-report-"));
+        assert!(rendered.contains("example-com-"));
+        assert!(rendered.contains("-crawl-report.pdf"));
     }
 
     #[test]
