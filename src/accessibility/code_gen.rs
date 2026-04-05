@@ -10,11 +10,16 @@ pub const HTML_SNIPPET_MAX: usize = 500;
 
 /// Truncate outer HTML to [`HTML_SNIPPET_MAX`] characters.
 pub fn truncate_html(html: String) -> String {
-    if html.len() > HTML_SNIPPET_MAX {
-        format!("{}…", &html[..HTML_SNIPPET_MAX])
-    } else {
-        html
+    if html.len() <= HTML_SNIPPET_MAX {
+        return html;
     }
+    let boundary = html
+        .char_indices()
+        .take_while(|(i, _)| *i <= HTML_SNIPPET_MAX)
+        .last()
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    format!("{}…", &html[..boundary])
 }
 
 /// Generate a concrete `suggested_code` string for a WCAG violation.
