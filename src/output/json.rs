@@ -201,10 +201,7 @@ impl JsonReport {
                 .mobile
                 .as_ref()
                 .and_then(|m| serde_json::to_value(m).ok()),
-            ux: raw
-                .ux
-                .as_ref()
-                .and_then(|u| serde_json::to_value(u).ok()),
+            ux: raw.ux.as_ref().and_then(|u| serde_json::to_value(u).ok()),
             journey: raw
                 .journey
                 .as_ref()
@@ -238,14 +235,12 @@ impl JsonReport {
                     .take(10)
                     .collect();
 
-                let code_example = expl.and_then(|e| {
-                    match (e.example_bad, e.example_good) {
-                        (Some(bad), Some(good)) => Some(CodeExample {
-                            bad: bad.to_string(),
-                            good: good.to_string(),
-                        }),
-                        _ => None,
-                    }
+                let code_example = expl.and_then(|e| match (e.example_bad, e.example_good) {
+                    (Some(bad), Some(good)) => Some(CodeExample {
+                        bad: bad.to_string(),
+                        good: good.to_string(),
+                    }),
+                    _ => None,
                 });
 
                 FixGuidance {

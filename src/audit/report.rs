@@ -9,10 +9,10 @@ use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::cli::WcagLevel;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
-use crate::ux::UxAnalysis;
 use crate::performance::{ContentWeight, PerformanceScore, RenderBlockingAnalysis, WebVitals};
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
+use crate::ux::UxAnalysis;
 use crate::wcag::WcagResults;
 
 /// Complete audit report for a single URL

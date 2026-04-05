@@ -14,17 +14,55 @@ use crate::ux::saturating_penalty;
 // ── Generic / CTA keyword lists (shared with UX but scoped here) ───
 
 const GENERIC_LINK_LABELS: &[&str] = &[
-    "mehr", "hier", "klicken", "weiter", "link", "more", "click here",
-    "read more", "learn more", "hier klicken", "mehr erfahren", "details",
-    "weiterlesen", "info",
+    "mehr",
+    "hier",
+    "klicken",
+    "weiter",
+    "link",
+    "more",
+    "click here",
+    "read more",
+    "learn more",
+    "hier klicken",
+    "mehr erfahren",
+    "details",
+    "weiterlesen",
+    "info",
 ];
 
 const CTA_KEYWORDS: &[&str] = &[
-    "kaufen", "bestellen", "kontakt", "anfrage", "starten", "registrieren",
-    "anmelden", "buchen", "jetzt", "kostenlos", "testen", "demo", "termin",
-    "beratung", "angebot", "download", "newsletter", "warenkorb", "kasse",
-    "buy", "order", "contact", "start", "register", "sign up", "book",
-    "free", "trial", "get started", "subscribe", "cart", "checkout",
+    "kaufen",
+    "bestellen",
+    "kontakt",
+    "anfrage",
+    "starten",
+    "registrieren",
+    "anmelden",
+    "buchen",
+    "jetzt",
+    "kostenlos",
+    "testen",
+    "demo",
+    "termin",
+    "beratung",
+    "angebot",
+    "download",
+    "newsletter",
+    "warenkorb",
+    "kasse",
+    "buy",
+    "order",
+    "contact",
+    "start",
+    "register",
+    "sign up",
+    "book",
+    "free",
+    "trial",
+    "get started",
+    "subscribe",
+    "cart",
+    "checkout",
 ];
 
 // ── Public types ────────────────────────────────────────────────────
@@ -231,9 +269,7 @@ fn analyze_orientation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     let mut penalties = Vec::new();
 
     // Navigation landmark
-    let has_nav = tree
-        .iter()
-        .any(|n| n.role.as_deref() == Some("navigation"));
+    let has_nav = tree.iter().any(|n| n.role.as_deref() == Some("navigation"));
     if !has_nav {
         penalties.push(40.0);
         friction.push(FrictionPoint {
@@ -249,8 +285,7 @@ fn analyze_orientation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     let has_breadcrumb = tree.iter().any(|n| {
         let name = n.name.as_deref().unwrap_or("").to_lowercase();
         name.contains("breadcrumb")
-            || n.role.as_deref() == Some("navigation")
-                && name.contains("breadcrumb")
+            || n.role.as_deref() == Some("navigation") && name.contains("breadcrumb")
     });
     // Not penalized heavily, but bonus signals
     if !has_breadcrumb {
@@ -332,7 +367,10 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
             friction.push(FrictionPoint {
                 step: "Navigation".into(),
                 severity: "medium".into(),
-                problem: format!("{} Links mit generischen Texten (\"mehr\", \"hier\")", generic_count),
+                problem: format!(
+                    "{} Links mit generischen Texten (\"mehr\", \"hier\")",
+                    generic_count
+                ),
                 impact: "Nutzer können nicht unterscheiden, wohin Links führen".into(),
                 recommendation: "Linktexte beschreibend formulieren, die das Ziel benennen".into(),
             });
@@ -342,11 +380,7 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
     // Empty / unnamed links
     let empty_links = links
         .iter()
-        .filter(|l| {
-            l.name
-                .as_deref()
-                .map_or(true, |n| n.trim().is_empty())
-        })
+        .filter(|l| l.name.as_deref().map_or(true, |n| n.trim().is_empty()))
         .count();
 
     if empty_links > 0 {
@@ -358,7 +392,8 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
                 severity: "high".into(),
                 problem: format!("{} Links ohne erkennbaren Text", empty_links),
                 impact: "Screenreader-Nutzer erfahren nicht, was der Link tut".into(),
-                recommendation: "Alle Links mit beschreibendem Text oder aria-label versehen".into(),
+                recommendation: "Alle Links mit beschreibendem Text oder aria-label versehen"
+                    .into(),
             });
         }
     }
@@ -384,7 +419,8 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
                 severity: "low".into(),
                 problem: format!("{} doppelte Linktexte auf der Seite", duplicate_count),
                 impact: "Gleiche Beschriftung für unterschiedliche Ziele verwirrt Nutzer".into(),
-                recommendation: "Linktexte eindeutig formulieren oder mit aria-label differenzieren".into(),
+                recommendation:
+                    "Linktexte eindeutig formulieren oder mit aria-label differenzieren".into(),
             });
         }
     }
@@ -422,11 +458,7 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     // Buttons without accessible names
     let unnamed_buttons = buttons
         .iter()
-        .filter(|b| {
-            b.name
-                .as_deref()
-                .map_or(true, |n| n.trim().is_empty())
-        })
+        .filter(|b| b.name.as_deref().map_or(true, |n| n.trim().is_empty()))
         .count();
 
     if unnamed_buttons > 0 {
@@ -444,11 +476,7 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     // Form controls without labels
     let unlabeled_forms = form_controls
         .iter()
-        .filter(|fc| {
-            fc.name
-                .as_deref()
-                .map_or(true, |n| n.trim().is_empty())
-        })
+        .filter(|fc| fc.name.as_deref().map_or(true, |n| n.trim().is_empty()))
         .count();
 
     if unlabeled_forms > 0 {
@@ -460,7 +488,8 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
                 severity: "high".into(),
                 problem: format!("{} Formularfelder ohne Label", unlabeled_forms),
                 impact: "Nutzer wissen nicht, welche Eingabe erwartet wird".into(),
-                recommendation: "Jedes Formularfeld mit sichtbarem <label> oder aria-label verbinden".into(),
+                recommendation:
+                    "Jedes Formularfeld mit sichtbarem <label> oder aria-label verbinden".into(),
             });
         }
     }
@@ -471,7 +500,18 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
         .filter(|b| {
             let name = b.name.as_deref().unwrap_or("").to_lowercase();
             let trimmed = name.trim();
-            matches!(trimmed, "ok" | "submit" | "senden" | "absenden" | "go" | "los" | "weiter" | "next" | "click" | "button")
+            matches!(
+                trimmed,
+                "ok" | "submit"
+                    | "senden"
+                    | "absenden"
+                    | "go"
+                    | "los"
+                    | "weiter"
+                    | "next"
+                    | "click"
+                    | "button"
+            )
         })
         .count();
 
@@ -481,9 +521,14 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
         friction.push(FrictionPoint {
             step: "Interaction".into(),
             severity: "low".into(),
-            problem: format!("{} Buttons mit generischen Labels (\"OK\", \"Submit\")", generic_buttons),
+            problem: format!(
+                "{} Buttons mit generischen Labels (\"OK\", \"Submit\")",
+                generic_buttons
+            ),
             impact: "Kontext der Aktion ist nicht klar".into(),
-            recommendation: "Buttons mit handlungsbeschreibenden Texten benennen (z. B. \"Nachricht senden\")".into(),
+            recommendation:
+                "Buttons mit handlungsbeschreibenden Texten benennen (z. B. \"Nachricht senden\")"
+                    .into(),
         });
     }
 
@@ -511,13 +556,10 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
     let mut penalties = Vec::new();
 
     // CTA presence
-    let cta_found = buttons
-        .iter()
-        .chain(links.iter())
-        .any(|n| {
-            let name = n.name.as_deref().unwrap_or("").to_lowercase();
-            CTA_KEYWORDS.iter().any(|kw| name.contains(kw))
-        });
+    let cta_found = buttons.iter().chain(links.iter()).any(|n| {
+        let name = n.name.as_deref().unwrap_or("").to_lowercase();
+        CTA_KEYWORDS.iter().any(|kw| name.contains(kw))
+    });
 
     if !cta_found {
         penalties.push(40.0);
@@ -541,7 +583,9 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
             severity: "medium".into(),
             problem: "Dialog/Overlay erkannt, der den Nutzerpfad unterbrechen kann".into(),
             impact: "Cookie-Banner oder Modals können den CTA verdecken".into(),
-            recommendation: "Sicherstellen, dass Overlays einfach schließbar sind und den CTA nicht blockieren".into(),
+            recommendation:
+                "Sicherstellen, dass Overlays einfach schließbar sind und den CTA nicht blockieren"
+                    .into(),
         });
     }
 
@@ -557,7 +601,8 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
                 severity: "medium".into(),
                 problem: format!("{} Formularfelder — hohe Eingabehürde", form_controls.len()),
                 impact: "Komplexe Formulare reduzieren die Abschlussrate".into(),
-                recommendation: "Formular auf wesentliche Felder reduzieren oder in Schritte aufteilen".into(),
+                recommendation:
+                    "Formular auf wesentliche Felder reduzieren oder in Schritte aufteilen".into(),
             });
         }
     }

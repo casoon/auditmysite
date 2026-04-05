@@ -13,8 +13,8 @@ mod modules;
 
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, DominantIssueSpotlight,
-    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
-    SectionHeaderSplit, TableOfContents,
+    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
+    TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::prelude::Image;
@@ -39,12 +39,10 @@ use self::cover::{
     build_cover_meta, build_cover_score_row, certificate_badge_path,
 };
 use self::detail_modules::{
-    render_budget_violations, render_dark_mode, render_journey, render_mobile,
-    render_performance, render_security, render_seo, render_ux,
+    render_budget_violations, render_dark_mode, render_journey, render_mobile, render_performance,
+    render_security, render_seo, render_ux,
 };
-use self::findings::{
-    first_sentence, render_finding_technical, render_key_finding_block,
-};
+use self::findings::{first_sentence, render_finding_technical, render_key_finding_block};
 use self::helpers::{
     component_json, create_engine, extract_domain, priority_label_i18n, role_label_i18n,
     severity_label_i18n, soft_flow_group,
@@ -139,12 +137,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         let risk_title = format!("{}  —  {}", assessment, risk_action);
 
         let risk_callout = match vm.summary.risk_level.as_str() {
-            "Kritisch" => Callout::error(&vm.summary.risk_summary)
-                .with_title(&risk_title),
-            "Hoch" => Callout::warning(&vm.summary.risk_summary)
-                .with_title(&risk_title),
-            _ => Callout::info(&vm.summary.risk_summary)
-                .with_title(&risk_title),
+            "Kritisch" => Callout::error(&vm.summary.risk_summary).with_title(&risk_title),
+            "Hoch" => Callout::warning(&vm.summary.risk_summary).with_title(&risk_title),
+            _ => Callout::info(&vm.summary.risk_summary).with_title(&risk_title),
         };
 
         builder = builder.add_component(soft_flow_group(
@@ -239,11 +234,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 0
             };
             // One sentence summary — no technical details
-            let body = vm
-                .summary
-                .dominant_issue_note
-                .as_deref()
-                .unwrap_or("Der Großteil der kritischen Probleme entsteht durch dieses eine Thema.");
+            let body = vm.summary.dominant_issue_note.as_deref().unwrap_or(
+                "Der Großteil der kritischen Probleme entsteht durch dieses eine Thema.",
+            );
             // One sentence each for impact and recommendation
             let impact_short = first_sentence(&top.user_impact);
             let rec_short = first_sentence(&top.recommendation);
@@ -355,7 +348,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             WasJetztTunContent::Table(t) => builder = builder.add_component(t),
             WasJetztTunContent::Empty(c) => builder = builder.add_component(c),
         }
-
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -555,7 +547,8 @@ fn build_single_key_points(vm: &ReportViewModel) -> Vec<String> {
         if share >= 30 {
             points.push(format!(
                 "Hauptproblem: {} ({}% aller kritischen Fehler)",
-                top.title, share.min(99)
+                top.title,
+                share.min(99)
             ));
         } else {
             points.push(format!("Häufigstes Problem: {}", top.title));
@@ -583,7 +576,9 @@ fn build_single_quick_actions(vm: &ReportViewModel) -> Vec<(String, &'static str
     // Gather immediate actions from roadmap
     for col in &vm.actions.roadmap_columns {
         for item in &col.items {
-            if item.execution_priority.contains("Sofort") || item.execution_priority.contains("Direkt") {
+            if item.execution_priority.contains("Sofort")
+                || item.execution_priority.contains("Direkt")
+            {
                 let timeframe = match item.effort.as_str() {
                     "Quick Win" => "1–2 Tage",
                     "Mittelfristig" => "3–5 Tage",
@@ -615,15 +610,13 @@ fn render_next_steps_single(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(
-            SectionHeaderSplit::new(
-                "Empfohlene nächste Schritte",
-                "Konkrete Handlungsempfehlung für die nächsten 1–4 Wochen.",
-            )
-            .with_level(1),
-        );
+    builder = builder.add_component(PageBreak::new()).add_component(
+        SectionHeaderSplit::new(
+            "Empfohlene nächste Schritte",
+            "Konkrete Handlungsempfehlung für die nächsten 1–4 Wochen.",
+        )
+        .with_level(1),
+    );
 
     let mut steps: Vec<(String, String, String)> = Vec::new(); // (step, timeframe, scope)
 
@@ -646,7 +639,11 @@ fn render_next_steps_single(
                 "Mittelfristig" => "1–2 Wochen",
                 _ => "2–4 Wochen",
             };
-            steps.push((item.action.clone(), timeframe.to_string(), scope.to_string()));
+            steps.push((
+                item.action.clone(),
+                timeframe.to_string(),
+                scope.to_string(),
+            ));
         }
     }
 
@@ -723,7 +720,10 @@ fn business_relevance(page_type: Option<&str>, url: &str) -> &'static str {
 // ─── Helper: Batch Report Assessment & Key Points ──────────────────────────
 
 /// Clear batch assessment — no score, just interpretation
-fn build_batch_assessment(summary: &crate::output::report_model::PortfolioSummary, dist: &SeverityDistribution) -> String {
+fn build_batch_assessment(
+    summary: &crate::output::report_model::PortfolioSummary,
+    dist: &SeverityDistribution,
+) -> String {
     if dist.critical > 0 && summary.average_overall_score < 50 {
         "Kritische Barrieren — nicht WCAG-konform".to_string()
     } else if dist.critical > 0 {
@@ -754,7 +754,9 @@ fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution)
     if let Some(top) = pres.top_issues.first() {
         points.push(format!(
             "Hauptproblem: {} ({} Vorkommen auf {} URLs)",
-            top.title, top.occurrence_count, top.affected_urls.len()
+            top.title,
+            top.occurrence_count,
+            top.affected_urls.len()
         ));
     }
 
@@ -764,7 +766,9 @@ fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution)
             "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)".to_string(),
         );
     } else if dist.high > 0 {
-        points.push("Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten".to_string());
+        points.push(
+            "Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten".to_string(),
+        );
     } else {
         points.push("Keine kritischen Barrieren — gute Gesamtlage".to_string());
     }
@@ -867,15 +871,13 @@ fn render_next_steps_batch(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(
-            SectionHeaderSplit::new(
-                "Empfohlene nächste Schritte",
-                "Konkrete Handlungsempfehlung für die Umsetzung.",
-            )
-            .with_level(1),
-        );
+    builder = builder.add_component(PageBreak::new()).add_component(
+        SectionHeaderSplit::new(
+            "Empfohlene nächste Schritte",
+            "Konkrete Handlungsempfehlung für die Umsetzung.",
+        )
+        .with_level(1),
+    );
 
     let mut steps: Vec<(String, &str, &str)> = Vec::new();
 
@@ -985,26 +987,31 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 .bold(),
         )
         .add_component(
-            Label::new("Domainweiter Website-Check mit Fokus auf Accessibility, SEO und Performance")
-                .with_size("12pt")
-                .with_color("#475569"),
+            Label::new(
+                "Domainweiter Website-Check mit Fokus auf Accessibility, SEO und Performance",
+            )
+            .with_size("12pt")
+            .with_color("#475569"),
         );
 
     // Audit-Rahmen box (matching single report style)
     {
-        let modules_str = pres
-            .portfolio_summary
-            .active_modules
-            .join(", ");
+        let modules_str = pres.portfolio_summary.active_modules.join(", ");
 
         let mut cover_meta = KeyValueList::new().with_title("Audit-Rahmen");
         cover_meta = cover_meta
             .add("Domain", domain)
             .add("Prüfdatum", &pres.cover.date)
-            .add("Geprüfte URLs", &format!("{}", pres.portfolio_summary.total_urls))
+            .add(
+                "Geprüfte URLs",
+                &format!("{}", pres.portfolio_summary.total_urls),
+            )
             .add("Zertifikat", &pres.portfolio_summary.certificate)
             .add("Aktive Module", &modules_str)
-            .add("Tool-Version", &format!("auditmysite v{}", pres.cover.version));
+            .add(
+                "Tool-Version",
+                &format!("auditmysite v{}", pres.cover.version),
+            );
         builder = builder.add_component(cover_meta);
     }
 
@@ -1049,12 +1056,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         };
         let risk_title = format!("{}  —  {}", assessment, risk_action);
         let callout = match pres.portfolio_summary.risk_level.as_str() {
-            "Kritisch" | "Hoch" => Callout::warning(&pres.portfolio_summary.risk_summary)
-                .with_title(&risk_title),
-            "Mittel" => Callout::info(&pres.portfolio_summary.risk_summary)
-                .with_title(&risk_title),
-            _ => Callout::success(&pres.portfolio_summary.risk_summary)
-                .with_title(&risk_title),
+            "Kritisch" | "Hoch" => {
+                Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&risk_title)
+            }
+            "Mittel" => Callout::info(&pres.portfolio_summary.risk_summary).with_title(&risk_title),
+            _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&risk_title),
         };
         builder = builder
             .add_component(Section::new("Status der Website").with_level(1))
@@ -1125,9 +1131,8 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                     ChecklistRow::new(*timeframe, action).with_status("warn")
                 })
                 .collect();
-            builder = builder.add_component(
-                ChecklistPanel::new(rows).with_title("Empfohlene Sofortmaßnahmen"),
-            );
+            builder = builder
+                .add_component(ChecklistPanel::new(rows).with_title("Empfohlene Sofortmaßnahmen"));
         }
     }
 
@@ -1508,7 +1513,10 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             };
             issues_kv = issues_kv.add(
                 &format!("{} (Profil: {}/100)", truncate_url(url, 35), score),
-                &format!("{} — {} → +300–800 Wörter strukturierter Inhalt empfohlen", page_type, impact),
+                &format!(
+                    "{} — {} → +300–800 Wörter strukturierter Inhalt empfohlen",
+                    page_type, impact
+                ),
             );
         }
         builder = builder.add_component(issues_kv);
@@ -1524,7 +1532,10 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 let impact = if insight.contains("Thin") || insight.contains("dünn") {
                     format!("{} → schwächere Rankings, geringere Verweildauer", insight)
                 } else if insight.contains("Duplikat") || insight.contains("duplicate") {
-                    format!("{} → Keyword-Kannibalisierung, Split der Ranking-Signale", insight)
+                    format!(
+                        "{} → Keyword-Kannibalisierung, Split der Ranking-Signale",
+                        insight
+                    )
                 } else {
                     insight.clone()
                 };

@@ -54,4 +54,3 @@ pub(super) fn build_batch_overview_grid(
 
     grid
 }
-

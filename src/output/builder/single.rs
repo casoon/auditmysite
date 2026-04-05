@@ -1354,55 +1354,58 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             .collect(),
     });
 
-    let journey = normalized.raw_journey.as_ref().map(|j| JourneyPresentation {
-        score: j.score,
-        grade: j.grade.clone(),
-        page_intent: j.page_intent.label().to_string(),
-        interpretation: interpret_score(j.score as f32, "User Journey"),
-        dimensions: vec![
-            JourneyDimensionPresentation {
-                name: j.entry_clarity.name.clone(),
-                score: j.entry_clarity.score,
-                weight_pct: (j.entry_clarity.weight * 100.0).round() as u32,
-                summary: j.entry_clarity.summary.clone(),
-            },
-            JourneyDimensionPresentation {
-                name: j.orientation.name.clone(),
-                score: j.orientation.score,
-                weight_pct: (j.orientation.weight * 100.0).round() as u32,
-                summary: j.orientation.summary.clone(),
-            },
-            JourneyDimensionPresentation {
-                name: j.navigation.name.clone(),
-                score: j.navigation.score,
-                weight_pct: (j.navigation.weight * 100.0).round() as u32,
-                summary: j.navigation.summary.clone(),
-            },
-            JourneyDimensionPresentation {
-                name: j.interaction.name.clone(),
-                score: j.interaction.score,
-                weight_pct: (j.interaction.weight * 100.0).round() as u32,
-                summary: j.interaction.summary.clone(),
-            },
-            JourneyDimensionPresentation {
-                name: j.conversion.name.clone(),
-                score: j.conversion.score,
-                weight_pct: (j.conversion.weight * 100.0).round() as u32,
-                summary: j.conversion.summary.clone(),
-            },
-        ],
-        friction_points: j
-            .friction_points
-            .iter()
-            .map(|fp| FrictionPointPresentation {
-                step: fp.step.clone(),
-                severity: fp.severity.clone(),
-                problem: fp.problem.clone(),
-                impact: fp.impact.clone(),
-                recommendation: fp.recommendation.clone(),
-            })
-            .collect(),
-    });
+    let journey = normalized
+        .raw_journey
+        .as_ref()
+        .map(|j| JourneyPresentation {
+            score: j.score,
+            grade: j.grade.clone(),
+            page_intent: j.page_intent.label().to_string(),
+            interpretation: interpret_score(j.score as f32, "User Journey"),
+            dimensions: vec![
+                JourneyDimensionPresentation {
+                    name: j.entry_clarity.name.clone(),
+                    score: j.entry_clarity.score,
+                    weight_pct: (j.entry_clarity.weight * 100.0).round() as u32,
+                    summary: j.entry_clarity.summary.clone(),
+                },
+                JourneyDimensionPresentation {
+                    name: j.orientation.name.clone(),
+                    score: j.orientation.score,
+                    weight_pct: (j.orientation.weight * 100.0).round() as u32,
+                    summary: j.orientation.summary.clone(),
+                },
+                JourneyDimensionPresentation {
+                    name: j.navigation.name.clone(),
+                    score: j.navigation.score,
+                    weight_pct: (j.navigation.weight * 100.0).round() as u32,
+                    summary: j.navigation.summary.clone(),
+                },
+                JourneyDimensionPresentation {
+                    name: j.interaction.name.clone(),
+                    score: j.interaction.score,
+                    weight_pct: (j.interaction.weight * 100.0).round() as u32,
+                    summary: j.interaction.summary.clone(),
+                },
+                JourneyDimensionPresentation {
+                    name: j.conversion.name.clone(),
+                    score: j.conversion.score,
+                    weight_pct: (j.conversion.weight * 100.0).round() as u32,
+                    summary: j.conversion.summary.clone(),
+                },
+            ],
+            friction_points: j
+                .friction_points
+                .iter()
+                .map(|fp| FrictionPointPresentation {
+                    step: fp.step.clone(),
+                    severity: fp.severity.clone(),
+                    problem: fp.problem.clone(),
+                    impact: fp.impact.clone(),
+                    recommendation: fp.recommendation.clone(),
+                })
+                .collect(),
+        });
 
     let has_any = performance.is_some()
         || seo.is_some()

@@ -9,12 +9,12 @@
 
 use auditmysite::audit::{normalize, AuditReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
+use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::JsonReport;
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
-use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::ux::{analyze_ux, UxAnalysis};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
 use auditmysite::AXTree;
@@ -237,7 +237,8 @@ fn test_overall_score_equals_weighted_average() {
     let expected = (weighted_sum / total_weight).round() as u32;
 
     assert_eq!(
-        normalized.overall_score, expected,
+        normalized.overall_score,
+        expected,
         "overall_score ({}) != weighted average of module_scores ({}). Modules: {:?}",
         normalized.overall_score,
         expected,
@@ -388,8 +389,8 @@ fn test_fix_guidance_code_examples_present() {
 fn test_grade_matches_score() {
     // Test several score ranges
     let test_cases = vec![
-        (100, "A"),  // 90+ = A
-        (50, "F"),   // <60 = F
+        (100, "A"), // 90+ = A
+        (50, "F"),  // <60 = F
     ];
 
     for (expected_score_approx, _expected_grade) in test_cases {
@@ -489,10 +490,7 @@ fn test_json_contains_all_sections() {
     assert!(parsed["metadata"].is_object(), "metadata missing");
     assert!(parsed["report"].is_object(), "report missing");
     assert!(parsed["fix_guidance"].is_array(), "fix_guidance missing");
-    assert!(
-        !parsed["performance"].is_null(),
-        "performance data missing"
-    );
+    assert!(!parsed["performance"].is_null(), "performance data missing");
     assert!(!parsed["seo"].is_null(), "seo data missing");
     assert!(!parsed["security"].is_null(), "security data missing");
     assert!(!parsed["mobile"].is_null(), "mobile data missing");
@@ -506,7 +504,9 @@ fn test_json_field_order_fix_guidance_before_history() {
     let json_str = json_report.to_json(true).unwrap();
 
     // fix_guidance should appear before history in serialized output
-    let fg_pos = json_str.find("fix_guidance").expect("fix_guidance not in JSON");
+    let fg_pos = json_str
+        .find("fix_guidance")
+        .expect("fix_guidance not in JSON");
     let hist_pos = json_str.find("history").expect("history not in JSON");
     assert!(
         fg_pos < hist_pos,
@@ -527,8 +527,14 @@ fn test_risk_critical_with_level_a_violations() {
         auditmysite::audit::normalized::RiskLevel::Critical,
         "Expected Critical risk for report with critical Level A violations"
     );
-    assert!(normalized.risk.legal_flags > 0, "Should have legal flags for Level A violations");
-    assert!(normalized.risk.blocking_issues > 0, "Should have blocking issues for 4.1.2 violations");
+    assert!(
+        normalized.risk.legal_flags > 0,
+        "Should have legal flags for Level A violations"
+    );
+    assert!(
+        normalized.risk.blocking_issues > 0,
+        "Should have blocking issues for 4.1.2 violations"
+    );
 }
 
 #[test]
@@ -573,8 +579,12 @@ fn test_risk_independent_from_score() {
     // But 3 critical Level A violations
     for i in 0..3 {
         results.add_violation(Violation::new(
-            "4.1.2", "Name, Role, Value", WcagLevel::A,
-            Severity::Critical, "Missing name", &format!("n-{}", i),
+            "4.1.2",
+            "Name, Role, Value",
+            WcagLevel::A,
+            Severity::Critical,
+            "Missing name",
+            &format!("n-{}", i),
         ));
     }
 
@@ -587,7 +597,10 @@ fn test_risk_independent_from_score() {
     let normalized = normalize(&report);
 
     // Score should be decent (many passes)
-    assert!(normalized.score >= 50, "Score should be decent with many passes");
+    assert!(
+        normalized.score >= 50,
+        "Score should be decent with many passes"
+    );
     // But risk should be critical
     assert_eq!(
         normalized.risk.level,
@@ -617,7 +630,11 @@ fn test_journey_module_weight() {
         .iter()
         .find(|m| m.name == "Journey");
     assert!(journey_entry.is_some(), "Journey must be in module_scores");
-    assert_eq!(journey_entry.unwrap().weight_pct, 10, "Journey weight must be 10%");
+    assert_eq!(
+        journey_entry.unwrap().weight_pct,
+        10,
+        "Journey weight must be 10%"
+    );
 }
 
 #[test]

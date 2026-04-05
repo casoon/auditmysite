@@ -211,11 +211,7 @@ fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension 
     let mut primary_found = false;
 
     for node in buttons.iter().chain(links.iter()) {
-        let name = node
-            .name
-            .as_deref()
-            .unwrap_or("")
-            .to_lowercase();
+        let name = node.name.as_deref().unwrap_or("").to_lowercase();
         if name.is_empty() {
             continue;
         }
@@ -434,8 +430,7 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
             dimension: "Content Clarity".into(),
             severity: "medium".into(),
             problem: "Viel Text ohne ausreichende Zwischenüberschriften".into(),
-            impact: "Nutzer können Inhalte nicht scannen und finden relevante Stellen nicht"
-                .into(),
+            impact: "Nutzer können Inhalte nicht scannen und finden relevante Stellen nicht".into(),
             recommendation: "Text mit Zwischenüberschriften (H2, H3) gliedern".into(),
         });
     }
@@ -473,11 +468,7 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
     let mut trust_keyword_count = 0;
 
     for node in links.iter() {
-        let name = node
-            .name
-            .as_deref()
-            .unwrap_or("")
-            .to_lowercase();
+        let name = node.name.as_deref().unwrap_or("").to_lowercase();
         if name.is_empty() {
             continue;
         }
@@ -553,10 +544,7 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
 
 fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension {
     let link_count = tree.links().len();
-    let interactive_count = tree
-        .iter()
-        .filter(|n| n.is_interactive())
-        .count();
+    let interactive_count = tree.iter().filter(|n| n.is_interactive()).count();
     let dom_size = tree.len();
 
     let mut penalties = Vec::new();
@@ -572,8 +560,7 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
                 severity: "medium".into(),
                 problem: format!("{} Links auf der Seite", link_count),
                 impact: "Hohe Linkdichte überfordert Nutzer bei der Orientierung".into(),
-                recommendation: "Navigation vereinfachen, Links priorisieren und gruppieren"
-                    .into(),
+                recommendation: "Navigation vereinfachen, Links priorisieren und gruppieren".into(),
             });
         }
     }

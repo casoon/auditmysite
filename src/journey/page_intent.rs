@@ -59,27 +59,80 @@ impl PageIntent {
 // ── Detection keywords ─────────────────────────────────────────────
 
 const SHOP_KEYWORDS: &[&str] = &[
-    "warenkorb", "cart", "shop", "produkt", "product", "preis", "price",
-    "bestellen", "order", "kaufen", "buy", "in den warenkorb", "add to cart",
-    "checkout", "kasse", "artikel", "menge", "quantity",
+    "warenkorb",
+    "cart",
+    "shop",
+    "produkt",
+    "product",
+    "preis",
+    "price",
+    "bestellen",
+    "order",
+    "kaufen",
+    "buy",
+    "in den warenkorb",
+    "add to cart",
+    "checkout",
+    "kasse",
+    "artikel",
+    "menge",
+    "quantity",
 ];
 
 const LEADGEN_KEYWORDS: &[&str] = &[
-    "kontaktformular", "contact form", "anfrage", "request", "angebot",
-    "quote", "termin", "appointment", "beratung", "consultation",
-    "newsletter", "subscribe", "registrieren", "sign up", "demo",
+    "kontaktformular",
+    "contact form",
+    "anfrage",
+    "request",
+    "angebot",
+    "quote",
+    "termin",
+    "appointment",
+    "beratung",
+    "consultation",
+    "newsletter",
+    "subscribe",
+    "registrieren",
+    "sign up",
+    "demo",
 ];
 
 const EDITORIAL_KEYWORDS: &[&str] = &[
-    "artikel", "article", "blog", "beitrag", "post", "autor", "author",
-    "veröffentlicht", "published", "lesezeit", "reading time", "kommentar",
-    "comment", "kategorie", "category", "tag",
+    "artikel",
+    "article",
+    "blog",
+    "beitrag",
+    "post",
+    "autor",
+    "author",
+    "veröffentlicht",
+    "published",
+    "lesezeit",
+    "reading time",
+    "kommentar",
+    "comment",
+    "kategorie",
+    "category",
+    "tag",
 ];
 
 const CORPORATE_KEYWORDS: &[&str] = &[
-    "über uns", "about us", "team", "karriere", "career", "unternehmen",
-    "company", "mission", "vision", "standort", "location", "partner",
-    "referenz", "reference", "geschichte", "history",
+    "über uns",
+    "about us",
+    "team",
+    "karriere",
+    "career",
+    "unternehmen",
+    "company",
+    "mission",
+    "vision",
+    "standort",
+    "location",
+    "partner",
+    "referenz",
+    "reference",
+    "geschichte",
+    "history",
 ];
 
 /// Detect the primary intent of a page from AXTree signals.
@@ -186,7 +239,10 @@ mod tests {
         let tree = AXTree::new();
         let intent = detect_page_intent(&tree);
         // Empty tree -> Unknown or Marketing depending on heuristic
-        assert!(matches!(intent, PageIntent::Unknown | PageIntent::Marketing));
+        assert!(matches!(
+            intent,
+            PageIntent::Unknown | PageIntent::Marketing
+        ));
     }
 
     #[test]

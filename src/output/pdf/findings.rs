@@ -96,9 +96,8 @@ pub(super) fn render_finding_technical(
     builder = builder.add_component(TextBlock::new(meta));
 
     // Recommendation only — no repeated problem description
-    builder = builder.add_component(
-        Callout::success(&group.recommendation).with_title("Empfehlung"),
-    );
+    builder =
+        builder.add_component(Callout::success(&group.recommendation).with_title("Empfehlung"));
 
     // Code examples — the core of the tech section
     for example in &group.examples {
@@ -124,4 +123,3 @@ pub(super) fn render_finding_technical(
 
     builder
 }
-

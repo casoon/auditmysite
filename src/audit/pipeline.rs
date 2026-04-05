@@ -18,6 +18,7 @@ use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::error::Result;
+use crate::journey::{analyze_journey, JourneyAnalysis};
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{
     analyze_content_weight, analyze_render_blocking, calculate_performance_score,
@@ -25,7 +26,6 @@ use crate::performance::{
 };
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
-use crate::journey::{analyze_journey, JourneyAnalysis};
 use crate::ux::{analyze_ux, UxAnalysis};
 use crate::wcag::{self, WcagResults};
 

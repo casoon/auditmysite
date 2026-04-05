@@ -146,8 +146,7 @@ fn test_batch_json_report_generation() {
 fn test_studio_response_matches_schema() {
     let report = create_test_report();
     let normalized = normalize(&report);
-    let response =
-        StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+    let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
 
     let json_value = serde_json::to_value(&response).expect("serialization must work");
     assert_matches_schema(&json_value, "studio-contract.schema.json");
@@ -157,8 +156,7 @@ fn test_studio_response_matches_schema() {
 fn test_studio_history_entry_roundtrip() {
     let report = create_test_report();
     let normalized = normalize(&report);
-    let response =
-        StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+    let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
     let entry = StudioHistoryEntry::from_response(&response);
 
     // Serialize and deserialize must round-trip
@@ -175,9 +173,19 @@ fn test_studio_history_entry_roundtrip() {
     let obj: serde_json::Value = serde_json::from_str(&json).unwrap();
     let map = obj.as_object().unwrap();
     for field in &[
-        "id", "url", "timestamp", "accessibility_score", "overall_score",
-        "grade", "certificate", "risk_level", "total_issues", "critical_issues",
-        "high_issues", "execution_time_ms", "module_scores",
+        "id",
+        "url",
+        "timestamp",
+        "accessibility_score",
+        "overall_score",
+        "grade",
+        "certificate",
+        "risk_level",
+        "total_issues",
+        "critical_issues",
+        "high_issues",
+        "execution_time_ms",
+        "module_scores",
     ] {
         assert!(map.contains_key(*field), "Missing field: {}", field);
     }
@@ -187,18 +195,33 @@ fn test_studio_history_entry_roundtrip() {
 fn test_studio_response_has_all_expected_fields() {
     let report = create_test_report();
     let normalized = normalize(&report);
-    let response =
-        StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+    let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
 
     let json_value = serde_json::to_value(&response).expect("serialization must work");
     let obj = json_value.as_object().unwrap();
 
     // Every required field must be present
     let required = vec![
-        "url", "timestamp", "accessibility_score", "overall_score", "grade",
-        "certificate", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
-        "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
-        "module_scores", "findings", "nodes_analyzed", "execution_time_ms", "json_report",
+        "url",
+        "timestamp",
+        "accessibility_score",
+        "overall_score",
+        "grade",
+        "certificate",
+        "risk_level",
+        "risk_summary",
+        "legal_flags",
+        "blocking_issues",
+        "critical_issues",
+        "high_issues",
+        "medium_issues",
+        "low_issues",
+        "total_issues",
+        "module_scores",
+        "findings",
+        "nodes_analyzed",
+        "execution_time_ms",
+        "json_report",
     ];
     for field in required {
         assert!(obj.contains_key(field), "Missing required field: {}", field);

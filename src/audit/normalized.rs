@@ -521,7 +521,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         // Legal flags: WCAG Level A violations are legally relevant (BFSG/EAA)
         let legal_flags = findings
             .iter()
-            .filter(|f| f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High))
+            .filter(|f| {
+                f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
+            })
             .map(|f| f.occurrence_count)
             .sum::<usize>();
 

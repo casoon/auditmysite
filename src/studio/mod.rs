@@ -221,8 +221,7 @@ mod tests {
             500,
         );
         let normalized = normalize(&report);
-        let response =
-            StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+        let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
 
         assert_eq!(response.url, "https://example.com");
         assert_eq!(response.accessibility_score, 100);
@@ -240,8 +239,7 @@ mod tests {
             500,
         );
         let normalized = normalize(&report);
-        let response =
-            StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+        let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
         let entry = StudioHistoryEntry::from_response(&response);
 
         assert_eq!(entry.url, response.url);
@@ -259,8 +257,7 @@ mod tests {
             500,
         );
         let normalized = normalize(&report);
-        let response =
-            StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+        let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
 
         // At minimum, Accessibility module should be present
         assert!(
@@ -281,8 +278,7 @@ mod tests {
             500,
         );
         let normalized = normalize(&report);
-        let response =
-            StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
+        let response = StudioAuditResponse::from_normalized(&normalized, &report, "{}".to_string());
 
         // Must serialize without error
         let json = serde_json::to_string(&response).expect("serialization must work");

@@ -106,13 +106,13 @@ pub use browser::{
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use error::{AuditError, Result};
-pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use journey::{analyze_journey, JourneyAnalysis, PageIntent};
-pub use ux::{analyze_ux, UxAnalysis};
+pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
+pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};
