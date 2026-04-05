@@ -239,6 +239,11 @@ AAA is not fully implemented yet.
 - SEO: meta tags, headings, structured data, content profile, tracking/external services signals
 - Security: HTTPS and header checks
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
+- UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
+
+### Risk assessment
+
+Risk level is computed independently from the score. A page scoring 81 can still carry "Critical" risk if it has Level A violations relevant under BFSG/EAA. Risk levels: Low, Medium, High, Critical — based on critical/high violations, legal flags, and blocking issues (4.1.2/2.1.1).
 
 ### Rule configuration
 
@@ -278,7 +283,7 @@ The `Baseline` type in the `audit` module supports `from_violations`, `diff`, `l
 Single-page reports and sitemap/batch reports are intentionally different.
 
 **Single-page report** is structured in two layers:
-- Top (decision layer): hero block with score, top 3 problems, next 3 steps, overall assessment (UX/Accessibility, Technik/Sicherheit, SEO), trend
+- Top (decision layer): hero block with score + risk level, top 3 problems, next 3 steps, overall assessment (UX/Accessibility, Technik/Sicherheit, SEO), trend
 - Bottom (implementation layer): task block ("Was jetzt tun?" with role, effort, impact, priority), module overview, key findings, technical implementation details, detailed metrics
 
 **Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics.
@@ -340,7 +345,7 @@ Key layers:
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI format
-- `seo/`, `security/`, `performance/`, `mobile/`: optional analysis modules
+- `seo/`, `security/`, `performance/`, `mobile/`, `ux/`: optional analysis modules
 
 More detail:
 - Current implementation: [docs/ARCHITECTURE.md](/Users/jseidel/GitHub/auditmysite/docs/ARCHITECTURE.md)

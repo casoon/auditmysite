@@ -92,6 +92,10 @@ src/
 ├── seo/                       # Meta, Headings, Schema.org, Social, Technical
 ├── security/                  # Security-Header-Analyse
 ├── mobile/                    # Mobile-Friendliness, UX-Heuristiken
+├── ux/                        # UX-Analyse (5 Dimensionen, Sättigungskurven)
+│   ├── mod.rs                 # Modul-Exports
+│   ├── analysis.rs            # 5-Dimensionen-Analyse auf AXTree-Basis
+│   └── scoring.rs             # Sättigungskurven, Dimensions-Score, gewichteter Durchschnitt
 ├── dark_mode/                 # Dark-Mode-Support-Analyse
 ├── i18n/                      # Project Fluent (.ftl), Standard-Sprache: Deutsch
 └── taxonomy/                  # Severity, Dimensions, IssueClass, Score-Enums
@@ -120,6 +124,7 @@ pub struct AuditReport {
     pub seo: Option<SeoAnalysis>,
     pub security: Option<SecurityAnalysis>,
     pub mobile: Option<MobileFriendliness>,
+    pub ux: Option<UxAnalysis>,
     pub dark_mode: Option<DarkModeAnalysis>,
     pub budget_violations: Vec<BudgetViolation>,
 }
@@ -212,11 +217,12 @@ CLI-Args (Args)
 audit_page():
   1. AXTree-Extraktion via CDP
   2. [--full] Performance-Metriken, SEO, Security, Mobile parallel
-  3. wcag::check_all(&ax_tree, level) → Vec<Violation>
-  4. [AA/AAA] ContrastRule::check_with_page() → CDP-Styles + Kontrastberechnung
-  5. enrich_violations_with_page() → CSS-Selektoren, HTML-Snippets
-  6. AccessibilityScorer::calculate_score() → f32
-  7. → AuditReport
+  3. [--full] UX-Analyse auf AXTree (kein CDP nötig)
+  4. wcag::check_all(&ax_tree, level) → Vec<Violation>
+  5. [AA/AAA] ContrastRule::check_with_page() → CDP-Styles + Kontrastberechnung
+  6. enrich_violations_with_page() → CSS-Selektoren, HTML-Snippets
+  7. AccessibilityScorer::calculate_score() → f32
+  8. → AuditReport
 
 AuditReport
   │
@@ -235,9 +241,72 @@ AuditReport
           ├─ renderreport-Engine instanziieren (Typst)
           ├─ add_component() je ViewModel-Block
           │   Cover → Summary → Methodology → Modules →
-          │   Findings → Detail-Module → Actions → Appendix
+          │   Findings → Detail-Module (inkl. UX) → Actions → Appendix
           └─ Typst kompiliert → PDF-Bytes → Datei
 ```
+
+---
+
+## UX-Modul
+
+**Dateien:** `src/ux/analysis.rs`, `src/ux/scoring.rs`
+
+Das UX-Modul analysiert die User Experience einer Seite anhand von 5 Dimensionen, vollständig auf Basis des bereits extrahierten AXTree — ohne zusätzliche CDP-Aufrufe.
+
+### 5 Dimensionen
+
+| Dimension | Gewicht | Was wird geprüft |
+|-----------|---------|-------------------|
+| CTA Clarity | 30% | CTAs vorhanden, aussagekräftig benannt (DE/EN-Keywords), keine generischen Labels |
+| Visual Hierarchy | 20% | H1-Präsenz, Heading-Reihenfolge, Heading-Verteilung |
+| Content Clarity | 20% | Textumfang, Subheading-Dichte, Lesbarkeit |
+| Trust Signals | 15% | Kontakt/Impressum/Datenschutz-Links, Vertrauenselemente |
+| Cognitive Load | 15% | Link-Anzahl, interaktive Elemente, DOM-Größe |
+
+### Sättigungskurven
+
+Jede Dimension verwendet Sättigungskurven statt linearer Abzüge:
+
+```
+penalty = max_penalty × (1 - e^(-count / pivot))
+```
+
+Wenige Verstöße werden stark bestraft, weitere Verstöße desselben Typs haben abnehmenden Einfluss. Jede Dimension hat einen **Group Cap**, der verhindert dass ein einzelner Bereich den Gesamtscore dominiert.
+
+### Integration
+
+UX läuft im `audit_page()`-Pipeline wenn `--full` aktiv ist. Der Score fließt mit Gewicht 15% in den `overall_score` ein.
+
+---
+
+## Risikobewertung (Score ≠ Risk)
+
+**Datei:** `src/audit/normalized.rs`
+
+Die Risikobewertung ist konzeptionell unabhängig vom Score. Ein Score von 81 kann trotzdem Risikostufe „Kritisch" tragen, wenn z.B. Level-A-Verletzungen vorliegen die unter BFSG/EAA rechtlich relevant sind.
+
+### RiskLevel
+
+```rust
+pub enum RiskLevel { Low, Medium, High, Critical }
+```
+
+### Berechnung
+
+| Bedingung | Stufe |
+|-----------|-------|
+| `legal_flags > 0 && critical_issues > 0` | Critical |
+| `critical_issues >= 3 \|\| blocking_issues >= 10` | High |
+| `high_issues >= 3 \|\| critical_issues >= 1` | Medium |
+| sonst | Low |
+
+- **legal_flags**: WCAG Level-A-Verletzungen mit rechtlicher Relevanz (BFSG/EAA)
+- **blocking_issues**: Verletzungen von 4.1.2/2.1.1 (interaktive Elemente ohne Namen, fehlende Tastaturzugänglichkeit)
+- **critical_issues / high_issues**: Violations nach Severity
+
+### Darstellung
+
+Im PDF erscheint ein farbcodierter Risiko-Callout auf der Zusammenfassungsseite. Im CLI wird die Risikostufe farbig nach dem WCAG-Summary angezeigt. Im JSON liegt `risk` als eigenständiges Objekt im `normalizedReport`.
 
 ---
 
