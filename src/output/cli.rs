@@ -280,7 +280,14 @@ fn print_violations_table(violations: &[Violation]) {
         };
 
         let message = if violation.message.len() > 60 {
-            format!("{}…", &violation.message[..57])
+            let b = violation
+                .message
+                .char_indices()
+                .take_while(|(i, _)| *i <= 57)
+                .last()
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            format!("{}…", &violation.message[..b])
         } else {
             violation.message.clone()
         };

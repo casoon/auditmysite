@@ -520,7 +520,13 @@ fn build_summary(seo: &SeoAnalysis) -> String {
     if !title.is_empty() && !desc.is_empty() {
         let combined = format!("{} — {}", title, desc);
         if combined.len() > 150 {
-            format!("{}...", &combined[..147])
+            let boundary = combined
+                .char_indices()
+                .take_while(|(i, _)| *i <= 147)
+                .last()
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            format!("{}...", &combined[..boundary])
         } else {
             combined
         }
@@ -845,7 +851,13 @@ fn analyze_generic(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted
             let display = match val {
                 serde_json::Value::String(s) => {
                     if s.len() > 60 {
-                        format!("{}...", &s[..57])
+                        let b = s
+                            .char_indices()
+                            .take_while(|(i, _)| *i <= 57)
+                            .last()
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
+                        format!("{}...", &s[..b])
                     } else {
                         s.clone()
                     }
