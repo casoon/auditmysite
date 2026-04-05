@@ -581,12 +581,28 @@ pub struct PortfolioSummary {
     pub passed: usize,
     pub failed: usize,
     pub average_score: f64,
+    /// Weighted overall score across all active modules (averaged over URLs)
+    pub average_overall_score: u32,
     pub total_violations: usize,
     pub duration_ms: u64,
     pub verdict_text: String,
     pub worst_urls: Vec<(String, f32)>,
     pub best_urls: Vec<(String, f32)>,
     pub severity_distribution: SeverityDistribution,
+    /// Aggregated risk level across all URLs (worst-case)
+    pub risk_level: String,
+    /// Risk summary text
+    pub risk_summary: String,
+    /// Averaged module scores across all URLs (module_name, average_score)
+    pub module_averages: Vec<(String, u32)>,
+    /// List of active module names
+    pub active_modules: Vec<String>,
+    /// Domain name (extracted from first URL)
+    pub domain: String,
+    /// Certificate label based on overall score
+    pub certificate: String,
+    /// Grade based on overall score
+    pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
     pub distribution_insights: Vec<String>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
@@ -646,6 +662,8 @@ pub struct IssueFrequency {
 pub struct UrlSummary {
     pub url: String,
     pub score: f32,
+    /// Weighted overall score across all active modules
+    pub overall_score: u32,
     pub grade: String,
     pub critical_violations: usize,
     pub total_violations: usize,

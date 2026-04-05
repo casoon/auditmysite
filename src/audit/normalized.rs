@@ -183,7 +183,7 @@ pub struct ModuleScoreEntry {
 
 /// Risk level — independent from score.
 /// Score = quality level, Risk = operational/legal relevance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
     Low,
@@ -419,18 +419,64 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         });
     }
     if let Some(ref ux) = report.ux {
+        // Accessibility flows into UX: critical a11y issues penalize UX score
+        // Rationale: for users with disabilities, Accessibility IS the UX
+        let a11y_penalty = {
+            let critical = severity_counts.critical;
+            let high = severity_counts.high;
+            if critical >= 10 {
+                25 // severe: many critical barriers
+            } else if critical >= 5 {
+                15
+            } else if critical > 0 {
+                10
+            } else if high >= 5 {
+                5
+            } else {
+                0
+            }
+        };
+        let adjusted_ux = ux.score.saturating_sub(a11y_penalty);
+        let adjusted_grade = match adjusted_ux {
+            90..=100 => "A",
+            80..=89 => "B",
+            70..=79 => "C",
+            60..=69 => "D",
+            _ => "F",
+        };
         module_scores.push(ModuleScoreEntry {
             name: "UX".to_string(),
-            score: ux.score,
-            grade: ux.grade.clone(),
+            score: adjusted_ux,
+            grade: adjusted_grade.to_string(),
             weight_pct: 15,
         });
     }
     if let Some(ref journey) = report.journey {
+        // Journey also gets a11y penalty — inaccessible journeys are broken journeys
+        let a11y_penalty = {
+            let critical = severity_counts.critical;
+            if critical >= 10 {
+                20
+            } else if critical >= 5 {
+                10
+            } else if critical > 0 {
+                5
+            } else {
+                0
+            }
+        };
+        let adjusted_journey = journey.score.saturating_sub(a11y_penalty);
+        let adjusted_grade = match adjusted_journey {
+            90..=100 => "A",
+            80..=89 => "B",
+            70..=79 => "C",
+            60..=69 => "D",
+            _ => "F",
+        };
         module_scores.push(ModuleScoreEntry {
             name: "Journey".to_string(),
-            score: journey.score,
-            grade: journey.grade.clone(),
+            score: adjusted_journey,
+            grade: adjusted_grade.to_string(),
             weight_pct: 10,
         });
     }
@@ -455,12 +501,13 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             weighted_sum += mobile.score as f64 * 10.0;
             total_weight += 10.0;
         }
-        if let Some(ref ux) = report.ux {
-            weighted_sum += ux.score as f64 * 15.0;
+        // Use adjusted UX/Journey scores from module_scores (with a11y penalty applied)
+        if let Some(ux_entry) = module_scores.iter().find(|m| m.name == "UX") {
+            weighted_sum += ux_entry.score as f64 * 15.0;
             total_weight += 15.0;
         }
-        if let Some(ref journey) = report.journey {
-            weighted_sum += journey.score as f64 * 10.0;
+        if let Some(journey_entry) = module_scores.iter().find(|m| m.name == "Journey") {
+            weighted_sum += journey_entry.score as f64 * 10.0;
             total_weight += 10.0;
         }
         (weighted_sum / total_weight).round() as u32
