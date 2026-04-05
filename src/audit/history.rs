@@ -135,7 +135,12 @@ pub fn write_report_history(
         entries,
     };
 
-    let json_path = reports_dir.join(format!("{subject}-history.json"));
+    // Use the report's own filename with -history.json suffix
+    let json_path = if let Some(stem) = output_path.file_stem().and_then(|s| s.to_str()) {
+        reports_dir.join(format!("{stem}-history.json"))
+    } else {
+        reports_dir.join(format!("{subject}-history.json"))
+    };
 
     fs::write(
         &json_path,
@@ -536,7 +541,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(written.len(), 1);
-        let history_json = fs::read_to_string(reports_dir.join("casoon-history.json")).unwrap();
+        let history_json =
+            fs::read_to_string(reports_dir.join("casoon-2026-03-31-standard-history.json"))
+                .unwrap();
         assert!(history_json.contains("\"entry_count\": 2"));
         assert!(history_json.contains("\"accessibility_score_delta\": 4"));
     }

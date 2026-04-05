@@ -1076,6 +1076,11 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
                     .clone()
                     .unwrap_or_else(|| default_batch_pdf_output_path(args));
                 output_bytes(&pdf_bytes, &path, "PDF batch", args.quiet)?;
+
+                // Auto-generate JSON alongside batch PDF
+                let json_path = path.with_extension("json");
+                let json_output = format_json_batch(batch_report, true)?;
+                output_text(&json_output, &Some(json_path), "JSON batch", args.quiet)?;
             }
             #[cfg(not(feature = "pdf"))]
             {
