@@ -316,17 +316,14 @@ fn build_executive_narrative(
                     "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen.".to_string()
                 }),
         ),
-        (
-            "Business".to_string(),
-            {
-                let consequence = build_business_consequence(normalized);
-                if consequence.is_empty() {
-                    "Nutzer brechen Prozesse ab oder erreichen Ziele nicht.".to_string()
-                } else {
-                    consequence
-                }
-            },
-        ),
+        ("Business".to_string(), {
+            let consequence = build_business_consequence(normalized);
+            if consequence.is_empty() {
+                "Nutzer brechen Prozesse ab oder erreichen Ziele nicht.".to_string()
+            } else {
+                consequence
+            }
+        }),
         (
             "Risiko".to_string(),
             if severity.critical > 0 {
@@ -340,14 +337,17 @@ fn build_executive_narrative(
     let quick_actions = build_single_quick_actions_text(action_plan, top_findings);
 
     let total_ch = (severity.critical + severity.high) as usize;
-    let (spotlight_body, spotlight_impact, spotlight_recommendation, leverage_text) =
-        if let Some(top) = top_findings.first() {
-            let share = if total_ch > 0 {
-                top.occurrence_count * 100 / total_ch
-            } else {
-                0
-            };
-            (
+    let (spotlight_body, spotlight_impact, spotlight_recommendation, leverage_text) = if let Some(
+        top,
+    ) =
+        top_findings.first()
+    {
+        let share = if total_ch > 0 {
+            top.occurrence_count * 100 / total_ch
+        } else {
+            0
+        };
+        (
                 audit_summary
                     .dominant_issue_note
                     .clone()
@@ -364,16 +364,16 @@ fn build_executive_narrative(
                     )
                 }),
             )
-        } else {
-            (
-                "Kein einzelnes Problem dominiert das Auditbild; die Befunde sind breiter verteilt."
-                    .to_string(),
-                "Die Wirkung verteilt sich auf mehrere kleinere Barrieren.".to_string(),
-                "Die Maßnahmen sollten gebündelt und nach Hebel priorisiert umgesetzt werden."
-                    .to_string(),
-                None,
-            )
-        };
+    } else {
+        (
+            "Kein einzelnes Problem dominiert das Auditbild; die Befunde sind breiter verteilt."
+                .to_string(),
+            "Die Wirkung verteilt sich auf mehrere kleinere Barrieren.".to_string(),
+            "Die Maßnahmen sollten gebündelt und nach Hebel priorisiert umgesetzt werden."
+                .to_string(),
+            None,
+        )
+    };
 
     let findings_intro = if score >= 85 && top_findings.len() <= 2 {
         "Technisch stark — die folgenden Punkte sind Feinschliff-Hebel.".to_string()
@@ -475,13 +475,15 @@ fn build_single_key_points_text(
 
     if severity.critical > 0 {
         points.push(
-            "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)"
-                .to_string(),
+            "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)".to_string(),
         );
     } else if severity.high > 0 {
         points.push("Keine Level-A-Verstöße, aber strukturelle Schwächen".to_string());
     } else if !normalized.audit_flags.is_empty() {
-        points.push("Audit-Hinweise vorhanden — einzelne Signale sollten fachlich gegengeprüft werden.".to_string());
+        points.push(
+            "Audit-Hinweise vorhanden — einzelne Signale sollten fachlich gegengeprüft werden."
+                .to_string(),
+        );
     } else {
         points.push("Keine kritischen Barrieren — gute Ausgangslage".to_string());
     }
@@ -511,7 +513,10 @@ fn build_single_quick_actions_text(
                 Effort::Medium => "3–5 Tage",
                 Effort::Structural => "1–2 Wochen",
             };
-            actions.push((sentence_preview(&group.recommendation).to_string(), timeframe.to_string()));
+            actions.push((
+                sentence_preview(&group.recommendation).to_string(),
+                timeframe.to_string(),
+            ));
         }
     }
 
@@ -2233,8 +2238,8 @@ mod tests {
         build_pattern_clusters, build_representative_occurrences, build_view_model,
         normalize_selector_cluster,
     };
-    use crate::audit::{normalize, AuditReport};
     use crate::audit::normalized::OccurrenceDetail;
+    use crate::audit::{normalize, AuditReport};
     use crate::cli::WcagLevel;
     use crate::output::report_model::{ReportConfig, ReportHistoryPreview};
     use crate::wcag::{Severity, Violation, WcagResults};
@@ -2264,7 +2269,9 @@ mod tests {
                 selector: Some("#cta-primary".into()),
                 fix_suggestion: Some("Use darker text color.".into()),
                 html_snippet: Some("<a id=\"cta-primary\">Kontakt</a>".into()),
-                suggested_code: Some("<a id=\"cta-primary\" class=\"text-stone-900\">Kontakt</a>".into()),
+                suggested_code: Some(
+                    "<a id=\"cta-primary\" class=\"text-stone-900\">Kontakt</a>".into(),
+                ),
             },
             OccurrenceDetail {
                 node_id: "node-4".into(),
@@ -2351,7 +2358,10 @@ mod tests {
 
         let clusters = build_pattern_clusters(&occurrences);
 
-        assert_eq!(normalize_selector_cluster("main .card-1 .cta"), "main .card-# .cta");
+        assert_eq!(
+            normalize_selector_cluster("main .card-1 .cta"),
+            "main .card-# .cta"
+        );
         assert_eq!(clusters[0].occurrences, 2);
         assert_eq!(clusters[0].label, "main .card-1 .cta");
     }
@@ -2412,7 +2422,13 @@ mod tests {
                     delta_critical_issues: -2,
                     recent_entries: vec![
                         ("01.04.2026".to_string(), 74, 78, "C".to_string(), 12),
-                        ("06.04.2026".to_string(), normalized.score, normalized.overall_score, normalized.grade.clone(), normalized.severity_counts.total as u32),
+                        (
+                            "06.04.2026".to_string(),
+                            normalized.score,
+                            normalized.overall_score,
+                            normalized.grade.clone(),
+                            normalized.severity_counts.total as u32,
+                        ),
                     ],
                     new_findings: vec!["Link-Purpose".to_string()],
                     resolved_findings: vec!["Alt-Text".to_string()],
