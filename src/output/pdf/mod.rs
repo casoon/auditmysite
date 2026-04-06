@@ -13,7 +13,8 @@ mod modules;
 
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, DominantIssueSpotlight,
-    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
+    ImpactGrid, ImpactGridCard, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    PhaseBlock, SectionHeaderSplit,
     TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
@@ -23,6 +24,7 @@ use renderreport::prelude::*;
 // Composite components
 use renderreport::components::{
     AuditTable, BenchmarkRow, BenchmarkTable, ComparisonModule, ModuleComparison, SeverityOverview,
+    SummaryBox,
     TableColumn,
 };
 
@@ -47,7 +49,7 @@ use self::helpers::{
     component_json, create_engine, extract_domain, priority_label_i18n, role_label_i18n,
     severity_label_i18n, soft_flow_group,
 };
-use self::history::render_methodology_section;
+use self::history::{render_history_section, render_methodology_section};
 use self::modules::{
     build_summary_overview, build_top_hebel_table, build_was_jetzt_tun_table, WasJetztTunContent,
 };
@@ -84,17 +86,16 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     // ── Cover Page ───────────────────────────────────────────────────
     builder = builder
+        .add_component(Image::new(wordmark_asset).with_width("120pt"))
         .add_component(
-            Label::new("Automatisierter Audit-Report")
-                .with_size("11pt")
+            Label::new(&vm.executive.cover_eyebrow)
+                .with_size("10pt")
                 .bold()
                 .with_color("#0f766e"),
         )
         .add_component(Label::new(&vm.cover.title).with_size("28pt").bold())
         .add_component(
-            Label::new(
-                "Technischer Website-Check mit Fokus auf Accessibility, SEO und Performance",
-            )
+            Label::new(&vm.executive.cover_kicker)
             .with_size("12pt")
             .with_color("#475569"),
         )
@@ -119,33 +120,45 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         )
+        .add_component(build_cover_fact_strip(&vm))
         .add_component(PageBreak::new());
+
+    if vm.meta.report_level != ReportLevel::Executive {
+        builder = builder
+            .add_component(
+                SectionHeaderSplit::new(
+                    "Report-Navigation",
+                    "Executive Summary, Priorisierung, technische Detailmetriken und Audit-Anhang.",
+                )
+                .with_eyebrow("INHALT")
+                .with_level(1),
+            )
+            .add_component(TableOfContents::new())
+            .add_component(PageBreak::new());
+    }
 
     // ─────────────────────────────────────────────────────────────────
     // SECTION 1 — STATUS & BEWERTUNG
     // Goal: In 10 Sekunden verstehen: Wie schlimm? Warum relevant? Was tun?
     // ─────────────────────────────────────────────────────────────────
     {
-        // Block 1: Bewertung — eine klare Einordnung, kein Score
-        let assessment = build_single_assessment(&vm.summary, &vm.severity);
-        let risk_action = match vm.summary.risk_level.as_str() {
-            "Kritisch" => "Sofort handeln",
-            "Hoch" => "Zeitnah beheben",
-            "Mittel" => "Bei nächster Optimierung",
-            _ => "Kein akuter Handlungsbedarf",
-        };
-        let risk_title = format!("{}  —  {}", assessment, risk_action);
-
         let risk_callout = match vm.summary.risk_level.as_str() {
-            "Kritisch" => Callout::error(&vm.summary.risk_summary).with_title(&risk_title),
-            "Hoch" => Callout::warning(&vm.summary.risk_summary).with_title(&risk_title),
-            _ => Callout::info(&vm.summary.risk_summary).with_title(&risk_title),
+            "Kritisch" => Callout::error(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
+            "Hoch" => Callout::warning(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
+            _ => Callout::info(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
         };
 
         builder = builder.add_component(soft_flow_group(
             "180pt",
             vec![
-                component_json(Section::new("Status der Website").with_level(1)),
+                component_json(
+                    SectionHeaderSplit::new(
+                        &vm.executive.status_title,
+                        "Einordnung, Risiko und die geschäftlich wichtigsten Konsequenzen auf einen Blick.",
+                    )
+                    .with_eyebrow("EXECUTIVE SNAPSHOT")
+                    .with_level(1)
+                ),
                 component_json(risk_callout),
             ],
         ));
@@ -156,21 +169,30 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             vec![
                 component_json(build_summary_overview(&vm.summary)),
                 component_json(MetricStrip::new(vec![
+                    MetricStripItem::new("Gesamtscore", vm.summary.score.to_string())
+                        .with_accent("#0f766e"),
                     MetricStripItem::new("Probleme erkannt", vm.severity.total.to_string()),
                     MetricStripItem::new(
                         "Kritisch / Hoch",
                         format!("{}", vm.severity.critical + vm.severity.high),
                     )
-                    .with_status("bad"),
-                ])),
+                    .with_status("bad")
+                    .with_accent("#dc2626"),
+                    MetricStripItem::new("Risiko", &vm.summary.risk_level)
+                        .with_status(risk_status(&vm.summary.risk_level)),
+                    MetricStripItem::new("Zertifikat", &vm.summary.certificate)
+                        .with_accent("#7c3aed"),
+                ]).compact()),
             ],
         ));
 
+        builder = builder.add_component(build_module_strip(&vm));
+        builder = builder.add_component(build_raw_audit_snapshot(&vm));
+
         // Block 2: Kernaussagen — max 3 Punkte, direkt aus Daten
         {
-            let key_points = build_single_key_points(&vm);
-            let mut kp_list = List::new().with_title("Kernaussagen");
-            for point in &key_points {
+            let mut kp_list = List::new().with_title(&vm.executive.key_points_title);
+            for point in &vm.executive.key_points {
                 kp_list = kp_list.add_item(point);
             }
             builder = builder.add_component(kp_list);
@@ -178,44 +200,43 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // Auswirkungen — Nutzer / Business / Risiko
         {
-            let nutzer_text = if !vm.summary.overall_impact.is_empty() {
-                vm.summary.overall_impact[0].1.clone()
-            } else {
-                "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen.".to_string()
-            };
-            let business_text = if !vm.summary.business_consequence.is_empty() {
-                vm.summary.business_consequence.clone()
-            } else {
-                "Nutzer brechen Prozesse ab oder erreichen Ziele nicht.".to_string()
-            };
-            let legal_text = if vm.severity.critical > 0 {
-                "WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG) vorhanden."
-            } else {
-                "Keine WCAG-Level-A-Verstöße mit akuter rechtlicher Relevanz."
-            };
-
-            let impact_kv = KeyValueList::new()
-                .with_title("Auswirkungen")
-                .add("Nutzer", nutzer_text)
-                .add("Business", business_text)
-                .add("Risiko", legal_text);
-            builder = builder.add_component(impact_kv);
+            let user = impact_row(&vm.executive.impact_rows, "Nutzer");
+            let business = impact_row(&vm.executive.impact_rows, "Business");
+            let risk = impact_row(&vm.executive.impact_rows, "Risiko");
+            builder = builder.add_component(
+                ImpactGrid::new(
+                    ImpactGridCard::new("Nutzer", "Nutzbarkeit", user).with_status("warn"),
+                    ImpactGridCard::new("Risiko", "Compliance", risk).with_status("bad"),
+                    ImpactGridCard::new("Business", "Geschäftswirkung", business)
+                        .with_status("info"),
+                )
+                .with_title(&vm.executive.impact_title),
+            );
         }
 
         // Block 3: Handlungsempfehlung — sehr konkret
         {
-            let actions = build_single_quick_actions(&vm);
-            if !actions.is_empty() {
-                let rows: Vec<ChecklistRow> = actions
+            if !vm.executive.quick_actions.is_empty() {
+                let rows: Vec<ChecklistRow> = vm
+                    .executive
+                    .quick_actions
                     .iter()
                     .map(|(action, timeframe)| {
-                        ChecklistRow::new(*timeframe, action).with_status("warn")
+                        ChecklistRow::new(timeframe, action).with_status("warn")
                     })
                     .collect();
                 builder = builder.add_component(
-                    ChecklistPanel::new(rows).with_title("Empfohlene Sofortmaßnahmen"),
+                    ChecklistPanel::new(rows).with_title(&vm.executive.quick_actions_title),
                 );
             }
+        }
+
+        if !vm.summary.positive_aspects.is_empty() {
+            let mut strengths = SummaryBox::new("Was bereits stark ist");
+            for item in vm.summary.positive_aspects.iter().take(3) {
+                strengths = strengths.add_item("Stärke", item);
+            }
+            builder = builder.add_component(strengths);
         }
     }
 
@@ -233,21 +254,14 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             } else {
                 0
             };
-            // One sentence summary — no technical details
-            let body = vm.summary.dominant_issue_note.as_deref().unwrap_or(
-                "Der Großteil der kritischen Probleme entsteht durch dieses eine Thema.",
-            );
-            // One sentence each for impact and recommendation
-            let impact_short = first_sentence(&top.user_impact);
-            let rec_short = first_sentence(&top.recommendation);
             let spotlight = DominantIssueSpotlight::new(
                 &top.title,
                 format!("{:?}", top.severity).to_lowercase(),
-                body,
-                impact_short,
-                rec_short,
+                &vm.executive.spotlight_body,
+                &vm.executive.spotlight_impact,
+                &vm.executive.spotlight_recommendation,
             )
-            .with_eyebrow("HAUPTPROBLEM")
+            .with_eyebrow(&vm.executive.spotlight_eyebrow)
             .with_affected_count(share as u32);
             builder = builder.add_component(spotlight);
         }
@@ -260,14 +274,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // LeverageBlock — what fixing achieves
         if total_ch > 0 {
-            if let Some(top) = vm.findings.top_findings.first() {
-                let share = top.occurrence_count * 100 / total_ch;
-                let leverage_text = format!(
-                    "Behebung des Hauptproblems reduziert ca. {}% der kritischen Fehler. Sofort spürbare Verbesserung der Nutzbarkeit.",
-                    share.min(99)
-                );
+            if let Some(leverage_text) = &vm.executive.leverage_text {
                 builder = builder.add_component(
-                    Callout::success(&leverage_text).with_title("Wirkung einer Behebung"),
+                    Callout::success(leverage_text).with_title(&vm.executive.leverage_title),
                 );
             }
         }
@@ -278,19 +287,17 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // Goal: understand — compact cards, no tech detail here
     // ─────────────────────────────────────────────────────────────────
     {
-        let findings_count = vm.findings.top_findings.len();
-        let findings_intro = if vm.summary.score >= 85 && findings_count <= 2 {
-            "Technisch stark — die folgenden Punkte sind Feinschliff-Hebel."
-        } else {
-            "Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt."
-        };
         builder = builder
-            .add_component(SectionHeaderSplit::new("Key Findings", findings_intro).with_level(1));
+            .add_component(SectionHeaderSplit::new(&vm.executive.findings_title, &vm.executive.findings_intro).with_level(1));
 
         // FindingCards — compact: Problem/Impact/Ursache/Fix
         for group in vm.findings.top_findings.iter().take(5) {
             builder = render_key_finding_block(builder, group, &i18n);
         }
+    }
+
+    if let Some(ref history) = vm.history {
+        builder = render_history_section(builder, history);
     }
 
     // Executive level stops here
@@ -307,19 +314,29 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     {
         builder = builder.add_component(
             SectionHeaderSplit::new(
-                "Maßnahmenplan",
-                "Priorisiert nach Wirkung und Aufwand. Die Maßnahmen sind klar umrissen und direkt planbar.",
+                &vm.executive.action_plan_title,
+                &vm.executive.action_plan_intro,
             )
+            .with_eyebrow("UMSETZUNGSPLAN")
             .with_level(1),
         );
 
         // Empfohlene Vorgehensweise
         builder = builder.add_component(
-            Callout::info(
-                "Beginne mit den Quick Wins: hoher Impact bei geringem Aufwand. Die nachfolgende Tabelle zeigt alle Maßnahmen in empfohlener Reihenfolge.",
-            )
-            .with_title("Empfohlene Vorgehensweise"),
+            Callout::info(&vm.executive.action_plan_callout_body)
+            .with_title(&vm.executive.action_plan_callout_title),
         );
+
+        if !vm.actions.phase_preview.is_empty() {
+            for (idx, phase) in vm.actions.phase_preview.iter().enumerate() {
+                builder = builder.add_component(
+                    PhaseBlock::new((idx + 1) as u8, &phase.phase_label, &phase.description)
+                        .with_items(phase.top_items.clone())
+                        .with_total(phase.item_count)
+                        .with_color(&phase.accent_color),
+                );
+            }
+        }
 
         // QuickWins — immediate actions
         let quick_items: Vec<&RoadmapItemData> = vm
@@ -358,9 +375,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     {
         builder = builder.add_component(
             SectionHeaderSplit::new(
-                "Technische Umsetzung",
-                "Ab hier folgt die konkrete Umsetzung für Entwicklung, Design und Redaktion. Jedes Problem enthält: betroffene Elemente, direkte Umsetzung, Code-Beispiele.",
+                &vm.executive.technical_title,
+                &vm.executive.technical_intro,
             )
+            .with_eyebrow("TECHNICAL HANDOFF")
             .with_level(1),
         );
 
@@ -444,6 +462,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             .add_component(PageBreak::new())
             .add_component(Section::new(i18n.t("section-appendix")).with_level(1));
 
+        builder = builder.add_component(build_cli_snapshot_table(&vm));
+
         if vm.meta.report_level == ReportLevel::Technical {
             for v in &vm.appendix.violations {
                 let mut desc = v.message.clone();
@@ -506,106 +526,143 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     Ok(engine.render_pdf(&built_report)?)
 }
 
-// ─── Helper: Single Report Assessment & Key Points ─────────────────────────
-
-/// Clear, interpretive assessment — no score, just what it means
-fn build_single_assessment(summary: &SummaryBlock, severity: &SeverityBlock) -> String {
-    let has_critical_a11y = severity.critical > 0;
-    let has_high = severity.high > 0;
-
-    if has_critical_a11y && summary.score < 50 {
-        "Kritische Barrieren — nicht WCAG-konform".to_string()
-    } else if has_critical_a11y {
-        "Technisch solide, aber rechtlich riskant".to_string()
-    } else if has_high {
-        "Gute Basis, aber nicht barrierefrei".to_string()
-    } else if summary.score >= 85 {
-        "Weitgehend barrierefrei — Feinschliff".to_string()
-    } else {
-        "Solide Grundlage mit Optimierungspotenzial".to_string()
-    }
+fn build_cover_fact_strip(vm: &ReportViewModel) -> MetricStrip {
+    MetricStrip::new(vec![
+        MetricStripItem::new("Domain", extract_domain(&vm.cover.domain)).with_accent("#0f766e"),
+        MetricStripItem::new("Report-Level", format!("{:?}", vm.meta.report_level))
+            .with_accent("#475569"),
+        MetricStripItem::new("Module", vm.cover.modules.len().to_string()).with_accent("#7c3aed"),
+        MetricStripItem::new("Prüfdatum", &vm.cover.date).with_accent("#b45309"),
+    ])
 }
 
-/// 3 key takeaways, generated from data
-fn build_single_key_points(vm: &ReportViewModel) -> Vec<String> {
-    let mut points = Vec::with_capacity(3);
-
-    // Point 1: Critical/high issues count
-    let ch = vm.severity.critical + vm.severity.high;
-    if ch > 0 {
-        points.push(format!(
-            "{} kritische/hohe WCAG-Verstöße auf dieser Seite",
-            ch
-        ));
-    }
-
-    // Point 2: Dominant issue (if any)
-    if let Some(top) = vm.findings.top_findings.first() {
-        let total_ch = (vm.severity.critical + vm.severity.high) as usize;
-        let share = if total_ch > 0 {
-            top.occurrence_count * 100 / total_ch
-        } else {
-            0
-        };
-        if share >= 30 {
-            points.push(format!(
-                "Hauptproblem: {} ({}% aller kritischen Fehler)",
-                top.title,
-                share.min(99)
-            ));
-        } else {
-            points.push(format!("Häufigstes Problem: {}", top.title));
-        }
-    }
-
-    // Point 3: Legal/WCAG-A status
-    if vm.severity.critical > 0 {
-        points.push(
-            "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)".to_string(),
-        );
-    } else if vm.severity.high > 0 {
-        points.push("Keine Level-A-Verstöße, aber strukturelle Schwächen".to_string());
-    } else {
-        points.push("Keine kritischen Barrieren — gute Ausgangslage".to_string());
-    }
-
-    points
-}
-
-/// Concrete quick actions with timeframe
-fn build_single_quick_actions(vm: &ReportViewModel) -> Vec<(String, &'static str)> {
-    let mut actions = Vec::new();
-
-    // Gather immediate actions from roadmap
-    for col in &vm.actions.roadmap_columns {
-        for item in &col.items {
-            if item.execution_priority.contains("Sofort")
-                || item.execution_priority.contains("Direkt")
-            {
-                let timeframe = match item.effort.as_str() {
-                    "Quick Win" => "1–2 Tage",
-                    "Mittelfristig" => "3–5 Tage",
-                    _ => "1–2 Wochen",
-                };
-                actions.push((item.action.clone(), timeframe));
-            }
-        }
-    }
-
-    // Fallback: if no immediate actions found, use top findings
-    if actions.is_empty() {
-        for group in vm.findings.top_findings.iter().take(3) {
-            let timeframe = match group.effort {
-                Effort::Quick => "1–2 Tage",
-                Effort::Medium => "3–5 Tage",
-                Effort::Structural => "1–2 Wochen",
+fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {
+    let items = vm
+        .modules
+        .dashboard
+        .iter()
+        .take(6)
+        .map(|module| {
+            let status = if module.score >= 85 {
+                "good"
+            } else if module.score >= 70 {
+                "info"
+            } else if module.score >= 50 {
+                "warn"
+            } else {
+                "bad"
             };
-            actions.push((first_sentence(&group.recommendation).to_string(), timeframe));
-        }
+            MetricStripItem::new(&module.name, format!("{}/100", module.score))
+                .with_status(status)
+                .with_accent(module_score_color(module.score))
+        })
+        .collect();
+    MetricStrip::new(items).compact()
+}
+
+fn impact_row<'a>(rows: &'a [(String, String)], label: &str) -> &'a str {
+    rows.iter()
+        .find(|(key, _)| key == label)
+        .map(|(_, value)| value.as_str())
+        .unwrap_or("Keine Details verfügbar.")
+}
+
+fn build_cli_snapshot_table(vm: &ReportViewModel) -> AuditTable {
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("Bereich").with_width("22%"),
+        TableColumn::new("Signal").with_width("28%"),
+        TableColumn::new("Wert").with_width("50%"),
+    ])
+    .with_title("Technical Snapshot (CLI parity)");
+
+    for (label, value) in &vm.methodology.audit_facts {
+        table = table.add_row(vec![
+            "Audit".to_string(),
+            label.clone(),
+            value.clone(),
+        ]);
     }
 
-    actions.truncate(3);
-    actions
+    for module in &vm.modules.dashboard {
+        table = table.add_row(vec![
+            "Modul".to_string(),
+            module.name.clone(),
+            format!(
+                "{} / 100 — {}. {}",
+                module.score, module.interpretation, module.card_context
+            ),
+        ]);
+    }
+
+    for finding in vm.findings.top_findings.iter().take(6) {
+        table = table.add_row(vec![
+            "Finding".to_string(),
+            format!("{} ({})", finding.rule_id, finding.wcag_criterion),
+            format!("{} Vorkommen — {}", finding.occurrence_count, first_sentence(&finding.user_impact)),
+        ]);
+    }
+
+    table
+}
+
+fn build_raw_audit_snapshot(vm: &ReportViewModel) -> SummaryBox {
+    SummaryBox::new("Raw Audit Snapshot")
+        .add_item(
+            "WCAG-Level",
+            vm.methodology
+                .audit_facts
+                .iter()
+                .find(|(label, _)| label == "WCAG-Level")
+                .map(|(_, value)| value.as_str())
+                .unwrap_or("n/a"),
+        )
+        .add_item("Geprüfte Knoten", vm.methodology
+            .audit_facts
+            .iter()
+            .find(|(label, _)| label == "Geprüfte Knoten")
+            .map(|(_, value)| value.as_str())
+            .unwrap_or("n/a"))
+        .add_item(
+            "Laufzeit",
+            vm.methodology
+                .audit_facts
+                .iter()
+                .find(|(label, _)| label == "Laufzeit")
+                .map(|(_, value)| value.as_str())
+                .unwrap_or("n/a"),
+        )
+        .add_item("Findings gesamt", vm.severity.total.to_string())
+        .add_item(
+            "Kritisch / Hoch",
+            format!("{}", vm.severity.critical + vm.severity.high),
+        )
+        .add_item("Audit-Hinweise", vm.methodology
+            .audit_facts
+            .iter()
+            .find(|(label, _)| label == "Audit-Hinweise")
+            .map(|(_, value)| value.as_str())
+            .unwrap_or("0"))
+}
+
+fn module_score_color(score: u32) -> &'static str {
+    if score >= 85 {
+        "#0f766e"
+    } else if score >= 70 {
+        "#2563eb"
+    } else if score >= 50 {
+        "#d97706"
+    } else {
+        "#dc2626"
+    }
+}
+
+fn risk_status(level: &str) -> &'static str {
+    match level {
+        "Kritisch" => "bad",
+        "Hoch" => "warn",
+        "Mittel" => "info",
+        _ => "good",
+    }
 }
 
 /// Closing section: recommended next steps
@@ -614,11 +671,8 @@ fn render_next_steps_single(
     vm: &ReportViewModel,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(
-            "Empfohlene nächste Schritte",
-            "Konkrete Handlungsempfehlung für die nächsten 1–4 Wochen.",
-        )
-        .with_level(1),
+        SectionHeaderSplit::new(&vm.executive.next_steps_title, &vm.executive.next_steps_intro)
+            .with_level(1),
     );
 
     let mut steps: Vec<(String, String, String)> = Vec::new(); // (step, timeframe, scope)
@@ -685,10 +739,8 @@ fn render_next_steps_single(
     }
 
     builder = builder.add_component(
-        Callout::info(
-            "Für eine vollständige Barrierefreiheits-Prüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation).",
-        )
-        .with_title("Nächster Schritt"),
+        Callout::info(&vm.executive.next_steps_callout_body)
+        .with_title(&vm.executive.next_steps_callout_title),
     );
 
     builder

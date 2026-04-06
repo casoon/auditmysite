@@ -3,6 +3,7 @@
 use renderreport::components::advanced::WrongRightBlock;
 use renderreport::components::advanced::{KeyValueList, List};
 use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::SummaryBox;
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -43,6 +44,18 @@ pub(super) fn render_key_finding_block(
     kv = kv.add("Fix", first_sentence(&group.recommendation));
 
     builder = builder.add_component(kv);
+    builder = builder.add_component(
+        SummaryBox::new("Raw Finding Snapshot")
+            .add_item("Regel", &group.rule_id)
+            .add_item("WCAG", &group.wcag_criterion)
+            .add_item("Instanzen", group.occurrence_count.to_string())
+            .add_item("Betroffene Elemente", group.affected_elements.to_string())
+            .add_item(
+                "Weitere ähnliche Vorkommen",
+                group.additional_occurrences.to_string(),
+            )
+            .add_item("Betroffene URLs", group.affected_urls.len().to_string()),
+    );
     builder
 }
 
@@ -119,6 +132,70 @@ pub(super) fn render_finding_technical(
             url_list = url_list.add_item(truncate_url(url, 70));
         }
         builder = builder.add_component(url_list);
+    }
+
+    if !group.representative_occurrences.is_empty() {
+        let mut table = renderreport::components::AuditTable::new(vec![
+            renderreport::components::TableColumn::new("Fundstelle").with_width("26%"),
+            renderreport::components::TableColumn::new("Hinweis").with_width("74%"),
+        ])
+        .with_title("Repräsentative Fundstellen");
+
+        for occ in &group.representative_occurrences {
+            table = table.add_row(vec![
+                truncate_url(&occ.selector, 48),
+                first_sentence(&occ.message).to_string(),
+            ]);
+        }
+        builder = builder.add_component(table);
+
+        for occ in &group.representative_occurrences {
+            let mut snapshot = SummaryBox::new(format!(
+                "Fundstelle: {}",
+                truncate_url(&occ.selector, 60)
+            ))
+            .add_item("Node", &occ.node_id)
+            .add_item("Hinweis", first_sentence(&occ.message));
+
+            if let Some(html) = occ
+                .html_snippet
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                snapshot = snapshot.add_item("HTML", truncate_url(html, 110));
+            }
+
+            builder = builder.add_component(snapshot);
+
+            if let Some(code) = occ
+                .suggested_code
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                builder = builder.add_component(
+                    Callout::info(truncate_url(code, 180))
+                        .with_title("Vorgeschlagene Code-Korrektur"),
+                );
+            }
+        }
+    }
+
+    if !group.pattern_clusters.is_empty() {
+        let mut table = renderreport::components::AuditTable::new(vec![
+            renderreport::components::TableColumn::new("Muster").with_width("70%"),
+            renderreport::components::TableColumn::new("Vorkommen").with_width("30%"),
+        ])
+        .with_title("Häufige Muster");
+
+        for cluster in &group.pattern_clusters {
+            table = table.add_row(vec![
+                truncate_url(&cluster.label, 72),
+                cluster.occurrences.to_string(),
+            ]);
+        }
+        builder = builder.add_component(table);
     }
 
     builder

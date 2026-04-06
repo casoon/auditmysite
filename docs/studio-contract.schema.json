@@ -8,7 +8,8 @@
     "url", "timestamp", "accessibility_score", "overall_score", "grade",
     "certificate", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
     "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
-    "module_scores", "findings", "nodes_analyzed", "execution_time_ms", "json_report"
+    "module_scores", "findings", "nodes_analyzed", "execution_time_ms",
+    "executive_summary", "artifacts", "json_report"
   ],
   "additionalProperties": false,
   "properties": {
@@ -37,6 +38,8 @@
     },
     "nodes_analyzed": { "type": "integer", "minimum": 0 },
     "execution_time_ms": { "type": "integer", "minimum": 0 },
+    "executive_summary": { "$ref": "#/$defs/executiveSummary" },
+    "artifacts": { "$ref": "#/$defs/reportArtifacts" },
     "json_report": { "type": "string" }
   },
   "$defs": {
@@ -64,12 +67,60 @@
         "wcag_criterion": { "type": "string" }
       }
     },
+    "executiveSummary": {
+      "type": "object",
+      "required": [
+        "executive_lead", "verdict", "benchmark_context", "key_points",
+        "top_actions", "overall_impact", "positive_aspects", "next_step"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "executive_lead": { "type": "string" },
+        "verdict": { "type": "string" },
+        "benchmark_context": { "type": "string" },
+        "key_points": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "top_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "overall_impact": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": [
+              { "type": "string" },
+              { "type": "string" }
+            ]
+          }
+        },
+        "positive_aspects": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "next_step": { "type": "string" }
+      }
+    },
+    "reportArtifacts": {
+      "type": "object",
+      "required": ["audit_json_path", "studio_snapshot_path", "pdf_path"],
+      "additionalProperties": false,
+      "properties": {
+        "audit_json_path": { "type": ["string", "null"] },
+        "studio_snapshot_path": { "type": ["string", "null"] },
+        "pdf_path": { "type": ["string", "null"] }
+      }
+    },
     "historyEntry": {
       "type": "object",
       "required": [
         "id", "url", "timestamp", "accessibility_score", "overall_score",
         "grade", "certificate", "risk_level", "total_issues", "critical_issues",
-        "high_issues", "execution_time_ms", "module_scores"
+        "high_issues", "execution_time_ms", "module_scores", "artifacts"
       ],
       "additionalProperties": false,
       "properties": {
@@ -88,7 +139,8 @@
         "module_scores": {
           "type": "array",
           "items": { "$ref": "#/$defs/moduleScore" }
-        }
+        },
+        "artifacts": { "$ref": "#/$defs/reportArtifacts" }
       }
     }
   }

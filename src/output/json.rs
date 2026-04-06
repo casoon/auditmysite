@@ -9,7 +9,9 @@ use serde::Serialize;
 use crate::audit::normalized::NormalizedReport;
 use crate::audit::{AuditReport, BatchReport};
 use crate::error::Result;
+use crate::output::builder::build_view_model;
 use crate::output::explanations::get_explanation;
+use crate::output::report_model::ReportConfig;
 
 /// Generate JSON output from a normalized report
 pub fn format_json_normalized(
@@ -119,6 +121,10 @@ pub struct JsonReport {
     /// Journey analysis (entry clarity, orientation, navigation, interaction, conversion)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journey: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub confidence_summary: Vec<OutputConfidenceSignal>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<OutputCapabilitySignal>,
     /// Historical timeline for this URL (score trend, deltas, recent snapshots)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
@@ -147,6 +153,21 @@ pub struct FixGuidance {
 pub struct CodeExample {
     pub bad: String,
     pub good: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OutputConfidenceSignal {
+    pub signal: String,
+    pub assessment: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OutputCapabilitySignal {
+    pub signal: String,
+    pub source: String,
+    pub confidence: String,
+    pub surfaces: Vec<String>,
+    pub note: String,
 }
 
 /// Report metadata for JSON output
@@ -178,6 +199,7 @@ impl JsonReport {
     pub fn from_normalized(normalized: &NormalizedReport, raw: &AuditReport) -> Self {
         // Build AI fix guidance from explanations + finding data
         let fix_guidance = Self::build_fix_guidance(normalized);
+        let vm = build_view_model(normalized, &ReportConfig::default());
 
         Self {
             metadata: ReportMetadata {
@@ -206,6 +228,27 @@ impl JsonReport {
                 .journey
                 .as_ref()
                 .and_then(|j| serde_json::to_value(j).ok()),
+            confidence_summary: vm
+                .methodology
+                .confidence_summary
+                .iter()
+                .map(|(signal, assessment)| OutputConfidenceSignal {
+                    signal: signal.clone(),
+                    assessment: assessment.clone(),
+                })
+                .collect(),
+            capabilities: vm
+                .methodology
+                .capabilities
+                .iter()
+                .map(|cap| OutputCapabilitySignal {
+                    signal: cap.signal.clone(),
+                    source: cap.source.clone(),
+                    confidence: cap.confidence.clone(),
+                    surfaces: cap.surfaces.clone(),
+                    note: cap.note.clone(),
+                })
+                .collect(),
             history: None,
         }
     }

@@ -495,6 +495,7 @@ mod tests {
                 total,
             },
             module_scores: vec![],
+            audit_flags: vec![],
             raw_performance: None,
             raw_seo: None,
             raw_security: None,

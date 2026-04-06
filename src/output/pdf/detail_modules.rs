@@ -1,6 +1,6 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode).
 
-use renderreport::components::advanced::{KeyValueList, List, PageBreak};
+use renderreport::components::advanced::{KeyValueList, List, MetricStrip, MetricStripItem, PageBreak};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
 use renderreport::prelude::*;
@@ -78,6 +78,20 @@ pub(super) fn render_performance(
         );
 
     if !perf.vitals.is_empty() {
+        let strip = perf
+            .vitals
+            .iter()
+            .take(4)
+            .map(|(name, value, rating)| {
+                MetricStripItem::new(name.replace(" (", "\n("), value)
+                    .with_status(vital_status(rating))
+                    .with_accent(vital_color(rating))
+            })
+            .collect();
+        builder = builder.add_component(MetricStrip::new(strip).compact());
+    }
+
+    if !perf.vitals.is_empty() {
         let mut kv = KeyValueList::new().with_title("Core Web Vitals");
         for (name, value, rating) in &perf.vitals {
             kv = kv.add(name, format!("{} — {}", value, rating));
@@ -134,6 +148,23 @@ pub(super) fn render_seo(
         .add_component(Section::new("SEO-Analyse").with_level(2))
         .add_component(TextBlock::new(&seo.interpretation))
         .add_component(ScoreCard::new("SEO Score", seo.score).with_thresholds(80, 50));
+
+    let mut seo_strip = Vec::new();
+    if let Some((_, title)) = seo.meta_tags.iter().find(|(key, _)| key == "Titel") {
+        seo_strip.push(MetricStripItem::new("Title", truncate(title, 42)).with_accent("#0f766e"));
+    }
+    if let Some(profile) = &seo.profile {
+        seo_strip.push(
+            MetricStripItem::new("Schema.org", profile.schema_count.to_string())
+                .with_accent("#2563eb"),
+        );
+        seo_strip.push(
+            MetricStripItem::new("Reifegrad", &profile.maturity_level).with_accent("#7c3aed"),
+        );
+    }
+    if !seo_strip.is_empty() {
+        builder = builder.add_component(MetricStrip::new(seo_strip).compact());
+    }
 
     if !seo.meta_tags.is_empty() {
         let mut table = AuditTable::new(vec![
@@ -349,6 +380,28 @@ pub(super) fn render_security(
                 .with_thresholds(70, 50),
         );
 
+    let header_count = sec
+        .headers
+        .iter()
+        .filter(|(_, status, _)| status.to_lowercase().contains("vorhanden") || status == "✓")
+        .count();
+    builder = builder.add_component(
+        MetricStrip::new(vec![
+            MetricStripItem::new("Header", format!("{}/9", header_count)).with_accent("#0f766e"),
+            MetricStripItem::new(
+                "HTTPS",
+                if sec.ssl_info.iter().any(|(k, v)| k.contains("HTTPS") && v == "Ja") {
+                    "Ja"
+                } else {
+                    "Unklar"
+                },
+            )
+            .with_accent("#2563eb"),
+            MetricStripItem::new("Issues", sec.issues.len().to_string()).with_accent("#dc2626"),
+        ])
+        .compact(),
+    );
+
     if !sec.headers.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new("Header"),
@@ -393,6 +446,27 @@ pub(super) fn render_mobile(
         .add_component(Section::new("Mobile Nutzbarkeit").with_level(2))
         .add_component(TextBlock::new(&mobile.interpretation))
         .add_component(ScoreCard::new("Mobile Score", mobile.score).with_thresholds(80, 50));
+
+    let viewport_status = mobile
+        .viewport
+        .iter()
+        .find(|(k, _)| k.to_lowercase().contains("viewport"))
+        .map(|(_, v)| v.as_str())
+        .unwrap_or("Konfiguriert");
+    let touch_targets = mobile
+        .touch_targets
+        .iter()
+        .find(|(k, _)| k.to_lowercase().contains("zu klein") || k.to_lowercase().contains("small"))
+        .map(|(_, v)| v.as_str())
+        .unwrap_or("n/a");
+    builder = builder.add_component(
+        MetricStrip::new(vec![
+            MetricStripItem::new("Viewport", viewport_status).with_accent("#0f766e"),
+            MetricStripItem::new("Touch Targets", touch_targets).with_accent("#d97706"),
+            MetricStripItem::new("Issues", mobile.issues.len().to_string()).with_accent("#dc2626"),
+        ])
+        .compact(),
+    );
 
     if !mobile.viewport.is_empty() {
         let mut kv = KeyValueList::new().with_title("Viewport-Konfiguration");
@@ -509,6 +583,19 @@ pub(super) fn render_dark_mode(
         .add_component(Section::new("Dark Mode").with_level(2))
         .add_component(ScoreCard::new("Dark Mode Score", dm.score).with_thresholds(80, 50));
 
+    builder = builder.add_component(
+        MetricStrip::new(vec![
+            MetricStripItem::new("Status", support_label)
+                .with_status(if dm.supported { "good" } else { "warn" })
+                .with_accent(if dm.supported { "#0f766e" } else { "#d97706" }),
+            MetricStripItem::new("Methoden", dm.detection_methods.len().to_string())
+                .with_accent("#2563eb"),
+            MetricStripItem::new("CSS Variablen", dm.css_custom_properties.to_string())
+                .with_accent("#7c3aed"),
+        ])
+        .compact(),
+    );
+
     let mut kv = KeyValueList::new().with_title("Dark Mode Übersicht");
     kv = kv.add("Unterstützung", support_label);
     if !dm.detection_methods.is_empty() {
@@ -560,6 +647,32 @@ pub(super) fn render_dark_mode(
     }
 
     builder
+}
+
+fn vital_status(rating: &str) -> &'static str {
+    match rating {
+        "good" => "good",
+        "needs-improvement" => "warn",
+        "poor" => "bad",
+        _ => "info",
+    }
+}
+
+fn vital_color(rating: &str) -> &'static str {
+    match rating {
+        "good" => "#0f766e",
+        "needs-improvement" => "#d97706",
+        "poor" => "#dc2626",
+        _ => "#2563eb",
+    }
+}
+
+fn truncate(value: &str, max_chars: usize) -> String {
+    let count = value.chars().count();
+    if count <= max_chars {
+        return value.to_string();
+    }
+    value.chars().take(max_chars.saturating_sub(1)).collect::<String>() + "…"
 }
 
 pub(super) fn render_source_quality(

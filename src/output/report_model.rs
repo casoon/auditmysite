@@ -116,6 +116,7 @@ pub struct ReportViewModel {
     pub meta: MetaBlock,
     pub cover: CoverBlock,
     pub summary: SummaryBlock,
+    pub executive: ExecutiveNarrativeBlock,
     pub history: Option<HistoryTrendBlock>,
     pub methodology: MethodologyBlock,
     pub modules: ModulesBlock,
@@ -189,6 +190,39 @@ pub struct SummaryBlock {
     pub risk_summary: String,
 }
 
+/// Precomputed copy and structure for the executive PDF narrative.
+pub struct ExecutiveNarrativeBlock {
+    pub cover_eyebrow: String,
+    pub cover_kicker: String,
+    pub status_title: String,
+    pub risk_title: String,
+    pub metrics_title: String,
+    pub key_points_title: String,
+    pub key_points: Vec<String>,
+    pub impact_title: String,
+    pub impact_rows: Vec<(String, String)>,
+    pub quick_actions_title: String,
+    pub quick_actions: Vec<(String, String)>,
+    pub spotlight_eyebrow: String,
+    pub spotlight_body: String,
+    pub spotlight_impact: String,
+    pub spotlight_recommendation: String,
+    pub leverage_title: String,
+    pub leverage_text: Option<String>,
+    pub findings_title: String,
+    pub findings_intro: String,
+    pub action_plan_title: String,
+    pub action_plan_intro: String,
+    pub action_plan_callout_title: String,
+    pub action_plan_callout_body: String,
+    pub technical_title: String,
+    pub technical_intro: String,
+    pub next_steps_title: String,
+    pub next_steps_intro: String,
+    pub next_steps_callout_title: String,
+    pub next_steps_callout_body: String,
+}
+
 /// A single KPI metric for the hero summary
 pub struct MetricItem {
     pub title: String,
@@ -229,6 +263,8 @@ pub struct MethodologyBlock {
     pub limitations: String,
     pub disclaimer: String,
     pub audit_facts: Vec<(String, String)>,
+    pub confidence_summary: Vec<(String, String)>,
+    pub capabilities: Vec<CapabilitySignal>,
 }
 
 /// Module scores for dashboard and comparison
@@ -364,11 +400,35 @@ pub struct FindingGroup {
     pub occurrence_count: usize,
     pub affected_urls: Vec<String>,
     pub affected_elements: usize,
+    pub additional_occurrences: usize,
+    pub pattern_clusters: Vec<FindingPatternCluster>,
     pub location_hints: Vec<String>,
+    pub representative_occurrences: Vec<RepresentativeOccurrence>,
     pub responsible_role: Role,
     pub effort: Effort,
     pub execution_priority: ExecutionPriority,
     pub examples: Vec<ExampleBlock>,
+}
+
+pub struct RepresentativeOccurrence {
+    pub selector: String,
+    pub node_id: String,
+    pub message: String,
+    pub html_snippet: Option<String>,
+    pub suggested_code: Option<String>,
+}
+
+pub struct FindingPatternCluster {
+    pub label: String,
+    pub occurrences: usize,
+}
+
+pub struct CapabilitySignal {
+    pub signal: String,
+    pub source: String,
+    pub confidence: String,
+    pub surfaces: Vec<String>,
+    pub note: String,
 }
 
 /// Code example showing bad vs. good pattern

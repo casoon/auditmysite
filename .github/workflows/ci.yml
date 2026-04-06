@@ -55,6 +55,24 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
+  browser-smoke:
+    name: Browser Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Run browser smoke test
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: cargo test --test integration_test test_perfect_page_scores_high -- --ignored --exact --nocapture
+
   release-build:
     name: Release Build
     runs-on: ${{ matrix.os }}

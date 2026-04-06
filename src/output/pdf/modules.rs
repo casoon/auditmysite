@@ -52,9 +52,11 @@ pub(super) fn build_top_hebel_table(
     groups.sort_by(|a, b| b.occurrence_count.cmp(&a.occurrence_count));
 
     let mut table = AuditTable::new(vec![
-        TableColumn::new("Problem").with_width("42%"),
-        TableColumn::new("Anteil").with_width("13%"),
-        TableColumn::new("Wirkung").with_width("45%"),
+        TableColumn::new("Problem").with_width("31%"),
+        TableColumn::new("Instanzen").with_width("11%"),
+        TableColumn::new("Elemente").with_width("11%"),
+        TableColumn::new("Anteil").with_width("12%"),
+        TableColumn::new("Wirkung").with_width("35%"),
     ]);
 
     for group in groups.iter().take(5) {
@@ -67,6 +69,8 @@ pub(super) fn build_top_hebel_table(
         let impact = &group.user_impact;
         table = table.add_row(vec![
             group.title.clone(),
+            group.occurrence_count.to_string(),
+            group.affected_elements.to_string(),
             share,
             if impact.is_empty() {
                 group.recommendation.clone()

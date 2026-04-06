@@ -152,6 +152,14 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         .history_preview
         .as_ref()
         .map(build_history_trend_block);
+    let executive = build_executive_narrative(
+        normalized,
+        &audit_summary,
+        score,
+        &severity,
+        &top_findings,
+        &action_plan,
+    );
 
     ReportViewModel {
         meta: MetaBlock {
@@ -257,6 +265,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             risk_level: normalized.risk.level.to_string(),
             risk_summary: normalized.risk.summary.clone(),
         },
+        executive,
         history,
         methodology: build_methodology(normalized),
         modules,
@@ -269,6 +278,253 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         actions,
         appendix: build_appendix_block_from_normalized(normalized),
     }
+}
+
+fn build_executive_narrative(
+    normalized: &NormalizedReport,
+    audit_summary: &crate::audit::summary::AuditSummary,
+    score: u32,
+    severity: &SeverityBlock,
+    top_findings: &[FindingGroup],
+    action_plan: &ActionPlan,
+) -> ExecutiveNarrativeBlock {
+    let assessment = build_single_assessment_text(score, severity);
+    let risk_action = match normalized.risk.level {
+        crate::audit::normalized::RiskLevel::Critical => "Sofort handeln",
+        crate::audit::normalized::RiskLevel::High => "Zeitnah beheben",
+        crate::audit::normalized::RiskLevel::Medium => "Bei nächster Optimierung",
+        crate::audit::normalized::RiskLevel::Low => "Kein akuter Handlungsbedarf",
+    };
+
+    let key_points = build_single_key_points_text(severity, top_findings, normalized);
+    let impact_rows = vec![
+        (
+            "Nutzer".to_string(),
+            normalized
+                .findings
+                .first()
+                .map(|_| {
+                    build_overall_impact(normalized)
+                        .first()
+                        .map(|(_, value)| value.clone())
+                        .unwrap_or_else(|| {
+                            "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen."
+                                .to_string()
+                        })
+                })
+                .unwrap_or_else(|| {
+                    "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen.".to_string()
+                }),
+        ),
+        (
+            "Business".to_string(),
+            {
+                let consequence = build_business_consequence(normalized);
+                if consequence.is_empty() {
+                    "Nutzer brechen Prozesse ab oder erreichen Ziele nicht.".to_string()
+                } else {
+                    consequence
+                }
+            },
+        ),
+        (
+            "Risiko".to_string(),
+            if severity.critical > 0 {
+                "WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG) vorhanden.".to_string()
+            } else {
+                "Keine WCAG-Level-A-Verstöße mit akuter rechtlicher Relevanz.".to_string()
+            },
+        ),
+    ];
+
+    let quick_actions = build_single_quick_actions_text(action_plan, top_findings);
+
+    let total_ch = (severity.critical + severity.high) as usize;
+    let (spotlight_body, spotlight_impact, spotlight_recommendation, leverage_text) =
+        if let Some(top) = top_findings.first() {
+            let share = if total_ch > 0 {
+                top.occurrence_count * 100 / total_ch
+            } else {
+                0
+            };
+            (
+                audit_summary
+                    .dominant_issue_note
+                    .clone()
+                    .unwrap_or_else(|| {
+                        "Der Großteil der kritischen Probleme entsteht durch dieses eine Thema."
+                            .to_string()
+                    }),
+                sentence_preview(&top.user_impact).to_string(),
+                sentence_preview(&top.recommendation).to_string(),
+                (total_ch > 0).then(|| {
+                    format!(
+                        "Behebung des Hauptproblems reduziert ca. {}% der kritischen Fehler. Sofort spürbare Verbesserung der Nutzbarkeit.",
+                        share.min(99)
+                    )
+                }),
+            )
+        } else {
+            (
+                "Kein einzelnes Problem dominiert das Auditbild; die Befunde sind breiter verteilt."
+                    .to_string(),
+                "Die Wirkung verteilt sich auf mehrere kleinere Barrieren.".to_string(),
+                "Die Maßnahmen sollten gebündelt und nach Hebel priorisiert umgesetzt werden."
+                    .to_string(),
+                None,
+            )
+        };
+
+    let findings_intro = if score >= 85 && top_findings.len() <= 2 {
+        "Technisch stark — die folgenden Punkte sind Feinschliff-Hebel.".to_string()
+    } else {
+        "Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt.".to_string()
+    };
+
+    ExecutiveNarrativeBlock {
+        cover_eyebrow: "Automatisierter Audit-Report".to_string(),
+        cover_kicker:
+            "Technischer Website-Check mit Fokus auf Accessibility, SEO und Performance"
+                .to_string(),
+        status_title: "Status der Website".to_string(),
+        risk_title: format!("{assessment}  —  {risk_action}"),
+        metrics_title: "Executive Snapshot".to_string(),
+        key_points_title: "Kernaussagen".to_string(),
+        key_points,
+        impact_title: "Auswirkungen".to_string(),
+        impact_rows,
+        quick_actions_title: "Empfohlene Sofortmaßnahmen".to_string(),
+        quick_actions,
+        spotlight_eyebrow: "HAUPTPROBLEM".to_string(),
+        spotlight_body,
+        spotlight_impact,
+        spotlight_recommendation,
+        leverage_title: "Wirkung einer Behebung".to_string(),
+        leverage_text,
+        findings_title: "Key Findings".to_string(),
+        findings_intro,
+        action_plan_title: "Maßnahmenplan".to_string(),
+        action_plan_intro:
+            "Priorisiert nach Wirkung und Aufwand. Die Maßnahmen sind klar umrissen und direkt planbar."
+                .to_string(),
+        action_plan_callout_title: "Empfohlene Vorgehensweise".to_string(),
+        action_plan_callout_body:
+            "Beginne mit den Quick Wins: hoher Impact bei geringem Aufwand. Die nachfolgende Tabelle zeigt alle Maßnahmen in empfohlener Reihenfolge."
+                .to_string(),
+        technical_title: "Technische Umsetzung".to_string(),
+        technical_intro:
+            "Ab hier folgt die konkrete Umsetzung für Entwicklung, Design und Redaktion. Jedes Problem enthält: betroffene Elemente, direkte Umsetzung, Code-Beispiele."
+                .to_string(),
+        next_steps_title: "Empfohlene nächste Schritte".to_string(),
+        next_steps_intro: "Konkrete Handlungsempfehlung für die nächsten 1–4 Wochen.".to_string(),
+        next_steps_callout_title: "Nächster Schritt".to_string(),
+        next_steps_callout_body:
+            "Für eine vollständige Barrierefreiheits-Prüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation)."
+                .to_string(),
+    }
+}
+
+fn build_single_assessment_text(score: u32, severity: &SeverityBlock) -> String {
+    let has_critical_a11y = severity.critical > 0;
+    let has_high = severity.high > 0;
+
+    if has_critical_a11y && score < 50 {
+        "Kritische Barrieren — nicht WCAG-konform".to_string()
+    } else if has_critical_a11y {
+        "Technisch solide, aber rechtlich riskant".to_string()
+    } else if has_high {
+        "Gute Basis, aber nicht barrierefrei".to_string()
+    } else if score >= 85 {
+        "Weitgehend barrierefrei — Feinschliff".to_string()
+    } else {
+        "Solide Grundlage mit Optimierungspotenzial".to_string()
+    }
+}
+
+fn build_single_key_points_text(
+    severity: &SeverityBlock,
+    top_findings: &[FindingGroup],
+    normalized: &NormalizedReport,
+) -> Vec<String> {
+    let mut points = Vec::with_capacity(3);
+    let ch = severity.critical + severity.high;
+    if ch > 0 {
+        points.push(format!(
+            "{} kritische/hohe WCAG-Verstöße auf dieser Seite",
+            ch
+        ));
+    }
+
+    if let Some(top) = top_findings.first() {
+        let total_ch = (severity.critical + severity.high) as usize;
+        let share = if total_ch > 0 {
+            top.occurrence_count * 100 / total_ch
+        } else {
+            0
+        };
+        if share >= 30 {
+            points.push(format!(
+                "Hauptproblem: {} ({}% aller kritischen Fehler)",
+                top.title,
+                share.min(99)
+            ));
+        } else {
+            points.push(format!("Häufigstes Problem: {}", top.title));
+        }
+    }
+
+    if severity.critical > 0 {
+        points.push(
+            "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)"
+                .to_string(),
+        );
+    } else if severity.high > 0 {
+        points.push("Keine Level-A-Verstöße, aber strukturelle Schwächen".to_string());
+    } else if !normalized.audit_flags.is_empty() {
+        points.push("Audit-Hinweise vorhanden — einzelne Signale sollten fachlich gegengeprüft werden.".to_string());
+    } else {
+        points.push("Keine kritischen Barrieren — gute Ausgangslage".to_string());
+    }
+
+    points
+}
+
+fn build_single_quick_actions_text(
+    action_plan: &ActionPlan,
+    top_findings: &[FindingGroup],
+) -> Vec<(String, String)> {
+    let mut actions = Vec::new();
+
+    for item in &action_plan.quick_wins {
+        let timeframe = match item.effort {
+            Effort::Quick => "1–2 Tage",
+            Effort::Medium => "3–5 Tage",
+            Effort::Structural => "1–2 Wochen",
+        };
+        actions.push((item.action.clone(), timeframe.to_string()));
+    }
+
+    if actions.is_empty() {
+        for group in top_findings.iter().take(3) {
+            let timeframe = match group.effort {
+                Effort::Quick => "1–2 Tage",
+                Effort::Medium => "3–5 Tage",
+                Effort::Structural => "1–2 Wochen",
+            };
+            actions.push((sentence_preview(&group.recommendation).to_string(), timeframe.to_string()));
+        }
+    }
+
+    actions.truncate(3);
+    actions
+}
+
+fn sentence_preview(text: &str) -> &str {
+    text.split('.')
+        .next()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(text)
 }
 
 fn build_history_trend_block(preview: &ReportHistoryPreview) -> HistoryTrendBlock {
@@ -637,7 +893,8 @@ fn build_appendix_block_from_normalized(normalized: &NormalizedReport) -> Append
         violations,
         score_methodology: "Score-Berechnung: Basis 100 Punkte. Abzug auf Basis der Taxonomie-Regel-Definitionen \
             mit regelspezifischen Penalties und logarithmischer Skalierung für wiederholte Verstöße. \
-            Korrektur bei supprimierten Regeln (z.B. 3.1.1 bei vorhandener Sprachangabe).".to_string(),
+            Konfligierende Signale werden als Hinweis markiert, verändern den Score jedoch nicht nachträglich."
+            .to_string(),
         has_violations,
     }
 }
@@ -692,8 +949,119 @@ fn build_methodology(normalized: &NormalizedReport) -> MethodologyBlock {
                 format!("{:.1} s", normalized.duration_ms as f64 / 1000.0),
             ),
             ("Aktive Module".to_string(), active_modules),
+            (
+                "Audit-Hinweise".to_string(),
+                normalized.audit_flags.len().to_string(),
+            ),
         ],
+        confidence_summary: build_confidence_summary(normalized),
+        capabilities: build_capability_matrix(normalized),
     }
+}
+
+fn build_confidence_summary(normalized: &NormalizedReport) -> Vec<(String, String)> {
+    let base_confidence = if normalized.nodes_analyzed >= 2_000 {
+        "Hoch"
+    } else if normalized.nodes_analyzed >= 500 {
+        "Solide"
+    } else {
+        "Begrenzt"
+    };
+    let caveat_level = if normalized.audit_flags.is_empty() {
+        "Keine Konfliktsignale"
+    } else if normalized.audit_flags.len() == 1 {
+        "1 Hinweissignal"
+    } else {
+        "Mehrere Hinweissignale"
+    };
+    let module_coverage = if normalized.module_scores.len() >= 5 {
+        "Breit"
+    } else if normalized.module_scores.len() >= 3 {
+        "Erweitert"
+    } else {
+        "Kern-Checks"
+    };
+
+    vec![
+        ("Audit-Vertrauen".to_string(), base_confidence.to_string()),
+        ("Modul-Abdeckung".to_string(), module_coverage.to_string()),
+        ("Konfliktsignale".to_string(), caveat_level.to_string()),
+        (
+            "Manuelle Prüfung nötig".to_string(),
+            "Ja, für semantische Qualität und Nutzungskontext".to_string(),
+        ),
+    ]
+}
+
+fn build_capability_matrix(normalized: &NormalizedReport) -> Vec<CapabilitySignal> {
+    let mut capabilities = vec![
+        CapabilitySignal {
+            signal: "WCAG-Regeln & Vorkommen".to_string(),
+            source: "Accessibility Tree + Regelengine".to_string(),
+            confidence: if normalized.nodes_analyzed >= 500 {
+                "Hoch".to_string()
+            } else {
+                "Solide".to_string()
+            },
+            surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into(), "Studio".into()],
+            note: "Primäre Audit-Wahrheit für automatisiert erkennbare Verstöße.".to_string(),
+        },
+        CapabilitySignal {
+            signal: "Web Vitals & Ladeindikatoren".to_string(),
+            source: "Performance-Modul".to_string(),
+            confidence: if normalized.raw_performance.is_some() {
+                "Hoch".to_string()
+            } else {
+                "Nicht aktiv".to_string()
+            },
+            surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into()],
+            note: "FCP, CLS und TTFB werden in Facts und Modulkapiteln gespiegelt.".to_string(),
+        },
+        CapabilitySignal {
+            signal: "SEO-Struktur & Schema".to_string(),
+            source: "SEO-Modul".to_string(),
+            confidence: if normalized.raw_seo.is_some() {
+                "Solide".to_string()
+            } else {
+                "Nicht aktiv".to_string()
+            },
+            surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into()],
+            note: "Meta-, Heading- und Schema-Signale sind reportfähig verdichtet.".to_string(),
+        },
+        CapabilitySignal {
+            signal: "Security Header & HTTPS".to_string(),
+            source: "Security-Modul".to_string(),
+            confidence: if normalized.raw_security.is_some() {
+                "Hoch".to_string()
+            } else {
+                "Nicht aktiv".to_string()
+            },
+            surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into()],
+            note: "Header-Präsenz und HTTPS-Status bleiben als Rohsignal sichtbar.".to_string(),
+        },
+        CapabilitySignal {
+            signal: "Mobile, UX, Journey".to_string(),
+            source: "Heuristik-Module".to_string(),
+            confidence: "Hinweisbasiert".to_string(),
+            surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into(), "Studio".into()],
+            note: "Zur Priorisierung geeignet, nicht als alleinige UX-Gesamtwahrheit.".to_string(),
+        },
+    ];
+
+    if !normalized.audit_flags.is_empty() {
+        capabilities.push(CapabilitySignal {
+            signal: "Audit-Konfliktsignale".to_string(),
+            source: "Normalisierung / Cross-Checks".to_string(),
+            confidence: "Explizit markiert".to_string(),
+            surfaces: vec!["JSON".into(), "PDF".into()],
+            note: format!(
+                "{} Konfliktsignal(e) werden offen ausgewiesen statt im Score versteckt.",
+                normalized.audit_flags.len()
+            ),
+        });
+    }
+
+    capabilities
 }
 
 fn build_module_details_from_normalized(normalized: &NormalizedReport) -> ModuleDetailsBlock {
@@ -1488,6 +1856,11 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
 
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
     let location_hints = build_location_hints(&f.occurrences);
+    let representative_occurrences = build_representative_occurrences(&f.occurrences);
+    let pattern_clusters = build_pattern_clusters(&f.occurrences);
+    let additional_occurrences = f
+        .occurrence_count
+        .saturating_sub(representative_occurrences.len());
 
     FindingGroup {
         title,
@@ -1508,7 +1881,10 @@ fn finding_group_from_normalized(f: &crate::audit::normalized::NormalizedFinding
         occurrence_count: f.occurrence_count,
         affected_urls: Vec::new(),
         affected_elements: f.occurrence_count,
+        additional_occurrences,
+        pattern_clusters,
         location_hints,
+        representative_occurrences,
         responsible_role: role,
         effort,
         execution_priority,
@@ -1532,6 +1908,212 @@ fn build_location_hints(occurrences: &[crate::audit::normalized::OccurrenceDetai
         }
     }
     hints
+}
+
+fn build_representative_occurrences(
+    occurrences: &[crate::audit::normalized::OccurrenceDetail],
+) -> Vec<RepresentativeOccurrence> {
+    let mut ranked: Vec<(usize, i32, &crate::audit::normalized::OccurrenceDetail)> = occurrences
+        .iter()
+        .enumerate()
+        .map(|(index, occ)| (index, representative_occurrence_score(occ), occ))
+        .collect();
+    ranked.sort_by(|a, b| {
+        b.1.cmp(&a.1)
+            .then_with(|| a.0.cmp(&b.0))
+            .then_with(|| b.2.message.len().cmp(&a.2.message.len()))
+    });
+
+    let mut items = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for (_, _, occ) in ranked {
+        let selector = representative_selector(occ);
+
+        if !seen.insert(selector.to_ascii_lowercase()) {
+            continue;
+        }
+
+        items.push(RepresentativeOccurrence {
+            selector,
+            node_id: occ.node_id.clone(),
+            message: occ.message.clone(),
+            html_snippet: occ.html_snippet.clone(),
+            suggested_code: occ.suggested_code.clone(),
+        });
+
+        if items.len() >= 3 {
+            break;
+        }
+    }
+
+    items
+}
+
+fn build_pattern_clusters(
+    occurrences: &[crate::audit::normalized::OccurrenceDetail],
+) -> Vec<FindingPatternCluster> {
+    let mut clusters: std::collections::BTreeMap<String, (String, usize)> =
+        std::collections::BTreeMap::new();
+
+    for occ in occurrences {
+        let selector = representative_selector(occ);
+        let normalized = normalize_selector_cluster(&selector);
+        let entry = clusters.entry(normalized).or_insert((selector.clone(), 0));
+        entry.1 += 1;
+
+        if selector.len() < entry.0.len() {
+            entry.0 = selector;
+        }
+    }
+
+    let mut items: Vec<FindingPatternCluster> = clusters
+        .into_values()
+        .map(|(label, occurrences)| FindingPatternCluster { label, occurrences })
+        .collect();
+    items.sort_by(|a, b| {
+        b.occurrences
+            .cmp(&a.occurrences)
+            .then_with(|| a.label.len().cmp(&b.label.len()))
+    });
+    items.truncate(3);
+    items
+}
+
+fn representative_selector(occ: &crate::audit::normalized::OccurrenceDetail) -> String {
+    occ.selector
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&occ.node_id)
+        .to_string()
+}
+
+fn normalize_selector_cluster(selector: &str) -> String {
+    let trimmed = selector.trim();
+    if trimmed.is_empty() {
+        return "unspecified".to_string();
+    }
+
+    let normalized: String = trimmed
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_digit() {
+                '#'
+            } else if ch.is_whitespace() {
+                ' '
+            } else {
+                ch.to_ascii_lowercase()
+            }
+        })
+        .collect();
+
+    let mut compact = String::new();
+    let mut last_was_hash = false;
+    let mut last_was_space = false;
+    for ch in normalized.chars() {
+        match ch {
+            '#' => {
+                if !last_was_hash {
+                    compact.push(ch);
+                }
+                last_was_hash = true;
+                last_was_space = false;
+            }
+            ' ' => {
+                if !last_was_space {
+                    compact.push(ch);
+                }
+                last_was_space = true;
+                last_was_hash = false;
+            }
+            _ => {
+                compact.push(ch);
+                last_was_hash = false;
+                last_was_space = false;
+            }
+        }
+    }
+
+    compact
+}
+
+fn representative_occurrence_score(occ: &crate::audit::normalized::OccurrenceDetail) -> i32 {
+    let mut score = 0;
+
+    let selector = occ
+        .selector
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(selector) = selector {
+        score += 40;
+        score += selector_quality_score(selector);
+    } else {
+        score -= 12;
+    }
+
+    if has_content(&occ.html_snippet) {
+        score += 28;
+    }
+    if has_content(&occ.suggested_code) {
+        score += 22;
+    }
+    if has_content(&occ.fix_suggestion) {
+        score += 8;
+    }
+
+    let message = occ.message.trim();
+    if !message.is_empty() {
+        score += 6;
+        score += (message.len().min(120) / 20) as i32;
+        if message.contains(':') || message.contains('(') {
+            score += 3;
+        }
+        if message.chars().any(|ch| ch.is_ascii_digit()) {
+            score += 4;
+        }
+    }
+
+    if !occ.node_id.trim().is_empty() {
+        score += 2;
+    }
+
+    score
+}
+
+fn selector_quality_score(selector: &str) -> i32 {
+    let mut score = 0;
+
+    if selector.contains('#') {
+        score += 16;
+    }
+    if selector.contains('[') {
+        score += 10;
+    }
+    if selector.contains('.') {
+        score += 8;
+    }
+    if selector.contains('>') {
+        score += 6;
+    }
+    if selector.contains(' ') {
+        score += 4;
+    }
+    if selector.starts_with("main")
+        || selector.starts_with("header")
+        || selector.starts_with("nav")
+        || selector.starts_with("footer")
+    {
+        score += 4;
+    }
+
+    score
+}
+
+fn has_content(value: &Option<String>) -> bool {
+    value.as_deref().is_some_and(|text| !text.trim().is_empty())
 }
 
 fn derive_positive_aspects_from_normalized(normalized: &NormalizedReport) -> Vec<PositiveAspect> {
@@ -1616,12 +2198,234 @@ impl Clone for FindingGroup {
             occurrence_count: self.occurrence_count,
             affected_urls: self.affected_urls.clone(),
             affected_elements: self.affected_elements,
+            additional_occurrences: self.additional_occurrences,
+            pattern_clusters: self
+                .pattern_clusters
+                .iter()
+                .map(|cluster| FindingPatternCluster {
+                    label: cluster.label.clone(),
+                    occurrences: cluster.occurrences,
+                })
+                .collect(),
             location_hints: self.location_hints.clone(),
+            representative_occurrences: self
+                .representative_occurrences
+                .iter()
+                .map(|occ| RepresentativeOccurrence {
+                    selector: occ.selector.clone(),
+                    node_id: occ.node_id.clone(),
+                    message: occ.message.clone(),
+                    html_snippet: occ.html_snippet.clone(),
+                    suggested_code: occ.suggested_code.clone(),
+                })
+                .collect(),
             responsible_role: self.responsible_role,
             effort: self.effort,
             execution_priority: self.execution_priority,
             examples: self.examples.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_pattern_clusters, build_representative_occurrences, build_view_model,
+        normalize_selector_cluster,
+    };
+    use crate::audit::{normalize, AuditReport};
+    use crate::audit::normalized::OccurrenceDetail;
+    use crate::cli::WcagLevel;
+    use crate::output::report_model::{ReportConfig, ReportHistoryPreview};
+    use crate::wcag::{Severity, Violation, WcagResults};
+
+    #[test]
+    fn representative_occurrences_prefer_rich_and_actionable_examples() {
+        let occurrences = vec![
+            OccurrenceDetail {
+                node_id: "node-1".into(),
+                message: "Short".into(),
+                selector: None,
+                fix_suggestion: None,
+                html_snippet: None,
+                suggested_code: None,
+            },
+            OccurrenceDetail {
+                node_id: "node-2".into(),
+                message: "Contrast ratio 1.13:1 for hero headline.".into(),
+                selector: Some("main .hero-title".into()),
+                fix_suggestion: Some("Increase foreground/background contrast.".into()),
+                html_snippet: Some("<h1 class=\"hero-title\">Insights</h1>".into()),
+                suggested_code: None,
+            },
+            OccurrenceDetail {
+                node_id: "node-3".into(),
+                message: "Contrast ratio 1.00:1 for CTA button text.".into(),
+                selector: Some("#cta-primary".into()),
+                fix_suggestion: Some("Use darker text color.".into()),
+                html_snippet: Some("<a id=\"cta-primary\">Kontakt</a>".into()),
+                suggested_code: Some("<a id=\"cta-primary\" class=\"text-stone-900\">Kontakt</a>".into()),
+            },
+            OccurrenceDetail {
+                node_id: "node-4".into(),
+                message: "Link landmark is outside a region.".into(),
+                selector: Some("a.skip-link".into()),
+                fix_suggestion: None,
+                html_snippet: None,
+                suggested_code: None,
+            },
+        ];
+
+        let selected = build_representative_occurrences(&occurrences);
+
+        assert_eq!(selected.len(), 3);
+        assert_eq!(selected[0].selector, "#cta-primary");
+        assert_eq!(selected[1].selector, "main .hero-title");
+        assert_eq!(selected[2].selector, "a.skip-link");
+    }
+
+    #[test]
+    fn representative_occurrences_deduplicate_selector_variants() {
+        let occurrences = vec![
+            OccurrenceDetail {
+                node_id: "node-1".into(),
+                message: "First duplicate".into(),
+                selector: Some("main .hero-title".into()),
+                fix_suggestion: None,
+                html_snippet: Some("<h1 class=\"hero-title\">One</h1>".into()),
+                suggested_code: None,
+            },
+            OccurrenceDetail {
+                node_id: "node-2".into(),
+                message: "Second duplicate with richer text".into(),
+                selector: Some("MAIN .HERO-TITLE".into()),
+                fix_suggestion: Some("Adjust markup.".into()),
+                html_snippet: Some("<h1 class=\"hero-title\">Two</h1>".into()),
+                suggested_code: Some("<h1 lang=\"de\">Two</h1>".into()),
+            },
+            OccurrenceDetail {
+                node_id: "node-3".into(),
+                message: "Independent selector".into(),
+                selector: Some("footer .meta a".into()),
+                fix_suggestion: None,
+                html_snippet: None,
+                suggested_code: None,
+            },
+        ];
+
+        let selected = build_representative_occurrences(&occurrences);
+
+        assert_eq!(selected.len(), 2);
+        assert_eq!(selected[0].selector, "MAIN .HERO-TITLE");
+        assert_eq!(selected[1].selector, "footer .meta a");
+    }
+
+    #[test]
+    fn pattern_clusters_group_similar_selector_variants() {
+        let occurrences = vec![
+            OccurrenceDetail {
+                node_id: "node-1".into(),
+                message: "One".into(),
+                selector: Some("main .card-1 .cta".into()),
+                fix_suggestion: None,
+                html_snippet: None,
+                suggested_code: None,
+            },
+            OccurrenceDetail {
+                node_id: "node-2".into(),
+                message: "Two".into(),
+                selector: Some("main .card-2 .cta".into()),
+                fix_suggestion: None,
+                html_snippet: None,
+                suggested_code: None,
+            },
+            OccurrenceDetail {
+                node_id: "node-3".into(),
+                message: "Three".into(),
+                selector: Some("footer .meta a".into()),
+                fix_suggestion: None,
+                html_snippet: None,
+                suggested_code: None,
+            },
+        ];
+
+        let clusters = build_pattern_clusters(&occurrences);
+
+        assert_eq!(normalize_selector_cluster("main .card-1 .cta"), "main .card-# .cta");
+        assert_eq!(clusters[0].occurrences, 2);
+        assert_eq!(clusters[0].label, "main .card-1 .cta");
+    }
+
+    #[test]
+    fn view_model_exposes_confidence_and_capabilities() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Image missing alt attribute",
+            "node-123",
+        ));
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            1500,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        assert!(vm
+            .methodology
+            .confidence_summary
+            .iter()
+            .any(|(label, _)| label == "Audit-Vertrauen"));
+        assert!(vm
+            .methodology
+            .capabilities
+            .iter()
+            .any(|cap| cap.signal == "WCAG-Regeln & Vorkommen"));
+    }
+
+    #[test]
+    fn view_model_exposes_history_delta_when_preview_exists() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1500,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(
+            &normalized,
+            &ReportConfig {
+                history_preview: Some(ReportHistoryPreview {
+                    previous_date: "01.04.2026".to_string(),
+                    timeline_entries: 3,
+                    previous_accessibility_score: 74,
+                    previous_overall_score: 78,
+                    delta_accessibility: 8,
+                    delta_overall: 5,
+                    delta_total_issues: -6,
+                    delta_critical_issues: -2,
+                    recent_entries: vec![
+                        ("01.04.2026".to_string(), 74, 78, "C".to_string(), 12),
+                        ("06.04.2026".to_string(), normalized.score, normalized.overall_score, normalized.grade.clone(), normalized.severity_counts.total as u32),
+                    ],
+                    new_findings: vec!["Link-Purpose".to_string()],
+                    resolved_findings: vec!["Alt-Text".to_string()],
+                }),
+                ..ReportConfig::default()
+            },
+        );
+
+        let history = vm.history.expect("history block should exist");
+        assert_eq!(history.trend_label, "Deutlich verbessert");
+        assert!(history.summary.contains("01.04.2026"));
+        assert_eq!(history.timeline_rows.len(), 2);
+        assert_eq!(history.resolved_findings.len(), 1);
     }
 }
 

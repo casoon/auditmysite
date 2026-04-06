@@ -18,6 +18,14 @@
     "mobile": { "type": ["object", "null"] },
     "ux": { "type": ["object", "null"] },
     "journey": { "type": ["object", "null"] },
+    "confidence_summary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/confidenceSignal" }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capabilitySignal" }
+    },
     "history": { "type": ["object", "null"] }
   },
   "$defs": {
@@ -146,6 +154,30 @@
           "type": "array",
           "items": { "type": "string" }
         }
+      }
+    },
+    "confidenceSignal": {
+      "type": "object",
+      "required": ["signal", "assessment"],
+      "additionalProperties": false,
+      "properties": {
+        "signal": { "type": "string" },
+        "assessment": { "type": "string" }
+      }
+    },
+    "capabilitySignal": {
+      "type": "object",
+      "required": ["signal", "source", "confidence", "surfaces", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "signal": { "type": "string" },
+        "source": { "type": "string" },
+        "confidence": { "type": "string" },
+        "surfaces": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "note": { "type": "string" }
       }
     },
     "normalizedReport": {

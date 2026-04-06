@@ -94,12 +94,39 @@ pub(super) fn render_methodology_section(
         table = table.add_row(vec![key.clone(), value.clone()]);
     }
 
+    let mut confidence_table =
+        AuditTable::new(vec![TableColumn::new("Signal"), TableColumn::new("Einordnung")])
+            .with_title("Vertrauen & Einordnung");
+    for (key, value) in &methodology.confidence_summary {
+        confidence_table = confidence_table.add_row(vec![key.clone(), value.clone()]);
+    }
+
+    let mut capability_table = AuditTable::new(vec![
+        TableColumn::new("Signal").with_width("24%"),
+        TableColumn::new("Quelle").with_width("18%"),
+        TableColumn::new("Vertrauen").with_width("14%"),
+        TableColumn::new("Outputs").with_width("18%"),
+        TableColumn::new("Hinweis").with_width("26%"),
+    ])
+    .with_title("Capabilities & Coverage");
+    for cap in &methodology.capabilities {
+        capability_table = capability_table.add_row(vec![
+            cap.signal.clone(),
+            cap.source.clone(),
+            cap.confidence.clone(),
+            cap.surfaces.join(", "),
+            cap.note.clone(),
+        ]);
+    }
+
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new("Methodik & Einschränkungen").with_level(1))
         .add_component(TextBlock::new(&methodology.scope))
         .add_component(TextBlock::new(&methodology.method))
         .add_component(table)
+        .add_component(confidence_table)
+        .add_component(capability_table)
         .add_component(
             Callout::info(&methodology.limitations).with_title(i18n.t("callout-limitations-title")),
         )

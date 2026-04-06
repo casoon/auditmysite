@@ -515,6 +515,7 @@ mod tests {
             },
             module_scores: vec![],
             overall_score: 86,
+            audit_flags: vec![],
             raw_performance: None,
             raw_seo: None,
             raw_security: None,

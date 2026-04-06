@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::audit::normalized::{NormalizedReport, RiskLevel};
 use crate::audit::AuditReport;
+use crate::output::builder::build_view_model;
+use crate::output::report_model::ReportConfig;
 
 // ─── Audit Response (full result sent to GUI after audit) ───────────
 
@@ -63,9 +65,30 @@ pub struct StudioAuditResponse {
     // ── Metadata ────────────────────────────────────────────────────
     pub nodes_analyzed: usize,
     pub execution_time_ms: u64,
+    pub executive_summary: StudioExecutiveSummary,
+    pub artifacts: StudioReportArtifacts,
 
     // ── Full JSON report (for detail tab / export) ──────────────────
     pub json_report: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StudioExecutiveSummary {
+    pub executive_lead: String,
+    pub verdict: String,
+    pub benchmark_context: String,
+    pub key_points: Vec<String>,
+    pub top_actions: Vec<String>,
+    pub overall_impact: Vec<(String, String)>,
+    pub positive_aspects: Vec<String>,
+    pub next_step: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StudioReportArtifacts {
+    pub audit_json_path: Option<String>,
+    pub studio_snapshot_path: Option<String>,
+    pub pdf_path: Option<String>,
 }
 
 /// Per-module score entry for the dashboard gauge row.
@@ -98,6 +121,7 @@ impl StudioAuditResponse {
         _report: &AuditReport,
         json_report: String,
     ) -> Self {
+        let vm = build_view_model(normalized, &ReportConfig::default());
         let module_scores: Vec<StudioModuleScore> = normalized
             .module_scores
             .iter()
@@ -142,8 +166,24 @@ impl StudioAuditResponse {
             findings,
             nodes_analyzed: normalized.nodes_analyzed,
             execution_time_ms: normalized.duration_ms,
+            executive_summary: StudioExecutiveSummary {
+                executive_lead: vm.summary.executive_lead,
+                verdict: vm.summary.verdict,
+                benchmark_context: vm.summary.benchmark_context,
+                key_points: vm.executive.key_points,
+                top_actions: vm.summary.top_actions,
+                overall_impact: vm.summary.overall_impact,
+                positive_aspects: vm.summary.positive_aspects,
+                next_step: vm.executive.next_steps_callout_body,
+            },
+            artifacts: StudioReportArtifacts::default(),
             json_report,
         }
+    }
+
+    pub fn with_artifacts(mut self, artifacts: StudioReportArtifacts) -> Self {
+        self.artifacts = artifacts;
+        self
     }
 }
 
@@ -171,6 +211,7 @@ pub struct StudioHistoryEntry {
     pub execution_time_ms: u64,
     /// Per-module scores (compact)
     pub module_scores: Vec<StudioModuleScore>,
+    pub artifacts: StudioReportArtifacts,
 }
 
 impl StudioHistoryEntry {
@@ -190,6 +231,34 @@ impl StudioHistoryEntry {
             high_issues: response.high_issues,
             execution_time_ms: response.execution_time_ms,
             module_scores: response.module_scores.clone(),
+            artifacts: response.artifacts.clone(),
+        }
+    }
+
+    pub fn into_response(self, json_report: String) -> StudioAuditResponse {
+        StudioAuditResponse {
+            url: self.url,
+            timestamp: self.timestamp,
+            accessibility_score: self.accessibility_score,
+            overall_score: self.overall_score,
+            grade: self.grade,
+            certificate: self.certificate,
+            risk_level: self.risk_level,
+            risk_summary: String::new(),
+            legal_flags: 0,
+            blocking_issues: 0,
+            critical_issues: self.critical_issues,
+            high_issues: self.high_issues,
+            medium_issues: 0,
+            low_issues: 0,
+            total_issues: self.total_issues,
+            module_scores: self.module_scores,
+            findings: vec![],
+            nodes_analyzed: 0,
+            execution_time_ms: self.execution_time_ms,
+            executive_summary: StudioExecutiveSummary::default(),
+            artifacts: self.artifacts,
+            json_report,
         }
     }
 }
@@ -228,6 +297,7 @@ mod tests {
         assert_eq!(response.risk_level, "low");
         assert_eq!(response.total_issues, 0);
         assert!(!response.grade.is_empty());
+        assert!(response.executive_summary.key_points.len() <= 3);
     }
 
     #[test]

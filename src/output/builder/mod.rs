@@ -72,6 +72,8 @@ mod tests {
             .metrics
             .iter()
             .any(|m| m.title == format!("Gesamtscore{NBSP}Website")));
+        assert!(!vm.executive.key_points.is_empty());
+        assert!(!vm.executive.risk_title.is_empty());
     }
 
     #[test]
@@ -179,6 +181,42 @@ mod tests {
             .top_topics
             .iter()
             .any(|(topic, _)| topic == "container" || topic == "datenschutz"));
+    }
+
+    #[test]
+    fn test_batch_presentation_uses_normalized_module_scores() {
+        let report = make_topic_report_with_modules(
+            "https://example.com/arbeitsweise/",
+            "Container Deployment Plattform Architektur",
+            "Container Deployment fuer Plattformen und Kubernetes Betrieb.",
+            &["Container Deployment", "Plattform Architektur"],
+            "Container Deployment Kubernetes Plattform Architektur Betrieb",
+            72.0,
+            91,
+            63,
+            95,
+        )
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
+
+        let batch = BatchReport::from_reports(vec![report.clone()], vec![], 1400);
+        let pres = build_batch_presentation(&batch);
+        let normalized = normalize(&report);
+
+        assert_eq!(pres.url_ranking[0].score as u32, normalized.score);
+        assert_eq!(pres.url_ranking[0].grade, normalized.grade);
+        assert_eq!(
+            pres.url_details[0].module_scores.len(),
+            normalized.module_scores.len()
+        );
+        assert!(pres.url_details[0]
+            .module_scores
+            .iter()
+            .any(|(module, _)| module == "UX"));
+        assert!(pres.url_details[0]
+            .module_scores
+            .iter()
+            .any(|(module, _)| module == "Journey"));
     }
 
     fn make_topic_report_with_modules(

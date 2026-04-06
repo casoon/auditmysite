@@ -25,7 +25,7 @@ pub(super) fn create_engine() -> anyhow::Result<renderreport::Engine> {
         .set("font.body", TokenValue::Font("Helvetica".into()));
     theme
         .tokens
-        .set("font.heading", TokenValue::Font("Helvetica".into()));
+        .set("font.heading", TokenValue::Font("Georgia".into()));
     theme
         .tokens
         .set("font.mono", TokenValue::Font("JetBrains Mono".into()));

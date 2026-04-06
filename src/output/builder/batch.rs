@@ -83,13 +83,13 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                 .count();
             UrlSummary {
                 url: r.url.clone(),
-                score: r.score,
+                score: nr.score as f32,
                 overall_score: nr.overall_score,
-                grade: r.grade.clone(),
+                grade: nr.grade.clone(),
                 critical_violations: critical_count,
                 total_violations: r.wcag_results.violations.len(),
-                passed: r.passed(),
-                priority: score_to_priority(r.score),
+                passed: nr.score >= 70 && nr.severity_counts.critical == 0,
+                priority: score_to_priority(nr.score as f32),
             }
         })
         .collect();
@@ -102,33 +102,26 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     let url_details: Vec<CompactUrlSummary> = batch
         .reports
         .iter()
-        .map(|r| {
+        .zip(normalized_reports.iter())
+        .map(|(r, nr)| {
             let per_url_groups = group_violations(&r.wcag_results.violations, &[]);
             let mut sorted = per_url_groups;
             sorted.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
 
-            let mut module_scores = vec![("Accessibility".to_string(), r.score.round() as u32)];
-            if let Some(ref p) = r.performance {
-                module_scores.push(("Performance".to_string(), p.score.overall));
-            }
-            if let Some(ref s) = r.seo {
-                module_scores.push(("SEO".to_string(), s.score));
-            }
-            if let Some(ref s) = r.security {
-                module_scores.push(("Security".to_string(), s.score));
-            }
-            if let Some(ref m) = r.mobile {
-                module_scores.push(("Mobile".to_string(), m.score));
-            }
+            let module_scores = nr
+                .module_scores
+                .iter()
+                .map(|m| (m.name.clone(), m.score))
+                .collect();
 
             let topic_terms = extract_page_topics(r);
 
             CompactUrlSummary {
                 url: r.url.clone(),
-                score: r.score,
-                grade: r.grade.clone(),
+                score: nr.score as f32,
+                grade: nr.grade.clone(),
                 critical_violations: r
                     .wcag_results
                     .violations
@@ -170,22 +163,26 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         })
         .collect();
 
-    let mut sorted_by_score: Vec<_> = batch.reports.iter().collect();
+    let mut sorted_by_score: Vec<_> = batch
+        .reports
+        .iter()
+        .zip(normalized_reports.iter())
+        .collect();
     sorted_by_score.sort_by(|a, b| {
-        a.score
-            .partial_cmp(&b.score)
+        (a.1.score as f32)
+            .partial_cmp(&(b.1.score as f32))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     let worst_urls: Vec<(String, f32)> = sorted_by_score
         .iter()
         .take(3)
-        .map(|r| (truncate_url(&r.url, 60), r.score))
+        .map(|(r, nr)| (truncate_url(&r.url, 60), nr.score as f32))
         .collect();
     let best_urls: Vec<(String, f32)> = sorted_by_score
         .iter()
         .rev()
         .take(3)
-        .map(|r| (truncate_url(&r.url, 60), r.score))
+        .map(|(r, nr)| (truncate_url(&r.url, 60), nr.score as f32))
         .collect();
 
     let severity_distribution = {
@@ -704,7 +701,10 @@ fn group_violations(
                 occurrence_count: count,
                 affected_urls: Vec::new(),
                 affected_elements: count,
+                additional_occurrences: count,
+                pattern_clusters: Vec::new(),
                 location_hints,
+                representative_occurrences: Vec::new(),
                 responsible_role: role,
                 effort,
                 execution_priority,
@@ -778,7 +778,10 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
         occurrence_count: acc.count,
         affected_urls: acc.urls.clone(),
         affected_elements: acc.count,
+        additional_occurrences: acc.count,
+        pattern_clusters: Vec::new(),
         location_hints,
+        representative_occurrences: Vec::new(),
         responsible_role: role,
         effort,
         execution_priority,

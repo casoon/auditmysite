@@ -49,6 +49,9 @@ pub struct NormalizedReport {
 
     /// Risk assessment — independent from score
     pub risk: RiskAssessment,
+    /// Audit flags for noteworthy signal conflicts or caveats
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub audit_flags: Vec<AuditFlag>,
 
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
@@ -222,26 +225,29 @@ pub struct RiskAssessment {
     pub summary: String,
 }
 
+/// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditFlag {
+    pub kind: String,
+    pub related_rule: Option<String>,
+    pub source: String,
+    pub message: String,
+}
+
 /// Normalisiert einen rohen AuditReport.
 ///
 /// - Gruppert Violations nach Regel-ID
 /// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
-/// - Wendet Score-Korrekturen an (3.1.1-Suppression)
 /// - Berechnet Grade/Certificate aus korrigiertem Score
 pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let violations = &report.wcag_results.violations;
 
-    // Detect 3.1.1 suppression
-    let suppress_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
+    let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
     // Group violations by rule ID
     let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
     for v in violations {
-        // Skip suppressed 3.1.1 violations
-        if suppress_lang && v.rule == "3.1.1" {
-            continue;
-        }
         groups.entry(&v.rule).or_default().push(v);
     }
 
@@ -343,15 +349,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .then_with(|| b.severity.cmp(&a.severity))
     });
 
-    // Calculate corrected score
-    let mut corrected_score = report.score;
-    if suppress_lang && had_311 {
-        corrected_score += 12.5;
-        corrected_score = corrected_score.clamp(0.0, 100.0);
-    }
-    let score = corrected_score.round() as u32;
-    let grade = AccessibilityScorer::calculate_grade(corrected_score).to_string();
-    let certificate = AccessibilityScorer::calculate_certificate(corrected_score).to_string();
+    let score = report.score.round() as u32;
+    let grade = AccessibilityScorer::calculate_grade(report.score).to_string();
+    let certificate = AccessibilityScorer::calculate_certificate(report.score).to_string();
 
     // Severity counts from normalized findings
     let severity_counts = SeverityCounts {
@@ -483,9 +483,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         });
     }
 
-    // Weighted overall score — use corrected accessibility score, not raw
+    // Weighted overall score — use the normalized accessibility score as source of truth
     let overall_score = {
-        let mut weighted_sum = corrected_score as f64 * 40.0;
+        let mut weighted_sum = score as f64 * 40.0;
         let mut total_weight = 40.0;
         if let Some(ref perf) = report.performance {
             weighted_sum += perf.score.overall as f64 * 20.0;
@@ -514,6 +514,16 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         }
         (weighted_sum / total_weight).round() as u32
     };
+
+    let mut audit_flags = Vec::new();
+    if seo_reports_lang && had_311 {
+        audit_flags.push(AuditFlag {
+            kind: "conflicting_signal".to_string(),
+            related_rule: Some("3.1.1".to_string()),
+            source: "seo.technical.has_lang".to_string(),
+            message: "SEO detected a language declaration while WCAG still reported 3.1.1. The finding remains in the report and should be verified against the rendered DOM.".to_string(),
+        });
+    }
 
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = {
@@ -586,6 +596,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         module_scores,
         overall_score,
         risk,
+        audit_flags,
         raw_performance: report.performance.clone(),
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),
@@ -770,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_lang_suppression() {
+    fn test_normalize_lang_conflict_flag_keeps_finding() {
         let mut results = WcagResults::new();
         results.add_violation(Violation::new(
             "3.1.1",
@@ -790,8 +801,9 @@ mod tests {
         // Without SEO data — 3.1.1 should remain
         let norm_no_seo = normalize(&report);
         assert_eq!(norm_no_seo.findings.len(), 1);
+        assert!(norm_no_seo.audit_flags.is_empty());
 
-        // With SEO indicating has_lang — 3.1.1 should be suppressed
+        // With SEO indicating has_lang — 3.1.1 should remain but be marked as a conflicting signal
         report.seo = Some(crate::seo::SeoAnalysis {
             technical: crate::seo::TechnicalSeo {
                 has_lang: true,
@@ -800,8 +812,13 @@ mod tests {
             ..Default::default()
         });
         let norm_with_seo = normalize(&report);
-        assert!(norm_with_seo.findings.is_empty());
-        assert_eq!(norm_with_seo.score, 100);
+        assert_eq!(norm_with_seo.findings.len(), 1);
+        assert_eq!(norm_with_seo.score, report.score.round() as u32);
+        assert_eq!(norm_with_seo.audit_flags.len(), 1);
+        assert_eq!(
+            norm_with_seo.audit_flags[0].related_rule.as_deref(),
+            Some("3.1.1")
+        );
     }
 
     #[test]

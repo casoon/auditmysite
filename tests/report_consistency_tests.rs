@@ -11,6 +11,8 @@ use auditmysite::audit::{normalize, AuditReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
 use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::mobile::MobileFriendliness;
+use auditmysite::output::builder::build_view_model;
+use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::JsonReport;
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
@@ -497,6 +499,43 @@ fn test_json_contains_all_sections() {
 }
 
 #[test]
+fn test_audit_flags_surface_in_json_output() {
+    let mut results = WcagResults::new();
+    results.add_violation(Violation::new(
+        "3.1.1",
+        "Language",
+        WcagLevel::A,
+        Severity::High,
+        "Missing lang",
+        "html",
+    ));
+
+    let mut report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        100,
+    );
+    let mut seo = SeoAnalysis::default();
+    seo.technical.has_lang = true;
+    report = report.with_seo(seo);
+
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let parsed: serde_json::Value = serde_json::from_str(&json_report.to_json(true).unwrap()).unwrap();
+
+    let flags = parsed["report"]["audit_flags"]
+        .as_array()
+        .expect("audit_flags should be present");
+    assert_eq!(flags.len(), 1);
+    assert_eq!(
+        flags[0]["related_rule"].as_str(),
+        Some("3.1.1"),
+        "expected 3.1.1 conflict flag"
+    );
+}
+
+#[test]
 fn test_json_field_order_fix_guidance_before_history() {
     let report = make_full_report();
     let mut json_report = JsonReport::from_normalized(&normalize(&report), &report);
@@ -656,4 +695,34 @@ fn test_journey_dimensions_count() {
     assert!(!journey.navigation.name.is_empty());
     assert!(!journey.interaction.name.is_empty());
     assert!(!journey.conversion.name.is_empty());
+}
+
+#[test]
+fn test_view_model_preserves_cli_facts_and_finding_density() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+    let vm = build_view_model(&normalized, &ReportConfig::default());
+
+    assert!(vm
+        .methodology
+        .audit_facts
+        .iter()
+        .any(|(label, _)| label == "Geprüfte Knoten"));
+    assert!(vm
+        .methodology
+        .audit_facts
+        .iter()
+        .any(|(label, _)| label == "Laufzeit"));
+
+    let top = vm
+        .findings
+        .top_findings
+        .first()
+        .expect("top finding should exist");
+    assert!(top.occurrence_count >= top.representative_occurrences.len());
+    assert_eq!(
+        top.additional_occurrences,
+        top.occurrence_count
+            .saturating_sub(top.representative_occurrences.len())
+    );
 }

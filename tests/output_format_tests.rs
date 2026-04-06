@@ -84,6 +84,8 @@ fn test_json_report_generation() {
     assert_eq!(parsed["report"]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
     assert_eq!(parsed["metadata"]["timestamp"], "2026-01-15T12:00:00Z");
+    assert!(parsed["confidence_summary"].is_array());
+    assert!(parsed["capabilities"].is_array());
     // Findings are now grouped by rule, with taxonomy fields
     assert!(parsed["report"]["findings"].is_array());
     let findings = parsed["report"]["findings"].as_array().unwrap();
@@ -92,6 +94,31 @@ fn test_json_report_generation() {
     assert!(findings[0]["subcategory"].is_string());
     assert!(findings[0]["issue_class"].is_string());
     assert_matches_schema(&parsed, "json-report.schema.json");
+}
+
+#[test]
+fn test_json_report_exposes_confidence_and_capabilities() {
+    let report = create_test_report();
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let parsed = serde_json::to_value(&json_report).expect("serialization must work");
+
+    let confidence = parsed["confidence_summary"]
+        .as_array()
+        .expect("confidence_summary must be an array");
+    let capabilities = parsed["capabilities"]
+        .as_array()
+        .expect("capabilities must be an array");
+
+    assert!(confidence
+        .iter()
+        .any(|entry| entry["signal"] == "Audit-Vertrauen"));
+    assert!(capabilities.iter().any(|entry| {
+        entry["signal"] == "WCAG-Regeln & Vorkommen"
+            && entry["surfaces"]
+                .as_array()
+                .is_some_and(|surfaces| surfaces.iter().any(|s| s == "PDF"))
+    }));
 }
 
 #[test]
@@ -221,6 +248,8 @@ fn test_studio_response_has_all_expected_fields() {
         "findings",
         "nodes_analyzed",
         "execution_time_ms",
+        "executive_summary",
+        "artifacts",
         "json_report",
     ];
     for field in required {
