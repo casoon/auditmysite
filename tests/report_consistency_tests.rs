@@ -522,7 +522,8 @@ fn test_audit_flags_surface_in_json_output() {
 
     let normalized = normalize(&report);
     let json_report = JsonReport::from_normalized(&normalized, &report);
-    let parsed: serde_json::Value = serde_json::from_str(&json_report.to_json(true).unwrap()).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_report.to_json(true).unwrap()).unwrap();
 
     let flags = parsed["report"]["audit_flags"]
         .as_array()

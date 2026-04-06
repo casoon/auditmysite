@@ -94,9 +94,11 @@ pub(super) fn render_methodology_section(
         table = table.add_row(vec![key.clone(), value.clone()]);
     }
 
-    let mut confidence_table =
-        AuditTable::new(vec![TableColumn::new("Signal"), TableColumn::new("Einordnung")])
-            .with_title("Vertrauen & Einordnung");
+    let mut confidence_table = AuditTable::new(vec![
+        TableColumn::new("Signal"),
+        TableColumn::new("Einordnung"),
+    ])
+    .with_title("Vertrauen & Einordnung");
     for (key, value) in &methodology.confidence_summary {
         confidence_table = confidence_table.add_row(vec![key.clone(), value.clone()]);
     }

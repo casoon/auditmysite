@@ -12,10 +12,9 @@ mod history;
 mod modules;
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, DominantIssueSpotlight,
-    ImpactGrid, ImpactGridCard, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
-    PhaseBlock, SectionHeaderSplit,
-    TableOfContents,
+    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, DominantIssueSpotlight, ImpactGrid,
+    ImpactGridCard, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, PhaseBlock,
+    SectionHeaderSplit, TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::prelude::Image;
@@ -24,8 +23,7 @@ use renderreport::prelude::*;
 // Composite components
 use renderreport::components::{
     AuditTable, BenchmarkRow, BenchmarkTable, ComparisonModule, ModuleComparison, SeverityOverview,
-    SummaryBox,
-    TableColumn,
+    SummaryBox, TableColumn,
 };
 
 use crate::audit::{normalize, AuditReport, BatchReport};
@@ -96,8 +94,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .add_component(Label::new(&vm.cover.title).with_size("28pt").bold())
         .add_component(
             Label::new(&vm.executive.cover_kicker)
-            .with_size("12pt")
-            .with_color("#475569"),
+                .with_size("12pt")
+                .with_color("#475569"),
         )
         .add_component(build_cover_meta(&vm.cover, &vm.meta.version));
 
@@ -143,8 +141,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ─────────────────────────────────────────────────────────────────
     {
         let risk_callout = match vm.summary.risk_level.as_str() {
-            "Kritisch" => Callout::error(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
-            "Hoch" => Callout::warning(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
+            "Kritisch" => {
+                Callout::error(&vm.summary.risk_summary).with_title(&vm.executive.risk_title)
+            }
+            "Hoch" => {
+                Callout::warning(&vm.summary.risk_summary).with_title(&vm.executive.risk_title)
+            }
             _ => Callout::info(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
         };
 
@@ -168,21 +170,24 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             "200pt",
             vec![
                 component_json(build_summary_overview(&vm.summary)),
-                component_json(MetricStrip::new(vec![
-                    MetricStripItem::new("Gesamtscore", vm.summary.score.to_string())
-                        .with_accent("#0f766e"),
-                    MetricStripItem::new("Probleme erkannt", vm.severity.total.to_string()),
-                    MetricStripItem::new(
-                        "Kritisch / Hoch",
-                        format!("{}", vm.severity.critical + vm.severity.high),
-                    )
-                    .with_status("bad")
-                    .with_accent("#dc2626"),
-                    MetricStripItem::new("Risiko", &vm.summary.risk_level)
-                        .with_status(risk_status(&vm.summary.risk_level)),
-                    MetricStripItem::new("Zertifikat", &vm.summary.certificate)
-                        .with_accent("#7c3aed"),
-                ]).compact()),
+                component_json(
+                    MetricStrip::new(vec![
+                        MetricStripItem::new("Gesamtscore", vm.summary.score.to_string())
+                            .with_accent("#0f766e"),
+                        MetricStripItem::new("Probleme erkannt", vm.severity.total.to_string()),
+                        MetricStripItem::new(
+                            "Kritisch / Hoch",
+                            format!("{}", vm.severity.critical + vm.severity.high),
+                        )
+                        .with_status("bad")
+                        .with_accent("#dc2626"),
+                        MetricStripItem::new("Risiko", &vm.summary.risk_level)
+                            .with_status(risk_status(&vm.summary.risk_level)),
+                        MetricStripItem::new("Zertifikat", &vm.summary.certificate)
+                            .with_accent("#7c3aed"),
+                    ])
+                    .compact(),
+                ),
             ],
         ));
 
@@ -287,8 +292,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // Goal: understand — compact cards, no tech detail here
     // ─────────────────────────────────────────────────────────────────
     {
-        builder = builder
-            .add_component(SectionHeaderSplit::new(&vm.executive.findings_title, &vm.executive.findings_intro).with_level(1));
+        builder = builder.add_component(
+            SectionHeaderSplit::new(&vm.executive.findings_title, &vm.executive.findings_intro)
+                .with_level(1),
+        );
 
         // FindingCards — compact: Problem/Impact/Ursache/Fix
         for group in vm.findings.top_findings.iter().take(5) {
@@ -324,7 +331,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         // Empfohlene Vorgehensweise
         builder = builder.add_component(
             Callout::info(&vm.executive.action_plan_callout_body)
-            .with_title(&vm.executive.action_plan_callout_title),
+                .with_title(&vm.executive.action_plan_callout_title),
         );
 
         if !vm.actions.phase_preview.is_empty() {
@@ -374,12 +381,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     builder = builder.add_component(PageBreak::new());
     {
         builder = builder.add_component(
-            SectionHeaderSplit::new(
-                &vm.executive.technical_title,
-                &vm.executive.technical_intro,
-            )
-            .with_eyebrow("TECHNICAL HANDOFF")
-            .with_level(1),
+            SectionHeaderSplit::new(&vm.executive.technical_title, &vm.executive.technical_intro)
+                .with_eyebrow("TECHNICAL HANDOFF")
+                .with_level(1),
         );
 
         // Module health diagnosis
@@ -576,11 +580,7 @@ fn build_cli_snapshot_table(vm: &ReportViewModel) -> AuditTable {
     .with_title("Technical Snapshot (CLI parity)");
 
     for (label, value) in &vm.methodology.audit_facts {
-        table = table.add_row(vec![
-            "Audit".to_string(),
-            label.clone(),
-            value.clone(),
-        ]);
+        table = table.add_row(vec!["Audit".to_string(), label.clone(), value.clone()]);
     }
 
     for module in &vm.modules.dashboard {
@@ -598,7 +598,11 @@ fn build_cli_snapshot_table(vm: &ReportViewModel) -> AuditTable {
         table = table.add_row(vec![
             "Finding".to_string(),
             format!("{} ({})", finding.rule_id, finding.wcag_criterion),
-            format!("{} Vorkommen — {}", finding.occurrence_count, first_sentence(&finding.user_impact)),
+            format!(
+                "{} Vorkommen — {}",
+                finding.occurrence_count,
+                first_sentence(&finding.user_impact)
+            ),
         ]);
     }
 
@@ -616,12 +620,15 @@ fn build_raw_audit_snapshot(vm: &ReportViewModel) -> SummaryBox {
                 .map(|(_, value)| value.as_str())
                 .unwrap_or("n/a"),
         )
-        .add_item("Geprüfte Knoten", vm.methodology
-            .audit_facts
-            .iter()
-            .find(|(label, _)| label == "Geprüfte Knoten")
-            .map(|(_, value)| value.as_str())
-            .unwrap_or("n/a"))
+        .add_item(
+            "Geprüfte Knoten",
+            vm.methodology
+                .audit_facts
+                .iter()
+                .find(|(label, _)| label == "Geprüfte Knoten")
+                .map(|(_, value)| value.as_str())
+                .unwrap_or("n/a"),
+        )
         .add_item(
             "Laufzeit",
             vm.methodology
@@ -636,12 +643,15 @@ fn build_raw_audit_snapshot(vm: &ReportViewModel) -> SummaryBox {
             "Kritisch / Hoch",
             format!("{}", vm.severity.critical + vm.severity.high),
         )
-        .add_item("Audit-Hinweise", vm.methodology
-            .audit_facts
-            .iter()
-            .find(|(label, _)| label == "Audit-Hinweise")
-            .map(|(_, value)| value.as_str())
-            .unwrap_or("0"))
+        .add_item(
+            "Audit-Hinweise",
+            vm.methodology
+                .audit_facts
+                .iter()
+                .find(|(label, _)| label == "Audit-Hinweise")
+                .map(|(_, value)| value.as_str())
+                .unwrap_or("0"),
+        )
 }
 
 fn module_score_color(score: u32) -> &'static str {
@@ -671,8 +681,11 @@ fn render_next_steps_single(
     vm: &ReportViewModel,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(&vm.executive.next_steps_title, &vm.executive.next_steps_intro)
-            .with_level(1),
+        SectionHeaderSplit::new(
+            &vm.executive.next_steps_title,
+            &vm.executive.next_steps_intro,
+        )
+        .with_level(1),
     );
 
     let mut steps: Vec<(String, String, String)> = Vec::new(); // (step, timeframe, scope)
@@ -740,7 +753,7 @@ fn render_next_steps_single(
 
     builder = builder.add_component(
         Callout::info(&vm.executive.next_steps_callout_body)
-        .with_title(&vm.executive.next_steps_callout_title),
+            .with_title(&vm.executive.next_steps_callout_title),
     );
 
     builder

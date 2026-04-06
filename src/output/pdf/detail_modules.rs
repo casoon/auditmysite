@@ -1,6 +1,8 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode).
 
-use renderreport::components::advanced::{KeyValueList, List, MetricStrip, MetricStripItem, PageBreak};
+use renderreport::components::advanced::{
+    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
 use renderreport::prelude::*;
@@ -390,7 +392,11 @@ pub(super) fn render_security(
             MetricStripItem::new("Header", format!("{}/9", header_count)).with_accent("#0f766e"),
             MetricStripItem::new(
                 "HTTPS",
-                if sec.ssl_info.iter().any(|(k, v)| k.contains("HTTPS") && v == "Ja") {
+                if sec
+                    .ssl_info
+                    .iter()
+                    .any(|(k, v)| k.contains("HTTPS") && v == "Ja")
+                {
                     "Ja"
                 } else {
                     "Unklar"
@@ -672,7 +678,11 @@ fn truncate(value: &str, max_chars: usize) -> String {
     if count <= max_chars {
         return value.to_string();
     }
-    value.chars().take(max_chars.saturating_sub(1)).collect::<String>() + "…"
+    value
+        .chars()
+        .take(max_chars.saturating_sub(1))
+        .collect::<String>()
+        + "…"
 }
 
 pub(super) fn render_source_quality(

@@ -150,12 +150,10 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(table);
 
         for occ in &group.representative_occurrences {
-            let mut snapshot = SummaryBox::new(format!(
-                "Fundstelle: {}",
-                truncate_url(&occ.selector, 60)
-            ))
-            .add_item("Node", &occ.node_id)
-            .add_item("Hinweis", first_sentence(&occ.message));
+            let mut snapshot =
+                SummaryBox::new(format!("Fundstelle: {}", truncate_url(&occ.selector, 60)))
+                    .add_item("Node", &occ.node_id)
+                    .add_item("Hinweis", first_sentence(&occ.message));
 
             if let Some(html) = occ
                 .html_snippet
