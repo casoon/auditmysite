@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 
-use auditmysite::{audit_page, BrowserManager, PipelineConfig, WcagLevel};
+use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig, WcagLevel};
 
 /// Serve a local HTML file over HTTP on a random port.
 /// Returns the URL (e.g. "http://127.0.0.1:PORT") and a shutdown handle.
@@ -61,6 +61,16 @@ fn serve_fixture(filename: &str) -> (String, Arc<std::sync::atomic::AtomicBool>)
     (url, shutdown)
 }
 
+async fn ci_browser() -> BrowserManager {
+    let opts = BrowserOptions {
+        no_sandbox: std::env::var("CI").is_ok(),
+        ..Default::default()
+    };
+    BrowserManager::with_options(opts)
+        .await
+        .expect("Browser launch failed")
+}
+
 fn default_config() -> PipelineConfig {
     PipelineConfig {
         wcag_level: WcagLevel::AA,
@@ -79,7 +89,7 @@ fn default_config() -> PipelineConfig {
 async fn test_perfect_page_scores_high() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
-    let manager = BrowserManager::new().await.expect("Browser launch failed");
+    let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
     manager
         .navigate(&page, &url)
@@ -118,7 +128,7 @@ async fn test_perfect_page_scores_high() {
 async fn test_many_violations_page_scores_low() {
     let (url, shutdown) = serve_fixture("many_violations.html");
 
-    let manager = BrowserManager::new().await.expect("Browser launch failed");
+    let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
     manager
         .navigate(&page, &url)
@@ -159,7 +169,7 @@ async fn test_full_audit_with_all_modules() {
         ..default_config()
     };
 
-    let manager = BrowserManager::new().await.expect("Browser launch failed");
+    let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
     manager
         .navigate(&page, &url)
@@ -198,7 +208,7 @@ async fn test_full_audit_with_all_modules() {
 async fn test_output_formats() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
-    let manager = BrowserManager::new().await.expect("Browser launch failed");
+    let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
     manager
         .navigate(&page, &url)
@@ -239,7 +249,7 @@ async fn test_mobile_issues_detected() {
         ..default_config()
     };
 
-    let manager = BrowserManager::new().await.expect("Browser launch failed");
+    let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
     manager
         .navigate(&page, &url)
