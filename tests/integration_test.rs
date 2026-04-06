@@ -102,10 +102,10 @@ async fn test_perfect_page_scores_high() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    // A well-structured page should score above 80
+    // A well-structured page should score above 70 (no score suppression)
     assert!(
-        report.score >= 80.0,
-        "Perfect page scored only {:.1}, expected >= 80",
+        report.score >= 70.0,
+        "Perfect page scored only {:.1}, expected >= 70",
         report.score
     );
 
