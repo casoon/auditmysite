@@ -34,17 +34,14 @@ pub fn check_language(tree: &AXTree) -> WcagResults {
             if role_lower == "rootwebarea" || role_lower == "document" {
                 found_document = true;
 
-                // Check for language property
-                if let Some(lang) = node.get_property_str("lang") {
-                    if is_valid_language_code(lang) {
-                        has_valid_lang = true;
-                    }
-                }
+                // Chrome CDP exposes the lang attribute as "language" on RootWebArea;
+                // also check "lang" as fallback for other implementations.
+                let lang_value = node
+                    .get_property_str("language")
+                    .or_else(|| node.get_property_str("lang"));
 
-                // Also check description which sometimes contains language info
-                if let Some(ref desc) = node.description {
-                    if desc.to_lowercase().contains("lang=") {
-                        // Extract and validate language
+                if let Some(lang) = lang_value {
+                    if is_valid_language_code(lang) {
                         has_valid_lang = true;
                     }
                 }

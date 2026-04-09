@@ -97,7 +97,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .with_size("12pt")
                 .with_color("#475569"),
         )
-        .add_component(build_cover_meta(&vm.cover, &vm.meta.version));
+        ;
 
     let single_badge_asset = "/certificate-badge-single.svg";
     let single_badge_enabled = if let Ok(path) = certificate_badge_path(&vm.cover.certificate) {
@@ -135,14 +135,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     if vm.meta.report_level != ReportLevel::Executive {
         builder = builder
-            .add_component(
-                SectionHeaderSplit::new(
-                    "Report-Navigation",
-                    "Executive Summary, Priorisierung, technische Detailmetriken und Audit-Anhang.",
-                )
-                .with_eyebrow("INHALT")
-                .with_level(1),
-            )
             .add_component(TableOfContents::new())
             .add_component(PageBreak::new());
     }
@@ -249,11 +241,18 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         }
 
         if !vm.summary.positive_aspects.is_empty() {
-            let mut strengths = SummaryBox::new("Was bereits stark ist");
-            for item in vm.summary.positive_aspects.iter().take(3) {
-                strengths = strengths.add_item("Stärke", item);
-            }
-            builder = builder.add_component(strengths);
+            let rows: Vec<ChecklistRow> = vm
+                .summary
+                .positive_aspects
+                .iter()
+                .take(3)
+                .enumerate()
+                .map(|(i, item)| {
+                    ChecklistRow::new(format!("Stärke {}", i + 1), item).with_status("good")
+                })
+                .collect();
+            builder = builder
+                .add_component(ChecklistPanel::new(rows).with_title("Was bereits stark ist"));
         }
     }
 
@@ -387,10 +386,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // SECTION 5 — TECH ENTRY (page break: executive → technical)
+    // SECTION 5 — TECH ENTRY
     // Goal: transition — intro for dev/design/content, severity overview
     // ─────────────────────────────────────────────────────────────────
-    builder = builder.add_component(PageBreak::new());
     {
         builder = builder.add_component(
             SectionHeaderSplit::new(&vm.executive.technical_title, &vm.executive.technical_intro)
@@ -440,7 +438,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── Module Detail Metrics ───────────────────────────────────────
     if vm.module_details.has_any {
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new("Technische Detailmetriken").with_level(2));
     }
 
@@ -475,7 +472,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new(i18n.t("section-appendix")).with_level(1));
 
         builder = builder.add_component(build_cli_snapshot_table(&vm));
@@ -692,7 +688,7 @@ fn render_next_steps_single(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(PageBreak::new()).add_component(
+    builder = builder.add_component(
         SectionHeaderSplit::new(
             &vm.executive.next_steps_title,
             &vm.executive.next_steps_intro,
@@ -700,67 +696,31 @@ fn render_next_steps_single(
         .with_level(1),
     );
 
-    let mut steps: Vec<(String, String, String)> = Vec::new(); // (step, timeframe, scope)
+    let mut steps: Vec<String> = Vec::new();
 
-    // Step 1: highest priority from quick wins
+    // Highest priority from quick wins
     for col in &vm.actions.roadmap_columns {
         for item in &col.items {
             if steps.len() >= 3 {
                 break;
             }
-            let scope = if item.action.contains("global")
-                || item.action.contains("alle")
-                || item.action.contains("Designsystem")
-            {
-                "global (alle Seiten)"
-            } else {
-                "komponentenbasiert"
-            };
-            let timeframe = match item.effort.as_str() {
-                "Quick Win" => "1–2 Tage",
-                "Mittelfristig" => "1–2 Wochen",
-                _ => "2–4 Wochen",
-            };
-            steps.push((
-                item.action.clone(),
-                timeframe.to_string(),
-                scope.to_string(),
-            ));
+            steps.push(item.action.clone());
         }
     }
 
     // Fallback from findings
     if steps.is_empty() {
         for group in vm.findings.top_findings.iter().take(3) {
-            let timeframe = match group.effort {
-                Effort::Quick => "1–2 Tage",
-                Effort::Medium => "1–2 Wochen",
-                Effort::Structural => "2–4 Wochen",
-            };
-            steps.push((
-                first_sentence(&group.recommendation).to_string(),
-                timeframe.to_string(),
-                "komponentenbasiert".to_string(),
-            ));
+            steps.push(first_sentence(&group.recommendation).to_string());
         }
     }
 
     if !steps.is_empty() {
-        let mut table = AuditTable::new(vec![
-            TableColumn::new("Schritt"),
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Zeitrahmen"),
-            TableColumn::new("Scope"),
-        ]);
-        for (i, (action, timeframe, scope)) in steps.iter().enumerate() {
-            table = table.add_row(vec![
-                format!("{}", i + 1),
-                action.clone(),
-                timeframe.clone(),
-                scope.clone(),
-            ]);
+        let mut list = List::new();
+        for action in &steps {
+            list = list.add_item(action);
         }
-        builder = builder.add_component(table);
+        builder = builder.add_component(list);
     }
 
     builder = builder.add_component(
@@ -951,7 +911,7 @@ fn render_next_steps_batch(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(PageBreak::new()).add_component(
+    builder = builder.add_component(
         SectionHeaderSplit::new(
             "Empfohlene nächste Schritte",
             "Konkrete Handlungsempfehlung für die Umsetzung.",
@@ -1225,8 +1185,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         builder = builder.add_component(module_kv);
     }
 
-    builder = builder.add_component(PageBreak::new());
-
     // ── 2. URL-Ranking ──────────────────────────────────────────────
     let rows: Vec<BenchmarkRow> = pres
         .url_ranking
@@ -1276,8 +1234,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             )
             .with_level(1),
         )
-        .add_component(BenchmarkTable::new(rows))
-        .add_component(PageBreak::new());
+        .add_component(BenchmarkTable::new(rows));
 
     // ── 3. Top-Probleme (vereinheitlicht) ─────────────────────────
     builder = builder.add_component(
@@ -1342,7 +1299,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     }
 
     // ── 4. Maßnahmenplan (mit Aufwand + Scope) ─────────────────────
-    builder = builder.add_component(PageBreak::new()).add_component(
+    builder = builder.add_component(
         SectionHeaderSplit::new(
             "Maßnahmenplan",
             "Die folgenden Maßnahmen sind nach Aufwand und Wirkung priorisiert. \
@@ -1359,7 +1316,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             kv = kv.add(label, value);
         }
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new("Render-Blocking & Assets").with_level(1))
             .add_component(TextBlock::new(
                 "Aggregierte Auswertung render-blockierender Ressourcen über alle geprüften Seiten. \
@@ -1387,7 +1343,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             ]);
         }
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new("Performance Budgets").with_level(1))
             .add_component(TextBlock::new(
                 "Performance-Budgets definieren Obergrenzen für Ladezeiten, Asset-Größen und \
@@ -1399,12 +1354,10 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // ── 5. Technische URL-Matrix ───────────────────────────────────
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(SectionHeaderSplit::new("Technische URL-Matrix", "Verdichtete Übersicht aller geprüften URLs mit Fokus auf technische Priorisierung. Jede Zeile zeigt Score, Problemintensität und den größten Hebel für die nächste Optimierungsrunde.").with_level(1));
 
     if let Some(ref crawl_links) = pres.portfolio_summary.crawl_links {
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new("Interne Broken Links").with_level(1))
             .add_component(TextBlock::new(format!(
                 "Für den Crawl ab {} wurden {} interne Linkziele geprüft. {} kaputte interne Verlinkungen wurden erkannt.",
@@ -1572,7 +1525,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // ── 6. Content & SEO — integriert mit Business-Impact ─────────
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(SectionHeaderSplit::new(
             "Content & SEO-Potenzial",
             "Content-Stärken und -Schwächen mit direktem Bezug zu Rankings, Sichtbarkeit und Conversion. \
@@ -1704,7 +1656,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // ── 7. Anhang ───────────────────────────────────────────────────
     if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
-        builder = builder.add_component(PageBreak::new()).add_component(
+        builder = builder.add_component(
             SectionHeaderSplit::new(
                 "Anhang: Technische Details",
                 "Vollständige Auflistung aller erkannten Verstöße pro URL \
@@ -1863,7 +1815,6 @@ pub fn generate_comparison_pdf(
 
     if has_module_data {
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new("Modul-Vergleich").with_level(1));
 
         let comparison_modules: Vec<ComparisonModule> = comparison
@@ -1878,7 +1829,6 @@ pub fn generate_comparison_pdf(
     let has_issues = comparison.entries.iter().any(|e| !e.top_issues.is_empty());
     if has_issues {
         builder = builder
-            .add_component(PageBreak::new())
             .add_component(Section::new("Wichtigste Findings je Domain").with_level(1));
 
         for entry in &comparison.entries {

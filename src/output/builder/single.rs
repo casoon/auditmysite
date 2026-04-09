@@ -293,7 +293,7 @@ fn build_executive_narrative(
         crate::audit::normalized::RiskLevel::Critical => "Sofort handeln",
         crate::audit::normalized::RiskLevel::High => "Zeitnah beheben",
         crate::audit::normalized::RiskLevel::Medium => "Bei nächster Optimierung",
-        crate::audit::normalized::RiskLevel::Low => "Kein akuter Handlungsbedarf",
+        crate::audit::normalized::RiskLevel::Low => "Optimierung empfohlen",
     };
 
     let key_points = build_single_key_points_text(severity, top_findings, normalized);
@@ -531,11 +531,20 @@ fn build_single_quick_actions_text(
 }
 
 fn sentence_preview(text: &str) -> &str {
-    text.split('.')
-        .next()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or(text)
+    let mut search_from = 0;
+    while let Some(rel) = text[search_from..].find(". ") {
+        let pos = search_from + rel;
+        // Skip single-letter abbreviations like "z. B.", "d. h.", "u. a."
+        if pos >= 2 {
+            let before = &text[pos - 2..pos];
+            if before.starts_with(' ') && before.as_bytes()[1].is_ascii_alphabetic() {
+                search_from = pos + 2;
+                continue;
+            }
+        }
+        return text[..pos + 1].trim_end();
+    }
+    text
 }
 
 fn build_history_trend_block(preview: &ReportHistoryPreview) -> HistoryTrendBlock {

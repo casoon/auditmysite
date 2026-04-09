@@ -569,7 +569,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 "Mittleres Risiko: {} schwerwiegende Probleme erkannt. Einschränkungen für bestimmte Nutzergruppen.",
                 high_issues + critical_issues
             ),
-            RiskLevel::Low => "Geringes Risiko: Keine kritischen Barrieren erkannt.".to_string(),
+            RiskLevel::Low => "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden.".to_string(),
         };
 
         RiskAssessment {

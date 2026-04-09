@@ -1,6 +1,6 @@
 //! History/trend and methodology section renderers.
 
-use renderreport::components::advanced::{KeyValueList, List, PageBreak};
+use renderreport::components::advanced::{KeyValueList, List};
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -122,7 +122,6 @@ pub(super) fn render_methodology_section(
     }
 
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("Methodik & Einschränkungen").with_level(1))
         .add_component(TextBlock::new(&methodology.scope))
         .add_component(TextBlock::new(&methodology.method))

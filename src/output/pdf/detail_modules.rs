@@ -1,7 +1,7 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode).
 
 use renderreport::components::advanced::{
-    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    KeyValueList, List, MetricStrip, MetricStripItem,
 };
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
@@ -146,7 +146,6 @@ pub(super) fn render_seo(
     seo: &SeoPresentation,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("SEO-Analyse").with_level(2))
         .add_component(TextBlock::new(&seo.interpretation))
         .add_component(ScoreCard::new("SEO Score", seo.score).with_thresholds(80, 50));
@@ -468,7 +467,6 @@ pub(super) fn render_security(
     sec: &SecurityPresentation,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("Sicherheit").with_level(2))
         .add_component(TextBlock::new(&sec.interpretation))
         .add_component(
@@ -543,7 +541,6 @@ pub(super) fn render_mobile(
     mobile: &MobilePresentation,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("Mobile Nutzbarkeit").with_level(2))
         .add_component(TextBlock::new(&mobile.interpretation))
         .add_component(ScoreCard::new("Mobile Score", mobile.score).with_thresholds(80, 50));
@@ -609,7 +606,6 @@ pub(super) fn render_ux(
     ux: &UxPresentation,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("User Experience").with_level(2))
         .add_component(TextBlock::new(&ux.interpretation))
         .add_component(ScoreCard::new("UX Score", ux.score).with_thresholds(80, 50));
@@ -640,7 +636,6 @@ pub(super) fn render_journey(
     journey: &JourneyPresentation,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("User Journey").with_level(2))
         .add_component(TextBlock::new(&journey.interpretation))
         .add_component(ScoreCard::new("Journey Score", journey.score).with_thresholds(80, 50));
@@ -680,7 +675,6 @@ pub(super) fn render_dark_mode(
         "Nicht unterstützt"
     };
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("Dark Mode").with_level(2))
         .add_component(ScoreCard::new("Dark Mode Score", dm.score).with_thresholds(80, 50));
 
@@ -785,7 +779,6 @@ pub(super) fn render_source_quality(
     sq: &crate::source_quality::SourceQualityAnalysis,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new("Quellenqualität").with_level(2))
         .add_component(Callout::info(&sq.disclaimer).with_title("Hinweis"))
         .add_component(
