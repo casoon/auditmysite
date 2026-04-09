@@ -491,7 +491,7 @@ fn build_single_key_points_text(
                 .to_string(),
         );
     } else {
-        points.push("Keine kritischen Barrieren — gute Ausgangslage".to_string());
+        points.push("Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.".to_string());
     }
 
     points
@@ -1190,10 +1190,39 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             }
         }
 
+        // If CWV are all good but score is below 85, explain the gap
+        let cwv_all_good = p.vitals.lcp.as_ref().map_or(true, |v| v.rating == "good")
+            && p.vitals.fcp.as_ref().map_or(true, |v| v.rating == "good")
+            && p.vitals.cls.as_ref().map_or(true, |v| v.rating == "good");
+        let score_below_excellent = p.score.overall < 85;
+        let perf_interpretation = if cwv_all_good && score_below_excellent {
+            let mut reasons = Vec::new();
+            if p.vitals.dom_nodes.map_or(false, |n| n > 1500) {
+                reasons.push("DOM-Größe");
+            }
+            if has_render_blocking {
+                reasons.push("Render-blockierende Ressourcen");
+            }
+            if p.vitals.tbt.as_ref().map_or(false, |v| v.rating != "good") {
+                reasons.push("Total Blocking Time");
+            }
+            if reasons.is_empty() {
+                interpret_score(p.score.overall as f32, "Performance")
+            } else {
+                format!(
+                    "{} Score durch {} reduziert, obwohl Core Web Vitals im grünen Bereich liegen.",
+                    interpret_score(p.score.overall as f32, "Performance"),
+                    reasons.join(", ")
+                )
+            }
+        } else {
+            interpret_score(p.score.overall as f32, "Performance")
+        };
+
         PerformancePresentation {
             score: p.score.overall,
             grade: p.score.grade.label().to_string(),
-            interpretation: interpret_score(p.score.overall as f32, "Performance"),
+            interpretation: perf_interpretation,
             vitals,
             additional_metrics: additional,
             recommendations,
@@ -1635,9 +1664,23 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         }
     });
 
-    let mobile = normalized.raw_mobile.as_ref().map(|m| MobilePresentation {
+    let mobile = normalized.raw_mobile.as_ref().map(|m| {
+        let small_targets = m.touch_targets.small_targets;
+        let mobile_interpretation = if small_targets >= 10 {
+            format!(
+                "{} {} Touch-Target{} {} kleiner als empfohlen (44×44 px) — lokal begrenzt, \
+                 betrifft nicht zwingend die Hauptnavigation.",
+                interpret_score(m.score as f32, "mobile Nutzbarkeit"),
+                small_targets,
+                if small_targets == 1 { " ist" } else { " sind" },
+                if small_targets == 1 { "" } else { "" },
+            )
+        } else {
+            interpret_score(m.score as f32, "mobile Nutzbarkeit")
+        };
+        MobilePresentation {
         score: m.score,
-        interpretation: interpret_score(m.score as f32, "mobile Nutzbarkeit"),
+        interpretation: mobile_interpretation,
         viewport: vec![
             ("Viewport-Tag".to_string(), yes_no(m.viewport.has_viewport)),
             (
@@ -1713,6 +1756,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             .iter()
             .map(|i| (i.category.clone(), i.severity, i.message.clone()))
             .collect(),
+        }
     });
 
     let dark_mode = normalized

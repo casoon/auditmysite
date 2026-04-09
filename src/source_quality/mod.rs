@@ -161,7 +161,11 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
             detail: format!(
                 "{} Wörter{}",
                 word_count,
-                if substantial { "" } else { " (dünn)" }
+                if substantial {
+                    ""
+                } else {
+                    " (Heuristik: typisch ≥ 300 Wörter empfohlen)"
+                }
             ),
         });
 

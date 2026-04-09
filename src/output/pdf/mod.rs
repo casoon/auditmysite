@@ -810,7 +810,7 @@ fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution)
             "Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten".to_string(),
         );
     } else {
-        points.push("Keine kritischen Barrieren — gute Gesamtlage".to_string());
+        points.push("Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.".to_string());
     }
 
     points

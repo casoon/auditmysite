@@ -493,7 +493,7 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
             dimension: "Trust Signals".into(),
             severity: "high".into(),
             problem: "Kein Kontakt-Link erkennbar".into(),
-            impact: "Nutzer können bei Fragen oder Problemen keinen Ansprechpartner finden".into(),
+            impact: "Kein Kontakt-Link auf dieser Seite erkennbar (heuristisch — Kontakt könnte bewusst ausgelagert sein).".into(),
             recommendation: "Kontaktseite oder Kontaktinformationen gut sichtbar verlinken".into(),
         });
     }

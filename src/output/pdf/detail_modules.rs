@@ -148,7 +148,11 @@ pub(super) fn render_seo(
     builder = builder
         .add_component(Section::new("SEO-Analyse").with_level(2))
         .add_component(TextBlock::new(&seo.interpretation))
-        .add_component(ScoreCard::new("SEO Score", seo.score).with_thresholds(80, 50));
+        .add_component(
+            ScoreCard::new("Technisches SEO", seo.score)
+                .with_description("Misst technische Signale (Meta, Struktur, Schema, hreflang). Inhaltliche Tiefe wird separat bewertet.")
+                .with_thresholds(80, 50),
+        );
 
     let mut seo_strip = Vec::new();
     if let Some((_, title)) = seo.meta_tags.iter().find(|(key, _)| key == "Titel") {
@@ -258,12 +262,13 @@ fn render_robots(
     } else if robots.blocks_ai_crawlers {
         builder = builder.add_component(
             Callout::info(&format!(
-                "Folgende KI-Crawler werden explizit gesperrt: {}.",
+                "Folgende KI-Crawler sind über robots.txt eingeschränkt: {}. \
+                 Dies kann eine bewusste Entscheidung sein (z. B. zum Schutz von Inhalten).",
                 robots.blocked_ai_bots.join(", ")
             ))
-            .with_title("KI-Crawler blockiert"),
+            .with_title("KI-Crawler eingeschränkt"),
         );
-        "KI-Crawler teilweise gesperrt"
+        "KI-Crawler eingeschränkt"
     } else {
         "Keine Einschränkungen erkannt"
     };

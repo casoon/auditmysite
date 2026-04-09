@@ -311,16 +311,17 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                 "Tastaturnutzer und Screenreader-Nutzer müssen bei jedem Seitenwechsel \
                  erneut durch die gesamte Navigation tabben, bevor sie den Inhalt erreichen.",
             typical_cause:
-                "Fehlender Skip-Link, fehlende HTML5-Landmarks (nav, main, aside), \
-                 Navigation nicht als Landmark ausgezeichnet.",
+                "Fehlender Skip-Link als erstes Element der Seite. \
+                 WCAG 2.4.1 verlangt einen Mechanismus zum Überspringen wiederkehrender Blöcke — \
+                 nicht zwingend Landmarks, aber ein sichtbarer Skip-Link ist die direkteste Lösung.",
             recommendation:
-                "Einen sichtbaren Skip-Link ('Zum Inhalt springen') als erstes Element \
-                 der Seite einbauen. Zusätzlich HTML5-Landmarks korrekt verwenden: \
-                 <nav>, <main>, <aside>, <header>, <footer>.",
+                "Einen sichtbaren Skip-Link ('Zum Inhalt springen') als erstes interaktives Element \
+                 der Seite einbauen. HTML5-Landmarks (<nav>, <main>) sind ergänzend sinnvoll, \
+                 ersetzen aber den Skip-Link nicht.",
             technical_note:
                 "Skip-Link: <a href=\"#main\" class=\"skip-link\">Zum Inhalt springen</a>. \
-                 Landmarks: <nav role=\"navigation\">, <main id=\"main\">, etc. \
-                 Skip-Link bei Fokus sichtbar machen via CSS :focus.",
+                 Bei Fokus sichtbar machen via CSS :focus { clip: auto; position: static; }. \
+                 Landmarks (<nav>, <main id=\"main\">) verbessern zusätzlich die Screenreader-Navigation.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
             example_bad: Some("<body><div class=\"nav\">...</div><div class=\"content\">...</div></body>"),
