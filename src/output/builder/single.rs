@@ -300,20 +300,21 @@ fn build_executive_narrative(
     let impact_rows = vec![
         (
             "Nutzer".to_string(),
-            normalized
-                .findings
+            // Use the top finding's concrete user_impact for specificity.
+            // Falls back to the generic rating if no finding or impact text is too short.
+            top_findings
                 .first()
-                .map(|_| {
+                .filter(|f| f.user_impact.len() > 20)
+                .map(|f| sentence_preview(&f.user_impact).to_string())
+                .unwrap_or_else(|| {
                     build_overall_impact(normalized)
-                        .first()
-                        .map(|(_, value)| value.clone())
+                        .into_iter()
+                        .next()
+                        .map(|(_, v)| v)
                         .unwrap_or_else(|| {
                             "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen."
                                 .to_string()
                         })
-                })
-                .unwrap_or_else(|| {
-                    "Ein Teil der Nutzer kann Inhalte und Funktionen nicht nutzen.".to_string()
                 }),
         ),
         ("Business".to_string(), {
@@ -327,9 +328,14 @@ fn build_executive_narrative(
         (
             "Risiko".to_string(),
             if severity.critical > 0 {
-                "WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG) vorhanden.".to_string()
+                format!(
+                    "WCAG-Level-A-Verstöße vorhanden — BFSG-/EAA-Relevanz gegeben ({} kritische Findings).",
+                    severity.critical
+                )
+            } else if severity.high > 0 {
+                "Keine Level-A-Verstöße, aber WCAG-AA-Mängel vorhanden. Kein unmittelbarer Rechtsverstoß, Optimierungsbedarf gegeben.".to_string()
             } else {
-                "Keine WCAG-Level-A-Verstöße mit akuter rechtlicher Relevanz.".to_string()
+                "Keine kritischen WCAG-Verstöße — niedriges Risikoprofil für BFSG/EAA.".to_string()
             },
         ),
     ];
@@ -1509,6 +1515,43 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             ],
             tracking_summary_text: build_tracking_summary_text(&s.technical),
             profile,
+            robots: s.robots.as_ref().map(|r| {
+                use crate::seo::BotClass;
+                let bot_rows: Vec<(String, String, usize, usize, bool)> = r
+                    .groups
+                    .iter()
+                    .map(|g| {
+                        let fully_blocked = g.disallows.iter().any(|d| d == "/");
+                        (
+                            g.user_agent.clone(),
+                            g.bot_class.to_string(),
+                            g.allows.len(),
+                            g.disallows.len(),
+                            fully_blocked,
+                        )
+                    })
+                    .collect();
+
+                let blocked_ai_bots: Vec<String> = r
+                    .groups
+                    .iter()
+                    .filter(|g| {
+                        matches!(g.bot_class, BotClass::VerifiedAi | BotClass::UnknownAi)
+                            && g.disallows.iter().any(|d| d == "/")
+                    })
+                    .map(|g| g.user_agent.clone())
+                    .collect();
+
+                RobotsPresentation {
+                    error: r.error.clone(),
+                    has_wildcard_disallow_all: r.has_wildcard_disallow_all,
+                    blocks_ai_crawlers: r.blocks_ai_crawlers,
+                    sitemaps: r.sitemaps.clone(),
+                    crawl_delays: r.crawl_delays.clone(),
+                    bot_rows,
+                    blocked_ai_bots,
+                }
+            }),
         }
     });
 

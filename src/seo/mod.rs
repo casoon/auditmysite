@@ -5,6 +5,7 @@
 mod headings;
 mod meta;
 pub mod profile;
+pub mod robots;
 pub mod schema;
 mod social;
 pub mod technical;
@@ -12,6 +13,7 @@ pub mod technical;
 pub use headings::{analyze_heading_structure, HeadingIssue, HeadingStructure};
 pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
 pub use profile::{build_content_profile, SeoContentProfile};
+pub use robots::{audit_robots_txt, BotClass, RobotsAudit, RobotsGroup};
 pub use schema::{detect_structured_data, SchemaType, StructuredData};
 pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
 pub use technical::{analyze_technical_seo, TechnicalSeo};
@@ -40,6 +42,9 @@ pub struct SeoAnalysis {
     pub score: u32,
     /// Content profile analysis
     pub content_profile: Option<SeoContentProfile>,
+    /// robots.txt audit (informational, no score impact)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub robots: Option<RobotsAudit>,
 }
 
 /// Run complete SEO analysis
@@ -51,6 +56,9 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     let social = extract_social_tags(page).await?;
     let technical = analyze_technical_seo(page, url).await?;
     let structured_data = detect_structured_data(page).await?;
+
+    // robots.txt — HTTP fetch, independent of browser
+    let robots = Some(audit_robots_txt(url).await);
 
     // Calculate score
     let score = calculate_seo_score(&meta, &meta_issues, &headings, &social, &technical);
@@ -64,6 +72,7 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         structured_data,
         score,
         content_profile: None,
+        robots,
     };
 
     // Build content profile from collected data

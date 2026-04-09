@@ -111,7 +111,19 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .add_component(build_cover_score_row(
             &vm.cover,
             single_badge_enabled.then_some(single_badge_asset),
-        ))
+        ));
+
+    // HeroAssessment: concise pattern-based headline statement (D)
+    if !vm.summary.executive_lead.is_empty() {
+        builder = builder.add_component(
+            Label::new(&vm.summary.executive_lead)
+                .with_size("13pt")
+                .bold()
+                .with_color("#0f4c42"),
+        );
+    }
+
+    builder = builder
         .add_component(
             TextBlock::new(&vm.summary.verdict)
                 .with_size("11pt")

@@ -224,6 +224,101 @@ pub(super) fn render_seo(
         builder = render_seo_profile(builder, profile);
     }
 
+    // robots.txt
+    if let Some(robots) = &seo.robots {
+        builder = render_robots(builder, robots);
+    }
+
+    builder
+}
+
+fn render_robots(
+    mut builder: renderreport::engine::ReportBuilder,
+    robots: &crate::output::report_model::RobotsPresentation,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder.add_component(Section::new("robots.txt Audit").with_level(3));
+
+    if let Some(ref err) = robots.error {
+        return builder.add_component(
+            Callout::warning(&format!("robots.txt konnte nicht geladen werden: {err}"))
+                .with_title("Kein Zugriff"),
+        );
+    }
+
+    // Summary callout
+    let summary = if robots.has_wildcard_disallow_all {
+        builder = builder.add_component(
+            Callout::warning(
+                "Alle Crawler vollständig gesperrt (User-agent: * / Disallow: /). \
+                 Auf Staging-Domains ist das korrekt — auf der Produktiv-Domain würde dies \
+                 das vollständige Crawling durch Suchmaschinen verhindern.",
+            )
+            .with_title("Alle Crawler gesperrt"),
+        );
+        "Alle Crawler gesperrt"
+    } else if robots.blocks_ai_crawlers {
+        builder = builder.add_component(
+            Callout::info(&format!(
+                "Folgende KI-Crawler werden explizit gesperrt: {}.",
+                robots.blocked_ai_bots.join(", ")
+            ))
+            .with_title("KI-Crawler blockiert"),
+        );
+        "KI-Crawler teilweise gesperrt"
+    } else {
+        "Keine Einschränkungen erkannt"
+    };
+    let _ = summary;
+
+    // Bot overview table
+    if !robots.bot_rows.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("User-agent").with_width("28%"),
+            TableColumn::new("Kategorie").with_width("26%"),
+            TableColumn::new("Erlaubt").with_width("13%"),
+            TableColumn::new("Gesperrt").with_width("13%"),
+            TableColumn::new("Status").with_width("20%"),
+        ])
+        .with_title("Crawler-Regeln");
+
+        for (ua, class, allows, disallows, fully_blocked) in &robots.bot_rows {
+            let status = if *fully_blocked {
+                "Vollständig gesperrt"
+            } else if *disallows > 0 {
+                "Teilweise gesperrt"
+            } else {
+                "Erlaubt"
+            };
+            table = table.add_row(vec![
+                ua.clone(),
+                class.clone(),
+                allows.to_string(),
+                disallows.to_string(),
+                status.to_string(),
+            ]);
+        }
+
+        builder = builder.add_component(table);
+    }
+
+    // Sitemaps
+    if !robots.sitemaps.is_empty() {
+        let mut kv = KeyValueList::new().with_title("Sitemap-Einträge");
+        for (i, sitemap) in robots.sitemaps.iter().enumerate() {
+            kv = kv.add(format!("Sitemap {}", i + 1), sitemap);
+        }
+        builder = builder.add_component(kv);
+    }
+
+    // Crawl delays
+    if !robots.crawl_delays.is_empty() {
+        let mut kv = KeyValueList::new().with_title("Crawl-Delay-Werte");
+        for (ua, delay) in &robots.crawl_delays {
+            kv = kv.add(ua, format!("{delay} Sekunden"));
+        }
+        builder = builder.add_component(kv);
+    }
+
     builder
 }
 

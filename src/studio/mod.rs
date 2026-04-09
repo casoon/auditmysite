@@ -199,18 +199,28 @@ pub struct StudioHistoryEntry {
     pub url: String,
     pub timestamp: DateTime<Utc>,
     /// WCAG accessibility score
+    #[serde(default)]
     pub accessibility_score: u32,
     /// Weighted overall score
     pub overall_score: u32,
+    #[serde(default)]
     pub grade: String,
+    #[serde(default)]
     pub certificate: String,
+    #[serde(default)]
     pub risk_level: String,
+    #[serde(default)]
     pub total_issues: usize,
+    #[serde(default)]
     pub critical_issues: usize,
+    #[serde(default)]
     pub high_issues: usize,
+    #[serde(default)]
     pub execution_time_ms: u64,
     /// Per-module scores (compact)
+    #[serde(default)]
     pub module_scores: Vec<StudioModuleScore>,
+    #[serde(default)]
     pub artifacts: StudioReportArtifacts,
 }
 

@@ -1281,6 +1281,7 @@ mod tests {
             structured_data: StructuredData::default(),
             score: 0,
             content_profile: None,
+            robots: None,
         }
     }
 

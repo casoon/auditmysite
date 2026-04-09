@@ -24,7 +24,13 @@ pub(super) fn render_key_finding_block(
         crate::wcag::Severity::Medium => "MITTEL",
         crate::wcag::Severity::Low => "GERING",
     };
-    let mut kv = KeyValueList::new().with_title(format!("{} — {}", sev_label, group.title));
+    let is_quick_win = group.effort == crate::output::report_model::Effort::Quick;
+    let title = if is_quick_win {
+        format!("{} — {} [Quick Win]", sev_label, group.title)
+    } else {
+        format!("{} — {}", sev_label, group.title)
+    };
+    let mut kv = KeyValueList::new().with_title(title);
 
     // Problem — one sentence from customer_description
     let problem = first_sentence(&group.customer_description);
@@ -32,7 +38,7 @@ pub(super) fn render_key_finding_block(
 
     // Impact — one sentence
     if !group.user_impact.is_empty() {
-        kv = kv.add("Impact", first_sentence(&group.user_impact));
+        kv = kv.add("Was Nutzer erleben", first_sentence(&group.user_impact));
     }
 
     // Ursache — one sentence
@@ -41,7 +47,12 @@ pub(super) fn render_key_finding_block(
     }
 
     // Fix — one sentence
-    kv = kv.add("Fix", first_sentence(&group.recommendation));
+    kv = kv.add("Was tun", first_sentence(&group.recommendation));
+
+    // Quick Win callout
+    if is_quick_win {
+        kv = kv.add("Aufwand", "Quick Win — wenige Stunden, hohe Wirkung");
+    }
 
     builder = builder.add_component(kv);
     builder = builder.add_component(

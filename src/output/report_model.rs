@@ -472,6 +472,21 @@ pub struct SeoPresentation {
     pub tracking_summary: Vec<(String, String)>,
     pub tracking_summary_text: String,
     pub profile: Option<SeoProfilePresentation>,
+    /// robots.txt audit — informational only
+    pub robots: Option<RobotsPresentation>,
+}
+
+/// Pre-processed robots.txt display data
+pub struct RobotsPresentation {
+    pub error: Option<String>,
+    pub has_wildcard_disallow_all: bool,
+    pub blocks_ai_crawlers: bool,
+    pub sitemaps: Vec<String>,
+    pub crawl_delays: Vec<(String, u32)>,
+    /// (user-agent, bot_class_label, allows_count, disallows_count, fully_blocked)
+    pub bot_rows: Vec<(String, String, usize, usize, bool)>,
+    /// AI crawlers that are explicitly blocked
+    pub blocked_ai_bots: Vec<String>,
 }
 
 /// SEO Content Profile presentation data
