@@ -9,15 +9,6 @@ use renderreport::prelude::*;
 
 use crate::output::report_model::*;
 
-pub(super) fn build_cover_meta(cover: &CoverBlock, version: &str) -> SummaryBox {
-    SummaryBox::new("Audit-Rahmen")
-        .add_item("Domain", &cover.brand)
-        .add_item("Prüfdatum", &cover.date)
-        .add_item("Ziel", &cover.domain)
-        .add_item("Zertifikat", &cover.certificate)
-        .add_item("Aktive Module", cover.modules.join(", "))
-        .add_item("Tool-Version", format!("auditmysite v{}", version))
-}
 
 pub(super) fn build_cover_score_row(cover: &CoverBlock, badge_asset: Option<&str>) -> Grid {
     let mut grid = Grid::new(3).with_item_min_height("142pt");

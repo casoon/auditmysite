@@ -955,10 +955,19 @@ fn build_methodology(normalized: &NormalizedReport) -> MethodologyBlock {
             (
                 "Gesamtscore".to_string(),
                 {
+                    // Normalize weights to sum to 100% for display
+                    let total_raw: u32 = normalized.module_scores.iter().map(|m| m.weight_pct).sum();
                     let weights: Vec<String> = normalized
                         .module_scores
                         .iter()
-                        .map(|m| format!("{} {}%", m.name, m.weight_pct))
+                        .map(|m| {
+                            let pct = if total_raw > 0 {
+                                (m.weight_pct * 100 + total_raw / 2) / total_raw
+                            } else {
+                                0
+                            };
+                            format!("{} {}%", m.name, pct)
+                        })
                         .collect();
                     format!(
                         "{} / 100 — Gewichtung: {}",

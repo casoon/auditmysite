@@ -36,7 +36,7 @@ use crate::util::truncate_url;
 use self::batch::build_batch_overview_grid;
 use self::cover::{
     auditmysite_wordmark_path, batch_certificate_label, build_batch_cover_score_row,
-    build_cover_meta, build_cover_score_row, certificate_badge_path,
+    build_cover_score_row, certificate_badge_path,
 };
 use self::detail_modules::{
     render_budget_violations, render_dark_mode, render_journey, render_mobile, render_performance,
