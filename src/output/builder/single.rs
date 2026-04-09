@@ -954,10 +954,22 @@ fn build_methodology(normalized: &NormalizedReport) -> MethodologyBlock {
             ),
             (
                 "Gesamtscore".to_string(),
-                format!(
-                    "{} / 100 (gewichteter Mix aktiver Module)",
-                    normalized.overall_score
-                ),
+                {
+                    let weights: Vec<String> = normalized
+                        .module_scores
+                        .iter()
+                        .map(|m| format!("{} {}%", m.name, m.weight_pct))
+                        .collect();
+                    format!(
+                        "{} / 100 — Gewichtung: {}",
+                        normalized.overall_score,
+                        if weights.is_empty() {
+                            "Accessibility 100%".to_string()
+                        } else {
+                            weights.join(", ")
+                        }
+                    )
+                },
             ),
             ("WCAG-Level".to_string(), normalized.wcag_level.to_string()),
             (
@@ -988,7 +1000,7 @@ fn build_confidence_summary(normalized: &NormalizedReport) -> Vec<(String, Strin
         "Begrenzt"
     };
     let caveat_level = if normalized.audit_flags.is_empty() {
-        "Keine Konfliktsignale"
+        "Keine automatisiert erkannten Konfliktsignale"
     } else if normalized.audit_flags.len() == 1 {
         "1 Hinweissignal"
     } else {
@@ -1826,11 +1838,34 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
     let journey = normalized
         .raw_journey
         .as_ref()
-        .map(|j| JourneyPresentation {
+        .map(|j| {
+        // Detect page type mismatch between SEO profile and Journey module
+        let seo_type: Option<String> = normalized
+            .raw_seo
+            .as_ref()
+            .and_then(|s| s.content_profile.as_ref())
+            .map(|cp| cp.page_classification.primary_type.label().to_lowercase());
+        let journey_type = j.page_intent.label().to_lowercase();
+        let type_note = match seo_type {
+            Some(ref st) if !st.is_empty() && !journey_type.is_empty() && st != &journey_type => {
+                format!(
+                    " (Hinweis: SEO-Profil klassifiziert als \"{}\", Journey als \"{}\" — \
+                     beide Heuristiken basieren auf unterschiedlichen Signalen.)",
+                    st, journey_type
+                )
+            }
+            _ => String::new(),
+        };
+        let journey_interpretation = if type_note.is_empty() {
+            interpret_score(j.score as f32, "User Journey")
+        } else {
+            format!("{}{}", interpret_score(j.score as f32, "User Journey"), type_note)
+        };
+        JourneyPresentation {
             score: j.score,
             grade: j.grade.clone(),
             page_intent: j.page_intent.label().to_string(),
-            interpretation: interpret_score(j.score as f32, "User Journey"),
+            interpretation: journey_interpretation,
             dimensions: vec![
                 JourneyDimensionPresentation {
                     name: j.entry_clarity.name.clone(),
@@ -1874,7 +1909,8 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                     recommendation: fp.recommendation.clone(),
                 })
                 .collect(),
-        });
+        }
+    });
 
     let has_any = performance.is_some()
         || seo.is_some()

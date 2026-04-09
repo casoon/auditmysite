@@ -265,10 +265,20 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // DominantIssueHero — percentage dominant, minimal text
         if let Some(top) = vm.findings.top_findings.first() {
-            let share = if total_ch > 0 {
-                top.occurrence_count * 100 / total_ch
+            // Share = this finding's occurrences / total occurrences across all findings.
+            // Fallback to total_ch if no occurrence data; never show 0% for the only finding.
+            let total_occurrences: usize = vm
+                .findings
+                .top_findings
+                .iter()
+                .map(|f| f.occurrence_count)
+                .sum();
+            let share = if total_occurrences > 0 {
+                (top.occurrence_count * 100 / total_occurrences).max(1)
+            } else if total_ch > 0 {
+                (top.occurrence_count * 100 / total_ch).max(1)
             } else {
-                0
+                100
             };
             let spotlight = DominantIssueSpotlight::new(
                 &top.title,
