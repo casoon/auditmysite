@@ -261,6 +261,29 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
 
+    // The AX tree does not expose the html[lang] attribute — verify it via DOM.
+    // If the page has a valid lang, remove the false-positive 3.1.1 violation.
+    if wcag_results.violations.iter().any(|v| v.rule == "3.1.1") {
+        let has_lang = page
+            .evaluate(
+                "document.documentElement.getAttribute('lang') || \
+                 document.documentElement.getAttribute('xml:lang') || ''",
+            )
+            .await
+            .ok()
+            .and_then(|r| r.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+            .map(|lang| {
+                let l = lang.trim().to_lowercase();
+                l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
+            })
+            .unwrap_or(false);
+
+        if has_lang {
+            wcag_results.violations.retain(|v| v.rule != "3.1.1");
+            wcag_results.passes += 1;
+        }
+    }
+
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running contrast check with CDP...");
         let contrast_violations =
