@@ -78,8 +78,10 @@ pub(super) fn first_sentence(text: &str) -> &str {
         let pos = search_from + rel;
         // Check for single-letter abbreviation pattern: " X. " (e.g. "z. B.", "d. h.")
         if pos >= 2 {
-            let before = &text[pos - 2..pos];
-            if before.starts_with(' ') && before.as_bytes()[1].is_ascii_alphabetic() {
+            let bytes = text.as_bytes();
+            let b0 = bytes[pos - 2];
+            let b1 = bytes[pos - 1];
+            if b0 == b' ' && b1.is_ascii_alphabetic() {
                 search_from = pos + 2;
                 continue;
             }
