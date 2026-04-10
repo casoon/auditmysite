@@ -98,7 +98,7 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     let mut signals = Vec::new();
 
     // 1. Section count — enough sections for meaningful chunks
-    let good_section_count = section_count >= 3 && section_count <= 30;
+    let good_section_count = (3..=30).contains(&section_count);
     signals.push(AiSignal {
         name: "Abschnittszahl".into(),
         present: good_section_count,
@@ -206,7 +206,7 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     } else {
         input.total_word_count
     };
-    let good_density = avg_words >= 100 && avg_words <= 500;
+    let good_density = (100..=500).contains(&avg_words);
     signals.push(AiSignal {
         name: "Abschnittsdichte".into(),
         present: good_density,

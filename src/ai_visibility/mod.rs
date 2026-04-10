@@ -292,7 +292,7 @@ fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInpu
     let heading_count = headings.len();
     let max_heading_depth = headings.iter().map(|h| h.level as u32).max().unwrap_or(0);
 
-    let has_schema = seo.map_or(false, |s| s.structured_data.has_structured_data);
+    let has_schema = seo.is_some_and(|s| s.structured_data.has_structured_data);
     let schema_types = seo.map_or(&[][..], |s| &s.structured_data.types);
     let schema_type_count = schema_types.len();
     let has_faq_schema = schema_types
@@ -307,7 +307,7 @@ fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInpu
         .and_then(|s| s.meta.description.as_ref())
         .map_or(0, |d| d.len());
 
-    let has_lang = seo.map_or(false, |s| s.technical.has_lang);
+    let has_lang = seo.is_some_and(|s| s.technical.has_lang);
 
     // Estimate paragraph count and avg length from word count and heading count
     let paragraph_count = if heading_count > 0 {
@@ -376,8 +376,8 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
         .iter()
         .any(|t| matches!(t, SchemaType::BreadcrumbList));
 
-    let has_canonical = seo.map_or(false, |s| s.technical.has_canonical);
-    let has_og_meta = seo.map_or(false, |s| {
+    let has_canonical = seo.is_some_and(|s| s.technical.has_canonical);
+    let has_og_meta = seo.is_some_and(|s| {
         s.social
             .open_graph
             .as_ref()
@@ -395,13 +395,13 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
         .map_or(0, |d| d.len());
 
     // Check for datePublished in JSON-LD
-    let has_date_published = seo.map_or(false, |s| {
+    let has_date_published = seo.is_some_and(|s| {
         s.structured_data.json_ld.iter().any(|ld| {
             ld.content.get("datePublished").is_some() || ld.content.get("dateCreated").is_some()
         })
     });
 
-    let has_lists = seo.map_or(false, |_| word_count > 500);
+    let has_lists = seo.is_some() && word_count > 500;
 
     // Estimate short paragraph ratio
     let paragraph_count = if heading_count > 0 {
@@ -451,8 +451,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
     let headings: Vec<chunks::HeadingInfo> = seo.map_or(vec![], |s| {
         let h = &s.headings.headings;
         h.iter()
-            .enumerate()
-            .map(|(_i, heading)| {
+            .map(|heading| {
                 // Estimate word count between headings
                 let total_words = s.technical.word_count;
                 let n = h.len() as u32;
@@ -484,7 +483,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
         .all(|v| !v.rule_name.contains("Landmark"));
     // article/section tags not directly available from technical SEO extraction.
     // Heuristic: if page has article schema, it likely uses <article> markup.
-    let has_article_tag = seo.map_or(false, |s| {
+    let has_article_tag = seo.is_some_and(|s| {
         s.structured_data.types.iter().any(|t| {
             matches!(
                 t,
@@ -572,7 +571,7 @@ fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::Knowled
     });
 
     let internal_links = seo.map_or(0, |s| s.technical.internal_links);
-    let has_breadcrumb = seo.map_or(false, |s| {
+    let has_breadcrumb = seo.is_some_and(|s| {
         s.structured_data
             .types
             .iter()

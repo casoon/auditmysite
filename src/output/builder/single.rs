@@ -1219,19 +1219,19 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         }
 
         // If CWV are all good but score is below 85, explain the gap
-        let cwv_all_good = p.vitals.lcp.as_ref().map_or(true, |v| v.rating == "good")
-            && p.vitals.fcp.as_ref().map_or(true, |v| v.rating == "good")
-            && p.vitals.cls.as_ref().map_or(true, |v| v.rating == "good");
+        let cwv_all_good = p.vitals.lcp.as_ref().is_none_or(|v| v.rating == "good")
+            && p.vitals.fcp.as_ref().is_none_or(|v| v.rating == "good")
+            && p.vitals.cls.as_ref().is_none_or(|v| v.rating == "good");
         let score_below_excellent = p.score.overall < 85;
         let perf_interpretation = if cwv_all_good && score_below_excellent {
             let mut reasons = Vec::new();
-            if p.vitals.dom_nodes.map_or(false, |n| n > 1500) {
+            if p.vitals.dom_nodes.is_some_and(|n| n > 1500) {
                 reasons.push("DOM-Größe");
             }
             if has_render_blocking {
                 reasons.push("Render-blockierende Ressourcen");
             }
-            if p.vitals.tbt.as_ref().map_or(false, |v| v.rating != "good") {
+            if p.vitals.tbt.as_ref().is_some_and(|v| v.rating != "good") {
                 reasons.push("Total Blocking Time");
             }
             if reasons.is_empty() {
