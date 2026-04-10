@@ -949,7 +949,6 @@ fn build_meta_signals(seo: &SeoAnalysis) -> SignalCategory {
                 .as_ref()
                 .map(|d| format!("{} Zeichen", d.len())),
         ),
-        check("Keywords vorhanden", seo.meta.keywords.is_some(), None),
         check("Viewport konfiguriert", seo.meta.viewport.is_some(), None),
         check("Charset definiert", seo.meta.charset.is_some(), None),
         check(

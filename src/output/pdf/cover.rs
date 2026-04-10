@@ -108,23 +108,23 @@ pub(super) fn auditmysite_wordmark_path() -> anyhow::Result<String> {
 
 pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String> {
     let (filename, svg) = match certificate {
-        "PLATINUM" => (
+        "SEHR GUT" => (
             "auditmysite-certificate-platinum.svg",
             include_str!("../../../assets/certificates/platinum.svg"),
         ),
-        "GOLD" => (
+        "GUT" => (
             "auditmysite-certificate-gold.svg",
             include_str!("../../../assets/certificates/gold.svg"),
         ),
-        "SILVER" => (
+        "SOLIDE" => (
             "auditmysite-certificate-silver.svg",
             include_str!("../../../assets/certificates/silver.svg"),
         ),
-        "BRONZE" => (
+        "AUSBAUFÄHIG" => (
             "auditmysite-certificate-bronze.svg",
             include_str!("../../../assets/certificates/bronze.svg"),
         ),
-        "FAILED" => (
+        "UNGENÜGEND" => (
             "auditmysite-certificate-failed.svg",
             include_str!("../../../assets/certificates/failed.svg"),
         ),
@@ -139,11 +139,11 @@ pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String
 
 pub(super) fn certificate_accent_color(certificate: &str) -> &'static str {
     match certificate {
-        "PLATINUM" => "#0f766e",
-        "GOLD" => "#b45309",
-        "SILVER" => "#475569",
-        "BRONZE" => "#9a3412",
-        "FAILED" => "#dc2626",
+        "SEHR GUT" => "#0f766e",
+        "GUT" => "#b45309",
+        "SOLIDE" => "#475569",
+        "AUSBAUFÄHIG" => "#9a3412",
+        "UNGENÜGEND" => "#dc2626",
         _ => "#2563eb",
     }
 }
@@ -161,10 +161,10 @@ pub(super) fn batch_grade_label(score: u32) -> &'static str {
 
 pub(super) fn batch_certificate_label(score: u32) -> &'static str {
     match score {
-        95..=100 => "PLATINUM",
-        85..=94 => "GOLD",
-        75..=84 => "SILVER",
-        65..=74 => "BRONZE",
-        _ => "FAILED",
+        95..=100 => "SEHR GUT",
+        85..=94 => "GUT",
+        75..=84 => "SOLIDE",
+        65..=74 => "AUSBAUFÄHIG",
+        _ => "UNGENÜGEND",
     }
 }

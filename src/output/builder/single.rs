@@ -329,13 +329,18 @@ fn build_executive_narrative(
             "Risiko".to_string(),
             if severity.critical > 0 {
                 format!(
-                    "WCAG-Level-A-Verstöße vorhanden — BFSG-/EAA-Relevanz gegeben ({} kritische Findings).",
+                    "Automatisiert wurden {} kritische WCAG-Level-A-Verstöße erkannt — \
+                     potenziell relevant für BFSG/EAA. Für eine belastbare rechtliche \
+                     Einordnung ist ergänzend manuelle Prüfung nötig.",
                     severity.critical
                 )
             } else if severity.high > 0 {
-                "Keine Level-A-Verstöße, aber WCAG-AA-Mängel vorhanden. Kein unmittelbarer Rechtsverstoß, Optimierungsbedarf gegeben.".to_string()
+                "Automatisiert keine kritischen Level-A-Verstöße erkannt, aber WCAG-AA-Mängel \
+                 vorhanden. Für eine belastbare BFSG-/WCAG-Einordnung ist ergänzend manuelle \
+                 Prüfung nötig.".to_string()
             } else {
-                "Keine kritischen WCAG-Verstöße — niedriges Risikoprofil für BFSG/EAA.".to_string()
+                "Automatisiert wurden keine kritischen Verstöße erkannt. Für eine belastbare \
+                 BFSG-/WCAG-Einordnung ist ergänzend manuelle Prüfung nötig.".to_string()
             },
         ),
     ];
@@ -382,7 +387,7 @@ fn build_executive_narrative(
     };
 
     let findings_intro = if score >= 85 && top_findings.len() <= 2 {
-        "Technisch stark — die folgenden Punkte sind Feinschliff-Hebel.".to_string()
+        "Solide Basis — die folgenden Punkte sind gezielte Verbesserungshebel.".to_string()
     } else {
         "Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt.".to_string()
     };
@@ -481,7 +486,7 @@ fn build_single_key_points_text(
 
     if severity.critical > 0 {
         points.push(
-            "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)".to_string(),
+            "WCAG-Level-A-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
         );
     } else if severity.high > 0 {
         points.push("Keine Level-A-Verstöße, aber strukturelle Schwächen".to_string());
@@ -785,7 +790,7 @@ fn build_actions_block(
                     Priority::Critical => {
                         "Reduziert kritisches WCAG-Verstoßrisiko direkt".to_string()
                     }
-                    Priority::High => "Reduziert hohes Compliance-Risiko".to_string(),
+                    Priority::High => "Reduziert hohes Barrierefreiheitsrisiko".to_string(),
                     Priority::Medium => "Verringert mittleres Barrierefreiheitsrisiko".to_string(),
                     Priority::Low => "Verbessert WCAG-Konformität im Detail".to_string(),
                 };
@@ -1687,14 +1692,24 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
 
     let mobile = normalized.raw_mobile.as_ref().map(|m| {
         let small_targets = m.touch_targets.small_targets;
+        let context_hint = if !m.touch_targets.small_by_context.is_empty() {
+            let parts: Vec<String> = m
+                .touch_targets
+                .small_by_context
+                .iter()
+                .take(3)
+                .map(|(ctx, count)| format!("{} im Bereich {}", count, ctx))
+                .collect();
+            format!(" ({})", parts.join(", "))
+        } else {
+            String::new()
+        };
         let mobile_interpretation = if small_targets >= 10 {
             format!(
-                "{} {} Touch-Target{} {} kleiner als empfohlen (44×44 px) — lokal begrenzt, \
-                 betrifft nicht zwingend die Hauptnavigation.",
+                "{} {} Touch-Targets kleiner als empfohlen (44×44 px){}.",
                 interpret_score(m.score as f32, "mobile Nutzbarkeit"),
                 small_targets,
-                if small_targets == 1 { " ist" } else { " sind" },
-                if small_targets == 1 { "" } else { "" },
+                context_hint,
             )
         } else {
             interpret_score(m.score as f32, "mobile Nutzbarkeit")
@@ -1858,8 +1873,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         let type_note = match seo_type {
             Some(ref st) if !st.is_empty() && !journey_type.is_empty() && st != &journey_type => {
                 format!(
-                    " (Hinweis: SEO-Profil klassifiziert als \"{}\", Journey als \"{}\" — \
-                     beide Heuristiken basieren auf unterschiedlichen Signalen.)",
+                    " (Primäre Einordnung: {}. Sekundäre Signale deuten auf {} hin.)",
                     st, journey_type
                 )
             }
@@ -1929,8 +1943,9 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         || journey.is_some()
         || dark_mode.is_some();
     let source_quality = normalized.raw_source_quality.clone();
+    let ai_visibility = normalized.raw_ai_visibility.clone();
 
-    let has_any = has_any || source_quality.is_some();
+    let has_any = has_any || source_quality.is_some() || ai_visibility.is_some();
 
     ModuleDetailsBlock {
         performance,
@@ -1941,6 +1956,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         journey,
         dark_mode,
         source_quality,
+        ai_visibility,
         has_any,
     }
 }

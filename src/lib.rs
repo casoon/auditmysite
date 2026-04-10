@@ -73,6 +73,7 @@
 //! | 4.1.2 | Name, Role, Value | A |
 
 pub mod accessibility;
+pub mod ai_visibility;
 pub mod audit;
 pub mod browser;
 pub mod cli;
@@ -115,6 +116,7 @@ pub use performance::{
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
+pub use ai_visibility::{analyze_ai_visibility, AiVisibilityAnalysis};
 pub use source_quality::{analyze_source_quality, SourceQualityAnalysis};
 pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

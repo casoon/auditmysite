@@ -312,6 +312,7 @@ pub struct ModuleDetailsBlock {
     pub journey: Option<JourneyPresentation>,
     pub dark_mode: Option<DarkModePresentation>,
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
+    pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
     pub has_any: bool,
 }
 

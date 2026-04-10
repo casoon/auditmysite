@@ -329,10 +329,10 @@ fn build_verdict_intro(
     match (site_state, issue_pattern) {
         (SiteState::Polished, _) => {
             if urgent == 0 {
-                format!("Sehr gutes Ergebnis — keine dringenden Barrieren.{cross_note} Niveau halten und regelmäßig nachprüfen.")
+                format!("Automatisiert unauffällig — keine dringenden Barrieren erkannt.{cross_note} Niveau halten und regelmäßig nachprüfen.")
             } else {
                 format!(
-                    "Technisch stark aufgestellt. {} priorisierte{} Thema{} -- gezielt beheben, bevor sie sich häufen.{cross_note}",
+                    "Solide Basis. {} priorisierte{} Thema{} — gezielt beheben, bevor sie sich häufen.{cross_note}",
                     urgent,
                     if urgent == 1 { "s" } else { "" },
                     if urgent == 1 { "" } else { "n" }
@@ -512,6 +512,7 @@ mod tests {
             raw_journey: None,
             raw_dark_mode: None,
             raw_source_quality: None,
+            raw_ai_visibility: None,
             raw_wcag: crate::wcag::WcagResults::new(),
         }
     }

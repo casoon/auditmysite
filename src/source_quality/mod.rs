@@ -723,7 +723,7 @@ mod tests {
             wcag_results: WcagResults::new(),
             score: 95.0,
             grade: "A".into(),
-            certificate: "PLATINUM".into(),
+            certificate: "SEHR GUT".into(),
             statistics: ViolationStatistics {
                 critical: 0,
                 high: 0,
@@ -742,6 +742,7 @@ mod tests {
             journey: None,
             dark_mode: None,
             source_quality: None,
+            ai_visibility: None,
         }
     }
 

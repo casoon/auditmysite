@@ -19,27 +19,32 @@ pub const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag241", "cat.keyboard"],
 };
 
-/// Check for bypass block mechanisms (skip links, landmarks)
+/// Check for bypass block mechanisms (skip links)
+///
+/// This rule checks ONLY for skip-navigation mechanisms (skip links, headings).
+/// Landmark presence/absence is checked separately in `landmarks.rs`.
 pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
     results.nodes_checked = tree.len();
 
     let has_skip_link = has_skip_navigation(tree);
     let has_main_landmark = has_landmark(tree, "main");
-    let has_navigation_landmark = has_landmark(tree, "navigation");
-    let landmark_count = count_landmarks(tree);
 
-    // Check for skip navigation link or main landmark
+    // A page passes 2.4.1 if it has EITHER a skip link OR a main landmark.
+    // Missing main landmark is reported separately by landmarks.rs.
     if !has_skip_link && !has_main_landmark {
         let violation = Violation::new(
             BYPASS_BLOCKS_RULE.id,
             BYPASS_BLOCKS_RULE.name,
             BYPASS_BLOCKS_RULE.level,
             BYPASS_BLOCKS_RULE.severity,
-            "No skip navigation mechanism found",
+            "No bypass mechanism found (neither skip link nor <main> landmark)",
             "page",
         )
-        .with_fix("Add a skip link or use <main> landmark")
+        .with_fix(
+            "Add a skip link (e.g. <a href=\"#main\">Skip to content</a>) \
+             or wrap the main content in a <main> element",
+        )
         .with_help_url(BYPASS_BLOCKS_RULE.help_url);
 
         results.add_violation(violation);
@@ -47,41 +52,7 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
         results.passes += 1;
     }
 
-    // Check for main landmark
-    if !has_main_landmark {
-        let violation = Violation::new(
-            BYPASS_BLOCKS_RULE.id,
-            BYPASS_BLOCKS_RULE.name,
-            BYPASS_BLOCKS_RULE.level,
-            BYPASS_BLOCKS_RULE.severity,
-            "Missing main landmark",
-            "page",
-        )
-        .with_fix("Wrap the main content in a <main> element")
-        .with_help_url(BYPASS_BLOCKS_RULE.help_url);
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
-    }
-
-    // Check for navigation landmark
-    if !has_navigation_landmark && landmark_count < 2 {
-        let violation = Violation::new(
-            BYPASS_BLOCKS_RULE.id,
-            BYPASS_BLOCKS_RULE.name,
-            BYPASS_BLOCKS_RULE.level,
-            Severity::Low,
-            "Missing navigation landmark",
-            "page",
-        )
-        .with_fix("Wrap navigation in a <nav> element")
-        .with_help_url(BYPASS_BLOCKS_RULE.help_url);
-
-        results.add_violation(violation);
-    }
-
-    // Check for heading structure
+    // Check for heading structure (separate concern from landmarks)
     let heading_count = count_headings(tree);
     if heading_count == 0 {
         let violation = Violation::new(
@@ -137,29 +108,6 @@ fn has_landmark(tree: &AXTree, landmark_type: &str) -> bool {
             .map(|r| r.to_lowercase() == landmark_type.to_lowercase())
             .unwrap_or(false)
     })
-}
-
-/// Count total landmarks in the page
-fn count_landmarks(tree: &AXTree) -> usize {
-    let landmark_roles = [
-        "banner",
-        "navigation",
-        "main",
-        "complementary",
-        "contentinfo",
-        "region",
-        "search",
-        "form",
-    ];
-
-    tree.iter()
-        .filter(|node| {
-            node.role
-                .as_deref()
-                .map(|r| landmark_roles.contains(&r.to_lowercase().as_str()))
-                .unwrap_or(false)
-        })
-        .count()
 }
 
 /// Count headings in the page
@@ -256,6 +204,6 @@ mod tests {
         assert!(results
             .violations
             .iter()
-            .any(|v| v.message.contains("Missing main landmark")));
+            .any(|v| v.message.contains("No bypass mechanism found")));
     }
 }

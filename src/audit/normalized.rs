@@ -71,6 +71,8 @@ pub struct NormalizedReport {
     #[serde(skip)]
     pub raw_source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     #[serde(skip)]
+    pub raw_ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
+    #[serde(skip)]
     pub raw_wcag: WcagResults,
 }
 
@@ -605,6 +607,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_journey: report.journey.clone(),
         raw_dark_mode: report.dark_mode.clone(),
         raw_source_quality: report.source_quality.clone(),
+        raw_ai_visibility: report.ai_visibility.clone(),
         raw_wcag: report.wcag_results.clone(),
     }
 }
@@ -654,7 +657,7 @@ mod tests {
 
         assert_eq!(norm.score, 100);
         assert_eq!(norm.grade, "A");
-        assert_eq!(norm.certificate, "PLATINUM");
+        assert_eq!(norm.certificate, "SEHR GUT");
         assert!(norm.findings.is_empty());
         assert_eq!(norm.severity_counts.total, 0);
     }

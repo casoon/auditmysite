@@ -448,7 +448,7 @@ mod tests {
                 "score": 88,
                 "overall_score": 82,
                 "grade": "A",
-                "certificate": "GOLD",
+                "certificate": "GUT",
                 "nodes_analyzed": 1000,
                 "duration_ms": 1000,
                 "severity_counts": {
@@ -482,7 +482,7 @@ mod tests {
             nodes_analyzed: 1500,
             score: 92,
             grade: "A".to_string(),
-            certificate: "GOLD".to_string(),
+            certificate: "GUT".to_string(),
             findings: vec![crate::audit::normalized::NormalizedFinding {
                 rule_id: "a11y.alt_text.missing".to_string(),
                 wcag_criterion: "1.1.1".to_string(),
@@ -532,6 +532,7 @@ mod tests {
             raw_journey: None,
             raw_dark_mode: None,
             raw_source_quality: None,
+            raw_ai_visibility: None,
             raw_wcag: crate::wcag::WcagResults::new(),
         };
 

@@ -57,6 +57,9 @@ pub struct TouchTargetAnalysis {
     pub small_targets: u32,
     /// Targets too close together
     pub crowded_targets: u32,
+    /// Small targets grouped by context (navigation, footer, header, etc.)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub small_by_context: Vec<(String, u32)>,
 }
 
 /// Font size analysis
@@ -122,13 +125,32 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         // Touch targets analysis
         const interactiveElements = document.querySelectorAll('a, button, input, select, textarea, [onclick], [role="button"]');
         result.touchTargets.total = interactiveElements.length;
+        const smallByContext = {};
 
         interactiveElements.forEach(el => {
             const rect = el.getBoundingClientRect();
             if (rect.width < 44 || rect.height < 44) {
                 result.touchTargets.small++;
+                // Classify context of small target
+                const tag = el.tagName.toLowerCase();
+                const parent = el.closest('nav, footer, header, aside, .social, [class*="social"], [class*="lang"]');
+                let ctx = 'sonstige';
+                if (parent) {
+                    const pTag = parent.tagName.toLowerCase();
+                    if (pTag === 'nav') ctx = 'navigation';
+                    else if (pTag === 'footer') ctx = 'footer';
+                    else if (pTag === 'header') ctx = 'header';
+                    else if (pTag === 'aside') ctx = 'sidebar';
+                    else ctx = 'social/utility';
+                } else if (tag === 'input' || tag === 'select' || tag === 'textarea') {
+                    ctx = 'formular';
+                } else if (tag === 'button' || el.getAttribute('role') === 'button') {
+                    ctx = 'button';
+                }
+                smallByContext[ctx] = (smallByContext[ctx] || 0) + 1;
             }
         });
+        result.touchTargets.smallByContext = smallByContext;
 
         // Font analysis
         const textElements = document.querySelectorAll('p, span, a, li, td, th, div, h1, h2, h3, h4, h5, h6');
@@ -230,11 +252,24 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     let tt = &parsed["touchTargets"];
     let total_targets = tt["total"].as_u64().unwrap_or(0) as u32;
     let small_targets = tt["small"].as_u64().unwrap_or(0) as u32;
+    let small_by_context: Vec<(String, u32)> = tt["smallByContext"]
+        .as_object()
+        .map(|obj| {
+            let mut pairs: Vec<(String, u32)> = obj
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_u64().unwrap_or(0) as u32))
+                .collect();
+            pairs.sort_by(|a, b| b.1.cmp(&a.1));
+            pairs
+        })
+        .unwrap_or_default();
+
     let touch_targets = TouchTargetAnalysis {
         total_targets,
         adequate_targets: total_targets.saturating_sub(small_targets),
         small_targets,
         crowded_targets: tt["crowded"].as_u64().unwrap_or(0) as u32,
+        small_by_context,
     };
 
     // Parse fonts
@@ -294,10 +329,23 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     }
 
     if small_targets > 0 {
+        let context_detail = if !touch_targets.small_by_context.is_empty() {
+            let parts: Vec<String> = touch_targets
+                .small_by_context
+                .iter()
+                .map(|(ctx, count)| format!("{} {}", count, ctx))
+                .collect();
+            format!(" ({})", parts.join(", "))
+        } else {
+            String::new()
+        };
         issues.push(MobileIssue {
             category: "touch_targets".to_string(),
             issue_type: "small_targets".to_string(),
-            message: format!("{} touch targets are too small (<44x44px)", small_targets),
+            message: format!(
+                "{} touch targets are too small (<44x44px){}",
+                small_targets, context_detail
+            ),
             severity: Severity::Medium,
             impact: "Difficult to tap on mobile devices".to_string(),
         });

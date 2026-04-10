@@ -30,7 +30,7 @@ pub struct AuditReport {
     pub score: f32,
     /// Letter grade (A-F)
     pub grade: String,
-    /// Certificate level (PLATINUM, GOLD, SILVER, BRONZE, FAILED)
+    /// Certificate level (SEHR GUT, GUT, SOLIDE, AUSBAUFÄHIG, UNGENÜGEND)
     pub certificate: String,
     /// Detailed violation statistics
     pub statistics: ViolationStatistics,
@@ -65,6 +65,9 @@ pub struct AuditReport {
     /// Source quality analysis (Substanz / Konsistenz / Autorität)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
+    /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
 }
 
 /// Performance analysis results wrapper
@@ -116,6 +119,7 @@ impl AuditReport {
             budget_violations: Vec::new(),
             dark_mode: None,
             source_quality: None,
+            ai_visibility: None,
         }
     }
 

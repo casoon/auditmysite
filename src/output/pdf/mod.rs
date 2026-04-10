@@ -39,8 +39,9 @@ use self::cover::{
     build_cover_score_row, certificate_badge_path,
 };
 use self::detail_modules::{
-    render_budget_violations, render_dark_mode, render_journey, render_mobile, render_performance,
-    render_security, render_seo, render_source_quality, render_ux,
+    render_ai_visibility, render_budget_violations, render_dark_mode, render_journey,
+    render_mobile, render_performance, render_security, render_seo, render_source_quality,
+    render_ux,
 };
 use self::findings::{first_sentence, render_finding_technical, render_key_finding_block};
 use self::helpers::{
@@ -478,6 +479,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     if let Some(ref sq) = vm.module_details.source_quality {
         builder = render_source_quality(builder, sq);
     }
+    if let Some(ref av) = vm.module_details.ai_visibility {
+        builder = render_ai_visibility(builder, av);
+    }
 
     // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
@@ -813,7 +817,7 @@ fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution)
     // Point 3: Legal status
     if dist.critical > 0 {
         points.push(
-            "WCAG-Level-A-Verstöße vorhanden — potenziell rechtlich relevant (BFSG)".to_string(),
+            "WCAG-Level-A-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
         );
     } else if dist.high > 0 {
         points.push(
@@ -1158,9 +1162,9 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             "Geringe Auswirkung — Nutzer können die Website grundsätzlich verwenden."
         };
         let legal_impact = if dist.critical > 0 {
-            "WCAG-Level-A-Verstöße — potenziell rechtlich relevant (BFSG)."
+            "WCAG-Level-A-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
         } else {
-            "Keine akute rechtliche Relevanz bei aktuellem Stand."
+            "Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen."
         };
 
         let mut impact_kv = KeyValueList::new().with_title("Auswirkungen");

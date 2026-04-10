@@ -1,4 +1,4 @@
-//! Module detail renderers (performance, SEO, security, mobile, dark mode).
+//! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
 use renderreport::components::advanced::{
     KeyValueList, List, MetricStrip, MetricStripItem,
@@ -819,6 +819,143 @@ pub(super) fn render_source_quality(
             }
             builder = builder.add_component(table);
         }
+    }
+
+    builder
+}
+
+// ─── AI Visibility ──────────────────────────────────────────────────────────
+
+pub(super) fn render_ai_visibility(
+    mut builder: renderreport::engine::ReportBuilder,
+    av: &crate::ai_visibility::AiVisibilityAnalysis,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder
+        .add_component(Section::new("AI-Sichtbarkeit").with_level(2))
+        .add_component(Callout::info(&av.disclaimer).with_title("Hinweis"))
+        .add_component(
+            ScoreCard::new("AI-Sichtbarkeit", av.score)
+                .with_description(format!(
+                    "Grade: {} — {}",
+                    av.grade,
+                    score_quality_label(av.score)
+                ))
+                .with_thresholds(70, 50),
+        );
+
+    // Render each dimension
+    for (dim, title) in [
+        (&av.readability.dimension, "LLM-Lesbarkeit"),
+        (&av.citation.dimension, "Zitatfähigkeit"),
+        (&av.chunks.dimension, "Chunk-Qualität"),
+        (&av.knowledge_graph.dimension, "Wissensgraph"),
+        (&av.policy.dimension, "AI-Policy"),
+    ] {
+        builder = builder.add_component(Section::new(title).with_level(3));
+        builder = builder.add_component(
+            ScoreCard::new(&dim.name, dim.score)
+                .with_description(&dim.label)
+                .with_thresholds(70, 50),
+        );
+
+        if !dim.signals.is_empty() {
+            let mut table = AuditTable::new(vec![
+                TableColumn::new("Signal"),
+                TableColumn::new("Status"),
+                TableColumn::new("Detail"),
+            ])
+            .with_title(&dim.name);
+
+            for signal in &dim.signals {
+                let status = if signal.present { "✓" } else { "✗" };
+                table = table.add_row(vec![&signal.name, status, &signal.detail]);
+            }
+            builder = builder.add_component(table);
+        }
+    }
+
+    // Chunk sections summary
+    if !av.chunks.sections.is_empty() {
+        builder = builder.add_component(Section::new("Content-Abschnitte").with_level(3));
+
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Abschnitt"),
+            TableColumn::new("Level"),
+            TableColumn::new("Wörter"),
+            TableColumn::new("Qualität"),
+        ])
+        .with_title("Abschnitte");
+
+        for section in &av.chunks.sections {
+            table = table.add_row(vec![
+                &section.heading,
+                &format!("H{}", section.level),
+                &section.word_count.to_string(),
+                &section.quality.to_string(),
+            ]);
+        }
+        builder = builder.add_component(table);
+        builder = builder.add_component(
+            Callout::info(&av.chunks.recommendation).with_title("Empfehlung"),
+        );
+    }
+
+    // Knowledge graph entities
+    if !av.knowledge_graph.entities.is_empty() {
+        builder = builder.add_component(Section::new("Erkannte Entitäten").with_level(3));
+
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Entität"),
+            TableColumn::new("Typ"),
+            TableColumn::new("Quelle"),
+        ])
+        .with_title("Entitäten");
+
+        for entity in &av.knowledge_graph.entities {
+            table = table.add_row(vec![
+                &entity.name,
+                &entity.entity_type,
+                &entity.source.to_string(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Knowledge graph relationships
+    if !av.knowledge_graph.relationships.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Subjekt"),
+            TableColumn::new("Beziehung"),
+            TableColumn::new("Objekt"),
+        ])
+        .with_title("Beziehungen");
+
+        for rel in &av.knowledge_graph.relationships {
+            table = table.add_row(vec![&rel.subject, &rel.predicate, &rel.object]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Link suggestions
+    if !av.knowledge_graph.link_suggestions.is_empty() {
+        builder = builder.add_component(Section::new("Verlinkungsvorschläge").with_level(3));
+
+        let mut list = List::new().with_title("Verlinkungsvorschläge");
+        for suggestion in &av.knowledge_graph.link_suggestions {
+            list = list.add_item(&format!("{}: {}", suggestion.entity, suggestion.reason));
+        }
+        builder = builder.add_component(list);
+    }
+
+    // AI Policy details
+    if av.policy.blocks_ai_crawlers {
+        builder = builder.add_component(
+            Callout::warning(&format!(
+                "{} AI-Crawler sind blockiert. Dies reduziert die Sichtbarkeit in KI-Systemen.",
+                av.policy.blocked_ai_bot_count
+            ))
+            .with_title("AI-Crawler blockiert"),
+        );
     }
 
     builder

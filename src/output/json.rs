@@ -360,7 +360,7 @@ mod tests {
         assert!(output.contains("example.com"));
         assert!(output.contains("\"score\": 100"));
         assert!(output.contains("\"grade\": \"A\""));
-        assert!(output.contains("\"certificate\": \"PLATINUM\""));
+        assert!(output.contains("\"certificate\": \"SEHR GUT\""));
         assert!(output.contains("\"severity_counts\""));
     }
 

@@ -106,18 +106,18 @@ impl AccessibilityScorer {
     /// Calculate certificate level based on score
     ///
     /// Certificate levels:
-    /// - PLATINUM: ≥95% (exemplary accessibility)
-    /// - GOLD: ≥85% (excellent accessibility)
-    /// - SILVER: ≥75% (good accessibility)
-    /// - BRONZE: ≥65% (acceptable accessibility)
-    /// - FAILED: <65% (significant issues)
+    /// - SEHR GUT: ≥95% (exemplary accessibility)
+    /// - GUT: ≥85% (high accessibility)
+    /// - SOLIDE: ≥75% (good accessibility)
+    /// - AUSBAUFÄHIG: ≥65% (acceptable accessibility)
+    /// - UNGENÜGEND: <65% (significant issues)
     pub fn calculate_certificate(score: f32) -> &'static str {
         match score.round() as u32 {
-            95..=100 => "PLATINUM",
-            85..=94 => "GOLD",
-            75..=84 => "SILVER",
-            65..=74 => "BRONZE",
-            _ => "FAILED",
+            95..=100 => "SEHR GUT",
+            85..=94 => "GUT",
+            75..=84 => "SOLIDE",
+            65..=74 => "AUSBAUFÄHIG",
+            _ => "UNGENÜGEND",
         }
     }
 
@@ -173,7 +173,7 @@ mod tests {
         assert_eq!(AccessibilityScorer::calculate_grade(score), "A");
         assert_eq!(
             AccessibilityScorer::calculate_certificate(score),
-            "PLATINUM"
+            "SEHR GUT"
         );
     }
 
@@ -244,7 +244,7 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 80.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "B");
-        assert_eq!(AccessibilityScorer::calculate_certificate(score), "SILVER");
+        assert_eq!(AccessibilityScorer::calculate_certificate(score), "SOLIDE");
     }
 
     #[test]
@@ -285,7 +285,7 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 0.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "F");
-        assert_eq!(AccessibilityScorer::calculate_certificate(score), "FAILED");
+        assert_eq!(AccessibilityScorer::calculate_certificate(score), "UNGENÜGEND");
     }
 
     #[test]

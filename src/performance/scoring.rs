@@ -44,11 +44,11 @@ impl PerformanceGrade {
 
     pub fn label(&self) -> &'static str {
         match self {
-            PerformanceGrade::Platinum => "PLATINUM",
-            PerformanceGrade::Gold => "GOLD",
-            PerformanceGrade::Silver => "SILVER",
-            PerformanceGrade::Bronze => "BRONZE",
-            PerformanceGrade::NeedsImprovement => "NEEDS IMPROVEMENT",
+            PerformanceGrade::Platinum => "SEHR GUT",
+            PerformanceGrade::Gold => "GUT",
+            PerformanceGrade::Silver => "SOLIDE",
+            PerformanceGrade::Bronze => "AUSBAUFÄHIG",
+            PerformanceGrade::NeedsImprovement => "UNGENÜGEND",
         }
     }
 }

@@ -487,7 +487,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             RiskLevel::Low => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
             RiskLevel::Medium => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
             RiskLevel::High => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A-Verstößen.",
-            RiskLevel::Critical => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG). Sofortige Maßnahmen erforderlich.",
+            RiskLevel::Critical => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße automatisiert erkannt — sofortige Maßnahmen empfohlen, manuelle Prüfung für belastbare rechtliche Einordnung nötig.",
         };
         (level_str.to_string(), summary.to_string())
     };
@@ -506,11 +506,11 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
     // Certificate and grade based on overall score
     let certificate = match average_overall_score {
-        95.. => "PLATINUM",
-        85.. => "GOLD",
-        70.. => "SILVER",
-        50.. => "BRONZE",
-        _ => "FAILED",
+        95.. => "SEHR GUT",
+        85.. => "GUT",
+        70.. => "SOLIDE",
+        50.. => "AUSBAUFÄHIG",
+        _ => "UNGENÜGEND",
     }
     .to_string();
 
