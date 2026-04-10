@@ -97,8 +97,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             Label::new(&vm.executive.cover_kicker)
                 .with_size("12pt")
                 .with_color("#475569"),
-        )
-        ;
+        );
 
     let single_badge_asset = "/certificate-badge-single.svg";
     let single_badge_enabled = if let Ok(path) = certificate_badge_path(&vm.cover.certificate) {
@@ -108,11 +107,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         false
     };
 
-    builder = builder
-        .add_component(build_cover_score_row(
-            &vm.cover,
-            single_badge_enabled.then_some(single_badge_asset),
-        ));
+    builder = builder.add_component(build_cover_score_row(
+        &vm.cover,
+        single_badge_enabled.then_some(single_badge_asset),
+    ));
 
     // HeroAssessment: concise pattern-based headline statement (D)
     if !vm.summary.executive_lead.is_empty() {
@@ -448,8 +446,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     // ── Module Detail Metrics ───────────────────────────────────────
     if vm.module_details.has_any {
-        builder = builder
-            .add_component(Section::new("Technische Detailmetriken").with_level(2));
+        builder = builder.add_component(Section::new("Technische Detailmetriken").with_level(2));
     }
 
     if let Some(ref perf) = vm.module_details.performance {
@@ -485,8 +482,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
-        builder = builder
-            .add_component(Section::new(i18n.t("section-appendix")).with_level(1));
+        builder = builder.add_component(Section::new(i18n.t("section-appendix")).with_level(1));
 
         builder = builder.add_component(build_cli_snapshot_table(&vm));
 
@@ -824,7 +820,10 @@ fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution)
             "Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten".to_string(),
         );
     } else {
-        points.push("Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.".to_string());
+        points.push(
+            "Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen."
+                .to_string(),
+        );
     }
 
     points
@@ -1828,8 +1827,7 @@ pub fn generate_comparison_pdf(
         .any(|e| e.seo_score.is_some() || e.performance_score.is_some());
 
     if has_module_data {
-        builder = builder
-            .add_component(Section::new("Modul-Vergleich").with_level(1));
+        builder = builder.add_component(Section::new("Modul-Vergleich").with_level(1));
 
         let comparison_modules: Vec<ComparisonModule> = comparison
             .entries
@@ -1842,8 +1840,8 @@ pub fn generate_comparison_pdf(
     // ── 3. Top Findings je Domain ────────────────────────────────────
     let has_issues = comparison.entries.iter().any(|e| !e.top_issues.is_empty());
     if has_issues {
-        builder = builder
-            .add_component(Section::new("Wichtigste Findings je Domain").with_level(1));
+        builder =
+            builder.add_component(Section::new("Wichtigste Findings je Domain").with_level(1));
 
         for entry in &comparison.entries {
             if entry.top_issues.is_empty() {

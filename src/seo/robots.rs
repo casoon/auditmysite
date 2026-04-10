@@ -72,7 +72,7 @@ impl std::fmt::Display for BotClass {
 const SEARCH_BOTS: &[&str] = &[
     "googlebot",
     "bingbot",
-    "slurp",       // Yahoo
+    "slurp", // Yahoo
     "duckduckbot",
     "baiduspider",
     "yandexbot",
@@ -85,14 +85,14 @@ const SEARCH_BOTS: &[&str] = &[
 ];
 
 const VERIFIED_AI_BOTS: &[&str] = &[
-    "gptbot",            // OpenAI
-    "chatgpt-user",      // OpenAI browsing
-    "google-extended",   // Google AI training
-    "claudebot",         // Anthropic
-    "anthropic-ai",      // Anthropic
+    "gptbot",          // OpenAI
+    "chatgpt-user",    // OpenAI browsing
+    "google-extended", // Google AI training
+    "claudebot",       // Anthropic
+    "anthropic-ai",    // Anthropic
     "cohere-ai",
     "perplexitybot",
-    "youbot",            // You.com
+    "youbot", // You.com
     "amazonbot",
     "meta-externalagent", // Meta
     "facebookbot",
@@ -102,10 +102,10 @@ const VERIFIED_AI_BOTS: &[&str] = &[
 ];
 
 const UNKNOWN_AI_BOTS: &[&str] = &[
-    "bytespider",  // TikTok / ByteDance
-    "ccbot",       // Common Crawl (used for AI training)
+    "bytespider", // TikTok / ByteDance
+    "ccbot",      // Common Crawl (used for AI training)
     "dotbot",
-    "petalbot",    // Huawei
+    "petalbot", // Huawei
     "wpbot",
     "semrushbot",
     "ahrefsbot",
@@ -216,8 +216,16 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
         // Skip empty lines and comments
         if line.is_empty() || line.starts_with('#') {
             // Empty line separates groups — flush if we have rules
-            if line.is_empty() && !cur_agents.is_empty() && (!cur_allows.is_empty() || !cur_disallows.is_empty()) {
-                flush_group(&mut cur_agents, &mut cur_allows, &mut cur_disallows, &mut groups);
+            if line.is_empty()
+                && !cur_agents.is_empty()
+                && (!cur_allows.is_empty() || !cur_disallows.is_empty())
+            {
+                flush_group(
+                    &mut cur_agents,
+                    &mut cur_allows,
+                    &mut cur_disallows,
+                    &mut groups,
+                );
             }
             continue;
         }
@@ -232,7 +240,12 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
             "user-agent" => {
                 // New user-agent: if we have pending rules flush, else just accumulate agents
                 if !cur_allows.is_empty() || !cur_disallows.is_empty() {
-                    flush_group(&mut cur_agents, &mut cur_allows, &mut cur_disallows, &mut groups);
+                    flush_group(
+                        &mut cur_agents,
+                        &mut cur_allows,
+                        &mut cur_disallows,
+                        &mut groups,
+                    );
                 }
                 cur_agents.push(value);
             }
@@ -252,13 +265,18 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
 
     // Flush remaining group
     if !cur_agents.is_empty() {
-        flush_group(&mut cur_agents, &mut cur_allows, &mut cur_disallows, &mut groups);
+        flush_group(
+            &mut cur_agents,
+            &mut cur_allows,
+            &mut cur_disallows,
+            &mut groups,
+        );
     }
 
     // Derived signals
-    let has_wildcard_disallow_all = groups.iter().any(|g| {
-        g.bot_class == BotClass::Wildcard && g.disallows.iter().any(|d| d == "/")
-    });
+    let has_wildcard_disallow_all = groups
+        .iter()
+        .any(|g| g.bot_class == BotClass::Wildcard && g.disallows.iter().any(|d| d == "/"));
 
     let blocks_ai_crawlers = groups.iter().any(|g| {
         matches!(g.bot_class, BotClass::VerifiedAi | BotClass::UnknownAi)
@@ -321,7 +339,9 @@ Crawl-delay: 10
         let audit = parse_robots_txt(SAMPLE);
         assert!(!audit.has_wildcard_disallow_all);
         assert!(audit.blocks_ai_crawlers);
-        assert!(audit.sitemaps.contains(&"https://example.com/sitemap.xml".to_string()));
+        assert!(audit
+            .sitemaps
+            .contains(&"https://example.com/sitemap.xml".to_string()));
     }
 
     #[test]
@@ -343,7 +363,13 @@ Crawl-delay: 10
 
     #[test]
     fn test_extract_base() {
-        assert_eq!(extract_base("https://example.com/path?q=1"), "https://example.com");
-        assert_eq!(extract_base("http://sub.example.com/"), "http://sub.example.com");
+        assert_eq!(
+            extract_base("https://example.com/path?q=1"),
+            "https://example.com"
+        );
+        assert_eq!(
+            extract_base("http://sub.example.com/"),
+            "http://sub.example.com"
+        );
     }
 }

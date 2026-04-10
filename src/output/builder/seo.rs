@@ -8,7 +8,8 @@ use crate::output::report_model::CompactUrlSummary;
 
 pub(super) fn build_seo_interpretation(seo: &crate::seo::SeoAnalysis) -> String {
     if seo.score >= 90 {
-        "Technische SEO-Grundlagen weitgehend erfüllt — relevante Ranking-Signale vorhanden.".to_string()
+        "Technische SEO-Grundlagen weitgehend erfüllt — relevante Ranking-Signale vorhanden."
+            .to_string()
     } else if seo.score >= 70 {
         "Solide SEO-Basis mit gezieltem Optimierungspotenzial.".to_string()
     } else if seo.score >= 55 {

@@ -337,10 +337,12 @@ fn build_executive_narrative(
             } else if severity.high > 0 {
                 "Automatisiert keine kritischen Level-A-Verstöße erkannt, aber WCAG-AA-Mängel \
                  vorhanden. Für eine belastbare BFSG-/WCAG-Einordnung ist ergänzend manuelle \
-                 Prüfung nötig.".to_string()
+                 Prüfung nötig."
+                    .to_string()
             } else {
                 "Automatisiert wurden keine kritischen Verstöße erkannt. Für eine belastbare \
-                 BFSG-/WCAG-Einordnung ist ergänzend manuelle Prüfung nötig.".to_string()
+                 BFSG-/WCAG-Einordnung ist ergänzend manuelle Prüfung nötig."
+                    .to_string()
             },
         ),
     ];
@@ -496,7 +498,10 @@ fn build_single_key_points_text(
                 .to_string(),
         );
     } else {
-        points.push("Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.".to_string());
+        points.push(
+            "Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen."
+                .to_string(),
+        );
     }
 
     points
@@ -957,34 +962,31 @@ fn build_methodology(normalized: &NormalizedReport) -> MethodologyBlock {
                 "Primärscore".to_string(),
                 format!("Accessibility {} / 100", normalized.score),
             ),
-            (
-                "Gesamtscore".to_string(),
-                {
-                    // Normalize weights to sum to 100% for display
-                    let total_raw: u32 = normalized.module_scores.iter().map(|m| m.weight_pct).sum();
-                    let weights: Vec<String> = normalized
-                        .module_scores
-                        .iter()
-                        .map(|m| {
-                            let pct = if total_raw > 0 {
-                                (m.weight_pct * 100 + total_raw / 2) / total_raw
-                            } else {
-                                0
-                            };
-                            format!("{} {}%", m.name, pct)
-                        })
-                        .collect();
-                    format!(
-                        "{} / 100 — Gewichtung: {}",
-                        normalized.overall_score,
-                        if weights.is_empty() {
-                            "Accessibility 100%".to_string()
+            ("Gesamtscore".to_string(), {
+                // Normalize weights to sum to 100% for display
+                let total_raw: u32 = normalized.module_scores.iter().map(|m| m.weight_pct).sum();
+                let weights: Vec<String> = normalized
+                    .module_scores
+                    .iter()
+                    .map(|m| {
+                        let pct = if total_raw > 0 {
+                            (m.weight_pct * 100 + total_raw / 2) / total_raw
                         } else {
-                            weights.join(", ")
-                        }
-                    )
-                },
-            ),
+                            0
+                        };
+                        format!("{} {}%", m.name, pct)
+                    })
+                    .collect();
+                format!(
+                    "{} / 100 — Gewichtung: {}",
+                    normalized.overall_score,
+                    if weights.is_empty() {
+                        "Accessibility 100%".to_string()
+                    } else {
+                        weights.join(", ")
+                    }
+                )
+            }),
             ("WCAG-Level".to_string(), normalized.wcag_level.to_string()),
             (
                 "Geprüfte Knoten".to_string(),
@@ -1715,83 +1717,83 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             interpret_score(m.score as f32, "mobile Nutzbarkeit")
         };
         MobilePresentation {
-        score: m.score,
-        interpretation: mobile_interpretation,
-        viewport: vec![
-            ("Viewport-Tag".to_string(), yes_no(m.viewport.has_viewport)),
-            (
-                "device-width".to_string(),
-                yes_no(m.viewport.uses_device_width),
-            ),
-            (
-                "Initial Scale".to_string(),
-                yes_no(m.viewport.has_initial_scale),
-            ),
-            ("Skalierbar".to_string(), yes_no(m.viewport.is_scalable)),
-            (
-                "Korrekt konfiguriert".to_string(),
-                yes_no(m.viewport.is_properly_configured),
-            ),
-        ],
-        touch_targets: vec![
-            (
-                "Gesamt".to_string(),
-                m.touch_targets.total_targets.to_string(),
-            ),
-            (
-                "Ausreichend (≥44px)".to_string(),
-                m.touch_targets.adequate_targets.to_string(),
-            ),
-            (
-                "Zu klein".to_string(),
-                m.touch_targets.small_targets.to_string(),
-            ),
-            (
-                "Zu eng beieinander".to_string(),
-                m.touch_targets.crowded_targets.to_string(),
-            ),
-        ],
-        font_analysis: vec![
-            (
-                "Basis-Schriftgröße".to_string(),
-                format!("{:.0}px", m.font_sizes.base_font_size),
-            ),
-            (
-                "Kleinste Schrift".to_string(),
-                format!("{:.0}px", m.font_sizes.smallest_font_size),
-            ),
-            (
-                "Lesbarer Text".to_string(),
-                format!("{:.0}%", m.font_sizes.legible_percentage),
-            ),
-            (
-                "Relative Einheiten".to_string(),
-                yes_no(m.font_sizes.uses_relative_units),
-            ),
-        ],
-        content_sizing: vec![
-            (
-                "Passt in Viewport".to_string(),
-                yes_no(m.content_sizing.fits_viewport),
-            ),
-            (
-                "Kein hor. Scrollen".to_string(),
-                yes_no(!m.content_sizing.has_horizontal_scroll),
-            ),
-            (
-                "Responsive Bilder".to_string(),
-                yes_no(m.content_sizing.uses_responsive_images),
-            ),
-            (
-                "Media Queries".to_string(),
-                yes_no(m.content_sizing.uses_media_queries),
-            ),
-        ],
-        issues: m
-            .issues
-            .iter()
-            .map(|i| (i.category.clone(), i.severity, i.message.clone()))
-            .collect(),
+            score: m.score,
+            interpretation: mobile_interpretation,
+            viewport: vec![
+                ("Viewport-Tag".to_string(), yes_no(m.viewport.has_viewport)),
+                (
+                    "device-width".to_string(),
+                    yes_no(m.viewport.uses_device_width),
+                ),
+                (
+                    "Initial Scale".to_string(),
+                    yes_no(m.viewport.has_initial_scale),
+                ),
+                ("Skalierbar".to_string(), yes_no(m.viewport.is_scalable)),
+                (
+                    "Korrekt konfiguriert".to_string(),
+                    yes_no(m.viewport.is_properly_configured),
+                ),
+            ],
+            touch_targets: vec![
+                (
+                    "Gesamt".to_string(),
+                    m.touch_targets.total_targets.to_string(),
+                ),
+                (
+                    "Ausreichend (≥44px)".to_string(),
+                    m.touch_targets.adequate_targets.to_string(),
+                ),
+                (
+                    "Zu klein".to_string(),
+                    m.touch_targets.small_targets.to_string(),
+                ),
+                (
+                    "Zu eng beieinander".to_string(),
+                    m.touch_targets.crowded_targets.to_string(),
+                ),
+            ],
+            font_analysis: vec![
+                (
+                    "Basis-Schriftgröße".to_string(),
+                    format!("{:.0}px", m.font_sizes.base_font_size),
+                ),
+                (
+                    "Kleinste Schrift".to_string(),
+                    format!("{:.0}px", m.font_sizes.smallest_font_size),
+                ),
+                (
+                    "Lesbarer Text".to_string(),
+                    format!("{:.0}%", m.font_sizes.legible_percentage),
+                ),
+                (
+                    "Relative Einheiten".to_string(),
+                    yes_no(m.font_sizes.uses_relative_units),
+                ),
+            ],
+            content_sizing: vec![
+                (
+                    "Passt in Viewport".to_string(),
+                    yes_no(m.content_sizing.fits_viewport),
+                ),
+                (
+                    "Kein hor. Scrollen".to_string(),
+                    yes_no(!m.content_sizing.has_horizontal_scroll),
+                ),
+                (
+                    "Responsive Bilder".to_string(),
+                    yes_no(m.content_sizing.uses_responsive_images),
+                ),
+                (
+                    "Media Queries".to_string(),
+                    yes_no(m.content_sizing.uses_media_queries),
+                ),
+            ],
+            issues: m
+                .issues
+                .iter()
+                .map(|i| (i.category.clone(), i.severity, i.message.clone()))
+                .collect(),
         }
     });
 
@@ -1859,10 +1861,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             .collect(),
     });
 
-    let journey = normalized
-        .raw_journey
-        .as_ref()
-        .map(|j| {
+    let journey = normalized.raw_journey.as_ref().map(|j| {
         // Detect page type mismatch between SEO profile and Journey module
         let seo_type: Option<String> = normalized
             .raw_seo
@@ -1882,7 +1881,11 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
         let journey_interpretation = if type_note.is_empty() {
             interpret_score(j.score as f32, "User Journey")
         } else {
-            format!("{}{}", interpret_score(j.score as f32, "User Journey"), type_note)
+            format!(
+                "{}{}",
+                interpret_score(j.score as f32, "User Journey"),
+                type_note
+            )
         };
         JourneyPresentation {
             score: j.score,

@@ -1,8 +1,6 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
-use renderreport::components::advanced::{
-    KeyValueList, List, MetricStrip, MetricStripItem,
-};
+use renderreport::components::advanced::{KeyValueList, List, MetricStrip, MetricStripItem};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
 use renderreport::prelude::*;
@@ -895,9 +893,8 @@ pub(super) fn render_ai_visibility(
             ]);
         }
         builder = builder.add_component(table);
-        builder = builder.add_component(
-            Callout::info(&av.chunks.recommendation).with_title("Empfehlung"),
-        );
+        builder = builder
+            .add_component(Callout::info(&av.chunks.recommendation).with_title("Empfehlung"));
     }
 
     // Knowledge graph entities

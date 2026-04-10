@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{AiSignal, build_dimension, DimensionScore};
+use super::{build_dimension, AiSignal, DimensionScore};
 
 /// LLM readability analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,7 +77,10 @@ pub(crate) fn analyze_readability(input: &ReadabilityInput) -> ReadabilityAnalys
                 input.word_count
             )
         } else {
-            format!("{} Wörter — guter Umfang für LLM-Verarbeitung", input.word_count)
+            format!(
+                "{} Wörter — guter Umfang für LLM-Verarbeitung",
+                input.word_count
+            )
         },
     });
 

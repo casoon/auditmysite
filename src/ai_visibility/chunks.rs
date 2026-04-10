@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{AiSignal, build_dimension, DimensionScore};
+use super::{build_dimension, AiSignal, DimensionScore};
 
 /// Content chunk analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,9 +82,18 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     let sections = build_sections(input);
     let section_count = sections.len();
 
-    let optimal_count = sections.iter().filter(|s| s.quality == ChunkQuality::Optimal).count();
-    let too_long_count = sections.iter().filter(|s| s.quality == ChunkQuality::TooLong).count();
-    let too_short_count = sections.iter().filter(|s| s.quality == ChunkQuality::TooShort).count();
+    let optimal_count = sections
+        .iter()
+        .filter(|s| s.quality == ChunkQuality::Optimal)
+        .count();
+    let too_long_count = sections
+        .iter()
+        .filter(|s| s.quality == ChunkQuality::TooLong)
+        .count();
+    let too_short_count = sections
+        .iter()
+        .filter(|s| s.quality == ChunkQuality::TooShort)
+        .count();
 
     let mut signals = Vec::new();
 
@@ -105,7 +114,10 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
                 section_count
             )
         } else {
-            format!("{} Abschnitte — gute Granularität für Chunks", section_count)
+            format!(
+                "{} Abschnitte — gute Granularität für Chunks",
+                section_count
+            )
         },
     });
 
@@ -163,11 +175,8 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     });
 
     // 5. Heading hierarchy — clean hierarchy enables tree-based chunking
-    let has_hierarchy = input
-        .headings
-        .iter()
-        .any(|h| h.level >= 2)
-        && input.headings.iter().any(|h| h.level >= 3);
+    let has_hierarchy =
+        input.headings.iter().any(|h| h.level >= 2) && input.headings.iter().any(|h| h.level >= 3);
     signals.push(AiSignal {
         name: "Hierarchische Gliederung".into(),
         present: has_hierarchy,
@@ -273,8 +282,13 @@ fn build_sections(input: &ChunkInput) -> Vec<ContentSection> {
 
     // First heading might have content before it
     if let Some(first) = input.headings.first() {
-        let intro_words =
-            input.total_word_count.saturating_sub(input.headings.iter().map(|h| h.word_count_after).sum::<u32>());
+        let intro_words = input.total_word_count.saturating_sub(
+            input
+                .headings
+                .iter()
+                .map(|h| h.word_count_after)
+                .sum::<u32>(),
+        );
         if intro_words > 20 {
             sections.push(ContentSection {
                 heading: "Einleitung".into(),

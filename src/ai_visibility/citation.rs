@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{AiSignal, build_dimension, DimensionScore};
+use super::{build_dimension, AiSignal, DimensionScore};
 
 /// Citation likelihood analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,7 +194,9 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
         weight: 0.05,
         detail: format!(
             "Security: {}, Accessibility: {:.0} — {}",
-            input.security_score.map_or("n/a".to_string(), |s| format!("{}", s)),
+            input
+                .security_score
+                .map_or("n/a".to_string(), |s| format!("{}", s)),
             input.a11y_score,
             if tech_trust {
                 "solide technische Basis"

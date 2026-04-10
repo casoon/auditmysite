@@ -18,7 +18,7 @@
     "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
     "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
     "grade": { "type": "string", "enum": ["A", "B", "C", "D", "F"] },
-    "certificate": { "type": "string", "enum": ["PLATINUM", "GOLD", "SILVER", "BRONZE", "FAILED"] },
+    "certificate": { "type": "string", "enum": ["SEHR GUT", "GUT", "SOLIDE", "AUSBAUFÄHIG", "UNGENÜGEND"] },
     "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
     "risk_summary": { "type": "string" },
     "legal_flags": { "type": "integer", "minimum": 0 },

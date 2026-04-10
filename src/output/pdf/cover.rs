@@ -9,7 +9,6 @@ use renderreport::prelude::*;
 
 use crate::output::report_model::*;
 
-
 pub(super) fn build_cover_score_row(cover: &CoverBlock, badge_asset: Option<&str>) -> Grid {
     let mut grid = Grid::new(3).with_item_min_height("142pt");
 

@@ -95,6 +95,7 @@ pub mod wcag;
 
 // Re-export commonly used types
 pub use accessibility::{AXNode, AXTree};
+pub use ai_visibility::{analyze_ai_visibility, AiVisibilityAnalysis};
 pub use audit::{
     analyze_crawl_links, audit_page, crawl_site, parse_sitemap, read_url_file,
     run_concurrent_batch, AuditReport, BatchConfig, BatchReport, BrokenLink, BrokenLinkSeverity,
@@ -116,7 +117,6 @@ pub use performance::{
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
-pub use ai_visibility::{analyze_ai_visibility, AiVisibilityAnalysis};
 pub use source_quality::{analyze_source_quality, SourceQualityAnalysis};
 pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

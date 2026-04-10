@@ -285,7 +285,10 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 0.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "F");
-        assert_eq!(AccessibilityScorer::calculate_certificate(score), "UNGENÜGEND");
+        assert_eq!(
+            AccessibilityScorer::calculate_certificate(score),
+            "UNGENÜGEND"
+        );
     }
 
     #[test]

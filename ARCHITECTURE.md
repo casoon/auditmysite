@@ -121,7 +121,7 @@ pub struct AuditReport {
     pub wcag_results: WcagResults,
     pub score: f32,                          // 0–100
     pub grade: String,                       // A–F
-    pub certificate: String,                 // PLATINUM / GOLD / SILVER / BRONZE / FAILED
+    pub certificate: String,                 // SEHR GUT / GUT / SOLIDE / AUSBAUFÄHIG / UNGENÜGEND
     pub statistics: ViolationStatistics,
     pub nodes_analyzed: usize,
     pub duration_ms: u64,

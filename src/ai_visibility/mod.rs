@@ -140,8 +140,7 @@ pub fn analyze_ai_visibility_batch(reports: &[AuditReport]) -> AiVisibilityAnaly
         return empty_analysis();
     }
 
-    let analyses: Vec<AiVisibilityAnalysis> =
-        reports.iter().map(analyze_ai_visibility).collect();
+    let analyses: Vec<AiVisibilityAnalysis> = reports.iter().map(analyze_ai_visibility).collect();
 
     let avg_score = analyses.iter().map(|a| a.score).sum::<u32>() / analyses.len() as u32;
 
@@ -296,7 +295,9 @@ fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInpu
     let has_schema = seo.map_or(false, |s| s.structured_data.has_structured_data);
     let schema_types = seo.map_or(&[][..], |s| &s.structured_data.types);
     let schema_type_count = schema_types.len();
-    let has_faq_schema = schema_types.iter().any(|t| matches!(t, SchemaType::FAQPage));
+    let has_faq_schema = schema_types
+        .iter()
+        .any(|t| matches!(t, SchemaType::FAQPage));
     let has_howto_schema = schema_types.iter().any(|t| matches!(t, SchemaType::HowTo));
 
     let has_meta_description = seo
@@ -325,7 +326,13 @@ fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInpu
     // Lists/tables not directly available from technical SEO — use heuristics
     // If a page has FAQ/HowTo schema it likely has lists; otherwise estimate from word count
     let has_lists = has_faq_schema || word_count > 500;
-    let list_count = if has_faq_schema { 2 } else if word_count > 500 { 1 } else { 0 };
+    let list_count = if has_faq_schema {
+        2
+    } else if word_count > 500 {
+        1
+    } else {
+        0
+    };
     let has_tables = false; // conservative: not detected without CDP
 
     readability::ReadabilityInput {
@@ -362,7 +369,9 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
             SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle
         )
     });
-    let has_faq_schema = schema_types.iter().any(|t| matches!(t, SchemaType::FAQPage));
+    let has_faq_schema = schema_types
+        .iter()
+        .any(|t| matches!(t, SchemaType::FAQPage));
     let has_breadcrumb = schema_types
         .iter()
         .any(|t| matches!(t, SchemaType::BreadcrumbList));
@@ -388,8 +397,7 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
     // Check for datePublished in JSON-LD
     let has_date_published = seo.map_or(false, |s| {
         s.structured_data.json_ld.iter().any(|ld| {
-            ld.content.get("datePublished").is_some()
-                || ld.content.get("dateCreated").is_some()
+            ld.content.get("datePublished").is_some() || ld.content.get("dateCreated").is_some()
         })
     });
 
@@ -408,7 +416,13 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
     } else {
         word_count
     };
-    let short_paragraph_ratio = if avg_len <= 100 { 0.6 } else if avg_len <= 150 { 0.4 } else { 0.2 };
+    let short_paragraph_ratio = if avg_len <= 100 {
+        0.6
+    } else if avg_len <= 150 {
+        0.4
+    } else {
+        0.2
+    };
 
     citation::CitationInput {
         has_https: report.url.starts_with("https://"),
@@ -471,10 +485,12 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
     // article/section tags not directly available from technical SEO extraction.
     // Heuristic: if page has article schema, it likely uses <article> markup.
     let has_article_tag = seo.map_or(false, |s| {
-        s.structured_data
-            .types
-            .iter()
-            .any(|t| matches!(t, SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle))
+        s.structured_data.types.iter().any(|t| {
+            matches!(
+                t,
+                SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle
+            )
+        })
     });
     let has_section_tags = headings.len() >= 3; // pages with 3+ headings likely use <section>
     let has_semantic_html = has_nav_landmarks && (has_article_tag || has_section_tags);
@@ -507,8 +523,15 @@ fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::Knowled
 
                 // Extract common properties
                 for key in &[
-                    "author", "publisher", "creator", "provider", "isPartOf",
-                    "mainEntityOfPage", "about", "url", "description",
+                    "author",
+                    "publisher",
+                    "creator",
+                    "provider",
+                    "isPartOf",
+                    "mainEntityOfPage",
+                    "about",
+                    "url",
+                    "description",
                 ] {
                     if let Some(val) = ld.content.get(*key) {
                         let val_str = if let Some(s) = val.as_str() {

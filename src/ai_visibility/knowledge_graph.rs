@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{AiSignal, build_dimension, DimensionScore};
+use super::{build_dimension, AiSignal, DimensionScore};
 
 /// Knowledge graph analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -375,10 +375,7 @@ fn build_schema_relationships(
     // Connect entities of type Organization to the site
     let org_entities: Vec<&GraphEntity> = entities
         .iter()
-        .filter(|e| {
-            e.entity_type == "Organization"
-                || e.entity_type == "LocalBusiness"
-        })
+        .filter(|e| e.entity_type == "Organization" || e.entity_type == "LocalBusiness")
         .collect();
 
     let article_entities: Vec<&GraphEntity> = entities
