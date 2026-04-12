@@ -482,6 +482,8 @@ pub struct RobotsPresentation {
     pub error: Option<String>,
     pub has_wildcard_disallow_all: bool,
     pub blocks_ai_crawlers: bool,
+    pub blocks_ai_citation: bool,
+    pub inferred_policy: String,
     pub sitemaps: Vec<String>,
     pub crawl_delays: Vec<(String, u32)>,
     /// (user-agent, bot_class_label, allows_count, disallows_count, fully_blocked)

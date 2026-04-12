@@ -246,8 +246,8 @@ fn render_robots(
         );
     }
 
-    // Summary callout
-    let summary = if robots.has_wildcard_disallow_all {
+    // Summary callout — only warn for genuinely problematic configurations
+    if robots.has_wildcard_disallow_all {
         builder = builder.add_component(
             Callout::warning(
                 "Alle Crawler vollständig gesperrt (User-agent: * / Disallow: /). \
@@ -256,21 +256,28 @@ fn render_robots(
             )
             .with_title("Alle Crawler gesperrt"),
         );
-        "Alle Crawler gesperrt"
-    } else if robots.blocks_ai_crawlers {
+    } else if robots.blocks_ai_citation {
+        builder = builder.add_component(
+            Callout::info(
+                "KI-Suchbots (z. B. PerplexityBot, Amazonbot) sind blockiert. \
+                 Das ist eine bewusste Entscheidung — Inhalte erscheinen nicht in \
+                 KI-generierten Antworten. Das Sperren von KI-Trainingsbots (GPTBot etc.) \
+                 ist dagegen übliche Praxis und kein Problem.",
+            )
+            .with_title("Eingeschränkte KI-Sichtbarkeit"),
+        );
+    } else if !robots.blocked_ai_bots.is_empty() {
+        // Training bots blocked, citation bots allowed — this is the citationFriendly default
         builder = builder.add_component(
             Callout::info(&format!(
-                "Folgende KI-Crawler sind über robots.txt eingeschränkt: {}. \
-                 Dies kann eine bewusste Entscheidung sein (z. B. zum Schutz von Inhalten).",
+                "Policy: {} — KI-Trainingsbots ({}) sind gesperrt, \
+                 KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.",
+                robots.inferred_policy,
                 robots.blocked_ai_bots.join(", ")
             ))
-            .with_title("KI-Crawler eingeschränkt"),
+            .with_title("KI-Training blockiert (Standard)"),
         );
-        "KI-Crawler eingeschränkt"
-    } else {
-        "Keine Einschränkungen erkannt"
-    };
-    let _ = summary;
+    }
 
     // Bot overview table
     if !robots.bot_rows.is_empty() {
@@ -945,13 +952,30 @@ pub(super) fn render_ai_visibility(
     }
 
     // AI Policy details
-    if av.policy.blocks_ai_crawlers {
+    if av.policy.blocks_all {
         builder = builder.add_component(
-            Callout::warning(&format!(
-                "{} AI-Crawler sind blockiert. Dies reduziert die Sichtbarkeit in KI-Systemen.",
-                av.policy.blocked_ai_bot_count
+            Callout::warning(
+                "Alle Crawler gesperrt (Disallow: *) — auch KI-Suchbots haben keinen Zugang.",
+            )
+            .with_title("Kein KI-Zugang"),
+        );
+    } else if av.policy.blocks_ai_citation {
+        builder = builder.add_component(
+            Callout::info(&format!(
+                "Policy: {} — KI-Suchbots sind blockiert. \
+                 Inhalte erscheinen nicht in KI-generierten Antworten.",
+                av.policy.inferred_policy
             ))
-            .with_title("AI-Crawler blockiert"),
+            .with_title("KI-Sichtbarkeit eingeschränkt"),
+        );
+    } else if av.policy.blocks_ai_training {
+        builder = builder.add_component(
+            Callout::info(&format!(
+                "Policy: {} — KI-Trainingsbots blockiert, KI-Suchbots haben Zugang. \
+                 Das ist die empfohlene Standardkonfiguration.",
+                av.policy.inferred_policy
+            ))
+            .with_title("KI-Policy: Standard"),
         );
     }
 

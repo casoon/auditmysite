@@ -58,12 +58,16 @@ pub struct AiVisibilityAnalysis {
 pub struct PolicyAnalysis {
     /// Dimension score (0–100) with individual signals
     pub dimension: DimensionScore,
-    /// Whether any AI crawlers are blocked
-    pub blocks_ai_crawlers: bool,
+    /// Whether citation/search AI bots are blocked (reduces real-time AI visibility)
+    pub blocks_ai_citation: bool,
+    /// Whether training bots are blocked (common practice, neutral for visibility)
+    pub blocks_ai_training: bool,
     /// Whether wildcard disallow blocks everything
     pub blocks_all: bool,
     /// Number of specifically blocked AI bots
     pub blocked_ai_bot_count: usize,
+    /// Human-readable policy label
+    pub inferred_policy: String,
 }
 
 /// Score for a single AI visibility dimension
@@ -157,33 +161,60 @@ pub fn analyze_ai_visibility_batch(reports: &[AuditReport]) -> AiVisibilityAnaly
 fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
     let mut signals = Vec::new();
 
-    let (has_robots, blocks_ai, blocks_all, blocked_count, has_sitemap_in_robots) =
-        if let Some(seo) = &report.seo {
-            if let Some(robots) = &seo.robots {
-                let blocked = robots
-                    .groups
-                    .iter()
-                    .filter(|g| {
-                        matches!(
-                            g.bot_class,
-                            crate::seo::robots::BotClass::VerifiedAi
-                                | crate::seo::robots::BotClass::UnknownAi
-                        ) && g.disallows.iter().any(|d| d == "/")
-                    })
-                    .count();
-                (
-                    robots.fetched,
-                    robots.blocks_ai_crawlers,
-                    robots.has_wildcard_disallow_all,
-                    blocked,
-                    !robots.sitemaps.is_empty(),
-                )
-            } else {
-                (false, false, false, 0, false)
-            }
+    let (
+        has_robots,
+        blocks_citation,
+        blocks_training,
+        blocks_all,
+        blocked_count,
+        has_sitemap_in_robots,
+        inferred_policy,
+    ) = if let Some(seo) = &report.seo {
+        if let Some(robots) = &seo.robots {
+            let blocked = robots
+                .groups
+                .iter()
+                .filter(|g| {
+                    matches!(
+                        g.bot_class,
+                        crate::seo::robots::BotClass::AiTraining
+                            | crate::seo::robots::BotClass::AiCitation
+                            | crate::seo::robots::BotClass::AiMixed
+                            | crate::seo::robots::BotClass::UnknownAi
+                    ) && g.disallows.iter().any(|d| d == "/")
+                })
+                .count();
+            (
+                robots.fetched,
+                robots.blocks_ai_citation,
+                robots.blocks_ai_training,
+                robots.has_wildcard_disallow_all,
+                blocked,
+                !robots.sitemaps.is_empty(),
+                robots.inferred_policy.clone(),
+            )
         } else {
-            (false, false, false, 0, false)
-        };
+            (
+                false,
+                false,
+                false,
+                false,
+                0,
+                false,
+                "Keine robots.txt".to_string(),
+            )
+        }
+    } else {
+        (
+            false,
+            false,
+            false,
+            false,
+            0,
+            false,
+            "Keine robots.txt".to_string(),
+        )
+    };
 
     // 1. robots.txt accessible
     signals.push(AiSignal {
@@ -209,34 +240,32 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
         },
     });
 
-    // 3. AI crawler access (intentionally: allowing AI crawlers = positive for visibility)
+    // 3. Citation/search AI bots accessible — only citation bots matter for real-time AI visibility.
+    //    Blocking training bots (GPTBot, Google-Extended etc.) is standard practice and not penalized.
     signals.push(AiSignal {
-        name: "AI-Crawler-Zugang".into(),
-        present: !blocks_ai,
+        name: "KI-Suche erreichbar".into(),
+        present: !blocks_citation,
         weight: 0.25,
-        detail: if blocks_ai {
-            format!(
-                "{} AI-Crawler blockiert — Inhalte werden nicht von KI indexiert",
-                blocked_count
-            )
+        detail: if blocks_all {
+            "Alle Crawler gesperrt (Disallow: *) — auch KI-Suche blockiert".into()
+        } else if blocks_citation {
+            "KI-Suchbots (PerplexityBot, Amazonbot etc.) blockiert — Inhalte erscheinen nicht in KI-Antworten".into()
         } else {
-            "AI-Crawler nicht explizit blockiert — Inhalte für KI-Systeme verfügbar".into()
+            "KI-Suchbots nicht blockiert — Inhalte für KI-Antworten verfügbar".into()
         },
     });
 
-    // 4. Selective AI policy (blocking some but not all — shows awareness)
-    let has_selective_policy = has_robots && blocked_count > 0 && !blocks_all;
+    // 4. Explicit AI policy defined — having any policy is better than silence
+    let has_explicit_policy = has_robots && blocked_count > 0;
     signals.push(AiSignal {
-        name: "Gezielte AI-Policy".into(),
-        present: has_selective_policy,
+        name: "Explizite AI-Policy".into(),
+        present: has_explicit_policy,
         weight: 0.15,
-        detail: if has_selective_policy {
+        detail: if has_explicit_policy {
             format!(
-                "{} AI-Crawler selektiv blockiert — bewusste Steuerung der AI-Sichtbarkeit",
-                blocked_count
+                "Policy definiert: {} — {} AI-Bots adressiert",
+                inferred_policy, blocked_count
             )
-        } else if blocks_ai {
-            "Pauschaler AI-Block — keine differenzierte Steuerung".into()
         } else if has_robots {
             "Keine explizite AI-Crawler-Regelung in robots.txt".into()
         } else {
@@ -276,9 +305,11 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
 
     PolicyAnalysis {
         dimension: build_dimension("AI-Policy", &signals),
-        blocks_ai_crawlers: blocks_ai,
+        blocks_ai_citation: blocks_citation,
+        blocks_ai_training: blocks_training,
         blocks_all,
         blocked_ai_bot_count: blocked_count,
+        inferred_policy,
     }
 }
 
@@ -695,9 +726,11 @@ fn empty_analysis() -> AiVisibilityAnalysis {
         },
         policy: PolicyAnalysis {
             dimension: empty_dim,
-            blocks_ai_crawlers: false,
+            blocks_ai_citation: false,
+            blocks_ai_training: false,
             blocks_all: false,
             blocked_ai_bot_count: 0,
+            inferred_policy: String::new(),
         },
         disclaimer: DISCLAIMER_DE.to_string(),
     }

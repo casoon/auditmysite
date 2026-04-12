@@ -23,8 +23,14 @@ pub struct RobotsAudit {
     pub crawl_delays: Vec<(String, u32)>,
     /// True when `User-agent: *` has `Disallow: /` — blocks everything
     pub has_wildcard_disallow_all: bool,
-    /// True when any group blocks AI crawlers specifically
+    /// True when any AI crawler (any sub-type) is blocked — legacy alias
     pub blocks_ai_crawlers: bool,
+    /// True when training-only bots (GPTBot, Google-Extended, …) are blocked
+    pub blocks_ai_training: bool,
+    /// True when citation/search AI bots (PerplexityBot, Amazonbot, …) are blocked
+    pub blocks_ai_citation: bool,
+    /// Human-readable policy label inferred from the rules
+    pub inferred_policy: String,
 }
 
 /// A single rule group in robots.txt (one or more User-agents sharing Allow/Disallow rules)
@@ -44,9 +50,13 @@ pub enum BotClass {
     Wildcard,
     /// Verified search engine crawler (Googlebot, Bingbot, …)
     SearchEngine,
-    /// Verified AI trainer bot (GPTBot, ClaudeBot, Google-Extended, …)
-    VerifiedAi,
-    /// Unverified / scrapers often used for AI training (ByteSpider, CCBot, …)
+    /// AI training bot — blocking is standard practice (GPTBot, Google-Extended, CCBot, …)
+    AiTraining,
+    /// AI citation / search bot — blocking is unusual (PerplexityBot, Amazonbot, …)
+    AiCitation,
+    /// AI bot with mixed purpose: both training and citation (ClaudeBot, meta-externalagent, …)
+    AiMixed,
+    /// Unverified scrapers, SEO bots (dotbot, semrushbot, …)
     UnknownAi,
     /// General / known-good (archive.org, etc.)
     General,
@@ -59,8 +69,10 @@ impl std::fmt::Display for BotClass {
         match self {
             BotClass::Wildcard => write!(f, "Alle Crawler (*)"),
             BotClass::SearchEngine => write!(f, "Suchmaschine"),
-            BotClass::VerifiedAi => write!(f, "KI-Crawler (verifiziert)"),
-            BotClass::UnknownAi => write!(f, "KI-Crawler (unbekannt)"),
+            BotClass::AiTraining => write!(f, "KI-Training"),
+            BotClass::AiCitation => write!(f, "KI-Suche / Zitation"),
+            BotClass::AiMixed => write!(f, "KI-Training & Suche"),
+            BotClass::UnknownAi => write!(f, "Unbekannter Scraper"),
             BotClass::General => write!(f, "Allgemein"),
             BotClass::Unknown => write!(f, "Nicht klassifiziert"),
         }
@@ -84,28 +96,40 @@ const SEARCH_BOTS: &[&str] = &[
     "ask jeeves",
 ];
 
-const VERIFIED_AI_BOTS: &[&str] = &[
-    "gptbot",          // OpenAI
-    "chatgpt-user",    // OpenAI browsing
-    "google-extended", // Google AI training
-    "claudebot",       // Anthropic
-    "anthropic-ai",    // Anthropic
-    "cohere-ai",
-    "perplexitybot",
-    "youbot", // You.com
-    "amazonbot",
-    "meta-externalagent", // Meta
-    "facebookbot",
-    "applebot-extended", // Apple AI
-    "diffbot",
-    "omgili",
+/// Training-only bots — blocking is standard practice (citationFriendly default)
+const AI_TRAINING_BOTS: &[&str] = &[
+    "gptbot",            // OpenAI — model training
+    "google-extended",   // Google — AI training
+    "applebot-extended", // Apple — AI training
+    "bytespider",        // ByteDance / TikTok — training
+    "ccbot",             // Common Crawl — training datasets
+    "omgili",            // Webz.io — training
 ];
 
+/// Citation / AI-search bots — blocking is unusual and may reduce AI visibility
+const AI_CITATION_BOTS: &[&str] = &[
+    "perplexitybot", // Perplexity AI search
+    "youbot",        // You.com AI search
+    "amazonbot",     // Amazon AI / Alexa
+    "oai-searchbot", // OpenAI search (separate from training GPTBot)
+    "claude-web",    // Anthropic web browsing (citation only)
+];
+
+/// Mixed-purpose bots: both training data collection and AI responses/search
+const AI_MIXED_BOTS: &[&str] = &[
+    "claudebot",          // Anthropic — training + citation
+    "anthropic-ai",       // Anthropic general
+    "chatgpt-user",       // OpenAI — user browsing + training
+    "meta-externalagent", // Meta — training + social AI
+    "facebookbot",        // Meta
+    "cohere-ai",          // Cohere
+    "diffbot",            // Diffbot — structured data + training
+];
+
+/// Unverified scrapers / SEO bots — often used for training but not primary AI crawlers
 const UNKNOWN_AI_BOTS: &[&str] = &[
-    "bytespider", // TikTok / ByteDance
-    "ccbot",      // Common Crawl (used for AI training)
     "dotbot",
-    "petalbot", // Huawei
+    "petalbot", // Huawei search
     "wpbot",
     "semrushbot",
     "ahrefsbot",
@@ -123,9 +147,19 @@ fn classify_bot(ua: &str) -> BotClass {
             return BotClass::SearchEngine;
         }
     }
-    for pat in VERIFIED_AI_BOTS {
+    for pat in AI_TRAINING_BOTS {
         if lower.contains(pat) {
-            return BotClass::VerifiedAi;
+            return BotClass::AiTraining;
+        }
+    }
+    for pat in AI_CITATION_BOTS {
+        if lower.contains(pat) {
+            return BotClass::AiCitation;
+        }
+    }
+    for pat in AI_MIXED_BOTS {
+        if lower.contains(pat) {
+            return BotClass::AiMixed;
         }
     }
     for pat in UNKNOWN_AI_BOTS {
@@ -278,10 +312,47 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
         .iter()
         .any(|g| g.bot_class == BotClass::Wildcard && g.disallows.iter().any(|d| d == "/"));
 
-    let blocks_ai_crawlers = groups.iter().any(|g| {
-        matches!(g.bot_class, BotClass::VerifiedAi | BotClass::UnknownAi)
-            && g.disallows.iter().any(|d| d == "/")
+    let is_fully_blocked = |g: &RobotsGroup| g.disallows.iter().any(|d| d == "/");
+
+    let blocks_ai_training = groups
+        .iter()
+        .any(|g| g.bot_class == BotClass::AiTraining && is_fully_blocked(g));
+
+    let blocks_ai_citation = groups
+        .iter()
+        .any(|g| g.bot_class == BotClass::AiCitation && is_fully_blocked(g));
+
+    let blocks_ai_mixed = groups
+        .iter()
+        .any(|g| g.bot_class == BotClass::AiMixed && is_fully_blocked(g));
+
+    let blocks_ai_crawlers = blocks_ai_training
+        || blocks_ai_citation
+        || blocks_ai_mixed
+        || groups
+            .iter()
+            .any(|g| g.bot_class == BotClass::UnknownAi && is_fully_blocked(g));
+
+    let has_any_ai_rule = groups.iter().any(|g| {
+        matches!(
+            g.bot_class,
+            BotClass::AiTraining | BotClass::AiCitation | BotClass::AiMixed
+        )
     });
+
+    let inferred_policy = if has_wildcard_disallow_all {
+        "Alles gesperrt (Disallow: *)".to_string()
+    } else if blocks_ai_citation {
+        "KI vollständig blockiert".to_string()
+    } else if blocks_ai_mixed && blocks_ai_training {
+        "KI-Training blockiert (konservativ)".to_string()
+    } else if blocks_ai_training {
+        "KI-Training blockiert, KI-Suche erlaubt".to_string()
+    } else if has_any_ai_rule {
+        "KI-Zugang offen".to_string()
+    } else {
+        "Keine explizite KI-Regel".to_string()
+    };
 
     RobotsAudit {
         fetched: false, // set by caller after network step
@@ -291,6 +362,9 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
         crawl_delays,
         has_wildcard_disallow_all,
         blocks_ai_crawlers,
+        blocks_ai_training,
+        blocks_ai_citation,
+        inferred_policy,
     }
 }
 
@@ -353,12 +427,14 @@ Crawl-delay: 10
 
     #[test]
     fn test_bot_classification() {
-        assert_eq!(classify_bot("GPTBot"), BotClass::VerifiedAi);
+        assert_eq!(classify_bot("GPTBot"), BotClass::AiTraining);
         assert_eq!(classify_bot("Googlebot"), BotClass::SearchEngine);
-        assert_eq!(classify_bot("CCBot"), BotClass::UnknownAi);
+        assert_eq!(classify_bot("CCBot"), BotClass::AiTraining);
         assert_eq!(classify_bot("*"), BotClass::Wildcard);
         assert_eq!(classify_bot("SomeRandomBot"), BotClass::Unknown);
-        assert_eq!(classify_bot("claudebot"), BotClass::VerifiedAi);
+        assert_eq!(classify_bot("claudebot"), BotClass::AiMixed);
+        assert_eq!(classify_bot("PerplexityBot"), BotClass::AiCitation);
+        assert_eq!(classify_bot("semrushbot"), BotClass::UnknownAi);
     }
 
     #[test]

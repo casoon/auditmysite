@@ -1602,8 +1602,13 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                     .groups
                     .iter()
                     .filter(|g| {
-                        matches!(g.bot_class, BotClass::VerifiedAi | BotClass::UnknownAi)
-                            && g.disallows.iter().any(|d| d == "/")
+                        matches!(
+                            g.bot_class,
+                            BotClass::AiTraining
+                                | BotClass::AiCitation
+                                | BotClass::AiMixed
+                                | BotClass::UnknownAi
+                        ) && g.disallows.iter().any(|d| d == "/")
                     })
                     .map(|g| g.user_agent.clone())
                     .collect();
@@ -1612,6 +1617,8 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                     error: r.error.clone(),
                     has_wildcard_disallow_all: r.has_wildcard_disallow_all,
                     blocks_ai_crawlers: r.blocks_ai_crawlers,
+                    blocks_ai_citation: r.blocks_ai_citation,
+                    inferred_policy: r.inferred_policy.clone(),
                     sitemaps: r.sitemaps.clone(),
                     crawl_delays: r.crawl_delays.clone(),
                     bot_rows,
