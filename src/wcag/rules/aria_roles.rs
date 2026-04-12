@@ -37,6 +37,8 @@ const VALID_ARIA_ROLES: &[&str] = &[
     "cell",
     "columnheader",
     "definition",
+    "code",
+    "mark",
     "deletion",
     "directory",
     "document",
