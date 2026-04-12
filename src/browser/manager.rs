@@ -240,6 +240,15 @@ impl BrowserManager {
             "--no-default-browser-check".to_string(),
             "--disable-translate".to_string(),
             "--disable-infobars".to_string(),
+            // Suppress first-run dialogs and visible windows (important on Windows)
+            "--no-first-run".to_string(),
+            "--disable-default-apps".to_string(),
+            "--hide-crash-restore-bubble".to_string(),
+            "--disable-session-crashed-bubble".to_string(),
+            "--disable-features=ChromeWhatsNewUI,MediaRouter,DialMediaRouteProvider".to_string(),
+            "--metrics-recording-only".to_string(),
+            "--mute-audio".to_string(),
+            "--hide-scrollbars".to_string(),
         ];
 
         if disable_gpu {
@@ -249,6 +258,13 @@ impl BrowserManager {
 
         if options.disable_images {
             args.push("--blink-settings=imagesEnabled=false".to_string());
+        }
+
+        // Windows: additional flags to prevent visible window flashes
+        #[cfg(target_os = "windows")]
+        {
+            args.push("--disable-background-mode".to_string());
+            args.push("--disable-extensions".to_string());
         }
 
         args
