@@ -9,7 +9,7 @@
     "certificate", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
     "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
     "module_scores", "findings", "nodes_analyzed", "execution_time_ms",
-    "executive_summary", "artifacts", "json_report"
+    "executive_summary", "artifacts", "json_report", "cli_version"
   ],
   "additionalProperties": false,
   "properties": {
@@ -40,7 +40,8 @@
     "execution_time_ms": { "type": "integer", "minimum": 0 },
     "executive_summary": { "$ref": "#/$defs/executiveSummary" },
     "artifacts": { "$ref": "#/$defs/reportArtifacts" },
-    "json_report": { "type": "string" }
+    "json_report": { "type": "string" },
+    "cli_version": { "type": "string", "description": "Semver version of the auditmysite CLI that generated this response" }
   },
   "$defs": {
     "moduleScore": {

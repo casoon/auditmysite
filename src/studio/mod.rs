@@ -70,6 +70,10 @@ pub struct StudioAuditResponse {
 
     // ── Full JSON report (for detail tab / export) ──────────────────
     pub json_report: String,
+
+    // ── Meta ────────────────────────────────────────────────────────
+    /// CLI version that generated this response (e.g. "0.9.3")
+    pub cli_version: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -178,6 +182,7 @@ impl StudioAuditResponse {
             },
             artifacts: StudioReportArtifacts::default(),
             json_report,
+            cli_version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
 
@@ -269,6 +274,7 @@ impl StudioHistoryEntry {
             executive_summary: StudioExecutiveSummary::default(),
             artifacts: self.artifacts,
             json_report,
+            cli_version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
 }
