@@ -63,14 +63,14 @@ Verify the installation:
 ```bash
 auditmysite --version
 auditmysite --help
-auditmysite https://www.in-punkto.com
+auditmysite https://example.com
 ```
 
 That default command writes report artifacts into the current directory, for example:
 
-- `./in-punkto-com-YYYY-MM-DD-single-report.pdf`
-- `./in-punkto-com-YYYY-MM-DD-single-report.json`
-- `./in-punkto-com-history.json`
+- `./example-com-YYYY-MM-DD-single-report.pdf`
+- `./example-com-YYYY-MM-DD-single-report.json`
+- `./example-com-history.json`
 
 ### Prebuilt binaries
 
