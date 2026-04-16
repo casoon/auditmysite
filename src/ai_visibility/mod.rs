@@ -348,11 +348,9 @@ fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInpu
     } else {
         1
     };
-    let avg_paragraph_len = if paragraph_count > 0 {
-        word_count / paragraph_count
-    } else {
-        word_count
-    };
+    let avg_paragraph_len = word_count
+        .checked_div(paragraph_count)
+        .unwrap_or(word_count);
 
     // Lists/tables not directly available from technical SEO — use heuristics
     // If a page has FAQ/HowTo schema it likely has lists; otherwise estimate from word count
@@ -442,11 +440,9 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
     } else {
         1
     };
-    let avg_len = if paragraph_count > 0 {
-        word_count / paragraph_count
-    } else {
-        word_count
-    };
+    let avg_len = word_count
+        .checked_div(paragraph_count)
+        .unwrap_or(word_count);
     let short_paragraph_ratio = if avg_len <= 100 {
         0.6
     } else if avg_len <= 150 {
@@ -486,7 +482,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
                 // Estimate word count between headings
                 let total_words = s.technical.word_count;
                 let n = h.len() as u32;
-                let words_per_section = if n > 0 { total_words / n } else { total_words };
+                let words_per_section = total_words.checked_div(n).unwrap_or(total_words);
 
                 chunks::HeadingInfo {
                     text: heading.text.clone(),

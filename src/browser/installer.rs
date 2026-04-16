@@ -311,7 +311,7 @@ impl BrowserInstaller {
             downloaded += chunk.len() as u64;
 
             if total_size > 0 {
-                let percent = (downloaded * 100) / total_size;
+                let percent = (downloaded * 100).checked_div(total_size).unwrap_or(0);
                 if downloaded % (total_size / 10).max(1) < chunk.len() as u64 {
                     println!(
                         "  {}% ({}/{} MB)",

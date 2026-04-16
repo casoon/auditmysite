@@ -28,9 +28,9 @@ pub(super) fn derive_action_plan(finding_groups: &[FindingGroup]) -> ActionPlan 
         }
     }
 
-    quick_wins.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
-    medium_term.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
-    structural.sort_by(|a, b| b.execution_priority.cmp(&a.execution_priority));
+    quick_wins.sort_by_key(|b| std::cmp::Reverse(b.execution_priority));
+    medium_term.sort_by_key(|b| std::cmp::Reverse(b.execution_priority));
+    structural.sort_by_key(|b| std::cmp::Reverse(b.execution_priority));
 
     // Deduplicate by action text across ALL phases (keep first occurrence = highest phase/priority)
     let mut seen_actions: std::collections::HashSet<String> = std::collections::HashSet::new();

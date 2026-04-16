@@ -259,7 +259,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 .iter()
                 .map(|(k, v)| (k.clone(), v.as_u64().unwrap_or(0) as u32))
                 .collect();
-            pairs.sort_by(|a, b| b.1.cmp(&a.1));
+            pairs.sort_by_key(|b| std::cmp::Reverse(b.1));
             pairs
         })
         .unwrap_or_default();

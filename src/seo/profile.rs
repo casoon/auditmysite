@@ -613,11 +613,7 @@ fn analyze_schema(schema_type: &str, content: &serde_json::Value) -> Option<Sche
     }
 
     let total = present.len() + missing.len();
-    let pct = if total > 0 {
-        (present.len() * 100 / total) as u32
-    } else {
-        0
-    };
+    let pct = (present.len() * 100).checked_div(total).unwrap_or(0) as u32;
 
     Some(SchemaDetail {
         schema_type: schema_type.to_string(),

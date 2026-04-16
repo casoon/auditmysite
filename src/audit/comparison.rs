@@ -52,7 +52,7 @@ impl ComparisonReport {
             reports.iter().map(ComparisonEntry::from_report).collect();
 
         // Sort by overall score descending (rank 1 = best)
-        entries.sort_by(|a, b| b.overall_score.cmp(&a.overall_score));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.overall_score));
 
         Self {
             entries,

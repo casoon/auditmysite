@@ -304,10 +304,7 @@ async fn extract_cls_observed(page: &Page) -> Result<f64> {
         .await
         .map_err(|e| AuditError::CdpError(format!("CLS observer failed: {}", e)))?;
 
-    Ok(result
-        .value()
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0))
+    Ok(result.value().and_then(|v| v.as_f64()).unwrap_or(0.0))
 }
 
 #[cfg(test)]

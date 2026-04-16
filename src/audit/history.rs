@@ -326,7 +326,7 @@ fn build_delta(previous: &HistorySnapshot, latest: &HistorySnapshot) -> HistoryD
 }
 
 fn dedupe_snapshots(mut entries: Vec<HistorySnapshot>) -> Vec<HistorySnapshot> {
-    entries.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    entries.sort_by_key(|a| a.timestamp);
 
     let mut by_fingerprint: HashMap<String, HistorySnapshot> = HashMap::new();
     for entry in entries {
@@ -340,7 +340,7 @@ fn dedupe_snapshots(mut entries: Vec<HistorySnapshot>) -> Vec<HistorySnapshot> {
     }
 
     let mut deduped: Vec<HistorySnapshot> = by_fingerprint.into_values().collect();
-    deduped.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    deduped.sort_by_key(|a| a.timestamp);
     collapse_same_day(deduped)
 }
 
@@ -380,7 +380,7 @@ fn collapse_same_day(entries: Vec<HistorySnapshot>) -> Vec<HistorySnapshot> {
     }
 
     let mut collapsed: Vec<HistorySnapshot> = by_day.into_values().collect();
-    collapsed.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    collapsed.sort_by_key(|a| a.timestamp);
     collapsed
 }
 

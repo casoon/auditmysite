@@ -355,11 +355,9 @@ fn build_executive_narrative(
     ) =
         top_findings.first()
     {
-        let share = if total_ch > 0 {
-            top.occurrence_count * 100 / total_ch
-        } else {
-            0
-        };
+        let share = (top.occurrence_count * 100)
+            .checked_div(total_ch)
+            .unwrap_or(0);
         (
                 audit_summary
                     .dominant_issue_note
@@ -470,11 +468,9 @@ fn build_single_key_points_text(
 
     if let Some(top) = top_findings.first() {
         let total_ch = (severity.critical + severity.high) as usize;
-        let share = if total_ch > 0 {
-            top.occurrence_count * 100 / total_ch
-        } else {
-            0
-        };
+        let share = (top.occurrence_count * 100)
+            .checked_div(total_ch)
+            .unwrap_or(0);
         if share >= 30 {
             points.push(format!(
                 "Hauptproblem: {} ({}% aller kritischen Fehler)",
@@ -969,11 +965,9 @@ fn build_methodology(normalized: &NormalizedReport) -> MethodologyBlock {
                     .module_scores
                     .iter()
                     .map(|m| {
-                        let pct = if total_raw > 0 {
-                            (m.weight_pct * 100 + total_raw / 2) / total_raw
-                        } else {
-                            0
-                        };
+                        let pct = (m.weight_pct * 100 + total_raw / 2)
+                            .checked_div(total_raw)
+                            .unwrap_or(0);
                         format!("{} {}%", m.name, pct)
                     })
                     .collect();

@@ -280,7 +280,7 @@ pub async fn analyze_crawl_links(crawl: &CrawlResult) -> CrawlDiagnostics {
         BrokenLinkSeverity::Low => 2,
     });
     // Sort redirect chains by hop count descending
-    redirect_chains.sort_by(|a, b| b.hops.cmp(&a.hops));
+    redirect_chains.sort_by_key(|b| std::cmp::Reverse(b.hops));
 
     CrawlDiagnostics {
         seed_url: crawl.seed_url.clone(),

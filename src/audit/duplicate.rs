@@ -79,7 +79,7 @@ pub fn detect_near_duplicates(
         }
     }
 
-    pairs.sort_by(|a, b| b.similarity.cmp(&a.similarity));
+    pairs.sort_by_key(|b| std::cmp::Reverse(b.similarity));
     pairs
 }
 
