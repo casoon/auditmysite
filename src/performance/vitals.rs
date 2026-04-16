@@ -168,9 +168,6 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     if vitals.fcp.is_none() && js_metrics.fcp.is_some() {
         vitals.fcp = js_metrics.fcp;
     }
-    if js_metrics.cls.is_some() {
-        vitals.cls = js_metrics.cls;
-    }
     if js_metrics.ttfb.is_some() {
         vitals.ttfb = js_metrics.ttfb;
     }
@@ -183,6 +180,17 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
                 vitals.dom_content_loaded = Some(js_dcl);
             }
         }
+    }
+
+    // CLS requires an observation window to capture post-load layout shifts
+    // (lazy images, fonts, ads, overlays). A one-shot snapshot at load time
+    // misses most real-world shifts.
+    let cls_value = extract_cls_observed(page).await.unwrap_or_else(|_| {
+        // Fallback to the sync snapshot if observer fails
+        js_metrics.cls.as_ref().map(|v| v.value).unwrap_or(0.0)
+    });
+    if cls_value >= 0.0 {
+        vitals.cls = Some(VitalMetric::new(cls_value, 0.1, 0.25));
     }
 
     info!(
@@ -223,16 +231,6 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
             result.lcp = lcpEntries[lcpEntries.length - 1].startTime;
         }
 
-        // CLS (approximate from layout-shift entries)
-        const clsEntries = performance.getEntriesByType('layout-shift');
-        let cls = 0;
-        for (const entry of clsEntries) {
-            if (!entry.hadRecentInput) {
-                cls += entry.value;
-            }
-        }
-        result.cls = cls;
-
         return JSON.stringify(result);
     })()
     "#;
@@ -254,9 +252,6 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
     if let Some(fcp) = parsed["fcp"].as_f64() {
         vitals.fcp = Some(VitalMetric::new(fcp, 1800.0, 3000.0));
     }
-    if let Some(cls) = parsed["cls"].as_f64() {
-        vitals.cls = Some(VitalMetric::new(cls, 0.1, 0.25));
-    }
     if let Some(ttfb) = parsed["ttfb"].as_f64() {
         vitals.ttfb = Some(VitalMetric::new(ttfb, 800.0, 1800.0));
     }
@@ -268,6 +263,51 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
     }
 
     Ok(vitals)
+}
+
+/// Measure CLS via PerformanceObserver with a short observation window.
+///
+/// A one-shot `getEntriesByType` snapshot misses post-load layout shifts
+/// (lazy images, web fonts, ads, overlays). This observer collects all
+/// buffered entries PLUS any new shifts during a 1500ms window.
+async fn extract_cls_observed(page: &Page) -> Result<f64> {
+    let js = r#"
+    new Promise((resolve) => {
+        let cls = 0;
+        try {
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    if (!entry.hadRecentInput) {
+                        cls += entry.value;
+                    }
+                }
+            });
+            // buffered: true delivers already-recorded shifts in the first callback
+            observer.observe({ type: 'layout-shift', buffered: true });
+            setTimeout(() => {
+                observer.disconnect();
+                resolve(cls);
+            }, 1500);
+        } catch (e) {
+            // PerformanceObserver not supported — fallback to snapshot
+            const entries = performance.getEntriesByType('layout-shift');
+            for (const entry of entries) {
+                if (!entry.hadRecentInput) cls += entry.value;
+            }
+            resolve(cls);
+        }
+    })
+    "#;
+
+    let result = page
+        .evaluate(js)
+        .await
+        .map_err(|e| AuditError::CdpError(format!("CLS observer failed: {}", e)))?;
+
+    Ok(result
+        .value()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0))
 }
 
 #[cfg(test)]
