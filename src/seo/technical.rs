@@ -37,6 +37,10 @@ pub struct TechnicalSeo {
     pub internal_links: u32,
     /// External links count
     pub external_links: u32,
+    /// Dofollow links (no nofollow/ugc/sponsored rel)
+    pub dofollow_links: u32,
+    /// Nofollow links (rel=nofollow/ugc/sponsored)
+    pub nofollow_links: u32,
     /// Resolved paths of internal links (for inbound link computation in batch mode, capped at 500)
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub internal_link_targets: Vec<String>,
@@ -127,10 +131,15 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         const links = document.querySelectorAll('a[href]');
         let internal = 0, external = 0;
         const currentHost = window.location.host;
+        let dofollow = 0, nofollow = 0;
 
         const internalTargets = [];
         links.forEach(a => {
             try {
+                const rel = (a.getAttribute('rel') || '').toLowerCase().split(/\s+/);
+                const isNofollow = rel.includes('nofollow') || rel.includes('ugc') || rel.includes('sponsored');
+                if (isNofollow) { nofollow++; } else { dofollow++; }
+
                 const href = a.getAttribute('href');
                 if (href.startsWith('http')) {
                     const linkUrl = new URL(href);
@@ -151,6 +160,8 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
 
         result.internalLinks = internal;
         result.externalLinks = external;
+        result.dofollowLinks = dofollow;
+        result.nofollowLinks = nofollow;
         result.internalLinkTargets = internalTargets.slice(0, 500);
         result.stylesheetUrls = Array.from(
             document.querySelectorAll('link[rel=\"stylesheet\"][href]'),
@@ -201,6 +212,8 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let word_count = parsed["wordCount"].as_u64().unwrap_or(0) as u32;
     let internal_links = parsed["internalLinks"].as_u64().unwrap_or(0) as u32;
     let external_links = parsed["externalLinks"].as_u64().unwrap_or(0) as u32;
+    let dofollow_links = parsed["dofollowLinks"].as_u64().unwrap_or(0) as u32;
+    let nofollow_links = parsed["nofollowLinks"].as_u64().unwrap_or(0) as u32;
     let internal_link_targets = parse_string_array(&parsed["internalLinkTargets"]);
     let text_excerpt = parsed["textExcerpt"].as_str().unwrap_or("").to_string();
     let stylesheet_urls = parse_string_array(&parsed["stylesheetUrls"]);
@@ -302,6 +315,8 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         word_count,
         internal_links,
         external_links,
+        dofollow_links,
+        nofollow_links,
         internal_link_targets,
         broken_links: vec![],
         text_excerpt,

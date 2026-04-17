@@ -31,6 +31,26 @@
         }
       }
     },
+    "crawl_diagnostics": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "url_matrix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rank", "url", "inbound_links", "outbound_links", "word_count"],
+        "additionalProperties": false,
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "url": { "type": "string" },
+          "title": { "type": ["string", "null"] },
+          "inbound_links": { "type": "integer", "minimum": 0 },
+          "outbound_links": { "type": "integer", "minimum": 0 },
+          "word_count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
     "reports": {
       "type": "array",
       "items": { "$ref": "#/$defs/normalizedReport" }

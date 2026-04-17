@@ -1106,6 +1106,71 @@ fn build_capability_matrix(normalized: &NormalizedReport) -> Vec<CapabilitySigna
     capabilities
 }
 
+fn build_page_health_presentation(ph: &crate::seo::PageHealthAnalysis) -> PageHealthPresentation {
+    let issues: Vec<(String, String, String)> = ph
+        .issues
+        .iter()
+        .map(|i| (i.issue_type.clone(), i.message.clone(), i.severity.clone()))
+        .collect();
+
+    let mut url_info: Vec<(String, String)> = vec![
+        (
+            "URL-Länge".to_string(),
+            format!("{} Zeichen", ph.url_length),
+        ),
+        ("Pfadtiefe".to_string(), ph.url_path_depth.to_string()),
+        (
+            "Query-Parameter".to_string(),
+            yes_no(ph.url_has_query_params),
+        ),
+        (
+            "Eigene Weiterleitung".to_string(),
+            yes_no(ph.own_redirect_detected),
+        ),
+    ];
+    if let Some(ref final_url) = ph.own_final_url {
+        url_info.push(("Ziel-URL".to_string(), final_url.clone()));
+    }
+
+    let html_issues: Vec<(String, u32, String, String)> = ph
+        .html_issues
+        .iter()
+        .map(|i| {
+            (
+                i.check.clone(),
+                i.count,
+                i.severity.clone(),
+                i.detail.clone(),
+            )
+        })
+        .collect();
+
+    let www_status = ph.www_consolidation.as_ref().map(|w| {
+        let www_label = w
+            .www_status
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "—".to_string());
+        let non_www_label = w
+            .non_www_status
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "—".to_string());
+        (www_label, non_www_label, w.is_consolidated)
+    });
+
+    let soft_404 = ph.soft_404_status.map(|s| (s, ph.is_soft_404));
+
+    let has_any_issue = !issues.is_empty() || !html_issues.is_empty();
+
+    PageHealthPresentation {
+        issues,
+        url_info,
+        html_issues,
+        www_status,
+        soft_404,
+        has_any_issue,
+    }
+}
+
 fn build_module_details_from_normalized(normalized: &NormalizedReport) -> ModuleDetailsBlock {
     let performance = normalized.raw_performance.as_ref().map(|p| {
         let mut vitals = Vec::new();
@@ -1534,6 +1599,14 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                     "Externe Links".to_string(),
                     s.technical.external_links.to_string(),
                 ),
+                (
+                    "Dofollow-Links".to_string(),
+                    s.technical.dofollow_links.to_string(),
+                ),
+                (
+                    "Nofollow-Links".to_string(),
+                    s.technical.nofollow_links.to_string(),
+                ),
             ],
             tracking_summary: vec![
                 (
@@ -1583,6 +1656,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             ],
             tracking_summary_text: build_tracking_summary_text(&s.technical),
             profile,
+            page_health: s.page_health.as_ref().map(build_page_health_presentation),
             robots: s.robots.as_ref().map(|r| {
                 use crate::seo::BotClass;
                 let bot_rows: Vec<(String, String, usize, usize, bool)> = r

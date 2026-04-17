@@ -1277,6 +1277,7 @@ mod tests {
             score: 0,
             content_profile: None,
             robots: None,
+            page_health: None,
         }
     }
 

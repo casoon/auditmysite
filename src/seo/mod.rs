@@ -4,6 +4,7 @@
 
 mod headings;
 mod meta;
+pub mod page_health;
 pub mod profile;
 pub mod robots;
 pub mod schema;
@@ -12,6 +13,9 @@ pub mod technical;
 
 pub use headings::{analyze_heading_structure, HeadingIssue, HeadingStructure};
 pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
+pub use page_health::{
+    analyze_page_health, HtmlValidationIssue, PageHealthAnalysis, PageHealthIssue, WwwConsolidation,
+};
 pub use profile::{build_content_profile, SeoContentProfile};
 pub use robots::{audit_robots_txt, BotClass, RobotsAudit, RobotsGroup};
 pub use schema::{detect_structured_data, SchemaType, StructuredData};
@@ -20,6 +24,7 @@ pub use technical::{analyze_technical_seo, TechnicalSeo};
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::error::Result;
 
@@ -45,6 +50,9 @@ pub struct SeoAnalysis {
     /// robots.txt audit (informational, no score impact)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub robots: Option<RobotsAudit>,
+    /// Page health analysis (HTTP probes, DOM checks, URL analysis)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_health: Option<PageHealthAnalysis>,
 }
 
 /// Run complete SEO analysis
@@ -60,6 +68,15 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     // robots.txt — HTTP fetch, independent of browser
     let robots = Some(audit_robots_txt(url).await);
 
+    // Page health analysis — HTTP probes + DOM inspection
+    let page_health = match analyze_page_health(page, url).await {
+        Ok(ph) => Some(ph),
+        Err(e) => {
+            warn!("Page health analysis failed: {}", e);
+            None
+        }
+    };
+
     // Calculate score
     let score = calculate_seo_score(&meta, &meta_issues, &headings, &social, &technical);
 
@@ -73,6 +90,7 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         score,
         content_profile: None,
         robots,
+        page_health,
     };
 
     // Build content profile from collected data

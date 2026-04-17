@@ -475,6 +475,23 @@ pub struct SeoPresentation {
     pub profile: Option<SeoProfilePresentation>,
     /// robots.txt audit — informational only
     pub robots: Option<RobotsPresentation>,
+    /// Page health analysis presentation
+    pub page_health: Option<PageHealthPresentation>,
+}
+
+/// Page health presentation block
+pub struct PageHealthPresentation {
+    /// (issue_type, message, severity)
+    pub issues: Vec<(String, String, String)>,
+    /// KV pairs: (label, value)
+    pub url_info: Vec<(String, String)>,
+    /// (check, count, severity, detail)
+    pub html_issues: Vec<(String, u32, String, String)>,
+    /// (www_status_label, non_www_label, is_consolidated)
+    pub www_status: Option<(String, String, bool)>,
+    /// (status, is_soft_404)
+    pub soft_404: Option<(u16, bool)>,
+    pub has_any_issue: bool,
 }
 
 /// Pre-processed robots.txt display data

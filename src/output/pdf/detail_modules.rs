@@ -230,6 +230,74 @@ pub(super) fn render_seo(
         builder = render_robots(builder, robots);
     }
 
+    // Page health
+    if let Some(ph) = &seo.page_health {
+        builder = render_page_health(builder, ph);
+    }
+
+    builder
+}
+
+pub(super) fn render_page_health(
+    mut builder: renderreport::engine::ReportBuilder,
+    ph: &crate::output::report_model::PageHealthPresentation,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder.add_component(Section::new("Seitengesundheit").with_level(3));
+
+    // Issues table (if any)
+    if !ph.issues.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Problem").with_width("55%"),
+            TableColumn::new("Schweregrad").with_width("25%"),
+        ])
+        .with_title("Gefundene Probleme");
+        for (_, msg, sev) in &ph.issues {
+            table = table.add_row(vec![msg.as_str(), sev.as_str()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // URL info KV
+    if !ph.url_info.is_empty() {
+        let mut kv = KeyValueList::new().with_title("URL-Analyse");
+        for (k, v) in &ph.url_info {
+            kv = kv.add(k, v);
+        }
+        builder = builder.add_component(kv);
+    }
+
+    // www consolidation
+    if let Some((www_label, non_www_label, is_ok)) = &ph.www_status {
+        let icon = if *is_ok { "✓" } else { "✗" };
+        builder = builder.add_component(
+            Callout::info(&format!(
+                "www: {} | non-www: {} {}",
+                www_label, non_www_label, icon
+            ))
+            .with_title("www-Konsolidierung"),
+        );
+    }
+
+    // HTML validation table
+    if !ph.html_issues.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Prüfung").with_width("40%"),
+            TableColumn::new("Anzahl").with_width("15%"),
+            TableColumn::new("Schweregrad").with_width("20%"),
+            TableColumn::new("Detail").with_width("25%"),
+        ])
+        .with_title("HTML-Validierung");
+        for (check, count, sev, detail) in &ph.html_issues {
+            table = table.add_row(vec![
+                check.as_str(),
+                &count.to_string(),
+                sev.as_str(),
+                detail.as_str(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
     builder
 }
 
