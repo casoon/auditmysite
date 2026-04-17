@@ -19,7 +19,7 @@ Cargo.lock
 *.profdata
 
 # Output
-/reports/*
+/reports/
 !reports/README.md
 *.json
 *.html
