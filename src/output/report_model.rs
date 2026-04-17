@@ -645,6 +645,7 @@ pub struct BatchPresentation {
     pub action_plan: ActionPlan,
     pub url_ranking: Vec<UrlSummary>,
     pub url_details: Vec<CompactUrlSummary>,
+    pub url_matrix: Vec<UrlMatrixRow>,
     pub appendix: BatchAppendixData,
 }
 
@@ -763,6 +764,19 @@ pub struct CompactUrlSummary {
     pub topic_terms: Vec<String>,
     pub top_issues: Vec<String>,
     pub module_scores: Vec<(String, u32)>,
+}
+
+/// One row of the URL matrix table (batch reports)
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct UrlMatrixRow {
+    pub rank: usize,
+    pub url: String,
+    pub title: Option<String>,
+    /// Pages within the batch that link to this URL
+    pub inbound_links: usize,
+    /// All outgoing links from this page (internal + external)
+    pub outbound_links: u32,
+    pub word_count: u32,
 }
 
 pub struct BatchAppendixData {

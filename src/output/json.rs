@@ -9,9 +9,10 @@ use serde::Serialize;
 use crate::audit::normalized::NormalizedReport;
 use crate::audit::{AuditReport, BatchReport};
 use crate::error::Result;
+use crate::output::builder::build_batch_presentation;
 use crate::output::builder::build_view_model;
 use crate::output::explanations::get_explanation;
-use crate::output::report_model::ReportConfig;
+use crate::output::report_model::{ReportConfig, UrlMatrixRow};
 
 /// Generate JSON output from a normalized report
 pub fn format_json_normalized(
@@ -68,6 +69,8 @@ pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<Str
         .map(crate::audit::normalize)
         .collect();
 
+    let presentation = build_batch_presentation(batch_report);
+
     let payload = BatchJsonReport {
         metadata: ReportMetadata {
             tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
@@ -81,6 +84,7 @@ pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<Str
         summary: &batch_report.summary,
         crawl_diagnostics: batch_report.crawl_diagnostics.as_ref(),
         errors: &batch_report.errors,
+        url_matrix: presentation.url_matrix,
         reports: normalized_reports,
     };
 
@@ -191,6 +195,8 @@ struct BatchJsonReport<'a> {
     pub crawl_diagnostics: Option<&'a crate::audit::CrawlDiagnostics>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: &'a Vec<crate::audit::BatchError>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub url_matrix: Vec<UrlMatrixRow>,
     pub reports: Vec<NormalizedReport>,
 }
 

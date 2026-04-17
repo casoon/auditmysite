@@ -567,8 +567,59 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         action_plan,
         url_ranking,
         url_details,
+        url_matrix: build_url_matrix(batch),
         appendix: build_batch_appendix(batch),
     }
+}
+
+// ─── URL matrix ─────────────────────────────────────────────────────────────
+
+fn build_url_matrix(batch: &BatchReport) -> Vec<UrlMatrixRow> {
+    // Build inbound link map: path → count of pages that link here
+    let mut inbound: HashMap<String, usize> = HashMap::new();
+    for report in &batch.reports {
+        if let Some(seo) = &report.seo {
+            for target in &seo.technical.internal_link_targets {
+                *inbound.entry(target.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+
+    batch
+        .reports
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let title = r.seo.as_ref().and_then(|seo| seo.meta.title.clone());
+            let word_count = r
+                .seo
+                .as_ref()
+                .map(|seo| seo.technical.word_count)
+                .unwrap_or(0);
+            let outbound = r
+                .seo
+                .as_ref()
+                .map(|seo| seo.technical.internal_links + seo.technical.external_links)
+                .unwrap_or(0);
+            let path = url_path(&r.url);
+            let inbound_count = inbound.get(&path).copied().unwrap_or(0);
+
+            UrlMatrixRow {
+                rank: i + 1,
+                url: r.url.clone(),
+                title,
+                inbound_links: inbound_count,
+                outbound_links: outbound,
+                word_count,
+            }
+        })
+        .collect()
+}
+
+fn url_path(url: &str) -> String {
+    url::Url::parse(url)
+        .map(|u| u.path().to_string())
+        .unwrap_or_else(|_| url.to_string())
 }
 
 // ─── Internal batch helpers ──────────────────────────────────────────────────

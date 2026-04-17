@@ -37,6 +37,9 @@ pub struct TechnicalSeo {
     pub internal_links: u32,
     /// External links count
     pub external_links: u32,
+    /// Resolved paths of internal links (for inbound link computation in batch mode, capped at 500)
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub internal_link_targets: Vec<String>,
     /// Broken links found
     pub broken_links: Vec<String>,
     /// Visible text excerpt for topic analysis and redundancy checks
@@ -125,6 +128,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         let internal = 0, external = 0;
         const currentHost = window.location.host;
 
+        const internalTargets = [];
         links.forEach(a => {
             try {
                 const href = a.getAttribute('href');
@@ -132,10 +136,14 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
                     const linkUrl = new URL(href);
                     if (linkUrl.host === currentHost) {
                         internal++;
+                        internalTargets.push(linkUrl.pathname);
                     } else {
                         external++;
                     }
-                } else if (href.startsWith('/') || href.startsWith('#')) {
+                } else if (href.startsWith('/')) {
+                    internal++;
+                    internalTargets.push(href.split('?')[0].split('#')[0]);
+                } else if (href.startsWith('#')) {
                     internal++;
                 }
             } catch (e) {}
@@ -143,6 +151,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
 
         result.internalLinks = internal;
         result.externalLinks = external;
+        result.internalLinkTargets = internalTargets.slice(0, 500);
         result.stylesheetUrls = Array.from(
             document.querySelectorAll('link[rel=\"stylesheet\"][href]'),
             el => el.href
@@ -192,6 +201,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let word_count = parsed["wordCount"].as_u64().unwrap_or(0) as u32;
     let internal_links = parsed["internalLinks"].as_u64().unwrap_or(0) as u32;
     let external_links = parsed["externalLinks"].as_u64().unwrap_or(0) as u32;
+    let internal_link_targets = parse_string_array(&parsed["internalLinkTargets"]);
     let text_excerpt = parsed["textExcerpt"].as_str().unwrap_or("").to_string();
     let stylesheet_urls = parse_string_array(&parsed["stylesheetUrls"]);
     let script_urls = parse_string_array(&parsed["scriptUrls"]);
@@ -292,6 +302,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         word_count,
         internal_links,
         external_links,
+        internal_link_targets,
         broken_links: vec![],
         text_excerpt,
         uses_remote_google_fonts: !google_fonts_sources.is_empty(),

@@ -744,6 +744,14 @@ fn render_next_steps_single(
 // ─── Helper: Business Relevance ─────────────────────────────────────────────
 
 /// Map page type + URL to business relevance (hoch/mittel/niedrig)
+fn format_word_count(n: u32) -> String {
+    if n >= 1_000 {
+        format!("{}.{:03}", n / 1_000, n % 1_000)
+    } else {
+        n.to_string()
+    }
+}
+
 fn business_relevance(page_type: Option<&str>, url: &str) -> &'static str {
     // URL-based heuristics first
     let path = url.to_lowercase();
@@ -1487,23 +1495,34 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     }
 
     let mut matrix = AuditTable::new(vec![
-        TableColumn::new("URL"),
-        TableColumn::new("Typ"),
-        TableColumn::new("Relevanz"),
-        TableColumn::new("Score"),
-        TableColumn::new("Krit.+Hoch"),
-        TableColumn::new("Größter Hebel"),
+        TableColumn::new("#").with_width("4%"),
+        TableColumn::new("Seite").with_width("26%"),
+        TableColumn::new("Titel").with_width("28%"),
+        TableColumn::new("Links zu").with_width("10%"),
+        TableColumn::new("Links von").with_width("10%"),
+        TableColumn::new("Wörter").with_width("10%"),
+        TableColumn::new("Score").with_width("12%"),
     ])
-    .with_title("Technische Seitenübersicht");
+    .with_title("Seiten-Übersicht");
 
-    for detail in &pres.url_details {
+    for row in &pres.url_matrix {
+        let score_str = pres
+            .url_details
+            .iter()
+            .find(|d| d.url == row.url)
+            .map(|d| format!("{}/100", d.score.round() as u32))
+            .unwrap_or_else(|| "—".to_string());
         matrix = matrix.add_row(vec![
-            truncate_url(&detail.url, 35),
-            detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
-            business_relevance(detail.page_type.as_deref(), &detail.url).to_string(),
-            format!("{}/100", detail.score.round() as u32),
-            detail.critical_violations.to_string(),
-            truncate_url(&detail.biggest_lever, 40),
+            row.rank.to_string(),
+            truncate_url(&row.url, 34),
+            row.title
+                .as_deref()
+                .map(|t| truncate_url(t, 36))
+                .unwrap_or_else(|| "—".to_string()),
+            row.inbound_links.to_string(),
+            row.outbound_links.to_string(),
+            format_word_count(row.word_count),
+            score_str,
         ]);
     }
     builder = builder.add_component(matrix);

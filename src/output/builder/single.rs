@@ -1526,6 +1526,14 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
                 ("Canonical".to_string(), yes_no(s.technical.has_canonical)),
                 ("Sprachangabe".to_string(), yes_no(s.technical.has_lang)),
                 ("Wortanzahl".to_string(), s.technical.word_count.to_string()),
+                (
+                    "Interne Links".to_string(),
+                    s.technical.internal_links.to_string(),
+                ),
+                (
+                    "Externe Links".to_string(),
+                    s.technical.external_links.to_string(),
+                ),
             ],
             tracking_summary: vec![
                 (
