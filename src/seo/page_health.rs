@@ -10,6 +10,8 @@ use tracing::{debug, warn};
 
 use crate::error::{AuditError, Result};
 
+const DEFAULT_HTML_VALIDATOR_URL: &str = "https://validator.w3.org/nu/?out=json";
+
 /// Complete page health analysis
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PageHealthAnalysis {
@@ -63,6 +65,10 @@ pub struct PageHealthAnalysis {
     pub nested_interactive_count: u32,
     /// Structured list of HTML validation findings
     pub html_issues: Vec<HtmlValidationIssue>,
+    /// Status of W3C / Nu HTML validation: "executed", "skipped", or "failed"
+    pub html_validator_status: String,
+    /// Additional detail about validator execution or skip reason
+    pub html_validator_detail: Option<String>,
 
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
@@ -105,6 +111,7 @@ pub struct PageHealthIssue {
 /// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.
 pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAnalysis> {
     let mut analysis = PageHealthAnalysis::default();
+    analysis.html_validator_status = "skipped".to_string();
 
     // URL analysis (pure Rust, no CDP)
     analyze_url(url, &mut analysis);
@@ -116,6 +123,13 @@ pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAna
 
     // HTTP probes (reqwest, concurrent)
     run_http_probes(url, &mut analysis).await;
+
+    // W3C / Nu HTML validation (best effort)
+    if let Err(e) = run_w3c_html_validation(page, url, &mut analysis).await {
+        analysis.html_validator_status = "failed".to_string();
+        analysis.html_validator_detail = Some(e.to_string());
+        warn!("W3C HTML validation failed: {}", e);
+    }
 
     // Aggregate issues
     analysis.issues = collect_issues(&analysis);
@@ -225,9 +239,14 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.tables_without_headers = parsed["tablesWithoutHeaders"].as_u64().unwrap_or(0) as u32;
     a.empty_headings = parsed["emptyHeadings"].as_u64().unwrap_or(0) as u32;
     a.nested_interactive_count = parsed["nestedInteractive"].as_u64().unwrap_or(0) as u32;
+    a.html_issues = build_html_issues(a, &parsed);
 
-    // Collect HTML issues
+    Ok(())
+}
+
+fn build_html_issues(a: &PageHealthAnalysis, parsed: &serde_json::Value) -> Vec<HtmlValidationIssue> {
     let mut html_issues = Vec::new();
+
     if a.duplicate_id_count > 0 {
         let samples = parsed["duplicateIdSamples"]
             .as_array()
@@ -249,6 +268,7 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
             },
         });
     }
+
     if a.images_without_alt > 0 {
         html_issues.push(HtmlValidationIssue {
             check: "Bilder ohne alt-Attribut".to_string(),
@@ -284,9 +304,206 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
             detail: format!("{} button/a in button/a", a.nested_interactive_count),
         });
     }
-    a.html_issues = html_issues;
+
+    html_issues
+}
+
+async fn run_w3c_html_validation(page: &Page, url: &str, a: &mut PageHealthAnalysis) -> Result<()> {
+    let endpoint = html_validator_endpoint();
+    if let Some(reason) = w3c_validation_skip_reason(url, &endpoint) {
+        a.html_validator_status = "skipped".to_string();
+        a.html_validator_detail = Some(reason.clone());
+        debug!("Skipping W3C validation for {}: {}", url, reason);
+        return Ok(());
+    }
+
+    let html = extract_document_html(page).await?;
+    let messages = validate_html_with_nu(&endpoint, &html).await?;
+    a.html_issues.extend(build_w3c_html_issues(&messages));
+    a.html_validator_status = "executed".to_string();
+    a.html_validator_detail = Some(format!(
+        "Nu Html Checker ausgeführt über {} ({} Meldungen)",
+        endpoint,
+        messages.len()
+    ));
 
     Ok(())
+}
+
+fn html_validator_endpoint() -> String {
+    std::env::var("AUDITMYSITE_HTML_VALIDATOR_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_HTML_VALIDATOR_URL.to_string())
+}
+
+fn w3c_validation_skip_reason(target_url: &str, endpoint: &str) -> Option<String> {
+    let Ok(parsed) = url::Url::parse(target_url) else {
+        return Some("Ziel-URL konnte für die W3C-Validierung nicht geparst werden".to_string());
+    };
+
+    // With a custom endpoint we assume the operator understands the data flow.
+    if endpoint != DEFAULT_HTML_VALIDATOR_URL {
+        return None;
+    }
+
+    let Some(host) = parsed.host_str() else {
+        return Some("Ziel-Host konnte für die W3C-Validierung nicht bestimmt werden".to_string());
+    };
+
+    if host.eq_ignore_ascii_case("localhost") {
+        return Some(
+            "Öffentlicher W3C-Validator für localhost standardmäßig deaktiviert".to_string(),
+        );
+    }
+
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        if is_private_host_ip(ip) {
+            return Some(
+                "Öffentlicher W3C-Validator für private oder lokale IP-Adressen deaktiviert"
+                    .to_string(),
+            );
+        }
+    }
+
+    None
+}
+
+fn is_private_host_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
+        std::net::IpAddr::V6(v6) => v6.is_loopback() || v6.is_unique_local() || v6.is_unicast_link_local(),
+    }
+}
+
+async fn extract_document_html(page: &Page) -> Result<String> {
+    let js = r#"
+    (() => {
+        const d = document.doctype;
+        const doctype = d
+            ? `<!DOCTYPE ${d.name}${d.publicId ? ` PUBLIC "${d.publicId}"` : ''}${d.systemId ? ` "${d.systemId}"` : ''}>`
+            : '<!DOCTYPE html>';
+        return doctype + '\n' + document.documentElement.outerHTML;
+    })()
+    "#;
+
+    let result = page
+        .evaluate(js)
+        .await
+        .map_err(|e| AuditError::CdpError(format!("HTML extraction for validator failed: {}", e)))?;
+
+    result
+        .value()
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| AuditError::CdpError("Validator HTML extraction returned no string".to_string()))
+}
+
+async fn validate_html_with_nu(
+    endpoint: &str,
+    html: &str,
+) -> Result<Vec<W3cValidationMessage>> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(12))
+        .user_agent("auditmysite-validator/1.0")
+        .build()?;
+
+    let response = client
+        .post(endpoint)
+        .header(reqwest::header::CONTENT_TYPE, "text/html; charset=utf-8")
+        .body(html.to_string())
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(AuditError::ConfigError(format!(
+            "HTML validator returned HTTP {} from {}",
+            response.status(),
+            endpoint
+        )));
+    }
+
+    let report: W3cValidationResponse = response.json().await?;
+    Ok(report.messages)
+}
+
+fn build_w3c_html_issues(messages: &[W3cValidationMessage]) -> Vec<HtmlValidationIssue> {
+    let errors: Vec<&W3cValidationMessage> = messages
+        .iter()
+        .filter(|msg| msg.message_type == "error")
+        .collect();
+    let warnings: Vec<&W3cValidationMessage> = messages
+        .iter()
+        .filter(|msg| msg.message_type == "info" && msg.sub_type.as_deref() == Some("warning"))
+        .collect();
+
+    let mut issues = Vec::new();
+    if !errors.is_empty() {
+        issues.push(HtmlValidationIssue {
+            check: "W3C HTML-Validierungsfehler".to_string(),
+            count: errors.len() as u32,
+            severity: "high".to_string(),
+            detail: summarize_w3c_messages(&errors),
+        });
+    }
+    if !warnings.is_empty() {
+        issues.push(HtmlValidationIssue {
+            check: "W3C HTML-Warnungen".to_string(),
+            count: warnings.len() as u32,
+            severity: "medium".to_string(),
+            detail: summarize_w3c_messages(&warnings),
+        });
+    }
+
+    issues
+}
+
+fn summarize_w3c_messages(messages: &[&W3cValidationMessage]) -> String {
+    let samples = messages
+        .iter()
+        .take(3)
+        .map(|msg| {
+            let location = match (msg.last_line, msg.first_column) {
+                (Some(line), Some(col)) => format!("Zeile {line}, Spalte {col}"),
+                (Some(line), None) => format!("Zeile {line}"),
+                _ => "ohne Positionsangabe".to_string(),
+            };
+            let message = msg
+                .message
+                .as_deref()
+                .unwrap_or("Unbekannte Validierungsmeldung");
+            format!("{location}: {message}")
+        })
+        .collect::<Vec<_>>();
+
+    if messages.len() <= 3 {
+        samples.join(" | ")
+    } else {
+        format!(
+            "{} | +{} weitere Meldungen",
+            samples.join(" | "),
+            messages.len() - 3
+        )
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct W3cValidationResponse {
+    #[serde(default)]
+    messages: Vec<W3cValidationMessage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct W3cValidationMessage {
+    #[serde(rename = "type")]
+    message_type: String,
+    #[serde(rename = "subType")]
+    sub_type: Option<String>,
+    message: Option<String>,
+    #[serde(rename = "lastLine")]
+    last_line: Option<u32>,
+    #[serde(rename = "firstColumn")]
+    first_column: Option<u32>,
 }
 
 // ─── HTTP probes ─────────────────────────────────────────────────────────────
@@ -510,6 +727,7 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_analyze_url_basic() {
@@ -567,4 +785,108 @@ mod tests {
             Some("high")
         );
     }
+
+    #[test]
+    fn test_build_html_issues_for_classic_validation_findings() {
+        let analysis = PageHealthAnalysis {
+            duplicate_id_count: 2,
+            images_without_alt: 3,
+            tables_without_headers: 1,
+            empty_headings: 2,
+            nested_interactive_count: 1,
+            ..Default::default()
+        };
+        let parsed = json!({
+            "duplicateIdSamples": ["hero", "cta-button"]
+        });
+
+        let issues = build_html_issues(&analysis, &parsed);
+
+        assert!(issues.iter().any(|i| {
+            i.check == "Doppelte IDs"
+                && i.count == 2
+                && i.detail.contains("hero")
+                && i.detail.contains("cta-button")
+        }));
+        assert!(issues.iter().any(|i| i.check == "Bilder ohne alt-Attribut" && i.count == 3));
+        assert!(issues.iter().any(|i| i.check == "Tabellen ohne Kopfzeile" && i.count == 1));
+        assert!(issues.iter().any(|i| i.check == "Leere Überschriften" && i.count == 2));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Verschachtelte interaktive Elemente" && i.count == 1));
+    }
+
+    #[test]
+    fn test_skip_reason_for_public_w3c_validator_on_local_targets() {
+        assert!(w3c_validation_skip_reason(
+            "http://localhost:3000",
+            DEFAULT_HTML_VALIDATOR_URL
+        )
+        .is_some());
+        assert!(w3c_validation_skip_reason(
+            "http://127.0.0.1:8080",
+            DEFAULT_HTML_VALIDATOR_URL
+        )
+        .is_some());
+        assert!(w3c_validation_skip_reason(
+            "http://192.168.1.10",
+            DEFAULT_HTML_VALIDATOR_URL
+        )
+        .is_some());
+        assert!(w3c_validation_skip_reason(
+            "https://example.com",
+            DEFAULT_HTML_VALIDATOR_URL
+        )
+        .is_none());
+        assert!(w3c_validation_skip_reason(
+            "http://127.0.0.1:8080",
+            "http://validator.internal:8888/nu/?out=json"
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn test_build_w3c_html_issues_aggregates_errors_and_warnings() {
+        let messages = vec![
+            W3cValidationMessage {
+                message_type: "error".to_string(),
+                sub_type: None,
+                message: Some("Element head is missing a required instance of child title.".to_string()),
+                last_line: Some(4),
+                first_column: Some(1),
+            },
+            W3cValidationMessage {
+                message_type: "error".to_string(),
+                sub_type: None,
+                message: Some("Stray end tag body.".to_string()),
+                last_line: Some(33),
+                first_column: Some(7),
+            },
+            W3cValidationMessage {
+                message_type: "info".to_string(),
+                sub_type: Some("warning".to_string()),
+                message: Some("Consider adding a lang attribute to the html start tag.".to_string()),
+                last_line: Some(2),
+                first_column: Some(1),
+            },
+        ];
+
+        let issues = build_w3c_html_issues(&messages);
+
+        let error_issue = issues
+            .iter()
+            .find(|i| i.check == "W3C HTML-Validierungsfehler")
+            .expect("expected W3C error issue");
+        assert_eq!(error_issue.count, 2);
+        assert!(error_issue.detail.contains("Zeile 4, Spalte 1"));
+        assert!(error_issue.detail.contains("Stray end tag body."));
+
+        let warning_issue = issues
+            .iter()
+            .find(|i| i.check == "W3C HTML-Warnungen")
+            .expect("expected W3C warning issue");
+        assert_eq!(warning_issue.count, 1);
+        assert!(warning_issue.detail.contains("lang attribute"));
+    }
+
 }

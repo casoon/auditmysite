@@ -1145,6 +1145,17 @@ fn build_page_health_presentation(ph: &crate::seo::PageHealthAnalysis) -> PageHe
         })
         .collect();
 
+    let html_validator = Some((
+        match ph.html_validator_status.as_str() {
+            "executed" => "Ausgeführt".to_string(),
+            "failed" => "Fehlgeschlagen".to_string(),
+            _ => "Übersprungen".to_string(),
+        },
+        ph.html_validator_detail
+            .clone()
+            .unwrap_or_else(|| "Keine Zusatzinformationen verfügbar".to_string()),
+    ));
+
     let www_status = ph.www_consolidation.as_ref().map(|w| {
         let www_label = w
             .www_status
@@ -1165,6 +1176,7 @@ fn build_page_health_presentation(ph: &crate::seo::PageHealthAnalysis) -> PageHe
         issues,
         url_info,
         html_issues,
+        html_validator,
         www_status,
         soft_404,
         has_any_issue,

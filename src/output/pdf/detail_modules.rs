@@ -266,6 +266,15 @@ pub(super) fn render_page_health(
         builder = builder.add_component(kv);
     }
 
+    if let Some((status, detail)) = &ph.html_validator {
+        let callout = match status.as_str() {
+            "Ausgeführt" => Callout::info(detail).with_title("W3C HTML Validator"),
+            "Fehlgeschlagen" => Callout::warning(detail).with_title("W3C HTML Validator"),
+            _ => Callout::info(detail).with_title("W3C HTML Validator"),
+        };
+        builder = builder.add_component(callout);
+    }
+
     // www consolidation
     if let Some((www_label, non_www_label, is_ok)) = &ph.www_status {
         let icon = if *is_ok { "✓" } else { "✗" };
