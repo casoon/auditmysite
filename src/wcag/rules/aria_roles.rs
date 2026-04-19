@@ -127,9 +127,12 @@ const VALID_ARIA_ROLES: &[&str] = &[
     "LayoutTableCell",
     "Unknown",
     // Browser-internal implicit roles (not author errors)
-    "ListMarker",    // ::marker pseudo-elements
-    "sectionheader", // implicit role of <header>
-    "sectionfooter", // implicit role of <footer>
+    "ListMarker",        // ::marker pseudo-elements
+    "sectionheader",     // implicit role of <header>
+    "sectionfooter",     // implicit role of <footer>
+    "DisclosureTriangle", // implicit role of <summary>
+    "Pre",               // implicit role of <pre>
+    "TitleBar",          // implicit role of window title bars (embedded)
 ];
 
 /// Valid `aria-*` attribute names per the ARIA 1.2 specification
@@ -508,6 +511,22 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("required parent context")));
+    }
+
+    #[test]
+    fn test_disclosure_triangle_role_is_valid() {
+        // Chrome exposes <summary> as role="DisclosureTriangle" internally.
+        // This must not be flagged as an invalid author-set role.
+        let nodes = vec![make_node("1", "DisclosureTriangle", None, vec![])];
+        let tree = AXTree::from_nodes(nodes);
+        let results = check_aria_roles(&tree);
+        assert!(
+            !results
+                .violations
+                .iter()
+                .any(|v| v.message.contains("invalid ARIA role")),
+            "DisclosureTriangle is a browser-internal role and must be accepted"
+        );
     }
 
     #[test]

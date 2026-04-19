@@ -115,8 +115,12 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
             }
         }
 
-        // Check fieldsets without legends
-        if role_lower == "group" || role_lower == "radiogroup" {
+        // Check fieldsets without legends.
+        // Chrome exposes many generic HTML elements (<details>, <address>, <hgroup>, ...)
+        // as role="group" — these are NOT form groups and must be excluded.
+        // Only flag actual form grouping: explicit role="radiogroup" or an htmlTag of
+        // FIELDSET, or a group that contains form controls.
+        if role_lower == "radiogroup" || (role_lower == "group" && is_form_group(node, tree)) {
             if !has_group_label(node) {
                 let violation = Violation::new(
                     INSTRUCTIONS_RULE.id,
@@ -250,6 +254,48 @@ fn has_format_hint(node: &AXNode) -> bool {
     has_placeholder(node)
 }
 
+/// A node is a real form group only when it has fieldset semantics OR
+/// contains at least one descendant that is a form control. This filters
+/// out <details>, <address>, <hgroup> and other generic groupings that
+/// Chrome exposes as role="group" but are not form-related.
+fn is_form_group(node: &AXNode, tree: &AXTree) -> bool {
+    // Explicit fieldset: htmlTag check
+    if let Some(tag) = node.get_property_str("htmlTag") {
+        let tag_up = tag.to_uppercase();
+        if tag_up == "FIELDSET" {
+            return true;
+        }
+        // Common non-form groups exposed as role="group" by Chrome
+        if matches!(
+            tag_up.as_str(),
+            "DETAILS" | "ADDRESS" | "HGROUP" | "FIGURE" | "ARTICLE" | "SECTION" | "ASIDE"
+        ) {
+            return false;
+        }
+    }
+
+    // Fallback: group counts as a form group only if it contains a form control
+    has_form_control_descendant(node, tree, 0)
+}
+
+fn has_form_control_descendant(node: &AXNode, tree: &AXTree, depth: usize) -> bool {
+    if depth > 8 {
+        return false;
+    }
+    for child_id in &node.child_ids {
+        if let Some(child) = tree.nodes.get(child_id) {
+            let role = child.role.as_deref().unwrap_or("").to_lowercase();
+            if is_form_input(&role) {
+                return true;
+            }
+            if has_form_control_descendant(child, tree, depth + 1) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// Check if group has a label
 fn has_group_label(node: &AXNode) -> bool {
     if let Some(name) = &node.name {
@@ -361,5 +407,63 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("Required field not clearly indicated")));
+    }
+
+    fn group_with_html_tag(id: &str, tag: &str, name: Option<&str>) -> AXNode {
+        let mut n = create_input(id, "group", name);
+        n.properties.push(AXProperty {
+            name: "htmlTag".into(),
+            value: AXValue::String(tag.into()),
+        });
+        n
+    }
+
+    #[test]
+    fn test_details_not_flagged_as_form_group() {
+        let tree = AXTree::from_nodes(vec![group_with_html_tag("1", "DETAILS", None)]);
+        let results = check_instructions(&tree);
+        assert!(
+            !results
+                .violations
+                .iter()
+                .any(|v| v.message.contains("Form group has no legend")),
+            "<details> must not be flagged as a form group missing a legend"
+        );
+    }
+
+    #[test]
+    fn test_address_not_flagged_as_form_group() {
+        let tree = AXTree::from_nodes(vec![group_with_html_tag("1", "ADDRESS", None)]);
+        let results = check_instructions(&tree);
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Form group has no legend")));
+    }
+
+    #[test]
+    fn test_fieldset_without_legend_still_flagged() {
+        // A FIELDSET htmlTag with no name must still trigger the form-group rule.
+        let tree = AXTree::from_nodes(vec![group_with_html_tag("1", "FIELDSET", None)]);
+        let results = check_instructions(&tree);
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Form group has no legend")));
+    }
+
+    #[test]
+    fn test_generic_group_with_form_control_flagged() {
+        // A generic "group" that contains a form control must be flagged when
+        // it has no accessible name.
+        let mut group = create_input("g", "group", None);
+        group.child_ids.push("input".into());
+        let input = create_input("input", "textbox", Some("Email"));
+        let tree = AXTree::from_nodes(vec![group, input]);
+        let results = check_instructions(&tree);
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Form group has no legend")));
     }
 }

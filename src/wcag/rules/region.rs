@@ -120,6 +120,13 @@ pub fn check_region(tree: &AXTree) -> WcagResults {
 
         // Check if inside a landmark
         if !inside_landmark.contains(&node.node_id) {
+            // Skip-links (bypass blocks, WCAG 2.4.1) are by design placed BEFORE
+            // the first landmark and therefore sit outside every landmark region.
+            // Don't flag them here.
+            if role == "link" && is_skip_link(node) {
+                continue;
+            }
+
             let violation = Violation::new(
                 RULE_META.id,
                 RULE_META.name,
@@ -145,6 +152,42 @@ pub fn check_region(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// Detect bypass-block / skip links by their accessible name or href fragment.
+/// These are meant to precede landmarks and must not be flagged as "not in a
+/// landmark region".
+fn is_skip_link(node: &crate::accessibility::AXNode) -> bool {
+    // href starts with '#' (in-page fragment) is a strong signal
+    if let Some(href) = node.get_property_str("href") {
+        if href.starts_with('#') {
+            return true;
+        }
+    }
+
+    // Match typical skip-link text in several languages
+    if let Some(name) = &node.name {
+        let n = name.trim().to_lowercase();
+        const PATTERNS: &[&str] = &[
+            "skip to",
+            "skip link",
+            "jump to",
+            "go to main",
+            "zum inhalt",
+            "zum hauptinhalt",
+            "springen",
+            "sauter au contenu",
+            "saltar al contenido",
+            "ir al contenido",
+            "vai al contenuto",
+            "salta al contenuto",
+        ];
+        if PATTERNS.iter().any(|p| n.contains(p)) {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Recursively mark all descendants of landmark nodes
@@ -229,5 +272,45 @@ mod tests {
         let tree = AXTree::from_nodes(nodes);
         let results = check_region(&tree);
         assert_eq!(results.violations.len(), 0);
+    }
+
+    #[test]
+    fn test_skip_link_outside_landmark_not_flagged() {
+        // A skip link with accessible name "Zum Hauptinhalt springen" placed
+        // before any landmark must NOT be flagged as outside-a-landmark.
+        let mut nodes = vec![make_node("1", "WebArea", None, vec!["skip", "2"])];
+        let mut skip = make_node("skip", "link", Some("1"), vec![]);
+        skip.name = Some("Zum Hauptinhalt springen".into());
+        nodes.push(skip);
+        nodes.push(make_node("2", "main", Some("1"), vec![]));
+        let tree = AXTree::from_nodes(nodes);
+        let results = check_region(&tree);
+        assert!(
+            !results
+                .violations
+                .iter()
+                .any(|v| v.message.contains("not contained within a landmark")),
+            "Skip-link must not be flagged as outside landmark"
+        );
+    }
+
+    #[test]
+    fn test_skip_link_by_href_not_flagged() {
+        use crate::accessibility::{AXProperty, AXValue};
+        let mut nodes = vec![make_node("1", "WebArea", None, vec!["skip", "2"])];
+        let mut skip = make_node("skip", "link", Some("1"), vec![]);
+        skip.name = Some("Skip".into());
+        skip.properties.push(AXProperty {
+            name: "href".into(),
+            value: AXValue::String("#main-content".into()),
+        });
+        nodes.push(skip);
+        nodes.push(make_node("2", "main", Some("1"), vec![]));
+        let tree = AXTree::from_nodes(nodes);
+        let results = check_region(&tree);
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("not contained within a landmark")));
     }
 }

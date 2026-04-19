@@ -177,6 +177,14 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
     if let Some(nodes) = by_role.get("banner") {
         for node in nodes {
             if is_inside_landmark(node, tree) {
+                // Per HTML spec, a <header> nested inside <main>/<article>/
+                // <aside>/<nav>/<section> does NOT have an implicit banner
+                // role. If Chrome still reports role="banner" here (and the
+                // author did not set role="banner" explicitly), skip.
+                if is_header_in_sectioning_content(node, tree) {
+                    results.passes += 1;
+                    continue;
+                }
                 results.add_violation(
                     Violation::new(
                         RULE_BANNER_IS_TOP_LEVEL.id,
@@ -200,6 +208,12 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
     if let Some(nodes) = by_role.get("contentinfo") {
         for node in nodes {
             if is_inside_landmark(node, tree) {
+                // Mirror of the banner case: a <footer> inside sectioning
+                // content has no implicit contentinfo role per HTML spec.
+                if is_footer_in_sectioning_content(node, tree) {
+                    results.passes += 1;
+                    continue;
+                }
                 results.add_violation(
                     Violation::new(
                         RULE_CONTENTINFO_IS_TOP_LEVEL.id,
@@ -345,6 +359,65 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
+
+/// Returns true when the node is a `<header>` element that is nested inside
+/// HTML sectioning content (`<main>`, `<article>`, `<aside>`, `<nav>`,
+/// `<section>`). Per HTML spec, such a `<header>` does NOT carry an implicit
+/// banner role — so when Chrome reports `role="banner"` for it, treat that as
+/// a browser quirk rather than an author error.
+fn is_header_in_sectioning_content(
+    node: &crate::accessibility::AXNode,
+    tree: &AXTree,
+) -> bool {
+    if node.get_property_str("htmlTag").map(|t| t.to_uppercase())
+        != Some("HEADER".to_string())
+    {
+        return false;
+    }
+    has_sectioning_ancestor(node, tree)
+}
+
+/// Mirror of `is_header_in_sectioning_content` for `<footer>`.
+fn is_footer_in_sectioning_content(
+    node: &crate::accessibility::AXNode,
+    tree: &AXTree,
+) -> bool {
+    if node.get_property_str("htmlTag").map(|t| t.to_uppercase())
+        != Some("FOOTER".to_string())
+    {
+        return false;
+    }
+    has_sectioning_ancestor(node, tree)
+}
+
+fn has_sectioning_ancestor(
+    node: &crate::accessibility::AXNode,
+    tree: &AXTree,
+) -> bool {
+    const SECTIONING_TAGS: &[&str] = &["MAIN", "ARTICLE", "ASIDE", "NAV", "SECTION"];
+    const SECTIONING_ROLES: &[&str] =
+        &["main", "article", "complementary", "navigation", "region"];
+
+    let mut current = node.parent_id.as_deref();
+    while let Some(pid) = current {
+        let parent = match tree.nodes.get(pid) {
+            Some(p) => p,
+            None => break,
+        };
+        if let Some(tag) = parent.get_property_str("htmlTag") {
+            if SECTIONING_TAGS.contains(&tag.to_uppercase().as_str()) {
+                return true;
+            }
+        }
+        if let Some(role) = parent.role.as_deref() {
+            if SECTIONING_ROLES.contains(&role.to_lowercase().as_str()) {
+                return true;
+            }
+        }
+        current = parent.parent_id.as_deref();
+    }
+    false
+}
 
 /// Returns true if any ancestor of `node` (up to the document root) has a
 /// landmark role.  Used to enforce top-level placement of banner / contentinfo

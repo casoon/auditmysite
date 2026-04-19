@@ -136,16 +136,28 @@ fn is_top_level_landmark(node: &AXNode, tree: &AXTree) -> bool {
 // ── Generic check helpers ──────────────────────────────────────────────────────
 
 /// Check that every node with `target_role` is a top-level landmark.
+///
+/// `implicit_role_tag` names the HTML element that *implicitly* maps to this
+/// role (e.g. `HEADER` → banner, `FOOTER` → contentinfo). When the node has
+/// that htmlTag AND sits inside HTML sectioning content (main / article /
+/// aside / nav / section), the HTML spec does not assign the implicit role —
+/// browsers that still report it are wrong, so we skip the violation.
 fn check_top_level_landmark(
     tree: &AXTree,
     target_role: &str,
     meta: &RuleMetadata,
     fix_hint: &str,
+    implicit_role_tag: Option<&str>,
 ) -> WcagResults {
     let mut results = WcagResults::new();
     let nodes = tree.nodes_with_role(target_role);
     for node in &nodes {
         if is_top_level_landmark(node, tree) {
+            results.passes += 1;
+        } else if implicit_role_tag
+            .map(|tag| is_tag_in_sectioning_content(node, tag, tree))
+            .unwrap_or(false)
+        {
             results.passes += 1;
         } else {
             results.add_violation(
@@ -165,6 +177,38 @@ fn check_top_level_landmark(
         }
     }
     results
+}
+
+/// Returns true when `node.htmlTag` equals `tag` (case-insensitive) AND the
+/// node has an ancestor whose htmlTag/role denotes HTML sectioning content.
+fn is_tag_in_sectioning_content(node: &AXNode, tag: &str, tree: &AXTree) -> bool {
+    if node.get_property_str("htmlTag").map(|t| t.to_uppercase())
+        != Some(tag.to_uppercase())
+    {
+        return false;
+    }
+    const SECTIONING_TAGS: &[&str] = &["MAIN", "ARTICLE", "ASIDE", "NAV", "SECTION"];
+    const SECTIONING_ROLES: &[&str] =
+        &["main", "article", "complementary", "navigation", "region"];
+    let mut current = node.parent_id.as_deref();
+    while let Some(pid) = current {
+        let parent = match tree.nodes.get(pid) {
+            Some(p) => p,
+            None => break,
+        };
+        if let Some(t) = parent.get_property_str("htmlTag") {
+            if SECTIONING_TAGS.contains(&t.to_uppercase().as_str()) {
+                return true;
+            }
+        }
+        if let Some(role) = parent.role.as_deref() {
+            if SECTIONING_ROLES.contains(&role.to_lowercase().as_str()) {
+                return true;
+            }
+        }
+        current = parent.parent_id.as_deref();
+    }
+    false
 }
 
 /// Check that at most one node with `target_role` exists on the page.
@@ -271,6 +315,7 @@ pub fn check_landmark_banner_is_top_level(tree: &AXTree) -> WcagResults {
         &RULE_BANNER_IS_TOP_LEVEL,
         "Move the <header> / role=\"banner\" element to the top level, \
          outside all other landmarks",
+        Some("HEADER"),
     )
 }
 
@@ -282,6 +327,7 @@ pub fn check_landmark_contentinfo_is_top_level(tree: &AXTree) -> WcagResults {
         &RULE_CONTENTINFO_IS_TOP_LEVEL,
         "Move the <footer> / role=\"contentinfo\" element to the top level, \
          outside all other landmarks",
+        Some("FOOTER"),
     )
 }
 
@@ -293,6 +339,7 @@ pub fn check_landmark_main_is_top_level(tree: &AXTree) -> WcagResults {
         &RULE_MAIN_IS_TOP_LEVEL,
         "Move the <main> / role=\"main\" element to the top level, \
          not inside other landmarks",
+        None,
     )
 }
 
@@ -424,6 +471,28 @@ mod tests {
         assert!(r.passes > 0);
     }
 
+    #[test]
+    fn header_in_main_does_not_trigger_banner_nested_violation() {
+        // Per HTML spec, a <header> nested in <main> has no implicit banner
+        // role. If Chrome still reports role="banner", we must not flag it.
+        use crate::accessibility::{AXProperty, AXValue};
+        let mut header = node("b", "banner", Some("Section"), Some("m"));
+        header.properties.push(AXProperty {
+            name: "htmlTag".into(),
+            value: AXValue::String("HEADER".into()),
+        });
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("m", "main", Some("Content"), Some("root")),
+            header,
+        ]);
+        let r = check_landmark_banner_is_top_level(&tree);
+        assert!(
+            r.violations.is_empty(),
+            "<header> inside <main> must not be flagged as nested banner"
+        );
+    }
+
     // ── landmark-contentinfo-is-top-level ──────────────────────────────────
 
     #[test]
@@ -449,6 +518,31 @@ mod tests {
         let r = check_landmark_contentinfo_is_top_level(&tree);
         assert!(r.violations.is_empty());
         assert!(r.passes > 0);
+    }
+
+    #[test]
+    fn footer_in_article_does_not_trigger_contentinfo_nested_violation() {
+        use crate::accessibility::{AXProperty, AXValue};
+        let mut footer = node("f", "contentinfo", Some("Article footer"), Some("a"));
+        footer.properties.push(AXProperty {
+            name: "htmlTag".into(),
+            value: AXValue::String("FOOTER".into()),
+        });
+        let mut art = node("a", "article", Some("Article"), Some("root"));
+        art.properties.push(AXProperty {
+            name: "htmlTag".into(),
+            value: AXValue::String("ARTICLE".into()),
+        });
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            art,
+            footer,
+        ]);
+        let r = check_landmark_contentinfo_is_top_level(&tree);
+        assert!(
+            r.violations.is_empty(),
+            "<footer> inside <article> must not be flagged as nested contentinfo"
+        );
     }
 
     // ── landmark-main-is-top-level ─────────────────────────────────────────
