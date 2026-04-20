@@ -477,6 +477,20 @@ pub struct SeoPresentation {
     pub robots: Option<RobotsPresentation>,
     /// Page health analysis presentation
     pub page_health: Option<PageHealthPresentation>,
+    /// SERP pass presentation
+    pub serp: Option<SerpPresentation>,
+}
+
+/// SERP pass presentation
+pub struct SerpPresentation {
+    pub score: u32,
+    pub pass_count: u32,
+    pub warning_count: u32,
+    pub fail_count: u32,
+    /// (category, label, status_label, detail)
+    pub signals: Vec<(String, String, String, String)>,
+    /// Rich result types eligible (e.g. "FAQ", "Breadcrumb")
+    pub rich_result_types: Vec<String>,
 }
 
 /// Page health presentation block

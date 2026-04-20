@@ -230,9 +230,60 @@ pub(super) fn render_seo(
         builder = render_robots(builder, robots);
     }
 
+    // SERP pass
+    if let Some(serp) = &seo.serp {
+        builder = render_serp(builder, serp);
+    }
+
     // Page health
     if let Some(ph) = &seo.page_health {
         builder = render_page_health(builder, ph);
+    }
+
+    builder
+}
+
+pub(super) fn render_serp(
+    mut builder: renderreport::engine::ReportBuilder,
+    serp: &crate::output::report_model::SerpPresentation,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder.add_component(Section::new("SERP-Analyse").with_level(3));
+
+    let summary = format!(
+        "{} Signale geprüft — {} OK, {} Warnungen, {} Fehler.",
+        serp.signals.len(),
+        serp.pass_count,
+        serp.warning_count,
+        serp.fail_count,
+    );
+    builder = if serp.fail_count > 0 {
+        builder.add_component(Callout::warning(&summary).with_title("SERP-Bereitschaft"))
+    } else if serp.warning_count > 0 {
+        builder.add_component(Callout::info(&summary).with_title("SERP-Bereitschaft"))
+    } else {
+        builder.add_component(Callout::success(&summary).with_title("SERP-Bereitschaft"))
+    };
+
+    if !serp.signals.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("Kategorie").with_width("22%"),
+            TableColumn::new("Signal").with_width("28%"),
+            TableColumn::new("Status").with_width("14%"),
+            TableColumn::new("Detail").with_width("36%"),
+        ])
+        .with_title("SERP-Signale");
+        for (cat, label, status, detail) in &serp.signals {
+            table = table.add_row(vec![cat.as_str(), label.as_str(), status.as_str(), detail.as_str()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !serp.rich_result_types.is_empty() {
+        let text = format!(
+            "Rich-Result-Typen möglich: {}",
+            serp.rich_result_types.join(", ")
+        );
+        builder = builder.add_component(Callout::info(&text).with_title("Rich Results"));
     }
 
     builder

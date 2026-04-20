@@ -58,6 +58,8 @@ pub struct TechnicalSeo {
     pub tracking_signals: Vec<String>,
     /// Cloudflare Zaraz detected
     pub zaraz: ZarazDetection,
+    /// Favicon detected (<link rel="icon"> or apple-touch-icon)
+    pub has_favicon: bool,
     /// Issues found
     pub issues: Vec<TechnicalIssue>,
 }
@@ -178,6 +180,12 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
             .filter(Boolean);
         result.hasZarazGlobal = typeof window.zaraz !== 'undefined';
 
+        // Favicon
+        const faviconEl = document.querySelector(
+            'link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]'
+        );
+        result.hasFavicon = !!faviconEl;
+
         return JSON.stringify(result);
     })()
     "#;
@@ -221,6 +229,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let resource_urls = parse_string_array(&parsed["resourceUrls"]);
     let cookie_names = parse_string_array(&parsed["cookieNames"]);
     let has_zaraz_global = parsed["hasZarazGlobal"].as_bool().unwrap_or(false);
+    let has_favicon = parsed["hasFavicon"].as_bool().unwrap_or(false);
 
     let google_fonts_sources =
         collect_google_fonts_sources(&stylesheet_urls, &resource_urls, &script_urls);
@@ -292,11 +301,12 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     }
 
     info!(
-        "Technical SEO: HTTPS={}, canonical={}, lang={}, words={}, google_fonts={}, tracking_cookies={}, zaraz={}",
+        "Technical SEO: HTTPS={}, canonical={}, lang={}, words={}, favicon={}, google_fonts={}, tracking_cookies={}, zaraz={}",
         https,
         canonical_url.is_some(),
         lang.is_some(),
         word_count,
+        has_favicon,
         !google_fonts_sources.is_empty(),
         tracking_cookies.len(),
         zaraz.detected
@@ -325,6 +335,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         tracking_cookies,
         tracking_signals,
         zaraz,
+        has_favicon,
         issues,
     })
 }

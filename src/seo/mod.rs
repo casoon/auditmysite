@@ -8,6 +8,7 @@ pub mod page_health;
 pub mod profile;
 pub mod robots;
 pub mod schema;
+pub mod serp;
 mod social;
 pub mod technical;
 
@@ -19,6 +20,7 @@ pub use page_health::{
 pub use profile::{build_content_profile, SeoContentProfile};
 pub use robots::{audit_robots_txt, BotClass, RobotsAudit, RobotsGroup};
 pub use schema::{detect_structured_data, SchemaType, StructuredData};
+pub use serp::{build_serp_analysis, SerpAnalysis, SerpSignal, SerpSignalStatus};
 pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
 pub use technical::{analyze_technical_seo, TechnicalSeo};
 
@@ -53,6 +55,9 @@ pub struct SeoAnalysis {
     /// Page health analysis (HTTP probes, DOM checks, URL analysis)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_health: Option<PageHealthAnalysis>,
+    /// SERP pass — aggregated search-result-page readiness signals
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serp: Option<SerpAnalysis>,
 }
 
 /// Run complete SEO analysis
@@ -91,10 +96,14 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         content_profile: None,
         robots,
         page_health,
+        serp: None,
     };
 
     // Build content profile from collected data
     analysis.content_profile = Some(build_content_profile(&analysis));
+
+    // SERP pass — pure aggregation, no additional CDP calls needed
+    analysis.serp = Some(build_serp_analysis(&analysis, url));
 
     Ok(analysis)
 }

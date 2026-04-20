@@ -1106,6 +1106,29 @@ fn build_capability_matrix(normalized: &NormalizedReport) -> Vec<CapabilitySigna
     capabilities
 }
 
+fn build_serp_presentation(s: &crate::seo::SerpAnalysis) -> SerpPresentation {
+    let signals = s
+        .signals
+        .iter()
+        .map(|sig| {
+            (
+                sig.category.clone(),
+                sig.label.clone(),
+                sig.status.label().to_string(),
+                sig.detail.clone(),
+            )
+        })
+        .collect();
+    SerpPresentation {
+        score: s.score,
+        pass_count: s.pass_count,
+        warning_count: s.warning_count,
+        fail_count: s.fail_count,
+        signals,
+        rich_result_types: s.rich_result_types.clone(),
+    }
+}
+
 fn build_page_health_presentation(ph: &crate::seo::PageHealthAnalysis) -> PageHealthPresentation {
     let issues: Vec<(String, String, String)> = ph
         .issues
@@ -1669,6 +1692,7 @@ fn build_module_details_from_normalized(normalized: &NormalizedReport) -> Module
             tracking_summary_text: build_tracking_summary_text(&s.technical),
             profile,
             page_health: s.page_health.as_ref().map(build_page_health_presentation),
+            serp: s.serp.as_ref().map(build_serp_presentation),
             robots: s.robots.as_ref().map(|r| {
                 use crate::seo::BotClass;
                 let bot_rows: Vec<(String, String, usize, usize, bool)> = r
