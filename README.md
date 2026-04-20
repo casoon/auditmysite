@@ -151,6 +151,10 @@ auditmysite https://example.com --no-sitemap-suggest
 
 # URL file
 auditmysite --url-file urls.txt
+
+# per-page reports: scan a list/sitemap but write one PDF per URL instead of an aggregated batch report
+auditmysite --url-file urls.txt --per-page-reports --output reports/per-page/
+auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports --output reports/per-page/
 ```
 
 ### Browser selection
@@ -178,6 +182,7 @@ Useful flags:
 - `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
 - `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
+- `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory
 
 For the full current interface, use:
 
