@@ -110,8 +110,10 @@ pub struct PageHealthIssue {
 
 /// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.
 pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAnalysis> {
-    let mut analysis = PageHealthAnalysis::default();
-    analysis.html_validator_status = "skipped".to_string();
+    let mut analysis = PageHealthAnalysis {
+        html_validator_status: "skipped".to_string(),
+        ..Default::default()
+    };
 
     // URL analysis (pure Rust, no CDP)
     analyze_url(url, &mut analysis);

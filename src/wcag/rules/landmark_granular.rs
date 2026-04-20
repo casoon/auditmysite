@@ -152,11 +152,10 @@ fn check_top_level_landmark(
     let mut results = WcagResults::new();
     let nodes = tree.nodes_with_role(target_role);
     for node in &nodes {
-        if is_top_level_landmark(node, tree) {
-            results.passes += 1;
-        } else if implicit_role_tag
-            .map(|tag| is_tag_in_sectioning_content(node, tag, tree))
-            .unwrap_or(false)
+        if is_top_level_landmark(node, tree)
+            || implicit_role_tag
+                .map(|tag| is_tag_in_sectioning_content(node, tag, tree))
+                .unwrap_or(false)
         {
             results.passes += 1;
         } else {

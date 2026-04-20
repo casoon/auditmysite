@@ -79,7 +79,7 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
         )),
         Some(title) => {
             let len = title.len();
-            let status = if len < 30 || len > 60 {
+            let status = if !(30..=60).contains(&len) {
                 SerpSignalStatus::Warning
             } else {
                 SerpSignalStatus::Ok
@@ -235,11 +235,10 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
         .filter(|s| s.status == SerpSignalStatus::Fail)
         .count() as u32;
     let total = signals.len() as u32;
-    let score = if total == 0 {
-        100
-    } else {
-        ((pass_count * 100 + warning_count * 50) / total).min(100)
-    };
+    let score = (pass_count * 100 + warning_count * 50)
+        .checked_div(total)
+        .unwrap_or(100)
+        .min(100);
 
     SerpAnalysis {
         signals,
