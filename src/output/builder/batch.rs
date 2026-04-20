@@ -469,6 +469,28 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     // Active modules (from first report that has data)
     let active_modules: Vec<String> = module_averages.iter().map(|(n, _)| n.clone()).collect();
 
+    // Schema type distribution across all pages
+    let (schema_distribution, pages_without_schema) = {
+        let mut type_counts: HashMap<String, usize> = HashMap::new();
+        let mut without = 0usize;
+        for report in &batch.reports {
+            if let Some(seo) = &report.seo {
+                if seo.structured_data.types.is_empty() {
+                    without += 1;
+                } else {
+                    for schema_type in &seo.structured_data.types {
+                        *type_counts
+                            .entry(format!("{:?}", schema_type))
+                            .or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+        let mut dist: Vec<(String, usize)> = type_counts.into_iter().collect();
+        dist.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        (dist, without)
+    };
+
     // Worst-case risk level across all URLs
     let (risk_level, risk_summary) = {
         use crate::audit::normalized::RiskLevel;
@@ -561,6 +583,8 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             crawl_links,
             budget_summary,
             render_blocking_summary,
+            schema_distribution,
+            pages_without_schema,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,

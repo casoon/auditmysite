@@ -729,6 +729,10 @@ pub struct PortfolioSummary {
     pub budget_summary: Vec<(String, String, usize, String)>,
     /// Aggregated render-blocking summary across all pages (metric_label, value_label)
     pub render_blocking_summary: Vec<(String, String)>,
+    /// Schema type distribution: (schema_type_label, url_count) sorted descending
+    pub schema_distribution: Vec<(String, usize)>,
+    /// Number of pages with no structured data at all
+    pub pages_without_schema: usize,
 }
 
 pub struct CrawlLinkSummary {

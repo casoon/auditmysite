@@ -1664,6 +1664,38 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         builder = builder.add_component(type_table);
     }
 
+    // Schema-Typ-Verteilung
+    if !pres.portfolio_summary.schema_distribution.is_empty() {
+        let total = pres.portfolio_summary.total_urls;
+        let without = pres.portfolio_summary.pages_without_schema;
+        let summary = if without == 0 {
+            format!("Alle {} Seiten haben strukturierte Daten.", total)
+        } else {
+            format!(
+                "{} von {} Seiten ohne strukturierte Daten.",
+                without, total
+            )
+        };
+        builder = builder.add_component(
+            Callout::info(&summary).with_title("Strukturierte Daten (Schema.org)"),
+        );
+        let mut schema_table = AuditTable::new(vec![
+            TableColumn::new("Schema-Typ").with_width("55%"),
+            TableColumn::new("Seiten").with_width("20%"),
+            TableColumn::new("Anteil").with_width("25%"),
+        ])
+        .with_title("Schema-Typ-Verteilung");
+        for (schema_type, count) in &pres.portfolio_summary.schema_distribution {
+            let pct = (*count * 100).checked_div(total).unwrap_or(0);
+            schema_table = schema_table.add_row(vec![
+                schema_type.clone(),
+                count.to_string(),
+                format!("{pct}%"),
+            ]);
+        }
+        builder = builder.add_component(schema_table);
+    }
+
     // Stärkste Seiten (kurz)
     if !pres.portfolio_summary.strongest_content_pages.is_empty() {
         let mut strengths = AuditTable::new(vec![
