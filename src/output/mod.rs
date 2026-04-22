@@ -6,6 +6,7 @@ pub mod ai;
 pub mod builder;
 mod cli;
 pub mod explanations;
+pub mod module;
 mod json;
 #[cfg(feature = "pdf")]
 mod pdf;

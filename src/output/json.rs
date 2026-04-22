@@ -12,6 +12,7 @@ use crate::error::Result;
 use crate::output::builder::build_batch_presentation;
 use crate::output::builder::build_view_model;
 use crate::output::explanations::get_explanation;
+use crate::output::module::ReportModule as _;
 use crate::output::report_model::{ReportConfig, UrlMatrixRow};
 
 /// Generate JSON output from a normalized report
@@ -129,6 +130,15 @@ pub struct JsonReport {
     pub confidence_summary: Vec<OutputConfidenceSignal>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<OutputCapabilitySignal>,
+    /// Dark mode support analysis
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dark_mode: Option<serde_json::Value>,
+    /// Source quality analysis (Substanz / Konsistenz / Autorität)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_quality: Option<serde_json::Value>,
+    /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_visibility: Option<serde_json::Value>,
     /// Historical timeline for this URL (score trend, deltas, recent snapshots)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
@@ -216,24 +226,15 @@ impl JsonReport {
             },
             report: normalized.clone(),
             fix_guidance,
-            performance: raw
-                .performance
-                .as_ref()
-                .and_then(|p| serde_json::to_value(p).ok()),
-            seo: raw.seo.as_ref().and_then(|s| serde_json::to_value(s).ok()),
-            security: raw
-                .security
-                .as_ref()
-                .and_then(|s| serde_json::to_value(s).ok()),
-            mobile: raw
-                .mobile
-                .as_ref()
-                .and_then(|m| serde_json::to_value(m).ok()),
-            ux: raw.ux.as_ref().and_then(|u| serde_json::to_value(u).ok()),
-            journey: raw
-                .journey
-                .as_ref()
-                .and_then(|j| serde_json::to_value(j).ok()),
+            performance: raw.performance.as_ref().map(|m| m.to_json()),
+            seo: raw.seo.as_ref().map(|m| m.to_json()),
+            security: raw.security.as_ref().map(|m| m.to_json()),
+            mobile: raw.mobile.as_ref().map(|m| m.to_json()),
+            ux: raw.ux.as_ref().map(|m| m.to_json()),
+            journey: raw.journey.as_ref().map(|m| m.to_json()),
+            dark_mode: raw.dark_mode.as_ref().map(|m| m.to_json()),
+            source_quality: raw.source_quality.as_ref().map(|m| m.to_json()),
+            ai_visibility: raw.ai_visibility.as_ref().map(|m| m.to_json()),
             confidence_summary: vm
                 .methodology
                 .confidence_summary
@@ -499,5 +500,60 @@ mod tests {
             .map(|f| f.occurrences.len())
             .sum();
         assert_eq!(json_report.report.severity_counts.high, high_from_findings);
+    }
+
+    #[test]
+    fn test_all_active_modules_present_in_json() {
+        use crate::output::module::active_modules;
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            500,
+        )
+        .with_performance(crate::audit::PerformanceResults {
+            vitals: WebVitals::default(),
+            score: PerformanceScore {
+                overall: 80,
+                grade: PerformanceGrade::Gold,
+                lcp_score: 20,
+                fcp_score: 20,
+                cls_score: 20,
+                interactivity_score: 20,
+            },
+            render_blocking: None,
+            content_weight: None,
+        })
+        .with_seo(crate::seo::SeoAnalysis::default())
+        .with_security(crate::security::SecurityAnalysis {
+            score: 90,
+            grade: "A".to_string(),
+            headers: Default::default(),
+            ssl: Default::default(),
+            issues: vec![],
+            recommendations: vec![],
+        })
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
+
+        let active_keys: Vec<&'static str> = active_modules(&report)
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+
+        let normalized = normalize(&report);
+        let json_report = JsonReport::from_normalized(&normalized, &report);
+        let json_str = json_report.to_json(true).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        for key in &active_keys {
+            assert!(
+                json_value.get(key).is_some(),
+                "Module '{}' is active but missing from JSON output — add it to JsonReport",
+                key
+            );
+        }
     }
 }
