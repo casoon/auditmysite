@@ -249,6 +249,10 @@ impl BrowserManager {
             "--metrics-recording-only".to_string(),
             "--mute-audio".to_string(),
             "--hide-scrollbars".to_string(),
+            // Suppress navigator.webdriver and other headless signals that trigger bot detection
+            "--disable-blink-features=AutomationControlled".to_string(),
+            // Replace HeadlessChrome UA with a standard Chrome UA
+            "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string(),
         ];
 
         if disable_gpu {
@@ -318,39 +322,64 @@ impl BrowserManager {
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
 
-            match tokio::time::timeout(timeout, async {
-                page.goto(url)
-                    .await
-                    .map_err(|e| AuditError::NavigationFailed {
-                        url: url.to_string(),
-                        reason: e.to_string(),
-                    })?;
+            // Step 1: fire goto() with a shorter timeout.
+            // chromiumoxide's goto() waits for the CDP Page.navigate response, which some
+            // sites (e.g. Astro View Transitions, aggressive keep-alive) never send back
+            // cleanly. We treat a goto timeout as a soft failure and check readyState next.
+            let goto_timeout = Duration::from_secs((self.options.timeout_secs / 2).max(10));
+            let goto_result = tokio::time::timeout(goto_timeout, page.goto(url)).await;
 
-                page.wait_for_navigation()
-                    .await
-                    .map_err(|e| AuditError::NavigationFailed {
-                        url: url.to_string(),
-                        reason: format!("Navigation wait failed: {}", e),
-                    })?;
-
-                Ok::<(), AuditError>(())
-            })
-            .await
-            {
-                Ok(Ok(())) => {
-                    debug!("Successfully navigated to: {}", url);
-                    return Ok(());
-                }
+            let hard_navigation_error = match goto_result {
+                Ok(Ok(_)) => None,
                 Ok(Err(e)) => {
-                    last_error = Some(e);
+                    // CDP returned an explicit error (SSL, DNS, etc.)
+                    let msg = e.to_string();
+                    if msg.contains("ERR_") || msg.contains("net::") {
+                        Some(AuditError::NavigationFailed {
+                            url: url.to_string(),
+                            reason: msg,
+                        })
+                    } else {
+                        None
+                    }
                 }
                 Err(_) => {
-                    last_error = Some(AuditError::PageLoadTimeout {
-                        url: url.to_string(),
-                        timeout_secs: self.options.timeout_secs,
-                    });
+                    // goto() timed out — page may still be loading in Chrome
+                    debug!("goto() timed out for {}; checking readyState", url);
+                    None
                 }
+            };
+
+            if let Some(err) = hard_navigation_error {
+                last_error = Some(err);
+                continue;
             }
+
+            // Step 2: poll document.readyState until interactive/complete or timeout.
+            let remaining = timeout.saturating_sub(goto_timeout);
+            let dom_ready = tokio::time::timeout(remaining, async {
+                loop {
+                    if let Ok(result) = page.evaluate("document.readyState").await {
+                        let state = result.value().and_then(|v| v.as_str()).unwrap_or("");
+                        if state == "complete" || state == "interactive" {
+                            return true;
+                        }
+                    }
+                    tokio::time::sleep(Duration::from_millis(250)).await;
+                }
+            })
+            .await
+            .unwrap_or(false);
+
+            if dom_ready {
+                debug!("Successfully navigated to: {}", url);
+                return Ok(());
+            }
+
+            last_error = Some(AuditError::PageLoadTimeout {
+                url: url.to_string(),
+                timeout_secs: self.options.timeout_secs,
+            });
         }
 
         Err(last_error.unwrap_or(AuditError::NavigationFailed {
