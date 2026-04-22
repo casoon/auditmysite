@@ -1278,6 +1278,7 @@ mod tests {
             content_profile: None,
             robots: None,
             page_health: None,
+            serp: None,
         }
     }
 

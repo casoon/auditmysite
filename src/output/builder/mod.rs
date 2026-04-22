@@ -312,6 +312,7 @@ mod tests {
                     tracking_cookies: vec![],
                     tracking_signals: vec![],
                     zaraz: crate::seo::technical::ZarazDetection::default(),
+                    has_favicon: true,
                     issues: vec![],
                 };
                 seo.content_profile = Some(crate::seo::build_content_profile(&seo));
@@ -368,6 +369,7 @@ mod tests {
             tracking_cookies: vec![],
             tracking_signals: vec![],
             zaraz: crate::seo::technical::ZarazDetection::default(),
+            has_favicon: true,
             issues: vec![],
         };
         seo.content_profile = Some(crate::seo::build_content_profile(&seo));

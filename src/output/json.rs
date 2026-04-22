@@ -430,4 +430,74 @@ mod tests {
         assert_eq!(json_report.report.grade, normalized.grade);
         assert_eq!(json_report.report.certificate, normalized.certificate);
     }
+
+    #[test]
+    fn test_json_violations_match_severity_counts() {
+        use crate::taxonomy::Severity;
+        use crate::wcag::Violation;
+
+        let mut results = WcagResults::new();
+        // Three violations across two rules
+        for node in ["n1", "n2", "n3"] {
+            results.add_violation(Violation::new(
+                "1.1.1",
+                "Alt",
+                WcagLevel::A,
+                Severity::High,
+                "Missing alt",
+                node,
+            ));
+        }
+        results.add_violation(Violation::new(
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::High,
+            "Low contrast",
+            "n4",
+        ));
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            500,
+        );
+        let normalized = normalize(&report);
+        let json_report = JsonReport::from_normalized(&normalized, &report);
+
+        // severity_counts.total must equal the sum of occurrences across all findings
+        let occurrence_total: usize = json_report
+            .report
+            .findings
+            .iter()
+            .map(|f| f.occurrences.len())
+            .sum();
+        assert_eq!(
+            json_report.report.severity_counts.total,
+            occurrence_total,
+            "severity_counts.total ({}) must equal sum of finding occurrences ({})",
+            json_report.report.severity_counts.total,
+            occurrence_total,
+        );
+
+        // Every finding must have at least one occurrence
+        for finding in &json_report.report.findings {
+            assert!(
+                !finding.occurrences.is_empty(),
+                "Finding {} has no occurrences",
+                finding.rule_id
+            );
+        }
+
+        // severity_counts breakdown must be consistent
+        let high_from_findings: usize = json_report
+            .report
+            .findings
+            .iter()
+            .filter(|f| f.severity == crate::wcag::Severity::High)
+            .map(|f| f.occurrences.len())
+            .sum();
+        assert_eq!(json_report.report.severity_counts.high, high_from_findings);
+    }
 }
