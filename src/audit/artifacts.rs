@@ -238,6 +238,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         dark_mode: None,
         source_quality: None,
         ai_visibility: None,
+        page_screenshots: None,
     };
 
     if report.wcag_level != artifacts.audit.wcag_level {

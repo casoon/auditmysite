@@ -63,7 +63,7 @@ fluent-syntax = "0.11"
 unic-langid = "0.9"
 
 # PDF report generation via Typst
-renderreport = { version = "0.2.4", optional = true }
+renderreport = { path = "../renderreport", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

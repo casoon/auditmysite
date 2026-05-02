@@ -15,6 +15,14 @@ use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
 use crate::wcag::WcagResults;
 
+/// Screenshot bytes captured during the audit (desktop + mobile viewports).
+/// Not serialized — only used for PDF output.
+#[derive(Debug, Clone)]
+pub struct PageScreenshots {
+    pub desktop: Vec<u8>,
+    pub mobile: Vec<u8>,
+}
+
 /// Complete audit report for a single URL
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditReport {
@@ -68,6 +76,9 @@ pub struct AuditReport {
     /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
+    /// Screenshots for PDF cover page (captured during audit, not serialized).
+    #[serde(skip)]
+    pub page_screenshots: Option<PageScreenshots>,
 }
 
 /// Performance analysis results wrapper
@@ -120,6 +131,7 @@ impl AuditReport {
             dark_mode: None,
             source_quality: None,
             ai_visibility: None,
+            page_screenshots: None,
         }
     }
 

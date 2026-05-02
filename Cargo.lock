@@ -171,7 +171,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auditmysite"
-version = "0.9.11"
+version = "0.9.12"
 dependencies = [
  "anyhow",
  "chromiumoxide",
@@ -2870,8 +2870,6 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 [[package]]
 name = "renderreport"
 version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aa41fb2c60b20728c463c75b4d081aa2f45dcf9c28bc1fb3cbb8de51b859d7a"
 dependencies = [
  "anyhow",
  "barcoders",

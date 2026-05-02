@@ -3,8 +3,12 @@
 //! Coordinates browser management, AXTree extraction, WCAG checking,
 //! and report generation.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use chromiumoxide::cdp::browser_protocol::emulation::{
+    ClearDeviceMetricsOverrideParams, SetDeviceMetricsOverrideParams,
+};
+use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
@@ -63,6 +67,8 @@ pub struct PipelineConfig {
     pub check_mobile: bool,
     /// Persist audit artifacts under ~/.auditmysite/cache
     pub persist_artifacts: bool,
+    /// Capture desktop + mobile screenshots for PDF cover page
+    pub capture_screenshots: bool,
 }
 
 impl From<&Args> for PipelineConfig {
@@ -77,6 +83,8 @@ impl From<&Args> for PipelineConfig {
             check_security: full_audit || args.security,
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
             persist_artifacts: true,
+            capture_screenshots: args.url.is_some()
+                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
         }
     }
 }
@@ -108,7 +116,18 @@ pub async fn run_single_audit(
     browser.navigate(&page, url).await?;
 
     // Run the audit on this page
-    let report = audit_page(&page, url, config).await?;
+    let mut report = audit_page(&page, url, config).await?;
+
+    if config.capture_screenshots {
+        match capture_page_screenshots(&page).await {
+            Ok(shots) => {
+                report.page_screenshots = Some(shots);
+            }
+            Err(e) => {
+                warn!("Screenshot capture failed (continuing without): {}", e);
+            }
+        }
+    }
 
     let duration = start_time.elapsed();
     info!(
@@ -117,6 +136,46 @@ pub async fn run_single_audit(
     );
 
     Ok(report)
+}
+
+/// Capture desktop and mobile viewport screenshots of the current page.
+async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::audit::report::PageScreenshots> {
+    let desktop = page
+        .screenshot(ScreenshotParams::default())
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "screenshot-desktop".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    page.execute(
+        SetDeviceMetricsOverrideParams::builder()
+            .mobile(true)
+            .width(390_i64)
+            .height(844_i64)
+            .device_scale_factor(2.0_f64)
+            .build()
+            .unwrap(),
+    )
+    .await
+    .map_err(|e| crate::error::AuditError::NavigationFailed {
+        url: "viewport-mobile".to_string(),
+        reason: e.to_string(),
+    })?;
+
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    let mobile = page
+        .screenshot(ScreenshotParams::default())
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "screenshot-mobile".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    let _ = page.execute(ClearDeviceMetricsOverrideParams {}).await;
+
+    Ok(crate::audit::report::PageScreenshots { desktop, mobile })
 }
 
 /// Audit a single page that's already loaded

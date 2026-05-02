@@ -12,9 +12,9 @@ mod history;
 mod modules;
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, DominantIssueSpotlight, ImpactGrid,
-    ImpactGridCard, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, PhaseBlock,
-    SectionHeaderSplit, TableOfContents,
+    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow,
+    DominantIssueSpotlight, ImpactGrid, ImpactGridCard, KeyValueList, List, MetricStrip,
+    MetricStripItem, PageBreak, PhaseBlock, SectionHeaderSplit, TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::prelude::Image;
@@ -106,6 +106,25 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     } else {
         false
     };
+
+    // ── Device Preview (desktop + mobile screenshots) ────────────────
+    if let Some(ref shots) = report.page_screenshots {
+        let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+        let desktop_path = std::env::temp_dir()
+            .join(format!("ams-desktop-{}.png", ts));
+        let mobile_path = std::env::temp_dir()
+            .join(format!("ams-mobile-{}.png", ts));
+        if std::fs::write(&desktop_path, &shots.desktop).is_ok()
+            && std::fs::write(&mobile_path, &shots.mobile).is_ok()
+        {
+            let desktop_key = "/page-screenshot-desktop.png";
+            let mobile_key = "/page-screenshot-mobile.png";
+            builder = builder
+                .asset(desktop_key, &desktop_path)
+                .asset(mobile_key, &mobile_path)
+                .add_component(DevicePreview::new(desktop_key, mobile_key));
+        }
+    }
 
     builder = builder.add_component(build_cover_score_row(
         &vm.cover,
@@ -331,7 +350,17 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     if vm.meta.report_level == ReportLevel::Executive {
         builder = render_methodology_section(builder, &vm.methodology, &i18n);
         let built_report = builder.build();
-        return Ok(engine.render_pdf(&built_report)?);
+        let pdf_bytes = engine.render_pdf(&built_report)?;
+        if let Some(ref _shots) = report.page_screenshots {
+            let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+            let _ = std::fs::remove_file(
+                std::env::temp_dir().join(format!("ams-desktop-{}.png", ts))
+            );
+            let _ = std::fs::remove_file(
+                std::env::temp_dir().join(format!("ams-mobile-{}.png", ts))
+            );
+        }
+        return Ok(pdf_bytes);
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -545,7 +574,20 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
     let built_report = builder.build();
-    Ok(engine.render_pdf(&built_report)?)
+    let pdf_bytes = engine.render_pdf(&built_report)?;
+
+    // Clean up screenshot temp files
+    if let Some(ref _shots) = report.page_screenshots {
+        let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+        let _ = std::fs::remove_file(
+            std::env::temp_dir().join(format!("ams-desktop-{}.png", ts))
+        );
+        let _ = std::fs::remove_file(
+            std::env::temp_dir().join(format!("ams-mobile-{}.png", ts))
+        );
+    }
+
+    Ok(pdf_bytes)
 }
 
 fn build_cover_fact_strip(vm: &ReportViewModel) -> MetricStrip {
