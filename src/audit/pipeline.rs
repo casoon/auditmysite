@@ -5,10 +5,6 @@
 
 use std::time::{Duration, Instant};
 
-use chromiumoxide::cdp::browser_protocol::emulation::{
-    ClearDeviceMetricsOverrideParams, SetDeviceMetricsOverrideParams,
-};
-use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
@@ -140,6 +136,32 @@ pub async fn run_single_audit(
 
 /// Capture desktop and mobile viewport screenshots of the current page.
 async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::audit::report::PageScreenshots> {
+    use chromiumoxide::cdp::browser_protocol::emulation::{
+        ClearDeviceMetricsOverrideParams, SetDeviceMetricsOverrideParams,
+    };
+    use chromiumoxide::page::ScreenshotParams;
+
+    // Scroll to top before desktop shot
+    let _ = page.evaluate("window.scrollTo(0, 0)").await;
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    // Desktop at 1280×960 (4:3 ratio — fills more vertical space in the PDF box)
+    page.execute(
+        SetDeviceMetricsOverrideParams::builder()
+            .mobile(false)
+            .width(1280_i64)
+            .height(960_i64)
+            .device_scale_factor(1.0_f64)
+            .build()
+            .unwrap(),
+    )
+    .await
+    .map_err(|e| crate::error::AuditError::NavigationFailed {
+        url: "viewport-desktop".to_string(),
+        reason: e.to_string(),
+    })?;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
     let desktop = page
         .screenshot(ScreenshotParams::default())
         .await
@@ -148,6 +170,7 @@ async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::au
             reason: e.to_string(),
         })?;
 
+    // Mobile at 390×844 (iPhone 14)
     page.execute(
         SetDeviceMetricsOverrideParams::builder()
             .mobile(true)
@@ -163,7 +186,10 @@ async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::au
         reason: e.to_string(),
     })?;
 
-    tokio::time::sleep(Duration::from_millis(400)).await;
+    // Scroll to top — page may have reflowed under mobile viewport
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let _ = page.evaluate("window.scrollTo(0, 0)").await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     let mobile = page
         .screenshot(ScreenshotParams::default())

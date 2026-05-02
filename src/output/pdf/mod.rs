@@ -92,7 +92,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .bold()
                 .with_color("#0f766e"),
         )
-        .add_component(Label::new(&vm.cover.title).with_size("28pt").bold())
+        .add_component(Label::new(&vm.cover.title).with_size("22pt").bold())
         .add_component(
             Label::new(&vm.executive.cover_kicker)
                 .with_size("12pt")
