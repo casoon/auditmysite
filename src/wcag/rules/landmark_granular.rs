@@ -181,14 +181,11 @@ fn check_top_level_landmark(
 /// Returns true when `node.htmlTag` equals `tag` (case-insensitive) AND the
 /// node has an ancestor whose htmlTag/role denotes HTML sectioning content.
 fn is_tag_in_sectioning_content(node: &AXNode, tag: &str, tree: &AXTree) -> bool {
-    if node.get_property_str("htmlTag").map(|t| t.to_uppercase())
-        != Some(tag.to_uppercase())
-    {
+    if node.get_property_str("htmlTag").map(|t| t.to_uppercase()) != Some(tag.to_uppercase()) {
         return false;
     }
     const SECTIONING_TAGS: &[&str] = &["MAIN", "ARTICLE", "ASIDE", "NAV", "SECTION"];
-    const SECTIONING_ROLES: &[&str] =
-        &["main", "article", "complementary", "navigation", "region"];
+    const SECTIONING_ROLES: &[&str] = &["main", "article", "complementary", "navigation", "region"];
     let mut current = node.parent_id.as_deref();
     while let Some(pid) = current {
         let parent = match tree.nodes.get(pid) {

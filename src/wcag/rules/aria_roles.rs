@@ -127,12 +127,12 @@ const VALID_ARIA_ROLES: &[&str] = &[
     "LayoutTableCell",
     "Unknown",
     // Browser-internal implicit roles (not author errors)
-    "ListMarker",        // ::marker pseudo-elements
-    "sectionheader",     // implicit role of <header>
-    "sectionfooter",     // implicit role of <footer>
+    "ListMarker",         // ::marker pseudo-elements
+    "sectionheader",      // implicit role of <header>
+    "sectionfooter",      // implicit role of <footer>
     "DisclosureTriangle", // implicit role of <summary>
-    "Pre",               // implicit role of <pre>
-    "TitleBar",          // implicit role of window title bars (embedded)
+    "Pre",                // implicit role of <pre>
+    "TitleBar",           // implicit role of window title bars (embedded)
 ];
 
 /// Valid `aria-*` attribute names per the ARIA 1.2 specification

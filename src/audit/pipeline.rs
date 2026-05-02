@@ -135,7 +135,9 @@ pub async fn run_single_audit(
 }
 
 /// Capture desktop and mobile viewport screenshots of the current page.
-async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::audit::report::PageScreenshots> {
+async fn capture_page_screenshots(
+    page: &Page,
+) -> crate::error::Result<crate::audit::report::PageScreenshots> {
     use chromiumoxide::cdp::browser_protocol::emulation::{
         ClearDeviceMetricsOverrideParams, SetDeviceMetricsOverrideParams,
     };

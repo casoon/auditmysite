@@ -365,38 +365,24 @@ pub fn check_landmark_extended(tree: &AXTree) -> WcagResults {
 /// `<section>`). Per HTML spec, such a `<header>` does NOT carry an implicit
 /// banner role — so when Chrome reports `role="banner"` for it, treat that as
 /// a browser quirk rather than an author error.
-fn is_header_in_sectioning_content(
-    node: &crate::accessibility::AXNode,
-    tree: &AXTree,
-) -> bool {
-    if node.get_property_str("htmlTag").map(|t| t.to_uppercase())
-        != Some("HEADER".to_string())
-    {
+fn is_header_in_sectioning_content(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {
+    if node.get_property_str("htmlTag").map(|t| t.to_uppercase()) != Some("HEADER".to_string()) {
         return false;
     }
     has_sectioning_ancestor(node, tree)
 }
 
 /// Mirror of `is_header_in_sectioning_content` for `<footer>`.
-fn is_footer_in_sectioning_content(
-    node: &crate::accessibility::AXNode,
-    tree: &AXTree,
-) -> bool {
-    if node.get_property_str("htmlTag").map(|t| t.to_uppercase())
-        != Some("FOOTER".to_string())
-    {
+fn is_footer_in_sectioning_content(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {
+    if node.get_property_str("htmlTag").map(|t| t.to_uppercase()) != Some("FOOTER".to_string()) {
         return false;
     }
     has_sectioning_ancestor(node, tree)
 }
 
-fn has_sectioning_ancestor(
-    node: &crate::accessibility::AXNode,
-    tree: &AXTree,
-) -> bool {
+fn has_sectioning_ancestor(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {
     const SECTIONING_TAGS: &[&str] = &["MAIN", "ARTICLE", "ASIDE", "NAV", "SECTION"];
-    const SECTIONING_ROLES: &[&str] =
-        &["main", "article", "complementary", "navigation", "region"];
+    const SECTIONING_ROLES: &[&str] = &["main", "article", "complementary", "navigation", "region"];
 
     let mut current = node.parent_id.as_deref();
     while let Some(pid) = current {

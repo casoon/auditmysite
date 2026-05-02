@@ -273,7 +273,12 @@ pub(super) fn render_serp(
         ])
         .with_title("SERP-Signale");
         for (cat, label, status, detail) in &serp.signals {
-            table = table.add_row(vec![cat.as_str(), label.as_str(), status.as_str(), detail.as_str()]);
+            table = table.add_row(vec![
+                cat.as_str(),
+                label.as_str(),
+                status.as_str(),
+                detail.as_str(),
+            ]);
         }
         builder = builder.add_component(table);
     }

@@ -246,7 +246,10 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     Ok(())
 }
 
-fn build_html_issues(a: &PageHealthAnalysis, parsed: &serde_json::Value) -> Vec<HtmlValidationIssue> {
+fn build_html_issues(
+    a: &PageHealthAnalysis,
+    parsed: &serde_json::Value,
+) -> Vec<HtmlValidationIssue> {
     let mut html_issues = Vec::new();
 
     if a.duplicate_id_count > 0 {
@@ -374,7 +377,9 @@ fn w3c_validation_skip_reason(target_url: &str, endpoint: &str) -> Option<String
 fn is_private_host_ip(ip: std::net::IpAddr) -> bool {
     match ip {
         std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
-        std::net::IpAddr::V6(v6) => v6.is_loopback() || v6.is_unique_local() || v6.is_unicast_link_local(),
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback() || v6.is_unique_local() || v6.is_unicast_link_local()
+        }
     }
 }
 
@@ -389,22 +394,20 @@ async fn extract_document_html(page: &Page) -> Result<String> {
     })()
     "#;
 
-    let result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("HTML extraction for validator failed: {}", e)))?;
+    let result = page.evaluate(js).await.map_err(|e| {
+        AuditError::CdpError(format!("HTML extraction for validator failed: {}", e))
+    })?;
 
     result
         .value()
         .and_then(|v| v.as_str())
         .map(str::to_string)
-        .ok_or_else(|| AuditError::CdpError("Validator HTML extraction returned no string".to_string()))
+        .ok_or_else(|| {
+            AuditError::CdpError("Validator HTML extraction returned no string".to_string())
+        })
 }
 
-async fn validate_html_with_nu(
-    endpoint: &str,
-    html: &str,
-) -> Result<Vec<W3cValidationMessage>> {
+async fn validate_html_with_nu(endpoint: &str, html: &str) -> Result<Vec<W3cValidationMessage>> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(12))
         .user_agent("auditmysite-validator/1.0")
@@ -810,9 +813,15 @@ mod tests {
                 && i.detail.contains("hero")
                 && i.detail.contains("cta-button")
         }));
-        assert!(issues.iter().any(|i| i.check == "Bilder ohne alt-Attribut" && i.count == 3));
-        assert!(issues.iter().any(|i| i.check == "Tabellen ohne Kopfzeile" && i.count == 1));
-        assert!(issues.iter().any(|i| i.check == "Leere Überschriften" && i.count == 2));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Bilder ohne alt-Attribut" && i.count == 3));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Tabellen ohne Kopfzeile" && i.count == 1));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Leere Überschriften" && i.count == 2));
         assert!(issues
             .iter()
             .any(|i| i.check == "Verschachtelte interaktive Elemente" && i.count == 1));
@@ -820,26 +829,20 @@ mod tests {
 
     #[test]
     fn test_skip_reason_for_public_w3c_validator_on_local_targets() {
-        assert!(w3c_validation_skip_reason(
-            "http://localhost:3000",
-            DEFAULT_HTML_VALIDATOR_URL
-        )
-        .is_some());
-        assert!(w3c_validation_skip_reason(
-            "http://127.0.0.1:8080",
-            DEFAULT_HTML_VALIDATOR_URL
-        )
-        .is_some());
-        assert!(w3c_validation_skip_reason(
-            "http://192.168.1.10",
-            DEFAULT_HTML_VALIDATOR_URL
-        )
-        .is_some());
-        assert!(w3c_validation_skip_reason(
-            "https://example.com",
-            DEFAULT_HTML_VALIDATOR_URL
-        )
-        .is_none());
+        assert!(
+            w3c_validation_skip_reason("http://localhost:3000", DEFAULT_HTML_VALIDATOR_URL)
+                .is_some()
+        );
+        assert!(
+            w3c_validation_skip_reason("http://127.0.0.1:8080", DEFAULT_HTML_VALIDATOR_URL)
+                .is_some()
+        );
+        assert!(
+            w3c_validation_skip_reason("http://192.168.1.10", DEFAULT_HTML_VALIDATOR_URL).is_some()
+        );
+        assert!(
+            w3c_validation_skip_reason("https://example.com", DEFAULT_HTML_VALIDATOR_URL).is_none()
+        );
         assert!(w3c_validation_skip_reason(
             "http://127.0.0.1:8080",
             "http://validator.internal:8888/nu/?out=json"
@@ -853,7 +856,9 @@ mod tests {
             W3cValidationMessage {
                 message_type: "error".to_string(),
                 sub_type: None,
-                message: Some("Element head is missing a required instance of child title.".to_string()),
+                message: Some(
+                    "Element head is missing a required instance of child title.".to_string(),
+                ),
                 last_line: Some(4),
                 first_column: Some(1),
             },
@@ -867,7 +872,9 @@ mod tests {
             W3cValidationMessage {
                 message_type: "info".to_string(),
                 sub_type: Some("warning".to_string()),
-                message: Some("Consider adding a lang attribute to the html start tag.".to_string()),
+                message: Some(
+                    "Consider adding a lang attribute to the html start tag.".to_string(),
+                ),
                 last_line: Some(2),
                 first_column: Some(1),
             },
@@ -890,5 +897,4 @@ mod tests {
         assert_eq!(warning_issue.count, 1);
         assert!(warning_issue.detail.contains("lang attribute"));
     }
-
 }

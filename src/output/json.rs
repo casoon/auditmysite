@@ -475,11 +475,9 @@ mod tests {
             .map(|f| f.occurrences.len())
             .sum();
         assert_eq!(
-            json_report.report.severity_counts.total,
-            occurrence_total,
+            json_report.report.severity_counts.total, occurrence_total,
             "severity_counts.total ({}) must equal sum of finding occurrences ({})",
-            json_report.report.severity_counts.total,
-            occurrence_total,
+            json_report.report.severity_counts.total, occurrence_total,
         );
 
         // Every finding must have at least one occurrence

@@ -44,6 +44,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Checkout renderreport (path dependency)
+        uses: actions/checkout@v5
+        with:
+          repository: casoon/renderreport
+          path: ${{ github.workspace }}/../renderreport
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
