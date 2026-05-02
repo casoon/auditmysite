@@ -768,6 +768,7 @@ mod tests {
             dark_mode: None,
             source_quality: None,
             ai_visibility: None,
+            page_screenshots: None,
         }
     }
 

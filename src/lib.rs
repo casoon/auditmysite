@@ -33,6 +33,7 @@
 //!         check_security: false,
 //!         check_mobile: false,
 //!         persist_artifacts: true,
+//!         capture_screenshots: false,
 //!     };
 //!
 //!     // Run audit
