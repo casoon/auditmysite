@@ -141,10 +141,6 @@ async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::au
     };
     use chromiumoxide::page::ScreenshotParams;
 
-    // Scroll to top before desktop shot
-    let _ = page.evaluate("window.scrollTo(0, 0)").await;
-    tokio::time::sleep(Duration::from_millis(150)).await;
-
     // Desktop at 1280×960 (4:3 ratio — fills more vertical space in the PDF box)
     page.execute(
         SetDeviceMetricsOverrideParams::builder()
@@ -160,7 +156,17 @@ async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::au
         url: "viewport-desktop".to_string(),
         reason: e.to_string(),
     })?;
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    // Wait for reflow, then reset scroll — viewport change can shift scroll position
+    tokio::time::sleep(Duration::from_millis(350)).await;
+    let _ = page
+        .evaluate(
+            "window.scrollTo(0,0);\
+             document.documentElement.scrollTop=0;\
+             document.body.scrollTop=0;\
+             if(document.scrollingElement)document.scrollingElement.scrollTop=0;",
+        )
+        .await;
+    tokio::time::sleep(Duration::from_millis(150)).await;
 
     let desktop = page
         .screenshot(ScreenshotParams::default())
@@ -186,9 +192,16 @@ async fn capture_page_screenshots(page: &Page) -> crate::error::Result<crate::au
         reason: e.to_string(),
     })?;
 
-    // Scroll to top — page may have reflowed under mobile viewport
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    let _ = page.evaluate("window.scrollTo(0, 0)").await;
+    // Wait for mobile reflow, then reset scroll comprehensively
+    tokio::time::sleep(Duration::from_millis(450)).await;
+    let _ = page
+        .evaluate(
+            "window.scrollTo(0,0);\
+             document.documentElement.scrollTop=0;\
+             document.body.scrollTop=0;\
+             if(document.scrollingElement)document.scrollingElement.scrollTop=0;",
+        )
+        .await;
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     let mobile = page
