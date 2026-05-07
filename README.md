@@ -306,38 +306,82 @@ Batch reports are not a stack of single-page reports.
 
 ## Typical Workflows
 
-### Local audit while developing
+Examples grouped by audience and goal.
+
+### Customer-facing report (PDF)
+
+Single-URL audit with full module coverage and a custom logo on the cover.
 
 ```bash
-auditmysite https://localhost:3000 --browser-path /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome
+# default: writes a PDF + JSON sidecar to the current directory
+auditmysite https://example.com --full
+
+# explicit branding and output path
+auditmysite https://example.com --full --logo ./assets/customer-logo.svg --output reports/customer.pdf
+
+# pick a report depth: executive (management), standard (default), technical (developers)
+auditmysite https://example.com --full --report-level executive --output reports/exec.pdf
 ```
 
-### JSON report for CI
+### CI / automation (JSON)
+
+Quiet, machine-readable output for pipelines.
 
 ```bash
+# exit code follows score thresholds; JSON report for downstream tooling
 auditmysite https://example.com -f json -o report.json --quiet
+
+# batch CI run on a sitemap
+auditmysite --sitemap https://example.com/sitemap.xml -f json -o sitemap-report.json --quiet
 ```
 
-### Batch audit from sitemap
+### AI fix list
+
+Compact, agent-friendly output that focuses on actionable fixes.
 
 ```bash
-auditmysite --sitemap https://example.com/sitemap.xml -f json -o sitemap-report.json
+auditmysite https://example.com -f ai -o fixes.json
 ```
 
-### Batch audit from crawl discovery
+### Sitemap / batch
+
+Domain-wide audits with cross-page aggregation.
 
 ```bash
-auditmysite https://example.com --crawl --crawl-depth 2 --max-pages 50 -f json -o crawl-report.json
+# explicit sitemap
+auditmysite --sitemap https://example.com/sitemap.xml --full
+
+# crawl from a base URL
+auditmysite https://example.com --crawl --crawl-depth 2 --max-pages 50 --full
+
+# URL list from file
+auditmysite --url-file urls.txt --full
+
+# one PDF per URL instead of an aggregated batch report
+auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports --output reports/per-page/
+```
+
+### Local development
+
+```bash
+# audit a local dev server with a system Chrome
+auditmysite https://localhost:3000 --browser-path /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
+
+# quick CLI summary without writing files
+auditmysite https://example.com --format table
 ```
 
 ### Base URL with sitemap suggestion
 
 ```bash
-# ask first if a sitemap is found
+# interactive: ask first if a sitemap is found
 auditmysite https://example.com
 
-# switch directly to sitemap mode
+# non-interactive: switch directly to sitemap mode
 auditmysite https://example.com --prefer-sitemap
+
+# stay on the single URL even when a sitemap exists
+auditmysite https://example.com --no-sitemap-suggest
 ```
 
 ## Architecture

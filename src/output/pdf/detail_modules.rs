@@ -5,17 +5,31 @@ use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
 use renderreport::prelude::*;
 
+use crate::i18n::I18n;
 use crate::output::report_model::*;
 
 use super::helpers::{map_severity, score_quality_color, score_quality_label};
 
+#[inline]
+fn is_en(i18n: &I18n) -> bool {
+    i18n.locale() == "en"
+}
+
 pub(super) fn render_budget_violations(
     mut builder: renderreport::engine::ReportBuilder,
     violations: &[crate::audit::BudgetViolation],
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::audit::BudgetSeverity;
 
-    builder = builder.add_component(Section::new("Performance-Budget-Verletzungen").with_level(2));
+    builder = builder.add_component(
+        Section::new(if is_en(i18n) {
+            "Performance budget violations"
+        } else {
+            "Performance-Budget-Verletzungen"
+        })
+        .with_level(2),
+    );
 
     let error_count = violations
         .iter()
@@ -26,29 +40,60 @@ pub(super) fn render_budget_violations(
         .filter(|v| v.severity == BudgetSeverity::Warning)
         .count();
 
-    let summary_text = format!(
-        "{} Budget-Verletzung{} erkannt: {} kritisch (>50% überschritten), {} Warnung{}.",
-        violations.len(),
-        if violations.len() == 1 { "" } else { "en" },
-        error_count,
-        warning_count,
-        if warning_count == 1 { "" } else { "en" },
-    );
+    let summary_text = if is_en(i18n) {
+        format!(
+            "{} budget violation{} detected: {} critical (>50% exceeded), {} warning{}.",
+            violations.len(),
+            if violations.len() == 1 { "" } else { "s" },
+            error_count,
+            warning_count,
+            if warning_count == 1 { "" } else { "s" },
+        )
+    } else {
+        format!(
+            "{} Budget-Verletzung{} erkannt: {} kritisch (>50% überschritten), {} Warnung{}.",
+            violations.len(),
+            if violations.len() == 1 { "" } else { "en" },
+            error_count,
+            warning_count,
+            if warning_count == 1 { "" } else { "en" },
+        )
+    };
 
     builder = if error_count > 0 {
-        builder.add_component(Callout::warning(&summary_text).with_title("Budget überschritten"))
+        builder.add_component(Callout::warning(&summary_text).with_title(if is_en(i18n) {
+            "Budget exceeded"
+        } else {
+            "Budget überschritten"
+        }))
     } else {
-        builder.add_component(Callout::info(&summary_text).with_title("Budget-Hinweise"))
+        builder.add_component(Callout::info(&summary_text).with_title(if is_en(i18n) {
+            "Budget notes"
+        } else {
+            "Budget-Hinweise"
+        }))
     };
 
     let mut table = AuditTable::new(vec![
-        TableColumn::new("Metrik"),
+        TableColumn::new(if is_en(i18n) { "Metric" } else { "Metrik" }),
         TableColumn::new("Budget"),
-        TableColumn::new("Ist-Wert"),
-        TableColumn::new("Überschreitung"),
-        TableColumn::new("Schweregrad"),
+        TableColumn::new(if is_en(i18n) { "Actual" } else { "Ist-Wert" }),
+        TableColumn::new(if is_en(i18n) {
+            "Exceeded by"
+        } else {
+            "Überschreitung"
+        }),
+        TableColumn::new(if is_en(i18n) {
+            "Severity"
+        } else {
+            "Schweregrad"
+        }),
     ])
-    .with_title("Budget-Details");
+    .with_title(if is_en(i18n) {
+        "Budget details"
+    } else {
+        "Budget-Details"
+    });
 
     for v in violations {
         table = table.add_row(vec![
@@ -67,14 +112,22 @@ pub(super) fn render_budget_violations(
 pub(super) fn render_performance(
     mut builder: renderreport::engine::ReportBuilder,
     perf: &PerformancePresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(Section::new("Performance").with_level(2))
         .add_component(TextBlock::new(&perf.interpretation))
         .add_component(
-            ScoreCard::new("Performance Score", perf.score)
-                .with_description(format!("Grade: {}", perf.grade))
-                .with_thresholds(75, 50),
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Performance score"
+                } else {
+                    "Performance Score"
+                },
+                perf.score,
+            )
+            .with_description(format!("Grade: {}", perf.grade))
+            .with_thresholds(75, 50),
         );
 
     if !perf.vitals.is_empty() {
@@ -100,7 +153,11 @@ pub(super) fn render_performance(
     }
 
     if !perf.additional_metrics.is_empty() {
-        let mut metrics = SummaryBox::new("Weitere Metriken");
+        let mut metrics = SummaryBox::new(if is_en(i18n) {
+            "Additional metrics"
+        } else {
+            "Weitere Metriken"
+        });
         for (k, v) in &perf.additional_metrics {
             metrics = metrics.add_item(k, v);
         }
@@ -108,7 +165,11 @@ pub(super) fn render_performance(
     }
 
     if !perf.recommendations.is_empty() {
-        let mut rec_list = List::new().with_title("Verbesserungsvorschläge");
+        let mut rec_list = List::new().with_title(if is_en(i18n) {
+            "Improvement suggestions"
+        } else {
+            "Verbesserungsvorschläge"
+        });
         for recommendation in &perf.recommendations {
             rec_list = rec_list.add_item(recommendation);
         }
@@ -116,11 +177,21 @@ pub(super) fn render_performance(
     }
 
     if perf.has_render_blocking {
-        builder =
-            builder.add_component(Section::new("Render Blocking & Asset-Größen").with_level(3));
+        builder = builder.add_component(
+            Section::new(if is_en(i18n) {
+                "Render blocking & asset sizes"
+            } else {
+                "Render Blocking & Asset-Größen"
+            })
+            .with_level(3),
+        );
 
         if !perf.render_blocking_metrics.is_empty() {
-            let mut kv = KeyValueList::new().with_title("Render-Blocking Analyse");
+            let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+                "Render-blocking analysis"
+            } else {
+                "Render-Blocking Analyse"
+            });
             for (k, v) in &perf.render_blocking_metrics {
                 kv = kv.add(k, v);
             }
@@ -128,7 +199,11 @@ pub(super) fn render_performance(
         }
 
         if !perf.render_blocking_suggestions.is_empty() {
-            let mut suggestions = List::new().with_title("Empfehlungen");
+            let mut suggestions = List::new().with_title(if is_en(i18n) {
+                "Recommendations"
+            } else {
+                "Empfehlungen"
+            });
             for s in &perf.render_blocking_suggestions {
                 suggestions = suggestions.add_item(s);
             }
@@ -142,14 +217,33 @@ pub(super) fn render_performance(
 pub(super) fn render_seo(
     mut builder: renderreport::engine::ReportBuilder,
     seo: &SeoPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("SEO-Analyse").with_level(2))
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "SEO analysis"
+            } else {
+                "SEO-Analyse"
+            })
+            .with_level(2),
+        )
         .add_component(TextBlock::new(&seo.interpretation))
         .add_component(
-            ScoreCard::new("Technisches SEO", seo.score)
-                .with_description("Misst technische Signale (Meta, Struktur, Schema, hreflang). Inhaltliche Tiefe wird separat bewertet.")
-                .with_thresholds(80, 50),
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Technical SEO"
+                } else {
+                    "Technisches SEO"
+                },
+                seo.score,
+            )
+            .with_description(if is_en(i18n) {
+                "Measures technical signals (meta, structure, schema, hreflang). Content depth is evaluated separately."
+            } else {
+                "Misst technische Signale (Meta, Struktur, Schema, hreflang). Inhaltliche Tiefe wird separat bewertet."
+            })
+            .with_thresholds(80, 50),
         );
 
     let mut seo_strip = Vec::new();
@@ -162,7 +256,11 @@ pub(super) fn render_seo(
                 .with_accent("#2563eb"),
         );
         seo_strip.push(
-            MetricStripItem::new("Reifegrad", &profile.maturity_level).with_accent("#7c3aed"),
+            MetricStripItem::new(
+                if is_en(i18n) { "Maturity" } else { "Reifegrad" },
+                &profile.maturity_level,
+            )
+            .with_accent("#7c3aed"),
         );
     }
     if !seo_strip.is_empty() {
@@ -171,10 +269,14 @@ pub(super) fn render_seo(
 
     if !seo.meta_tags.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Feld").with_width("24%"),
-            TableColumn::new("Wert").with_width("76%"),
+            TableColumn::new(if is_en(i18n) { "Field" } else { "Feld" }).with_width("24%"),
+            TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }).with_width("76%"),
         ])
-        .with_title("Meta-Tags");
+        .with_title(if is_en(i18n) {
+            "Meta tags"
+        } else {
+            "Meta-Tags"
+        });
         for (k, v) in &seo.meta_tags {
             table = table.add_row(vec![k.clone(), v.clone()]);
         }
@@ -183,11 +285,23 @@ pub(super) fn render_seo(
 
     if !seo.meta_issues.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Feld"),
-            TableColumn::new("Schweregrad"),
-            TableColumn::new("Beschreibung"),
+            TableColumn::new(if is_en(i18n) { "Field" } else { "Feld" }),
+            TableColumn::new(if is_en(i18n) {
+                "Severity"
+            } else {
+                "Schweregrad"
+            }),
+            TableColumn::new(if is_en(i18n) {
+                "Description"
+            } else {
+                "Beschreibung"
+            }),
         ])
-        .with_title("Meta-Tag Probleme");
+        .with_title(if is_en(i18n) {
+            "Meta tag issues"
+        } else {
+            "Meta-Tag Probleme"
+        });
         for (field, sev, msg) in &seo.meta_issues {
             table = table.add_row(vec![field.as_str(), sev.label(), msg.as_str()]);
         }
@@ -203,17 +317,31 @@ pub(super) fn render_seo(
             TableColumn::new("Signal").with_width("32%"),
             TableColumn::new("Status").with_width("68%"),
         ])
-        .with_title("Tracking und externe Dienste");
+        .with_title(if is_en(i18n) {
+            "Tracking and external services"
+        } else {
+            "Tracking und externe Dienste"
+        });
         for (k, v) in &seo.tracking_summary {
             tracking_table = tracking_table.add_row(vec![k.clone(), v.clone()]);
         }
         builder = builder
-            .add_component(Callout::info(&seo.tracking_summary_text).with_title("Einordnung"))
+            .add_component(
+                Callout::info(&seo.tracking_summary_text).with_title(if is_en(i18n) {
+                    "Classification"
+                } else {
+                    "Einordnung"
+                }),
+            )
             .add_component(tracking_table);
     }
 
     if !seo.technical_summary.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Technisches SEO");
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "Technical SEO"
+        } else {
+            "Technisches SEO"
+        });
         for (k, v) in &seo.technical_summary {
             kv = kv.add(k, v);
         }
@@ -222,22 +350,22 @@ pub(super) fn render_seo(
 
     // SEO Content Profile
     if let Some(profile) = &seo.profile {
-        builder = render_seo_profile(builder, profile);
+        builder = render_seo_profile(builder, profile, i18n);
     }
 
     // robots.txt
     if let Some(robots) = &seo.robots {
-        builder = render_robots(builder, robots);
+        builder = render_robots(builder, robots, i18n);
     }
 
     // SERP pass
     if let Some(serp) = &seo.serp {
-        builder = render_serp(builder, serp);
+        builder = render_serp(builder, serp, i18n);
     }
 
     // Page health
     if let Some(ph) = &seo.page_health {
-        builder = render_page_health(builder, ph);
+        builder = render_page_health(builder, ph, i18n);
     }
 
     builder
@@ -246,32 +374,59 @@ pub(super) fn render_seo(
 pub(super) fn render_serp(
     mut builder: renderreport::engine::ReportBuilder,
     serp: &crate::output::report_model::SerpPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(Section::new("SERP-Analyse").with_level(3));
-
-    let summary = format!(
-        "{} Signale geprüft — {} OK, {} Warnungen, {} Fehler.",
-        serp.signals.len(),
-        serp.pass_count,
-        serp.warning_count,
-        serp.fail_count,
+    builder = builder.add_component(
+        Section::new(if is_en(i18n) {
+            "SERP analysis"
+        } else {
+            "SERP-Analyse"
+        })
+        .with_level(3),
     );
-    builder = if serp.fail_count > 0 {
-        builder.add_component(Callout::warning(&summary).with_title("SERP-Bereitschaft"))
-    } else if serp.warning_count > 0 {
-        builder.add_component(Callout::info(&summary).with_title("SERP-Bereitschaft"))
+
+    let summary = if is_en(i18n) {
+        format!(
+            "{} signals checked — {} OK, {} warnings, {} failures.",
+            serp.signals.len(),
+            serp.pass_count,
+            serp.warning_count,
+            serp.fail_count,
+        )
     } else {
-        builder.add_component(Callout::success(&summary).with_title("SERP-Bereitschaft"))
+        format!(
+            "{} Signale geprüft — {} OK, {} Warnungen, {} Fehler.",
+            serp.signals.len(),
+            serp.pass_count,
+            serp.warning_count,
+            serp.fail_count,
+        )
+    };
+    let serp_readiness_title = if is_en(i18n) {
+        "SERP readiness"
+    } else {
+        "SERP-Bereitschaft"
+    };
+    builder = if serp.fail_count > 0 {
+        builder.add_component(Callout::warning(&summary).with_title(serp_readiness_title))
+    } else if serp.warning_count > 0 {
+        builder.add_component(Callout::info(&summary).with_title(serp_readiness_title))
+    } else {
+        builder.add_component(Callout::success(&summary).with_title(serp_readiness_title))
     };
 
     if !serp.signals.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Kategorie").with_width("22%"),
+            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("22%"),
             TableColumn::new("Signal").with_width("28%"),
             TableColumn::new("Status").with_width("14%"),
             TableColumn::new("Detail").with_width("36%"),
         ])
-        .with_title("SERP-Signale");
+        .with_title(if is_en(i18n) {
+            "SERP signals"
+        } else {
+            "SERP-Signale"
+        });
         for (cat, label, status, detail) in &serp.signals {
             table = table.add_row(vec![
                 cat.as_str(),
@@ -284,10 +439,17 @@ pub(super) fn render_serp(
     }
 
     if !serp.rich_result_types.is_empty() {
-        let text = format!(
-            "Rich-Result-Typen möglich: {}",
-            serp.rich_result_types.join(", ")
-        );
+        let text = if is_en(i18n) {
+            format!(
+                "Rich result types possible: {}",
+                serp.rich_result_types.join(", ")
+            )
+        } else {
+            format!(
+                "Rich-Result-Typen möglich: {}",
+                serp.rich_result_types.join(", ")
+            )
+        };
         builder = builder.add_component(Callout::info(&text).with_title("Rich Results"));
     }
 
@@ -297,16 +459,33 @@ pub(super) fn render_serp(
 pub(super) fn render_page_health(
     mut builder: renderreport::engine::ReportBuilder,
     ph: &crate::output::report_model::PageHealthPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(Section::new("Seitengesundheit").with_level(3));
+    builder = builder.add_component(
+        Section::new(if is_en(i18n) {
+            "Page health"
+        } else {
+            "Seitengesundheit"
+        })
+        .with_level(3),
+    );
 
     // Issues table (if any)
     if !ph.issues.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Problem").with_width("55%"),
-            TableColumn::new("Schweregrad").with_width("25%"),
+            TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("55%"),
+            TableColumn::new(if is_en(i18n) {
+                "Severity"
+            } else {
+                "Schweregrad"
+            })
+            .with_width("25%"),
         ])
-        .with_title("Gefundene Probleme");
+        .with_title(if is_en(i18n) {
+            "Detected issues"
+        } else {
+            "Gefundene Probleme"
+        });
         for (_, msg, sev) in &ph.issues {
             table = table.add_row(vec![msg.as_str(), sev.as_str()]);
         }
@@ -315,7 +494,11 @@ pub(super) fn render_page_health(
 
     // URL info KV
     if !ph.url_info.is_empty() {
-        let mut kv = KeyValueList::new().with_title("URL-Analyse");
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "URL analysis"
+        } else {
+            "URL-Analyse"
+        });
         for (k, v) in &ph.url_info {
             kv = kv.add(k, v);
         }
@@ -323,10 +506,15 @@ pub(super) fn render_page_health(
     }
 
     if let Some((status, detail)) = &ph.html_validator {
+        let validator_title = if is_en(i18n) {
+            "W3C HTML validator"
+        } else {
+            "W3C HTML Validator"
+        };
         let callout = match status.as_str() {
-            "Ausgeführt" => Callout::info(detail).with_title("W3C HTML Validator"),
-            "Fehlgeschlagen" => Callout::warning(detail).with_title("W3C HTML Validator"),
-            _ => Callout::info(detail).with_title("W3C HTML Validator"),
+            "Ausgeführt" => Callout::info(detail).with_title(validator_title),
+            "Fehlgeschlagen" => Callout::warning(detail).with_title(validator_title),
+            _ => Callout::info(detail).with_title(validator_title),
         };
         builder = builder.add_component(callout);
     }
@@ -335,23 +523,36 @@ pub(super) fn render_page_health(
     if let Some((www_label, non_www_label, is_ok)) = &ph.www_status {
         let icon = if *is_ok { "✓" } else { "✗" };
         builder = builder.add_component(
-            Callout::info(&format!(
+            Callout::info(format!(
                 "www: {} | non-www: {} {}",
                 www_label, non_www_label, icon
             ))
-            .with_title("www-Konsolidierung"),
+            .with_title(if is_en(i18n) {
+                "www consolidation"
+            } else {
+                "www-Konsolidierung"
+            }),
         );
     }
 
     // HTML validation table
     if !ph.html_issues.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Prüfung").with_width("40%"),
-            TableColumn::new("Anzahl").with_width("15%"),
-            TableColumn::new("Schweregrad").with_width("20%"),
+            TableColumn::new(if is_en(i18n) { "Check" } else { "Prüfung" }).with_width("40%"),
+            TableColumn::new(if is_en(i18n) { "Count" } else { "Anzahl" }).with_width("15%"),
+            TableColumn::new(if is_en(i18n) {
+                "Severity"
+            } else {
+                "Schweregrad"
+            })
+            .with_width("20%"),
             TableColumn::new("Detail").with_width("25%"),
         ])
-        .with_title("HTML-Validierung");
+        .with_title(if is_en(i18n) {
+            "HTML validation"
+        } else {
+            "HTML-Validierung"
+        });
         for (check, count, sev, detail) in &ph.html_issues {
             table = table.add_row(vec![
                 check.as_str(),
@@ -369,65 +570,113 @@ pub(super) fn render_page_health(
 fn render_robots(
     mut builder: renderreport::engine::ReportBuilder,
     robots: &crate::output::report_model::RobotsPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(Section::new("robots.txt Audit").with_level(3));
+    builder = builder.add_component(
+        Section::new(if is_en(i18n) {
+            "robots.txt audit"
+        } else {
+            "robots.txt Audit"
+        })
+        .with_level(3),
+    );
 
     if let Some(ref err) = robots.error {
-        return builder.add_component(
-            Callout::warning(&format!("robots.txt konnte nicht geladen werden: {err}"))
-                .with_title("Kein Zugriff"),
-        );
+        return builder.add_component(if is_en(i18n) {
+            Callout::warning(format!("robots.txt could not be loaded: {err}"))
+                .with_title("No access")
+        } else {
+            Callout::warning(format!("robots.txt konnte nicht geladen werden: {err}"))
+                .with_title("Kein Zugriff")
+        });
     }
 
     // Summary callout — only warn for genuinely problematic configurations
     if robots.has_wildcard_disallow_all {
-        builder = builder.add_component(
+        builder = builder.add_component(if is_en(i18n) {
+            Callout::warning(
+                "All crawlers fully blocked (User-agent: * / Disallow: /). \
+                 On staging domains this is correct — on production it would \
+                 prevent search engines from crawling the site entirely.",
+            )
+            .with_title("All crawlers blocked")
+        } else {
             Callout::warning(
                 "Alle Crawler vollständig gesperrt (User-agent: * / Disallow: /). \
                  Auf Staging-Domains ist das korrekt — auf der Produktiv-Domain würde dies \
                  das vollständige Crawling durch Suchmaschinen verhindern.",
             )
-            .with_title("Alle Crawler gesperrt"),
-        );
+            .with_title("Alle Crawler gesperrt")
+        });
     } else if robots.blocks_ai_citation {
-        builder = builder.add_component(
+        builder = builder.add_component(if is_en(i18n) {
+            Callout::info(
+                "AI search bots (e.g. PerplexityBot, Amazonbot) are blocked. \
+                 This is a deliberate choice — content will not appear in \
+                 AI-generated answers. Blocking AI training bots (GPTBot etc.) \
+                 is common practice and not a problem.",
+            )
+            .with_title("Limited AI visibility")
+        } else {
             Callout::info(
                 "KI-Suchbots (z. B. PerplexityBot, Amazonbot) sind blockiert. \
                  Das ist eine bewusste Entscheidung — Inhalte erscheinen nicht in \
                  KI-generierten Antworten. Das Sperren von KI-Trainingsbots (GPTBot etc.) \
                  ist dagegen übliche Praxis und kein Problem.",
             )
-            .with_title("Eingeschränkte KI-Sichtbarkeit"),
-        );
+            .with_title("Eingeschränkte KI-Sichtbarkeit")
+        });
     } else if !robots.blocked_ai_bots.is_empty() {
         // Training bots blocked, citation bots allowed — this is the citationFriendly default
-        builder = builder.add_component(
-            Callout::info(&format!(
+        builder = builder.add_component(if is_en(i18n) {
+            Callout::info(format!(
+                "Policy: {} — AI training bots ({}) are blocked, \
+                 AI search bots have access. This matches the recommended default configuration.",
+                robots.inferred_policy,
+                robots.blocked_ai_bots.join(", ")
+            ))
+            .with_title("AI training blocked (default)")
+        } else {
+            Callout::info(format!(
                 "Policy: {} — KI-Trainingsbots ({}) sind gesperrt, \
                  KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.",
                 robots.inferred_policy,
                 robots.blocked_ai_bots.join(", ")
             ))
-            .with_title("KI-Training blockiert (Standard)"),
-        );
+            .with_title("KI-Training blockiert (Standard)")
+        });
     }
 
     // Bot overview table
     if !robots.bot_rows.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new("User-agent").with_width("28%"),
-            TableColumn::new("Kategorie").with_width("26%"),
-            TableColumn::new("Erlaubt").with_width("13%"),
-            TableColumn::new("Gesperrt").with_width("13%"),
+            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("26%"),
+            TableColumn::new(if is_en(i18n) { "Allowed" } else { "Erlaubt" }).with_width("13%"),
+            TableColumn::new(if is_en(i18n) { "Blocked" } else { "Gesperrt" }).with_width("13%"),
             TableColumn::new("Status").with_width("20%"),
         ])
-        .with_title("Crawler-Regeln");
+        .with_title(if is_en(i18n) {
+            "Crawler rules"
+        } else {
+            "Crawler-Regeln"
+        });
 
         for (ua, class, allows, disallows, fully_blocked) in &robots.bot_rows {
             let status = if *fully_blocked {
-                "Vollständig gesperrt"
+                if is_en(i18n) {
+                    "Fully blocked"
+                } else {
+                    "Vollständig gesperrt"
+                }
             } else if *disallows > 0 {
-                "Teilweise gesperrt"
+                if is_en(i18n) {
+                    "Partially blocked"
+                } else {
+                    "Teilweise gesperrt"
+                }
+            } else if is_en(i18n) {
+                "Allowed"
             } else {
                 "Erlaubt"
             };
@@ -445,7 +694,11 @@ fn render_robots(
 
     // Sitemaps
     if !robots.sitemaps.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Sitemap-Einträge");
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "Sitemap entries"
+        } else {
+            "Sitemap-Einträge"
+        });
         for (i, sitemap) in robots.sitemaps.iter().enumerate() {
             kv = kv.add(format!("Sitemap {}", i + 1), sitemap);
         }
@@ -454,9 +707,20 @@ fn render_robots(
 
     // Crawl delays
     if !robots.crawl_delays.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Crawl-Delay-Werte");
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "Crawl-delay values"
+        } else {
+            "Crawl-Delay-Werte"
+        });
         for (ua, delay) in &robots.crawl_delays {
-            kv = kv.add(ua, format!("{delay} Sekunden"));
+            kv = kv.add(
+                ua,
+                if is_en(i18n) {
+                    format!("{delay} seconds")
+                } else {
+                    format!("{delay} Sekunden")
+                },
+            );
         }
         builder = builder.add_component(kv);
     }
@@ -467,48 +731,82 @@ fn render_robots(
 pub(super) fn render_seo_profile(
     mut builder: renderreport::engine::ReportBuilder,
     profile: &SeoProfilePresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(Section::new("SEO-Inhaltsprofil").with_level(3));
+    builder = builder.add_component(
+        Section::new(if is_en(i18n) {
+            "SEO content profile"
+        } else {
+            "SEO-Inhaltsprofil"
+        })
+        .with_level(3),
+    );
 
     let mut identity_table = AuditTable::new(vec![
-        TableColumn::new("Aspekt").with_width("24%"),
-        TableColumn::new("Wert").with_width("76%"),
+        TableColumn::new(if is_en(i18n) { "Aspect" } else { "Aspekt" }).with_width("24%"),
+        TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }).with_width("76%"),
     ])
-    .with_title("Inhaltsprofil");
+    .with_title(if is_en(i18n) {
+        "Content profile"
+    } else {
+        "Inhaltsprofil"
+    });
     for (key, value) in &profile.identity_facts {
         identity_table = identity_table.add_row(vec![key.clone(), value.clone()]);
     }
 
     let mut page_profile_table = AuditTable::new(vec![
-        TableColumn::new("Aspekt").with_width("24%"),
-        TableColumn::new("Wert").with_width("76%"),
+        TableColumn::new(if is_en(i18n) { "Aspect" } else { "Aspekt" }).with_width("24%"),
+        TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }).with_width("76%"),
     ])
-    .with_title("Seitenprofil");
+    .with_title(if is_en(i18n) {
+        "Page profile"
+    } else {
+        "Seitenprofil"
+    });
     for (key, value) in &profile.page_profile_facts {
         page_profile_table = page_profile_table.add_row(vec![key.clone(), value.clone()]);
     }
 
     builder = builder
-        .add_component(Callout::info(&profile.identity_summary).with_title("Einordnung"))
+        .add_component(
+            Callout::info(&profile.identity_summary).with_title(if is_en(i18n) {
+                "Classification"
+            } else {
+                "Einordnung"
+            }),
+        )
         .add_component(identity_table)
         .add_component(page_profile_table);
 
     let mut score_grid = renderreport::components::advanced::Grid::new(2);
     for (title, score, subtitle, accent) in [
         (
-            "Content-Tiefe",
+            if is_en(i18n) {
+                "Content depth"
+            } else {
+                "Content-Tiefe"
+            },
             profile.content_depth_score,
             score_quality_label(profile.content_depth_score),
             score_quality_color(profile.content_depth_score),
         ),
         (
-            "Strukturqualität",
+            if is_en(i18n) {
+                "Structural quality"
+            } else {
+                "Strukturqualität"
+            },
             profile.structural_richness_score,
             score_quality_label(profile.structural_richness_score),
             score_quality_color(profile.structural_richness_score),
         ),
         (
-            "Medienbalance",
+            if is_en(i18n) {
+                "Media balance"
+            } else {
+                "Medienbalance"
+            },
             profile.media_text_balance_score,
             score_quality_label(profile.media_text_balance_score),
             score_quality_color(profile.media_text_balance_score),
@@ -531,26 +829,56 @@ pub(super) fn render_seo_profile(
     builder = builder.add_component(score_grid);
 
     // Content Identity
-    let mut identity = KeyValueList::new().with_title("Website-Identität");
+    let mut identity = KeyValueList::new().with_title(if is_en(i18n) {
+        "Website identity"
+    } else {
+        "Website-Identität"
+    });
     identity = identity.add("Website", &profile.site_name);
-    identity = identity.add("Inhaltstyp", &profile.content_type);
-    identity = identity.add("Sprache", &profile.language);
+    identity = identity.add(
+        if is_en(i18n) {
+            "Content type"
+        } else {
+            "Inhaltstyp"
+        },
+        &profile.content_type,
+    );
+    identity = identity.add(
+        if is_en(i18n) { "Language" } else { "Sprache" },
+        &profile.language,
+    );
     if !profile.category_hints.is_empty() {
-        identity = identity.add("Schema-Typen", profile.category_hints.join(", "));
+        identity = identity.add(
+            if is_en(i18n) {
+                "Schema types"
+            } else {
+                "Schema-Typen"
+            },
+            profile.category_hints.join(", "),
+        );
     }
     builder = builder.add_component(identity);
 
     // Schema Inventory
     if !profile.schema_rows.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Schema-Typ"),
-            TableColumn::new("Vollständigkeit"),
+            TableColumn::new(if is_en(i18n) {
+                "Schema type"
+            } else {
+                "Schema-Typ"
+            }),
+            TableColumn::new(if is_en(i18n) {
+                "Completeness"
+            } else {
+                "Vollständigkeit"
+            }),
             TableColumn::new("Details"),
         ])
-        .with_title(format!(
-            "Strukturierte Daten ({} Schemas)",
-            profile.schema_count
-        ));
+        .with_title(if is_en(i18n) {
+            format!("Structured data ({} schemas)", profile.schema_count)
+        } else {
+            format!("Strukturierte Daten ({} Schemas)", profile.schema_count)
+        });
         for (typ, completeness, details) in &profile.schema_rows {
             table = table.add_row(vec![typ.as_str(), completeness.as_str(), details.as_str()]);
         }
@@ -560,14 +888,22 @@ pub(super) fn render_seo_profile(
     // Signal Strength Overview
     if !profile.signal_rows.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Kategorie"),
-            TableColumn::new("Bewertung"),
-            TableColumn::new("Einstufung"),
+            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }),
+            TableColumn::new(if is_en(i18n) { "Rating" } else { "Bewertung" }),
+            TableColumn::new(if is_en(i18n) {
+                "Classification"
+            } else {
+                "Einstufung"
+            }),
         ])
-        .with_title(format!(
-            "SEO-Signalstärke (Gesamt: {}%)",
-            profile.signal_overall_pct
-        ));
+        .with_title(if is_en(i18n) {
+            format!(
+                "SEO signal strength (overall: {}%)",
+                profile.signal_overall_pct
+            )
+        } else {
+            format!("SEO-Signalstärke (Gesamt: {}%)", profile.signal_overall_pct)
+        });
         for (cat, score, rating) in &profile.signal_rows {
             table = table.add_row(vec![cat.as_str(), score.as_str(), rating.as_str()]);
         }
@@ -577,7 +913,7 @@ pub(super) fn render_seo_profile(
     // Signal Details per category
     for (cat_name, checks) in &profile.signal_details {
         let mut detail_table = AuditTable::new(vec![
-            TableColumn::new("Prüfung"),
+            TableColumn::new(if is_en(i18n) { "Check" } else { "Prüfung" }),
             TableColumn::new("Status"),
             TableColumn::new("Detail"),
         ])
@@ -590,15 +926,33 @@ pub(super) fn render_seo_profile(
     }
 
     // Maturity Rating
-    let mut maturity = SummaryBox::new("SEO-Reifegrad");
+    let mut maturity = SummaryBox::new(if is_en(i18n) {
+        "SEO maturity"
+    } else {
+        "SEO-Reifegrad"
+    });
     maturity = maturity.add_item("Level", &profile.maturity_level);
-    maturity = maturity.add_item("Bewertung", &profile.maturity_description);
     maturity = maturity.add_item(
-        "Techniken",
-        format!(
-            "{} von {} erkannt",
-            profile.maturity_techniques_used, profile.maturity_techniques_total
-        ),
+        if is_en(i18n) { "Rating" } else { "Bewertung" },
+        &profile.maturity_description,
+    );
+    maturity = maturity.add_item(
+        if is_en(i18n) {
+            "Techniques"
+        } else {
+            "Techniken"
+        },
+        if is_en(i18n) {
+            format!(
+                "{} of {} detected",
+                profile.maturity_techniques_used, profile.maturity_techniques_total
+            )
+        } else {
+            format!(
+                "{} von {} erkannt",
+                profile.maturity_techniques_used, profile.maturity_techniques_total
+            )
+        },
     );
     builder = builder.add_component(maturity);
 
@@ -608,14 +962,29 @@ pub(super) fn render_seo_profile(
 pub(super) fn render_security(
     mut builder: renderreport::engine::ReportBuilder,
     sec: &SecurityPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("Sicherheit").with_level(2))
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Security"
+            } else {
+                "Sicherheit"
+            })
+            .with_level(2),
+        )
         .add_component(TextBlock::new(&sec.interpretation))
         .add_component(
-            ScoreCard::new("Security Score", sec.score)
-                .with_description(format!("Grade: {}", sec.grade))
-                .with_thresholds(70, 50),
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Security score"
+                } else {
+                    "Security Score"
+                },
+                sec.score,
+            )
+            .with_description(format!("Grade: {}", sec.grade))
+            .with_thresholds(70, 50),
         );
 
     let header_count = sec
@@ -633,7 +1002,13 @@ pub(super) fn render_security(
                     .iter()
                     .any(|(k, v)| k.contains("HTTPS") && v == "Ja")
                 {
-                    "Ja"
+                    if is_en(i18n) {
+                        "Yes"
+                    } else {
+                        "Ja"
+                    }
+                } else if is_en(i18n) {
+                    "Unclear"
                 } else {
                     "Unklar"
                 },
@@ -648,7 +1023,7 @@ pub(super) fn render_security(
         let mut table = AuditTable::new(vec![
             TableColumn::new("Header"),
             TableColumn::new("Status"),
-            TableColumn::new("Wert"),
+            TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }),
         ])
         .with_title("Security Headers");
         for (name, status, val) in &sec.headers {
@@ -670,7 +1045,11 @@ pub(super) fn render_security(
     }
 
     if !sec.recommendations.is_empty() {
-        let mut rec_list = List::new().with_title("Verbesserungsvorschläge");
+        let mut rec_list = List::new().with_title(if is_en(i18n) {
+            "Improvement suggestions"
+        } else {
+            "Verbesserungsvorschläge"
+        });
         for rec in &sec.recommendations {
             rec_list = rec_list.add_item(rec);
         }
@@ -682,18 +1061,40 @@ pub(super) fn render_security(
 pub(super) fn render_mobile(
     mut builder: renderreport::engine::ReportBuilder,
     mobile: &MobilePresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("Mobile Nutzbarkeit").with_level(2))
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Mobile usability"
+            } else {
+                "Mobile Nutzbarkeit"
+            })
+            .with_level(2),
+        )
         .add_component(TextBlock::new(&mobile.interpretation))
-        .add_component(ScoreCard::new("Mobile Score", mobile.score).with_thresholds(80, 50));
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Mobile score"
+                } else {
+                    "Mobile Score"
+                },
+                mobile.score,
+            )
+            .with_thresholds(80, 50),
+        );
 
     let viewport_status = mobile
         .viewport
         .iter()
         .find(|(k, _)| k.to_lowercase().contains("viewport"))
         .map(|(_, v)| v.as_str())
-        .unwrap_or("Konfiguriert");
+        .unwrap_or(if is_en(i18n) {
+            "Configured"
+        } else {
+            "Konfiguriert"
+        });
     let touch_targets = mobile
         .touch_targets
         .iter()
@@ -703,35 +1104,59 @@ pub(super) fn render_mobile(
     builder = builder.add_component(
         MetricStrip::new(vec![
             MetricStripItem::new("Viewport", viewport_status).with_accent("#0f766e"),
-            MetricStripItem::new("Touch Targets", touch_targets).with_accent("#d97706"),
+            MetricStripItem::new(
+                if is_en(i18n) {
+                    "Touch targets"
+                } else {
+                    "Touch Targets"
+                },
+                touch_targets,
+            )
+            .with_accent("#d97706"),
             MetricStripItem::new("Issues", mobile.issues.len().to_string()).with_accent("#dc2626"),
         ])
         .compact(),
     );
 
     if !mobile.viewport.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Viewport-Konfiguration");
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "Viewport configuration"
+        } else {
+            "Viewport-Konfiguration"
+        });
         for (k, v) in &mobile.viewport {
             kv = kv.add(k, v);
         }
         builder = builder.add_component(kv);
     }
     if !mobile.touch_targets.is_empty() {
-        let mut box_ = SummaryBox::new("Touch Targets");
+        let mut box_ = SummaryBox::new(if is_en(i18n) {
+            "Touch targets"
+        } else {
+            "Touch Targets"
+        });
         for (k, v) in &mobile.touch_targets {
             box_ = box_.add_item(k, v);
         }
         builder = builder.add_component(box_);
     }
     if !mobile.font_analysis.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Schriftanalyse");
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "Font analysis"
+        } else {
+            "Schriftanalyse"
+        });
         for (k, v) in &mobile.font_analysis {
             kv = kv.add(k, v);
         }
         builder = builder.add_component(kv);
     }
     if !mobile.content_sizing.is_empty() {
-        let mut box_ = SummaryBox::new("Content Sizing");
+        let mut box_ = SummaryBox::new(if is_en(i18n) {
+            "Content sizing"
+        } else {
+            "Content Sizing"
+        });
         for (k, v) in &mobile.content_sizing {
             box_ = box_.add_item(k, v);
         }
@@ -747,14 +1172,22 @@ pub(super) fn render_mobile(
 pub(super) fn render_ux(
     mut builder: renderreport::engine::ReportBuilder,
     ux: &UxPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(Section::new("User Experience").with_level(2))
         .add_component(TextBlock::new(&ux.interpretation))
-        .add_component(ScoreCard::new("UX Score", ux.score).with_thresholds(80, 50));
+        .add_component(
+            ScoreCard::new(if is_en(i18n) { "UX score" } else { "UX Score" }, ux.score)
+                .with_thresholds(80, 50),
+        );
 
     // Dimension scores as KeyValueList
-    let mut kv = KeyValueList::new().with_title("UX-Dimensionen");
+    let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+        "UX dimensions"
+    } else {
+        "UX-Dimensionen"
+    });
     for dim in &ux.dimensions {
         kv = kv.add(&dim.name, format!("{}/100 — {}", dim.score, dim.summary));
     }
@@ -777,15 +1210,37 @@ pub(super) fn render_ux(
 pub(super) fn render_journey(
     mut builder: renderreport::engine::ReportBuilder,
     journey: &JourneyPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(Section::new("User Journey").with_level(2))
         .add_component(TextBlock::new(&journey.interpretation))
-        .add_component(ScoreCard::new("Journey Score", journey.score).with_thresholds(80, 50));
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Journey score"
+                } else {
+                    "Journey Score"
+                },
+                journey.score,
+            )
+            .with_thresholds(80, 50),
+        );
 
     // Page intent
-    let mut kv = KeyValueList::new().with_title("Seitentyp & Dimensionen");
-    kv = kv.add("Erkannter Seitentyp", &journey.page_intent);
+    let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+        "Page type & dimensions"
+    } else {
+        "Seitentyp & Dimensionen"
+    });
+    kv = kv.add(
+        if is_en(i18n) {
+            "Detected page type"
+        } else {
+            "Erkannter Seitentyp"
+        },
+        &journey.page_intent,
+    );
     for dim in &journey.dimensions {
         kv = kv.add(
             format!("{} ({}%)", dim.name, dim.weight_pct),
@@ -811,65 +1266,154 @@ pub(super) fn render_journey(
 pub(super) fn render_dark_mode(
     mut builder: renderreport::engine::ReportBuilder,
     dm: &DarkModePresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let support_label = if dm.supported {
-        "Unterstützt"
+        if is_en(i18n) {
+            "Supported"
+        } else {
+            "Unterstützt"
+        }
+    } else if is_en(i18n) {
+        "Not supported"
     } else {
         "Nicht unterstützt"
     };
     builder = builder
-        .add_component(Section::new("Dark Mode").with_level(2))
-        .add_component(ScoreCard::new("Dark Mode Score", dm.score).with_thresholds(80, 50));
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Dark mode"
+            } else {
+                "Dark Mode"
+            })
+            .with_level(2),
+        )
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Dark mode score"
+                } else {
+                    "Dark Mode Score"
+                },
+                dm.score,
+            )
+            .with_thresholds(80, 50),
+        );
 
     builder = builder.add_component(
         MetricStrip::new(vec![
             MetricStripItem::new("Status", support_label)
                 .with_status(if dm.supported { "good" } else { "warn" })
                 .with_accent(if dm.supported { "#0f766e" } else { "#d97706" }),
-            MetricStripItem::new("Methoden", dm.detection_methods.len().to_string())
-                .with_accent("#2563eb"),
-            MetricStripItem::new("CSS Variablen", dm.css_custom_properties.to_string())
-                .with_accent("#7c3aed"),
+            MetricStripItem::new(
+                if is_en(i18n) { "Methods" } else { "Methoden" },
+                dm.detection_methods.len().to_string(),
+            )
+            .with_accent("#2563eb"),
+            MetricStripItem::new(
+                if is_en(i18n) {
+                    "CSS variables"
+                } else {
+                    "CSS Variablen"
+                },
+                dm.css_custom_properties.to_string(),
+            )
+            .with_accent("#7c3aed"),
         ])
         .compact(),
     );
 
-    let mut kv = KeyValueList::new().with_title("Dark Mode Übersicht");
-    kv = kv.add("Unterstützung", support_label);
+    let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+        "Dark mode overview"
+    } else {
+        "Dark Mode Übersicht"
+    });
+    kv = kv.add(
+        if is_en(i18n) {
+            "Support"
+        } else {
+            "Unterstützung"
+        },
+        support_label,
+    );
     if !dm.detection_methods.is_empty() {
-        kv = kv.add("Implementierungsmethoden", dm.detection_methods.join(", "));
+        kv = kv.add(
+            if is_en(i18n) {
+                "Implementation methods"
+            } else {
+                "Implementierungsmethoden"
+            },
+            dm.detection_methods.join(", "),
+        );
     }
     kv = kv.add(
         "color-scheme CSS",
-        if dm.color_scheme_css { "Ja" } else { "Nein" },
+        if dm.color_scheme_css {
+            if is_en(i18n) {
+                "Yes"
+            } else {
+                "Ja"
+            }
+        } else if is_en(i18n) {
+            "No"
+        } else {
+            "Nein"
+        },
     );
     if let Some(ref meta) = dm.meta_color_scheme {
         kv = kv.add("<meta name=\"color-scheme\">", meta.as_str());
     }
     if dm.css_custom_properties > 0 {
         kv = kv.add(
-            "CSS Custom Properties (Farben)",
+            if is_en(i18n) {
+                "CSS custom properties (colors)"
+            } else {
+                "CSS Custom Properties (Farben)"
+            },
             dm.css_custom_properties.to_string(),
         );
     }
     if dm.supported {
         kv = kv.add(
-            "Kontrast-Violations im Dark Mode",
+            if is_en(i18n) {
+                "Contrast violations in dark mode"
+            } else {
+                "Kontrast-Violations im Dark Mode"
+            },
             dm.dark_contrast_violations.to_string(),
         );
         if dm.dark_only_violations > 0 {
             kv = kv.add(
-                "Nur-Dark-Mode-Probleme",
-                format!("{} (nicht im Light Mode)", dm.dark_only_violations),
+                if is_en(i18n) {
+                    "Dark-mode-only issues"
+                } else {
+                    "Nur-Dark-Mode-Probleme"
+                },
+                if is_en(i18n) {
+                    format!("{} (not in light mode)", dm.dark_only_violations)
+                } else {
+                    format!("{} (nicht im Light Mode)", dm.dark_only_violations)
+                },
             );
         }
         if dm.light_only_violations > 0 {
             kv = kv.add(
-                "Im Dark Mode behoben",
-                format!(
-                    "{} Light-Mode-Probleme verschwinden im Dark Mode",
-                    dm.light_only_violations
-                ),
+                if is_en(i18n) {
+                    "Resolved in dark mode"
+                } else {
+                    "Im Dark Mode behoben"
+                },
+                if is_en(i18n) {
+                    format!(
+                        "{} light-mode issues disappear in dark mode",
+                        dm.light_only_violations
+                    )
+                } else {
+                    format!(
+                        "{} Light-Mode-Probleme verschwinden im Dark Mode",
+                        dm.light_only_violations
+                    )
+                },
             );
         }
     }
@@ -878,8 +1422,16 @@ pub(super) fn render_dark_mode(
     if !dm.issues.is_empty() {
         for (severity, description) in &dm.issues {
             builder = builder.add_component(match severity.as_str() {
-                "high" => Callout::warning(description).with_title("Dark Mode Problem"),
-                _ => Callout::info(description).with_title("Dark Mode Hinweis"),
+                "high" => Callout::warning(description).with_title(if is_en(i18n) {
+                    "Dark mode issue"
+                } else {
+                    "Dark Mode Problem"
+                }),
+                _ => Callout::info(description).with_title(if is_en(i18n) {
+                    "Dark mode note"
+                } else {
+                    "Dark Mode Hinweis"
+                }),
             });
         }
     }
@@ -920,18 +1472,37 @@ fn truncate(value: &str, max_chars: usize) -> String {
 pub(super) fn render_source_quality(
     mut builder: renderreport::engine::ReportBuilder,
     sq: &crate::source_quality::SourceQualityAnalysis,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("Quellenqualität").with_level(2))
-        .add_component(Callout::info(&sq.disclaimer).with_title("Hinweis"))
         .add_component(
-            ScoreCard::new("Quellenqualität", sq.score)
-                .with_description(format!(
-                    "Grade: {} — {}",
-                    sq.grade,
-                    score_quality_label(sq.score)
-                ))
-                .with_thresholds(70, 50),
+            Section::new(if is_en(i18n) {
+                "Source quality"
+            } else {
+                "Quellenqualität"
+            })
+            .with_level(2),
+        )
+        .add_component(Callout::info(&sq.disclaimer).with_title(if is_en(i18n) {
+            "Note"
+        } else {
+            "Hinweis"
+        }))
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Source quality"
+                } else {
+                    "Quellenqualität"
+                },
+                sq.score,
+            )
+            .with_description(format!(
+                "Grade: {} — {}",
+                sq.grade,
+                score_quality_label(sq.score)
+            ))
+            .with_thresholds(70, 50),
         );
 
     for dim in [&sq.substance, &sq.consistency, &sq.authority] {
@@ -967,27 +1538,81 @@ pub(super) fn render_source_quality(
 pub(super) fn render_ai_visibility(
     mut builder: renderreport::engine::ReportBuilder,
     av: &crate::ai_visibility::AiVisibilityAnalysis,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("AI-Sichtbarkeit").with_level(2))
-        .add_component(Callout::info(&av.disclaimer).with_title("Hinweis"))
         .add_component(
-            ScoreCard::new("AI-Sichtbarkeit", av.score)
-                .with_description(format!(
-                    "Grade: {} — {}",
-                    av.grade,
-                    score_quality_label(av.score)
-                ))
-                .with_thresholds(70, 50),
+            Section::new(if is_en(i18n) {
+                "AI visibility"
+            } else {
+                "AI-Sichtbarkeit"
+            })
+            .with_level(2),
+        )
+        .add_component(Callout::info(&av.disclaimer).with_title(if is_en(i18n) {
+            "Note"
+        } else {
+            "Hinweis"
+        }))
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "AI visibility"
+                } else {
+                    "AI-Sichtbarkeit"
+                },
+                av.score,
+            )
+            .with_description(format!(
+                "Grade: {} — {}",
+                av.grade,
+                score_quality_label(av.score)
+            ))
+            .with_thresholds(70, 50),
         );
 
     // Render each dimension
     for (dim, title) in [
-        (&av.readability.dimension, "LLM-Lesbarkeit"),
-        (&av.citation.dimension, "Zitatfähigkeit"),
-        (&av.chunks.dimension, "Chunk-Qualität"),
-        (&av.knowledge_graph.dimension, "Wissensgraph"),
-        (&av.policy.dimension, "AI-Policy"),
+        (
+            &av.readability.dimension,
+            if is_en(i18n) {
+                "LLM readability"
+            } else {
+                "LLM-Lesbarkeit"
+            },
+        ),
+        (
+            &av.citation.dimension,
+            if is_en(i18n) {
+                "Citability"
+            } else {
+                "Zitatfähigkeit"
+            },
+        ),
+        (
+            &av.chunks.dimension,
+            if is_en(i18n) {
+                "Chunk quality"
+            } else {
+                "Chunk-Qualität"
+            },
+        ),
+        (
+            &av.knowledge_graph.dimension,
+            if is_en(i18n) {
+                "Knowledge graph"
+            } else {
+                "Wissensgraph"
+            },
+        ),
+        (
+            &av.policy.dimension,
+            if is_en(i18n) {
+                "AI policy"
+            } else {
+                "AI-Policy"
+            },
+        ),
     ] {
         builder = builder.add_component(Section::new(title).with_level(3));
         builder = builder.add_component(
@@ -1014,15 +1639,26 @@ pub(super) fn render_ai_visibility(
 
     // Chunk sections summary
     if !av.chunks.sections.is_empty() {
-        builder = builder.add_component(Section::new("Content-Abschnitte").with_level(3));
+        builder = builder.add_component(
+            Section::new(if is_en(i18n) {
+                "Content sections"
+            } else {
+                "Content-Abschnitte"
+            })
+            .with_level(3),
+        );
 
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Abschnitt"),
+            TableColumn::new(if is_en(i18n) { "Section" } else { "Abschnitt" }),
             TableColumn::new("Level"),
-            TableColumn::new("Wörter"),
-            TableColumn::new("Qualität"),
+            TableColumn::new(if is_en(i18n) { "Words" } else { "Wörter" }),
+            TableColumn::new(if is_en(i18n) { "Quality" } else { "Qualität" }),
         ])
-        .with_title("Abschnitte");
+        .with_title(if is_en(i18n) {
+            "Sections"
+        } else {
+            "Abschnitte"
+        });
 
         for section in &av.chunks.sections {
             table = table.add_row(vec![
@@ -1033,20 +1669,36 @@ pub(super) fn render_ai_visibility(
             ]);
         }
         builder = builder.add_component(table);
-        builder = builder
-            .add_component(Callout::info(&av.chunks.recommendation).with_title("Empfehlung"));
+        builder = builder.add_component(Callout::info(&av.chunks.recommendation).with_title(
+            if is_en(i18n) {
+                "Recommendation"
+            } else {
+                "Empfehlung"
+            },
+        ));
     }
 
     // Knowledge graph entities
     if !av.knowledge_graph.entities.is_empty() {
-        builder = builder.add_component(Section::new("Erkannte Entitäten").with_level(3));
+        builder = builder.add_component(
+            Section::new(if is_en(i18n) {
+                "Detected entities"
+            } else {
+                "Erkannte Entitäten"
+            })
+            .with_level(3),
+        );
 
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Entität"),
-            TableColumn::new("Typ"),
-            TableColumn::new("Quelle"),
+            TableColumn::new(if is_en(i18n) { "Entity" } else { "Entität" }),
+            TableColumn::new(if is_en(i18n) { "Type" } else { "Typ" }),
+            TableColumn::new(if is_en(i18n) { "Source" } else { "Quelle" }),
         ])
-        .with_title("Entitäten");
+        .with_title(if is_en(i18n) {
+            "Entities"
+        } else {
+            "Entitäten"
+        });
 
         for entity in &av.knowledge_graph.entities {
             table = table.add_row(vec![
@@ -1061,11 +1713,15 @@ pub(super) fn render_ai_visibility(
     // Knowledge graph relationships
     if !av.knowledge_graph.relationships.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Subjekt"),
-            TableColumn::new("Beziehung"),
-            TableColumn::new("Objekt"),
+            TableColumn::new(if is_en(i18n) { "Subject" } else { "Subjekt" }),
+            TableColumn::new(if is_en(i18n) { "Relation" } else { "Beziehung" }),
+            TableColumn::new(if is_en(i18n) { "Object" } else { "Objekt" }),
         ])
-        .with_title("Beziehungen");
+        .with_title(if is_en(i18n) {
+            "Relationships"
+        } else {
+            "Beziehungen"
+        });
 
         for rel in &av.knowledge_graph.relationships {
             table = table.add_row(vec![&rel.subject, &rel.predicate, &rel.object]);
@@ -1075,41 +1731,71 @@ pub(super) fn render_ai_visibility(
 
     // Link suggestions
     if !av.knowledge_graph.link_suggestions.is_empty() {
-        builder = builder.add_component(Section::new("Verlinkungsvorschläge").with_level(3));
+        builder = builder.add_component(
+            Section::new(if is_en(i18n) {
+                "Link suggestions"
+            } else {
+                "Verlinkungsvorschläge"
+            })
+            .with_level(3),
+        );
 
-        let mut list = List::new().with_title("Verlinkungsvorschläge");
+        let mut list = List::new().with_title(if is_en(i18n) {
+            "Link suggestions"
+        } else {
+            "Verlinkungsvorschläge"
+        });
         for suggestion in &av.knowledge_graph.link_suggestions {
-            list = list.add_item(&format!("{}: {}", suggestion.entity, suggestion.reason));
+            list = list.add_item(format!("{}: {}", suggestion.entity, suggestion.reason));
         }
         builder = builder.add_component(list);
     }
 
     // AI Policy details
     if av.policy.blocks_all {
-        builder = builder.add_component(
+        builder = builder.add_component(if is_en(i18n) {
+            Callout::warning(
+                "All crawlers blocked (Disallow: *) — AI search bots have no access either.",
+            )
+            .with_title("No AI access")
+        } else {
             Callout::warning(
                 "Alle Crawler gesperrt (Disallow: *) — auch KI-Suchbots haben keinen Zugang.",
             )
-            .with_title("Kein KI-Zugang"),
-        );
+            .with_title("Kein KI-Zugang")
+        });
     } else if av.policy.blocks_ai_citation {
-        builder = builder.add_component(
-            Callout::info(&format!(
+        builder = builder.add_component(if is_en(i18n) {
+            Callout::info(format!(
+                "Policy: {} — AI search bots are blocked. \
+                 Content will not appear in AI-generated answers.",
+                av.policy.inferred_policy
+            ))
+            .with_title("AI visibility limited")
+        } else {
+            Callout::info(format!(
                 "Policy: {} — KI-Suchbots sind blockiert. \
                  Inhalte erscheinen nicht in KI-generierten Antworten.",
                 av.policy.inferred_policy
             ))
-            .with_title("KI-Sichtbarkeit eingeschränkt"),
-        );
+            .with_title("KI-Sichtbarkeit eingeschränkt")
+        });
     } else if av.policy.blocks_ai_training {
-        builder = builder.add_component(
-            Callout::info(&format!(
+        builder = builder.add_component(if is_en(i18n) {
+            Callout::info(format!(
+                "Policy: {} — AI training bots blocked, AI search bots have access. \
+                 This is the recommended default configuration.",
+                av.policy.inferred_policy
+            ))
+            .with_title("AI policy: default")
+        } else {
+            Callout::info(format!(
                 "Policy: {} — KI-Trainingsbots blockiert, KI-Suchbots haben Zugang. \
                  Das ist die empfohlene Standardkonfiguration.",
                 av.policy.inferred_policy
             ))
-            .with_title("KI-Policy: Standard"),
-        );
+            .with_title("KI-Policy: Standard")
+        });
     }
 
     builder

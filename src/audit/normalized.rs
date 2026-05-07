@@ -52,6 +52,9 @@ pub struct NormalizedReport {
     /// Audit flags for noteworthy signal conflicts or caveats
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audit_flags: Vec<AuditFlag>,
+    /// Whether desktop/mobile cover screenshots were captured for this audit.
+    #[serde(default)]
+    pub has_screenshots: bool,
 
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
@@ -210,6 +213,19 @@ impl std::fmt::Display for RiskLevel {
     }
 }
 
+impl RiskLevel {
+    /// Localized label via the report I18n bundle.
+    pub fn label_localized(&self, i18n: &crate::i18n::I18n) -> String {
+        let key = match self {
+            RiskLevel::Low => "risk-level-low",
+            RiskLevel::Medium => "risk-level-medium",
+            RiskLevel::High => "risk-level-high",
+            RiskLevel::Critical => "risk-level-critical",
+        };
+        i18n.t(key)
+    }
+}
+
 /// Risk assessment — computed separately from score.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskAssessment {
@@ -225,6 +241,31 @@ pub struct RiskAssessment {
     pub blocking_issues: usize,
     /// Human-readable risk summary
     pub summary: String,
+}
+
+impl RiskAssessment {
+    /// Locale-aware risk summary. Falls back to the stored `summary` (German)
+    /// for unknown locales.
+    pub fn summary_for(&self, locale: &str) -> String {
+        if locale != "en" {
+            return self.summary.clone();
+        }
+        match self.level {
+            RiskLevel::Critical => format!(
+                "Critical risk: {} WCAG Level A violations with legal relevance (BFSG). {} blocking issues on interactive controls.",
+                self.legal_flags, self.blocking_issues
+            ),
+            RiskLevel::High => format!(
+                "High risk: {} critical and {} severe issues. Users are actively excluded.",
+                self.critical_issues, self.high_issues
+            ),
+            RiskLevel::Medium => format!(
+                "Medium risk: {} severe issues detected. Limitations for certain user groups.",
+                self.high_issues + self.critical_issues
+            ),
+            RiskLevel::Low => "Low risk: no critical violations — improvement potential remains.".to_string(),
+        }
+    }
 }
 
 /// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
@@ -599,6 +640,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         overall_score,
         risk,
         audit_flags,
+        has_screenshots: report.page_screenshots.is_some(),
         raw_performance: report.performance.clone(),
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),

@@ -22,7 +22,7 @@ It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
 - Heading hierarchy issues (2.4.6)\n\
 - Unlabeled form controls (4.1.2)\n\
 - Insufficient color contrast (1.4.3)\n\n\
-Supported output formats: json, table, pdf.\n\
+Supported output formats: json, table, pdf, ai.\n\
 Supported inputs: a single URL, --sitemap, or --url-file.\n\n\
 Default single-URL behavior: generate a PDF report in the current directory."
 )]
@@ -40,13 +40,13 @@ pub struct Args {
     /// Sitemap URL to audit all pages
     ///
     /// Example: --sitemap https://example.com/sitemap.xml
-    #[arg(short = 's', long, value_name = "SITEMAP_URL")]
+    #[arg(short = 's', long, value_name = "SITEMAP_URL", global = true)]
     pub sitemap: Option<String>,
 
     /// File containing URLs to audit (one per line)
     ///
     /// Example: --url-file urls.txt
-    #[arg(short = 'u', long, value_name = "FILE")]
+    #[arg(short = 'u', long, value_name = "FILE", global = true)]
     pub url_file: Option<PathBuf>,
 
     /// Crawl a site from the given base URL and discover same-domain pages automatically.
@@ -55,7 +55,7 @@ pub struct Args {
     /// one HEAD/GET per discovered link (including external links up to a cap of 100 unique targets).
     /// This generates observable traffic to third-party domains and increases audit time.
     /// Use --crawl deliberately, not in every CI run, to avoid repeated external traffic.
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub crawl: bool,
 
     /// WCAG conformance level to check.
@@ -70,7 +70,7 @@ pub struct Args {
     ///
     /// Default for a single URL without `-f`: `pdf`.
     /// Default for batch inputs without `-f`: `table`.
-    #[arg(short = 'f', long, value_enum)]
+    #[arg(short = 'f', long, value_enum, global = true)]
     pub format: Option<OutputFormat>,
 
     /// Output file path.
@@ -78,7 +78,7 @@ pub struct Args {
     /// Single URL + default PDF mode writes to `./<domain>-<date>-<report-level>.pdf`.
     /// JSON without `-o` prints to stdout.
     /// With `--per-page-reports`, `-o` is treated as the target directory.
-    #[arg(short = 'o', long, value_name = "FILE")]
+    #[arg(short = 'o', long, value_name = "FILE", global = true)]
     pub output: Option<PathBuf>,
 
     /// Custom browser binary path (overrides auto-detection)
@@ -99,7 +99,7 @@ pub struct Args {
     pub remote_debugging_port: Option<u16>,
 
     /// Maximum number of pages to audit (0 = unlimited)
-    #[arg(short = 'm', long, default_value = "0", value_name = "NUM")]
+    #[arg(short = 'm', long, default_value = "0", value_name = "NUM", global = true)]
     pub max_pages: usize,
 
     /// Maximum crawl depth for `--crawl` (BFS levels from seed URL).
@@ -132,7 +132,7 @@ pub struct Args {
     pub verbose: bool,
 
     /// Quiet mode (only show errors)
-    #[arg(short = 'q', long)]
+    #[arg(short = 'q', long, global = true)]
     pub quiet: bool,
 
     /// Detect Chrome and print path (then exit)
@@ -142,7 +142,7 @@ pub struct Args {
     /// Run all checks (Performance + SEO + Security + Mobile)
     ///
     /// This is already the default for standard single-page audits.
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub full: bool,
 
     /// Enable performance analysis (Core Web Vitals)
@@ -193,11 +193,11 @@ pub struct Args {
     pub per_page_reports: bool,
 
     /// PDF detail level: `executive`, `standard`, or `technical`.
-    #[arg(long, default_value = "standard", value_enum)]
+    #[arg(long, default_value = "standard", value_enum, global = true)]
     pub report_level: ReportLevel,
 
     /// Report language (PDF text i18n)
-    #[arg(long, default_value = "de", value_parser = ["de", "en"])]
+    #[arg(long, default_value = "de", value_parser = ["de", "en"], global = true)]
     pub lang: String,
 
     /// Logo image path for PDF cover page
@@ -221,6 +221,12 @@ pub enum Command {
     },
     /// Run diagnostics and check system health
     Doctor,
+    /// Show what an audit would do (mode, scope, modules, output paths) without
+    /// running it.
+    Plan {
+        /// URL to plan an audit for (required unless --sitemap or --url-file is set)
+        url: Option<String>,
+    },
 }
 
 /// Browser management actions

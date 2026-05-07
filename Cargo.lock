@@ -2870,6 +2870,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 [[package]]
 name = "renderreport"
 version = "0.2.4"
+source = "git+https://github.com/casoon/renderreport?rev=0fa4aadfe4437a087a4e90bb39a59ebfc3a14402#0fa4aadfe4437a087a4e90bb39a59ebfc3a14402"
 dependencies = [
  "anyhow",
  "barcoders",

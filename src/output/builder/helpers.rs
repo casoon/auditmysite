@@ -3,28 +3,48 @@
 use std::collections::HashSet;
 
 use crate::audit::{BatchReport, NormalizedReport};
+use crate::i18n::I18n;
 use crate::output::report_model::{
     AffectedElement, AppendixViolation, BatchAppendixData, UrlAppendix,
 };
 use crate::util::truncate_url;
 
-pub(super) fn build_technical_overview(normalized: &NormalizedReport) -> Vec<String> {
+pub(super) fn build_technical_overview(locale: &str, normalized: &NormalizedReport) -> Vec<String> {
     let mut insights = Vec::new();
 
     let critical = normalized.severity_counts.critical;
     let high = normalized.severity_counts.high;
     let total = normalized.severity_counts.total;
     let rule_count = normalized.findings.len();
+    let en = locale == "en";
 
     // 1. Accessibility-Systematik — always present
     let a11y = if total == 0 {
-        "Accessibility-Systematik: Keine Verstöße — Basis vollständig konform".to_string()
+        if en {
+            "Accessibility pattern: No violations — fully conformant baseline".to_string()
+        } else {
+            "Accessibility-Systematik: Keine Verstöße — Basis vollständig konform".to_string()
+        }
     } else if critical >= 5 && total > 30 {
-        format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regeltypen, {total} Instanzen) — Prozess-Problem, kein Einzelfall")
+        if en {
+            format!("Accessibility pattern: Systematic patterns ({rule_count} rule types, {total} instances) — process problem, not a one-off")
+        } else {
+            format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regeltypen, {total} Instanzen) — Prozess-Problem, kein Einzelfall")
+        }
     } else if critical >= 3 || (critical >= 2 && rule_count >= 5) {
-        format!("Accessibility-Systematik: Mehrere kritische Blockaden ({critical} kritisch, {high} hoch) — direkte Screenreader-Barrieren")
+        if en {
+            format!("Accessibility pattern: Multiple critical blockers ({critical} critical, {high} high) — direct screen-reader barriers")
+        } else {
+            format!("Accessibility-Systematik: Mehrere kritische Blockaden ({critical} kritisch, {high} hoch) — direkte Screenreader-Barrieren")
+        }
     } else if total > 10 {
-        format!("Accessibility-Systematik: Verteilt über {rule_count} Regeltypen — kein Muster, einzeln behebbar")
+        if en {
+            format!("Accessibility pattern: Distributed across {rule_count} rule types — no pattern, fixable individually")
+        } else {
+            format!("Accessibility-Systematik: Verteilt über {rule_count} Regeltypen — kein Muster, einzeln behebbar")
+        }
+    } else if en {
+        format!("Accessibility pattern: {total} violations across {rule_count} areas — focused and fixable")
     } else {
         format!("Accessibility-Systematik: {total} Verstöße in {rule_count} Bereichen — konzentriert und gezielt behebbar")
     };
@@ -33,18 +53,44 @@ pub(super) fn build_technical_overview(normalized: &NormalizedReport) -> Vec<Str
     // 2. SEO-Level — always present
     let seo = if let Some(ref s) = normalized.raw_seo {
         if s.score >= 85 {
-            format!(
-                "SEO-Level: {} Pkt — technische Ranking-Voraussetzungen erfüllt",
-                s.score
-            )
+            if en {
+                format!(
+                    "SEO level: {} pts — technical ranking prerequisites met",
+                    s.score
+                )
+            } else {
+                format!(
+                    "SEO-Level: {} Pkt — technische Ranking-Voraussetzungen erfüllt",
+                    s.score
+                )
+            }
         } else if s.score >= 65 {
-            format!(
-                "SEO-Level: {} Pkt — Basis vorhanden, gezielte Optimierungen möglich",
-                s.score
-            )
+            if en {
+                format!(
+                    "SEO level: {} pts — base in place, targeted optimizations possible",
+                    s.score
+                )
+            } else {
+                format!(
+                    "SEO-Level: {} Pkt — Basis vorhanden, gezielte Optimierungen möglich",
+                    s.score
+                )
+            }
         } else if s.score >= 45 {
+            if en {
+                format!(
+                    "SEO level: {} pts — relevant signals missing, visibility limited",
+                    s.score
+                )
+            } else {
+                format!(
+                    "SEO-Level: {} Pkt — relevante Signale fehlen, Sichtbarkeit eingeschränkt",
+                    s.score
+                )
+            }
+        } else if en {
             format!(
-                "SEO-Level: {} Pkt — relevante Signale fehlen, Sichtbarkeit eingeschränkt",
+                "SEO level: {} pts — structural base missing, ranking effectively impossible",
                 s.score
             )
         } else {
@@ -53,6 +99,8 @@ pub(super) fn build_technical_overview(normalized: &NormalizedReport) -> Vec<Str
                 s.score
             )
         }
+    } else if en {
+        "SEO level: Not audited (use --full for full analysis)".to_string()
     } else {
         "SEO-Level: Nicht geprüft (--full für vollständige Analyse)".to_string()
     };
@@ -61,23 +109,45 @@ pub(super) fn build_technical_overview(normalized: &NormalizedReport) -> Vec<Str
     // 3. Security-Level — always present
     let sec = if let Some(ref s) = normalized.raw_security {
         if s.score >= 80 {
-            format!(
-                "Security-Level: {} Pkt — HTTP-Security-Header vollständig gesetzt",
-                s.score
-            )
+            if en {
+                format!(
+                    "Security level: {} pts — HTTP security headers fully set",
+                    s.score
+                )
+            } else {
+                format!(
+                    "Security-Level: {} Pkt — HTTP-Security-Header vollständig gesetzt",
+                    s.score
+                )
+            }
         } else if s.score >= 55 {
-            format!(
-                "Security-Level: {} Pkt — Grundschutz vorhanden, einzelne Header fehlen",
-                s.score
-            )
+            if en {
+                format!("Security level: {} pts — basic protection in place, individual headers missing", s.score)
+            } else {
+                format!(
+                    "Security-Level: {} Pkt — Grundschutz vorhanden, einzelne Header fehlen",
+                    s.score
+                )
+            }
         } else if s.score >= 30 {
-            format!(
-                "Security-Level: {} Pkt — mehrere kritische Security-Header fehlen",
-                s.score
-            )
+            if en {
+                format!(
+                    "Security level: {} pts — multiple critical security headers missing",
+                    s.score
+                )
+            } else {
+                format!(
+                    "Security-Level: {} Pkt — mehrere kritische Security-Header fehlen",
+                    s.score
+                )
+            }
+        } else if en {
+            format!("Security level: {} pts — security headers almost entirely missing — high risk, quick to fix", s.score)
         } else {
             format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — hohes Risiko, schnell behebbar", s.score)
         }
+    } else if en {
+        "Security level: Not audited (use --full for full analysis)".to_string()
     } else {
         "Security-Level: Nicht geprüft (--full für vollständige Analyse)".to_string()
     };
@@ -86,41 +156,81 @@ pub(super) fn build_technical_overview(normalized: &NormalizedReport) -> Vec<Str
     // 4. Tech-Komplexität — DOM + performance combined
     let dom = normalized.nodes_analyzed;
     let perf_score = normalized.raw_performance.as_ref().map(|p| p.score.overall);
-    let tech = match (dom, perf_score) {
-        (d, Some(p)) if d > 2000 && p < 60 => format!(
-            "Tech-Komplexität: Hoch — {d} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"
-        ),
-        (d, Some(p)) if d > 2000 => format!(
-            "Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten (Performance {p} Pkt stabil)"
-        ),
-        (d, Some(p)) if p < 60 => format!(
-            "Tech-Komplexität: Performance kritisch ({p} Pkt) — {d} DOM-Knoten analysiert"
-        ),
-        (d, Some(p)) if p < 80 => format!(
-            "Tech-Komplexität: Gering — {d} DOM-Knoten, Performance optimierbar ({p} Pkt)"
-        ),
-        (d, Some(p)) => format!(
-            "Tech-Komplexität: Gering — {d} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"
-        ),
-        (d, None) if d > 2000 => format!(
-            "Tech-Komplexität: Hoch — {d} DOM-Knoten (Performance nicht geprüft)"
-        ),
-        (d, None) => format!(
-            "Tech-Komplexität: {d} DOM-Knoten analysiert (Performance nicht geprüft, --full)"
-        ),
+    let tech = if en {
+        match (dom, perf_score) {
+            (d, Some(p)) if d > 2000 && p < 60 => format!(
+                "Tech complexity: High — {d} DOM nodes, performance {p} pts — refactoring recommended"
+            ),
+            (d, Some(p)) if d > 2000 => format!(
+                "Tech complexity: Medium-high — {d} DOM nodes (performance {p} pts stable)"
+            ),
+            (d, Some(p)) if p < 60 => format!(
+                "Tech complexity: Performance critical ({p} pts) — {d} DOM nodes analyzed"
+            ),
+            (d, Some(p)) if p < 80 => format!(
+                "Tech complexity: Low — {d} DOM nodes, performance can be optimized ({p} pts)"
+            ),
+            (d, Some(p)) => format!(
+                "Tech complexity: Low — {d} DOM nodes, performance {p} pts — technical baseline stable"
+            ),
+            (d, None) if d > 2000 => format!(
+                "Tech complexity: High — {d} DOM nodes (performance not audited)"
+            ),
+            (d, None) => format!(
+                "Tech complexity: {d} DOM nodes analyzed (performance not audited, use --full)"
+            ),
+        }
+    } else {
+        match (dom, perf_score) {
+            (d, Some(p)) if d > 2000 && p < 60 => format!(
+                "Tech-Komplexität: Hoch — {d} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"
+            ),
+            (d, Some(p)) if d > 2000 => format!(
+                "Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten (Performance {p} Pkt stabil)"
+            ),
+            (d, Some(p)) if p < 60 => format!(
+                "Tech-Komplexität: Performance kritisch ({p} Pkt) — {d} DOM-Knoten analysiert"
+            ),
+            (d, Some(p)) if p < 80 => format!(
+                "Tech-Komplexität: Gering — {d} DOM-Knoten, Performance optimierbar ({p} Pkt)"
+            ),
+            (d, Some(p)) => format!(
+                "Tech-Komplexität: Gering — {d} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"
+            ),
+            (d, None) if d > 2000 => format!(
+                "Tech-Komplexität: Hoch — {d} DOM-Knoten (Performance nicht geprüft)"
+            ),
+            (d, None) => format!(
+                "Tech-Komplexität: {d} DOM-Knoten analysiert (Performance nicht geprüft, --full)"
+            ),
+        }
     };
     insights.push(tech);
 
     insights
 }
 
-pub(super) fn build_overall_impact(normalized: &NormalizedReport) -> Vec<(String, String)> {
+pub(super) fn build_overall_impact(
+    locale: &str,
+    normalized: &NormalizedReport,
+) -> Vec<(String, String)> {
     let score = normalized.score;
     let critical = normalized.severity_counts.critical;
     let high = normalized.severity_counts.high;
     let urgent = critical + high;
+    let en = locale == "en";
 
-    let user_rating = if score >= 90 && urgent == 0 {
+    let user_rating = if en {
+        if score >= 90 && urgent == 0 {
+            "Excellent — no relevant barriers"
+        } else if score >= 75 {
+            "Good — individual barriers for assistive technologies"
+        } else if score >= 50 {
+            "Limited — noticeable barriers for screen-reader users"
+        } else {
+            "Heavily limited — essential content not accessible"
+        }
+    } else if score >= 90 && urgent == 0 {
         "Sehr gut — keine relevanten Barrieren"
     } else if score >= 75 {
         "Gut — einzelne Barrieren für Hilfstechnologien"
@@ -130,7 +240,17 @@ pub(super) fn build_overall_impact(normalized: &NormalizedReport) -> Vec<(String
         "Stark eingeschränkt — wesentliche Inhalte nicht zugänglich"
     };
 
-    let risk_level = if critical >= 2 {
+    let risk_level = if en {
+        if critical >= 2 {
+            "High — acute BITV/WCAG violation risk"
+        } else if critical >= 1 || urgent >= 3 {
+            "Medium — critical topics present"
+        } else if score < 70 {
+            "Medium — cumulative backlog"
+        } else {
+            "Low"
+        }
+    } else if critical >= 2 {
         "Hoch — BITV/WCAG-Verstoßrisiko akut"
     } else if critical >= 1 || urgent >= 3 {
         "Mittel — kritische Themen vorhanden"
@@ -140,7 +260,15 @@ pub(super) fn build_overall_impact(normalized: &NormalizedReport) -> Vec<(String
         "Niedrig"
     };
 
-    let conversion = if score < 50 {
+    let conversion = if en {
+        if score < 50 {
+            "Likely negative"
+        } else if score < 75 {
+            "Possibly negative (navigation, forms)"
+        } else {
+            "Low — good usability"
+        }
+    } else if score < 50 {
         "Hoch wahrscheinlich negativ"
     } else if score < 75 {
         "Möglicherweise negativ (Navigation, Formulare)"
@@ -148,52 +276,109 @@ pub(super) fn build_overall_impact(normalized: &NormalizedReport) -> Vec<(String
         "Gering — gute Nutzbarkeit"
     };
 
+    let (user_label, risk_label, conv_label) = if en {
+        ("User experience", "Risk level", "Conversion effect")
+    } else {
+        ("Nutzererlebnis", "Risiko-Level", "Conversion-Effekt")
+    };
+
     vec![
-        ("Nutzererlebnis".to_string(), user_rating.to_string()),
-        ("Risiko-Level".to_string(), risk_level.to_string()),
-        ("Conversion-Effekt".to_string(), conversion.to_string()),
+        (user_label.to_string(), user_rating.to_string()),
+        (risk_label.to_string(), risk_level.to_string()),
+        (conv_label.to_string(), conversion.to_string()),
     ]
 }
 
-pub(super) fn build_trend_label(delta_accessibility: i32, delta_issues: i32) -> String {
+pub(super) fn build_trend_label(
+    locale: &str,
+    delta_accessibility: i32,
+    delta_issues: i32,
+) -> String {
+    let en = locale == "en";
     if delta_accessibility >= 10 || (delta_accessibility >= 5 && delta_issues <= -5) {
-        "Deutlich verbessert".to_string()
+        if en {
+            "Significantly improved".to_string()
+        } else {
+            "Deutlich verbessert".to_string()
+        }
     } else if delta_accessibility > 0 || delta_issues < 0 {
-        "Verbessert".to_string()
+        if en {
+            "Improved".to_string()
+        } else {
+            "Verbessert".to_string()
+        }
     } else if delta_accessibility == 0 && delta_issues == 0 {
-        "Stabil".to_string()
+        if en {
+            "Stable".to_string()
+        } else {
+            "Stabil".to_string()
+        }
     } else if delta_accessibility >= -5 && delta_issues <= 5 {
-        "Leicht zurückgegangen".to_string()
+        if en {
+            "Slightly regressed".to_string()
+        } else {
+            "Leicht zurückgegangen".to_string()
+        }
+    } else if en {
+        "Significantly regressed".to_string()
     } else {
         "Deutlich verschlechtert".to_string()
     }
 }
 
-pub(super) fn build_benchmark_context(score: f32) -> String {
+pub(super) fn build_benchmark_context(locale: &str, score: f32) -> String {
+    let en = locale == "en";
     if score >= 95.0 {
-        "Top 5% — Ausnahmeniveau. Kein struktureller Handlungsdruck.".to_string()
+        if en {
+            "Top 5% — exceptional level. No structural pressure to act.".to_string()
+        } else {
+            "Top 5% — Ausnahmeniveau. Kein struktureller Handlungsdruck.".to_string()
+        }
     } else if score >= 90.0 {
-        "Top 15% — Deutlich besser als die Mehrheit. Feinschliff genügt.".to_string()
+        if en {
+            "Top 15% — clearly above the majority. Polish is enough.".to_string()
+        } else {
+            "Top 15% — Deutlich besser als die Mehrheit. Feinschliff genügt.".to_string()
+        }
     } else if score >= 80.0 {
-        "Oberes Drittel — Guter Stand, einzelne Optimierungen lohnen sich.".to_string()
+        if en {
+            "Upper third — good standing, individual optimizations pay off.".to_string()
+        } else {
+            "Oberes Drittel — Guter Stand, einzelne Optimierungen lohnen sich.".to_string()
+        }
     } else if score >= 70.0 {
-        "Mittleres Feld — Verbesserungspotenzial vorhanden, kein akuter Notfall.".to_string()
+        if en {
+            "Middle pack — improvement potential, no acute emergency.".to_string()
+        } else {
+            "Mittleres Feld — Verbesserungspotenzial vorhanden, kein akuter Notfall.".to_string()
+        }
     } else if score >= 55.0 {
-        "Unteres Mittelfeld — Deutlicher Rückstand gegenüber vergleichbaren Websites.".to_string()
+        if en {
+            "Lower middle — clear gap to comparable websites.".to_string()
+        } else {
+            "Unteres Mittelfeld — Deutlicher Rückstand gegenüber vergleichbaren Websites."
+                .to_string()
+        }
     } else if score >= 40.0 {
-        "Unteres Drittel — Erheblicher Rückstand, strukturelle Defizite häufig.".to_string()
+        if en {
+            "Lower third — significant gap, structural deficits common.".to_string()
+        } else {
+            "Unteres Drittel — Erheblicher Rückstand, strukturelle Defizite häufig.".to_string()
+        }
+    } else if en {
+        "Critical — among the weakest audited sites. Immediate action required.".to_string()
     } else {
         "Kritisch — Zu den schwächsten geprüften Seiten. Sofortiger Handlungsbedarf.".to_string()
     }
 }
 
-pub(super) fn build_business_consequence(normalized: &NormalizedReport) -> String {
+pub(super) fn build_business_consequence(i18n: &I18n, normalized: &NormalizedReport) -> String {
     let critical = normalized.severity_counts.critical;
     let total = normalized.severity_counts.total;
     let score = normalized.score;
 
     if total == 0 {
-        return "Keine bekannten Barrieren — gutes Fundament für alle Nutzergruppen.".to_string();
+        return i18n.t("business-consequence-clean");
     }
 
     let has_weak_seo = normalized.raw_seo.as_ref().is_some_and(|s| s.score < 65);
@@ -202,22 +387,19 @@ pub(super) fn build_business_consequence(normalized: &NormalizedReport) -> Strin
             || f.title.to_lowercase().contains("überschrift")
     });
 
-    if score < 50 || (critical >= 5 && total > 30) {
-        "Weite Teile der Seite sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
-            .to_string()
+    let key = if score < 50 || (critical >= 5 && total > 30) {
+        "business-consequence-severe"
     } else if has_weak_seo && has_heading_issues {
-        "Seite wird schlechter gefunden und ist für Teile der Nutzer strukturell nicht zugänglich."
-            .to_string()
+        "business-consequence-seo-headings"
     } else if critical >= 2 {
-        "Einzelne Kernfunktionen sind für Screenreader-Nutzer blockiert oder fehleranfällig."
-            .to_string()
+        "business-consequence-screenreader"
     } else {
-        "Nutzbarkeit ist gegeben — gezielte Verbesserungen erhöhen Qualität und Reichweite."
-            .to_string()
-    }
+        "business-consequence-default"
+    };
+    i18n.t(key)
 }
 
-pub(super) fn build_consequence_text(normalized: &NormalizedReport) -> String {
+pub(super) fn build_consequence_text(i18n: &I18n, normalized: &NormalizedReport) -> String {
     let critical = normalized.severity_counts.critical;
     let total = normalized.severity_counts.total;
     let score = normalized.score;
@@ -242,15 +424,16 @@ pub(super) fn build_consequence_text(normalized: &NormalizedReport) -> String {
     .filter(|&&v| v)
     .count();
 
-    if score < 50 || (critical >= 5 && total > 30) {
-        "Neue Inhalte und Funktionen erben die bestehenden Fehler — Korrekturaufwand wächst mit jeder Erweiterung.".to_string()
+    let key = if score < 50 || (critical >= 5 && total > 30) {
+        "consequence-severe"
     } else if critical >= 3 || weak_module_count >= 3 {
-        "Aufwand für spätere Korrekturen steigt deutlich — besonders bei Relaunch oder größerem Content-Ausbau.".to_string()
+        "consequence-many-weak-modules"
     } else if score >= 85 {
-        "Kein akuter Handlungsdruck. Regelmäßige Checks sichern das Niveau nach Updates und Erweiterungen.".to_string()
+        "consequence-stable"
     } else {
-        "Ohne Korrektur bleibt die Seite hinter erreichbarem Standard — Verbesserungspotenzial wird nicht genutzt.".to_string()
-    }
+        "consequence-default"
+    };
+    i18n.t(key)
 }
 
 pub(super) fn localized_report_title(locale: &str) -> String {
@@ -267,65 +450,48 @@ pub(super) fn localized_report_subtitle(locale: &str) -> &'static str {
     }
 }
 
-pub(super) fn build_verdict_text(url: &str, score: f32) -> String {
-    if score >= 90.0 {
-        format!(
-            "{url} erreicht {score:.0}/100 im Accessibility-Audit. \
-             Die verbleibenden Findings sind letzte Optimierungshebel — kein strukturelles Problem, sondern Feinschliff.",
-        )
+pub(super) fn build_verdict_text(i18n: &I18n, url: &str, score: f32) -> String {
+    let key = if score >= 90.0 {
+        "verdict-tier-excellent"
     } else if score >= 70.0 {
-        format!(
-            "{url} erreicht {score:.0}/100 im Accessibility-Audit. \
-             Die Basis ist solide — klarer Verbesserungshebel mit überschaubarem Aufwand.",
-        )
+        "verdict-tier-solid"
     } else if score >= 50.0 {
-        format!(
-            "{url} erreicht {score:.0}/100 im Accessibility-Audit. \
-             Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.",
-        )
+        "verdict-tier-deficient"
     } else {
-        format!(
-            "{url} erreicht nur {score:.0}/100 im Accessibility-Audit. \
-             Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.",
-        )
-    }
+        "verdict-tier-critical"
+    };
+    i18n.t_args(
+        key,
+        &[("url", url.to_string()), ("score", format!("{:.0}", score))],
+    )
 }
 
-pub(super) fn build_score_note(normalized: &NormalizedReport) -> Option<String> {
+pub(super) fn build_score_note(i18n: &I18n, normalized: &NormalizedReport) -> Option<String> {
     let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
     if normalized.score >= 90 && critical_topics > 0 {
-        Some(
-            "Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen."
-                .to_string(),
-        )
+        Some(i18n.t("score-note-high-with-critical"))
     } else {
         None
     }
 }
 
-pub(super) fn build_batch_verdict(total_urls: usize, overall_score: u32) -> String {
-    if overall_score >= 90 {
-        format!(
-            "Über {total_urls} geprüfte URLs hinweg erreicht die Website einen \
-             Gesamtscore von {overall_score}/100 — ein sehr gutes Ergebnis."
-        )
+pub(super) fn build_batch_verdict(i18n: &I18n, total_urls: usize, overall_score: u32) -> String {
+    let key = if overall_score >= 90 {
+        "verdict-batch-excellent"
     } else if overall_score >= 70 {
-        format!(
-            "Im Durchschnitt erreichen die {total_urls} geprüften URLs einen \
-             Gesamtscore von {overall_score}/100. Die Basis ist solide, es bestehen \
-             aber wiederkehrende Probleme in einzelnen Modulen."
-        )
+        "verdict-batch-solid"
     } else if overall_score >= 50 {
-        format!(
-            "Die {total_urls} geprüften URLs erreichen im Schnitt nur {overall_score}/100 \
-             Punkte. Es bestehen erhebliche systematische Probleme."
-        )
+        "verdict-batch-deficient"
     } else {
-        format!(
-            "Die {total_urls} geprüften URLs erreichen im Schnitt nur {overall_score}/100 \
-             Punkte. Dringender Handlungsbedarf in mehreren Modulen."
-        )
-    }
+        "verdict-batch-critical"
+    };
+    i18n.t_args(
+        key,
+        &[
+            ("total_urls", total_urls.to_string()),
+            ("score", overall_score.to_string()),
+        ],
+    )
 }
 
 pub(super) fn build_batch_appendix(batch: &BatchReport) -> BatchAppendixData {
@@ -374,11 +540,12 @@ pub(super) fn build_batch_appendix(batch: &BatchReport) -> BatchAppendixData {
     }
 }
 
-pub(super) fn yes_no(val: bool) -> String {
-    if val {
-        "Ja".to_string()
-    } else {
-        "Nein".to_string()
+pub(super) fn yes_no(locale: &str, val: bool) -> String {
+    match (locale, val) {
+        ("en", true) => "Yes".to_string(),
+        ("en", false) => "No".to_string(),
+        (_, true) => "Ja".to_string(),
+        (_, false) => "Nein".to_string(),
     }
 }
 

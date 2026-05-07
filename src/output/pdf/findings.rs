@@ -15,14 +15,19 @@ use super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
 pub(super) fn render_key_finding_block(
     mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
-    _i18n: &I18n,
+    i18n: &I18n,
+    include_technical_context: bool,
 ) -> renderreport::engine::ReportBuilder {
-    // Compact finding card: 4 lines only — Problem / Impact / Ursache / Fix
-    let sev_label = match group.severity {
-        crate::wcag::Severity::Critical => "KRITISCH",
-        crate::wcag::Severity::High => "HOCH",
-        crate::wcag::Severity::Medium => "MITTEL",
-        crate::wcag::Severity::Low => "GERING",
+    let en = i18n.locale() == "en";
+    let sev_label = match (group.severity, en) {
+        (crate::wcag::Severity::Critical, true) => "CRITICAL",
+        (crate::wcag::Severity::Critical, false) => "KRITISCH",
+        (crate::wcag::Severity::High, true) => "HIGH",
+        (crate::wcag::Severity::High, false) => "HOCH",
+        (crate::wcag::Severity::Medium, true) => "MEDIUM",
+        (crate::wcag::Severity::Medium, false) => "MITTEL",
+        (crate::wcag::Severity::Low, true) => "LOW",
+        (crate::wcag::Severity::Low, false) => "GERING",
     };
     let is_quick_win = group.effort == crate::output::report_model::Effort::Quick;
     let title = if is_quick_win {
@@ -32,41 +37,76 @@ pub(super) fn render_key_finding_block(
     };
     let mut kv = KeyValueList::new().with_title(title);
 
-    // Problem — one sentence from customer_description
+    let (key_problem, key_impact, key_cause, key_fix, key_effort, qw_value) = if en {
+        (
+            "Problem",
+            "What users experience",
+            "Cause",
+            "What to do",
+            "Effort",
+            "Quick win — a few hours, high impact",
+        )
+    } else {
+        (
+            "Problem",
+            "Was Nutzer erleben",
+            "Ursache",
+            "Was tun",
+            "Aufwand",
+            "Quick Win — wenige Stunden, hohe Wirkung",
+        )
+    };
+
     let problem = first_sentence(&group.customer_description);
-    kv = kv.add("Problem", problem);
+    kv = kv.add(key_problem, problem);
 
-    // Impact — one sentence
     if !group.user_impact.is_empty() {
-        kv = kv.add("Was Nutzer erleben", first_sentence(&group.user_impact));
+        kv = kv.add(key_impact, first_sentence(&group.user_impact));
     }
 
-    // Ursache — one sentence
     if !group.typical_cause.is_empty() {
-        kv = kv.add("Ursache", first_sentence(&group.typical_cause));
+        kv = kv.add(key_cause, first_sentence(&group.typical_cause));
     }
 
-    // Fix — one sentence
-    kv = kv.add("Was tun", first_sentence(&group.recommendation));
+    kv = kv.add(key_fix, first_sentence(&group.recommendation));
 
-    // Quick Win callout
     if is_quick_win {
-        kv = kv.add("Aufwand", "Quick Win — wenige Stunden, hohe Wirkung");
+        kv = kv.add(key_effort, qw_value);
     }
 
     builder = builder.add_component(kv);
-    builder = builder.add_component(
-        SummaryBox::new("Raw Finding Snapshot")
-            .add_item("Regel", &group.rule_id)
-            .add_item("WCAG", &group.wcag_criterion)
-            .add_item("Instanzen", group.occurrence_count.to_string())
-            .add_item("Betroffene Elemente", group.affected_elements.to_string())
-            .add_item(
-                "Weitere ähnliche Vorkommen",
-                group.additional_occurrences.to_string(),
+    if include_technical_context {
+        let (te_title, te_rule, te_wcag, te_instances, te_affected, te_more, te_urls) = if en {
+            (
+                "Technical context",
+                "Rule",
+                "WCAG",
+                "Instances",
+                "Affected elements",
+                "Other similar occurrences",
+                "Affected URLs",
             )
-            .add_item("Betroffene URLs", group.affected_urls.len().to_string()),
-    );
+        } else {
+            (
+                "Technische Einordnung",
+                "Regel",
+                "WCAG",
+                "Instanzen",
+                "Betroffene Elemente",
+                "Weitere ähnliche Vorkommen",
+                "Betroffene URLs",
+            )
+        };
+        builder = builder.add_component(
+            SummaryBox::new(te_title)
+                .add_item(te_rule, &group.rule_id)
+                .add_item(te_wcag, &group.wcag_criterion)
+                .add_item(te_instances, group.occurrence_count.to_string())
+                .add_item(te_affected, group.affected_elements.to_string())
+                .add_item(te_more, group.additional_occurrences.to_string())
+                .add_item(te_urls, group.affected_urls.len().to_string()),
+        );
+    }
     builder
 }
 
@@ -96,7 +136,7 @@ pub(super) fn render_finding_technical(
     group: &FindingGroup,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    // Header: title + WCAG reference
+    let en = i18n.locale() == "en";
     let header = if !group.wcag_criterion.is_empty() {
         format!(
             "{} — WCAG {} ({})",
@@ -107,9 +147,13 @@ pub(super) fn render_finding_technical(
     };
     builder = builder.add_component(Label::new(&header).bold().with_size("14pt"));
 
-    // Compact meta: priority | owner | effort | elements
+    let (elements_word, occurrences_word) = if en {
+        ("elements", "occurrences")
+    } else {
+        ("Elemente", "Vorkommen")
+    };
     let meta = format!(
-        "{}: {} | {}: {} | {}: {} | {} Elemente, {} Vorkommen",
+        "{}: {} | {}: {} | {}: {} | {} {}, {} {}",
         i18n.t("label-priority"),
         priority_label_i18n(group.priority, i18n),
         i18n.t("label-owner"),
@@ -117,20 +161,26 @@ pub(super) fn render_finding_technical(
         i18n.t("label-effort"),
         effort_label_i18n(group.effort, i18n),
         group.affected_elements,
+        elements_word,
         group.occurrence_count,
+        occurrences_word,
     );
     builder = builder.add_component(TextBlock::new(meta));
 
-    // Recommendation only — no repeated problem description
-    builder =
-        builder.add_component(Callout::success(&group.recommendation).with_title("Empfehlung"));
+    let recommendation_title = if en { "Recommendation" } else { "Empfehlung" };
+    builder = builder
+        .add_component(Callout::success(&group.recommendation).with_title(recommendation_title));
 
-    // Code examples — the core of the tech section
+    let (wrong_label, right_label) = if en {
+        ("✕ Wrong", "✓ Correct")
+    } else {
+        ("✕ Falsch", "✓ Richtig")
+    };
     for example in &group.examples {
         builder = builder.add_component(
             WrongRightBlock::new(&example.bad, &example.good)
                 .code()
-                .with_labels("✕ Falsch", "✓ Richtig"),
+                .with_labels(wrong_label, right_label),
         );
         if let Some(ref dec) = example.decorative {
             builder =
@@ -138,7 +188,6 @@ pub(super) fn render_finding_technical(
         }
     }
 
-    // Affected URLs (compact)
     if !group.affected_urls.is_empty() && group.affected_urls.len() <= 10 {
         let mut url_list = List::new().with_title(i18n.t("label-affected-urls"));
         for url in &group.affected_urls {
@@ -148,11 +197,31 @@ pub(super) fn render_finding_technical(
     }
 
     if !group.representative_occurrences.is_empty() {
+        let (loc_col, hint_col, repr_title, occ_title, html_label, code_callout_title) = if en {
+            (
+                "Location",
+                "Note",
+                "Representative occurrences",
+                "Occurrence",
+                "HTML",
+                "Suggested code fix",
+            )
+        } else {
+            (
+                "Fundstelle",
+                "Hinweis",
+                "Repräsentative Fundstellen",
+                "Fundstelle",
+                "HTML",
+                "Vorgeschlagene Code-Korrektur",
+            )
+        };
+        let hint_label = hint_col;
         let mut table = renderreport::components::AuditTable::new(vec![
-            renderreport::components::TableColumn::new("Fundstelle").with_width("26%"),
-            renderreport::components::TableColumn::new("Hinweis").with_width("74%"),
+            renderreport::components::TableColumn::new(loc_col).with_width("26%"),
+            renderreport::components::TableColumn::new(hint_col).with_width("74%"),
         ])
-        .with_title("Repräsentative Fundstellen");
+        .with_title(repr_title);
 
         for occ in &group.representative_occurrences {
             table = table.add_row(vec![
@@ -163,10 +232,13 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(table);
 
         for occ in &group.representative_occurrences {
-            let mut snapshot =
-                SummaryBox::new(format!("Fundstelle: {}", truncate_url(&occ.selector, 60)))
-                    .add_item("Node", &occ.node_id)
-                    .add_item("Hinweis", first_sentence(&occ.message));
+            let mut snapshot = SummaryBox::new(format!(
+                "{}: {}",
+                occ_title,
+                truncate_url(&occ.selector, 60)
+            ))
+            .add_item("Node", &occ.node_id)
+            .add_item(hint_label, first_sentence(&occ.message));
 
             if let Some(html) = occ
                 .html_snippet
@@ -174,7 +246,7 @@ pub(super) fn render_finding_technical(
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
             {
-                snapshot = snapshot.add_item("HTML", truncate_url(html, 110));
+                snapshot = snapshot.add_item(html_label, truncate_url(html, 110));
             }
 
             builder = builder.add_component(snapshot);
@@ -186,19 +258,23 @@ pub(super) fn render_finding_technical(
                 .filter(|value| !value.is_empty())
             {
                 builder = builder.add_component(
-                    Callout::info(truncate_url(code, 180))
-                        .with_title("Vorgeschlagene Code-Korrektur"),
+                    Callout::info(truncate_url(code, 180)).with_title(code_callout_title),
                 );
             }
         }
     }
 
     if !group.pattern_clusters.is_empty() {
+        let (pattern_col, occ_col, table_title) = if en {
+            ("Pattern", "Occurrences", "Frequent patterns")
+        } else {
+            ("Muster", "Vorkommen", "Häufige Muster")
+        };
         let mut table = renderreport::components::AuditTable::new(vec![
-            renderreport::components::TableColumn::new("Muster").with_width("70%"),
-            renderreport::components::TableColumn::new("Vorkommen").with_width("30%"),
+            renderreport::components::TableColumn::new(pattern_col).with_width("70%"),
+            renderreport::components::TableColumn::new(occ_col).with_width("30%"),
         ])
-        .with_title("Häufige Muster");
+        .with_title(table_title);
 
         for cluster in &group.pattern_clusters {
             table = table.add_row(vec![

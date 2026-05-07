@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use crate::audit::{normalize, BatchReport, BrokenLinkSeverity};
+use crate::i18n::I18n;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::*;
 use crate::seo::profile::PageType;
@@ -22,6 +23,12 @@ use super::seo::{
 
 /// Build a complete presentation model from a batch audit report
 pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
+    let i18n = I18n::new("de").expect("default locale must always load");
+    build_batch_presentation_with_locale(batch, &i18n)
+}
+
+/// Locale-aware variant of [`build_batch_presentation`].
+pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
     let all_violations: Vec<_> = batch
         .reports
         .iter()
@@ -50,7 +57,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
     let mut top_issues: Vec<FindingGroup> = rule_groups
         .values()
-        .map(build_finding_group_from_accumulator)
+        .map(|acc| build_finding_group_from_accumulator(i18n.locale(), acc))
         .collect();
     top_issues.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
 
@@ -65,7 +72,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         })
         .collect();
 
-    let action_plan = derive_action_plan(&top_issues);
+    let action_plan = derive_action_plan(i18n.locale(), &top_issues);
 
     // Normalize all reports early — needed for overall scores, risk, module averages
     let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
@@ -104,7 +111,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         .iter()
         .zip(normalized_reports.iter())
         .map(|(r, nr)| {
-            let per_url_groups = group_violations(&r.wcag_results.violations, &[]);
+            let per_url_groups = group_violations(i18n.locale(), &r.wcag_results.violations, &[]);
             let mut sorted = per_url_groups;
             sorted.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
             let top_issue_titles: Vec<String> =
@@ -152,10 +159,16 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                         r.seo.as_ref().and_then(|seo| {
                             seo.content_profile
                                 .as_ref()
-                                .map(page_profile_optimization_note)
+                                .map(|cp| page_profile_optimization_note(i18n.locale(), cp))
                         })
                     })
-                    .unwrap_or_else(|| "Ergebnisse stabil halten".to_string()),
+                    .unwrap_or_else(|| {
+                        if i18n.locale() == "en" {
+                            "Maintain results".to_string()
+                        } else {
+                            "Ergebnisse stabil halten".to_string()
+                        }
+                    }),
                 topic_terms,
                 top_issues: top_issue_titles,
                 module_scores,
@@ -341,25 +354,45 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
                 .iter()
                 .filter(|rb| rb.has_blocking())
                 .count();
+            let en = i18n.locale() == "en";
+            let (
+                label_pages_analyzed,
+                label_pages_blocking,
+                label_blocking_total,
+                label_third_party,
+            ) = if en {
+                (
+                    "Pages analyzed",
+                    "Pages with blocking",
+                    "Blocking resources total",
+                    "Third-party traffic total",
+                )
+            } else {
+                (
+                    "Seiten analysiert",
+                    "Seiten mit Blocking",
+                    "Blocking-Ressourcen gesamt",
+                    "Third-Party-Traffic gesamt",
+                )
+            };
+            let pages_count_value = if en {
+                format!("{} of {}", pages_with_data.len(), batch.reports.len())
+            } else {
+                format!("{} von {}", pages_with_data.len(), batch.reports.len())
+            };
             vec![
+                (label_pages_analyzed.to_string(), pages_count_value),
                 (
-                    "Seiten analysiert".to_string(),
-                    format!("{} von {}", pages_with_data.len(), batch.reports.len()),
-                ),
-                (
-                    "Seiten mit Blocking".to_string(),
+                    label_pages_blocking.to_string(),
                     format!(
                         "{} ({:.0}%)",
                         pages_with_blocking,
                         pages_with_blocking as f64 / n * 100.0
                     ),
                 ),
+                (label_blocking_total.to_string(), total_blocking.to_string()),
                 (
-                    "Blocking-Ressourcen gesamt".to_string(),
-                    total_blocking.to_string(),
-                ),
-                (
-                    "Third-Party-Traffic gesamt".to_string(),
+                    label_third_party.to_string(),
                     format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0),
                 ),
             ]
@@ -437,7 +470,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
         sum / normalized_reports.len() as u32
     };
 
-    let verdict_text = build_batch_verdict(batch.summary.total_urls, average_overall_score);
+    let verdict_text = build_batch_verdict(i18n, batch.summary.total_urls, average_overall_score);
 
     // Aggregate module averages
     let module_averages = {
@@ -497,19 +530,19 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
             .map(|n| n.risk.level)
             .max()
             .unwrap_or(RiskLevel::Low);
-        let level_str = match worst {
-            RiskLevel::Low => "Gering",
-            RiskLevel::Medium => "Mittel",
-            RiskLevel::High => "Hoch",
-            RiskLevel::Critical => "Kritisch",
+        let level_str = worst.label_localized(i18n);
+        let en = i18n.locale() == "en";
+        let summary = match (worst, en) {
+            (RiskLevel::Low, true) => "The audited pages overall show a low accessibility risk.",
+            (RiskLevel::Low, false) => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
+            (RiskLevel::Medium, true) => "Some pages show medium risk. Targeted improvements recommended.",
+            (RiskLevel::Medium, false) => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
+            (RiskLevel::High, true) => "Several pages show high risk. Timely remediation recommended, especially for WCAG Level A violations.",
+            (RiskLevel::High, false) => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A-Verstößen.",
+            (RiskLevel::Critical, true) => "Critical risk across multiple pages. WCAG Level A violations detected automatically — immediate action recommended; manual review required for a defensible legal classification.",
+            (RiskLevel::Critical, false) => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße automatisiert erkannt — sofortige Maßnahmen empfohlen, manuelle Prüfung für belastbare rechtliche Einordnung nötig.",
         };
-        let summary = match worst {
-            RiskLevel::Low => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
-            RiskLevel::Medium => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
-            RiskLevel::High => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A-Verstößen.",
-            RiskLevel::Critical => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A-Verstöße automatisiert erkannt — sofortige Maßnahmen empfohlen, manuelle Prüfung für belastbare rechtliche Einordnung nötig.",
-        };
-        (level_str.to_string(), summary.to_string())
+        (level_str, summary.to_string())
     };
 
     // Domain from first URL
@@ -545,11 +578,24 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     }
     .to_string();
 
+    let en = i18n.locale() == "en";
     BatchPresentation {
         cover: CoverData {
-            title: "Web Accessibility Batch Audit Report".to_string(),
-            url: format!("{} URLs geprüft", batch.summary.total_urls),
-            date: chrono::Utc::now().format("%d.%m.%Y").to_string(),
+            title: if en {
+                "Web Accessibility Batch Audit Report".to_string()
+            } else {
+                "Barrierefreiheits-Batch-Audit-Report".to_string()
+            },
+            url: if en {
+                format!("{} URLs audited", batch.summary.total_urls)
+            } else {
+                format!("{} URLs geprüft", batch.summary.total_urls)
+            },
+            date: if en {
+                chrono::Utc::now().format("%Y-%m-%d").to_string()
+            } else {
+                chrono::Utc::now().format("%d.%m.%Y").to_string()
+            },
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
         portfolio_summary: PortfolioSummary {
@@ -668,6 +714,7 @@ struct GroupAccumulator {
 }
 
 fn group_violations(
+    locale: &str,
     violations: &[crate::wcag::Violation],
     _url_context: &[&str],
 ) -> Vec<FindingGroup> {
@@ -701,18 +748,19 @@ fn group_violations(
                 execution_priority,
             ) = if let Some(expl) = explanation {
                 (
-                    expl.customer_title.to_string(),
-                    expl.customer_description.to_string(),
-                    expl.user_impact.to_string(),
+                    expl.customer_title_for(locale).to_string(),
+                    expl.customer_description_for(locale).to_string(),
+                    expl.user_impact_for(locale).to_string(),
                     derive_business_impact(
-                        expl.user_impact,
+                        locale,
+                        expl.user_impact_for(locale),
                         dimension_label,
                         first.severity,
                         subcategory.as_deref(),
                     ),
-                    expl.typical_cause.to_string(),
-                    expl.recommendation.to_string(),
-                    expl.technical_note.to_string(),
+                    expl.typical_cause_for(locale).to_string(),
+                    expl.recommendation_for(locale).to_string(),
+                    expl.technical_note_for(locale).to_string(),
                     expl.responsible_role,
                     expl.effort_estimate,
                     derive_execution_priority(
@@ -722,17 +770,28 @@ fn group_violations(
                     ),
                 )
             } else {
+                let users_affected = if locale == "en" {
+                    "Users with disabilities may be affected.".to_string()
+                } else {
+                    "Nutzer mit Einschränkungen können betroffen sein.".to_string()
+                };
+                let auto_detected = if locale == "en" {
+                    "Automatically detected issue.".to_string()
+                } else {
+                    "Automatisch erkanntes Problem.".to_string()
+                };
                 (
                     format!("{} — {}", first.rule, first.rule_name),
                     first.message.clone(),
-                    "Nutzer mit Einschränkungen können betroffen sein.".to_string(),
+                    users_affected.clone(),
                     derive_business_impact(
-                        "Nutzer mit Einschränkungen können betroffen sein.",
+                        locale,
+                        &users_affected,
                         dimension_label,
                         first.severity,
                         subcategory.as_deref(),
                     ),
-                    "Automatisch erkanntes Problem.".to_string(),
+                    auto_detected,
                     first
                         .fix_suggestion
                         .clone()
@@ -787,7 +846,7 @@ fn group_violations(
         .collect()
 }
 
-fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup {
+fn build_finding_group_from_accumulator(locale: &str, acc: &GroupAccumulator) -> FindingGroup {
     let explanation = get_explanation(&acc.rule);
     let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&acc.rule);
     let dimension_label = dimension.as_deref().unwrap_or("Accessibility");
@@ -804,13 +863,19 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
         execution_priority,
     ) = if let Some(expl) = explanation {
         (
-            expl.customer_title.to_string(),
-            expl.customer_description.to_string(),
-            expl.user_impact.to_string(),
-            derive_business_impact(expl.user_impact, dimension_label, acc.severity, None),
-            expl.typical_cause.to_string(),
-            expl.recommendation.to_string(),
-            expl.technical_note.to_string(),
+            expl.customer_title_for(locale).to_string(),
+            expl.customer_description_for(locale).to_string(),
+            expl.user_impact_for(locale).to_string(),
+            derive_business_impact(
+                locale,
+                expl.user_impact_for(locale),
+                dimension_label,
+                acc.severity,
+                None,
+            ),
+            expl.typical_cause_for(locale).to_string(),
+            expl.recommendation_for(locale).to_string(),
+            expl.technical_note_for(locale).to_string(),
             expl.responsible_role,
             expl.effort_estimate,
             derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),
@@ -820,7 +885,7 @@ fn build_finding_group_from_accumulator(acc: &GroupAccumulator) -> FindingGroup 
             format!("{} — {}", acc.rule, acc.rule_name),
             String::new(),
             String::new(),
-            derive_business_impact("", dimension_label, acc.severity, None),
+            derive_business_impact(locale, "", dimension_label, acc.severity, None),
             String::new(),
             String::new(),
             String::new(),

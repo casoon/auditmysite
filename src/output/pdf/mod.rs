@@ -5,6 +5,7 @@
 
 mod batch;
 mod cover;
+mod design;
 mod detail_modules;
 mod findings;
 mod helpers;
@@ -53,6 +54,9 @@ use self::modules::{
     build_summary_overview, build_top_hebel_table, build_was_jetzt_tun_table, WasJetztTunContent,
 };
 
+const WORDMARK_ASSET: &str = "/auditmysite-wordmark.svg";
+const CUSTOM_COVER_LOGO_ASSET: &str = "/cover-logo-custom";
+
 // ─── Single Report ──────────────────────────────────────────────────────────
 //
 // 6-page structure:
@@ -68,7 +72,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     let normalized = normalize(report);
     let vm = build_view_model(&normalized, config);
     let i18n = I18n::new(&config.locale)?;
-    let wordmark_asset = "/auditmysite-wordmark.svg";
 
     let mut builder = engine
         .report("wcag-audit")
@@ -79,13 +82,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .metadata("footer_prefix", "Audit:")
         .metadata("footer_link_url", "");
 
-    if let Ok(path) = auditmysite_wordmark_path() {
-        builder = builder.asset(wordmark_asset, path);
-    }
+    let cover_logo_asset = cover_logo_asset(config);
+    builder = register_cover_logo_asset(builder, config, cover_logo_asset);
 
     // ── Cover Page ───────────────────────────────────────────────────
     builder = builder
-        .add_component(Image::new(wordmark_asset).with_width("120pt"))
+        .add_component(Image::new(cover_logo_asset).with_width("120pt"))
         .add_component(
             Label::new(&vm.executive.cover_eyebrow)
                 .with_size("10pt")
@@ -127,6 +129,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     builder = builder.add_component(build_cover_score_row(
         &vm.cover,
         single_badge_enabled.then_some(single_badge_asset),
+        &i18n,
     ));
 
     // HeroAssessment: concise pattern-based headline statement (D)
@@ -146,7 +149,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         )
-        .add_component(build_cover_fact_strip(&vm))
+        .add_component(build_cover_fact_strip(&vm, &i18n))
         .add_component(PageBreak::new());
 
     if vm.meta.report_level != ReportLevel::Executive {
@@ -161,10 +164,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // ─────────────────────────────────────────────────────────────────
     {
         let risk_callout = match vm.summary.risk_level.as_str() {
-            "Kritisch" => {
+            "Kritisch" | "Critical" => {
                 Callout::error(&vm.summary.risk_summary).with_title(&vm.executive.risk_title)
             }
-            "Hoch" => {
+            "Hoch" | "High" => {
                 Callout::warning(&vm.summary.risk_summary).with_title(&vm.executive.risk_title)
             }
             _ => Callout::info(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
@@ -176,7 +179,11 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 component_json(
                     SectionHeaderSplit::new(
                         &vm.executive.status_title,
-                        "Einordnung, Risiko und die geschäftlich wichtigsten Konsequenzen auf einen Blick.",
+                        if i18n.locale() == "en" {
+                            "Classification, risk and the most important business consequences at a glance."
+                        } else {
+                            "Einordnung, Risiko und die geschäftlich wichtigsten Konsequenzen auf einen Blick."
+                        },
                     )
                     .with_eyebrow("EXECUTIVE SNAPSHOT")
                     .with_level(1)
@@ -192,18 +199,21 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 component_json(build_summary_overview(&vm.summary)),
                 component_json(
                     MetricStrip::new(vec![
-                        MetricStripItem::new("Gesamtscore", vm.summary.score.to_string())
+                        MetricStripItem::new(i18n.t("metric-score"), vm.summary.score.to_string())
                             .with_accent("#0f766e"),
-                        MetricStripItem::new("Probleme erkannt", vm.severity.total.to_string()),
                         MetricStripItem::new(
-                            "Kritisch / Hoch",
+                            i18n.t("metric-issues-detected"),
+                            vm.severity.total.to_string(),
+                        ),
+                        MetricStripItem::new(
+                            i18n.t("metric-critical-high"),
                             format!("{}", vm.severity.critical + vm.severity.high),
                         )
                         .with_status("bad")
                         .with_accent("#dc2626"),
-                        MetricStripItem::new("Risiko", &vm.summary.risk_level)
+                        MetricStripItem::new(i18n.t("metric-risk"), &vm.summary.risk_level)
                             .with_status(risk_status(&vm.summary.risk_level)),
-                        MetricStripItem::new("Zertifikat", &vm.summary.certificate)
+                        MetricStripItem::new(i18n.t("metric-certificate"), &vm.summary.certificate)
                             .with_accent("#7c3aed"),
                     ])
                     .compact(),
@@ -212,7 +222,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         ));
 
         builder = builder.add_component(build_module_strip(&vm));
-        builder = builder.add_component(build_raw_audit_snapshot(&vm));
+        if vm.meta.report_level != ReportLevel::Executive {
+            builder = builder.add_component(build_raw_audit_snapshot(&vm, &i18n));
+        }
 
         // Block 2: Kernaussagen — max 3 Punkte, direkt aus Daten
         {
@@ -225,14 +237,25 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // Auswirkungen — Nutzer / Business / Risiko
         {
-            let user = impact_row(&vm.executive.impact_rows, "Nutzer");
-            let business = impact_row(&vm.executive.impact_rows, "Business");
-            let risk = impact_row(&vm.executive.impact_rows, "Risiko");
+            let en = i18n.locale() == "en";
+            let (user_key, business_key, risk_key) = if en {
+                ("User", "Business", "Risk")
+            } else {
+                ("Nutzer", "Business", "Risiko")
+            };
+            let (usability_label, compliance_label, business_eff_label) = if en {
+                ("Usability", "Compliance", "Business effect")
+            } else {
+                ("Nutzbarkeit", "Compliance", "Geschäftswirkung")
+            };
+            let user = impact_row(&vm.executive.impact_rows, user_key);
+            let business = impact_row(&vm.executive.impact_rows, business_key);
+            let risk = impact_row(&vm.executive.impact_rows, risk_key);
             builder = builder.add_component(
                 ImpactGrid::new(
-                    ImpactGridCard::new("Nutzer", "Nutzbarkeit", user).with_status("warn"),
-                    ImpactGridCard::new("Risiko", "Compliance", risk).with_status("bad"),
-                    ImpactGridCard::new("Business", "Geschäftswirkung", business)
+                    ImpactGridCard::new(user_key, usability_label, user).with_status("warn"),
+                    ImpactGridCard::new(risk_key, compliance_label, risk).with_status("bad"),
+                    ImpactGridCard::new(business_key, business_eff_label, business)
                         .with_status("info"),
                 )
                 .with_title(&vm.executive.impact_title),
@@ -257,6 +280,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         }
 
         if !vm.summary.positive_aspects.is_empty() {
+            let strength_label = i18n.t("label-strength");
             let rows: Vec<ChecklistRow> = vm
                 .summary
                 .positive_aspects
@@ -264,11 +288,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .take(3)
                 .enumerate()
                 .map(|(i, item)| {
-                    ChecklistRow::new(format!("Stärke {}", i + 1), item).with_status("good")
+                    ChecklistRow::new(format!("{} {}", strength_label, i + 1), item)
+                        .with_status("good")
                 })
                 .collect();
             builder = builder
-                .add_component(ChecklistPanel::new(rows).with_title("Was bereits stark ist"));
+                .add_component(ChecklistPanel::new(rows).with_title(i18n.t("panel-strengths")));
         }
     }
 
@@ -310,8 +335,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // TopFixesTable
         if let Some(table) = build_top_hebel_table(&vm.findings, total_ch) {
-            builder =
-                builder.add_component(table.with_title("Die wichtigsten Probleme im Überblick"));
+            builder = builder.add_component(table.with_title(i18n.t("section-top-issues")));
         }
 
         // LeverageBlock — what fixing achieves
@@ -336,12 +360,17 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // FindingCards — compact: Problem/Impact/Ursache/Fix
         for group in vm.findings.top_findings.iter().take(5) {
-            builder = render_key_finding_block(builder, group, &i18n);
+            builder = render_key_finding_block(
+                builder,
+                group,
+                &i18n,
+                vm.meta.report_level != ReportLevel::Executive,
+            );
         }
     }
 
     if let Some(ref history) = vm.history {
-        builder = render_history_section(builder, history);
+        builder = render_history_section(builder, history, &i18n);
     }
 
     // Executive level stops here
@@ -369,7 +398,11 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 &vm.executive.action_plan_title,
                 &vm.executive.action_plan_intro,
             )
-            .with_eyebrow("UMSETZUNGSPLAN")
+            .with_eyebrow(if i18n.locale() == "en" {
+                "IMPLEMENTATION PLAN"
+            } else {
+                "UMSETZUNGSPLAN"
+            })
             .with_level(1),
         );
 
@@ -407,8 +440,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .iter()
                 .map(|item| ChecklistRow::new(&item.action, &item.user_effect).with_status("warn"))
                 .collect();
-            builder =
-                builder.add_component(ChecklistPanel::new(rows).with_title("Sofort umsetzbar"));
+            builder = builder
+                .add_component(ChecklistPanel::new(rows).with_title(i18n.t("panel-quick-actions")));
         }
 
         // ActionTable — full prioritized table
@@ -448,8 +481,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                         .with_status(status)
                 })
                 .collect();
-            builder =
-                builder.add_component(DiagnosisPanel::new(diag_rows).with_title("Modulübersicht"));
+            builder = builder.add_component(
+                DiagnosisPanel::new(diag_rows).with_title(i18n.t("panel-modules-overview")),
+            );
         }
     }
 
@@ -471,45 +505,46 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     // ── Module Detail Metrics ───────────────────────────────────────
     if vm.module_details.has_any {
-        builder = builder.add_component(Section::new("Technische Detailmetriken").with_level(2));
+        builder = builder
+            .add_component(Section::new(i18n.t("section-tech-detail-metrics")).with_level(2));
     }
 
     if let Some(ref perf) = vm.module_details.performance {
-        builder = render_performance(builder, perf);
+        builder = render_performance(builder, perf, &i18n);
     }
     if !report.budget_violations.is_empty() {
-        builder = render_budget_violations(builder, &report.budget_violations);
+        builder = render_budget_violations(builder, &report.budget_violations, &i18n);
     }
     if let Some(ref seo) = vm.module_details.seo {
-        builder = render_seo(builder, seo);
+        builder = render_seo(builder, seo, &i18n);
     }
     if let Some(ref sec) = vm.module_details.security {
-        builder = render_security(builder, sec);
+        builder = render_security(builder, sec, &i18n);
     }
     if let Some(ref mobile) = vm.module_details.mobile {
-        builder = render_mobile(builder, mobile);
+        builder = render_mobile(builder, mobile, &i18n);
     }
     if let Some(ref ux) = vm.module_details.ux {
-        builder = render_ux(builder, ux);
+        builder = render_ux(builder, ux, &i18n);
     }
     if let Some(ref journey) = vm.module_details.journey {
-        builder = render_journey(builder, journey);
+        builder = render_journey(builder, journey, &i18n);
     }
     if let Some(ref dm) = vm.module_details.dark_mode {
-        builder = render_dark_mode(builder, dm);
+        builder = render_dark_mode(builder, dm, &i18n);
     }
     if let Some(ref sq) = vm.module_details.source_quality {
-        builder = render_source_quality(builder, sq);
+        builder = render_source_quality(builder, sq, &i18n);
     }
     if let Some(ref av) = vm.module_details.ai_visibility {
-        builder = render_ai_visibility(builder, av);
+        builder = render_ai_visibility(builder, av, &i18n);
     }
 
     // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
         builder = builder.add_component(Section::new(i18n.t("section-appendix")).with_level(1));
 
-        builder = builder.add_component(build_cli_snapshot_table(&vm));
+        builder = builder.add_component(build_cli_snapshot_table(&vm, &i18n));
 
         if vm.meta.report_level == ReportLevel::Technical {
             for v in &vm.appendix.violations {
@@ -558,7 +593,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 })
                 .collect();
             builder = builder.add_component(
-                ChecklistPanel::new(rows).with_title("Alle Verstöße (aggregiert nach Regel)"),
+                ChecklistPanel::new(rows).with_title(i18n.t("section-all-violations")),
             );
         }
     }
@@ -582,13 +617,24 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     Ok(pdf_bytes)
 }
 
-fn build_cover_fact_strip(vm: &ReportViewModel) -> MetricStrip {
+fn build_cover_fact_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStrip {
     MetricStrip::new(vec![
-        MetricStripItem::new("Domain", extract_domain(&vm.cover.domain)).with_accent("#0f766e"),
-        MetricStripItem::new("Report-Level", format!("{:?}", vm.meta.report_level))
-            .with_accent("#475569"),
-        MetricStripItem::new("Module", vm.cover.modules.len().to_string()).with_accent("#7c3aed"),
-        MetricStripItem::new("Prüfdatum", &vm.cover.date).with_accent("#b45309"),
+        MetricStripItem::new(
+            i18n.t("cover-fact-domain"),
+            extract_domain(&vm.cover.domain),
+        )
+        .with_accent("#0f766e"),
+        MetricStripItem::new(
+            i18n.t("cover-fact-scope"),
+            i18n.t("cover-fact-scope-single"),
+        )
+        .with_accent("#475569"),
+        MetricStripItem::new(
+            i18n.t("cover-fact-modules"),
+            vm.cover.modules.len().to_string(),
+        )
+        .with_accent("#7c3aed"),
+        MetricStripItem::new(i18n.t("cover-fact-date"), &vm.cover.date).with_accent("#b45309"),
     ])
 }
 
@@ -620,24 +666,28 @@ fn impact_row<'a>(rows: &'a [(String, String)], label: &str) -> &'a str {
     rows.iter()
         .find(|(key, _)| key == label)
         .map(|(_, value)| value.as_str())
-        .unwrap_or("Keine Details verfügbar.")
+        .unwrap_or("")
 }
 
-fn build_cli_snapshot_table(vm: &ReportViewModel) -> AuditTable {
+fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> AuditTable {
     let mut table = AuditTable::new(vec![
-        TableColumn::new("Bereich").with_width("22%"),
-        TableColumn::new("Signal").with_width("28%"),
-        TableColumn::new("Wert").with_width("50%"),
+        TableColumn::new(i18n.t("audit-data-area")).with_width("22%"),
+        TableColumn::new(i18n.t("audit-data-signal")).with_width("28%"),
+        TableColumn::new(i18n.t("audit-data-value")).with_width("50%"),
     ])
-    .with_title("Technical Snapshot (CLI parity)");
+    .with_title(i18n.t("audit-data-title"));
+
+    let row_audit = i18n.t("audit-data-row-audit");
+    let row_module = i18n.t("audit-data-row-module");
+    let row_finding = i18n.t("audit-data-row-finding");
 
     for (label, value) in &vm.methodology.audit_facts {
-        table = table.add_row(vec!["Audit".to_string(), label.clone(), value.clone()]);
+        table = table.add_row(vec![row_audit.clone(), label.clone(), value.clone()]);
     }
 
     for module in &vm.modules.dashboard {
         table = table.add_row(vec![
-            "Modul".to_string(),
+            row_module.clone(),
             module.name.clone(),
             format!(
                 "{} / 100 — {}. {}",
@@ -646,13 +696,19 @@ fn build_cli_snapshot_table(vm: &ReportViewModel) -> AuditTable {
         ]);
     }
 
+    let occurrences_word = if i18n.locale() == "en" {
+        "occurrences"
+    } else {
+        "Vorkommen"
+    };
     for finding in vm.findings.top_findings.iter().take(6) {
         table = table.add_row(vec![
-            "Finding".to_string(),
+            row_finding.clone(),
             format!("{} ({})", finding.rule_id, finding.wcag_criterion),
             format!(
-                "{} Vorkommen — {}",
+                "{} {} — {}",
                 finding.occurrence_count,
+                occurrences_word,
                 first_sentence(&finding.user_impact)
             ),
         ]);
@@ -661,71 +717,83 @@ fn build_cli_snapshot_table(vm: &ReportViewModel) -> AuditTable {
     table
 }
 
-fn build_raw_audit_snapshot(vm: &ReportViewModel) -> SummaryBox {
-    SummaryBox::new("Raw Audit Snapshot")
+fn build_raw_audit_snapshot(vm: &ReportViewModel, i18n: &I18n) -> SummaryBox {
+    let lookup = |de: &str, en_label: &str| -> String {
+        vm.methodology
+            .audit_facts
+            .iter()
+            .find(|(label, _)| label == de || label == en_label)
+            .map(|(_, value)| value.clone())
+            .unwrap_or_default()
+    };
+    SummaryBox::new(i18n.t("scope-box-title"))
+        .add_item(i18n.t("scope-box-wcag-level"), {
+            let v = lookup("WCAG-Level", "WCAG level");
+            if v.is_empty() {
+                "n/a".to_string()
+            } else {
+                v
+            }
+        })
+        .add_item(i18n.t("scope-box-checked-nodes"), {
+            let v = lookup("Geprüfte Knoten", "Checked nodes");
+            if v.is_empty() {
+                "n/a".to_string()
+            } else {
+                v
+            }
+        })
+        .add_item(i18n.t("scope-box-runtime"), {
+            let v = lookup("Laufzeit", "Runtime");
+            if v.is_empty() {
+                "n/a".to_string()
+            } else {
+                v
+            }
+        })
         .add_item(
-            "WCAG-Level",
-            vm.methodology
-                .audit_facts
-                .iter()
-                .find(|(label, _)| label == "WCAG-Level")
-                .map(|(_, value)| value.as_str())
-                .unwrap_or("n/a"),
+            i18n.t("scope-box-findings-total"),
+            vm.severity.total.to_string(),
         )
         .add_item(
-            "Geprüfte Knoten",
-            vm.methodology
-                .audit_facts
-                .iter()
-                .find(|(label, _)| label == "Geprüfte Knoten")
-                .map(|(_, value)| value.as_str())
-                .unwrap_or("n/a"),
-        )
-        .add_item(
-            "Laufzeit",
-            vm.methodology
-                .audit_facts
-                .iter()
-                .find(|(label, _)| label == "Laufzeit")
-                .map(|(_, value)| value.as_str())
-                .unwrap_or("n/a"),
-        )
-        .add_item("Findings gesamt", vm.severity.total.to_string())
-        .add_item(
-            "Kritisch / Hoch",
+            i18n.t("scope-box-critical-high"),
             format!("{}", vm.severity.critical + vm.severity.high),
         )
-        .add_item(
-            "Audit-Hinweise",
-            vm.methodology
-                .audit_facts
-                .iter()
-                .find(|(label, _)| label == "Audit-Hinweise")
-                .map(|(_, value)| value.as_str())
-                .unwrap_or("0"),
-        )
+        .add_item(i18n.t("scope-box-audit-notes"), {
+            let v = lookup("Audit-Hinweise", "Audit notes");
+            if v.is_empty() {
+                "0".to_string()
+            } else {
+                v
+            }
+        })
 }
 
-fn module_score_color(score: u32) -> &'static str {
-    if score >= 85 {
-        "#0f766e"
-    } else if score >= 70 {
-        "#2563eb"
-    } else if score >= 50 {
-        "#d97706"
-    } else {
-        "#dc2626"
+fn cover_logo_asset(config: &ReportConfig) -> &'static str {
+    match config.logo_path.as_ref() {
+        Some(path) if path.exists() => CUSTOM_COVER_LOGO_ASSET,
+        _ => WORDMARK_ASSET,
     }
 }
 
-fn risk_status(level: &str) -> &'static str {
-    match level {
-        "Kritisch" => "bad",
-        "Hoch" => "warn",
-        "Mittel" => "info",
-        _ => "good",
+fn register_cover_logo_asset(
+    mut builder: renderreport::engine::ReportBuilder,
+    config: &ReportConfig,
+    cover_logo_asset: &'static str,
+) -> renderreport::engine::ReportBuilder {
+    if cover_logo_asset == CUSTOM_COVER_LOGO_ASSET {
+        if let Some(ref logo_path) = config.logo_path {
+            return builder.asset(CUSTOM_COVER_LOGO_ASSET, logo_path);
+        }
     }
+
+    if let Ok(path) = auditmysite_wordmark_path() {
+        builder = builder.asset(WORDMARK_ASSET, path);
+    }
+    builder
 }
+
+use self::design::{module_score_color, risk_status};
 
 /// Closing section: recommended next steps
 fn render_next_steps_single(
@@ -786,26 +854,37 @@ fn format_word_count(n: u32) -> String {
     }
 }
 
-fn business_relevance(page_type: Option<&str>, url: &str) -> &'static str {
+fn business_relevance(page_type: Option<&str>, url: &str, locale: &str) -> &'static str {
+    let en = locale == "en";
+    let high = if en { "high" } else { "hoch" };
+    let medium = if en { "medium" } else { "mittel" };
+    let low = if en { "low" } else { "niedrig" };
+
     // URL-based heuristics first
     let path = url.to_lowercase();
-    if path.contains("impressum") || path.contains("datenschutz") || path.contains("agb") {
-        return "niedrig";
+    if path.contains("impressum")
+        || path.contains("datenschutz")
+        || path.contains("agb")
+        || path.contains("imprint")
+        || path.contains("privacy")
+        || path.contains("terms")
+    {
+        return low;
     }
     if path.ends_with('/') && path.matches('/').count() <= 3 {
-        return "hoch"; // homepage or top-level pages
+        return high; // homepage or top-level pages
     }
 
     // Page type based
     match page_type {
-        Some("Marketing / Landing Page") => "hoch",
-        Some("Transaktional / Utility") => "hoch",
-        Some("Editorial / Artikel") => "mittel",
-        Some("Strukturierter Wissensinhalt") => "mittel",
-        Some("Navigations- / Hub-Seite") => "mittel",
-        Some("Medienorientierte Seite") => "mittel",
-        Some("Thin / Minimal Content") => "niedrig",
-        _ => "mittel",
+        Some("Marketing / Landing Page") => high,
+        Some("Transaktional / Utility") | Some("Transactional / Utility") => high,
+        Some("Editorial / Artikel") | Some("Editorial / Article") => medium,
+        Some("Strukturierter Wissensinhalt") | Some("Structured knowledge content") => medium,
+        Some("Navigations- / Hub-Seite") | Some("Navigation / Hub page") => medium,
+        Some("Medienorientierte Seite") | Some("Media-oriented page") => medium,
+        Some("Thin / Minimal Content") => low,
+        _ => medium,
     }
 }
 
@@ -815,51 +894,110 @@ fn business_relevance(page_type: Option<&str>, url: &str) -> &'static str {
 fn build_batch_assessment(
     summary: &crate::output::report_model::PortfolioSummary,
     dist: &SeverityDistribution,
+    i18n: &I18n,
 ) -> String {
+    let en = i18n.locale() == "en";
     if dist.critical > 0 && summary.average_overall_score < 50 {
-        "Kritische Barrieren — nicht WCAG-konform".to_string()
+        if en {
+            "Critical barriers — not WCAG conformant".to_string()
+        } else {
+            "Kritische Barrieren — nicht WCAG-konform".to_string()
+        }
     } else if dist.critical > 0 {
-        "Technisch solide, aber rechtlich riskant".to_string()
+        if en {
+            "Technically solid, but legally risky".to_string()
+        } else {
+            "Technisch solide, aber rechtlich riskant".to_string()
+        }
     } else if dist.high > 0 {
-        "Gute Basis, aber nicht barrierefrei".to_string()
+        if en {
+            "Good foundation, but not accessible".to_string()
+        } else {
+            "Gute Basis, aber nicht barrierefrei".to_string()
+        }
     } else if summary.average_overall_score >= 85 {
-        "Weitgehend barrierefrei — Feinschliff".to_string()
+        if en {
+            "Largely accessible — polish".to_string()
+        } else {
+            "Weitgehend barrierefrei — Feinschliff".to_string()
+        }
+    } else if en {
+        "Solid foundation with room to optimize".to_string()
     } else {
         "Solide Grundlage mit Optimierungspotenzial".to_string()
     }
 }
 
 /// 3 key takeaways for batch report
-fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution) -> Vec<String> {
+fn build_batch_key_points(
+    pres: &BatchPresentation,
+    dist: &SeverityDistribution,
+    i18n: &I18n,
+) -> Vec<String> {
+    let en = i18n.locale() == "en";
     let mut points = Vec::with_capacity(3);
 
     // Point 1: Critical/high count across all URLs
     let ch = dist.critical + dist.high;
     if ch > 0 {
-        points.push(format!(
-            "{} kritische/hohe Verstöße über {} URLs hinweg",
-            ch, pres.portfolio_summary.total_urls
-        ));
+        if en {
+            points.push(format!(
+                "{} critical/high violations across {} URLs",
+                ch, pres.portfolio_summary.total_urls
+            ));
+        } else {
+            points.push(format!(
+                "{} kritische/hohe Verstöße über {} URLs hinweg",
+                ch, pres.portfolio_summary.total_urls
+            ));
+        }
     }
 
     // Point 2: Dominant/recurring issue
     if let Some(top) = pres.top_issues.first() {
-        points.push(format!(
-            "Hauptproblem: {} ({} Vorkommen auf {} URLs)",
-            top.title,
-            top.occurrence_count,
-            top.affected_urls.len()
-        ));
+        if en {
+            points.push(format!(
+                "Main issue: {} ({} occurrences on {} URLs)",
+                top.title,
+                top.occurrence_count,
+                top.affected_urls.len()
+            ));
+        } else {
+            points.push(format!(
+                "Hauptproblem: {} ({} Vorkommen auf {} URLs)",
+                top.title,
+                top.occurrence_count,
+                top.affected_urls.len()
+            ));
+        }
     }
 
     // Point 3: Legal status
     if dist.critical > 0 {
-        points.push(
-            "WCAG-Level-A-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
-        );
+        if en {
+            points.push(
+                "WCAG Level A violations detected automatically — manual review needed for a defensible BFSG classification".to_string(),
+            );
+        } else {
+            points.push(
+                "WCAG-Level-A-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
+            );
+        }
     } else if dist.high > 0 {
+        if en {
+            points.push(
+                "No Level A violations, but structural weaknesses on multiple pages".to_string(),
+            );
+        } else {
+            points.push(
+                "Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten"
+                    .to_string(),
+            );
+        }
+    } else if en {
         points.push(
-            "Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten".to_string(),
+            "No automatically detectable critical barriers — manual review recommended."
+                .to_string(),
         );
     } else {
         points.push(
@@ -872,35 +1010,44 @@ fn build_batch_key_points(pres: &BatchPresentation, dist: &SeverityDistribution)
 }
 
 /// Concrete quick actions for batch report
-fn build_batch_quick_actions(pres: &BatchPresentation) -> Vec<(String, &'static str)> {
-    let mut actions: Vec<(String, &str)> = Vec::new();
+fn build_batch_quick_actions(pres: &BatchPresentation, i18n: &I18n) -> Vec<(String, String)> {
+    let en = i18n.locale() == "en";
+    let timeframe_label = |effort: Effort| -> &'static str {
+        match (effort, en) {
+            (Effort::Quick, true) => "1–2 days",
+            (Effort::Quick, false) => "1–2 Tage",
+            (Effort::Medium, true) => "3–5 days",
+            (Effort::Medium, false) => "3–5 Tage",
+            (Effort::Structural, true) => "1–2 weeks",
+            (Effort::Structural, false) => "1–2 Wochen",
+        }
+    };
+
+    let mut actions: Vec<(String, String)> = Vec::new();
 
     for item in &pres.action_plan.quick_wins {
         if actions.len() >= 3 {
             break;
         }
-        let timeframe = match item.effort {
-            Effort::Quick => "1–2 Tage",
-            Effort::Medium => "3–5 Tage",
-            Effort::Structural => "1–2 Wochen",
-        };
-        let scope = if item.action.contains("alle") || item.action.contains("global") {
+        let action_lower = item.action.to_lowercase();
+        let scope = if action_lower.contains("alle") || action_lower.contains("global") {
             " (global)"
         } else {
             ""
         };
-        actions.push((format!("{}{}", item.action, scope), timeframe));
+        actions.push((
+            format!("{}{}", item.action, scope),
+            timeframe_label(item.effort).to_string(),
+        ));
     }
 
     // Fallback from top issues
     if actions.is_empty() {
         for group in pres.top_issues.iter().take(3) {
-            let timeframe = match group.effort {
-                Effort::Quick => "1–2 Tage",
-                Effort::Medium => "3–5 Tage",
-                Effort::Structural => "1–2 Wochen",
-            };
-            actions.push((first_sentence(&group.recommendation).to_string(), timeframe));
+            actions.push((
+                first_sentence(&group.recommendation).to_string(),
+                timeframe_label(group.effort).to_string(),
+            ));
         }
     }
 
@@ -913,8 +1060,15 @@ fn render_batch_action_plan_enhanced(
     plan: &ActionPlan,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let effort_col = if en { "Effort" } else { "Aufwand" };
+    let role_col = if en { "Role" } else { "Rolle" };
+    let scope_global = "global";
+    let scope_content = "Content";
+    let scope_component = if en { "Component" } else { "Komponente" };
+
     let render_section = |mut b: renderreport::engine::ReportBuilder,
-                          title: &str,
+                          title: String,
                           items: &[crate::output::report_model::ActionItem],
                           i18n: &I18n|
      -> renderreport::engine::ReportBuilder {
@@ -923,26 +1077,30 @@ fn render_batch_action_plan_enhanced(
         }
         b = b.add_component(Section::new(title).with_level(2));
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Aufwand"),
+            TableColumn::new(i18n.t("column-action")),
+            TableColumn::new(effort_col),
             TableColumn::new("Scope"),
-            TableColumn::new("Rolle"),
-            TableColumn::new("Priorität"),
+            TableColumn::new(role_col),
+            TableColumn::new(i18n.t("column-priority")),
         ]);
         for item in items {
-            let scope = if item.action.contains("alle")
-                || item.action.contains("global")
-                || item.action.contains("Designsystem")
-                || item.action.contains("seitenübergreifend")
+            let action_lower = item.action.to_lowercase();
+            let scope = if action_lower.contains("alle")
+                || action_lower.contains("global")
+                || action_lower.contains("designsystem")
+                || action_lower.contains("design system")
+                || action_lower.contains("seitenübergreifend")
+                || action_lower.contains("site-wide")
             {
-                "global"
-            } else if item.action.contains("Content")
-                || item.action.contains("Text")
-                || item.action.contains("Bild")
+                scope_global
+            } else if action_lower.contains("content")
+                || action_lower.contains("text")
+                || action_lower.contains("bild")
+                || action_lower.contains("image")
             {
-                "Content"
+                scope_content
             } else {
-                "Komponente"
+                scope_component
             };
             table = table.add_row(vec![
                 item.action.clone(),
@@ -955,9 +1113,24 @@ fn render_batch_action_plan_enhanced(
         b.add_component(table)
     };
 
-    builder = render_section(builder, "Quick Wins", &plan.quick_wins, i18n);
-    builder = render_section(builder, "Mittelfristige Maßnahmen", &plan.medium_term, i18n);
-    builder = render_section(builder, "Strukturelle Maßnahmen", &plan.structural, i18n);
+    builder = render_section(
+        builder,
+        i18n.t("section-quick-wins"),
+        &plan.quick_wins,
+        i18n,
+    );
+    builder = render_section(
+        builder,
+        i18n.t("section-medium-actions"),
+        &plan.medium_term,
+        i18n,
+    );
+    builder = render_section(
+        builder,
+        i18n.t("section-structural-actions"),
+        &plan.structural,
+        i18n,
+    );
     builder
 }
 
@@ -965,16 +1138,30 @@ fn render_batch_action_plan_enhanced(
 fn render_next_steps_batch(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let intro = if en {
+        "Concrete recommendation for implementation."
+    } else {
+        "Konkrete Handlungsempfehlung für die Umsetzung."
+    };
     builder = builder.add_component(
-        SectionHeaderSplit::new(
-            "Empfohlene nächste Schritte",
-            "Konkrete Handlungsempfehlung für die Umsetzung.",
-        )
-        .with_level(1),
+        SectionHeaderSplit::new(i18n.t("section-next-steps-recommended"), intro).with_level(1),
     );
 
     let mut steps: Vec<(String, &str, &str)> = Vec::new();
+
+    let timeframe_quick = if en { "Week 1" } else { "Woche 1" };
+    let timeframe_medium = if en { "Week 2–3" } else { "Woche 2–3" };
+    let timeframe_structural = if en { "Month 1–2" } else { "Monat 1–2" };
+    let timeframe_medium_alt = if en { "Month 1" } else { "Monat 1" };
+    let scope_global = "global";
+    let scope_component = if en {
+        "component-based"
+    } else {
+        "komponentenbasiert"
+    };
 
     // From quick wins
     for item in &pres.action_plan.quick_wins {
@@ -982,17 +1169,19 @@ fn render_next_steps_batch(
             break;
         }
         let timeframe = match item.effort {
-            Effort::Quick => "Woche 1",
-            Effort::Medium => "Woche 2–3",
-            Effort::Structural => "Monat 1–2",
+            Effort::Quick => timeframe_quick,
+            Effort::Medium => timeframe_medium,
+            Effort::Structural => timeframe_structural,
         };
-        let scope = if item.action.contains("alle")
-            || item.action.contains("Designsystem")
-            || item.action.contains("global")
+        let action_lower = item.action.to_lowercase();
+        let scope = if action_lower.contains("alle")
+            || action_lower.contains("designsystem")
+            || action_lower.contains("design system")
+            || action_lower.contains("global")
         {
-            "global"
+            scope_global
         } else {
-            "komponentenbasiert"
+            scope_component
         };
         steps.push((item.action.clone(), timeframe, scope));
     }
@@ -1003,15 +1192,15 @@ fn render_next_steps_batch(
             if steps.len() >= 3 {
                 break;
             }
-            steps.push((item.action.clone(), "Monat 1", "komponentenbasiert"));
+            steps.push((item.action.clone(), timeframe_medium_alt, scope_component));
         }
     }
 
     if !steps.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Priorität"),
-            TableColumn::new("Maßnahme"),
-            TableColumn::new("Zeitrahmen"),
+            TableColumn::new(i18n.t("column-priority")),
+            TableColumn::new(i18n.t("column-action")),
+            TableColumn::new(i18n.t("column-timeframe")),
             TableColumn::new("Scope"),
         ]);
         for (i, (action, timeframe, scope)) in steps.iter().enumerate() {
@@ -1025,12 +1214,13 @@ fn render_next_steps_batch(
         builder = builder.add_component(table);
     }
 
-    builder = builder.add_component(
-        Callout::info(
-            "Für eine vollständige WCAG-Konformitätsprüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation). Dieser automatisierte Audit deckt ca. 30–40% der WCAG-Kriterien ab.",
-        )
-        .with_title("Weiteres Vorgehen"),
-    );
+    let callout_body = if en {
+        "For a complete WCAG conformance check we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation). This automated audit covers about 30–40% of WCAG criteria."
+    } else {
+        "Für eine vollständige WCAG-Konformitätsprüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation). Dieser automatisierte Audit deckt ca. 30–40% der WCAG-Kriterien ab."
+    };
+    builder = builder
+        .add_component(Callout::info(callout_body).with_title(i18n.t("section-next-steps-block")));
 
     builder
 }
@@ -1041,7 +1231,6 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let engine = create_engine()?;
     let i18n = I18n::new(&config.locale)?;
     let pres = build_batch_presentation(batch);
-    let wordmark_asset = "/auditmysite-wordmark.svg";
 
     let domain = &pres.portfolio_summary.domain;
     let overall_score = pres.portfolio_summary.average_overall_score;
@@ -1056,55 +1245,48 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .metadata("footer_prefix", "Audit:")
         .metadata("footer_link_url", "");
 
-    if let Ok(path) = auditmysite_wordmark_path() {
-        builder = builder.asset(wordmark_asset, path);
-    }
-
-    if let Some(ref logo_path) = config.logo_path {
-        if logo_path.exists() {
-            builder = builder.add_component(
-                Image::new(logo_path.to_string_lossy().to_string()).with_width("30%"),
-            );
-        }
-    }
+    let cover_logo_asset = cover_logo_asset(config);
+    builder = register_cover_logo_asset(builder, config, cover_logo_asset);
 
     // ── Cover Page with Audit-Rahmen ────────────────────────────────
     builder = builder
+        .add_component(Image::new(cover_logo_asset).with_width("120pt"))
         .add_component(
-            Label::new("Automatisierter Batch-Audit-Report")
+            Label::new(i18n.t("batch-cover-eyebrow"))
                 .with_size("11pt")
                 .bold()
                 .with_color("#0f766e"),
         )
         .add_component(
-            Label::new("Barrierefreiheits-Prüfbericht")
+            Label::new(i18n.t("batch-cover-title"))
                 .with_size("28pt")
                 .bold(),
         )
         .add_component(
-            Label::new(
-                "Domainweiter Website-Check mit Fokus auf Accessibility, SEO und Performance",
-            )
-            .with_size("12pt")
-            .with_color("#475569"),
+            Label::new(i18n.t("batch-cover-kicker"))
+                .with_size("12pt")
+                .with_color("#475569"),
         );
 
     // Audit-Rahmen box (matching single report style)
     {
         let modules_str = pres.portfolio_summary.active_modules.join(", ");
 
-        let mut cover_meta = KeyValueList::new().with_title("Audit-Rahmen");
+        let mut cover_meta = KeyValueList::new().with_title(i18n.t("batch-cover-frame-title"));
         cover_meta = cover_meta
-            .add("Domain", domain)
-            .add("Prüfdatum", &pres.cover.date)
+            .add(i18n.t("batch-cover-frame-domain"), domain)
+            .add(i18n.t("batch-cover-frame-date"), &pres.cover.date)
             .add(
-                "Geprüfte URLs",
+                i18n.t("batch-cover-frame-urls"),
                 format!("{}", pres.portfolio_summary.total_urls),
             )
-            .add("Zertifikat", &pres.portfolio_summary.certificate)
-            .add("Aktive Module", &modules_str)
             .add(
-                "Tool-Version",
+                i18n.t("batch-cover-frame-certificate"),
+                &pres.portfolio_summary.certificate,
+            )
+            .add(i18n.t("batch-cover-frame-modules"), &modules_str)
+            .add(
+                i18n.t("batch-cover-frame-version"),
                 format!("auditmysite v{}", pres.cover.version),
             );
         builder = builder.add_component(cover_meta);
@@ -1125,6 +1307,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
             batch_badge_enabled.then_some(batch_badge_asset),
+            &i18n,
         )?)
         .add_component(
             TextBlock::new(&pres.portfolio_summary.verdict_text)
@@ -1142,23 +1325,30 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     // ── 1. Status der Website ───────────────────────────────────────
     {
         // Block 1: Bewertung — klare Einordnung, Risiko primär
-        let assessment = build_batch_assessment(&pres.portfolio_summary, dist);
-        let risk_action = match pres.portfolio_summary.risk_level.as_str() {
-            "Kritisch" => "Sofort handeln",
-            "Hoch" => "Zeitnah beheben",
-            "Mittel" => "Gezielt verbessern",
-            _ => "Niveau halten",
+        let assessment = build_batch_assessment(&pres.portfolio_summary, dist, &i18n);
+        let en_status = i18n.locale() == "en";
+        let risk_action = match (pres.portfolio_summary.risk_level.as_str(), en_status) {
+            ("Kritisch" | "Critical", true) => "Act immediately",
+            ("Kritisch" | "Critical", false) => "Sofort handeln",
+            ("Hoch" | "High", true) => "Fix soon",
+            ("Hoch" | "High", false) => "Zeitnah beheben",
+            ("Mittel" | "Medium", true) => "Improve deliberately",
+            ("Mittel" | "Medium", false) => "Gezielt verbessern",
+            (_, true) => "Maintain level",
+            (_, false) => "Niveau halten",
         };
         let risk_title = format!("{}  —  {}", assessment, risk_action);
         let callout = match pres.portfolio_summary.risk_level.as_str() {
-            "Kritisch" | "Hoch" => {
+            "Kritisch" | "Hoch" | "Critical" | "High" => {
                 Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&risk_title)
             }
-            "Mittel" => Callout::info(&pres.portfolio_summary.risk_summary).with_title(&risk_title),
+            "Mittel" | "Medium" => {
+                Callout::info(&pres.portfolio_summary.risk_summary).with_title(&risk_title)
+            }
             _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&risk_title),
         };
         builder = builder
-            .add_component(Section::new("Status der Website").with_level(1))
+            .add_component(Section::new(i18n.t("batch-section-status")).with_level(1))
             .add_component(callout);
     }
 
@@ -1175,8 +1365,8 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // Block 2: Kernaussagen (max 3 Punkte)
     {
-        let key_points = build_batch_key_points(&pres, dist);
-        let mut kp_list = List::new().with_title("Kernaussagen");
+        let key_points = build_batch_key_points(&pres, dist, &i18n);
+        let mut kp_list = List::new().with_title(i18n.t("narrative-key-points-title"));
         for point in &key_points {
             kp_list = kp_list.add_item(point);
         }
@@ -1185,49 +1375,73 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // Auswirkungen
     {
+        let en = i18n.locale() == "en";
         let a11y_avg = pres.portfolio_summary.average_score.round() as u32;
-        let user_impact = if a11y_avg < 50 {
-            "Kritisch — zentrale Funktionen sind für Nutzer mit Einschränkungen nicht erreichbar"
-        } else if a11y_avg < 70 {
-            "Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien"
-        } else if a11y_avg < 85 {
-            "Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten"
-        } else {
-            "Sehr gut — Hilfstechnologien werden weitgehend unterstützt"
+        let user_impact = match (a11y_avg, en) {
+            (s, true) if s < 50 => "Critical — core functions are unreachable for users with disabilities",
+            (s, false) if s < 50 => "Kritisch — zentrale Funktionen sind für Nutzer mit Einschränkungen nicht erreichbar",
+            (s, true) if s < 70 => "Limited — structural issues impede users with assistive technologies",
+            (s, false) if s < 70 => "Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien",
+            (s, true) if s < 85 => "Good — individual barriers for assistive technologies on several pages",
+            (s, false) if s < 85 => "Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten",
+            (_, true) => "Very good — assistive technologies are largely supported",
+            (_, false) => "Sehr gut — Hilfstechnologien werden weitgehend unterstützt",
         };
         let business_impact = if dist.critical > 0 {
-            "Weite Teile der Website sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
+            if en {
+                "Large parts of the website are unusable or barely usable for certain user groups."
+            } else {
+                "Weite Teile der Website sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
+            }
         } else if dist.high > 0 {
-            "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
+            if en {
+                "Individual functional areas are problematic for users with disabilities."
+            } else {
+                "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
+            }
+        } else if en {
+            "Low impact — users can fundamentally use the website."
         } else {
             "Geringe Auswirkung — Nutzer können die Website grundsätzlich verwenden."
         };
         let legal_impact = if dist.critical > 0 {
-            "WCAG-Level-A-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
+            if en {
+                "WCAG Level A violations detected automatically — manual review required for a defensible BFSG classification."
+            } else {
+                "WCAG-Level-A-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
+            }
+        } else if en {
+            "No critical violations detected automatically — manual review recommended for full classification."
         } else {
             "Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen."
         };
 
-        let mut impact_kv = KeyValueList::new().with_title("Auswirkungen");
+        let (user_label, business_label, risk_label) = if en {
+            ("User", "Business", "Risk")
+        } else {
+            ("Nutzer", "Business", "Risiko")
+        };
+        let mut impact_kv = KeyValueList::new().with_title(i18n.t("narrative-impact-title"));
         impact_kv = impact_kv
-            .add("Nutzer", user_impact)
-            .add("Business", business_impact)
-            .add("Risiko", legal_impact);
+            .add(user_label, user_impact)
+            .add(business_label, business_impact)
+            .add(risk_label, legal_impact);
         builder = builder.add_component(impact_kv);
     }
 
     // Block 3: Handlungsempfehlung
     {
-        let actions = build_batch_quick_actions(&pres);
+        let actions = build_batch_quick_actions(&pres, &i18n);
         if !actions.is_empty() {
             let rows: Vec<ChecklistRow> = actions
                 .iter()
                 .map(|(action, timeframe)| {
-                    ChecklistRow::new(*timeframe, action).with_status("warn")
+                    ChecklistRow::new(timeframe.clone(), action).with_status("warn")
                 })
                 .collect();
-            builder = builder
-                .add_component(ChecklistPanel::new(rows).with_title("Empfohlene Sofortmaßnahmen"));
+            builder = builder.add_component(
+                ChecklistPanel::new(rows).with_title(i18n.t("narrative-quick-actions-title")),
+            );
         }
     }
 
@@ -1292,26 +1506,34 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .add_component(BenchmarkTable::new(rows));
 
     // ── 3. Top-Probleme (vereinheitlicht) ─────────────────────────
+    let en_top = i18n.locale() == "en";
+    let top_intro = if en_top {
+        "The following problem groups occur across multiple URLs. \
+         Fixing them yields the largest improvement because they affect many pages simultaneously."
+    } else {
+        "Die folgenden Problemgruppen treten über mehrere URLs hinweg auf. \
+         Durch Behebung dieser Probleme wird die größte Verbesserung erzielt, \
+         da sie viele Seiten gleichzeitig betreffen."
+    };
     builder = builder.add_component(
-        SectionHeaderSplit::new(
-            "Häufigste Probleme",
-            "Die folgenden Problemgruppen treten über mehrere URLs hinweg auf. \
-             Durch Behebung dieser Probleme wird die größte Verbesserung erzielt, \
-             da sie viele Seiten gleichzeitig betreffen.",
-        )
-        .with_level(1),
+        SectionHeaderSplit::new(i18n.t("batch-section-most-frequent"), top_intro).with_level(1),
     );
 
     // Übersichtstabelle mit Aufwand
     if !pres.issue_frequency.is_empty() {
+        let affected_col = if en_top {
+            "Affected URLs"
+        } else {
+            "Betr. URLs"
+        };
         let mut freq_table = AuditTable::new(vec![
-            TableColumn::new("Problem"),
+            TableColumn::new(i18n.t("batch-col-problem")),
             TableColumn::new("WCAG"),
-            TableColumn::new("Vorkommen"),
-            TableColumn::new("Betr. URLs"),
-            TableColumn::new("Priorität"),
+            TableColumn::new(i18n.t("batch-col-occurrences")),
+            TableColumn::new(affected_col),
+            TableColumn::new(i18n.t("batch-col-priority")),
         ])
-        .with_title("Häufigste Verstöße");
+        .with_title(i18n.t("batch-section-most-frequent-violations"));
 
         for issue in &pres.issue_frequency {
             freq_table = freq_table.add_row(vec![
@@ -1327,40 +1549,80 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // Unified problem blocks — 1 Problem = 1 kompakter Block
     // (keine doppelten Cards + Details mehr)
+    let scope_global_word = if en_top {
+        "global (all pages)"
+    } else {
+        "global (alle Seiten)"
+    };
+    let scope_individual = if en_top {
+        "individual pages"
+    } else {
+        "einzelne Seiten"
+    };
+    let occurrences_word_top = if en_top { "occurrences" } else { "Vorkommen" };
+    let affected_urls_word = if en_top {
+        "affected URLs"
+    } else {
+        "betroffene URLs"
+    };
+    let effort_word = if en_top { "Effort" } else { "Aufwand" };
+    let scope_word = "Scope";
+    let impact_user_label = if en_top {
+        "Impact (user)"
+    } else {
+        "Impact (Nutzer)"
+    };
+    let impact_business_label = if en_top {
+        "Impact (business)"
+    } else {
+        "Impact (Business)"
+    };
+    let fix_label = "Fix";
+    let meta_label = "Meta";
+
     for group in pres.top_issues.iter().take(5) {
         let scope = if group.affected_urls.len() >= pres.portfolio_summary.total_urls {
-            "global (alle Seiten)"
+            scope_global_word
         } else {
-            "einzelne Seiten"
+            scope_individual
         };
         let effort_label = group.effort.label();
         let meta_line = format!(
-            "{} Vorkommen · {} betroffene URLs · Aufwand: {} · Scope: {}",
+            "{} {} · {} {} · {}: {} · {}: {}",
             group.occurrence_count,
+            occurrences_word_top,
             group.affected_urls.len(),
+            affected_urls_word,
+            effort_word,
             effort_label,
+            scope_word,
             scope
         );
 
         let mut kv = KeyValueList::new().with_title(&group.title);
         kv = kv
-            .add("Problem", &group.customer_description)
-            .add("Impact (Nutzer)", &group.user_impact)
-            .add("Impact (Business)", &group.business_impact)
-            .add("Ursache", &group.typical_cause)
-            .add("Fix", &group.recommendation)
-            .add("Meta", meta_line);
+            .add(
+                i18n.t("findings-card-key-problem"),
+                &group.customer_description,
+            )
+            .add(impact_user_label, &group.user_impact)
+            .add(impact_business_label, &group.business_impact)
+            .add(i18n.t("findings-card-key-cause"), &group.typical_cause)
+            .add(fix_label, &group.recommendation)
+            .add(meta_label, meta_line);
         builder = builder.add_component(kv);
     }
 
     // ── 4. Maßnahmenplan (mit Aufwand + Scope) ─────────────────────
+    let action_intro = if en_top {
+        "The following actions are prioritized by effort and impact. \
+         Actions that improve many pages simultaneously take precedence."
+    } else {
+        "Die folgenden Maßnahmen sind nach Aufwand und Wirkung priorisiert. \
+         Maßnahmen, die viele Seiten gleichzeitig verbessern, haben Vorrang."
+    };
     builder = builder.add_component(
-        SectionHeaderSplit::new(
-            "Maßnahmenplan",
-            "Die folgenden Maßnahmen sind nach Aufwand und Wirkung priorisiert. \
-             Maßnahmen, die viele Seiten gleichzeitig verbessern, haben Vorrang.",
-        )
-        .with_level(1),
+        SectionHeaderSplit::new(i18n.t("batch-action-plan-title"), action_intro).with_level(1),
     );
     builder = render_batch_action_plan_enhanced(builder, &pres.action_plan, &i18n);
 
@@ -1381,14 +1643,25 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     }
 
     // ── 5b. Performance Budgets (Batch) ─────────────────────────────
+    let en_pdf = i18n.locale() == "en";
     if !pres.portfolio_summary.budget_summary.is_empty() {
+        let pages_col = if en_pdf {
+            "Affected pages"
+        } else {
+            "Betr. Seiten"
+        };
+        let budget_table_title = if en_pdf {
+            "Performance budget violations (domain-wide)"
+        } else {
+            "Performance-Budget-Verstöße (domainweit)"
+        };
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Metrik"),
-            TableColumn::new("Budget"),
-            TableColumn::new("Betr. Seiten"),
-            TableColumn::new("Severity"),
+            TableColumn::new(i18n.t("batch-col-metric")),
+            TableColumn::new(i18n.t("batch-col-budget")),
+            TableColumn::new(pages_col),
+            TableColumn::new(i18n.t("batch-col-severity")),
         ])
-        .with_title("Performance-Budget-Verstöße (domainweit)");
+        .with_title(budget_table_title);
         for (metric, budget, count, sev) in &pres.portfolio_summary.budget_summary {
             table = table.add_row(vec![
                 metric.clone(),
@@ -1397,42 +1670,69 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 sev.clone(),
             ]);
         }
+        let budgets_intro = if en_pdf {
+            "Performance budgets define limits for load times, asset sizes and third-party \
+             traffic. The following table shows on how many pages each budget was exceeded."
+        } else {
+            "Performance-Budgets definieren Obergrenzen für Ladezeiten, Asset-Größen und \
+             Drittanbieter-Traffic. Die folgende Tabelle zeigt, auf wie vielen Seiten welche \
+             Budgets überschritten wurden."
+        };
         builder = builder
-            .add_component(Section::new("Performance Budgets").with_level(1))
-            .add_component(TextBlock::new(
-                "Performance-Budgets definieren Obergrenzen für Ladezeiten, Asset-Größen und \
-                 Drittanbieter-Traffic. Die folgende Tabelle zeigt, auf wie vielen Seiten welche \
-                 Budgets überschritten wurden.",
-            ))
+            .add_component(Section::new(i18n.t("batch-section-performance-budgets")).with_level(1))
+            .add_component(TextBlock::new(budgets_intro))
             .add_component(table);
     }
 
     // ── 5. Technische URL-Matrix ───────────────────────────────────
-    builder = builder
-        .add_component(SectionHeaderSplit::new("Technische URL-Matrix", "Verdichtete Übersicht aller geprüften URLs mit Fokus auf technische Priorisierung. Jede Zeile zeigt Score, Problemintensität und den größten Hebel für die nächste Optimierungsrunde.").with_level(1));
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-section-tech-url-matrix"),
+            i18n.t("batch-section-tech-url-matrix-intro"),
+        )
+        .with_level(1),
+    );
 
     if let Some(ref crawl_links) = pres.portfolio_summary.crawl_links {
-        builder = builder
-            .add_component(Section::new("Interne Broken Links").with_level(1))
-            .add_component(TextBlock::new(format!(
+        let target_col = if en_pdf { "Target" } else { "Ziel" };
+        let type_col = if en_pdf { "Type" } else { "Typ" };
+        let direct_label = if en_pdf { "direct" } else { "direkt" };
+        let hops_label = if en_pdf { "hops" } else { "Hops" };
+        let internal_intro = if en_pdf {
+            format!(
+                "For the crawl starting at {} we checked {} internal link targets. {} broken internal links detected.",
+                crawl_links.seed_url,
+                crawl_links.checked_internal_links,
+                crawl_links.broken_internal_links.len()
+            )
+        } else {
+            format!(
                 "Für den Crawl ab {} wurden {} interne Linkziele geprüft. {} kaputte interne Verlinkungen wurden erkannt.",
                 crawl_links.seed_url,
                 crawl_links.checked_internal_links,
                 crawl_links.broken_internal_links.len()
-            )));
+            )
+        };
+        builder = builder
+            .add_component(
+                Section::new(i18n.t("batch-section-broken-links-internal")).with_level(1),
+            )
+            .add_component(TextBlock::new(internal_intro));
 
         if crawl_links.broken_internal_links.is_empty() {
-            builder = builder.add_component(Callout::info(
-                "Keine kaputten internen Links im geprüften Crawl-Set erkannt.",
-            ));
+            builder = builder.add_component(Callout::info(if en_pdf {
+                "No broken internal links detected in the audited crawl set."
+            } else {
+                "Keine kaputten internen Links im geprüften Crawl-Set erkannt."
+            }));
         } else {
             let mut table = AuditTable::new(vec![
-                TableColumn::new("Quelle"),
-                TableColumn::new("Ziel"),
-                TableColumn::new("Status"),
-                TableColumn::new("Typ"),
+                TableColumn::new(i18n.t("batch-col-source")),
+                TableColumn::new(target_col),
+                TableColumn::new(i18n.t("batch-col-status-code")),
+                TableColumn::new(type_col),
             ])
-            .with_title("Kaputte interne Links");
+            .with_title(i18n.t("batch-table-broken-internal"));
 
             for row in &crawl_links.broken_internal_links {
                 let severity_color = match row.severity.as_str() {
@@ -1441,9 +1741,9 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                     _ => "#ca8a04",
                 };
                 let typ_label = if row.redirect_hops > 0 {
-                    format!("→{} Hops", row.redirect_hops)
+                    format!("→{} {}", row.redirect_hops, hops_label)
                 } else {
-                    "direkt".to_string()
+                    direct_label.to_string()
                 };
                 table = table.add_row(vec![
                     truncate_url(&row.source_url, 30),
@@ -1458,27 +1758,38 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
         // External broken links
         if !crawl_links.broken_external_links.is_empty() {
-            builder = builder
-                .add_component(Section::new("Externe Broken Links").with_level(2))
-                .add_component(TextBlock::new(format!(
+            let ext_intro = if en_pdf {
+                format!(
+                    "{} external link targets checked. {} broken external links detected.",
+                    crawl_links.checked_external_links,
+                    crawl_links.broken_external_links.len()
+                )
+            } else {
+                format!(
                     "{} externe Linkziele geprüft. {} kaputte externe Verlinkungen erkannt.",
                     crawl_links.checked_external_links,
                     crawl_links.broken_external_links.len()
-                )));
+                )
+            };
+            builder = builder
+                .add_component(
+                    Section::new(i18n.t("batch-section-broken-links-external")).with_level(2),
+                )
+                .add_component(TextBlock::new(ext_intro));
 
             let mut ext_table = AuditTable::new(vec![
-                TableColumn::new("Quelle"),
-                TableColumn::new("Ziel"),
-                TableColumn::new("Status"),
-                TableColumn::new("Typ"),
+                TableColumn::new(i18n.t("batch-col-source")),
+                TableColumn::new(target_col),
+                TableColumn::new(i18n.t("batch-col-status-code")),
+                TableColumn::new(type_col),
             ])
-            .with_title("Kaputte externe Links");
+            .with_title(i18n.t("batch-table-broken-external"));
 
             for row in &crawl_links.broken_external_links {
                 let typ_label = if row.redirect_hops > 0 {
-                    format!("→{} Hops", row.redirect_hops)
+                    format!("→{} {}", row.redirect_hops, hops_label)
                 } else {
-                    "direkt".to_string()
+                    direct_label.to_string()
                 };
                 ext_table = ext_table.add_row(vec![
                     truncate_url(&row.source_url, 30),
@@ -1490,25 +1801,41 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
             builder = builder.add_component(ext_table);
         } else if crawl_links.checked_external_links > 0 {
-            builder = builder
-                .add_component(Section::new("Externe Links").with_level(2))
-                .add_component(Callout::info(format!(
+            let ext_clean_msg = if en_pdf {
+                format!(
+                    "{} external link targets checked — no broken external links detected.",
+                    crawl_links.checked_external_links
+                )
+            } else {
+                format!(
                     "{} externe Linkziele geprüft — keine kaputten externen Links erkannt.",
                     crawl_links.checked_external_links
-                )));
+                )
+            };
+            builder = builder
+                .add_component(Section::new(i18n.t("batch-section-external-links")).with_level(2))
+                .add_component(Callout::info(ext_clean_msg));
         }
 
         // Redirect chains
         if !crawl_links.redirect_chains.is_empty() {
-            builder = builder
-                .add_component(Section::new("Redirect-Ketten").with_level(2))
-                .add_component(TextBlock::new(format!(
+            let chain_intro = if en_pdf {
+                format!(
+                    "{} links with more than one redirect hop detected.",
+                    crawl_links.redirect_chains.len()
+                )
+            } else {
+                format!(
                     "{} Links mit mehr als einem Redirect-Hop erkannt.",
                     crawl_links.redirect_chains.len()
-                )));
+                )
+            };
+            builder = builder
+                .add_component(Section::new(i18n.t("batch-section-redirect-chains")).with_level(2))
+                .add_component(TextBlock::new(chain_intro));
 
             let mut chain_table = AuditTable::new(vec![
-                TableColumn::new("Quelle"),
+                TableColumn::new(i18n.t("batch-col-source")),
                 TableColumn::new("Ziel"),
                 TableColumn::new("Hops"),
                 TableColumn::new("Final-URL"),
@@ -1528,16 +1855,18 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         }
     }
 
+    let page_col = if en_pdf { "Page" } else { "Seite" };
+    let title_col = if en_pdf { "Title" } else { "Titel" };
     let mut matrix = AuditTable::new(vec![
         TableColumn::new("#").with_width("4%"),
-        TableColumn::new("Seite").with_width("26%"),
-        TableColumn::new("Titel").with_width("28%"),
-        TableColumn::new("Links zu").with_width("10%"),
-        TableColumn::new("Links von").with_width("10%"),
-        TableColumn::new("Wörter").with_width("10%"),
+        TableColumn::new(page_col).with_width("26%"),
+        TableColumn::new(title_col).with_width("28%"),
+        TableColumn::new(i18n.t("batch-col-links-to")).with_width("10%"),
+        TableColumn::new(i18n.t("batch-col-links-from")).with_width("10%"),
+        TableColumn::new(i18n.t("batch-col-words")).with_width("10%"),
         TableColumn::new("Score").with_width("12%"),
     ])
-    .with_title("Seiten-Übersicht");
+    .with_title(i18n.t("batch-table-pages-overview"));
 
     for row in &pres.url_matrix {
         let score_str = pres
@@ -1564,11 +1893,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     if config.level != ReportLevel::Executive {
         let mut focus_table = AuditTable::new(vec![
             TableColumn::new("URL"),
-            TableColumn::new("Seitentyp"),
-            TableColumn::new("Merkmale"),
-            TableColumn::new("Top-Probleme"),
+            TableColumn::new(i18n.t("batch-col-page-type")),
+            TableColumn::new(i18n.t("batch-col-attributes")),
+            TableColumn::new(i18n.t("batch-col-top-issues")),
         ])
-        .with_title("Fokus auf problematische Seiten");
+        .with_title(i18n.t("batch-table-focus-pages"));
 
         for detail in pres.url_details.iter().take(10) {
             focus_table = focus_table.add_row(vec![
@@ -1590,74 +1919,140 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     }
 
     // ── 6. Content & SEO — integriert mit Business-Impact ─────────
-    builder = builder
-        .add_component(SectionHeaderSplit::new(
+    let en_batch = i18n.locale() == "en";
+    let (content_seo_title, content_seo_intro) = if en_batch {
+        (
+            "Content & SEO potential",
+            "Content strengths and weaknesses with direct relevance to rankings, visibility and conversion. \
+             Each finding is tied to a concrete action.",
+        )
+    } else {
+        (
             "Content & SEO-Potenzial",
             "Content-Stärken und -Schwächen mit direktem Bezug zu Rankings, Sichtbarkeit und Conversion. \
              Jede Auffälligkeit ist an eine konkrete Handlung geknüpft.",
-        ).with_level(1));
+        )
+    };
+    builder = builder
+        .add_component(SectionHeaderSplit::new(content_seo_title, content_seo_intro).with_level(1));
 
     // Schwache Seiten zuerst — mit Business-Impact
     if !pres.portfolio_summary.weakest_content_pages.is_empty() {
-        let mut issues_kv = KeyValueList::new().with_title("Content-Probleme mit Handlungsbedarf");
+        let issues_title = if en_batch {
+            "Content issues needing action"
+        } else {
+            "Content-Probleme mit Handlungsbedarf"
+        };
+        let high_marker = if en_batch { "high" } else { "hoch" };
+        let mut issues_kv = KeyValueList::new().with_title(issues_title);
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
-            let relevance = business_relevance(Some(page_type.as_str()), url);
-            let impact = if relevance == "hoch" {
-                "Rankingverlust + geringere Conversion wahrscheinlich"
+            let relevance = business_relevance(Some(page_type.as_str()), url, i18n.locale());
+            let impact = if relevance == high_marker {
+                if en_batch {
+                    "Likely ranking loss + lower conversion"
+                } else {
+                    "Rankingverlust + geringere Conversion wahrscheinlich"
+                }
             } else if *score < 30 {
-                "Schwache organische Sichtbarkeit"
+                if en_batch {
+                    "Weak organic visibility"
+                } else {
+                    "Schwache organische Sichtbarkeit"
+                }
+            } else if en_batch {
+                "Optimization potential for SEO"
             } else {
                 "Optimierungspotenzial für SEO"
             };
-            issues_kv = issues_kv.add(
-                format!("{} (Profil: {}/100)", truncate_url(url, 35), score),
+            let value = if en_batch {
+                format!(
+                    "{} — {} → +300–800 words of structured content recommended",
+                    page_type, impact
+                )
+            } else {
                 format!(
                     "{} — {} → +300–800 Wörter strukturierter Inhalt empfohlen",
                     page_type, impact
-                ),
-            );
+                )
+            };
+            let key_str = if en_batch {
+                format!("{} (profile: {}/100)", truncate_url(url, 35), score)
+            } else {
+                format!("{} (Profil: {}/100)", truncate_url(url, 35), score)
+            };
+            issues_kv = issues_kv.add(key_str, value);
         }
         builder = builder.add_component(issues_kv);
     }
 
     // Content-Auffälligkeiten als Business-Relevanz
     if !pres.portfolio_summary.distribution_insights.is_empty() {
+        let action_label = if en_batch {
+            "Action needed"
+        } else {
+            "Handlungsbedarf"
+        };
+        let panel_title = if en_batch {
+            "Content patterns → business impact"
+        } else {
+            "Content-Auffälligkeiten → Business-Impact"
+        };
         let rows: Vec<ChecklistRow> = pres
             .portfolio_summary
             .distribution_insights
             .iter()
             .map(|insight| {
                 let impact = if insight.contains("Thin") || insight.contains("dünn") {
-                    format!("{} → schwächere Rankings, geringere Verweildauer", insight)
+                    if en_batch {
+                        format!("{} → weaker rankings, lower dwell time", insight)
+                    } else {
+                        format!("{} → schwächere Rankings, geringere Verweildauer", insight)
+                    }
                 } else if insight.contains("Duplikat") || insight.contains("duplicate") {
-                    format!(
-                        "{} → Keyword-Kannibalisierung, Split der Ranking-Signale",
-                        insight
-                    )
+                    if en_batch {
+                        format!(
+                            "{} → keyword cannibalization, split ranking signals",
+                            insight
+                        )
+                    } else {
+                        format!(
+                            "{} → Keyword-Kannibalisierung, Split der Ranking-Signale",
+                            insight
+                        )
+                    }
                 } else {
                     insight.clone()
                 };
-                ChecklistRow::new("Handlungsbedarf", &impact).with_status("warn")
+                ChecklistRow::new(action_label, &impact).with_status("warn")
             })
             .collect();
-        builder = builder.add_component(
-            ChecklistPanel::new(rows).with_title("Content-Auffälligkeiten → Business-Impact"),
-        );
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(panel_title));
     }
 
     // Near-duplicates mit Business-Kontext
     if !pres.portfolio_summary.near_duplicates.is_empty() {
+        let near_dup_title = if en_batch {
+            "Near-duplicate content → keyword cannibalization"
+        } else {
+            "Near-Duplicate-Content → Keyword-Kannibalisierung"
+        };
         let mut table = AuditTable::new(vec![
-            TableColumn::new("Seite A"),
-            TableColumn::new("Seite B"),
-            TableColumn::new("Ähnlichkeit"),
-            TableColumn::new("Risiko"),
+            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-page-b")),
+            TableColumn::new(i18n.t("batch-col-similarity")),
+            TableColumn::new(i18n.t("batch-col-risk")),
         ])
-        .with_title("Near-Duplicate-Content → Keyword-Kannibalisierung");
+        .with_title(near_dup_title);
 
         for (url_a, url_b, sim) in &pres.portfolio_summary.near_duplicates {
             let risk = if *sim >= 95 {
-                "Hoch — konsolidieren"
+                if en_batch {
+                    "High — consolidate"
+                } else {
+                    "Hoch — konsolidieren"
+                }
+            } else if en_batch {
+                "Medium — differentiate"
             } else {
                 "Mittel — differenzieren"
             };
@@ -1673,20 +2068,28 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // Seitentyp-Verteilung (kompakt)
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
+        let high_label = if en_batch { "high" } else { "hoch" };
+        let medium_label = if en_batch { "medium" } else { "mittel" };
+        let low_label = if en_batch { "low" } else { "niedrig" };
         let mut type_table = AuditTable::new(vec![
-            TableColumn::new("Seitentyp"),
-            TableColumn::new("Seiten"),
-            TableColumn::new("Anteil"),
-            TableColumn::new("Relevanz"),
+            TableColumn::new(i18n.t("batch-col-page-type")),
+            TableColumn::new(i18n.t("batch-col-pages-list")),
+            TableColumn::new(i18n.t("batch-col-share")),
+            TableColumn::new(i18n.t("batch-col-relevance")),
         ])
-        .with_title("Seitentyp-Verteilung");
+        .with_title(i18n.t("batch-table-page-type-distribution"));
 
         for (label, count, pct) in &pres.portfolio_summary.page_type_distribution {
             let relevance = match label.as_str() {
-                "Marketing / Landing Page" | "Transaktional / Utility" => "hoch",
-                "Editorial / Artikel" | "Strukturierter Wissensinhalt" => "mittel",
-                "Thin / Minimal Content" => "niedrig",
-                _ => "mittel",
+                "Marketing / Landing Page"
+                | "Transaktional / Utility"
+                | "Transactional / Utility" => high_label,
+                "Editorial / Artikel"
+                | "Editorial / Article"
+                | "Strukturierter Wissensinhalt"
+                | "Structured knowledge content" => medium_label,
+                "Thin / Minimal Content" => low_label,
+                _ => medium_label,
             };
             type_table = type_table.add_row(vec![
                 label.clone(),
@@ -1703,18 +2106,28 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         let total = pres.portfolio_summary.total_urls;
         let without = pres.portfolio_summary.pages_without_schema;
         let summary = if without == 0 {
-            format!("Alle {} Seiten haben strukturierte Daten.", total)
+            if en_batch {
+                format!("All {} pages have structured data.", total)
+            } else {
+                format!("Alle {} Seiten haben strukturierte Daten.", total)
+            }
+        } else if en_batch {
+            format!("{} of {} pages without structured data.", without, total)
         } else {
             format!("{} von {} Seiten ohne strukturierte Daten.", without, total)
         };
-        builder = builder
-            .add_component(Callout::info(&summary).with_title("Strukturierte Daten (Schema.org)"));
+        let schema_callout_title = if en_batch {
+            "Structured data (Schema.org)"
+        } else {
+            "Strukturierte Daten (Schema.org)"
+        };
+        builder = builder.add_component(Callout::info(&summary).with_title(schema_callout_title));
         let mut schema_table = AuditTable::new(vec![
-            TableColumn::new("Schema-Typ").with_width("55%"),
-            TableColumn::new("Seiten").with_width("20%"),
-            TableColumn::new("Anteil").with_width("25%"),
+            TableColumn::new(i18n.t("batch-col-schema-type")).with_width("55%"),
+            TableColumn::new(i18n.t("batch-col-pages-list")).with_width("20%"),
+            TableColumn::new(i18n.t("batch-col-share")).with_width("25%"),
         ])
-        .with_title("Schema-Typ-Verteilung");
+        .with_title(i18n.t("batch-table-schema-distribution"));
         for (schema_type, count) in &pres.portfolio_summary.schema_distribution {
             let pct = (*count * 100).checked_div(total).unwrap_or(0);
             schema_table = schema_table.add_row(vec![
@@ -1730,10 +2143,10 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     if !pres.portfolio_summary.strongest_content_pages.is_empty() {
         let mut strengths = AuditTable::new(vec![
             TableColumn::new("URL"),
-            TableColumn::new("Seitentyp"),
-            TableColumn::new("Profil"),
+            TableColumn::new(i18n.t("batch-col-page-type")),
+            TableColumn::new(i18n.t("batch-col-profile")),
         ])
-        .with_title("Stärkste Content-Seiten");
+        .with_title(i18n.t("batch-table-top-pages"));
 
         for (url, page_type, score) in &pres.portfolio_summary.strongest_content_pages {
             strengths = strengths.add_row(vec![
@@ -1746,19 +2159,26 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     }
 
     // ── Empfohlene nächste Schritte ───────────────────────────────
-    builder = render_next_steps_batch(builder, &pres);
+    builder = render_next_steps_batch(builder, &pres, &i18n);
 
     // ── 7. Anhang ───────────────────────────────────────────────────
     if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
+        let appendix_intro = if en_pdf {
+            "Complete listing of all detected violations per URL with technical details for implementation."
+        } else {
+            "Vollständige Auflistung aller erkannten Verstöße pro URL \
+             mit technischen Details für die Umsetzung."
+        };
         builder = builder.add_component(
-            SectionHeaderSplit::new(
-                "Anhang: Technische Details",
-                "Vollständige Auflistung aller erkannten Verstöße pro URL \
-                 mit technischen Details für die Umsetzung.",
-            )
-            .with_level(1),
+            SectionHeaderSplit::new(i18n.t("section-appendix"), appendix_intro).with_level(1),
         );
 
+        let rule_col = if en_pdf { "Rule" } else { "Regel" };
+        let elements_col = if en_pdf {
+            "Affected elements"
+        } else {
+            "Betr. Elemente"
+        };
         for url_appendix in &pres.appendix.per_url {
             if url_appendix.violations.is_empty() {
                 continue;
@@ -1768,10 +2188,10 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 .add_component(Section::new(truncate_url(&url_appendix.url, 70)).with_level(2));
 
             let mut table = AuditTable::new(vec![
-                TableColumn::new("Regel"),
-                TableColumn::new("Schweregrad"),
-                TableColumn::new("Beschreibung"),
-                TableColumn::new("Betr. Elemente"),
+                TableColumn::new(rule_col),
+                TableColumn::new(i18n.t("batch-col-severity")),
+                TableColumn::new(i18n.t("batch-col-description")),
+                TableColumn::new(elements_col),
             ]);
 
             for v in &url_appendix.violations {
@@ -1806,7 +2226,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 /// Generate a competitive comparison PDF report.
 pub fn generate_comparison_pdf(
     comparison: &crate::audit::ComparisonReport,
-    _config: &ReportConfig,
+    config: &ReportConfig,
 ) -> anyhow::Result<Vec<u8>> {
     let engine = create_engine()?;
 
@@ -1826,36 +2246,51 @@ pub fn generate_comparison_pdf(
         .first()
         .map(|e| extract_domain(&e.url))
         .unwrap_or_default();
-    let wordmark_asset = "/auditmysite-wordmark.svg";
 
+    let i18n = I18n::new(&config.locale)?;
+    let en_cmp = i18n.locale() == "en";
+    let date_format = if en_cmp { "%Y-%m-%d" } else { "%d.%m.%Y" };
     let mut builder = engine
         .report("wcag-comparison")
-        .metadata("date", chrono::Local::now().format("%d.%m.%Y").to_string())
+        .metadata("date", chrono::Local::now().format(date_format).to_string())
         .metadata("author", &author)
         .metadata("footer_prefix", "Audit:")
         .metadata("footer_link_url", "");
 
-    if let Ok(path) = auditmysite_wordmark_path() {
-        builder = builder.asset(wordmark_asset, path);
-    }
+    let cover_logo_asset = cover_logo_asset(config);
+    builder = register_cover_logo_asset(builder, config, cover_logo_asset);
+
+    let comparison_subline = if en_cmp {
+        format!(
+            "Comparison of {} domains — avg score: {}/100",
+            comparison.entries.len(),
+            avg_score
+        )
+    } else {
+        format!(
+            "Vergleich von {} Domains — Ø Score: {}/100",
+            comparison.entries.len(),
+            avg_score
+        )
+    };
 
     builder = builder
-        .add_component(Image::new(wordmark_asset).with_width("22%"))
+        .add_component(Image::new(cover_logo_asset).with_width("22%"))
         .add_component(
             Label::new(&author)
                 .with_size("10pt")
                 .bold()
                 .with_color("#0f766e"),
         )
-        .add_component(Label::new("Wettbewerbsvergleich").with_size("28pt").bold())
         .add_component(
-            Label::new(format!(
-                "Vergleich von {} Domains — Ø Score: {}/100",
-                comparison.entries.len(),
-                avg_score
-            ))
-            .with_size("12pt")
-            .with_color("#475569"),
+            Label::new(i18n.t("comparison-cover-title"))
+                .with_size("28pt")
+                .bold(),
+        )
+        .add_component(
+            Label::new(comparison_subline)
+                .with_size("12pt")
+                .with_color("#475569"),
         )
         .add_component(
             Label::new(format!("auditmysite v{}", env!("CARGO_PKG_VERSION")))
@@ -1865,14 +2300,24 @@ pub fn generate_comparison_pdf(
         .add_component(PageBreak::new());
 
     // ── 1. Domain-Ranking ────────────────────────────────────────────
-    builder = builder
-        .add_component(Section::new("Domain-Ranking").with_level(1))
-        .add_component(TextBlock::new(format!(
+    let ranking_intro = if en_cmp {
+        format!(
+            "Comparison of {} domains based on a full audit of each home page. \
+             Average score: {}/100.",
+            comparison.entries.len(),
+            avg_score,
+        )
+    } else {
+        format!(
             "Vergleich von {} Domains anhand eines vollständigen Audits der jeweiligen Startseite. \
              Durchschnittlicher Score: {}/100.",
             comparison.entries.len(),
             avg_score,
-        )));
+        )
+    };
+    builder = builder
+        .add_component(Section::new(i18n.t("comparison-domain-ranking")).with_level(1))
+        .add_component(TextBlock::new(ranking_intro));
 
     let rows: Vec<BenchmarkRow> = comparison
         .entries
@@ -1899,7 +2344,8 @@ pub fn generate_comparison_pdf(
         })
         .collect();
 
-    builder = builder.add_component(BenchmarkTable::new(rows).with_title("Domain-Ranking"));
+    builder = builder
+        .add_component(BenchmarkTable::new(rows).with_title(&i18n.t("comparison-domain-ranking")));
 
     // ── 2. Modul-Vergleich ───────────────────────────────────────────
     let has_module_data = comparison
@@ -1908,7 +2354,8 @@ pub fn generate_comparison_pdf(
         .any(|e| e.seo_score.is_some() || e.performance_score.is_some());
 
     if has_module_data {
-        builder = builder.add_component(Section::new("Modul-Vergleich").with_level(1));
+        builder = builder
+            .add_component(Section::new(i18n.t("comparison-module-comparison")).with_level(1));
 
         let comparison_modules: Vec<ComparisonModule> = comparison
             .entries
@@ -1921,15 +2368,21 @@ pub fn generate_comparison_pdf(
     // ── 3. Top Findings je Domain ────────────────────────────────────
     let has_issues = comparison.entries.iter().any(|e| !e.top_issues.is_empty());
     if has_issues {
-        builder =
-            builder.add_component(Section::new("Wichtigste Findings je Domain").with_level(1));
+        builder = builder.add_component(
+            Section::new(i18n.t("comparison-top-findings-per-domain")).with_level(1),
+        );
 
+        let top_findings_label = if en_cmp {
+            "Top findings"
+        } else {
+            "Top Findings"
+        };
         for entry in &comparison.entries {
             if entry.top_issues.is_empty() {
                 continue;
             }
             builder = builder.add_component(
-                Section::new(format!("{} — Top Findings", entry.domain)).with_level(2),
+                Section::new(format!("{} — {}", entry.domain, top_findings_label)).with_level(2),
             );
             let mut list = List::new();
             for issue in &entry.top_issues {
@@ -1946,6 +2399,11 @@ pub fn generate_comparison_pdf(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audit::{AuditReport, BatchReport, ComparisonReport};
+    use crate::cli::{ReportLevel, WcagLevel};
+    use crate::wcag::{Severity, Violation, WcagResults};
+    use std::path::PathBuf;
+    use std::process::Command;
 
     #[test]
     fn test_truncate_url() {
@@ -1957,5 +2415,285 @@ mod tests {
             truncate_url("https://example.com", 30),
             "https://example.com"
         );
+    }
+
+    #[test]
+    fn test_single_pdf_smoke_renders_valid_pdf() {
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            ..ReportConfig::default()
+        };
+
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        assert_pdf_smoke(&pdf, 20_000);
+    }
+
+    #[test]
+    fn test_single_pdf_smoke_renders_all_report_levels() {
+        for level in [
+            ReportLevel::Executive,
+            ReportLevel::Standard,
+            ReportLevel::Technical,
+        ] {
+            let report = pdf_fixture_report();
+            let config = ReportConfig {
+                level,
+                ..ReportConfig::default()
+            };
+
+            let pdf = generate_pdf(&report, &config).expect("PDF should render");
+            assert_pdf_smoke(&pdf, 15_000);
+        }
+    }
+
+    #[test]
+    fn test_batch_pdf_smoke_renders_valid_pdf() {
+        let batch = BatchReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://example.com"),
+                pdf_fixture_report_for_url("https://example.com/about"),
+            ],
+            vec![],
+            2_400,
+        );
+
+        let pdf = generate_batch_pdf(&batch, &ReportConfig::default()).expect("PDF should render");
+        assert_pdf_smoke(&pdf, 20_000);
+    }
+
+    #[test]
+    fn test_comparison_pdf_smoke_renders_valid_pdf() {
+        let comparison = ComparisonReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://alpha.example.com"),
+                pdf_fixture_report_for_url("https://beta.example.com"),
+            ],
+            2_400,
+        );
+
+        let pdf = generate_comparison_pdf(&comparison, &ReportConfig::default())
+            .expect("PDF should render");
+        assert_pdf_smoke(&pdf, 12_000);
+    }
+
+    #[test]
+    fn test_cover_logo_asset_prefers_existing_custom_logo() {
+        let logo = tempfile::NamedTempFile::new().expect("custom logo fixture should be writable");
+        let config = ReportConfig {
+            logo_path: Some(logo.path().to_path_buf()),
+            ..ReportConfig::default()
+        };
+
+        assert_eq!(cover_logo_asset(&config), CUSTOM_COVER_LOGO_ASSET);
+    }
+
+    #[test]
+    fn test_cover_logo_asset_falls_back_for_missing_custom_logo() {
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let missing_logo = temp_dir.path().join("missing-logo.svg");
+        let config = ReportConfig {
+            logo_path: Some(missing_logo),
+            ..ReportConfig::default()
+        };
+
+        assert_eq!(cover_logo_asset(&config), WORDMARK_ASSET);
+    }
+
+    #[test]
+    fn test_single_pdf_renders_in_english_locale() {
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            locale: "en".to_string(),
+            ..ReportConfig::default()
+        };
+
+        let pdf = generate_pdf(&report, &config).expect("English PDF should render");
+        assert_pdf_smoke(&pdf, 15_000);
+    }
+
+    #[test]
+    fn test_pdf_german_and_english_outputs_differ() {
+        // Locale-aware narrative must produce different PDF bytes.
+        let report = pdf_fixture_report();
+        let de = generate_pdf(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Standard,
+                locale: "de".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("German PDF should render");
+        let en = generate_pdf(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Standard,
+                locale: "en".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("English PDF should render");
+        assert_ne!(de, en, "German and English PDFs should differ in content");
+    }
+
+    #[test]
+    fn test_pdf_with_custom_logo_differs_from_default() {
+        // A custom logo asset registered on the cover must change PDF bytes.
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let logo_path = temp_dir.path().join("custom-logo.svg");
+        // Minimal valid SVG so Typst can decode it.
+        std::fs::write(
+            &logo_path,
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="120" height="32" fill="#ff00ff"/></svg>"##,
+        )
+        .expect("write logo");
+
+        let report = pdf_fixture_report();
+        let default_pdf =
+            generate_pdf(&report, &ReportConfig::default()).expect("default PDF should render");
+        let custom_pdf = generate_pdf(
+            &report,
+            &ReportConfig {
+                logo_path: Some(logo_path),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("custom logo PDF should render");
+
+        assert_ne!(
+            default_pdf, custom_pdf,
+            "PDF with custom logo should differ from default cover"
+        );
+    }
+
+    #[test]
+    fn test_single_pdf_technical_renders_multiple_pages_when_pdftoppm_is_available() {
+        let Some(pdftoppm) = find_executable("pdftoppm") else {
+            return;
+        };
+
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Technical,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let pdf_path = temp_dir.path().join("auditmysite-pages.pdf");
+        let png_prefix = temp_dir.path().join("auditmysite-pages");
+        std::fs::write(&pdf_path, pdf).expect("PDF fixture should be writable");
+
+        let status = Command::new(pdftoppm)
+            .arg("-png")
+            .arg("-r")
+            .arg("72")
+            .arg(&pdf_path)
+            .arg(&png_prefix)
+            .status()
+            .expect("pdftoppm should run");
+        assert!(status.success(), "pdftoppm failed with {status}");
+
+        let mut produced_pages = 0;
+        for entry in std::fs::read_dir(temp_dir.path()).expect("temp dir should be readable") {
+            let entry = entry.expect("dir entry should be readable");
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with("auditmysite-pages-") && name_str.ends_with(".png") {
+                produced_pages += 1;
+            }
+        }
+
+        assert!(
+            produced_pages >= 3,
+            "Technical report should render at least 3 pages, got {produced_pages}"
+        );
+    }
+
+    #[test]
+    fn test_single_pdf_first_page_can_be_rasterized_when_pdftoppm_is_available() {
+        let Some(pdftoppm) = find_executable("pdftoppm") else {
+            return;
+        };
+
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Executive,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let pdf_path = temp_dir.path().join("auditmysite-smoke.pdf");
+        let png_prefix = temp_dir.path().join("auditmysite-smoke-page");
+        std::fs::write(&pdf_path, pdf).expect("PDF fixture should be writable");
+
+        let status = Command::new(pdftoppm)
+            .arg("-png")
+            .arg("-f")
+            .arg("1")
+            .arg("-singlefile")
+            .arg(&pdf_path)
+            .arg(&png_prefix)
+            .status()
+            .expect("pdftoppm should run");
+
+        assert!(status.success(), "pdftoppm failed with {status}");
+
+        let png_path = png_prefix.with_extension("png");
+        let png = std::fs::read(&png_path).expect("first page PNG should exist");
+        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"), "PNG header missing");
+        assert!(
+            png.len() > 10_000,
+            "PNG too small to represent a rendered report page: {} bytes",
+            png.len()
+        );
+    }
+
+    fn assert_pdf_smoke(pdf: &[u8], min_size: usize) {
+        assert!(pdf.starts_with(b"%PDF-"), "PDF header missing");
+        assert!(
+            pdf.windows(5).any(|window| window == b"%%EOF"),
+            "PDF EOF marker missing"
+        );
+        assert!(
+            pdf.len() > min_size,
+            "PDF too small to contain the expected report layout: {} bytes",
+            pdf.len()
+        );
+    }
+
+    fn pdf_fixture_report() -> AuditReport {
+        pdf_fixture_report_for_url("https://example.com")
+    }
+
+    fn pdf_fixture_report_for_url(url: &str) -> AuditReport {
+        let mut results = WcagResults::new();
+        results.nodes_checked = 42;
+        results.passes = 8;
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Image missing alternative text",
+                "node-hero-image",
+            )
+            .with_selector("img.hero")
+            .with_html_snippet("<img class=\"hero\" src=\"hero.jpg\">")
+            .with_fix("Add a meaningful alt attribute"),
+        );
+
+        AuditReport::new(url.to_string(), WcagLevel::AA, results, 1_200)
+    }
+
+    fn find_executable(name: &str) -> Option<PathBuf> {
+        let paths = std::env::var_os("PATH")?;
+        std::env::split_paths(&paths)
+            .map(|path| path.join(name))
+            .find(|path| path.is_file())
     }
 }

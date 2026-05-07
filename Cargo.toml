@@ -62,8 +62,13 @@ fluent-bundle = "0.15"
 fluent-syntax = "0.11"
 unic-langid = "0.9"
 
-# PDF report generation via Typst
-renderreport = { path = "../renderreport", optional = true }
+# PDF report generation via Typst.
+# Pinned to a Git revision so CI and external builds work without a sibling
+# `../renderreport` checkout. For local development against a working tree,
+# add a `[patch.crates-io]` override in `.cargo/config.toml` (gitignored) or
+# uncomment the path override below.
+renderreport = { git = "https://github.com/casoon/renderreport", rev = "0fa4aadfe4437a087a4e90bb39a59ebfc3a14402", optional = true }
+# renderreport = { path = "../renderreport", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

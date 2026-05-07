@@ -51,6 +51,16 @@ impl SiteState {
             Self::Critical => "Kritisch",
         }
     }
+
+    pub fn label_localized(&self, i18n: &crate::i18n::I18n) -> String {
+        let key = match self {
+            Self::Polished => "site-state-polished",
+            Self::NeedsWork => "site-state-needs-work",
+            Self::Weak => "site-state-weak",
+            Self::Critical => "site-state-critical",
+        };
+        i18n.t(key)
+    }
 }
 
 // ── Dominant issue ────────────────────────────────────────────────────────────
@@ -116,8 +126,14 @@ pub struct AuditSummary {
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
-/// Produce a full [`AuditSummary`] from a normalized report.
+/// Produce a full [`AuditSummary`] from a normalized report (German narrative).
 pub fn analyze(normalized: &NormalizedReport) -> AuditSummary {
+    analyze_with_locale(normalized, "de")
+}
+
+/// Locale-aware variant of [`analyze`]. Currently supports `"de"` (default)
+/// and `"en"`; unknown locales fall back to the German narrative.
+pub fn analyze_with_locale(normalized: &NormalizedReport, locale: &str) -> AuditSummary {
     let site_state = SiteState::from_normalized(normalized);
     let critical = normalized.severity_counts.critical;
     let high = normalized.severity_counts.high;
@@ -137,9 +153,10 @@ pub fn analyze(normalized: &NormalizedReport) -> AuditSummary {
 
     let dominant_issue = detect_dominant_issue(&normalized.findings, urgent_occurrences);
     let issue_pattern = classify_issue_pattern(total, urgent, &dominant_issue);
-    let cross_impacts = detect_cross_impacts(normalized);
+    let cross_impacts = detect_cross_impacts(normalized, locale);
 
     let verdict_intro = build_verdict_intro(
+        locale,
         &site_state,
         &dominant_issue,
         &issue_pattern,
@@ -151,24 +168,46 @@ pub fn analyze(normalized: &NormalizedReport) -> AuditSummary {
         &cross_impacts,
     );
 
-    let problem_type_label =
-        build_problem_type_label(&site_state, &issue_pattern, &dominant_issue, normalized);
+    let problem_type_label = build_problem_type_label(
+        locale,
+        &site_state,
+        &issue_pattern,
+        &dominant_issue,
+        normalized,
+    );
 
     let dominant_issue_note = dominant_issue.as_ref().map(|d| {
-        let group_label = if d.count == 1 {
-            "1 Problemgruppe".to_string()
+        if locale == "en" {
+            let group_label = if d.count == 1 {
+                "1 finding group".to_string()
+            } else {
+                format!("{} finding groups", d.count)
+            };
+            let occurrence_note = if d.occurrence_total > d.count {
+                format!(", {} occurrences", d.occurrence_total)
+            } else {
+                String::new()
+            };
+            format!(
+                "\"{}\" accounts for {:.0}\u{202f}% of critical/high findings ({group_label}{occurrence_note}).",
+                d.title, d.share_pct
+            )
         } else {
-            format!("{} Problemgruppen", d.count)
-        };
-        let occurrence_note = if d.occurrence_total > d.count {
-            format!(", {} Vorkommen", d.occurrence_total)
-        } else {
-            String::new()
-        };
-        format!(
-            "\"{}\" macht {:.0}\u{202f}% der kritischen/hohen Findings aus ({group_label}{occurrence_note}).",
-            d.title, d.share_pct
-        )
+            let group_label = if d.count == 1 {
+                "1 Problemgruppe".to_string()
+            } else {
+                format!("{} Problemgruppen", d.count)
+            };
+            let occurrence_note = if d.occurrence_total > d.count {
+                format!(", {} Vorkommen", d.occurrence_total)
+            } else {
+                String::new()
+            };
+            format!(
+                "\"{}\" macht {:.0}\u{202f}% der kritischen/hohen Findings aus ({group_label}{occurrence_note}).",
+                d.title, d.share_pct
+            )
+        }
     });
 
     AuditSummary {
@@ -235,8 +274,9 @@ fn classify_issue_pattern(
     }
 }
 
-fn detect_cross_impacts(normalized: &NormalizedReport) -> Vec<CrossImpact> {
+fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<CrossImpact> {
     let mut impacts = Vec::new();
+    let en = locale == "en";
 
     let has_weak_seo = normalized
         .raw_seo
@@ -251,7 +291,11 @@ fn detect_cross_impacts(normalized: &NormalizedReport) -> Vec<CrossImpact> {
     if has_weak_seo && has_heading_issues {
         impacts.push(CrossImpact {
             dimensions: "Accessibility + SEO".into(),
-            description: "Fehlende Überschriftenstruktur wirkt gleichzeitig als SEO-Schwäche und Accessibility-Barriere.".into(),
+            description: if en {
+                "Missing heading structure simultaneously acts as an SEO weakness and an accessibility barrier.".into()
+            } else {
+                "Fehlende Überschriftenstruktur wirkt gleichzeitig als SEO-Schwäche und Accessibility-Barriere.".into()
+            },
         });
     }
 
@@ -268,7 +312,11 @@ fn detect_cross_impacts(normalized: &NormalizedReport) -> Vec<CrossImpact> {
     if has_security_issues && has_mobile_issues {
         impacts.push(CrossImpact {
             dimensions: "Security + Mobile".into(),
-            description: "Security-Schwächen und Mobile-Probleme treten gemeinsam auf — Optimierungsbedarf zieht sich durch mehrere Bereiche.".into(),
+            description: if en {
+                "Security weaknesses and mobile issues appear together — optimization effort spans multiple areas.".into()
+            } else {
+                "Security-Schwächen und Mobile-Probleme treten gemeinsam auf — Optimierungsbedarf zieht sich durch mehrere Bereiche.".into()
+            },
         });
     }
 
@@ -280,7 +328,11 @@ fn detect_cross_impacts(normalized: &NormalizedReport) -> Vec<CrossImpact> {
     if has_perf_issues && has_mobile_issues {
         impacts.push(CrossImpact {
             dimensions: "Performance + Mobile".into(),
-            description: "Schlechte Ladezeiten verstärken Mobile-Probleme — Mobile-Nutzbarkeit ist doppelt eingeschränkt.".into(),
+            description: if en {
+                "Poor load times amplify mobile problems — mobile usability is doubly impaired.".into()
+            } else {
+                "Schlechte Ladezeiten verstärken Mobile-Probleme — Mobile-Nutzbarkeit ist doppelt eingeschränkt.".into()
+            },
         });
     }
 
@@ -289,6 +341,7 @@ fn detect_cross_impacts(normalized: &NormalizedReport) -> Vec<CrossImpact> {
 
 #[allow(clippy::too_many_arguments)]
 fn build_verdict_intro(
+    locale: &str,
     site_state: &SiteState,
     dominant_issue: &Option<DominantIssue>,
     issue_pattern: &IssuePattern,
@@ -303,17 +356,37 @@ fn build_verdict_intro(
         .first()
         .map(|c| format!(" {}", c.description))
         .unwrap_or_default();
+    let en = locale == "en";
 
     // Systematic problems override pattern-specific wording
     if is_systematic {
-        return format!(
-            "Kein Einzelproblem — {total} Verstöße über {critical} kritische und {high} hohe Themen sind ein \
-             systematisches Muster. Betrifft große Teile der Seite, nicht einzelne Stellen.{cross_note}"
-        );
+        return if en {
+            format!(
+                "No isolated issue — {total} violations across {critical} critical and {high} high topics form a \
+                 systematic pattern. It affects large parts of the site, not individual spots.{cross_note}"
+            )
+        } else {
+            format!(
+                "Kein Einzelproblem — {total} Verstöße über {critical} kritische und {high} hohe Themen sind ein \
+                 systematisches Muster. Betrifft große Teile der Seite, nicht einzelne Stellen.{cross_note}"
+            )
+        };
     }
 
     // Single dominant issue: language shifts to focus on the one root cause
     if let Some(d) = dominant_issue {
+        if en {
+            let detail = if d.occurrence_total > d.count {
+                format!("{} occurrences", d.occurrence_total)
+            } else {
+                format!("{} hits", d.count)
+            };
+            return format!(
+                "One issue dominates: \"{}\" causes {:.0} % of critical findings ({detail}). \
+                 Focus here — one cause, high impact.{cross_note}",
+                d.title, d.share_pct
+            );
+        }
         let detail = if d.occurrence_total > d.count {
             format!("{} Vorkommen", d.occurrence_total)
         } else {
@@ -324,6 +397,40 @@ fn build_verdict_intro(
              Hier konzentrieren -- eine Ursache, hoher Impact.{cross_note}",
             d.title, d.share_pct
         );
+    }
+
+    if en {
+        return match (site_state, issue_pattern) {
+            (SiteState::Polished, _) => {
+                if urgent == 0 {
+                    format!("No pressing barriers detected by automation.{cross_note} Maintain the level and re-check regularly.")
+                } else {
+                    let topic_word = if urgent == 1 { "topic" } else { "topics" };
+                    format!("Solid foundation. {urgent} prioritized {topic_word} — fix deliberately before they pile up.{cross_note}")
+                }
+            }
+            (SiteState::NeedsWork, IssuePattern::Clustered) => format!(
+                "Solid foundation, but {urgent} prioritized topics span several independent areas. \
+                 Prioritize systematically — not all at once.{cross_note}"
+            ),
+            (SiteState::NeedsWork, _) => {
+                if urgent == 0 {
+                    format!("Solid foundation without acute risks. {total} improvements possible — easy to prioritize.{cross_note}")
+                } else {
+                    let topic_word = if urgent == 1 { "topic" } else { "topics" };
+                    let needs_word = if urgent == 1 { "needs" } else { "need" };
+                    format!("Good foundation, but {urgent} prioritized {topic_word} {needs_word} immediate attention.{cross_note}")
+                }
+            }
+            (SiteState::Weak, _) => format!(
+                "Relevant barriers present -- {urgent} of them critical or high. \
+                 Prioritize systematically and start phase 1.{cross_note}"
+            ),
+            (SiteState::Critical, _) => format!(
+                "Urgent action required: {critical} critical, {high} high issues. \
+                 The site is hard to use for part of users -- start phase 1 immediately.{cross_note}"
+            ),
+        };
     }
 
     match (site_state, issue_pattern) {
@@ -368,6 +475,7 @@ fn build_verdict_intro(
 }
 
 fn build_problem_type_label(
+    locale: &str,
     site_state: &SiteState,
     issue_pattern: &IssuePattern,
     dominant_issue: &Option<DominantIssue>,
@@ -387,29 +495,59 @@ fn build_problem_type_label(
         || (critical >= 5 && total > 20)
         || (rule_count >= 7 && total > 25 && (critical + high) >= 15);
 
+    let en = locale == "en";
+
     match issue_pattern {
         IssuePattern::Minimal => {
-            "Keine Verstöße gefunden — volle Konformität im geprüften Umfang".into()
+            if en {
+                "No violations found — full conformance within the audited scope".into()
+            } else {
+                "Keine Verstöße gefunden — volle Konformität im geprüften Umfang".into()
+            }
         }
         IssuePattern::SingleDominant => {
             if let Some(d) = dominant_issue {
-                format!(
-                    "Dominierendes Einzelproblem: \"{}\" — konzentriert und gezielt behebbar",
-                    d.title
-                )
+                if en {
+                    format!(
+                        "Dominant single issue: \"{}\" — focused and fixable",
+                        d.title
+                    )
+                } else {
+                    format!(
+                        "Dominierendes Einzelproblem: \"{}\" — konzentriert und gezielt behebbar",
+                        d.title
+                    )
+                }
+            } else if en {
+                "Single issue — focused and fixable".into()
             } else {
                 "Einzelproblem — konzentriert und gezielt behebbar".into()
             }
         }
         IssuePattern::Clustered if is_structural => {
-            "Strukturelle Defizite — flächendeckende Barrieren in mehreren Bereichen".into()
+            if en {
+                "Structural deficits — pervasive barriers across multiple areas".into()
+            } else {
+                "Strukturelle Defizite — flächendeckende Barrieren in mehreren Bereichen".into()
+            }
         }
         IssuePattern::Clustered => {
-            "Mehrere Problemcluster — über verschiedene Bereiche verteilt, gezielt behebbar".into()
+            if en {
+                "Multiple problem clusters — spread across areas, targetable".into()
+            } else {
+                "Mehrere Problemcluster — über verschiedene Bereiche verteilt, gezielt behebbar"
+                    .into()
+            }
         }
         IssuePattern::Scattered => {
             if matches!(site_state, SiteState::Polished | SiteState::NeedsWork) {
-                "Feinschliff — keine strukturellen Defizite, letzte Optimierungshebel".into()
+                if en {
+                    "Polish — no structural deficits, last optimization levers".into()
+                } else {
+                    "Feinschliff — keine strukturellen Defizite, letzte Optimierungshebel".into()
+                }
+            } else if en {
+                "Multiple critical isolated issues — focused and fixable".into()
             } else {
                 "Mehrere kritische Einzelprobleme — konzentriert und gezielt behebbar".into()
             }
@@ -496,6 +634,7 @@ mod tests {
             },
             module_scores: vec![],
             audit_flags: vec![],
+            has_screenshots: false,
             raw_performance: None,
             raw_seo: None,
             raw_security: None,

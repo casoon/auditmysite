@@ -105,7 +105,7 @@ fn setup_logging(args: &Args) {
 async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Result<f64> {
     // Handle subcommands first
     if let Some(ref command) = args.command {
-        return handle_command(command).await;
+        return handle_command(command, &args).await;
     }
 
     if args.detect_chrome {
@@ -171,29 +171,65 @@ async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Resu
     }
 }
 
-/// Handle subcommands (browser, doctor)
-async fn handle_command(command: &Command) -> Result<f64> {
+/// Handle subcommands (browser, doctor, plan)
+async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
     match command {
         Command::Browser { action } => handle_browser_command(action).await,
         Command::Doctor => {
             auditmysite::cli::doctor::run_doctor();
             Ok(0.0)
         }
+        Command::Plan { url } => run_plan_command(args, url.as_deref()),
     }
+}
+
+/// Render a dry-run preview of what an audit would do without launching the
+/// browser.
+fn run_plan_command(args: &Args, url: Option<&str>) -> Result<f64> {
+    let mut effective = args.clone();
+    if let Some(u) = url {
+        effective.url = Some(u.to_string());
+    }
+
+    if effective.url.is_none() && effective.sitemap.is_none() && effective.url_file.is_none() {
+        return Err(AuditError::ConfigError(
+            "auditmysite plan benötigt eine URL oder --sitemap/--url-file.".to_string(),
+        ));
+    }
+
+    if !effective.quiet {
+        print_banner();
+    }
+
+    if let Some(ref sitemap) = effective.sitemap {
+        let url_count = effective.max_pages.max(1);
+        println!("{} {}", "Sitemap-Plan:".cyan().bold(), sitemap);
+        print_batch_audit_plan(&effective, url_count);
+    } else if effective.url_file.is_some() {
+        println!("{} URL-Datei", "Plan:".cyan().bold());
+        print_batch_audit_plan(&effective, effective.max_pages.max(1));
+    } else if effective.crawl {
+        println!("{} Crawl", "Plan:".cyan().bold());
+        print_batch_audit_plan(&effective, effective.max_pages.max(1));
+    } else if let Some(ref single_url) = effective.url {
+        print_single_audit_plan(&effective, single_url);
+    }
+
+    Ok(0.0)
 }
 
 /// Handle browser subcommands
 async fn handle_browser_command(action: &BrowserAction) -> Result<f64> {
     match action {
         BrowserAction::Detect => {
-            println!("{}", "Detecting browsers...".cyan().bold());
+            println!("{}", "Browser-Erkennung läuft...".cyan().bold());
             println!();
 
             let browsers = detect_all_browsers();
             if browsers.is_empty() {
-                println!("  No browsers found.");
+                println!("  Keine Browser gefunden.");
                 println!();
-                println!("  Install one:");
+                println!("  Installation:");
                 println!("    brew install --cask google-chrome");
                 println!("    auditmysite browser install");
             } else {
@@ -310,6 +346,8 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
         return Ok(batch_score);
     }
 
+    print_single_audit_plan(args, url);
+
     // Quick reachability check before spinning up a browser
     check_url_reachable(url, args.quiet).await?;
 
@@ -352,23 +390,25 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
     };
 
     if !args.quiet {
-        println!("{}", "Launching browser...".dimmed());
+        println!("{}", "Browser wird gestartet...".dimmed());
     }
     let browser = BrowserManager::with_options(browser_options).await?;
 
     if !args.quiet {
         println!(
-            "{} Chrome {} at {}",
-            "Found:".green().bold(),
-            browser.chrome_version().unwrap_or("unknown version"),
+            "{} Chrome {} ({})",
+            "Gefunden:".green().bold(),
+            browser.chrome_version().unwrap_or("unbekannte Version"),
             browser.chrome_path().display()
         );
-        println!("{} {}", "Auditing:".cyan().bold(), url);
+        println!("{} {}", "Audit läuft:".cyan().bold(), url);
     }
 
     let pipeline_config = PipelineConfig::from(args);
-    let mut report = run_single_audit(url, &browser, &pipeline_config).await?;
-    browser.close().await?;
+    let audit_result = run_single_audit(url, &browser, &pipeline_config).await;
+    let close_result = browser.close().await;
+    let mut report = audit_result?;
+    close_result?;
 
     // Evaluate performance budgets from config
     if let Some(ref cfg) = *config {
@@ -426,7 +466,25 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         return run_batch_mode(&batch_args).await.map(Some);
     }
 
-    if args.quiet || !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+    if args.quiet {
+        return Ok(None);
+    }
+
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        println!();
+        println!("{}", "Sitemap gefunden".cyan().bold());
+        println!(
+            "  {} {} ({} URLs)",
+            "Quelle:".dimmed(),
+            sitemap_url,
+            url_count
+        );
+        println!(
+            "  {}",
+            "Nicht-interaktiver Lauf: Es wird nur die angegebene Einzel-URL geprüft. Für den vollständigen Scan --prefer-sitemap oder --sitemap verwenden."
+                .dimmed()
+        );
+        println!();
         return Ok(None);
     }
 
@@ -478,6 +536,152 @@ fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
     }
 
     batch_args
+}
+
+fn print_single_audit_plan(args: &Args, url: &str) {
+    if args.quiet {
+        return;
+    }
+
+    println!("{}", "Audit-Plan".cyan().bold());
+    println!("  {} Einzel-URL", "Modus:".dimmed());
+    println!("  {} {}", "Format:".dimmed(), args.effective_format());
+    println!("  {} {}", "Report-Level:".dimmed(), args.report_level);
+    println!("  {} {}", "Module:".dimmed(), active_modules_label(args));
+
+    let outputs = planned_single_outputs(args, url);
+    if !outputs.is_empty() {
+        println!("  {} {}", "Ausgabe:".dimmed(), outputs.join(", "));
+    }
+    println!();
+}
+
+fn print_batch_audit_plan(args: &Args, total_urls: usize) {
+    if args.quiet {
+        return;
+    }
+
+    println!("{}", "Audit-Plan".cyan().bold());
+    println!(
+        "  {} {}",
+        "Modus:".dimmed(),
+        if args.per_page_reports {
+            "Einzelreports aus Batch"
+        } else if args.crawl {
+            "Crawl"
+        } else if args.sitemap.is_some() {
+            "Sitemap"
+        } else {
+            "URL-Datei"
+        }
+    );
+    println!("  {} {} URLs", "Umfang:".dimmed(), total_urls);
+    println!("  {} {}", "Format:".dimmed(), args.effective_format());
+    println!("  {} {}", "Report-Level:".dimmed(), args.report_level);
+    println!("  {} {}", "Module:".dimmed(), active_modules_label(args));
+
+    let outputs = planned_batch_outputs(args);
+    if !outputs.is_empty() {
+        println!("  {} {}", "Ausgabe:".dimmed(), outputs.join(", "));
+    }
+    println!();
+}
+
+fn print_comparison_audit_plan(args: &Args) {
+    if args.quiet {
+        return;
+    }
+
+    println!("{}", "Audit-Plan".cyan().bold());
+    println!("  {} Wettbewerbsvergleich", "Modus:".dimmed());
+    println!("  {} {} Domains", "Umfang:".dimmed(), args.compare.len());
+    println!("  {} {}", "Format:".dimmed(), args.effective_format());
+    println!("  {} {}", "Report-Level:".dimmed(), args.report_level);
+    println!("  {} {}", "Module:".dimmed(), active_modules_label(args));
+
+    let outputs = planned_comparison_outputs(args);
+    if !outputs.is_empty() {
+        println!("  {} {}", "Ausgabe:".dimmed(), outputs.join(", "));
+    }
+    println!();
+}
+
+fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
+    match args.effective_format() {
+        OutputFormat::Pdf => {
+            let path = args
+                .output
+                .clone()
+                .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
+            let mut outputs = vec![path.display().to_string()];
+            if args.output.is_none() {
+                outputs.push(default_single_json_output_path(&path).display().to_string());
+            }
+            outputs
+        }
+        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table => match args.output.as_ref() {
+            Some(path) => vec![path.display().to_string()],
+            None => vec!["stdout".to_string()],
+        },
+    }
+}
+
+fn planned_batch_outputs(args: &Args) -> Vec<String> {
+    if args.per_page_reports {
+        return vec![format!("{}/*", per_page_output_directory(args).display())];
+    }
+
+    match args.effective_format() {
+        OutputFormat::Pdf => {
+            let path = args
+                .output
+                .clone()
+                .unwrap_or_else(|| default_batch_pdf_output_path(args));
+            vec![
+                path.display().to_string(),
+                path.with_extension("json").display().to_string(),
+            ]
+        }
+        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table => match args.output.as_ref() {
+            Some(path) => vec![path.display().to_string()],
+            None => vec!["stdout".to_string()],
+        },
+    }
+}
+
+fn planned_comparison_outputs(args: &Args) -> Vec<String> {
+    match args.effective_format() {
+        OutputFormat::Pdf => vec![args
+            .output
+            .clone()
+            .unwrap_or_else(|| std::path::PathBuf::from("comparison-report.pdf"))
+            .display()
+            .to_string()],
+        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table => match args.output.as_ref() {
+            Some(path) => vec![path.display().to_string()],
+            None => vec!["stdout".to_string()],
+        },
+    }
+}
+
+fn active_modules_label(args: &Args) -> String {
+    let mut modules = vec!["Accessibility"];
+    let full = args.full_audit_enabled();
+
+    if (full || args.performance) && !args.skip_performance {
+        modules.push("Performance");
+    }
+    if full || args.seo {
+        modules.push("SEO");
+    }
+    if full || args.security {
+        modules.push("Security");
+    }
+    if (full || args.mobile) && !args.skip_mobile {
+        modules.push("Mobile");
+    }
+
+    modules.join(", ")
 }
 
 async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
@@ -568,33 +772,8 @@ async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
     match client.head(url).send().await {
         Ok(resp) => {
             let status = resp.status();
-            if status.is_server_error() {
-                return Err(AuditError::ConfigError(format!(
-                    "Server antwortet mit {} für {}. Audit wird abgebrochen.",
-                    status, url
-                )));
-            }
-            // 4xx (z.B. 405 Method Not Allowed for HEAD) → fallback to GET
-            if status == reqwest::StatusCode::METHOD_NOT_ALLOWED
-                || status == reqwest::StatusCode::NOT_IMPLEMENTED
-            {
-                // Try GET instead
-                match client.get(url).send().await {
-                    Ok(r) if r.status().is_server_error() => {
-                        return Err(AuditError::ConfigError(format!(
-                            "Server antwortet mit {} für {}. Audit wird abgebrochen.",
-                            r.status(),
-                            url
-                        )));
-                    }
-                    Err(e) => {
-                        return Err(AuditError::ConfigError(format!(
-                            "Domain nicht erreichbar: {}",
-                            e
-                        )));
-                    }
-                    Ok(_) => {}
-                }
+            if !status.is_success() && !status.is_redirection() {
+                check_url_reachable_with_get(&client, url, quiet).await?;
             }
         }
         Err(e) => {
@@ -606,6 +785,35 @@ async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+async fn check_url_reachable_with_get(
+    client: &reqwest::Client,
+    url: &str,
+    quiet: bool,
+) -> Result<()> {
+    match client.get(url).send().await {
+        Ok(resp) if resp.status().is_server_error() => Err(AuditError::ConfigError(format!(
+            "Server antwortet mit {} für {}. Audit wird abgebrochen.",
+            resp.status(),
+            url
+        ))),
+        Ok(resp) if resp.status().is_client_error() => {
+            if !quiet {
+                println!(
+                    "{} Preflight-GET antwortet mit {}, der Browser-Audit wird trotzdem versucht.",
+                    "Hinweis:".yellow().bold(),
+                    resp.status()
+                );
+            }
+            Ok(())
+        }
+        Ok(_) => Ok(()),
+        Err(e) => Err(AuditError::ConfigError(format!(
+            "Domain nicht erreichbar: {}",
+            e
+        ))),
+    }
 }
 
 fn looks_like_base_url(url: &str) -> bool {
@@ -676,11 +884,12 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
 
     if !args.quiet {
         println!(
-            "{} {} URLs with {} concurrent workers\n",
-            "Auditing:".cyan().bold(),
+            "{} {} URLs mit {} parallelen Workern\n",
+            "Audit läuft:".cyan().bold(),
             total_urls,
             args.effective_concurrency()
         );
+        print_batch_audit_plan(args, total_urls);
     }
 
     let batch_config = BatchConfig::from(args);
@@ -760,6 +969,7 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
             "Vergleich:".cyan().bold(),
             urls.len()
         );
+        print_comparison_audit_plan(args);
     }
 
     let browser_options = BrowserOptions {
@@ -795,7 +1005,8 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
         }
     }
 
-    browser.close().await?;
+    let close_result = browser.close().await;
+    close_result?;
 
     if reports.is_empty() {
         return Err(AuditError::ConfigError(
@@ -1116,8 +1327,8 @@ fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) 
         })?;
         if !quiet {
             println!(
-                "{} {} report saved to {}",
-                "Success:".green().bold(),
+                "{} {}-Report gespeichert in {}",
+                "Fertig:".green().bold(),
                 label,
                 path.display()
             );
@@ -1135,7 +1346,6 @@ fn output_directory(path: &std::path::Path) -> &std::path::Path {
     }
 }
 
-#[cfg(feature = "pdf")]
 fn default_single_json_output_path(pdf_path: &std::path::Path) -> PathBuf {
     pdf_path.with_extension("json")
 }
@@ -1180,7 +1390,6 @@ fn default_single_pdf_output_path(
     PathBuf::from(format!("{subject}-{date}-single-report.pdf"))
 }
 
-#[cfg(feature = "pdf")]
 fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
     let kind = if args.sitemap.is_some() {
@@ -1236,8 +1445,8 @@ fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Res
     fs::write(path, content)?;
     if !quiet {
         println!(
-            "{} {} report saved to {}",
-            "Success:".green().bold(),
+            "{} {}-Report gespeichert in {}",
+            "Fertig:".green().bold(),
             label,
             path.display()
         );
@@ -1247,18 +1456,18 @@ fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Res
 
 /// Handle --detect-chrome command
 fn detect_chrome_command(args: &Args) -> Result<f64> {
-    println!("{}", "Detecting Chrome/Chromium...".cyan().bold());
+    println!("{}", "Suche Chrome/Chromium...".cyan().bold());
     println!();
 
     match find_chrome(args.chrome_path.as_deref()) {
         Ok(info) => {
-            println!("{} Chrome found!", "Success:".green().bold());
-            println!("  Path:    {}", info.path.display());
+            println!("{} Chrome gefunden!", "Fertig:".green().bold());
+            println!("  Pfad:    {}", info.path.display());
             println!(
                 "  Version: {}",
-                info.version.as_deref().unwrap_or("unknown")
+                info.version.as_deref().unwrap_or("unbekannt")
             );
-            println!("  Method:  {:?}", info.detection_method);
+            println!("  Methode: {:?}", info.detection_method);
             Ok(0.0)
         }
         Err(e) => {
@@ -1415,6 +1624,81 @@ mod tests {
             suggested_sitemap_batch_args(&args, "https://example.com/sitemap.xml".into());
 
         assert_eq!(batch_args.format, Some(OutputFormat::Json));
+    }
+
+    #[test]
+    fn test_planned_single_outputs_include_auto_json_for_default_pdf() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        let outputs = planned_single_outputs(&args, "https://example.com");
+
+        assert_eq!(outputs.len(), 2);
+        assert!(outputs[0].ends_with("-single-report.pdf"));
+        assert!(outputs[1].ends_with("-single-report.json"));
+    }
+
+    #[test]
+    fn test_planned_single_outputs_use_stdout_without_output_file() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
+        let outputs = planned_single_outputs(&args, "https://example.com");
+
+        assert_eq!(outputs, vec!["stdout".to_string()]);
+    }
+
+    #[test]
+    fn test_planned_batch_outputs_include_json_sidecar_for_pdf() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+            "-f",
+            "pdf",
+        ]);
+        let outputs = planned_batch_outputs(&args);
+
+        assert_eq!(outputs.len(), 2);
+        assert!(outputs[0].ends_with("-sitemap-report.pdf"));
+        assert!(outputs[1].ends_with("-sitemap-report.json"));
+    }
+
+    #[test]
+    fn test_planned_comparison_outputs_default_to_pdf_file() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "--compare",
+            "https://alpha.example.com",
+            "https://beta.example.com",
+        ]);
+        let outputs = planned_comparison_outputs(&args);
+
+        assert_eq!(outputs, vec!["comparison-report.pdf".to_string()]);
+    }
+
+    #[test]
+    fn test_planned_comparison_outputs_use_stdout_for_json_without_output() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "--compare",
+            "https://alpha.example.com",
+            "https://beta.example.com",
+            "-f",
+            "json",
+        ]);
+        let outputs = planned_comparison_outputs(&args);
+
+        assert_eq!(outputs, vec!["stdout".to_string()]);
+    }
+
+    #[test]
+    fn test_active_modules_label_respects_skip_flags() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--skip-performance",
+            "--skip-mobile",
+        ]);
+        let label = active_modules_label(&args);
+
+        assert_eq!(label, "Accessibility");
     }
 }
 

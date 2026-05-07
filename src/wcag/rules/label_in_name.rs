@@ -7,23 +7,6 @@
 use crate::accessibility::AXTree;
 use crate::wcag::types::WcagResults;
 
-#[cfg(test)]
-use crate::cli::WcagLevel;
-#[cfg(test)]
-use crate::wcag::types::{RuleMetadata, Severity};
-
-#[cfg(test)]
-const LABEL_IN_NAME_RULE: RuleMetadata = RuleMetadata {
-    id: "2.5.3",
-    name: "Label in Name",
-    level: WcagLevel::A,
-    severity: Severity::High,
-    description: "The accessible name contains the text that is presented visually",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/label-in-name.html",
-    axe_id: "label-content-name-mismatch",
-    tags: &["wcag2a", "wcag253", "cat.semantics"],
-};
-
 pub fn check_label_in_name(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 

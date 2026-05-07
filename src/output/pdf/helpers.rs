@@ -114,10 +114,11 @@ pub(super) fn score_quality_label(score: u32) -> &'static str {
 }
 
 pub(super) fn score_quality_color(score: u32) -> &'static str {
+    use super::design::tokens;
     match score {
         85..=100 => "#16a34a",
-        70..=84 => "#0f766e",
-        50..=69 => "#d97706",
-        _ => "#dc2626",
+        70..=84 => tokens::SUCCESS,
+        50..=69 => tokens::WARN_DEEP,
+        _ => tokens::DANGER,
     }
 }

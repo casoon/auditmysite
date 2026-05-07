@@ -40,3 +40,189 @@ severity-critical = Critical
 severity-high = High
 severity-medium = Medium
 severity-low = Low
+cover-fact-domain = Domain
+cover-fact-scope = Scope
+cover-fact-scope-single = Single URL
+cover-fact-scope-batch = Sitemap / Batch
+cover-fact-scope-comparison = Competitive comparison
+cover-fact-modules = Modules
+cover-fact-date = Audit date
+metric-score = Overall score
+metric-issues-detected = Issues detected
+metric-critical-high = Critical / High
+metric-risk = Risk
+metric-certificate = Certificate
+panel-quick-actions = Immediate actions
+panel-strengths = What is already strong
+label-strength = Strength
+section-top-issues = Top issues at a glance
+section-all-violations = All violations (aggregated by rule)
+audit-data-title = Audit data
+audit-data-area = Area
+audit-data-signal = Signal
+audit-data-value = Value
+audit-data-row-audit = Audit
+audit-data-row-module = Module
+audit-data-row-finding = Finding
+scope-box-title = Scope
+scope-box-wcag-level = WCAG level
+scope-box-checked-nodes = Checked nodes
+scope-box-runtime = Runtime
+scope-box-findings-total = Findings total
+scope-box-critical-high = Critical / High
+scope-box-audit-notes = Audit notes
+
+# Cover & narrative
+narrative-cover-eyebrow = Automated audit report
+narrative-cover-kicker = Technical website check focused on accessibility, SEO and performance
+narrative-status-title = Site status
+narrative-metrics-title = Executive snapshot
+narrative-key-points-title = Key points
+narrative-impact-title = Impact
+narrative-quick-actions-title = Recommended immediate actions
+narrative-spotlight-eyebrow = MAIN ISSUE
+narrative-leverage-title = Effect of remediation
+narrative-findings-title = Key findings
+narrative-action-plan-title = Action plan
+narrative-action-plan-intro = Prioritized by impact and effort. Each action is clearly scoped and ready to plan.
+narrative-action-plan-callout-title = Recommended approach
+narrative-action-plan-callout-body = Start with the quick wins: high impact at low effort. The table below lists all actions in the recommended order.
+narrative-technical-title = Technical implementation
+narrative-technical-intro = From here onward you find the concrete implementation for development, design and editorial. Each issue includes affected elements, direct fix, and code examples.
+narrative-next-steps-title = Recommended next steps
+narrative-next-steps-intro = Concrete recommendation for the next 1–4 weeks.
+narrative-next-steps-callout-title = Next step
+narrative-next-steps-callout-body = For a complete accessibility verification we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation).
+narrative-findings-intro-strong = The site is technically strong. The following items are last optimization levers without structural pressure.
+narrative-findings-intro-solid = Solid foundation — the following items are targeted improvement levers.
+narrative-findings-intro-default = The following issues have the largest impact on usability and risk. Technical details follow in the next section.
+
+# Verdict (single audit)
+verdict-tier-excellent = { $url } reaches { $score }/100 in the accessibility audit. The remaining findings are last optimization levers — not a structural problem but polish.
+verdict-tier-solid = { $url } reaches { $score }/100 in the accessibility audit. The foundation is solid — clear improvement levers at manageable effort.
+verdict-tier-deficient = { $url } reaches { $score }/100 in the accessibility audit. There are significant barriers — not isolated details but structural backlog.
+verdict-tier-critical = { $url } only reaches { $score }/100 in the accessibility audit. Urgent action needed: essential content and functions are not accessible for a part of users.
+score-note-high-with-critical = The score weighs frequency and severity. Individual critical topics can persist despite a high overall score.
+
+# Verdict (batch audit)
+verdict-batch-excellent = Across { $total_urls } audited URLs the site reaches an overall score of { $score }/100 — a very good result.
+verdict-batch-solid = On average the { $total_urls } audited URLs reach an overall score of { $score }/100. The foundation is solid, but recurring issues exist in individual modules.
+verdict-batch-deficient = The { $total_urls } audited URLs reach on average only { $score }/100 points. There are significant systematic problems.
+verdict-batch-critical = The { $total_urls } audited URLs reach on average only { $score }/100 points. Urgent action required across multiple modules.
+
+# Site state (audit summary)
+site-state-polished = Strong
+site-state-needs-work = Solid foundation
+site-state-weak = Unstable
+site-state-critical = Critical
+
+# Risk levels
+risk-level-critical = Critical
+risk-level-high = High
+risk-level-medium = Medium
+risk-level-low = Low
+
+# Yes / No
+yes = Yes
+no = No
+
+# Grade labels
+grade-excellent = Excellent
+grade-good = Good
+grade-satisfactory = Satisfactory
+grade-deficient = Needs work
+grade-critical = Critical
+
+# Business / forward-looking consequence
+business-consequence-clean = No known barriers — solid foundation for all user groups.
+business-consequence-severe = Large parts of the site are unusable or barely usable for certain user groups.
+business-consequence-seo-headings = The site is harder to find and structurally inaccessible to part of users.
+business-consequence-screenreader = Individual key functions are blocked or unreliable for screen-reader users.
+business-consequence-default = Usability is given — targeted improvements raise quality and reach.
+consequence-severe = New content and features inherit the existing defects — remediation effort grows with every extension.
+consequence-many-weak-modules = Effort for later corrections grows significantly — especially during a relaunch or major content expansion.
+consequence-stable = No urgent pressure to act. Regular checks preserve the level after updates and extensions.
+consequence-default = Without correction the site stays below the achievable standard — improvement potential is left on the table.
+
+# Cover score row
+cover-card-certificate = Certificate
+cover-card-accessibility = Accessibility
+cover-card-issues = Issues
+cover-card-critical-high-suffix = critical/high
+cover-card-average = Average
+cover-card-urls = URLs
+cover-card-violations-suffix = violations
+batch-cover-eyebrow = Automated batch audit report
+batch-cover-title = Accessibility audit report
+batch-cover-kicker = Domain-wide website check focused on accessibility, SEO and performance
+batch-cover-frame-title = Audit scope
+batch-cover-frame-domain = Domain
+batch-cover-frame-date = Audit date
+batch-cover-frame-urls = Audited URLs
+batch-cover-frame-certificate = Certificate
+batch-cover-frame-modules = Active modules
+batch-cover-frame-version = Tool version
+panel-modules-overview = Module overview
+section-tech-detail-metrics = Technical detail metrics
+column-action = Action
+column-priority = Priority
+column-timeframe = Timeframe
+column-component = Component
+column-area = Area
+section-quick-wins = Quick wins
+section-medium-actions = Medium-term actions
+section-structural-actions = Structural actions
+section-next-steps-recommended = Recommended next steps
+section-next-steps-block = Next steps
+
+# Batch sections
+batch-section-status = Site status
+batch-section-most-frequent = Most frequent issues
+batch-section-most-frequent-violations = Most frequent violations
+batch-col-problem = Problem
+batch-col-occurrences = Occurrences
+batch-col-pages = Pages
+batch-col-priority = Priority
+batch-col-source = Source
+batch-col-status-code = Status
+batch-col-final-url = Final URL
+batch-col-page-a = Page A
+batch-col-page-b = Page B
+batch-col-similarity = Similarity
+batch-col-risk = Risk
+batch-col-page-type = Page type
+batch-col-attributes = Attributes
+batch-col-top-issues = Top issues
+batch-col-pages-list = Pages
+batch-col-share = Share
+batch-col-relevance = Relevance
+batch-col-schema-type = Schema type
+batch-col-profile = Profile
+batch-col-severity = Severity
+batch-col-description = Description
+batch-col-metric = Metric
+batch-col-budget = Budget
+batch-col-links-to = Links to
+batch-col-links-from = Links from
+batch-col-words = Words
+batch-action-plan-title = Action plan
+batch-section-broken-links-internal = Internal broken links
+batch-section-broken-links-external = External broken links
+batch-section-external-links = External links
+batch-section-redirect-chains = Redirect chains
+batch-section-tech-url-matrix = Technical URL matrix
+batch-section-tech-url-matrix-intro = Condensed overview of all audited URLs focused on technical prioritization. Each row shows score, issue intensity, and the biggest lever for the next optimization round.
+batch-table-pages-overview = Pages overview
+batch-table-focus-pages = Focus on problematic pages
+batch-table-page-type-distribution = Page-type distribution
+batch-table-schema-distribution = Schema-type distribution
+batch-table-top-pages = Strongest content pages
+batch-table-broken-internal = Broken internal links
+batch-table-broken-external = Broken external links
+batch-section-performance-budgets = Performance budgets
+findings-card-key-problem = Problem
+findings-card-key-cause = Cause
+comparison-cover-title = Competitive comparison
+comparison-domain-ranking = Domain ranking
+comparison-module-comparison = Module comparison
+comparison-top-findings-per-domain = Top findings per domain

@@ -6,16 +6,38 @@ use super::helpers::{german_stopwords, normalize_topic_token};
 use crate::audit::AuditReport;
 use crate::output::report_model::CompactUrlSummary;
 
-pub(super) fn build_seo_interpretation(seo: &crate::seo::SeoAnalysis) -> String {
+pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalysis) -> String {
+    let en = locale == "en";
     if seo.score >= 90 {
-        "Technische SEO-Grundlagen weitgehend erfüllt — relevante Ranking-Signale vorhanden."
-            .to_string()
+        if en {
+            "Technical SEO foundations largely met — relevant ranking signals are in place."
+                .to_string()
+        } else {
+            "Technische SEO-Grundlagen weitgehend erfüllt — relevante Ranking-Signale vorhanden."
+                .to_string()
+        }
     } else if seo.score >= 70 {
-        "Solide SEO-Basis mit gezieltem Optimierungspotenzial.".to_string()
+        if en {
+            "Solid SEO base with targeted optimization potential.".to_string()
+        } else {
+            "Solide SEO-Basis mit gezieltem Optimierungspotenzial.".to_string()
+        }
     } else if seo.score >= 55 {
-        "SEO-Basis lückenhaft — relevante Ranking-Signale fehlen, Sichtbarkeit deutlich eingeschränkt.".to_string()
+        if en {
+            "SEO base patchy — relevant ranking signals missing, visibility clearly limited."
+                .to_string()
+        } else {
+            "SEO-Basis lückenhaft — relevante Ranking-Signale fehlen, Sichtbarkeit deutlich eingeschränkt.".to_string()
+        }
     } else if seo.score >= 35 {
-        "SEO unzureichend — wesentliche Grundlagen fehlen. Ranking in kompetitiven Bereichen quasi unmöglich.".to_string()
+        if en {
+            "SEO insufficient — essential foundations missing. Ranking in competitive areas is almost impossible.".to_string()
+        } else {
+            "SEO unzureichend — wesentliche Grundlagen fehlen. Ranking in kompetitiven Bereichen quasi unmöglich.".to_string()
+        }
+    } else if en {
+        "SEO critical — the site is barely indexable for search engines. Not competitive."
+            .to_string()
     } else {
         "SEO kritisch — Seite ist für Suchmaschinen kaum indexierbar. Nicht wettbewerbsfähig."
             .to_string()
@@ -134,49 +156,97 @@ pub(super) fn average_page_semantic_score(
     total / 4
 }
 
-pub(super) fn summarize_page_profile(profile: &crate::seo::profile::SeoContentProfile) -> String {
+pub(super) fn summarize_page_profile(
+    locale: &str,
+    profile: &crate::seo::profile::SeoContentProfile,
+) -> String {
+    let en = locale == "en";
     let classification = &profile.page_classification;
     let avg = average_page_semantic_score(classification);
-    let quality = match avg {
-        85..=100 => "sehr stimmig aufgebaut",
-        70..=84 => "inhaltlich solide aufgestellt",
-        50..=69 => "nur teilweise klar strukturiert",
-        _ => "aktuell inhaltlich und strukturell schwach ausgeprägt",
+    let quality = if en {
+        match avg {
+            85..=100 => "very coherently structured",
+            70..=84 => "solidly built in terms of content",
+            50..=69 => "only partly clearly structured",
+            _ => "currently weak in content and structure",
+        }
+    } else {
+        match avg {
+            85..=100 => "sehr stimmig aufgebaut",
+            70..=84 => "inhaltlich solide aufgestellt",
+            50..=69 => "nur teilweise klar strukturiert",
+            _ => "aktuell inhaltlich und strukturell schwach ausgeprägt",
+        }
     };
 
     let mut traits = classification.attributes.clone();
     if traits.is_empty() {
-        traits.push("ohne klare Zusatzmerkmale".to_string());
+        traits.push(
+            if en {
+                "no clear extra attributes"
+            } else {
+                "ohne klare Zusatzmerkmale"
+            }
+            .to_string(),
+        );
     }
 
-    format!(
-        "Die Seite wirkt wie \u{201E}{}\u{201C} und ist {}. Auffällig sind {}.",
-        classification.primary_type.label(),
-        quality,
-        traits.join(", ")
-    )
+    if en {
+        format!(
+            "The page reads as \u{201C}{}\u{201D} and is {}. Notable: {}.",
+            classification.primary_type.label(),
+            quality,
+            traits.join(", ")
+        )
+    } else {
+        format!(
+            "Die Seite wirkt wie \u{201E}{}\u{201C} und ist {}. Auffällig sind {}.",
+            classification.primary_type.label(),
+            quality,
+            traits.join(", ")
+        )
+    }
 }
 
 pub(super) fn page_profile_optimization_note(
+    locale: &str,
     profile: &crate::seo::profile::SeoContentProfile,
 ) -> String {
+    let en = locale == "en";
     let classification = &profile.page_classification;
     if classification.content_depth_score < 45 {
-        return "Mehr inhaltliche Tiefe und klar gegliederte Abschnitte würden den Nutzwert erhöhen."
-            .to_string();
+        return if en {
+            "More content depth and clearly structured sections would raise utility.".to_string()
+        } else {
+            "Mehr inhaltliche Tiefe und klar gegliederte Abschnitte würden den Nutzwert erhöhen."
+                .to_string()
+        };
     }
     if classification.structural_richness_score < 55 {
-        return "Mehr Zwischenüberschriften und eine klarere Inhaltsstruktur würden die Seite besser scannbar machen."
-            .to_string();
+        return if en {
+            "More subheadings and a clearer content structure would make the page easier to scan."
+                .to_string()
+        } else {
+            "Mehr Zwischenüberschriften und eine klarere Inhaltsstruktur würden die Seite besser scannbar machen.".to_string()
+        };
     }
     if classification.media_text_balance_score < 55 {
-        return "Die Seite wirkt stark visuell. Mehr erklärender Text und klarer Kontext würden Nutzen und Orientierung verbessern."
-            .to_string();
+        return if en {
+            "The page is heavily visual. More explanatory text and clearer context would improve utility and orientation.".to_string()
+        } else {
+            "Die Seite wirkt stark visuell. Mehr erklärender Text und klarer Kontext würden Nutzen und Orientierung verbessern.".to_string()
+        };
     }
     if classification.intent_fit_score < 65 {
-        return "Die Seite bedient ihren Seitentyp noch nicht sauber; Aufbau und Inhalte sollten stärker auf das eigentliche Nutzerziel einzahlen."
-            .to_string();
+        return if en {
+            "The page does not yet serve its page type cleanly; structure and content should align more strongly with the actual user goal.".to_string()
+        } else {
+            "Die Seite bedient ihren Seitentyp noch nicht sauber; Aufbau und Inhalte sollten stärker auf das eigentliche Nutzerziel einzahlen.".to_string()
+        };
     }
-    "Die Seite passt insgesamt gut zu ihrem Seitentyp. Der größte Hebel liegt in weiterer inhaltlicher Schärfung statt in Grundsatzumbauten."
-        .to_string()
+    if en {
+        "The page fits its page type well overall. The biggest lever is further sharpening content rather than fundamental rebuilds.".to_string()
+    } else {
+        "Die Seite passt insgesamt gut zu ihrem Seitentyp. Der größte Hebel liegt in weiterer inhaltlicher Schärfung statt in Grundsatzumbauten.".to_string()
+    }
 }
