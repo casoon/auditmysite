@@ -208,9 +208,10 @@ fn build_issues(
     if info.meta_color_scheme.is_none() {
         issues.push(DarkModeIssue {
             kind: DarkModeIssueKind::NoMetaColorScheme,
-            description: "Kein <meta name=\"color-scheme\"> gefunden. Ohne dieses Meta-Tag kann der \
+            description:
+                "Kein <meta name=\"color-scheme\"> gefunden. Ohne dieses Meta-Tag kann der \
                           Browser das Rendering-Verhalten vor dem CSSOM-Aufbau nicht optimieren."
-                .to_string(),
+                    .to_string(),
             severity: "low".to_string(),
         });
     }
@@ -281,10 +282,7 @@ fn build_issues(
 }
 
 /// Format up to `max` selectors from an iterator as a readable suffix string.
-fn selector_list<'a>(
-    iter: impl Iterator<Item = &'a DarkContrastViolation>,
-    max: usize,
-) -> String {
+fn selector_list<'a>(iter: impl Iterator<Item = &'a DarkContrastViolation>, max: usize) -> String {
     let selectors: Vec<&str> = iter
         .filter_map(|v| v.selector.as_deref())
         .filter(|s| !s.is_empty())
@@ -552,7 +550,11 @@ mod tests {
         StaticDarkModeInfo {
             has_dark_media_query: has_dark,
             color_scheme_css: color_scheme,
-            meta_color_scheme: if meta { Some("dark light".into()) } else { None },
+            meta_color_scheme: if meta {
+                Some("dark light".into())
+            } else {
+                None
+            },
             meta_theme_color_dark: theme_color,
             css_custom_properties: props,
         }
@@ -575,17 +577,26 @@ mod tests {
 
     #[test]
     fn score_no_dark_mode_is_50() {
-        assert_eq!(compute_score(&make_info(false, false, false, false, 0), 0, 0), 50);
+        assert_eq!(
+            compute_score(&make_info(false, false, false, false, 0), 0, 0),
+            50
+        );
     }
 
     #[test]
     fn score_full_implementation_no_violations_is_100() {
-        assert_eq!(compute_score(&make_info(true, true, true, true, 6), 0, 0), 100);
+        assert_eq!(
+            compute_score(&make_info(true, true, true, true, 6), 0, 0),
+            100
+        );
     }
 
     #[test]
     fn score_minimal_dark_mode_no_extras_is_70() {
-        assert_eq!(compute_score(&make_info(true, false, false, false, 0), 0, 0), 70);
+        assert_eq!(
+            compute_score(&make_info(true, false, false, false, 0), 0, 0),
+            70
+        );
     }
 
     #[test]
@@ -608,14 +619,19 @@ mod tests {
     fn issues_no_dark_mode_generates_exactly_one_support_issue() {
         let issues = build_issues(&make_info(false, false, false, false, 0), 0, 0, 0, &[]);
         assert_eq!(issues.len(), 1);
-        assert!(matches!(issues[0].kind, DarkModeIssueKind::NoDarkModeSupport));
+        assert!(matches!(
+            issues[0].kind,
+            DarkModeIssueKind::NoDarkModeSupport
+        ));
     }
 
     #[test]
     fn issues_dark_mode_with_zero_violations_no_contrast_issue() {
         let issues = build_issues(&make_info(true, true, true, false, 5), 0, 0, 0, &[]);
         assert!(
-            issues.iter().all(|i| !matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure)),
+            issues
+                .iter()
+                .all(|i| !matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure)),
             "no contrast issue expected when violations=0"
         );
     }
@@ -637,9 +653,13 @@ mod tests {
             .filter(|i| matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure))
             .collect();
 
-        assert!(!contrast_issues.is_empty(), "expected contrast issue when both-mode violations > 0");
         assert!(
-            contrast_issues[0].description.contains('5') || contrast_issues[0].description.contains("5 "),
+            !contrast_issues.is_empty(),
+            "expected contrast issue when both-mode violations > 0"
+        );
+        assert!(
+            contrast_issues[0].description.contains('5')
+                || contrast_issues[0].description.contains("5 "),
             "description should mention count, got: {}",
             contrast_issues[0].description
         );
@@ -660,9 +680,15 @@ mod tests {
             .iter()
             .find(|i| matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure));
 
-        assert!(regression.is_some(), "expected regression issue for dark-only violations");
+        assert!(
+            regression.is_some(),
+            "expected regression issue for dark-only violations"
+        );
         let desc = &regression.unwrap().description;
-        assert!(desc.contains("Dark Mode"), "should mention Dark Mode regression");
+        assert!(
+            desc.contains("Dark Mode"),
+            "should mention Dark Mode regression"
+        );
         assert_eq!(regression.unwrap().severity, "high");
     }
 
@@ -696,18 +722,33 @@ mod tests {
 
     #[test]
     fn classify_both_modes_correctly() {
-        let light = vec![make_violation("#a", "low contrast"), make_violation("#b", "low contrast")];
-        let dark = vec![make_violation("#a", "low contrast"), make_violation("#c", "low contrast")];
+        let light = vec![
+            make_violation("#a", "low contrast"),
+            make_violation("#b", "low contrast"),
+        ];
+        let dark = vec![
+            make_violation("#a", "low contrast"),
+            make_violation("#c", "low contrast"),
+        ];
 
         let result = classify_contrast_violations(&light, &dark);
 
-        let a = result.iter().find(|v| v.selector.as_deref() == Some("#a")).unwrap();
+        let a = result
+            .iter()
+            .find(|v| v.selector.as_deref() == Some("#a"))
+            .unwrap();
         assert_eq!(a.mode, DarkContrastMode::LightAndDark);
 
-        let b = result.iter().find(|v| v.selector.as_deref() == Some("#b")).unwrap();
+        let b = result
+            .iter()
+            .find(|v| v.selector.as_deref() == Some("#b"))
+            .unwrap();
         assert_eq!(b.mode, DarkContrastMode::LightOnly);
 
-        let c = result.iter().find(|v| v.selector.as_deref() == Some("#c")).unwrap();
+        let c = result
+            .iter()
+            .find(|v| v.selector.as_deref() == Some("#c"))
+            .unwrap();
         assert_eq!(c.mode, DarkContrastMode::DarkOnly);
     }
 
@@ -719,7 +760,10 @@ mod tests {
 
         let result = classify_contrast_violations(&light, &dark);
         // HashMap dedup: only one entry per unique key
-        let x_count = result.iter().filter(|v| v.selector.as_deref() == Some("#x")).count();
+        let x_count = result
+            .iter()
+            .filter(|v| v.selector.as_deref() == Some("#x"))
+            .count();
         assert_eq!(x_count, 1, "same selector must not be double-counted");
     }
 
