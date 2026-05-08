@@ -771,6 +771,7 @@ mod tests {
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,
+            throttled_performance: vec![],
         }
     }
 
