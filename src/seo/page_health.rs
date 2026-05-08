@@ -313,7 +313,11 @@ fn build_html_issues(
     html_issues
 }
 
-async fn run_w3c_html_validation(page: &Page, _url: &str, a: &mut PageHealthAnalysis) -> Result<()> {
+async fn run_w3c_html_validation(
+    page: &Page,
+    _url: &str,
+    a: &mut PageHealthAnalysis,
+) -> Result<()> {
     let html = extract_document_html(page).await?;
     let issues = validate_html_locally(&html);
     a.html_issues.extend(issues);
