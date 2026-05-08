@@ -284,14 +284,12 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
                     debug!("FCP (CDP): {:.0}ms", ms);
                 }
             }
-            "LargestContentfulPaint" => {
+            "LargestContentfulPaint" if vitals.lcp.is_none() => {
                 // Only use CDP LCP as fallback when pre-injected observer missed it
-                if vitals.lcp.is_none() {
-                    let ms = value * 1000.0;
-                    if ms > 0.0 && ms < 300_000.0 {
-                        vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
-                        debug!("LCP (CDP fallback): {:.0}ms", ms);
-                    }
+                let ms = value * 1000.0;
+                if ms > 0.0 && ms < 300_000.0 {
+                    vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
+                    debug!("LCP (CDP fallback): {:.0}ms", ms);
                 }
             }
             "DomContentLoaded" => {

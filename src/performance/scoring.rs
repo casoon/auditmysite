@@ -104,11 +104,10 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
         max_possible += 25;
     }
 
-    let overall = if max_possible > 0 {
-        (total * 100 / max_possible).min(100)
-    } else {
-        0
-    };
+    let overall = (total * 100)
+        .checked_div(max_possible)
+        .map(|n| n.min(100))
+        .unwrap_or(0);
     let metrics_available = max_possible / 25;
     let grade = PerformanceGrade::from_score(overall);
 
