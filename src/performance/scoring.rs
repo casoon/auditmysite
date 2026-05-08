@@ -96,11 +96,12 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
 
     let mut total = 0u32;
     let mut max_possible = 0u32;
-    for score in [lcp_score, fcp_score, cls_score, interactivity_score] {
-        if let Some(s) = score {
-            total += s;
-            max_possible += 25;
-        }
+    for s in [lcp_score, fcp_score, cls_score, interactivity_score]
+        .into_iter()
+        .flatten()
+    {
+        total += s;
+        max_possible += 25;
     }
 
     let overall = if max_possible > 0 {

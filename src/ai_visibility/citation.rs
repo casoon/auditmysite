@@ -185,7 +185,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     });
 
     // 11. Technical trust
-    let sec_good = input.security_score.map_or(true, |s| s >= 70);
+    let sec_good = input.security_score.is_none_or(|s| s >= 70);
     let a11y_good = input.a11y_score >= 80.0;
     let tech_trust = sec_good && a11y_good;
     signals.push(AiSignal {
