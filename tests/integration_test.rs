@@ -80,6 +80,7 @@ fn default_config() -> PipelineConfig {
         check_seo: false,
         check_security: false,
         check_mobile: false,
+        check_dark_mode: false,
         persist_artifacts: true,
         capture_screenshots: false,
     }
@@ -97,7 +98,7 @@ async fn test_perfect_page_scores_high() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config())
+    let report = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -136,7 +137,7 @@ async fn test_many_violations_page_scores_low() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config())
+    let report = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -177,7 +178,7 @@ async fn test_full_audit_with_all_modules() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &config)
+    let report = audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
 
@@ -216,7 +217,7 @@ async fn test_output_formats() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config())
+    let report = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -257,7 +258,7 @@ async fn test_mobile_issues_detected() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &config)
+    let report = audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
 
