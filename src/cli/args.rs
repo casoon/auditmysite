@@ -99,7 +99,13 @@ pub struct Args {
     pub remote_debugging_port: Option<u16>,
 
     /// Maximum number of pages to audit (0 = unlimited)
-    #[arg(short = 'm', long, default_value = "0", value_name = "NUM", global = true)]
+    #[arg(
+        short = 'm',
+        long,
+        default_value = "0",
+        value_name = "NUM",
+        global = true
+    )]
     pub max_pages: usize,
 
     /// Maximum crawl depth for `--crawl` (BFS levels from seed URL).
