@@ -517,6 +517,7 @@ mod tests {
             overall_score: 86,
             audit_flags: vec![],
             has_screenshots: false,
+            viewport_scores: None,
             raw_performance: None,
             raw_seo: None,
             raw_security: None,

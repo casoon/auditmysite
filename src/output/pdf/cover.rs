@@ -35,10 +35,15 @@ pub(super) fn build_cover_score_row(
         }));
     }
 
+    let accessibility_subtitle = match (cover.desktop_score, cover.mobile_score) {
+        (Some(d), Some(m)) => format!("{} • Desktop {} | Mobile {}", cover.maturity_label, d, m),
+        _ => cover.maturity_label.clone(),
+    };
+
     grid = grid.add_item(serde_json::json!({
         "type": "metric-card",
         "data": MetricCard::new(i18n.t("cover-card-accessibility"), format!("{}/100", cover.score))
-            .with_subtitle(cover.maturity_label.clone())
+            .with_subtitle(accessibility_subtitle)
             .with_accent_color(score_color(cover.score))
             .with_height("100%")
             .to_data()

@@ -635,6 +635,7 @@ mod tests {
             module_scores: vec![],
             audit_flags: vec![],
             has_screenshots: false,
+            viewport_scores: None,
             raw_performance: None,
             raw_seo: None,
             raw_security: None,

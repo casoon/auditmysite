@@ -769,6 +769,8 @@ mod tests {
             source_quality: None,
             ai_visibility: None,
             page_screenshots: None,
+            dual_viewport: None,
+            viewport_scores: None,
         }
     }
 

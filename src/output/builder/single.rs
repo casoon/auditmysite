@@ -202,6 +202,14 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             total_issues: total_violations,
             critical_issues: critical_count,
             modules: module_names,
+            desktop_score: normalized
+                .viewport_scores
+                .as_ref()
+                .map(|vs| vs.desktop.accessibility),
+            mobile_score: normalized
+                .viewport_scores
+                .as_ref()
+                .map(|vs| vs.mobile.accessibility),
         },
         summary: SummaryBlock {
             score,

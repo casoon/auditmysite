@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::audit::report::{AuditReport, PerformanceResults};
+use crate::audit::report::{AuditReport, PerformanceResults, ViewportScores};
 use crate::audit::scoring::AccessibilityScorer;
 use crate::cli::WcagLevel;
 use crate::dark_mode::DarkModeAnalysis;
@@ -55,6 +55,9 @@ pub struct NormalizedReport {
     /// Whether desktop/mobile cover screenshots were captured for this audit.
     #[serde(default)]
     pub has_screenshots: bool,
+    /// Per-viewport scores from dual-pass audit (70 % mobile / 30 % desktop).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub viewport_scores: Option<ViewportScores>,
 
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
@@ -526,8 +529,18 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         });
     }
 
-    // Weighted overall score — use the normalized accessibility score as source of truth
-    let overall_score = {
+    // Weighted overall score — 70/30 viewport weighting when dual-pass data present
+    let overall_score = if let Some(ref vs) = report.viewport_scores {
+        // Blend in security (10 %) on top of the 70/30 viewport base
+        let mut weighted = vs.weighted_overall as f64 * 90.0;
+        let mut total = 90.0;
+        if let Some(ref security) = report.security {
+            weighted += security.score as f64 * 10.0;
+            total += 10.0;
+        }
+        (weighted / total).round() as u32
+    } else {
+        // Single-pass fallback — same formula as before
         let mut weighted_sum = score as f64 * 40.0;
         let mut total_weight = 40.0;
         if let Some(ref perf) = report.performance {
@@ -546,7 +559,6 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             weighted_sum += mobile.score as f64 * 10.0;
             total_weight += 10.0;
         }
-        // Use adjusted UX/Journey scores from module_scores (with a11y penalty applied)
         if let Some(ux_entry) = module_scores.iter().find(|m| m.name == "UX") {
             weighted_sum += ux_entry.score as f64 * 15.0;
             total_weight += 15.0;
@@ -641,6 +653,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         risk,
         audit_flags,
         has_screenshots: report.page_screenshots.is_some(),
+        viewport_scores: report.viewport_scores.clone(),
         raw_performance: report.performance.clone(),
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),

@@ -153,6 +153,10 @@ pub struct CoverBlock {
     pub total_issues: u32,
     pub critical_issues: u32,
     pub modules: Vec<String>,
+    /// Desktop accessibility score from dual-viewport pass (if available)
+    pub desktop_score: Option<u32>,
+    /// Mobile accessibility score from dual-viewport pass (if available)
+    pub mobile_score: Option<u32>,
 }
 
 /// Hero summary / Kurzfazit data

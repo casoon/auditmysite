@@ -204,8 +204,8 @@ async fn audit_url_with_pool(
         let result = async {
             let pooled_page = pool.acquire().await?;
             let page = pooled_page.page()?;
-            pool.browser().navigate(page, url).await?;
-            let report = audit_page(page, url, config).await?;
+            // audit_page handles viewport switching and navigation internally
+            let report = audit_page(page, url, config, pool.browser()).await?;
             Ok::<AuditReport, AuditError>(report)
         }
         .await;

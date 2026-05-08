@@ -1,7 +1,8 @@
 //! Audit Pipeline - Orchestrates the complete audit process
 //!
 //! Coordinates browser management, AXTree extraction, WCAG checking,
-//! and report generation.
+//! and report generation. Every audit runs two viewport passes (desktop 1280×800,
+//! mobile 390×844) and blends results with 70 % mobile / 30 % desktop weighting.
 
 use std::time::{Duration, Instant};
 
@@ -12,8 +13,12 @@ use super::artifacts::{
     content_hash, save_artifacts, AuditArtifacts, CacheMeta, FetchArtifact, SnapshotArtifact,
 };
 use super::normalize;
-use super::report::{AuditReport, PerformanceResults};
+use super::report::{
+    AuditReport, DualViewportResults, PerformanceResults, ViewportAuditData, ViewportScoreSet,
+    ViewportScores,
+};
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
+use crate::audit::scoring::AccessibilityScorer;
 use crate::browser::BrowserManager;
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
@@ -27,11 +32,50 @@ use crate::performance::{
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
 use crate::ux::{analyze_ux, UxAnalysis};
-use crate::wcag::{self, WcagResults};
+use crate::wcag::{self, Violation, WcagResults};
 
-/// Extracted snapshot data from a loaded page.
-///
-/// This boundary is the basis for artifact persistence and future cache reuse.
+// ── Viewport helpers ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy)]
+enum Viewport {
+    Desktop,
+    Mobile,
+}
+
+async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
+    use chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams;
+
+    let params = match viewport {
+        Viewport::Desktop => SetDeviceMetricsOverrideParams::builder()
+            .mobile(false)
+            .width(1280_i64)
+            .height(800_i64)
+            .device_scale_factor(1.0_f64)
+            .build()
+            .unwrap(),
+        Viewport::Mobile => SetDeviceMetricsOverrideParams::builder()
+            .mobile(true)
+            .width(390_i64)
+            .height(844_i64)
+            .device_scale_factor(2.0_f64)
+            .build()
+            .unwrap(),
+    };
+
+    page.execute(params)
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "viewport-set".to_string(),
+            reason: e.to_string(),
+        })?;
+    // Wait for layout reflow
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    Ok(())
+}
+
+// ── Snapshot data ─────────────────────────────────────────────────────────────
+
+/// Extracted snapshot data from a loaded page (one viewport pass).
 #[derive(Debug, Clone)]
 struct SnapshotData {
     ax_tree: AXTree,
@@ -43,6 +87,8 @@ struct SnapshotData {
     journey: Option<JourneyAnalysis>,
     dark_mode: Option<DarkModeAnalysis>,
 }
+
+// ── Pipeline config ───────────────────────────────────────────────────────────
 
 /// Audit pipeline configuration
 #[derive(Debug, Clone)]
@@ -61,6 +107,8 @@ pub struct PipelineConfig {
     pub check_security: bool,
     /// Run mobile friendliness analysis
     pub check_mobile: bool,
+    /// Run dark-mode analysis
+    pub check_dark_mode: bool,
     /// Persist audit artifacts under ~/.auditmysite/cache
     pub persist_artifacts: bool,
     /// Capture desktop + mobile screenshots for PDF cover page
@@ -78,6 +126,7 @@ impl From<&Args> for PipelineConfig {
             check_seo: full_audit || args.seo,
             check_security: full_audit || args.security,
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
+            check_dark_mode: true,
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
@@ -85,16 +134,9 @@ impl From<&Args> for PipelineConfig {
     }
 }
 
-/// Run a single-page audit
-///
-/// # Arguments
-/// * `url` - The URL to audit
-/// * `browser` - The browser manager to use
-/// * `config` - Pipeline configuration
-///
-/// # Returns
-/// * `Ok(AuditReport)` - The audit results
-/// * `Err(AuditError)` - If the audit fails
+// ── Public entry points ───────────────────────────────────────────────────────
+
+/// Run a single-page dual-viewport audit.
 pub async fn run_single_audit(
     url: &str,
     browser: &BrowserManager,
@@ -103,16 +145,10 @@ pub async fn run_single_audit(
     let start_time = Instant::now();
     info!("Starting audit for: {}", url);
 
-    // Create a new page
     let page = browser.new_page().await?;
     debug!("Created new page");
 
-    // Navigate to URL
-    info!("Navigating to {}...", url);
-    browser.navigate(&page, url).await?;
-
-    // Run the audit on this page
-    let mut report = audit_page(&page, url, config).await?;
+    let mut report = audit_page(&page, url, config, browser).await?;
 
     if config.capture_screenshots {
         match capture_page_screenshots(&page).await {
@@ -133,6 +169,235 @@ pub async fn run_single_audit(
 
     Ok(report)
 }
+
+/// Audit a single page — dual-pass (desktop then mobile).
+///
+/// Handles its own viewport switching and URL navigation internally.
+/// Callers must supply `browser` for re-navigation between passes.
+pub async fn audit_page(
+    page: &Page,
+    url: &str,
+    config: &PipelineConfig,
+    browser: &BrowserManager,
+) -> Result<AuditReport> {
+    let start_time = Instant::now();
+
+    // ── Security: viewport-independent, fetch once ────────────────────────────
+    let security: Option<SecurityAnalysis> = if config.check_security {
+        match analyze_security(url).await {
+            Ok(s) => Some(s),
+            Err(e) => {
+                warn!("Security analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // ── Desktop pass ──────────────────────────────────────────────────────────
+    info!("Desktop pass starting for {}", url);
+    set_viewport(page, Viewport::Desktop).await?;
+    browser.navigate(page, url).await?;
+
+    let desktop_config = PipelineConfig {
+        check_performance: config.check_performance,
+        check_seo: false,
+        check_security: false,
+        check_mobile: false,
+        check_dark_mode: true,
+        ..config.clone()
+    };
+    let desktop_snap = extract_snapshot(page, url, &desktop_config).await?;
+    let desktop_wcag = run_rules(page, &desktop_snap, config).await;
+
+    // ── Mobile pass ───────────────────────────────────────────────────────────
+    info!("Mobile pass starting for {}", url);
+    set_viewport(page, Viewport::Mobile).await?;
+    browser.navigate(page, url).await?;
+
+    let mobile_config = PipelineConfig {
+        check_performance: config.check_performance,
+        check_seo: config.check_seo,
+        check_security: false,
+        check_mobile: config.check_mobile,
+        check_dark_mode: false, // taken from desktop pass
+        ..config.clone()
+    };
+    let mobile_snap = extract_snapshot(page, url, &mobile_config).await?;
+    let mobile_wcag = run_rules(page, &mobile_snap, config).await;
+
+    // ── Merge ─────────────────────────────────────────────────────────────────
+    let merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
+
+    let desktop_acc = AccessibilityScorer::calculate_score(&desktop_wcag.violations);
+    let mobile_acc = AccessibilityScorer::calculate_score(&mobile_wcag.violations);
+
+    let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
+    let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
+    let mobile_seo_score = mobile_snap.seo.as_ref().map(|s| s.score);
+    let mobile_mf_score = mobile_snap.mobile.as_ref().map(|m| m.score);
+
+    let desktop_overall = compute_viewport_overall(desktop_acc, desktop_perf_score, None, None);
+    let mobile_overall =
+        compute_viewport_overall(mobile_acc, mobile_perf_score, mobile_seo_score, mobile_mf_score);
+    let weighted_overall =
+        (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
+
+    let viewport_scores = ViewportScores {
+        desktop: ViewportScoreSet {
+            accessibility: desktop_acc.round() as u32,
+            performance: desktop_perf_score,
+            overall: desktop_overall,
+        },
+        mobile: ViewportScoreSet {
+            accessibility: mobile_acc.round() as u32,
+            performance: mobile_perf_score,
+            overall: mobile_overall,
+        },
+        weighted_overall,
+    };
+
+    let dual_viewport = DualViewportResults {
+        desktop: ViewportAuditData {
+            wcag_results: desktop_wcag,
+            accessibility_score: desktop_acc,
+            performance: desktop_snap.performance.clone(),
+            seo: None,
+            mobile: None,
+            ux: None,
+            journey: None,
+        },
+        mobile: ViewportAuditData {
+            wcag_results: mobile_wcag,
+            accessibility_score: mobile_acc,
+            performance: mobile_snap.performance.clone(),
+            seo: mobile_snap.seo.clone(),
+            mobile: mobile_snap.mobile.clone(),
+            ux: mobile_snap.ux.clone(),
+            journey: mobile_snap.journey.clone(),
+        },
+    };
+
+    // ── Build report ──────────────────────────────────────────────────────────
+    // Use mobile pass as primary snapshot (mobile-first); desktop data lives in dual_viewport.
+    let primary_snap = SnapshotData {
+        ax_tree: mobile_snap.ax_tree.clone(),
+        performance: mobile_snap.performance.clone(),
+        seo: mobile_snap.seo.clone(),
+        security,
+        mobile: mobile_snap.mobile.clone(),
+        ux: mobile_snap.ux.clone(),
+        journey: mobile_snap.journey.clone(),
+        dark_mode: desktop_snap.dark_mode.clone(), // taken from desktop pass
+    };
+
+    let mut report = aggregate_report(
+        url,
+        config,
+        &primary_snap,
+        merged_wcag,
+        start_time.elapsed().as_millis() as u64,
+    );
+    report.dual_viewport = Some(dual_viewport);
+    report.viewport_scores = Some(viewport_scores);
+
+    if config.persist_artifacts {
+        persist_artifacts(url, &primary_snap, &report);
+    }
+
+    Ok(report)
+}
+
+// ── Score helpers ─────────────────────────────────────────────────────────────
+
+/// Compute a normalized module score for one viewport pass.
+///
+/// Weights: Accessibility 40 %, Performance 20 %, SEO 20 %, Mobile 10 %
+/// (normalized to active modules, same as the single-pass formula).
+fn compute_viewport_overall(
+    acc: f32,
+    perf: Option<u32>,
+    seo: Option<u32>,
+    mobile: Option<u32>,
+) -> u32 {
+    let mut weighted = acc as f64 * 40.0;
+    let mut total = 40.0;
+
+    if let Some(p) = perf {
+        weighted += p as f64 * 20.0;
+        total += 20.0;
+    }
+    if let Some(s) = seo {
+        weighted += s as f64 * 20.0;
+        total += 20.0;
+    }
+    if let Some(m) = mobile {
+        weighted += m as f64 * 10.0;
+        total += 10.0;
+    }
+
+    (weighted / total).round() as u32
+}
+
+// ── WCAG deduplication ────────────────────────────────────────────────────────
+
+/// Merge violations from both passes.
+///
+/// Dedup key: (rule, selector-or-node_id).
+/// - Violations present on both → tag "both-viewports" (reported once)
+/// - Desktop-only → tag "desktop-only"
+/// - Mobile-only → tag "mobile-only"
+fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagResults {
+    fn dedup_key(v: &Violation) -> (&str, String) {
+        let id = v
+            .selector
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_owned())
+            .unwrap_or_else(|| v.node_id.clone());
+        (v.rule.as_str(), id)
+    }
+
+    let mut merged: Vec<Violation> = Vec::new();
+    let mut desktop_matched = vec![false; desktop.violations.len()];
+
+    for mv in &mobile.violations {
+        let mk = dedup_key(mv);
+        let match_idx = desktop
+            .violations
+            .iter()
+            .position(|dv| dedup_key(dv) == mk);
+
+        if let Some(idx) = match_idx {
+            desktop_matched[idx] = true;
+            let mut shared = mv.clone();
+            shared.tags.push("both-viewports".to_string());
+            merged.push(shared);
+        } else {
+            let mut mobile_only = mv.clone();
+            mobile_only.tags.push("mobile-only".to_string());
+            merged.push(mobile_only);
+        }
+    }
+
+    for (i, dv) in desktop.violations.iter().enumerate() {
+        if !desktop_matched[i] {
+            let mut desktop_only = dv.clone();
+            desktop_only.tags.push("desktop-only".to_string());
+            merged.push(desktop_only);
+        }
+    }
+
+    WcagResults {
+        violations: merged,
+        passes: mobile.passes.max(desktop.passes),
+        incomplete: mobile.incomplete.max(desktop.incomplete),
+        nodes_checked: mobile.nodes_checked.max(desktop.nodes_checked),
+    }
+}
+
+// ── Screenshot capture ────────────────────────────────────────────────────────
 
 /// Capture desktop and mobile viewport screenshots of the current page.
 async fn capture_page_screenshots(
@@ -158,7 +423,6 @@ async fn capture_page_screenshots(
         url: "viewport-desktop".to_string(),
         reason: e.to_string(),
     })?;
-    // Wait for reflow, then reset scroll — viewport change can shift scroll position
     tokio::time::sleep(Duration::from_millis(350)).await;
     let _ = page
         .evaluate(
@@ -193,8 +457,6 @@ async fn capture_page_screenshots(
         url: "viewport-mobile".to_string(),
         reason: e.to_string(),
     })?;
-
-    // Wait for mobile reflow, then reset scroll comprehensively
     tokio::time::sleep(Duration::from_millis(450)).await;
     let _ = page
         .evaluate(
@@ -219,34 +481,7 @@ async fn capture_page_screenshots(
     Ok(crate::audit::report::PageScreenshots { desktop, mobile })
 }
 
-/// Audit a single page that's already loaded
-///
-/// # Arguments
-/// * `page` - The chromiumoxide Page to audit
-/// * `url` - The URL (for reporting)
-/// * `config` - Pipeline configuration
-///
-/// # Returns
-/// * `Ok(AuditReport)` - The audit results
-pub async fn audit_page(page: &Page, url: &str, config: &PipelineConfig) -> Result<AuditReport> {
-    let start_time = Instant::now();
-
-    let snapshot = extract_snapshot(page, url, config).await?;
-    let wcag_results = run_rules(page, &snapshot, config).await;
-    let report = aggregate_report(
-        url,
-        config,
-        &snapshot,
-        wcag_results,
-        start_time.elapsed().as_millis() as u64,
-    );
-
-    if config.persist_artifacts {
-        persist_artifacts(url, &snapshot, &report);
-    }
-
-    Ok(report)
-}
+// ── Internal helpers ──────────────────────────────────────────────────────────
 
 async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Result<SnapshotData> {
     debug!("Extracting Accessibility Tree...");
@@ -299,17 +534,8 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
-    let security = if config.check_security {
-        match analyze_security(url).await {
-            Ok(sec) => Some(sec),
-            Err(e) => {
-                warn!("Security analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
+    // Security is handled outside extract_snapshot (shared between passes)
+    let security = None;
 
     let mobile = if config.check_mobile {
         match analyze_mobile_friendliness(page).await {
@@ -323,26 +549,29 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
-    // UX analysis runs on AXTree data — no CDP calls needed
+    // UX and Journey run once on the mobile pass (gated by check_mobile || check_seo)
     let ux = if config.check_mobile || config.check_seo {
         Some(analyze_ux(&ax_tree))
     } else {
         None
     };
 
-    // Journey analysis runs on AXTree data — no CDP calls needed
     let journey = if config.check_mobile || config.check_seo {
         Some(analyze_journey(&ax_tree))
     } else {
         None
     };
 
-    let dark_mode = match analyze_dark_mode(page, config.wcag_level).await {
-        Ok(dm) => Some(dm),
-        Err(e) => {
-            warn!("Dark mode analysis failed: {}", e);
-            None
+    let dark_mode = if config.check_dark_mode {
+        match analyze_dark_mode(page, config.wcag_level).await {
+            Ok(dm) => Some(dm),
+            Err(e) => {
+                warn!("Dark mode analysis failed: {}", e);
+                None
+            }
         }
+    } else {
+        None
     };
 
     Ok(SnapshotData {
@@ -362,7 +591,6 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
     let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
 
     // The AX tree does not expose the html[lang] attribute — verify it via DOM.
-    // If the page has a valid lang, remove the false-positive 3.1.1 violation.
     if wcag_results.violations.iter().any(|v| v.rule == "3.1.1") {
         let has_lang = page
             .evaluate(
@@ -393,7 +621,6 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
         wcag_results.violations.extend(contrast_violations);
     }
 
-    // Enrich violation selectors with actual DOM locations (img src, form ids, etc.)
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
 
     wcag_results
@@ -435,10 +662,7 @@ fn aggregate_report(
         report = report.with_dark_mode(dark_mode);
     }
 
-    // Source quality is derived from all other modules — must run last
     report.source_quality = Some(crate::source_quality::analyze_source_quality(&report));
-
-    // AI visibility is derived from all other modules (especially SEO)
     report.ai_visibility = Some(crate::ai_visibility::analyze_ai_visibility(&report));
 
     report
@@ -480,7 +704,8 @@ fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
     }
 }
 
-/// Run audits on multiple URLs.
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +758,63 @@ mod tests {
         assert!(config.check_mobile);
         assert!(config.check_seo);
         assert!(config.check_security);
+        assert!(config.check_dark_mode);
+    }
+
+    #[test]
+    fn test_merge_wcag_violations_dedup() {
+        use crate::wcag::Severity;
+
+        fn make_v(rule: &str, selector: &str) -> Violation {
+            let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
+            v.selector = Some(selector.to_string());
+            v
+        }
+
+        let desktop = WcagResults {
+            violations: vec![
+                make_v("1.1.1", "#img1"),  // shared
+                make_v("2.4.4", "#link1"), // desktop-only
+            ],
+            passes: 5,
+            incomplete: 0,
+            nodes_checked: 100,
+        };
+        let mobile = WcagResults {
+            violations: vec![
+                make_v("1.1.1", "#img1"),   // shared
+                make_v("1.4.3", "#text1"),  // mobile-only
+            ],
+            passes: 4,
+            incomplete: 0,
+            nodes_checked: 90,
+        };
+
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        assert_eq!(merged.violations.len(), 3); // 1 shared + 1 desktop-only + 1 mobile-only
+
+        let shared = merged.violations.iter().find(|v| v.rule == "1.1.1").unwrap();
+        assert!(shared.tags.contains(&"both-viewports".to_string()));
+
+        let desktop_only = merged.violations.iter().find(|v| v.rule == "2.4.4").unwrap();
+        assert!(desktop_only.tags.contains(&"desktop-only".to_string()));
+
+        let mobile_only = merged.violations.iter().find(|v| v.rule == "1.4.3").unwrap();
+        assert!(mobile_only.tags.contains(&"mobile-only".to_string()));
+
+        assert_eq!(merged.passes, 5); // max of desktop/mobile
+        assert_eq!(merged.nodes_checked, 100);
+    }
+
+    #[test]
+    fn test_compute_viewport_overall_acc_only() {
+        assert_eq!(compute_viewport_overall(80.0, None, None, None), 80);
+    }
+
+    #[test]
+    fn test_compute_viewport_overall_with_perf() {
+        // acc=80 (40%) + perf=60 (20%) → (80*40 + 60*20) / 60 = 4400/60 ≈ 73
+        let result = compute_viewport_overall(80.0, Some(60), None, None);
+        assert_eq!(result, 73);
     }
 }

@@ -57,6 +57,17 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
     }
 
     println!();
+    let viewport_info = if let Some(ref vs) = report.viewport_scores {
+        format!(
+            "  Desktop {}  Mobile {}  Weighted {}",
+            colorize_score(vs.desktop.overall, &vs.desktop.overall.to_string()),
+            colorize_score(vs.mobile.overall, &vs.mobile.overall.to_string()),
+            colorize_score(vs.weighted_overall, &vs.weighted_overall.to_string()),
+        )
+    } else {
+        String::new()
+    };
+
     println!(
         "{}",
         format!(
@@ -69,6 +80,9 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
         )
         .dimmed()
     );
+    if !viewport_info.is_empty() {
+        println!("{}", viewport_info);
+    }
 
     // Risk level (computed from violations)
     let critical = report

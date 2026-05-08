@@ -23,6 +23,44 @@ pub struct PageScreenshots {
     pub mobile: Vec<u8>,
 }
 
+/// Raw audit data for a single viewport pass.
+/// Not serialized — kept in-memory for output builders.
+#[derive(Debug, Clone)]
+pub struct ViewportAuditData {
+    pub wcag_results: WcagResults,
+    pub accessibility_score: f32,
+    pub performance: Option<PerformanceResults>,
+    pub seo: Option<SeoAnalysis>,
+    pub mobile: Option<MobileFriendliness>,
+    pub ux: Option<crate::ux::UxAnalysis>,
+    pub journey: Option<crate::journey::JourneyAnalysis>,
+}
+
+/// Dual-viewport raw results — desktop and mobile passes.
+/// Not serialized — kept in-memory only.
+#[derive(Debug, Clone)]
+pub struct DualViewportResults {
+    pub desktop: ViewportAuditData,
+    pub mobile: ViewportAuditData,
+}
+
+/// Per-viewport scores for JSON / CLI output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewportScoreSet {
+    pub accessibility: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performance: Option<u32>,
+    pub overall: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewportScores {
+    pub desktop: ViewportScoreSet,
+    pub mobile: ViewportScoreSet,
+    /// 70 % mobile + 30 % desktop (before security adjustment)
+    pub weighted_overall: u32,
+}
+
 /// Complete audit report for a single URL
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditReport {
@@ -79,6 +117,12 @@ pub struct AuditReport {
     /// Screenshots for PDF cover page (captured during audit, not serialized).
     #[serde(skip)]
     pub page_screenshots: Option<PageScreenshots>,
+    /// Raw dual-viewport data (not serialized — in-memory only for output builders).
+    #[serde(skip)]
+    pub dual_viewport: Option<DualViewportResults>,
+    /// Per-viewport scores (serialized for JSON consumers).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub viewport_scores: Option<ViewportScores>,
 }
 
 /// Performance analysis results wrapper
@@ -132,6 +176,8 @@ impl AuditReport {
             source_quality: None,
             ai_visibility: None,
             page_screenshots: None,
+            dual_viewport: None,
+            viewport_scores: None,
         }
     }
 
@@ -192,15 +238,31 @@ impl AuditReport {
                 .any(|v| v.severity == crate::wcag::Severity::Critical)
     }
 
-    /// Calculate weighted overall score across all active modules
+    /// Calculate weighted overall score across all active modules.
     ///
-    /// Weights (normalized to active modules):
-    /// - WCAG Accessibility: 40%
-    /// - Performance: 20%
-    /// - SEO: 20%
-    /// - Security: 10%
-    /// - Mobile: 10%
+    /// When dual-viewport data is present the score is weighted 70 % mobile /
+    /// 30 % desktop, matching Google PageSpeed Insights priorities.  Security
+    /// (viewport-independent) is blended in afterwards (10 % slot).
+    ///
+    /// Fallback weights when no dual-viewport data exists (single-pass):
+    /// - WCAG Accessibility: 40 %
+    /// - Performance: 20 %
+    /// - SEO: 20 %
+    /// - Security: 10 %
+    /// - Mobile: 10 %
     pub fn overall_score(&self) -> u32 {
+        if let Some(ref vs) = self.viewport_scores {
+            // 70/30 viewport base, then blend in security (10 %)
+            let mut weighted = vs.weighted_overall as f64 * 90.0;
+            let mut total = 90.0;
+            if let Some(ref security) = self.security {
+                weighted += security.score as f64 * 10.0;
+                total += 10.0;
+            }
+            return (weighted / total).round() as u32;
+        }
+
+        // Single-pass fallback
         let mut weighted_sum = self.score as f64 * 40.0;
         let mut total_weight = 40.0;
 
