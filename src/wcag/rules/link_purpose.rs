@@ -133,6 +133,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
 /// Check if link text is generic/ambiguous
 fn is_generic_link_text(text: &str) -> bool {
     let generic_phrases = [
+        // English
         "click here",
         "click",
         "here",
@@ -156,6 +157,19 @@ fn is_generic_link_text(text: &str) -> bool {
         "submit",
         "next",
         "previous",
+        // German
+        "weiterlesen",
+        "mehr erfahren",
+        "mehr",
+        "hier klicken",
+        "klicken sie hier",
+        "hier",
+        "weiter",
+        "alle anzeigen",
+        "ansehen",
+        "jetzt lesen",
+        "öffnen",
+        // Symbols
         "...",
         ">",
         ">>",
@@ -229,7 +243,11 @@ mod tests {
         assert!(is_generic_link_text("click here"));
         assert!(is_generic_link_text("Read more"));
         assert!(is_generic_link_text("HERE"));
+        assert!(is_generic_link_text("Weiterlesen"));
+        assert!(is_generic_link_text("Mehr erfahren"));
+        assert!(is_generic_link_text("weiter"));
         assert!(!is_generic_link_text("View product specifications"));
+        assert!(!is_generic_link_text("Artikel über HBOT lesen"));
     }
 
     #[test]
