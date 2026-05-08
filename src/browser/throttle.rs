@@ -26,8 +26,11 @@ pub enum ThrottleProfile {
 
 impl ThrottleProfile {
     /// All profiles run automatically in every single-page audit.
-    pub const AUTO_PROFILES: &'static [ThrottleProfile] =
-        &[ThrottleProfile::Slow3G, ThrottleProfile::Fast3G, ThrottleProfile::LhMobile];
+    pub const AUTO_PROFILES: &'static [ThrottleProfile] = &[
+        ThrottleProfile::Slow3G,
+        ThrottleProfile::Fast3G,
+        ThrottleProfile::LhMobile,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
