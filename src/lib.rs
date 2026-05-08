@@ -32,6 +32,7 @@
 //!         check_seo: false,
 //!         check_security: false,
 //!         check_mobile: false,
+//!         check_dark_mode: false,
 //!         persist_artifacts: true,
 //!         capture_screenshots: false,
 //!     };
