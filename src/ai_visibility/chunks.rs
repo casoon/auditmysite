@@ -253,14 +253,14 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
             .to_string()
     } else {
         format!(
-            "Gemischte Chunk-Qualität: {} optimal, {} zu kurz, {} zu lang. \
-             Kombination aus Heading-basiertem und Sliding-Window-Chunking empfohlen.",
+            "Gemischte Inhaltsstruktur: {} Abschnitte optimal, {} zu kurz, {} zu lang. \
+             Mehr Zwischenüberschriften verbessern die Lesbarkeit für KI-Systeme.",
             optimal_count, too_short_count, too_long_count
         )
     };
 
     ChunkAnalysis {
-        dimension: build_dimension("Chunk-Qualität", &signals),
+        dimension: build_dimension("Technische KI-Lesbarkeit", &signals),
         sections,
         recommendation,
     }

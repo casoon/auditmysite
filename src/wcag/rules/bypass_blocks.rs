@@ -77,6 +77,7 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
 /// Check for skip navigation link
 fn has_skip_navigation(tree: &AXTree) -> bool {
     let skip_patterns = [
+        // English
         "skip to",
         "skip navigation",
         "skip to content",
@@ -85,6 +86,54 @@ fn has_skip_navigation(tree: &AXTree) -> bool {
         "jump to content",
         "go to main",
         "go to content",
+        // German
+        "zum hauptinhalt",
+        "zum inhalt",
+        "navigation überspringen",
+        "zum inhalt springen",
+        "hauptinhalt",
+        // French
+        "aller au contenu",
+        "passer la navigation",
+        "accéder au contenu",
+        "aller au menu principal",
+        // Spanish
+        "ir al contenido",
+        "saltar navegación",
+        "ir al contenido principal",
+        // Italian
+        "vai al contenuto",
+        "salta la navigazione",
+        "vai al contenuto principale",
+        // Portuguese
+        "ir para o conteúdo",
+        "pular navegação",
+        "ir para o conteúdo principal",
+        // Dutch
+        "ga naar inhoud",
+        "navigatie overslaan",
+        "ga naar hoofdinhoud",
+        // Swedish
+        "hoppa till innehåll",
+        "hoppa över navigering",
+        // Norwegian
+        "hopp til innhold",
+        "hopp over navigasjon",
+        // Danish
+        "gå til indhold",
+        "spring navigation over",
+        // Finnish
+        "siirry sisältöön",
+        "ohita navigaatio",
+        // Polish
+        "przejdź do treści",
+        "pomiń nawigację",
+        // Turkish
+        "içeriğe geç",
+        "gezinmeyi atla",
+        // Czech / Slovak
+        "přejít na obsah",
+        "přeskočit navigaci",
     ];
 
     tree.iter().any(|node| {

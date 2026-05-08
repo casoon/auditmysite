@@ -136,7 +136,7 @@ pub(crate) fn analyze_readability(input: &ReadabilityInput) -> ReadabilityAnalys
     // 6. Schema.org entities — LLMs leverage structured data for understanding
     let rich_schema = input.schema_type_count >= 2;
     signals.push(AiSignal {
-        name: "Entitäts-Dichte (Schema.org)".into(),
+        name: "Schema-Abdeckung".into(),
         present: input.has_schema,
         weight: 0.12,
         detail: if rich_schema {

@@ -281,7 +281,7 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
         detail: if input.has_breadcrumb {
             "Breadcrumb vorhanden — thematische Einordnung im Graph möglich".into()
         } else {
-            "Kein Breadcrumb — Seite ist isoliert im Wissensgraph".into()
+            "Kein Breadcrumb — thematische Einordnung fehlt".into()
         },
     });
 
@@ -322,7 +322,7 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
     });
 
     KnowledgeGraphAnalysis {
-        dimension: build_dimension("Wissensgraph", &signals),
+        dimension: build_dimension("Strukturierte Daten", &signals),
         entities,
         relationships,
         link_suggestions,

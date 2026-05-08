@@ -197,14 +197,55 @@ fn is_required(node: &AXNode) -> bool {
 fn indicates_required(node: &AXNode) -> bool {
     if let Some(name) = &node.name {
         let name_lower = name.to_lowercase();
-        if name_lower.contains("required") || name_lower.contains("*") {
+        let required_terms = [
+            "required",
+            // German
+            "pflichtfeld",
+            "pflicht",
+            "erforderlich",
+            // French
+            "obligatoire",
+            "requis",
+            "champ obligatoire",
+            // Spanish
+            "obligatorio",
+            "requerido",
+            "campo requerido",
+            // Italian
+            "obbligatorio",
+            "richiesto",
+            // Portuguese
+            "obrigatório",
+            "campo obrigatório",
+            // Dutch
+            "verplicht",
+            "vereist",
+            // Swedish
+            "obligatoriskt",
+            "krävs",
+            // Polish
+            "wymagane",
+            // Turkish
+            "zorunlu",
+        ];
+        if required_terms
+            .iter()
+            .any(|t| name_lower.contains(t) || name_lower.contains('*'))
+        {
             return true;
         }
     }
 
     if let Some(desc) = &node.description {
         let desc_lower = desc.to_lowercase();
-        if desc_lower.contains("required") {
+        if desc_lower.contains("required")
+            || desc_lower.contains("pflichtfeld")
+            || desc_lower.contains("obligatoire")
+            || desc_lower.contains("obligatorio")
+            || desc_lower.contains("obbligatorio")
+            || desc_lower.contains("obrigatório")
+            || desc_lower.contains("verplicht")
+        {
             return true;
         }
     }
@@ -217,6 +258,7 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
     let name = node.name.as_deref().unwrap_or("").to_lowercase();
 
     let format_sensitive = [
+        // English
         "date",
         "phone",
         "tel",
@@ -228,6 +270,58 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
         "passport",
         "account",
         "routing",
+        // German
+        "datum",
+        "telefon",
+        "postleitzahl",
+        "plz",
+        "kreditkarte",
+        "reisepass",
+        "kontonummer",
+        // French
+        "téléphone",
+        "code postal",
+        "carte de crédit",
+        "passeport",
+        "numéro de compte",
+        // Spanish
+        "teléfono",
+        "código postal",
+        "tarjeta de crédito",
+        "pasaporte",
+        "número de cuenta",
+        // Italian
+        "telefono",
+        "codice postale",
+        "carta di credito",
+        "passaporto",
+        "numero di conto",
+        // Portuguese
+        "telefone",
+        "código postal",
+        "cartão de crédito",
+        "passaporte",
+        // Dutch
+        "telefoon",
+        "postcode",
+        "creditcard",
+        "paspoort",
+        "rekeningnummer",
+        // Swedish
+        "telefon",
+        "postnummer",
+        "kreditkort",
+        "pass",
+        // Polish
+        "telefon",
+        "kod pocztowy",
+        "karta kredytowa",
+        "paszport",
+        // Turkish
+        "telefon",
+        "posta kodu",
+        "kredi kartı",
+        "pasaport",
     ];
 
     format_sensitive.iter().any(|&term| name.contains(term)) || role == "spinbutton"
@@ -235,7 +329,40 @@ fn needs_format_instructions(role: &str, node: &AXNode) -> bool {
 
 /// Check if format hint is provided
 fn has_format_hint(node: &AXNode) -> bool {
-    let format_patterns = ["format:", "example:", "e.g.", "(", "mm/dd", "yyyy"];
+    let format_patterns = [
+        "format:",
+        "example:",
+        "e.g.",
+        "(",
+        "mm/dd",
+        "yyyy",
+        // German
+        "z.b.",
+        "bsp.",
+        "beispiel:",
+        // French
+        "ex.",
+        "exemple:",
+        "par ex.",
+        // Spanish
+        "ej.",
+        "ejemplo:",
+        "p.ej.",
+        // Italian
+        "es.",
+        "esempio:",
+        // Portuguese
+        "ex.:",
+        "exemplo:",
+        // Dutch
+        "bijv.",
+        "voorbeeld:",
+        // Swedish/Norwegian
+        "t.ex.",
+        // Polish
+        "np.",
+        "przykład:",
+    ];
 
     if let Some(name) = &node.name {
         let name_lower = name.to_lowercase();

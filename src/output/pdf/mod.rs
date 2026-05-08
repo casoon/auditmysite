@@ -96,6 +96,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         )
         .add_component(Label::new(&vm.cover.title).with_size("22pt").bold())
         .add_component(
+            Label::new(format!(
+                "{}  ·  {}",
+                extract_domain(&vm.cover.domain),
+                vm.cover.date
+            ))
+            .with_size("11pt")
+            .with_color("#0f766e"),
+        )
+        .add_component(
             Label::new(&vm.executive.cover_kicker)
                 .with_size("12pt")
                 .with_color("#475569"),
@@ -124,6 +133,21 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .asset(mobile_key, &mobile_path)
                 .add_component(DevicePreview::new(desktop_key, mobile_key));
         }
+    } else {
+        let (title, body) = if i18n.locale() == "en" {
+            (
+                "Device Preview",
+                "No screenshots available — screenshots could not be captured during this audit. \
+                 Check that Chrome is installed and accessible.",
+            )
+        } else {
+            (
+                "Gerätevorschau",
+                "Keine Screenshots verfügbar — die Aufnahme ist bei diesem Audit fehlgeschlagen. \
+                 Prüfe, ob Chrome installiert und erreichbar ist (`auditmysite doctor`).",
+            )
+        };
+        builder = builder.add_component(Callout::info(body).with_title(title));
     }
 
     builder = builder.add_component(build_cover_score_row(
@@ -149,7 +173,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         )
-        .add_component(build_cover_fact_strip(&vm, &i18n))
         .add_component(PageBreak::new());
 
     if vm.meta.report_level != ReportLevel::Executive {
@@ -615,27 +638,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     Ok(pdf_bytes)
-}
-
-fn build_cover_fact_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStrip {
-    MetricStrip::new(vec![
-        MetricStripItem::new(
-            i18n.t("cover-fact-domain"),
-            extract_domain(&vm.cover.domain),
-        )
-        .with_accent("#0f766e"),
-        MetricStripItem::new(
-            i18n.t("cover-fact-scope"),
-            i18n.t("cover-fact-scope-single"),
-        )
-        .with_accent("#475569"),
-        MetricStripItem::new(
-            i18n.t("cover-fact-modules"),
-            vm.cover.modules.len().to_string(),
-        )
-        .with_accent("#7c3aed"),
-        MetricStripItem::new(i18n.t("cover-fact-date"), &vm.cover.date).with_accent("#b45309"),
-    ])
 }
 
 fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {

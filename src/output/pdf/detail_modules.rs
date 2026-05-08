@@ -130,7 +130,17 @@ pub(super) fn render_performance(
             .with_thresholds(75, 50),
         );
 
+    // ── User-perceived Performance (Core Web Vitals) ─────────────────
     if !perf.vitals.is_empty() {
+        builder = builder.add_component(
+            Section::new(if is_en(i18n) {
+                "User Experience"
+            } else {
+                "Nutzererlebnis"
+            })
+            .with_level(3),
+        );
+
         let strip = perf
             .vitals
             .iter()
@@ -142,9 +152,7 @@ pub(super) fn render_performance(
             })
             .collect();
         builder = builder.add_component(MetricStrip::new(strip).compact());
-    }
 
-    if !perf.vitals.is_empty() {
         let mut kv = KeyValueList::new().with_title("Core Web Vitals");
         for (name, value, rating) in &perf.vitals {
             kv = kv.add(name, format!("{} — {}", value, rating));
@@ -152,18 +160,57 @@ pub(super) fn render_performance(
         builder = builder.add_component(kv);
     }
 
-    if !perf.additional_metrics.is_empty() {
-        let mut metrics = SummaryBox::new(if is_en(i18n) {
-            "Additional metrics"
-        } else {
-            "Weitere Metriken"
-        });
-        for (k, v) in &perf.additional_metrics {
-            metrics = metrics.add_item(k, v);
+    // ── Technical Complexity ─────────────────────────────────────────
+    if !perf.additional_metrics.is_empty() || perf.has_render_blocking {
+        builder = builder.add_component(
+            Section::new(if is_en(i18n) {
+                "Technical Complexity"
+            } else {
+                "Technische Komplexität"
+            })
+            .with_level(3),
+        );
+
+        if !perf.additional_metrics.is_empty() {
+            let mut metrics = SummaryBox::new(if is_en(i18n) {
+                "Technical indicators"
+            } else {
+                "Technische Indikatoren"
+            });
+            for (k, v) in &perf.additional_metrics {
+                metrics = metrics.add_item(k, v);
+            }
+            builder = builder.add_component(metrics);
         }
-        builder = builder.add_component(metrics);
+
+        if perf.has_render_blocking {
+            if !perf.render_blocking_metrics.is_empty() {
+                let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+                    "Render-blocking analysis"
+                } else {
+                    "Render-Blocking Analyse"
+                });
+                for (k, v) in &perf.render_blocking_metrics {
+                    kv = kv.add(k, v);
+                }
+                builder = builder.add_component(kv);
+            }
+
+            if !perf.render_blocking_suggestions.is_empty() {
+                let mut suggestions = List::new().with_title(if is_en(i18n) {
+                    "Recommendations"
+                } else {
+                    "Empfehlungen"
+                });
+                for s in &perf.render_blocking_suggestions {
+                    suggestions = suggestions.add_item(s);
+                }
+                builder = builder.add_component(suggestions);
+            }
+        }
     }
 
+    // ── Improvement suggestions (across both layers) ─────────────────
     if !perf.recommendations.is_empty() {
         let mut rec_list = List::new().with_title(if is_en(i18n) {
             "Improvement suggestions"
@@ -174,41 +221,6 @@ pub(super) fn render_performance(
             rec_list = rec_list.add_item(recommendation);
         }
         builder = builder.add_component(rec_list);
-    }
-
-    if perf.has_render_blocking {
-        builder = builder.add_component(
-            Section::new(if is_en(i18n) {
-                "Render blocking & asset sizes"
-            } else {
-                "Render Blocking & Asset-Größen"
-            })
-            .with_level(3),
-        );
-
-        if !perf.render_blocking_metrics.is_empty() {
-            let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-                "Render-blocking analysis"
-            } else {
-                "Render-Blocking Analyse"
-            });
-            for (k, v) in &perf.render_blocking_metrics {
-                kv = kv.add(k, v);
-            }
-            builder = builder.add_component(kv);
-        }
-
-        if !perf.render_blocking_suggestions.is_empty() {
-            let mut suggestions = List::new().with_title(if is_en(i18n) {
-                "Recommendations"
-            } else {
-                "Empfehlungen"
-            });
-            for s in &perf.render_blocking_suggestions {
-                suggestions = suggestions.add_item(s);
-            }
-            builder = builder.add_component(suggestions);
-        }
     }
 
     builder
@@ -1218,12 +1230,17 @@ pub(super) fn render_journey(
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
-                    "Journey score"
+                    "Journey score (indicator)"
                 } else {
-                    "Journey Score"
+                    "Journey Score (Indikator)"
                 },
                 journey.score,
             )
+            .with_description(if is_en(i18n) {
+                "Heuristic estimate based on structural signals"
+            } else {
+                "Heuristische Schätzung auf Basis struktureller Signale"
+            })
             .with_thresholds(80, 50),
         );
 
@@ -1491,17 +1508,25 @@ pub(super) fn render_source_quality(
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
-                    "Source quality"
+                    "Source quality (indicator)"
                 } else {
-                    "Quellenqualität"
+                    "Quellenqualität (Indikator)"
                 },
                 sq.score,
             )
-            .with_description(format!(
-                "Grade: {} — {}",
-                sq.grade,
-                score_quality_label(sq.score)
-            ))
+            .with_description(if is_en(i18n) {
+                format!(
+                    "Grade: {} — {} · Heuristic estimate, not a measured value",
+                    sq.grade,
+                    score_quality_label(sq.score)
+                )
+            } else {
+                format!(
+                    "Grade: {} — {} · Heuristische Schätzung, kein Messwert",
+                    sq.grade,
+                    score_quality_label(sq.score)
+                )
+            })
             .with_thresholds(70, 50),
         );
 
@@ -1557,17 +1582,25 @@ pub(super) fn render_ai_visibility(
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
-                    "AI visibility"
+                    "AI visibility (indicator)"
                 } else {
-                    "AI-Sichtbarkeit"
+                    "AI-Sichtbarkeit (Indikator)"
                 },
                 av.score,
             )
-            .with_description(format!(
-                "Grade: {} — {}",
-                av.grade,
-                score_quality_label(av.score)
-            ))
+            .with_description(if is_en(i18n) {
+                format!(
+                    "Grade: {} — {} · Heuristic estimate, not a measured value",
+                    av.grade,
+                    score_quality_label(av.score)
+                )
+            } else {
+                format!(
+                    "Grade: {} — {} · Heuristische Schätzung, kein Messwert",
+                    av.grade,
+                    score_quality_label(av.score)
+                )
+            })
             .with_thresholds(70, 50),
         );
 
@@ -1592,17 +1625,17 @@ pub(super) fn render_ai_visibility(
         (
             &av.chunks.dimension,
             if is_en(i18n) {
-                "Chunk quality"
+                "AI readability"
             } else {
-                "Chunk-Qualität"
+                "Technische KI-Lesbarkeit"
             },
         ),
         (
             &av.knowledge_graph.dimension,
             if is_en(i18n) {
-                "Knowledge graph"
+                "Structured data"
             } else {
-                "Wissensgraph"
+                "Strukturierte Daten"
             },
         ),
         (

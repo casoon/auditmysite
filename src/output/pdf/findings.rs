@@ -169,8 +169,27 @@ pub(super) fn render_finding_technical(
         .add(occurrences_label, group.occurrence_count.to_string());
     builder = builder.add_component(meta_kv);
 
-    // AffectedElements: compact selector list grouped by element type
+    // AffectedElements: element-type summary + deduplicated selector list
     if !group.representative_occurrences.is_empty() {
+        // Count occurrences per element type
+        let mut type_counts: std::collections::BTreeMap<&str, usize> =
+            std::collections::BTreeMap::new();
+        for occ in &group.representative_occurrences {
+            let tag = extract_element_type(&occ.selector);
+            if !tag.is_empty() {
+                *type_counts.entry(tag).or_insert(0) += 1;
+            }
+        }
+        if !type_counts.is_empty() {
+            let summary = type_counts
+                .iter()
+                .map(|(tag, count)| format!("{}× {}", count, tag))
+                .collect::<Vec<_>>()
+                .join("  ·  ");
+            let summary_label = if en { "Element types" } else { "Element-Typen" };
+            builder = builder.add_component(KeyValueList::new().add(summary_label, summary));
+        }
+
         let selectors_title = if en {
             "Affected selectors"
         } else {
@@ -305,4 +324,18 @@ pub(super) fn render_finding_technical(
     }
 
     builder
+}
+
+/// Extract the HTML element type from a CSS selector path.
+/// Examples: "div.main > img" → "img", "a#skip-link" → "a", "button" → "button"
+fn extract_element_type(selector: &str) -> &str {
+    let last_segment = selector.split('>').last().unwrap_or(selector).trim();
+    let last_token = last_segment
+        .split_whitespace()
+        .last()
+        .unwrap_or(last_segment);
+    let end = last_token
+        .find(|c: char| !c.is_ascii_alphanumeric() && c != '-')
+        .unwrap_or(last_token.len());
+    &last_token[..end]
 }

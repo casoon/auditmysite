@@ -14,42 +14,86 @@ use crate::ux::saturating_penalty;
 // ── Generic / CTA keyword lists (shared with UX but scoped here) ───
 
 const GENERIC_LINK_LABELS: &[&str] = &[
-    "mehr",
-    "hier",
-    "klicken",
-    "weiter",
-    "link",
+    // English
     "more",
     "click here",
     "read more",
     "learn more",
+    "details",
+    "info",
+    "link",
+    "here",
+    "view",
+    "see more",
+    "see all",
+    // German
+    "mehr",
+    "hier",
+    "klicken",
+    "weiter",
     "hier klicken",
     "mehr erfahren",
-    "details",
     "weiterlesen",
-    "info",
+    "alle anzeigen",
+    "ansehen",
+    "jetzt lesen",
+    "öffnen",
+    // French
+    "ici",
+    "cliquez ici",
+    "en savoir plus",
+    "lire la suite",
+    "lire plus",
+    "voir plus",
+    "voir tout",
+    "télécharger",
+    // Spanish
+    "aquí",
+    "haz clic aquí",
+    "leer más",
+    "saber más",
+    "ver más",
+    "ver todo",
+    // Italian
+    "qui",
+    "clicca qui",
+    "leggi di più",
+    "scopri di più",
+    "vedi di più",
+    "vedi tutto",
+    // Portuguese
+    "aqui",
+    "clique aqui",
+    "leia mais",
+    "saiba mais",
+    "ver mais",
+    // Dutch
+    "hier",
+    "klik hier",
+    "meer lezen",
+    "lees meer",
+    "bekijk meer",
+    "volgende",
+    // Swedish
+    "här",
+    "klicka här",
+    "läs mer",
+    // Norwegian
+    "her",
+    "klikk her",
+    "les mer",
+    // Polish
+    "tutaj",
+    "kliknij tutaj",
+    "czytaj więcej",
+    "więcej",
+    // Turkish
+    "devamını oku",
+    "daha fazla",
 ];
 
 const CTA_KEYWORDS: &[&str] = &[
-    "kaufen",
-    "bestellen",
-    "kontakt",
-    "anfrage",
-    "starten",
-    "registrieren",
-    "anmelden",
-    "buchen",
-    "jetzt",
-    "kostenlos",
-    "testen",
-    "demo",
-    "termin",
-    "beratung",
-    "angebot",
-    "download",
-    "newsletter",
-    "warenkorb",
-    "kasse",
+    // English
     "buy",
     "order",
     "contact",
@@ -63,6 +107,115 @@ const CTA_KEYWORDS: &[&str] = &[
     "subscribe",
     "cart",
     "checkout",
+    "download",
+    "demo",
+    "newsletter",
+    // German
+    "kaufen",
+    "bestellen",
+    "kontakt",
+    "anfrage",
+    "starten",
+    "registrieren",
+    "anmelden",
+    "buchen",
+    "jetzt",
+    "kostenlos",
+    "testen",
+    "termin",
+    "beratung",
+    "angebot",
+    "warenkorb",
+    "kasse",
+    "herunterladen",
+    // French
+    "acheter",
+    "commander",
+    "contacter",
+    "commencer",
+    "s'inscrire",
+    "réserver",
+    "gratuit",
+    "essai",
+    "télécharger",
+    "abonner",
+    "panier",
+    // Spanish
+    "comprar",
+    "pedir",
+    "contactar",
+    "empezar",
+    "registrarse",
+    "reservar",
+    "gratis",
+    "prueba",
+    "descargar",
+    "suscribirse",
+    "carrito",
+    // Italian
+    "acquistare",
+    "ordinare",
+    "contattare",
+    "iniziare",
+    "registrarsi",
+    "prenotare",
+    "gratuito",
+    "prova",
+    "scaricare",
+    "iscriversi",
+    "carrello",
+    // Portuguese
+    "comprar",
+    "pedir",
+    "contactar",
+    "começar",
+    "registrar",
+    "reservar",
+    "grátis",
+    "baixar",
+    "assinar",
+    "carrinho",
+    // Dutch
+    "kopen",
+    "bestellen",
+    "contact",
+    "starten",
+    "registreren",
+    "boeken",
+    "gratis",
+    "proberen",
+    "downloaden",
+    "abonneren",
+    "winkelwagen",
+    // Swedish
+    "köpa",
+    "beställa",
+    "kontakta",
+    "starta",
+    "registrera",
+    "boka",
+    "gratis",
+    "ladda ner",
+    "prenumerera",
+    // Polish
+    "kupić",
+    "zamówić",
+    "kontakt",
+    "zarejestrować",
+    "zarezerwować",
+    "bezpłatny",
+    "pobierz",
+    "subskrybować",
+    // Turkish
+    "satın al",
+    "sipariş ver",
+    "iletişim",
+    "başla",
+    "kayıt ol",
+    "rezervasyon",
+    "ücretsiz",
+    "indir",
+    "abone ol",
 ];
 
 // ── Public types ────────────────────────────────────────────────────
@@ -503,14 +656,52 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
             matches!(
                 trimmed,
                 "ok" | "submit"
-                    | "senden"
-                    | "absenden"
                     | "go"
-                    | "los"
-                    | "weiter"
                     | "next"
                     | "click"
                     | "button"
+                    | "send"
+                    // German
+                    | "senden"
+                    | "absenden"
+                    | "los"
+                    | "weiter"
+                    | "schicken"
+                    // French
+                    | "envoyer"
+                    | "suivant"
+                    | "continuer"
+                    | "valider"
+                    // Spanish
+                    | "enviar"
+                    | "siguiente"
+                    | "continuar"
+                    | "aceptar"
+                    // Italian
+                    | "invia"
+                    | "successivo"
+                    | "continua"
+                    | "conferma"
+                    // Portuguese
+                    | "próximo"
+                    | "confirmar"
+                    // Dutch
+                    | "verzenden"
+                    | "volgende"
+                    | "doorgaan"
+                    | "bevestigen"
+                    // Swedish
+                    | "skicka"
+                    | "nästa"
+                    | "fortsätt"
+                    // Polish
+                    | "wyślij"
+                    | "następny"
+                    | "kontynuuj"
+                    // Turkish
+                    | "gönder"
+                    | "ileri"
+                    | "devam"
             )
         })
         .count();
