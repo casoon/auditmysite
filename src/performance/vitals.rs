@@ -5,7 +5,7 @@
 use chromiumoxide::cdp::browser_protocol::performance::GetMetricsParams;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::error::{AuditError, Result};
 
@@ -89,6 +89,127 @@ impl WebVitals {
     }
 }
 
+/// Inject PerformanceObserver script before navigation so LCP, TBT, and CLS
+/// entries are captured from the very first paint (Lighthouse-style).
+///
+/// Must be called on a fresh `Page` BEFORE `browser.navigate()`. The observers
+/// store results in `window.__ams_lcp`, `window.__ams_tbt`, `window.__ams_cls`.
+///
+/// Note: INP cannot be measured without real user interaction in headless Chrome.
+/// TBT (Long Tasks blocking time > 50ms) is used as a proxy for interactivity.
+pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
+    let script = r#"
+(function() {
+    // LCP observer — captures the largest contentful paint before load
+    window.__ams_lcp = 0;
+    try {
+        var _lcpObs = new PerformanceObserver(function(list) {
+            var entries = list.getEntries();
+            if (entries.length > 0) {
+                window.__ams_lcp = entries[entries.length - 1].startTime;
+            }
+        });
+        _lcpObs.observe({ type: 'largest-contentful-paint', buffered: true });
+        window.__ams_lcp_obs = _lcpObs;
+    } catch(e) {}
+
+    // TBT via Long Tasks — sum of blocking time (duration > 50ms) per task
+    window.__ams_tbt = 0;
+    try {
+        new PerformanceObserver(function(list) {
+            var entries = list.getEntries();
+            for (var i = 0; i < entries.length; i++) {
+                if (entries[i].duration > 50) {
+                    window.__ams_tbt += entries[i].duration - 50;
+                }
+            }
+        }).observe({ type: 'longtask', buffered: true });
+    } catch(e) {}
+
+    // CLS via layout-shift observer
+    window.__ams_cls = 0;
+    try {
+        new PerformanceObserver(function(list) {
+            var entries = list.getEntries();
+            for (var i = 0; i < entries.length; i++) {
+                if (!entries[i].hadRecentInput) {
+                    window.__ams_cls += entries[i].value;
+                }
+            }
+        }).observe({ type: 'layout-shift', buffered: true });
+    } catch(e) {}
+})();
+"#;
+
+    page.evaluate_on_new_document(script)
+        .await
+        .map_err(|e| AuditError::CdpError(format!("Failed to inject vitals observer: {}", e)))?;
+
+    Ok(())
+}
+
+/// Read the pre-injected globals after navigation to collect LCP, TBT, CLS.
+///
+/// Flushes and disconnects the LCP observer to capture any buffered entries.
+async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
+    let js = r#"
+(function() {
+    // Finalize LCP — flush and disconnect observer
+    var lcp = 0;
+    try {
+        if (window.__ams_lcp_obs) {
+            var recs = window.__ams_lcp_obs.takeRecords();
+            if (recs.length > 0) {
+                window.__ams_lcp = recs[recs.length - 1].startTime;
+            }
+            window.__ams_lcp_obs.disconnect();
+        }
+        lcp = window.__ams_lcp || 0;
+    } catch(e) {}
+
+    return JSON.stringify({
+        lcp: lcp,
+        tbt: window.__ams_tbt || 0,
+        cls: window.__ams_cls || 0
+    });
+})()
+"#;
+
+    let result = page
+        .evaluate(js)
+        .await
+        .map_err(|e| AuditError::CdpError(format!("Preinjected vitals read failed: {}", e)))?;
+
+    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("{}");
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+
+    Ok(PreinjectedVitals {
+        lcp: parsed["lcp"].as_f64().unwrap_or(0.0),
+        tbt: parsed["tbt"].as_f64().unwrap_or(0.0),
+        cls: parsed["cls"].as_f64().unwrap_or(0.0),
+    })
+}
+
+/// Values collected by the pre-injected PerformanceObserver script.
+struct PreinjectedVitals {
+    lcp: f64,
+    tbt: f64,
+    cls: f64,
+}
+
+/// Read the current LCP value from the pre-injected global.
+///
+/// Returns `None` if no LCP was captured yet or the script was not injected.
+pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
+    let result = page
+        .evaluate("window.__ams_lcp || 0")
+        .await
+        .map_err(|e| AuditError::CdpError(format!("LCP read failed: {}", e)))?;
+
+    let val = result.value().and_then(|v| v.as_f64()).unwrap_or(0.0);
+    Ok(if val > 0.0 { Some(val) } else { None })
+}
+
 /// Extract Core Web Vitals from a page
 ///
 /// # Arguments
@@ -102,29 +223,57 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
 
     let mut vitals = WebVitals::default();
 
-    // Get performance metrics via CDP
+    // Read pre-injected observer globals first (Lighthouse-style, captures from first paint).
+    // Falls back gracefully when prepare_vitals_collection was not called.
+    let preinjected = collect_preinjected_vitals(page).await.unwrap_or_else(|e| {
+        warn!(
+            "Pre-injected vitals unavailable ({}), falling back to CDP",
+            e
+        );
+        PreinjectedVitals {
+            lcp: 0.0,
+            tbt: 0.0,
+            cls: 0.0,
+        }
+    });
+
+    // Apply pre-injected LCP and TBT when non-zero (0 = not captured / not injected)
+    if preinjected.lcp > 0.0 && preinjected.lcp < 300_000.0 {
+        vitals.lcp = Some(VitalMetric::new(preinjected.lcp, 2500.0, 4000.0));
+        debug!("LCP (preinjected): {:.0}ms", preinjected.lcp);
+    }
+    if preinjected.tbt > 0.0 {
+        vitals.tbt = Some(VitalMetric::new(preinjected.tbt, 200.0, 600.0));
+        debug!("TBT (preinjected): {:.0}ms", preinjected.tbt);
+    }
+    // CLS: 0.0 is a valid perfect score, always apply
+    vitals.cls = Some(VitalMetric::new(preinjected.cls, 0.1, 0.25));
+    debug!("CLS (preinjected): {:.4}", preinjected.cls);
+
+    // Get performance metrics via CDP for FCP, DCL, heap, node count
     let metrics_response = page
         .execute(GetMetricsParams::default())
         .await
         .map_err(|e| AuditError::CdpError(format!("Failed to get metrics: {}", e)))?;
 
-    // Parse metrics into our structure
     for metric in &metrics_response.metrics {
         let value = metric.value;
         match metric.name.as_str() {
             "FirstContentfulPaint" => {
-                // Convert to ms with sanity guard
                 let ms = value * 1000.0;
                 if ms > 0.0 && ms < 300_000.0 {
                     vitals.fcp = Some(VitalMetric::new(ms, 1800.0, 3000.0));
-                    debug!("FCP: {:.0}ms", ms);
+                    debug!("FCP (CDP): {:.0}ms", ms);
                 }
             }
             "LargestContentfulPaint" => {
-                let ms = value * 1000.0;
-                if ms > 0.0 && ms < 300_000.0 {
-                    vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
-                    debug!("LCP: {:.0}ms", ms);
+                // Only use CDP LCP as fallback when pre-injected observer missed it
+                if vitals.lcp.is_none() {
+                    let ms = value * 1000.0;
+                    if ms > 0.0 && ms < 300_000.0 {
+                        vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
+                        debug!("LCP (CDP fallback): {:.0}ms", ms);
+                    }
                 }
             }
             "DomContentLoaded" => {
@@ -133,40 +282,24 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
                     vitals.dom_content_loaded = Some(ms);
                 }
             }
-            "NavigationStart" => {
-                // Used for TTFB calculation
-            }
             "JSHeapUsedSize" => {
                 vitals.js_heap_size = Some(value as i64);
             }
             "Nodes" => {
                 vitals.dom_nodes = Some(value as i64);
             }
-            "LayoutCount" | "LayoutDuration" => {
-                // Used for CLS approximation
-            }
-            "TaskDuration" => {
-                // Total task duration - used for TBT approximation
-                let ms = value * 1000.0;
-                // TBT is sum of blocking time > 50ms
-                if ms > 50.0 {
-                    let current = vitals.tbt.as_ref().map(|v| v.value).unwrap_or(0.0);
-                    vitals.tbt = Some(VitalMetric::new(current + (ms - 50.0), 200.0, 600.0));
-                }
-            }
             _ => {}
         }
     }
 
-    // Extract additional metrics via JavaScript
+    // Extract additional metrics via JavaScript (FCP fallback, TTFB, load time)
     let js_metrics = extract_js_metrics(page).await?;
 
-    // Merge JS metrics
-    if vitals.lcp.is_none() && js_metrics.lcp.is_some() {
-        vitals.lcp = js_metrics.lcp;
-    }
     if vitals.fcp.is_none() && js_metrics.fcp.is_some() {
         vitals.fcp = js_metrics.fcp;
+    }
+    if vitals.lcp.is_none() && js_metrics.lcp.is_some() {
+        vitals.lcp = js_metrics.lcp;
     }
     if js_metrics.ttfb.is_some() {
         vitals.ttfb = js_metrics.ttfb;
@@ -180,17 +313,6 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
                 vitals.dom_content_loaded = Some(js_dcl);
             }
         }
-    }
-
-    // CLS requires an observation window to capture post-load layout shifts
-    // (lazy images, fonts, ads, overlays). A one-shot snapshot at load time
-    // misses most real-world shifts.
-    let cls_value = extract_cls_observed(page).await.unwrap_or_else(|_| {
-        // Fallback to the sync snapshot if observer fails
-        js_metrics.cls.as_ref().map(|v| v.value).unwrap_or(0.0)
-    });
-    if cls_value >= 0.0 {
-        vitals.cls = Some(VitalMetric::new(cls_value, 0.1, 0.25));
     }
 
     info!(
@@ -263,48 +385,6 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
     }
 
     Ok(vitals)
-}
-
-/// Measure CLS via PerformanceObserver with a short observation window.
-///
-/// A one-shot `getEntriesByType` snapshot misses post-load layout shifts
-/// (lazy images, web fonts, ads, overlays). This observer collects all
-/// buffered entries PLUS any new shifts during a 1500ms window.
-async fn extract_cls_observed(page: &Page) -> Result<f64> {
-    let js = r#"
-    new Promise((resolve) => {
-        let cls = 0;
-        try {
-            const observer = new PerformanceObserver((list) => {
-                for (const entry of list.getEntries()) {
-                    if (!entry.hadRecentInput) {
-                        cls += entry.value;
-                    }
-                }
-            });
-            // buffered: true delivers already-recorded shifts in the first callback
-            observer.observe({ type: 'layout-shift', buffered: true });
-            setTimeout(() => {
-                observer.disconnect();
-                resolve(cls);
-            }, 1500);
-        } catch (e) {
-            // PerformanceObserver not supported — fallback to snapshot
-            const entries = performance.getEntriesByType('layout-shift');
-            for (const entry of entries) {
-                if (!entry.hadRecentInput) cls += entry.value;
-            }
-            resolve(cls);
-        }
-    })
-    "#;
-
-    let result = page
-        .evaluate(js)
-        .await
-        .map_err(|e| AuditError::CdpError(format!("CLS observer failed: {}", e)))?;
-
-    Ok(result.value().and_then(|v| v.as_f64()).unwrap_or(0.0))
 }
 
 #[cfg(test)]

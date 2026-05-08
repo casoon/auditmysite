@@ -27,7 +27,7 @@ use crate::journey::{analyze_journey, JourneyAnalysis};
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{
     analyze_content_weight, analyze_render_blocking, calculate_performance_score,
-    extract_web_vitals,
+    extract_web_vitals, prepare_vitals_collection,
 };
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
@@ -198,6 +198,11 @@ pub async fn audit_page(
     // ── Desktop pass ──────────────────────────────────────────────────────────
     info!("Desktop pass starting for {}", url);
     set_viewport(page, Viewport::Desktop).await?;
+    if config.check_performance {
+        if let Err(e) = prepare_vitals_collection(page).await {
+            warn!("Vitals observer injection failed (desktop): {}", e);
+        }
+    }
     browser.navigate(page, url).await?;
 
     let desktop_config = PipelineConfig {
@@ -214,6 +219,11 @@ pub async fn audit_page(
     // ── Mobile pass ───────────────────────────────────────────────────────────
     info!("Mobile pass starting for {}", url);
     set_viewport(page, Viewport::Mobile).await?;
+    if config.check_performance {
+        if let Err(e) = prepare_vitals_collection(page).await {
+            warn!("Vitals observer injection failed (mobile): {}", e);
+        }
+    }
     browser.navigate(page, url).await?;
 
     let mobile_config = PipelineConfig {

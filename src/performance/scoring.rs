@@ -62,43 +62,57 @@ impl std::fmt::Display for PerformanceGrade {
 /// Performance score with breakdown
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceScore {
-    /// Overall score (0-100)
+    /// Overall score (0-100), normalized to available metrics
     pub overall: u32,
     /// Grade based on score
     pub grade: PerformanceGrade,
-    /// LCP score contribution (0-25)
-    pub lcp_score: u32,
-    /// FCP score contribution (0-25)
-    pub fcp_score: u32,
-    /// CLS score contribution (0-25)
-    pub cls_score: u32,
-    /// INP/TBT score contribution (0-25)
-    pub interactivity_score: u32,
+    /// LCP score contribution (0-25); None = metric not measured
+    pub lcp_score: Option<u32>,
+    /// FCP score contribution (0-25); None = metric not measured
+    pub fcp_score: Option<u32>,
+    /// CLS score contribution (0-25); None = metric not measured
+    pub cls_score: Option<u32>,
+    /// INP/TBT score contribution (0-25); None = metric not measured
+    pub interactivity_score: Option<u32>,
+    /// Number of metrics that were actually measured (0-4)
+    pub metrics_available: u32,
 }
 
-/// Calculate performance score from Web Vitals
+/// Calculate performance score from Web Vitals.
 ///
 /// Scoring weights:
 /// - LCP: 25%
 /// - FCP: 25%
 /// - CLS: 25%
 /// - INP/TBT: 25%
+///
+/// The overall score is normalized to the metrics that were actually measured,
+/// so a page with only LCP + FCP available scores out of 50 (not 100).
 pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
-    // Calculate individual scores (0-25 each)
-    let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value)).unwrap_or(0);
-
-    let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value)).unwrap_or(0);
-
-    let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value)).unwrap_or(0);
-
+    let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value));
+    let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value));
+    let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value));
     let interactivity_score = vitals
         .inp
         .as_ref()
         .or(vitals.tbt.as_ref())
-        .map(|v| score_interactivity(v.value))
-        .unwrap_or(0);
+        .map(|v| score_interactivity(v.value));
 
-    let overall = lcp_score + fcp_score + cls_score + interactivity_score;
+    let mut total = 0u32;
+    let mut max_possible = 0u32;
+    for score in [lcp_score, fcp_score, cls_score, interactivity_score] {
+        if let Some(s) = score {
+            total += s;
+            max_possible += 25;
+        }
+    }
+
+    let overall = if max_possible > 0 {
+        (total * 100 / max_possible).min(100)
+    } else {
+        0
+    };
+    let metrics_available = max_possible / 25;
     let grade = PerformanceGrade::from_score(overall);
 
     PerformanceScore {
@@ -108,6 +122,7 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
         fcp_score,
         cls_score,
         interactivity_score,
+        metrics_available,
     }
 }
 

@@ -10,4 +10,6 @@ mod vitals;
 pub use content_weight::{analyze_content_weight, ContentWeight, ResourceBreakdown};
 pub use render_blocking::{analyze_render_blocking, BlockingResource, RenderBlockingAnalysis};
 pub use scoring::{calculate_performance_score, PerformanceGrade, PerformanceScore};
-pub use vitals::{extract_web_vitals, VitalMetric, WebVitals};
+pub use vitals::{
+    extract_web_vitals, finalize_lcp, prepare_vitals_collection, VitalMetric, WebVitals,
+};
