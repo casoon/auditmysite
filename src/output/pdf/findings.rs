@@ -153,16 +153,29 @@ pub(super) fn render_finding_technical(
         ("Elemente", "Vorkommen")
     };
     let meta_kv = KeyValueList::new()
-        .add(i18n.t("label-priority"), priority_label_i18n(group.priority, i18n))
-        .add(i18n.t("label-owner"), role_label_i18n(group.responsible_role, i18n))
-        .add(i18n.t("label-effort"), effort_label_i18n(group.effort, i18n))
+        .add(
+            i18n.t("label-priority"),
+            priority_label_i18n(group.priority, i18n),
+        )
+        .add(
+            i18n.t("label-owner"),
+            role_label_i18n(group.responsible_role, i18n),
+        )
+        .add(
+            i18n.t("label-effort"),
+            effort_label_i18n(group.effort, i18n),
+        )
         .add(elements_label, group.affected_elements.to_string())
         .add(occurrences_label, group.occurrence_count.to_string());
     builder = builder.add_component(meta_kv);
 
     // AffectedElements: compact selector list grouped by element type
     if !group.representative_occurrences.is_empty() {
-        let selectors_title = if en { "Affected selectors" } else { "Betroffene Selektoren" };
+        let selectors_title = if en {
+            "Affected selectors"
+        } else {
+            "Betroffene Selektoren"
+        };
         let mut sel_list = List::new().with_title(selectors_title);
         let mut seen = std::collections::HashSet::new();
         for occ in &group.representative_occurrences {

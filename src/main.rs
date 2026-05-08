@@ -498,15 +498,11 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
     );
     println!(
         "  {}",
-        "For a base URL, a full sitemap scan is often more useful than just the homepage."
-            .dimmed()
+        "For a base URL, a full sitemap scan is often more useful than just the homepage.".dimmed()
     );
     println!();
 
-    let items = vec![
-        "Check single URL (homepage)",
-        "Scan sitemap (all URLs)",
-    ];
+    let items = vec!["Check single URL (homepage)", "Scan sitemap (all URLs)"];
     let selection = Select::new()
         .with_prompt("How would you like to proceed?")
         .items(&items)
@@ -964,11 +960,7 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
     let urls = &args.compare;
 
     if !args.quiet {
-        println!(
-            "{} {} domains\n",
-            "Comparing:".cyan().bold(),
-            urls.len()
-        );
+        println!("{} {} domains\n", "Comparing:".cyan().bold(), urls.len());
         print_comparison_audit_plan(args);
     }
 

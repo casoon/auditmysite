@@ -239,8 +239,12 @@ pub async fn audit_page(
     let mobile_mf_score = mobile_snap.mobile.as_ref().map(|m| m.score);
 
     let desktop_overall = compute_viewport_overall(desktop_acc, desktop_perf_score, None, None);
-    let mobile_overall =
-        compute_viewport_overall(mobile_acc, mobile_perf_score, mobile_seo_score, mobile_mf_score);
+    let mobile_overall = compute_viewport_overall(
+        mobile_acc,
+        mobile_perf_score,
+        mobile_seo_score,
+        mobile_mf_score,
+    );
     let weighted_overall =
         (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
 
@@ -364,10 +368,7 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
 
     for mv in &mobile.violations {
         let mk = dedup_key(mv);
-        let match_idx = desktop
-            .violations
-            .iter()
-            .position(|dv| dedup_key(dv) == mk);
+        let match_idx = desktop.violations.iter().position(|dv| dedup_key(dv) == mk);
 
         if let Some(idx) = match_idx {
             desktop_matched[idx] = true;
@@ -782,8 +783,8 @@ mod tests {
         };
         let mobile = WcagResults {
             violations: vec![
-                make_v("1.1.1", "#img1"),   // shared
-                make_v("1.4.3", "#text1"),  // mobile-only
+                make_v("1.1.1", "#img1"),  // shared
+                make_v("1.4.3", "#text1"), // mobile-only
             ],
             passes: 4,
             incomplete: 0,
@@ -793,13 +794,25 @@ mod tests {
         let merged = merge_wcag_violations(&desktop, &mobile);
         assert_eq!(merged.violations.len(), 3); // 1 shared + 1 desktop-only + 1 mobile-only
 
-        let shared = merged.violations.iter().find(|v| v.rule == "1.1.1").unwrap();
+        let shared = merged
+            .violations
+            .iter()
+            .find(|v| v.rule == "1.1.1")
+            .unwrap();
         assert!(shared.tags.contains(&"both-viewports".to_string()));
 
-        let desktop_only = merged.violations.iter().find(|v| v.rule == "2.4.4").unwrap();
+        let desktop_only = merged
+            .violations
+            .iter()
+            .find(|v| v.rule == "2.4.4")
+            .unwrap();
         assert!(desktop_only.tags.contains(&"desktop-only".to_string()));
 
-        let mobile_only = merged.violations.iter().find(|v| v.rule == "1.4.3").unwrap();
+        let mobile_only = merged
+            .violations
+            .iter()
+            .find(|v| v.rule == "1.4.3")
+            .unwrap();
         assert!(mobile_only.tags.contains(&"mobile-only".to_string()));
 
         assert_eq!(merged.passes, 5); // max of desktop/mobile

@@ -507,11 +507,7 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
                 dm.dark_only_violations.to_string().red()
             );
         } else if dm.dark_contrast_violations == 0 {
-            println!(
-                "  {} {}",
-                "Contrast (dark):".bold(),
-                "No issues".green()
-            );
+            println!("  {} {}", "Contrast (dark):".bold(), "No issues".green());
         }
         if dm.light_only_violations > 0 {
             println!(
