@@ -135,8 +135,8 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                 if (seen.has(el)) return;
                 seen.add(el);
 
-                // Skip elements hidden from assistive technology
-                if (el.getAttribute('aria-hidden') === 'true') return;
+                // Skip elements hidden from assistive technology (self or ancestor)
+                if (el.closest('[aria-hidden="true"]') !== null) return;
 
                 let hasDirectText = false;
                 for (const child of el.childNodes) {
