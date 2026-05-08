@@ -22,14 +22,8 @@ pub(super) fn render_budget_violations(
 ) -> renderreport::engine::ReportBuilder {
     use crate::audit::BudgetSeverity;
 
-    builder = builder.add_component(
-        Section::new(if is_en(i18n) {
-            "Performance budget violations"
-        } else {
-            "Performance-Budget-Verletzungen"
-        })
-        .with_level(2),
-    );
+    builder =
+        builder.add_component(Section::new(i18n.t("section-perf-budget-violations")).with_level(2));
 
     let error_count = violations
         .iter()
@@ -83,11 +77,7 @@ pub(super) fn render_budget_violations(
         } else {
             "Überschreitung"
         }),
-        TableColumn::new(if is_en(i18n) {
-            "Severity"
-        } else {
-            "Schweregrad"
-        }),
+        TableColumn::new(i18n.t("label-severity")),
     ])
     .with_title(if is_en(i18n) {
         "Budget details"
@@ -132,14 +122,8 @@ pub(super) fn render_performance(
 
     // ── User-perceived Performance (Core Web Vitals) ─────────────────
     if !perf.vitals.is_empty() {
-        builder = builder.add_component(
-            Section::new(if is_en(i18n) {
-                "User Experience"
-            } else {
-                "Nutzererlebnis"
-            })
-            .with_level(3),
-        );
+        builder =
+            builder.add_component(Section::new(i18n.t("section-user-experience")).with_level(3));
 
         let strip = perf
             .vitals
@@ -162,14 +146,8 @@ pub(super) fn render_performance(
 
     // ── Technical Complexity ─────────────────────────────────────────
     if !perf.additional_metrics.is_empty() || perf.has_render_blocking {
-        builder = builder.add_component(
-            Section::new(if is_en(i18n) {
-                "Technical Complexity"
-            } else {
-                "Technische Komplexität"
-            })
-            .with_level(3),
-        );
+        builder = builder
+            .add_component(Section::new(i18n.t("section-technical-complexity")).with_level(3));
 
         if !perf.additional_metrics.is_empty() {
             let mut metrics = SummaryBox::new(if is_en(i18n) {
@@ -197,11 +175,7 @@ pub(super) fn render_performance(
             }
 
             if !perf.render_blocking_suggestions.is_empty() {
-                let mut suggestions = List::new().with_title(if is_en(i18n) {
-                    "Recommendations"
-                } else {
-                    "Empfehlungen"
-                });
+                let mut suggestions = List::new().with_title(i18n.t("label-recommendations"));
                 for s in &perf.render_blocking_suggestions {
                     suggestions = suggestions.add_item(s);
                 }
@@ -212,11 +186,7 @@ pub(super) fn render_performance(
 
     // ── Improvement suggestions (across both layers) ─────────────────
     if !perf.recommendations.is_empty() {
-        let mut rec_list = List::new().with_title(if is_en(i18n) {
-            "Improvement suggestions"
-        } else {
-            "Verbesserungsvorschläge"
-        });
+        let mut rec_list = List::new().with_title(i18n.t("label-improvement-suggestions"));
         for recommendation in &perf.recommendations {
             rec_list = rec_list.add_item(recommendation);
         }
@@ -233,12 +203,8 @@ pub(super) fn render_seo(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(
-            Section::new(if is_en(i18n) {
-                "SEO analysis"
-            } else {
-                "SEO-Analyse"
-            })
-            .with_level(2),
+            Section::new(i18n.t("section-seo-analysis"))
+                .with_level(2),
         )
         .add_component(TextBlock::new(&seo.interpretation))
         .add_component(
@@ -298,11 +264,7 @@ pub(super) fn render_seo(
     if !seo.meta_issues.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(if is_en(i18n) { "Field" } else { "Feld" }),
-            TableColumn::new(if is_en(i18n) {
-                "Severity"
-            } else {
-                "Schweregrad"
-            }),
+            TableColumn::new(i18n.t("label-severity")),
             TableColumn::new(if is_en(i18n) {
                 "Description"
             } else {
@@ -339,11 +301,8 @@ pub(super) fn render_seo(
         }
         builder = builder
             .add_component(
-                Callout::info(&seo.tracking_summary_text).with_title(if is_en(i18n) {
-                    "Classification"
-                } else {
-                    "Einordnung"
-                }),
+                Callout::info(&seo.tracking_summary_text)
+                    .with_title(i18n.t("label-classification")),
             )
             .add_component(tracking_table);
     }
@@ -388,14 +347,7 @@ pub(super) fn render_serp(
     serp: &crate::output::report_model::SerpPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        Section::new(if is_en(i18n) {
-            "SERP analysis"
-        } else {
-            "SERP-Analyse"
-        })
-        .with_level(3),
-    );
+    builder = builder.add_component(Section::new(i18n.t("section-serp-analysis")).with_level(3));
 
     let summary = if is_en(i18n) {
         format!(
@@ -473,25 +425,13 @@ pub(super) fn render_page_health(
     ph: &crate::output::report_model::PageHealthPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        Section::new(if is_en(i18n) {
-            "Page health"
-        } else {
-            "Seitengesundheit"
-        })
-        .with_level(3),
-    );
+    builder = builder.add_component(Section::new(i18n.t("section-page-health")).with_level(3));
 
     // Issues table (if any)
     if !ph.issues.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("55%"),
-            TableColumn::new(if is_en(i18n) {
-                "Severity"
-            } else {
-                "Schweregrad"
-            })
-            .with_width("25%"),
+            TableColumn::new(i18n.t("label-severity")).with_width("25%"),
         ])
         .with_title(if is_en(i18n) {
             "Detected issues"
@@ -552,12 +492,7 @@ pub(super) fn render_page_health(
         let mut table = AuditTable::new(vec![
             TableColumn::new(if is_en(i18n) { "Check" } else { "Prüfung" }).with_width("40%"),
             TableColumn::new(if is_en(i18n) { "Count" } else { "Anzahl" }).with_width("15%"),
-            TableColumn::new(if is_en(i18n) {
-                "Severity"
-            } else {
-                "Schweregrad"
-            })
-            .with_width("20%"),
+            TableColumn::new(i18n.t("label-severity")).with_width("20%"),
             TableColumn::new("Detail").with_width("25%"),
         ])
         .with_title(if is_en(i18n) {
@@ -584,14 +519,7 @@ fn render_robots(
     robots: &crate::output::report_model::RobotsPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        Section::new(if is_en(i18n) {
-            "robots.txt audit"
-        } else {
-            "robots.txt Audit"
-        })
-        .with_level(3),
-    );
+    builder = builder.add_component(Section::new(i18n.t("section-robots-audit")).with_level(3));
 
     if let Some(ref err) = robots.error {
         return builder.add_component(if is_en(i18n) {
@@ -745,14 +673,8 @@ pub(super) fn render_seo_profile(
     profile: &SeoProfilePresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        Section::new(if is_en(i18n) {
-            "SEO content profile"
-        } else {
-            "SEO-Inhaltsprofil"
-        })
-        .with_level(3),
-    );
+    builder =
+        builder.add_component(Section::new(i18n.t("section-seo-content-profile")).with_level(3));
 
     let mut identity_table = AuditTable::new(vec![
         TableColumn::new(if is_en(i18n) { "Aspect" } else { "Aspekt" }).with_width("24%"),
@@ -782,11 +704,7 @@ pub(super) fn render_seo_profile(
 
     builder = builder
         .add_component(
-            Callout::info(&profile.identity_summary).with_title(if is_en(i18n) {
-                "Classification"
-            } else {
-                "Einordnung"
-            }),
+            Callout::info(&profile.identity_summary).with_title(i18n.t("label-classification")),
         )
         .add_component(identity_table)
         .add_component(page_profile_table);
@@ -977,14 +895,7 @@ pub(super) fn render_security(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(
-            Section::new(if is_en(i18n) {
-                "Security"
-            } else {
-                "Sicherheit"
-            })
-            .with_level(2),
-        )
+        .add_component(Section::new(i18n.t("section-security")).with_level(2))
         .add_component(TextBlock::new(&sec.interpretation))
         .add_component(
             ScoreCard::new(
@@ -1057,11 +968,7 @@ pub(super) fn render_security(
     }
 
     if !sec.recommendations.is_empty() {
-        let mut rec_list = List::new().with_title(if is_en(i18n) {
-            "Improvement suggestions"
-        } else {
-            "Verbesserungsvorschläge"
-        });
+        let mut rec_list = List::new().with_title(i18n.t("label-improvement-suggestions"));
         for rec in &sec.recommendations {
             rec_list = rec_list.add_item(rec);
         }
@@ -1076,14 +983,7 @@ pub(super) fn render_mobile(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(
-            Section::new(if is_en(i18n) {
-                "Mobile usability"
-            } else {
-                "Mobile Nutzbarkeit"
-            })
-            .with_level(2),
-        )
+        .add_component(Section::new(i18n.t("section-mobile-usability")).with_level(2))
         .add_component(TextBlock::new(&mobile.interpretation))
         .add_component(
             ScoreCard::new(
@@ -1297,14 +1197,7 @@ pub(super) fn render_dark_mode(
         "Nicht unterstützt"
     };
     builder = builder
-        .add_component(
-            Section::new(if is_en(i18n) {
-                "Dark mode"
-            } else {
-                "Dark Mode"
-            })
-            .with_level(2),
-        )
+        .add_component(Section::new(i18n.t("section-dark-mode")).with_level(2))
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
@@ -1672,14 +1565,8 @@ pub(super) fn render_ai_visibility(
 
     // Chunk sections summary
     if !av.chunks.sections.is_empty() {
-        builder = builder.add_component(
-            Section::new(if is_en(i18n) {
-                "Content sections"
-            } else {
-                "Content-Abschnitte"
-            })
-            .with_level(3),
-        );
+        builder =
+            builder.add_component(Section::new(i18n.t("section-content-sections")).with_level(3));
 
         let mut table = AuditTable::new(vec![
             TableColumn::new(if is_en(i18n) { "Section" } else { "Abschnitt" }),
@@ -1713,14 +1600,8 @@ pub(super) fn render_ai_visibility(
 
     // Knowledge graph entities
     if !av.knowledge_graph.entities.is_empty() {
-        builder = builder.add_component(
-            Section::new(if is_en(i18n) {
-                "Detected entities"
-            } else {
-                "Erkannte Entitäten"
-            })
-            .with_level(3),
-        );
+        builder =
+            builder.add_component(Section::new(i18n.t("section-detected-entities")).with_level(3));
 
         let mut table = AuditTable::new(vec![
             TableColumn::new(if is_en(i18n) { "Entity" } else { "Entität" }),
@@ -1764,20 +1645,10 @@ pub(super) fn render_ai_visibility(
 
     // Link suggestions
     if !av.knowledge_graph.link_suggestions.is_empty() {
-        builder = builder.add_component(
-            Section::new(if is_en(i18n) {
-                "Link suggestions"
-            } else {
-                "Verlinkungsvorschläge"
-            })
-            .with_level(3),
-        );
+        builder =
+            builder.add_component(Section::new(i18n.t("section-link-suggestions")).with_level(3));
 
-        let mut list = List::new().with_title(if is_en(i18n) {
-            "Link suggestions"
-        } else {
-            "Verlinkungsvorschläge"
-        });
+        let mut list = List::new().with_title(i18n.t("section-link-suggestions"));
         for suggestion in &av.knowledge_graph.link_suggestions {
             list = list.add_item(format!("{}: {}", suggestion.entity, suggestion.reason));
         }

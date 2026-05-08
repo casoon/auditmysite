@@ -118,36 +118,38 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         false
     };
 
-    // ── Device Preview (desktop + mobile screenshots) ────────────────
-    if let Some(ref shots) = report.page_screenshots {
-        let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
-        let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
-        let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
-        if std::fs::write(&desktop_path, &shots.desktop).is_ok()
-            && std::fs::write(&mobile_path, &shots.mobile).is_ok()
-        {
-            let desktop_key = "/page-screenshot-desktop.png";
-            let mobile_key = "/page-screenshot-mobile.png";
-            builder = builder
-                .asset(desktop_key, &desktop_path)
-                .asset(mobile_key, &mobile_path)
-                .add_component(DevicePreview::new(desktop_key, mobile_key));
-        }
-    } else {
-        let (title, body) = if i18n.locale() == "en" {
-            (
-                "Device Preview",
-                "No screenshots available — screenshots could not be captured during this audit. \
-                 Check that Chrome is installed and accessible.",
-            )
+    // ── Device Preview (desktop + mobile screenshots) — skip for executive
+    if vm.meta.report_level != ReportLevel::Executive {
+        if let Some(ref shots) = report.page_screenshots {
+            let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+            let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
+            let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
+            if std::fs::write(&desktop_path, &shots.desktop).is_ok()
+                && std::fs::write(&mobile_path, &shots.mobile).is_ok()
+            {
+                let desktop_key = "/page-screenshot-desktop.png";
+                let mobile_key = "/page-screenshot-mobile.png";
+                builder = builder
+                    .asset(desktop_key, &desktop_path)
+                    .asset(mobile_key, &mobile_path)
+                    .add_component(DevicePreview::new(desktop_key, mobile_key));
+            }
         } else {
-            (
-                "Gerätevorschau",
-                "Keine Screenshots verfügbar — die Aufnahme ist bei diesem Audit fehlgeschlagen. \
-                 Prüfe, ob Chrome installiert und erreichbar ist (`auditmysite doctor`).",
-            )
-        };
-        builder = builder.add_component(Callout::info(body).with_title(title));
+            let (title, body) = if i18n.locale() == "en" {
+                (
+                    "Device Preview",
+                    "No screenshots available — screenshots could not be captured during this audit. \
+                     Check that Chrome is installed and accessible.",
+                )
+            } else {
+                (
+                    "Gerätevorschau",
+                    "Keine Screenshots verfügbar — die Aufnahme ist bei diesem Audit fehlgeschlagen. \
+                     Prüfe, ob Chrome installiert und erreichbar ist (`auditmysite doctor`).",
+                )
+            };
+            builder = builder.add_component(Callout::info(body).with_title(title));
+        }
     }
 
     builder = builder.add_component(build_cover_score_row(
@@ -244,8 +246,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             ],
         ));
 
-        builder = builder.add_component(build_module_strip(&vm));
         if vm.meta.report_level != ReportLevel::Executive {
+            builder = builder.add_component(build_module_strip(&vm));
             builder = builder.add_component(build_raw_audit_snapshot(&vm, &i18n));
         }
 
@@ -302,7 +304,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             }
         }
 
-        if !vm.summary.positive_aspects.is_empty() {
+        if vm.meta.report_level != ReportLevel::Executive && !vm.summary.positive_aspects.is_empty()
+        {
             let strength_label = i18n.t("label-strength");
             let rows: Vec<ChecklistRow> = vm
                 .summary
@@ -382,7 +385,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         );
 
         // FindingCards — compact: Problem/Impact/Ursache/Fix
-        for group in vm.findings.top_findings.iter().take(5) {
+        let findings_limit = if vm.meta.report_level == ReportLevel::Executive {
+            3
+        } else {
+            5
+        };
+        for group in vm.findings.top_findings.iter().take(findings_limit) {
             builder = render_key_finding_block(
                 builder,
                 group,
@@ -392,13 +400,23 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         }
     }
 
-    if let Some(ref history) = vm.history {
-        builder = render_history_section(builder, history, &i18n);
+    if vm.meta.report_level != ReportLevel::Executive {
+        if let Some(ref history) = vm.history {
+            builder = render_history_section(builder, history, &i18n);
+        }
     }
 
-    // Executive level stops here
+    // Executive level stops here — slim methodology (limitations only)
     if vm.meta.report_level == ReportLevel::Executive {
-        builder = render_methodology_section(builder, &vm.methodology, &i18n);
+        builder = builder
+            .add_component(
+                Callout::info(&vm.methodology.limitations)
+                    .with_title(i18n.t("callout-limitations-title")),
+            )
+            .add_component(
+                Callout::warning(&vm.methodology.disclaimer)
+                    .with_title(i18n.t("callout-note-title")),
+            );
         let built_report = builder.build();
         let pdf_bytes = engine.render_pdf(&built_report)?;
         if let Some(ref _shots) = report.page_screenshots {
@@ -2697,5 +2715,59 @@ mod tests {
         std::env::split_paths(&paths)
             .map(|path| path.join(name))
             .find(|path| path.is_file())
+    }
+
+    /// Count PDF pages by scanning for `/Type /Page` objects (not `/Type /Pages`).
+    fn count_pdf_pages(pdf: &[u8]) -> usize {
+        let needle = b"/Type /Page";
+        let mut count = 0;
+        let mut i = 0;
+        while i + needle.len() <= pdf.len() {
+            if pdf[i..i + needle.len()] == *needle {
+                // Exclude /Type /Pages (the catalogue node)
+                if pdf.get(i + needle.len()).copied() != Some(b's') {
+                    count += 1;
+                }
+            }
+            i += 1;
+        }
+        count
+    }
+
+    #[test]
+    fn test_executive_pdf_page_count_within_target() {
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Executive,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("Executive PDF should render");
+        let pages = count_pdf_pages(&pdf);
+        assert!(
+            pages <= 8,
+            "Executive PDF must be ≤ 8 pages per target, got {} pages",
+            pages
+        );
+    }
+
+    #[test]
+    fn test_standard_pdf_page_count_reasonable() {
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("Standard PDF should render");
+        let pages = count_pdf_pages(&pdf);
+        assert!(
+            pages >= 3,
+            "Standard PDF must have at least 3 pages, got {}",
+            pages
+        );
+        assert!(
+            pages <= 35,
+            "Standard PDF must not exceed 35 pages, got {} pages",
+            pages
+        );
     }
 }
