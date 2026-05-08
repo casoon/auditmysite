@@ -123,7 +123,7 @@ impl ContrastRule {
                     fg_color_str, bg_color_str
                 );
 
-                let violation = Violation::new(
+                let mut violation = Violation::new(
                     CONTRAST_RULE.id,
                     CONTRAST_RULE.name,
                     CONTRAST_RULE.level,
@@ -133,6 +133,9 @@ impl ContrastRule {
                 )
                 .with_fix(&fix)
                 .with_help_url(CONTRAST_RULE.help_url);
+                if let Some(snippet) = &style.html_snippet {
+                    violation = violation.with_html_snippet(snippet);
+                }
 
                 violations.push(violation);
             }

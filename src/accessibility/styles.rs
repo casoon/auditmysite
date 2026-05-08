@@ -17,6 +17,8 @@ pub struct ComputedStyles {
     pub node_id: i64,
     /// CSS selector for the element
     pub selector: Option<String>,
+    /// Truncated outerHTML snippet for reporting
+    pub html_snippet: Option<String>,
     /// Map of CSS property names to values
     pub properties: HashMap<String, String>,
 }
@@ -86,33 +88,41 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
     // Use JavaScript to extract styles for all text elements
     let js_code = r#"
     (() => {
-        // Walk up the DOM to find the first ancestor with an opaque background
         function getEffectiveBackgroundColor(el) {
             let current = el;
             while (current && current !== document.documentElement) {
                 const bg = window.getComputedStyle(current).backgroundColor;
                 if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
-                    // Parse rgba to check alpha
                     const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
                     if (match) {
                         const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
-                        if (alpha > 0) {
-                            return bg;
-                        }
+                        if (alpha > 0) return bg;
                     } else {
-                        // hex or named color — opaque
                         return bg;
                     }
                 }
                 current = current.parentElement;
             }
-            // Check <html> element
             const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
-            if (htmlBg && htmlBg !== 'transparent' && htmlBg !== 'rgba(0, 0, 0, 0)') {
-                return htmlBg;
-            }
-            // Default: white (browser default)
+            if (htmlBg && htmlBg !== 'transparent' && htmlBg !== 'rgba(0, 0, 0, 0)') return htmlBg;
             return 'rgb(255, 255, 255)';
+        }
+
+        function getCssPath(el) {
+            if (el.id) return '#' + el.id;
+            const parts = [];
+            let current = el;
+            while (current && current.tagName && current !== document.body) {
+                let part = current.tagName.toLowerCase();
+                if (current.id) { parts.unshift('#' + current.id); break; }
+                const cls = Array.from(current.classList)
+                    .filter(c => c.length > 0 && c.length < 30)
+                    .slice(0, 2).join('.');
+                if (cls) part += '.' + cls;
+                parts.unshift(part);
+                current = current.parentElement;
+            }
+            return parts.slice(-3).join(' > ');
         }
 
         const selectors = ['p', 'span', 'div', 'a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'label', 'strong', 'em'];
@@ -122,11 +132,12 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
         selectors.forEach(selector => {
             const elements = document.querySelectorAll(selector);
             elements.forEach((el, idx) => {
-                // Deduplicate — avoid checking the same element twice
                 if (seen.has(el)) return;
                 seen.add(el);
 
-                // Only check elements with direct text (not just child text)
+                // Skip elements hidden from assistive technology
+                if (el.getAttribute('aria-hidden') === 'true') return;
+
                 let hasDirectText = false;
                 for (const child of el.childNodes) {
                     if (child.nodeType === 3 && child.textContent.trim().length > 0) {
@@ -137,14 +148,11 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                 if (!hasDirectText) return;
 
                 const styles = window.getComputedStyle(el);
-
-                // Skip hidden elements
-                if (styles.display === 'none' || styles.visibility === 'hidden') {
-                    return;
-                }
+                if (styles.display === 'none' || styles.visibility === 'hidden') return;
 
                 results.push({
-                    selector: selector,
+                    cssPath: getCssPath(el),
+                    snippet: el.outerHTML.substring(0, 200),
                     index: idx,
                     color: styles.color,
                     backgroundColor: getEffectiveBackgroundColor(el),
@@ -200,13 +208,21 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                 }
 
                                 let selector = item
-                                    .get("selector")
+                                    .get("cssPath")
                                     .and_then(|v| v.as_str())
+                                    .filter(|s| !s.is_empty())
+                                    .map(String::from);
+
+                                let html_snippet = item
+                                    .get("snippet")
+                                    .and_then(|v| v.as_str())
+                                    .filter(|s| !s.is_empty())
                                     .map(String::from);
 
                                 ComputedStyles {
                                     node_id: idx as i64,
                                     selector,
+                                    html_snippet,
                                     properties,
                                 }
                             })
@@ -313,6 +329,7 @@ mod tests {
         let mut styles = ComputedStyles {
             node_id: 1,
             selector: None,
+            html_snippet: None,
             properties: HashMap::new(),
         };
 
@@ -349,6 +366,7 @@ mod tests {
         let mut styles = ComputedStyles {
             node_id: 1,
             selector: None,
+            html_snippet: None,
             properties: HashMap::new(),
         };
 

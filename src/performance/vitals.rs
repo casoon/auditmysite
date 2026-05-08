@@ -205,6 +205,28 @@ pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
     Ok(if val > 0.0 { Some(val) } else { None })
 }
 
+/// Wait for LCP to be captured by the pre-injected observer.
+///
+/// LCP entries are dispatched asynchronously after `readyState=complete`. Without
+/// a settle period the observer's buffer is often empty when we call takeRecords().
+/// Polls `window.__ams_lcp` at 250 ms intervals for up to ~3 s after an initial
+/// 300 ms minimum wait — mirrors Lighthouse's idle-detection heuristic.
+async fn wait_for_lcp_stable(page: &Page) {
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    for _ in 0..11u8 {
+        let lcp = page
+            .evaluate("window.__ams_lcp || 0")
+            .await
+            .ok()
+            .and_then(|r| r.value().and_then(|v| v.as_f64()))
+            .unwrap_or(0.0);
+        if lcp > 0.0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
 /// Extract Core Web Vitals from a page
 ///
 /// # Arguments
@@ -215,6 +237,8 @@ pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
 /// * `Err(AuditError)` - If extraction fails
 pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     info!("Extracting Core Web Vitals...");
+
+    wait_for_lcp_stable(page).await;
 
     let mut vitals = WebVitals::default();
 
@@ -237,10 +261,9 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         vitals.lcp = Some(VitalMetric::new(preinjected.lcp, 2500.0, 4000.0));
         debug!("LCP (preinjected): {:.0}ms", preinjected.lcp);
     }
-    if preinjected.tbt > 0.0 {
-        vitals.tbt = Some(VitalMetric::new(preinjected.tbt, 200.0, 600.0));
-        debug!("TBT (preinjected): {:.0}ms", preinjected.tbt);
-    }
+    // TBT: 0 ms is a valid perfect score (no long tasks), always include like CLS.
+    vitals.tbt = Some(VitalMetric::new(preinjected.tbt, 200.0, 600.0));
+    debug!("TBT (preinjected): {:.0}ms", preinjected.tbt);
     // CLS: 0.0 is a valid perfect score, always apply
     vitals.cls = Some(VitalMetric::new(preinjected.cls, 0.1, 0.25));
     debug!("CLS (preinjected): {:.4}", preinjected.cls);
