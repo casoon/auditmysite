@@ -527,8 +527,11 @@ fn compute_score(info: &StaticDarkModeInfo, dark_contrast_count: u32, dark_only:
         score += 3;
     }
 
-    score -= (dark_only as i32) * 5;
-    score -= (dark_contrast_count.saturating_sub(dark_only) as i32) * 2;
+    // Cap contrast penalties so structural implementation still gets credit.
+    // Dark-mode regressions (dark_only) are penalised harder than pre-existing issues.
+    let dark_only_penalty = ((dark_only as i32) * 5).min(20);
+    let both_penalty = ((dark_contrast_count.saturating_sub(dark_only) as i32) * 2).min(10);
+    score -= dark_only_penalty + both_penalty;
 
     score.clamp(0, 100) as u32
 }
@@ -607,10 +610,17 @@ mod tests {
     }
 
     #[test]
-    fn score_many_both_mode_violations_clamp_to_zero() {
-        // 101 violations in both modes: -101*2 = -202 → clamped to 0
+    fn score_many_both_mode_violations_capped_at_minus_10() {
+        // 101 violations in both modes: penalty capped at 10 → 95 - 10 = 85
         let score = compute_score(&make_info(true, true, true, false, 6), 101, 0);
-        assert_eq!(score, 0);
+        assert_eq!(score, 85);
+    }
+
+    #[test]
+    fn score_many_dark_only_violations_capped_at_minus_20() {
+        // 101 dark-only violations: penalty capped at 20 → 95 - 20 = 75
+        let score = compute_score(&make_info(true, true, true, false, 6), 101, 101);
+        assert_eq!(score, 75);
     }
 
     // ── Issue generation tests ────────────────────────────────────────────────
