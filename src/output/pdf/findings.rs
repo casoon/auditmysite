@@ -2,7 +2,7 @@
 
 use renderreport::components::advanced::WrongRightBlock;
 use renderreport::components::advanced::{KeyValueList, List};
-use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::text::Label;
 use renderreport::components::SummaryBox;
 use renderreport::prelude::*;
 
@@ -147,25 +147,31 @@ pub(super) fn render_finding_technical(
     };
     builder = builder.add_component(Label::new(&header).bold().with_size("14pt"));
 
-    let (elements_word, occurrences_word) = if en {
-        ("elements", "occurrences")
+    let (elements_label, occurrences_label) = if en {
+        ("Elements", "Occurrences")
     } else {
         ("Elemente", "Vorkommen")
     };
-    let meta = format!(
-        "{}: {} | {}: {} | {}: {} | {} {}, {} {}",
-        i18n.t("label-priority"),
-        priority_label_i18n(group.priority, i18n),
-        i18n.t("label-owner"),
-        role_label_i18n(group.responsible_role, i18n),
-        i18n.t("label-effort"),
-        effort_label_i18n(group.effort, i18n),
-        group.affected_elements,
-        elements_word,
-        group.occurrence_count,
-        occurrences_word,
-    );
-    builder = builder.add_component(TextBlock::new(meta));
+    let meta_kv = KeyValueList::new()
+        .add(i18n.t("label-priority"), priority_label_i18n(group.priority, i18n))
+        .add(i18n.t("label-owner"), role_label_i18n(group.responsible_role, i18n))
+        .add(i18n.t("label-effort"), effort_label_i18n(group.effort, i18n))
+        .add(elements_label, group.affected_elements.to_string())
+        .add(occurrences_label, group.occurrence_count.to_string());
+    builder = builder.add_component(meta_kv);
+
+    // AffectedElements: compact selector list grouped by element type
+    if !group.representative_occurrences.is_empty() {
+        let selectors_title = if en { "Affected selectors" } else { "Betroffene Selektoren" };
+        let mut sel_list = List::new().with_title(selectors_title);
+        let mut seen = std::collections::HashSet::new();
+        for occ in &group.representative_occurrences {
+            if seen.insert(occ.selector.as_str()) {
+                sel_list = sel_list.add_item(truncate_url(&occ.selector, 70));
+            }
+        }
+        builder = builder.add_component(sel_list);
+    }
 
     let recommendation_title = if en { "Recommendation" } else { "Empfehlung" };
     builder = builder

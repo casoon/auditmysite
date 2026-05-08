@@ -133,10 +133,10 @@ async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Resu
     if no_input && !args.quiet && io::stdin().is_terminal() && io::stdout().is_terminal() {
         print_banner();
         let input: String = Input::new()
-            .with_prompt("  Domain oder URL (z.B. example.com)")
+            .with_prompt("  Domain or URL (e.g., example.com)")
             .validate_with(|s: &String| {
                 if s.trim().is_empty() {
-                    Err("Bitte eine URL eingeben.")
+                    Err("Please enter a URL.")
                 } else {
                     Ok(())
                 }
@@ -193,7 +193,7 @@ fn run_plan_command(args: &Args, url: Option<&str>) -> Result<f64> {
 
     if effective.url.is_none() && effective.sitemap.is_none() && effective.url_file.is_none() {
         return Err(AuditError::ConfigError(
-            "auditmysite plan benötigt eine URL oder --sitemap/--url-file.".to_string(),
+            "auditmysite plan requires a URL or --sitemap/--url-file.".to_string(),
         ));
     }
 
@@ -203,10 +203,10 @@ fn run_plan_command(args: &Args, url: Option<&str>) -> Result<f64> {
 
     if let Some(ref sitemap) = effective.sitemap {
         let url_count = effective.max_pages.max(1);
-        println!("{} {}", "Sitemap-Plan:".cyan().bold(), sitemap);
+        println!("{} {}", "Sitemap plan:".cyan().bold(), sitemap);
         print_batch_audit_plan(&effective, url_count);
     } else if effective.url_file.is_some() {
-        println!("{} URL-Datei", "Plan:".cyan().bold());
+        println!("{} URL file", "Plan:".cyan().bold());
         print_batch_audit_plan(&effective, effective.max_pages.max(1));
     } else if effective.crawl {
         println!("{} Crawl", "Plan:".cyan().bold());
@@ -222,12 +222,12 @@ fn run_plan_command(args: &Args, url: Option<&str>) -> Result<f64> {
 async fn handle_browser_command(action: &BrowserAction) -> Result<f64> {
     match action {
         BrowserAction::Detect => {
-            println!("{}", "Browser-Erkennung läuft...".cyan().bold());
+            println!("{}", "Detecting browsers...".cyan().bold());
             println!();
 
             let browsers = detect_all_browsers();
             if browsers.is_empty() {
-                println!("  Keine Browser gefunden.");
+                println!("  No browsers found.");
                 println!();
                 println!("  Installation:");
                 println!("    brew install --cask google-chrome");
@@ -359,7 +359,7 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
                 println!(
                     "{} {}",
                     "Cache hit:".green().bold(),
-                    "verwende vorhandene Audit-Artefakte".dimmed()
+                    "using cached audit artifacts".dimmed()
                 );
             }
 
@@ -390,18 +390,18 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
     };
 
     if !args.quiet {
-        println!("{}", "Browser wird gestartet...".dimmed());
+        println!("{}", "Starting browser...".dimmed());
     }
     let browser = BrowserManager::with_options(browser_options).await?;
 
     if !args.quiet {
         println!(
             "{} Chrome {} ({})",
-            "Gefunden:".green().bold(),
-            browser.chrome_version().unwrap_or("unbekannte Version"),
+            "Found:".green().bold(),
+            browser.chrome_version().unwrap_or("unknown version"),
             browser.chrome_path().display()
         );
-        println!("{} {}", "Audit läuft:".cyan().bold(), url);
+        println!("{} {}", "Auditing:".cyan().bold(), url);
     }
 
     let pipeline_config = PipelineConfig::from(args);
@@ -427,13 +427,13 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
                     .filter(|v| v.severity == BudgetSeverity::Warning)
                     .count();
                 println!(
-                    "{} {} Budget-Verletzung{}: {} Error{}, {} Warning{}",
+                    "{} {}{}: {} Error{}, {} Warning{}",
                     "Budget:".yellow().bold(),
                     report.budget_violations.len(),
                     if report.budget_violations.len() == 1 {
-                        ""
+                        " violation"
                     } else {
-                        "en"
+                        " violations"
                     },
                     errors,
                     if errors == 1 { "" } else { "s" },
@@ -472,16 +472,16 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
 
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         println!();
-        println!("{}", "Sitemap gefunden".cyan().bold());
+        println!("{}", "Sitemap found".cyan().bold());
         println!(
             "  {} {} ({} URLs)",
-            "Quelle:".dimmed(),
+            "Source:".dimmed(),
             sitemap_url,
             url_count
         );
         println!(
             "  {}",
-            "Nicht-interaktiver Lauf: Es wird nur die angegebene Einzel-URL geprüft. Für den vollständigen Scan --prefer-sitemap oder --sitemap verwenden."
+            "Non-interactive run: only the specified single URL will be audited. Use --prefer-sitemap or --sitemap for a full scan."
                 .dimmed()
         );
         println!();
@@ -489,26 +489,26 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
     }
 
     println!();
-    println!("{}", "Sitemap gefunden".cyan().bold());
+    println!("{}", "Sitemap found".cyan().bold());
     println!(
         "  {} {} ({} URLs)",
-        "Quelle:".dimmed(),
+        "Source:".dimmed(),
         sitemap_url,
         url_count
     );
     println!(
         "  {}",
-        "Für eine Basis-URL ist oft ein vollständiger Sitemap-Scan sinnvoller als nur die Startseite."
+        "For a base URL, a full sitemap scan is often more useful than just the homepage."
             .dimmed()
     );
     println!();
 
     let items = vec![
-        "Einzelne URL prüfen (Startseite)",
-        "Sitemap scannen (alle URLs)",
+        "Check single URL (homepage)",
+        "Scan sitemap (all URLs)",
     ];
     let selection = Select::new()
-        .with_prompt("Wie möchtest du fortfahren?")
+        .with_prompt("How would you like to proceed?")
         .items(&items)
         .default(0)
         .interact()
@@ -543,15 +543,15 @@ fn print_single_audit_plan(args: &Args, url: &str) {
         return;
     }
 
-    println!("{}", "Audit-Plan".cyan().bold());
-    println!("  {} Einzel-URL", "Modus:".dimmed());
+    println!("{}", "Audit plan".cyan().bold());
+    println!("  {} Single URL", "Mode:".dimmed());
     println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report-Level:".dimmed(), args.report_level);
-    println!("  {} {}", "Module:".dimmed(), active_modules_label(args));
+    println!("  {} {}", "Report level:".dimmed(), args.report_level);
+    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
 
     let outputs = planned_single_outputs(args, url);
     if !outputs.is_empty() {
-        println!("  {} {}", "Ausgabe:".dimmed(), outputs.join(", "));
+        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
     }
     println!();
 }
@@ -561,28 +561,28 @@ fn print_batch_audit_plan(args: &Args, total_urls: usize) {
         return;
     }
 
-    println!("{}", "Audit-Plan".cyan().bold());
+    println!("{}", "Audit plan".cyan().bold());
     println!(
         "  {} {}",
-        "Modus:".dimmed(),
+        "Mode:".dimmed(),
         if args.per_page_reports {
-            "Einzelreports aus Batch"
+            "Individual reports from batch"
         } else if args.crawl {
             "Crawl"
         } else if args.sitemap.is_some() {
             "Sitemap"
         } else {
-            "URL-Datei"
+            "URL file"
         }
     );
-    println!("  {} {} URLs", "Umfang:".dimmed(), total_urls);
+    println!("  {} {} URLs", "Scope:".dimmed(), total_urls);
     println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report-Level:".dimmed(), args.report_level);
-    println!("  {} {}", "Module:".dimmed(), active_modules_label(args));
+    println!("  {} {}", "Report level:".dimmed(), args.report_level);
+    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
 
     let outputs = planned_batch_outputs(args);
     if !outputs.is_empty() {
-        println!("  {} {}", "Ausgabe:".dimmed(), outputs.join(", "));
+        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
     }
     println!();
 }
@@ -592,16 +592,16 @@ fn print_comparison_audit_plan(args: &Args) {
         return;
     }
 
-    println!("{}", "Audit-Plan".cyan().bold());
-    println!("  {} Wettbewerbsvergleich", "Modus:".dimmed());
-    println!("  {} {} Domains", "Umfang:".dimmed(), args.compare.len());
+    println!("{}", "Audit plan".cyan().bold());
+    println!("  {} Competitive comparison", "Mode:".dimmed());
+    println!("  {} {} domains", "Scope:".dimmed(), args.compare.len());
     println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report-Level:".dimmed(), args.report_level);
-    println!("  {} {}", "Module:".dimmed(), active_modules_label(args));
+    println!("  {} {}", "Report level:".dimmed(), args.report_level);
+    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
 
     let outputs = planned_comparison_outputs(args);
     if !outputs.is_empty() {
-        println!("  {} {}", "Ausgabe:".dimmed(), outputs.join(", "));
+        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
     }
     println!();
 }
@@ -778,7 +778,7 @@ async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
         }
         Err(e) => {
             return Err(AuditError::ConfigError(format!(
-                "Domain nicht erreichbar: {}\n  Bitte Internetverbindung und URL prüfen.",
+                "Domain unreachable: {}\n  Please check your internet connection and URL.",
                 e
             )));
         }
@@ -794,15 +794,15 @@ async fn check_url_reachable_with_get(
 ) -> Result<()> {
     match client.get(url).send().await {
         Ok(resp) if resp.status().is_server_error() => Err(AuditError::ConfigError(format!(
-            "Server antwortet mit {} für {}. Audit wird abgebrochen.",
+            "Server responded with {} for {}. Aborting audit.",
             resp.status(),
             url
         ))),
         Ok(resp) if resp.status().is_client_error() => {
             if !quiet {
                 println!(
-                    "{} Preflight-GET antwortet mit {}, der Browser-Audit wird trotzdem versucht.",
-                    "Hinweis:".yellow().bold(),
+                    "{} Preflight GET returned {}, browser audit will proceed anyway.",
+                    "Note:".yellow().bold(),
                     resp.status()
                 );
             }
@@ -810,7 +810,7 @@ async fn check_url_reachable_with_get(
         }
         Ok(_) => Ok(()),
         Err(e) => Err(AuditError::ConfigError(format!(
-            "Domain nicht erreichbar: {}",
+            "Domain unreachable: {}",
             e
         ))),
     }
@@ -884,8 +884,8 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
 
     if !args.quiet {
         println!(
-            "{} {} URLs mit {} parallelen Workern\n",
-            "Audit läuft:".cyan().bold(),
+            "{} {} URLs with {} parallel workers\n",
+            "Auditing:".cyan().bold(),
             total_urls,
             args.effective_concurrency()
         );
@@ -925,8 +925,8 @@ async fn run_batch_mode(args: &Args) -> Result<f64> {
         let diagnostics = analyze_crawl_links(crawl).await;
         if !args.quiet {
             println!(
-                "{} {} interne Links geprüft, {} kaputt",
-                "Link-Check:".cyan().bold(),
+                "{} {} internal links checked, {} broken",
+                "Link check:".cyan().bold(),
                 diagnostics.checked_internal_links,
                 diagnostics.broken_internal_links.len()
             );
@@ -965,8 +965,8 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
 
     if !args.quiet {
         println!(
-            "{} {} Domains werden verglichen\n",
-            "Vergleich:".cyan().bold(),
+            "{} {} domains\n",
+            "Comparing:".cyan().bold(),
             urls.len()
         );
         print_comparison_audit_plan(args);
@@ -992,13 +992,13 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
 
     for url in urls {
         if !args.quiet {
-            println!("{} {}", "Auditiere:".dimmed(), url);
+            println!("{} {}", "Auditing:".dimmed(), url);
         }
         match run_single_audit(url, &browser, &config).await {
             Ok(report) => reports.push(report),
             Err(e) => {
                 if !args.quiet {
-                    eprintln!("{} {} — {}", "Fehler:".red().bold(), url, e);
+                    eprintln!("{} {} — {}", "Error:".red().bold(), url, e);
                 }
                 failed += 1;
             }
@@ -1010,7 +1010,7 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
 
     if reports.is_empty() {
         return Err(AuditError::ConfigError(
-            "Kein einziger Domain-Audit erfolgreich.".to_string(),
+            "No domain audit succeeded.".to_string(),
         ));
     }
 
@@ -1020,8 +1020,8 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
     if !args.quiet {
         if failed > 0 {
             println!(
-                "{} {} Domain(s) konnten nicht auditiert werden.",
-                "Warnung:".yellow().bold(),
+                "{} {} domain(s) could not be audited.",
+                "Warning:".yellow().bold(),
                 failed
             );
         }
@@ -1293,7 +1293,7 @@ fn output_batch_as_single_reports(
 
     if !args.quiet {
         println!(
-            "{} {} Einzelreports nach {}",
+            "{} {} individual reports to {}",
             "Info:".cyan().bold(),
             batch_report.reports.len(),
             base_dir.display()
@@ -1445,8 +1445,8 @@ fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Res
     fs::write(path, content)?;
     if !quiet {
         println!(
-            "{} {}-Report gespeichert in {}",
-            "Fertig:".green().bold(),
+            "{} {} report saved to {}",
+            "Done:".green().bold(),
             label,
             path.display()
         );
@@ -1456,16 +1456,16 @@ fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Res
 
 /// Handle --detect-chrome command
 fn detect_chrome_command(args: &Args) -> Result<f64> {
-    println!("{}", "Suche Chrome/Chromium...".cyan().bold());
+    println!("{}", "Searching for Chrome/Chromium...".cyan().bold());
     println!();
 
     match find_chrome(args.chrome_path.as_deref()) {
         Ok(info) => {
-            println!("{} Chrome gefunden!", "Fertig:".green().bold());
-            println!("  Pfad:    {}", info.path.display());
+            println!("{} Chrome found!", "Done:".green().bold());
+            println!("  Path:    {}", info.path.display());
             println!(
                 "  Version: {}",
-                info.version.as_deref().unwrap_or("unbekannt")
+                info.version.as_deref().unwrap_or("unknown")
             );
             println!("  Methode: {:?}", info.detection_method);
             Ok(0.0)

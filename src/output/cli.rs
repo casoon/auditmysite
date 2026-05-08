@@ -267,7 +267,7 @@ fn print_violations_table(violations: &[Violation]) {
         .load_preset(presets::UTF8_FULL)
         .set_content_arrangement(ContentArrangement::Dynamic)
         .set_header(vec![
-            Cell::new("Regel")
+            Cell::new("Rule")
                 .add_attribute(Attribute::Bold)
                 .fg(Color::Cyan),
             Cell::new("Level")
@@ -276,21 +276,21 @@ fn print_violations_table(violations: &[Violation]) {
             Cell::new("Severity")
                 .add_attribute(Attribute::Bold)
                 .fg(Color::Cyan),
-            Cell::new("Beschreibung")
+            Cell::new("Description")
                 .add_attribute(Attribute::Bold)
                 .fg(Color::Cyan),
         ]);
 
     for violation in violations {
         let severity_cell = match violation.severity {
-            Severity::Critical => Cell::new("Kritisch")
+            Severity::Critical => Cell::new("Critical")
                 .fg(Color::Red)
                 .add_attribute(Attribute::Bold),
-            Severity::High => Cell::new("Hoch")
+            Severity::High => Cell::new("High")
                 .fg(Color::Yellow)
                 .add_attribute(Attribute::Bold),
-            Severity::Medium => Cell::new("Mittel").fg(Color::White),
-            Severity::Low => Cell::new("Niedrig").fg(Color::DarkGrey),
+            Severity::Medium => Cell::new("Medium").fg(Color::White),
+            Severity::Low => Cell::new("Low").fg(Color::DarkGrey),
         };
 
         let message = if violation.message.len() > 60 {
@@ -478,9 +478,9 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
     println!();
 
     let support_label = if dm.supported {
-        "Unterstützt".green().bold().to_string()
+        "Supported".green().bold().to_string()
     } else {
-        "Nicht unterstützt".yellow().to_string()
+        "Not supported".yellow().to_string()
     };
     println!("  {} {}", "Status:".bold(), support_label);
     println!("  {} {}/100", "Score:".bold(), dm.score);
@@ -488,7 +488,7 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
     if !dm.detection_methods.is_empty() {
         println!(
             "  {} {}",
-            "Methoden:".bold(),
+            "Methods:".bold(),
             dm.detection_methods.join(", ").dimmed()
         );
     }
@@ -502,21 +502,21 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
     if dm.supported {
         if dm.dark_only_violations > 0 {
             println!(
-                "  {} {} (nur im Dark Mode)",
-                "Kontrast-Probleme:".bold(),
+                "  {} {} (dark mode only)",
+                "Contrast issues:".bold(),
                 dm.dark_only_violations.to_string().red()
             );
         } else if dm.dark_contrast_violations == 0 {
             println!(
                 "  {} {}",
-                "Kontrast Dark Mode:".bold(),
-                "Keine Probleme".green()
+                "Contrast (dark):".bold(),
+                "No issues".green()
             );
         }
         if dm.light_only_violations > 0 {
             println!(
-                "  {} {} (nur im Light Mode)",
-                "Behoben in Dark:".bold(),
+                "  {} {} (light mode only)",
+                "Fixed in dark:".bold(),
                 dm.light_only_violations.to_string().cyan()
             );
         }
