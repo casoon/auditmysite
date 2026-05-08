@@ -72,7 +72,7 @@ pub struct PerformanceScore {
     pub fcp_score: Option<u32>,
     /// CLS score contribution (0-25); None = metric not measured
     pub cls_score: Option<u32>,
-    /// INP/TBT score contribution (0-25); None = metric not measured
+    /// TBT score contribution (0-25); None = metric not measured
     pub interactivity_score: Option<u32>,
     /// Number of metrics that were actually measured (0-4)
     pub metrics_available: u32,
@@ -84,7 +84,7 @@ pub struct PerformanceScore {
 /// - LCP: 25%
 /// - FCP: 25%
 /// - CLS: 25%
-/// - INP/TBT: 25%
+/// - TBT: 25%
 ///
 /// The overall score is normalized to the metrics that were actually measured,
 /// so a page with only LCP + FCP available scores out of 50 (not 100).
@@ -92,11 +92,7 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
     let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value));
     let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value));
     let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value));
-    let interactivity_score = vitals
-        .inp
-        .as_ref()
-        .or(vitals.tbt.as_ref())
-        .map(|v| score_interactivity(v.value));
+    let interactivity_score = vitals.tbt.as_ref().map(|v| score_interactivity(v.value));
 
     let mut total = 0u32;
     let mut max_possible = 0u32;
@@ -177,7 +173,7 @@ fn score_cls(value: f64) -> u32 {
     }
 }
 
-/// Score INP/TBT (0-25)
+/// Score TBT (0-25)
 /// Good: ≤200ms, Poor: >500ms
 fn score_interactivity(ms: f64) -> u32 {
     if ms <= 100.0 {

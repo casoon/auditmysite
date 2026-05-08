@@ -199,7 +199,7 @@ pub(super) fn derive_performance_recommendations(
         }
     }
 
-    if let Some(interactivity) = perf.vitals.inp.as_ref().or(perf.vitals.tbt.as_ref()) {
+    if let Some(interactivity) = perf.vitals.tbt.as_ref() {
         if interactivity.value > 200.0 {
             recommendations.push(if en {
                 "Free the main thread: split large JavaScript tasks and load non-essential scripts later.".to_string()

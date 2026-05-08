@@ -1,6 +1,6 @@
 //! Core Web Vitals extraction via CDP
 //!
-//! Collects LCP, FCP, CLS, INP, TTFB and other performance metrics.
+//! Collects LCP, FCP, CLS, TBT, TTFB and other performance metrics.
 
 use chromiumoxide::cdp::browser_protocol::performance::GetMetricsParams;
 use chromiumoxide::Page;
@@ -18,8 +18,6 @@ pub struct WebVitals {
     pub fcp: Option<VitalMetric>,
     /// Cumulative Layout Shift - target ≤0.1
     pub cls: Option<VitalMetric>,
-    /// Interaction to Next Paint (ms) - target ≤200
-    pub inp: Option<VitalMetric>,
     /// Time to First Byte (ms)
     pub ttfb: Option<VitalMetric>,
     /// First Input Delay (ms) - deprecated but still tracked
@@ -74,7 +72,7 @@ impl VitalMetric {
 impl WebVitals {
     /// Count how many vitals pass the "good" threshold
     pub fn good_count(&self) -> usize {
-        [&self.lcp, &self.fcp, &self.cls, &self.inp]
+        [&self.lcp, &self.fcp, &self.cls, &self.tbt]
             .iter()
             .filter(|v| v.as_ref().map(|m| m.is_good()).unwrap_or(false))
             .count()
@@ -82,7 +80,7 @@ impl WebVitals {
 
     /// Count how many vitals are available
     pub fn available_count(&self) -> usize {
-        [&self.lcp, &self.fcp, &self.cls, &self.inp]
+        [&self.lcp, &self.fcp, &self.cls, &self.tbt]
             .iter()
             .filter(|v| v.is_some())
             .count()
@@ -94,9 +92,6 @@ impl WebVitals {
 ///
 /// Must be called on a fresh `Page` BEFORE `browser.navigate()`. The observers
 /// store results in `window.__ams_lcp`, `window.__ams_tbt`, `window.__ams_cls`.
-///
-/// Note: INP cannot be measured without real user interaction in headless Chrome.
-/// TBT (Long Tasks blocking time > 50ms) is used as a proxy for interactivity.
 pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     let script = r#"
 (function() {

@@ -1774,13 +1774,6 @@ fn build_module_details_from_normalized(
                 ttfb.rating.clone(),
             ));
         }
-        if let Some(ref inp) = p.vitals.inp {
-            vitals.push((
-                "Interaction to Next Paint (INP)".to_string(),
-                format!("{:.0}ms", inp.value),
-                inp.rating.clone(),
-            ));
-        }
         if let Some(ref tbt) = p.vitals.tbt {
             vitals.push((
                 "Total Blocking Time (TBT)".to_string(),
