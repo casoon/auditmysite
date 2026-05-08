@@ -19,7 +19,7 @@ use super::report::{
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
-use crate::browser::BrowserManager;
+use crate::browser::{throttle, BrowserManager, ThrottleProfile};
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::error::Result;
@@ -149,6 +149,11 @@ pub async fn run_single_audit(
     debug!("Created new page");
 
     let mut report = audit_page(&page, url, config, browser).await?;
+
+    if config.check_performance {
+        report.throttled_performance =
+            collect_throttled_performance(&page, url, browser, config).await;
+    }
 
     if config.capture_screenshots {
         match capture_page_screenshots(&page).await {
@@ -677,6 +682,76 @@ fn aggregate_report(
     report.ai_visibility = Some(crate::ai_visibility::analyze_ai_visibility(&report));
 
     report
+}
+
+/// Run one performance-only page load per throttle profile and return the results.
+///
+/// Uses the mobile viewport (most relevant for throttling scenarios).
+/// Runs sequentially; errors in individual profiles are logged and skipped.
+async fn collect_throttled_performance(
+    page: &Page,
+    url: &str,
+    browser: &BrowserManager,
+    _config: &PipelineConfig,
+) -> Vec<crate::audit::report::ThrottledPerfResult> {
+    use crate::audit::report::ThrottledPerfResult;
+    use crate::performance::calculate_performance_score;
+
+    let mut results = Vec::new();
+
+    for &profile in ThrottleProfile::AUTO_PROFILES {
+        info!("Throttled perf pass: {:?}", profile);
+
+        if let Err(e) = throttle::apply_throttling(page, profile).await {
+            warn!("Throttle apply failed for {:?}: {}", profile, e);
+            continue;
+        }
+
+        if let Err(e) = prepare_vitals_collection(page).await {
+            warn!("Vitals injection failed for {:?}: {}", profile, e);
+            let _ = throttle::disable_throttling(page).await;
+            continue;
+        }
+
+        if let Err(e) = browser.navigate(page, url).await {
+            warn!("Navigation failed for {:?}: {}", profile, e);
+            let _ = throttle::disable_throttling(page).await;
+            continue;
+        }
+
+        match crate::performance::extract_web_vitals(page).await {
+            Ok(vitals) => {
+                let score = calculate_performance_score(&vitals);
+                results.push(ThrottledPerfResult {
+                    profile,
+                    lcp_ms: vitals.lcp.as_ref().map(|v| v.value),
+                    tbt_ms: vitals.tbt.as_ref().map(|v| v.value),
+                    cls: vitals.cls.as_ref().map(|v| v.value),
+                    score: score.overall,
+                });
+            }
+            Err(e) => {
+                warn!("Vitals collection failed for {:?}: {}", profile, e);
+            }
+        }
+
+        if let Err(e) = throttle::disable_throttling(page).await {
+            warn!("Throttle disable failed for {:?}: {}", profile, e);
+        }
+
+        // Brief pause between passes to let the browser stabilise.
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    }
+
+    // Restore mobile viewport for screenshot capture that follows.
+    let _ = set_viewport(page, Viewport::Mobile).await;
+
+    // Reload without throttle so the page is in a clean state.
+    if !results.is_empty() {
+        let _ = throttle::disable_throttling(page).await;
+    }
+
+    results
 }
 
 fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {

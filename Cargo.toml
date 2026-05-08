@@ -1,10 +1,10 @@
 [package]
 name = "auditmysite"
-version = "0.9.17"
+version = "0.9.18"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
-license = "LGPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/casoon/auditmysite"
 keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
 categories = ["command-line-utilities", "web-programming"]
@@ -56,6 +56,10 @@ dirs = "5.0"
 
 # Config file parsing
 toml = "0.8"
+
+# Local HTML5 validation (replaces remote W3C/Nu validator)
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
 
 # i18n (Project Fluent)
 fluent-bundle = "0.15"

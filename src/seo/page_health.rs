@@ -5,12 +5,12 @@
 //! redirect detection, www/non-www consolidation, and basic HTML validation.
 
 use chromiumoxide::Page;
+use html5ever::{parse_document, tendril::TendrilSink};
+use markup5ever_rcdom::RcDom;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::error::{AuditError, Result};
-
-const DEFAULT_HTML_VALIDATOR_URL: &str = "https://validator.w3.org/nu/?out=json";
 
 /// Complete page health analysis
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -313,74 +313,36 @@ fn build_html_issues(
     html_issues
 }
 
-async fn run_w3c_html_validation(page: &Page, url: &str, a: &mut PageHealthAnalysis) -> Result<()> {
-    let endpoint = html_validator_endpoint();
-    if let Some(reason) = w3c_validation_skip_reason(url, &endpoint) {
-        a.html_validator_status = "skipped".to_string();
-        a.html_validator_detail = Some(reason.clone());
-        debug!("Skipping W3C validation for {}: {}", url, reason);
-        return Ok(());
-    }
-
+async fn run_w3c_html_validation(page: &Page, _url: &str, a: &mut PageHealthAnalysis) -> Result<()> {
     let html = extract_document_html(page).await?;
-    let messages = validate_html_with_nu(&endpoint, &html).await?;
-    a.html_issues.extend(build_w3c_html_issues(&messages));
+    let issues = validate_html_locally(&html);
+    a.html_issues.extend(issues);
     a.html_validator_status = "executed".to_string();
-    a.html_validator_detail = Some(format!(
-        "Nu Html Checker ausgeführt über {} ({} Meldungen)",
-        endpoint,
-        messages.len()
-    ));
-
+    a.html_validator_detail = Some("HTML5-Validierung lokal via html5ever".to_string());
     Ok(())
 }
 
-fn html_validator_endpoint() -> String {
-    std::env::var("AUDITMYSITE_HTML_VALIDATOR_URL")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| DEFAULT_HTML_VALIDATOR_URL.to_string())
-}
+fn validate_html_locally(html: &str) -> Vec<HtmlValidationIssue> {
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
 
-fn w3c_validation_skip_reason(target_url: &str, endpoint: &str) -> Option<String> {
-    let Ok(parsed) = url::Url::parse(target_url) else {
-        return Some("Ziel-URL konnte für die W3C-Validierung nicht geparst werden".to_string());
+    let errors = dom.errors;
+    if errors.is_empty() {
+        return Vec::new();
+    }
+
+    let parts: Vec<String> = errors.iter().take(3).map(|e| e.to_string()).collect();
+    let detail = if errors.len() <= 3 {
+        parts.join(" | ")
+    } else {
+        format!("{} | +{} weitere", parts.join(" | "), errors.len() - 3)
     };
 
-    // With a custom endpoint we assume the operator understands the data flow.
-    if endpoint != DEFAULT_HTML_VALIDATOR_URL {
-        return None;
-    }
-
-    let Some(host) = parsed.host_str() else {
-        return Some("Ziel-Host konnte für die W3C-Validierung nicht bestimmt werden".to_string());
-    };
-
-    if host.eq_ignore_ascii_case("localhost") {
-        return Some(
-            "Öffentlicher W3C-Validator für localhost standardmäßig deaktiviert".to_string(),
-        );
-    }
-
-    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
-        if is_private_host_ip(ip) {
-            return Some(
-                "Öffentlicher W3C-Validator für private oder lokale IP-Adressen deaktiviert"
-                    .to_string(),
-            );
-        }
-    }
-
-    None
-}
-
-fn is_private_host_ip(ip: std::net::IpAddr) -> bool {
-    match ip {
-        std::net::IpAddr::V4(v4) => v4.is_loopback() || v4.is_private() || v4.is_link_local(),
-        std::net::IpAddr::V6(v6) => {
-            v6.is_loopback() || v6.is_unique_local() || v6.is_unicast_link_local()
-        }
-    }
+    vec![HtmlValidationIssue {
+        check: "HTML5-Parsing-Fehler".to_string(),
+        count: errors.len() as u32,
+        severity: "high".to_string(),
+        detail,
+    }]
 }
 
 async fn extract_document_html(page: &Page) -> Result<String> {
@@ -405,110 +367,6 @@ async fn extract_document_html(page: &Page) -> Result<String> {
         .ok_or_else(|| {
             AuditError::CdpError("Validator HTML extraction returned no string".to_string())
         })
-}
-
-async fn validate_html_with_nu(endpoint: &str, html: &str) -> Result<Vec<W3cValidationMessage>> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(12))
-        .user_agent("auditmysite-validator/1.0")
-        .build()?;
-
-    let response = client
-        .post(endpoint)
-        .header(reqwest::header::CONTENT_TYPE, "text/html; charset=utf-8")
-        .body(html.to_string())
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(AuditError::ConfigError(format!(
-            "HTML validator returned HTTP {} from {}",
-            response.status(),
-            endpoint
-        )));
-    }
-
-    let report: W3cValidationResponse = response.json().await?;
-    Ok(report.messages)
-}
-
-fn build_w3c_html_issues(messages: &[W3cValidationMessage]) -> Vec<HtmlValidationIssue> {
-    let errors: Vec<&W3cValidationMessage> = messages
-        .iter()
-        .filter(|msg| msg.message_type == "error")
-        .collect();
-    let warnings: Vec<&W3cValidationMessage> = messages
-        .iter()
-        .filter(|msg| msg.message_type == "info" && msg.sub_type.as_deref() == Some("warning"))
-        .collect();
-
-    let mut issues = Vec::new();
-    if !errors.is_empty() {
-        issues.push(HtmlValidationIssue {
-            check: "W3C HTML-Validierungsfehler".to_string(),
-            count: errors.len() as u32,
-            severity: "high".to_string(),
-            detail: summarize_w3c_messages(&errors),
-        });
-    }
-    if !warnings.is_empty() {
-        issues.push(HtmlValidationIssue {
-            check: "W3C HTML-Warnungen".to_string(),
-            count: warnings.len() as u32,
-            severity: "medium".to_string(),
-            detail: summarize_w3c_messages(&warnings),
-        });
-    }
-
-    issues
-}
-
-fn summarize_w3c_messages(messages: &[&W3cValidationMessage]) -> String {
-    let samples = messages
-        .iter()
-        .take(3)
-        .map(|msg| {
-            let location = match (msg.last_line, msg.first_column) {
-                (Some(line), Some(col)) => format!("Zeile {line}, Spalte {col}"),
-                (Some(line), None) => format!("Zeile {line}"),
-                _ => "ohne Positionsangabe".to_string(),
-            };
-            let message = msg
-                .message
-                .as_deref()
-                .unwrap_or("Unbekannte Validierungsmeldung");
-            format!("{location}: {message}")
-        })
-        .collect::<Vec<_>>();
-
-    if messages.len() <= 3 {
-        samples.join(" | ")
-    } else {
-        format!(
-            "{} | +{} weitere Meldungen",
-            samples.join(" | "),
-            messages.len() - 3
-        )
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct W3cValidationResponse {
-    #[serde(default)]
-    messages: Vec<W3cValidationMessage>,
-}
-
-#[derive(Debug, Deserialize)]
-struct W3cValidationMessage {
-    #[serde(rename = "type")]
-    message_type: String,
-    #[serde(rename = "subType")]
-    sub_type: Option<String>,
-    message: Option<String>,
-    #[serde(rename = "lastLine")]
-    last_line: Option<u32>,
-    #[serde(rename = "firstColumn")]
-    first_column: Option<u32>,
 }
 
 // ─── HTTP probes ─────────────────────────────────────────────────────────────

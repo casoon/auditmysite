@@ -17,6 +17,7 @@ mod manager;
 mod pool;
 mod registry;
 pub mod resolver;
+pub mod throttle;
 pub mod types;
 
 // New API
@@ -32,3 +33,4 @@ pub use detection::{detect_chrome, find_chrome, ChromeInfo};
 pub use installer::ChromiumInstaller;
 pub use manager::{BrowserManager, BrowserOptions};
 pub use pool::{BrowserPool, PoolConfig, PoolStats, PooledPage};
+pub use throttle::ThrottleProfile;

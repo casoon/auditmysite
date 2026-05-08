@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
+use crate::browser::ThrottleProfile;
 use crate::cli::WcagLevel;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
@@ -14,6 +15,20 @@ use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
 use crate::wcag::WcagResults;
+
+/// Performance vitals measured under a single network throttle profile.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThrottledPerfResult {
+    pub profile: ThrottleProfile,
+    /// LCP in milliseconds
+    pub lcp_ms: Option<f64>,
+    /// TBT in milliseconds
+    pub tbt_ms: Option<f64>,
+    /// CLS score
+    pub cls: Option<f64>,
+    /// Aggregate performance score (0–100)
+    pub score: u32,
+}
 
 /// Screenshot bytes captured during the audit (desktop + mobile viewports).
 /// Not serialized — only used for PDF output.
@@ -123,6 +138,10 @@ pub struct AuditReport {
     /// Per-viewport scores (serialized for JSON consumers).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<ViewportScores>,
+    /// Performance vitals measured under different network throttle profiles.
+    /// Only populated for single-page audits when performance analysis is enabled.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub throttled_performance: Vec<ThrottledPerfResult>,
 }
 
 /// Performance analysis results wrapper
@@ -178,6 +197,7 @@ impl AuditReport {
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,
+            throttled_performance: Vec::new(),
         }
     }
 
