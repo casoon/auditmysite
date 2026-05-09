@@ -2,6 +2,8 @@
 //!
 //! Uses Chrome DevTools Protocol to extract the full Accessibility Tree.
 
+use std::time::Duration;
+
 use chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
@@ -20,11 +22,14 @@ use crate::error::{AuditError, Result};
 pub async fn extract_ax_tree(page: &Page) -> Result<AXTree> {
     info!("Extracting Accessibility Tree...");
 
-    // Request the full AX tree via CDP
+    // Request the full AX tree via CDP.
+    // Some pages (WAF challenges, heavy SPAs) never respond to getFullAXTree — cap at 60s.
     let params = GetFullAxTreeParams::default();
-    let response = page
-        .execute(params)
+    let response = tokio::time::timeout(Duration::from_secs(60), page.execute(params))
         .await
+        .map_err(|_| AuditError::AXTreeExtractionFailed {
+            reason: "AX tree extraction timed out after 60s".to_string(),
+        })?
         .map_err(|e| AuditError::AXTreeExtractionFailed {
             reason: format!("CDP command failed: {}", e),
         })?;

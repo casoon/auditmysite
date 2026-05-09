@@ -21,7 +21,10 @@ pub use artifacts::{
     SnapshotArtifact,
 };
 pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
-pub use batch::{parse_sitemap, read_url_file, run_concurrent_batch, BatchConfig, BatchResult};
+pub use batch::{
+    count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch, BatchConfig,
+    BatchResult,
+};
 pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use comparison::{ComparisonEntry, ComparisonReport};
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};

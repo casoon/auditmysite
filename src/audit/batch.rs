@@ -242,7 +242,15 @@ async fn audit_url_with_pool(
 pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
     info!("Fetching sitemap from: {}", sitemap_url);
 
-    let response = reqwest::get(sitemap_url)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_default();
+
+    let response = client
+        .get(sitemap_url)
+        .send()
         .await
         .map_err(|e| AuditError::SitemapParseFailed {
             url: sitemap_url.to_string(),
@@ -278,6 +286,29 @@ pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
     info!("Found {} URLs in sitemap", urls.len());
 
     Ok(urls)
+}
+
+/// Fetch a sitemap URL and return the entry count WITHOUT recursing into sub-sitemaps.
+/// For sitemap indexes, each `<sitemap>` entry counts as one. Used by the discovery
+/// phase to avoid fetching hundreds of sub-sitemaps just to determine whether a sitemap exists.
+pub async fn count_sitemap_entries_shallow(sitemap_url: &str) -> Option<usize> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        .build()
+        .ok()?;
+
+    let content = client
+        .get(sitemap_url)
+        .send()
+        .await
+        .ok()?
+        .text()
+        .await
+        .ok()?;
+
+    let count = extract_all_loc_values(&content).len();
+    if count > 0 { Some(count) } else { None }
 }
 
 /// Extract all <loc> URLs from sitemap XML content.

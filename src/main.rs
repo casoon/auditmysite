@@ -18,9 +18,9 @@ use tracing_subscriber::EnvFilter;
 use auditmysite::audit::history::preview_report_history;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, crawl_site, load_artifacts, parse_sitemap, read_url_file,
-    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
-    PipelineConfig,
+    analyze_crawl_links, count_sitemap_entries_shallow, crawl_site, load_artifacts, parse_sitemap,
+    read_url_file, run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig,
+    CrawlResult, PipelineConfig,
 };
 use auditmysite::browser::{
     detect_all_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserManager,
@@ -689,10 +689,8 @@ async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, us
     }
 
     for candidate in candidates {
-        match parse_sitemap(&candidate).await {
-            Ok(urls) if !urls.is_empty() => return Ok(Some((candidate, urls.len()))),
-            Ok(_) => continue,
-            Err(_) => continue,
+        if let Some(count) = count_sitemap_entries_shallow(&candidate).await {
+            return Ok(Some((candidate, count)));
         }
     }
 
@@ -731,7 +729,12 @@ async fn sitemap_candidates_from_robots(base_url: &str) -> Vec<String> {
         return Vec::new();
     };
 
-    let Ok(response) = reqwest::get(robots_url.clone()).await else {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_default();
+    let Ok(response) = client.get(robots_url.clone()).send().await else {
         return Vec::new();
     };
     let Ok(body) = response.text().await else {
@@ -761,7 +764,7 @@ async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .redirect(reqwest::redirect::Policy::limited(5))
-        .user_agent("auditmysite-preflight/1.0")
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
         .build()
         .map_err(|e| AuditError::ConfigError(e.to_string()))?;
 

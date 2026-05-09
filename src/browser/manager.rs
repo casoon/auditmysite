@@ -83,10 +83,8 @@ impl BrowserManager {
     /// Create a new BrowserManager with custom options
     pub async fn with_options(options: BrowserOptions) -> Result<Self> {
         let user_data_dir = Self::create_user_data_dir()?;
-        let args = Self::build_launch_args(&options, options.disable_gpu);
-        debug!("Chrome launch args: {:?}", args);
 
-        // Use resolver to find browser
+        // Resolve browser first so we can use the real version in the UA string
         let resolve_opts = BrowserResolveOptions {
             browser_path: options.chrome_path.clone(),
             browser_preference: None,
@@ -125,12 +123,22 @@ impl BrowserManager {
         verify_executable(&resolved.browser.path)?;
 
         let chrome_info = ChromeInfo::from(&resolved.browser);
+
+        let args =
+            Self::build_launch_args(&options, options.disable_gpu, chrome_info.version.as_deref());
+        debug!("Chrome launch args: {:?}", args);
+
         let mut launch_errors = Vec::new();
         let mut launched = None;
 
         for plan in Self::launch_plans(&options) {
-            let config =
-                Self::build_browser_config(&resolved.browser.path, &user_data_dir, &options, plan)?;
+            let config = Self::build_browser_config(
+                &resolved.browser.path,
+                &user_data_dir,
+                &options,
+                plan,
+                chrome_info.version.as_deref(),
+            )?;
 
             info!(
                 "Launching browser with strategy '{}' (headless={:?}, disable_gpu={})",
@@ -213,13 +221,14 @@ impl BrowserManager {
         user_data_dir: &std::path::Path,
         options: &BrowserOptions,
         plan: LaunchPlan,
+        chrome_version: Option<&str>,
     ) -> Result<BrowserConfig> {
         let mut builder = BrowserConfig::builder()
             .chrome_executable(browser_path)
             .user_data_dir(user_data_dir)
             .window_size(options.window_size.0, options.window_size.1)
             .headless_mode(plan.headless_mode)
-            .args(Self::build_launch_args(options, plan.disable_gpu))
+            .args(Self::build_launch_args(options, plan.disable_gpu, chrome_version))
             .viewport(None);
 
         if options.no_sandbox {
@@ -233,7 +242,17 @@ impl BrowserManager {
             })
     }
 
-    fn build_launch_args(options: &BrowserOptions, disable_gpu: bool) -> Vec<String> {
+    fn build_launch_args(
+        options: &BrowserOptions,
+        disable_gpu: bool,
+        chrome_version: Option<&str>,
+    ) -> Vec<String> {
+        let version = chrome_version.unwrap_or("131.0.0.0");
+        let user_agent = format!(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{} Safari/537.36",
+            version
+        );
+
         let mut args = vec![
             // Note: headless mode, user data dir, window size, and sandbox
             // are configured through BrowserConfig and should not be duplicated here.
@@ -251,8 +270,11 @@ impl BrowserManager {
             "--hide-scrollbars".to_string(),
             // Suppress navigator.webdriver and other headless signals that trigger bot detection
             "--disable-blink-features=AutomationControlled".to_string(),
-            // Replace HeadlessChrome UA with a standard Chrome UA
-            "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36".to_string(),
+            // Use the real installed Chrome version in the UA to avoid bot-detection fingerprint mismatch
+            format!("--user-agent={}", user_agent),
+            // Language header — many bot detectors reject requests with no Accept-Language
+            "--lang=en-US,en;q=0.9".to_string(),
+            "--accept-lang=en-US,en;q=0.9".to_string(),
         ];
 
         if disable_gpu {
@@ -297,12 +319,26 @@ impl BrowserManager {
 
     /// Create a new page (tab) in the browser
     pub async fn new_page(&self) -> Result<Page> {
-        self.browser
+        use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
+
+        let page = self
+            .browser
             .new_page("about:blank")
             .await
             .map_err(|e| AuditError::BrowserLaunchFailed {
                 reason: format!("Failed to create new page: {}", e),
-            })
+            })?;
+
+        // Patch navigator.webdriver = undefined on every document load.
+        // --disable-blink-features=AutomationControlled removes it at the Blink level,
+        // but some sites probe it via JS after load; this CDP injection covers that gap.
+        let _ = page
+            .execute(AddScriptToEvaluateOnNewDocumentParams::new(
+                "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});",
+            ))
+            .await;
+
+        Ok(page)
     }
 
     /// Navigate a page to a URL and wait for load
@@ -455,7 +491,7 @@ mod tests {
     #[test]
     fn test_build_launch_args_headless() {
         let opts = BrowserOptions::default();
-        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu);
+        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu, None);
 
         // --headless is now applied via BrowserConfig::headless_mode(), not in args
         assert!(args
@@ -473,7 +509,7 @@ mod tests {
             no_sandbox: true,
             ..Default::default()
         };
-        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu);
+        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu, None);
 
         assert!(!args.iter().any(|a| a == "--no-sandbox"));
         assert!(!args.iter().any(|a| a == "--disable-dev-shm-usage"));
@@ -485,7 +521,7 @@ mod tests {
             disable_images: true,
             ..Default::default()
         };
-        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu);
+        let args = BrowserManager::build_launch_args(&opts, opts.disable_gpu, None);
 
         assert!(args.iter().any(|a| a.contains("imagesEnabled=false")));
     }
