@@ -1022,7 +1022,7 @@ pub(super) fn render_ux(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("User Experience").with_level(2))
+        .add_component(Section::new(i18n.t("section-ux")).with_level(2))
         .add_component(TextBlock::new(&ux.interpretation))
         .add_component(
             ScoreCard::new(i18n.t("ux-score-card"), ux.score)
@@ -1057,7 +1057,7 @@ pub(super) fn render_journey(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(Section::new("User Journey").with_level(2))
+        .add_component(Section::new(i18n.t("section-journey")).with_level(2))
         .add_component(TextBlock::new(&journey.interpretation))
         .add_component(
             ScoreCard::new(i18n.t("journey-score-card"), journey.score)
@@ -1344,7 +1344,7 @@ pub(super) fn render_source_quality(
         builder = builder.add_component(Section::new(&dim.name).with_level(3));
 
         builder = builder.add_component(
-            ScoreCard::new(&dim.name, dim.score)
+            ScoreCard::new(score_quality_label(dim.score), dim.score)
                 .with_description(&dim.label)
                 .with_thresholds(70, 50),
         );
@@ -1354,8 +1354,7 @@ pub(super) fn render_source_quality(
                 TableColumn::new("Signal"),
                 TableColumn::new("Status"),
                 TableColumn::new("Detail"),
-            ])
-            .with_title(&dim.name);
+            ]);
 
             for signal in &dim.signals {
                 let status = if signal.present { "✓" } else { "✗" };
@@ -1472,8 +1471,7 @@ pub(super) fn render_ai_visibility(
                 TableColumn::new("Signal"),
                 TableColumn::new("Status"),
                 TableColumn::new("Detail"),
-            ])
-            .with_title(&dim.name);
+            ]);
 
             for signal in &dim.signals {
                 let status = if signal.present { "✓" } else { "✗" };
@@ -1568,7 +1566,7 @@ pub(super) fn render_ai_visibility(
         builder =
             builder.add_component(Section::new(i18n.t("section-link-suggestions")).with_level(3));
 
-        let mut list = List::new().with_title(i18n.t("section-link-suggestions"));
+        let mut list = List::new();
         for suggestion in &av.knowledge_graph.link_suggestions {
             list = list.add_item(format!("{}: {}", suggestion.entity, suggestion.reason));
         }

@@ -242,6 +242,9 @@ section-mobile-usability = Mobile Nutzbarkeit
 section-dark-mode = Dark Mode
 section-content-sections = Content-Abschnitte
 section-detected-entities = Erkannte Entitäten
+section-ux = User Experience
+section-journey = User Journey
+section-issue-overview = Problemübersicht
 section-link-suggestions = Verlinkungsvorschläge
 comparison-cover-title = Wettbewerbsvergleich
 comparison-domain-ranking = Domain-Ranking
@@ -339,7 +342,7 @@ mobile-configured = Konfiguriert
 mobile-touch-targets = Touch Targets
 mobile-viewport-config = Viewport-Konfiguration
 mobile-font-analysis = Schriftanalyse
-mobile-content-sizing = Content Sizing
+mobile-content-sizing = Inhaltsanpassung
 
 # AI Visibility section
 ai-score-card = AI-Sichtbarkeit (Indikator)

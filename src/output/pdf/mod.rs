@@ -350,12 +350,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
         // Severity distribution — visual score-weight overview
         if vm.severity.has_issues {
-            builder = builder.add_component(SeverityOverview::new(
-                vm.severity.critical,
-                vm.severity.high,
-                vm.severity.medium,
-                vm.severity.low,
-            ));
+            builder = builder.add_component(
+                SeverityOverview::new(
+                    vm.severity.critical,
+                    vm.severity.high,
+                    vm.severity.medium,
+                    vm.severity.low,
+                )
+                .with_title(&i18n.t("section-issue-overview")),
+            );
         }
 
         // TopFixesTable
@@ -548,12 +551,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // Goal: implement — WCAG details, code examples, module metrics
     // ─────────────────────────────────────────────────────────────────
     if vm.severity.has_issues {
-        builder = builder.add_component(SeverityOverview::new(
-            vm.severity.critical,
-            vm.severity.high,
-            vm.severity.medium,
-            vm.severity.low,
-        ));
         for group in &vm.findings.all_findings {
             builder = render_finding_technical(builder, group, &i18n);
         }

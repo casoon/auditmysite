@@ -68,8 +68,17 @@ pub(super) fn render_key_finding_block(
 
     builder = builder.add_component(kv);
     if include_technical_context {
+        let tech_context_title = if !group.wcag_criterion.is_empty() {
+            format!(
+                "{} — WCAG {}",
+                i18n.t("finding-tech-context"),
+                group.wcag_criterion
+            )
+        } else {
+            i18n.t("finding-tech-context")
+        };
         builder = builder.add_component(
-            SummaryBox::new(i18n.t("finding-tech-context"))
+            SummaryBox::new(tech_context_title)
                 .add_item(i18n.t("finding-tech-rule"), &group.rule_id)
                 .add_item("WCAG", &group.wcag_criterion)
                 .add_item(
