@@ -72,6 +72,14 @@ That default command writes report artifacts into the current directory, for exa
 - `./example-com-YYYY-MM-DD-single-report.json`
 - `./example-com-history.json`
 
+### cargo install (crates.io)
+
+```bash
+cargo install auditmysite
+```
+
+Requires Rust 1.75+. Builds and installs the binary from source.
+
 ### Prebuilt binaries
 
 Download from [Releases](https://github.com/casoon/auditmysite/releases).
