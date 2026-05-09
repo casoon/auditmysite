@@ -114,6 +114,46 @@ pub(super) fn derive_performance_context(
     perf: &crate::audit::PerformanceResults,
 ) -> String {
     let en = is_en(locale);
+
+    let fcp_good = perf
+        .vitals
+        .fcp
+        .as_ref()
+        .map(|v| v.rating == "good")
+        .unwrap_or(false);
+    let lcp_good = perf
+        .vitals
+        .lcp
+        .as_ref()
+        .map(|v| v.rating == "good")
+        .unwrap_or(false);
+    let vitals_measured = perf.vitals.fcp.is_some() || perf.vitals.lcp.is_some();
+    let high_dom = perf.vitals.dom_nodes.map(|n| n > 1500).unwrap_or(false);
+    let has_blocking = perf
+        .render_blocking
+        .as_ref()
+        .map(|rb| rb.has_blocking())
+        .unwrap_or(false);
+
+    // If user-perceived vitals are good but overall score is dragged down by complexity, say so.
+    if vitals_measured
+        && (fcp_good || lcp_good)
+        && perf.score.overall < 75
+        && (high_dom || has_blocking)
+    {
+        let fcp_str = perf
+            .vitals
+            .fcp
+            .as_ref()
+            .map(|v| format!("FCP {:.0} ms", v.value))
+            .unwrap_or_else(|| "FCP n/a".to_string());
+        return if en {
+            format!("{fcp_str} · User experience: fast — technical complexity is pulling the overall score down.")
+        } else {
+            format!("{fcp_str} · Nutzererlebnis: schnell — technische Komplexität zieht den Gesamtscore herunter.")
+        };
+    }
+
     let fcp = perf
         .vitals
         .fcp

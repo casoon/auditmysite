@@ -325,10 +325,17 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         methodology: build_methodology(&config.locale, normalized),
         modules,
         severity,
-        findings: FindingsBlock {
-            top_findings,
-            all_findings: sorted_groups,
+        findings: {
+            let clusters = build_thematic_clusters(&config.locale, &sorted_groups);
+            let finding_summary = build_finding_summary(&config.locale, normalized, &audit_summary);
+            FindingsBlock {
+                summary: finding_summary,
+                clusters,
+                top_findings,
+                all_findings: sorted_groups,
+            }
         },
+        diagnosis: build_diagnosis_block(&config.locale, normalized, &audit_summary),
         module_details,
         actions,
         appendix: build_appendix_block_from_normalized(normalized),
@@ -1024,81 +1031,51 @@ fn build_actions_block(
     locale: &str,
     plan: &ActionPlan,
     score: f32,
-    site_state: &crate::audit::summary::SiteState,
+    _site_state: &crate::audit::summary::SiteState,
 ) -> ActionsBlock {
-    use crate::audit::summary::SiteState;
     let is_good_site = score >= 85.0
         || (plan.quick_wins.is_empty() && plan.medium_term.len() + plan.structural.len() <= 3);
     let item_cap: usize = if is_good_site { 2 } else { usize::MAX };
 
     let en = locale == "en";
-    let (phase1_label, phase1_desc) = match (site_state, en) {
-        (SiteState::Critical, true) => (
-            "Blockers — fix immediately",
-            "Acute barriers — fix directly, no other steps before",
-        ),
-        (SiteState::Critical, false) => (
-            "Blocker — Sofort beheben",
-            "Akute Barrieren — direkt beheben, keine weiteren Schritte vorher",
-        ),
-        (SiteState::Weak, true) => (
-            "Phase 1 — High priority",
-            "Relevant barriers with direct impact on usability",
-        ),
-        (SiteState::Weak, false) => (
-            "Phase 1 — Hohe Priorität",
-            "Relevante Barrieren mit direktem Impact auf Nutzbarkeit",
-        ),
-        (SiteState::NeedsWork, true) => (
-            "Phase 1 — First up",
-            "Clear improvement levers with manageable effort",
-        ),
-        (SiteState::NeedsWork, false) => (
-            "Phase 1 — Als Erstes",
-            "Klarer Verbesserungshebel mit überschaubarem Aufwand",
-        ),
-        (SiteState::Polished, true) => (
-            "Phase 1 — Optimize",
-            "Final polish actions without structural pressure",
-        ),
-        (SiteState::Polished, false) => (
-            "Phase 1 — Optimieren",
-            "Letzte Feinschliff-Maßnahmen ohne strukturellen Druck",
-        ),
+
+    // Collect all items from all effort buckets, then re-bucket by semantic priority
+    let all_items: Vec<ActionItem> = plan
+        .quick_wins
+        .iter()
+        .chain(plan.medium_term.iter())
+        .chain(plan.structural.iter())
+        .cloned()
+        .collect();
+
+    let mut blockers: Vec<ActionItem> = Vec::new();
+    let mut high_prio: Vec<ActionItem> = Vec::new();
+    let mut medium_prio: Vec<ActionItem> = Vec::new();
+    let mut low_prio: Vec<ActionItem> = Vec::new();
+
+    for item in all_items {
+        match item.priority {
+            Priority::Critical => blockers.push(item),
+            Priority::High => high_prio.push(item),
+            Priority::Medium => medium_prio.push(item),
+            Priority::Low => low_prio.push(item),
+        }
+    }
+
+    // Within each bucket sort by execution_priority descending
+    let sort_bucket = |mut v: Vec<ActionItem>| -> Vec<ActionItem> {
+        v.sort_by_key(|i| std::cmp::Reverse(i.execution_priority));
+        v
     };
-    let (phase2_label, phase2_desc) = match (site_state, en) {
-        (SiteState::Critical | SiteState::Weak, true) => (
-            "Phase 2 — Stabilize structure",
-            "Semantics, navigation and ARIA structure issues",
-        ),
-        (SiteState::Critical | SiteState::Weak, false) => (
-            "Phase 2 — Struktur stabilisieren",
-            "Semantik, Navigation und ARIA-Strukturprobleme",
-        ),
-        (_, true) => (
-            "Phase 2 — Improve structure",
-            "Semantics, navigation and accessibility structure",
-        ),
-        (_, false) => (
-            "Phase 2 — Struktur verbessern",
-            "Semantik, Navigation und Barrierefreiheits-Struktur",
-        ),
-    };
-    let (phase3_label, phase3_desc) = if en {
-        (
-            "Phase 3 — Long-term",
-            "Long-term quality, SEO and performance",
-        )
-    } else {
-        (
-            "Phase 3 — Langfristig",
-            "Langfristige Qualität, SEO und Performance",
-        )
-    };
+    let blockers = sort_bucket(blockers);
+    let high_prio = sort_bucket(high_prio);
+    let medium_prio = sort_bucket(medium_prio);
+    let low_prio = sort_bucket(low_prio);
 
     let map_items = |items: &[ActionItem]| -> Vec<RoadmapItemData> {
         items
             .iter()
+            .take(item_cap)
             .map(|i| {
                 let user_effect = derive_user_effect_from_action(locale, &i.action, i.effort);
                 let risk_effect = match (i.priority, en) {
@@ -1136,72 +1113,152 @@ fn build_actions_block(
             .collect()
     };
 
-    let mut phase_preview = Vec::new();
-    if !plan.quick_wins.is_empty() {
-        phase_preview.push(PhasePreview {
-            phase_label: phase1_label.into(),
-            accent_color: "#dc2626".into(),
-            description: phase1_desc.into(),
-            item_count: plan.quick_wins.len(),
-            top_items: plan.quick_wins.iter().map(|i| i.action.clone()).collect(),
-        });
-    }
-    if !plan.medium_term.is_empty() {
-        phase_preview.push(PhasePreview {
-            phase_label: phase2_label.into(),
-            accent_color: "#f59e0b".into(),
-            description: phase2_desc.into(),
-            item_count: plan.medium_term.len(),
-            top_items: plan.medium_term.iter().map(|i| i.action.clone()).collect(),
-        });
-    }
-    if !plan.structural.is_empty() {
-        phase_preview.push(PhasePreview {
-            phase_label: phase3_label.into(),
-            accent_color: "#2563eb".into(),
-            description: phase3_desc.into(),
-            item_count: plan.structural.len(),
-            top_items: plan.structural.iter().map(|i| i.action.clone()).collect(),
-        });
-    }
-
-    let capped = |items: &[ActionItem]| -> Vec<ActionItem> {
-        items.iter().take(item_cap).cloned().collect()
+    // Bucket labels and colors
+    let (blocker_label, blocker_desc) = if en {
+        (
+            "Blocker — fix immediately",
+            "Acute barriers — highest risk, must be resolved before anything else",
+        )
+    } else {
+        (
+            "Blocker — Sofort beheben",
+            "Akute Barrieren — höchstes Risiko, vor allen anderen Punkten beheben",
+        )
+    };
+    let (high_label, high_desc) = if en {
+        (
+            "High priority",
+            "Significant barriers with direct usability impact",
+        )
+    } else {
+        (
+            "Hohe Priorität",
+            "Relevante Barrieren mit direktem Impact auf Nutzbarkeit",
+        )
+    };
+    let (medium_label, medium_desc) = if en {
+        (
+            "Medium priority",
+            "Quality improvements with moderate accessibility benefit",
+        )
+    } else {
+        (
+            "Mittlere Priorität",
+            "Qualitätsverbesserungen mit moderatem Barrierefreiheits-Nutzen",
+        )
+    };
+    let (low_label, low_desc) = if en {
+        ("Low priority", "Fine-tuning and optional improvements")
+    } else {
+        (
+            "Niedrige Priorität",
+            "Feinschliff und optionale Verbesserungen",
+        )
     };
 
+    let mut phase_preview = Vec::new();
     let mut columns = Vec::new();
-    if !plan.quick_wins.is_empty() {
-        columns.push(RoadmapColumnData {
-            title: phase1_label.into(),
-            accent_color: "#dc2626".into(),
-            items: map_items(&capped(&plan.quick_wins)),
-        });
-    }
-    if !plan.medium_term.is_empty() {
-        columns.push(RoadmapColumnData {
-            title: phase2_label.into(),
-            accent_color: "#f59e0b".into(),
-            items: map_items(&capped(&plan.medium_term)),
-        });
-    }
-    if !plan.structural.is_empty() {
-        columns.push(RoadmapColumnData {
-            title: phase3_label.into(),
-            accent_color: "#2563eb".into(),
-            items: map_items(&capped(&plan.structural)),
-        });
-    }
+
+    let push_group = |items: &Vec<ActionItem>,
+                      label: &str,
+                      desc: &str,
+                      color: &str,
+                      preview: &mut Vec<PhasePreview>,
+                      cols: &mut Vec<RoadmapColumnData>| {
+        if !items.is_empty() {
+            preview.push(PhasePreview {
+                phase_label: label.into(),
+                accent_color: color.into(),
+                description: desc.into(),
+                item_count: items.len(),
+                top_items: items.iter().map(|i| i.action.clone()).collect(),
+            });
+            cols.push(RoadmapColumnData {
+                title: label.into(),
+                accent_color: color.into(),
+                items: map_items(items),
+            });
+        }
+    };
+
+    push_group(
+        &blockers,
+        blocker_label,
+        blocker_desc,
+        "#dc2626",
+        &mut phase_preview,
+        &mut columns,
+    );
+    push_group(
+        &high_prio,
+        high_label,
+        high_desc,
+        "#f59e0b",
+        &mut phase_preview,
+        &mut columns,
+    );
+    push_group(
+        &medium_prio,
+        medium_label,
+        medium_desc,
+        "#2563eb",
+        &mut phase_preview,
+        &mut columns,
+    );
+    push_group(
+        &low_prio,
+        low_label,
+        low_desc,
+        "#6b7280",
+        &mut phase_preview,
+        &mut columns,
+    );
+
+    // Determine primary responsible role from the largest group
+    let primary_role = {
+        let mut role_counts: std::collections::HashMap<&str, usize> =
+            std::collections::HashMap::new();
+        for r in &plan.role_assignments {
+            *role_counts.entry(r.role.label()).or_default() += r.responsibilities.len();
+        }
+        role_counts
+            .into_iter()
+            .max_by_key(|(_, c)| *c)
+            .map(|(r, _)| r.to_string())
+            .unwrap_or_default()
+    };
+
+    let task_summary = TaskSummary {
+        blocker_count: blockers.len(),
+        high_count: high_prio.len(),
+        medium_count: medium_prio.len(),
+        low_count: low_prio.len(),
+        total_count: blockers.len() + high_prio.len() + medium_prio.len() + low_prio.len(),
+        primary_role,
+    };
 
     let block_title = if is_good_site {
-        "Letzte Optimierungsschritte".to_string()
+        if en {
+            "Last optimization steps".to_string()
+        } else {
+            "Letzte Optimierungsschritte".to_string()
+        }
+    } else if en {
+        "Action plan by priority".to_string()
     } else {
-        "Maßnahmenplan nach Phasen".to_string()
+        "Maßnahmenplan nach Priorität".to_string()
     };
 
     let intro_text = if is_good_site {
-        "Die Seite ist technisch stark aufgestellt. Die folgenden Punkte sind letzte Optimierungshebel ohne strukturellen Druck.".to_string()
+        if en {
+            "The site is technically well positioned. The following are final optimization levers without structural pressure.".to_string()
+        } else {
+            "Die Seite ist technisch stark aufgestellt. Die folgenden Punkte sind letzte Optimierungshebel ohne strukturellen Druck.".to_string()
+        }
+    } else if en {
+        "Blockers must be resolved first — they carry the highest risk. High and medium priority items follow. Low priority items are optional improvements.".to_string()
     } else {
-        "Phase 1 enthält blockierende Issues mit sofortiger Wirkung. Phase 2 verbessert die Struktur. Phase 3 optimiert langfristig. Jede Phase baut auf der vorherigen auf.".to_string()
+        "Blocker zuerst beheben — sie tragen das höchste Risiko. Danach folgen hohe und mittlere Priorität. Niedrige Priorität sind optionale Verbesserungen.".to_string()
     };
 
     ActionsBlock {
@@ -1210,6 +1267,310 @@ fn build_actions_block(
         intro_text,
         phase_preview,
         block_title,
+        task_summary,
+    }
+}
+
+fn build_finding_summary(
+    locale: &str,
+    normalized: &NormalizedReport,
+    audit_summary: &crate::audit::summary::AuditSummary,
+) -> FindingSummary {
+    let en = locale == "en";
+    let cross_impact_notes = audit_summary
+        .cross_impacts
+        .iter()
+        .map(|c| format!("{}: {}", c.dimensions, c.description))
+        .collect();
+    let issue_pattern_label = match &audit_summary.issue_pattern {
+        crate::audit::summary::IssuePattern::Minimal => {
+            if en { "No findings" } else { "Keine Befunde" }.into()
+        }
+        crate::audit::summary::IssuePattern::SingleDominant => if en {
+            "Single dominant issue"
+        } else {
+            "Einzelnes dominantes Problem"
+        }
+        .into(),
+        crate::audit::summary::IssuePattern::Clustered => if en {
+            "Clustered problems"
+        } else {
+            "Geclusterte Probleme"
+        }
+        .into(),
+        crate::audit::summary::IssuePattern::Scattered => if en {
+            "Scattered issues"
+        } else {
+            "Verteilte Einzelprobleme"
+        }
+        .into(),
+    };
+    FindingSummary {
+        total: normalized.severity_counts.total,
+        critical: normalized.severity_counts.critical,
+        high: normalized.severity_counts.high,
+        medium: normalized.severity_counts.medium,
+        low: normalized.severity_counts.low,
+        verdict: audit_summary.verdict_intro.clone(),
+        dominant_issue_note: audit_summary.dominant_issue_note.clone(),
+        cross_impact_notes,
+        issue_pattern_label,
+    }
+}
+
+fn build_thematic_clusters(locale: &str, findings: &[FindingGroup]) -> Vec<FindingCluster> {
+    use std::collections::BTreeMap;
+
+    let en = locale == "en";
+    let mut by_dimension: BTreeMap<String, Vec<&FindingGroup>> = BTreeMap::new();
+    for f in findings {
+        let dim = f.dimension.as_deref().unwrap_or("Accessibility");
+        by_dimension.entry(dim.to_string()).or_default().push(f);
+    }
+
+    let mut clusters: Vec<FindingCluster> = by_dimension
+        .into_iter()
+        .filter(|(_, groups)| groups.len() >= 2)
+        .map(|(dimension, groups)| {
+            let worst_severity = groups
+                .iter()
+                .map(|g| g.severity)
+                .max()
+                .unwrap_or(crate::wcag::Severity::Low);
+            let occurrence_total: usize = groups.iter().map(|g| g.occurrence_count).sum();
+            let label = dimension_cluster_label(en, &dimension, groups.len());
+            let severity_label = match worst_severity {
+                crate::wcag::Severity::Critical => {
+                    if en { "Critical" } else { "Kritisch" }.to_string()
+                }
+                crate::wcag::Severity::High => if en { "High" } else { "Hoch" }.to_string(),
+                crate::wcag::Severity::Medium => if en { "Medium" } else { "Mittel" }.to_string(),
+                crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
+            };
+            FindingCluster {
+                label,
+                dimension: dimension.clone(),
+                finding_count: groups.len(),
+                occurrence_total,
+                severity_label,
+                finding_titles: groups.iter().map(|g| g.title.clone()).collect(),
+            }
+        })
+        .collect();
+
+    // Sort by occurrence_total descending for display priority
+    clusters.sort_by(|a, b| b.occurrence_total.cmp(&a.occurrence_total));
+    clusters
+}
+
+fn dimension_cluster_label(en: bool, dimension: &str, count: usize) -> String {
+    let count_label = if en {
+        format!("{count} findings")
+    } else {
+        format!("{count} Befunde")
+    };
+    match dimension {
+        "Accessibility" => {
+            if en {
+                format!("Accessibility barriers ({count_label})")
+            } else {
+                format!("Barrierefreiheits-Barrieren ({count_label})")
+            }
+        }
+        "SEO" => {
+            if en {
+                format!("SEO issues ({count_label})")
+            } else {
+                format!("SEO-Probleme ({count_label})")
+            }
+        }
+        "Performance" => {
+            if en {
+                format!("Performance issues ({count_label})")
+            } else {
+                format!("Performance-Probleme ({count_label})")
+            }
+        }
+        "Security" => {
+            if en {
+                format!("Security gaps ({count_label})")
+            } else {
+                format!("Sicherheitslücken ({count_label})")
+            }
+        }
+        "Mobile" => {
+            if en {
+                format!("Mobile issues ({count_label})")
+            } else {
+                format!("Mobile-Probleme ({count_label})")
+            }
+        }
+        other => {
+            if en {
+                format!("{other} ({count_label})")
+            } else {
+                format!("{other} ({count_label})")
+            }
+        }
+    }
+}
+
+fn build_diagnosis_block(
+    locale: &str,
+    normalized: &NormalizedReport,
+    audit_summary: &crate::audit::summary::AuditSummary,
+) -> DiagnosisBlock {
+    use std::collections::BTreeMap;
+    let en = locale == "en";
+
+    let section_title = if en {
+        "System diagnosis".to_string()
+    } else {
+        "Systemdiagnose".to_string()
+    };
+
+    let (pattern_label, pattern_description) = match &audit_summary.issue_pattern {
+        crate::audit::summary::IssuePattern::Minimal => (
+            if en { "No findings" } else { "Keine Befunde" }.to_string(),
+            if en {
+                "No measurable accessibility barriers detected."
+            } else {
+                "Keine messbaren Barrierefreiheits-Barrieren erkannt."
+            }
+            .to_string(),
+        ),
+        crate::audit::summary::IssuePattern::SingleDominant => (
+            if en {
+                "Single dominant problem"
+            } else {
+                "Einzelnes dominantes Problem"
+            }
+            .to_string(),
+            if en {
+                "One rule type accounts for the majority of all critical/high findings. \
+                 Fixing this one root cause will have the largest single impact."
+            } else {
+                "Ein Regeltyp verursacht den Großteil aller kritischen/hohen Findings. \
+                 Die Behebung dieser einen Ursache hat den größten Einzeleffekt."
+            }
+            .to_string(),
+        ),
+        crate::audit::summary::IssuePattern::Clustered => (
+            if en { "Clustered problems" } else { "Geclusterte Probleme" }.to_string(),
+            if en {
+                "Issues are grouped in related problem areas. \
+                 Addressing one cluster reduces several findings at once."
+            } else {
+                "Probleme konzentrieren sich in zusammenhängenden Bereichen. \
+                 Die Behebung eines Clusters reduziert mehrere Findings gleichzeitig."
+            }
+            .to_string(),
+        ),
+        crate::audit::summary::IssuePattern::Scattered => (
+            if en {
+                "Distributed individual issues"
+            } else {
+                "Verteilte Einzelprobleme"
+            }
+            .to_string(),
+            if en {
+                "Issues are spread across many independent rules. \
+                 No single root cause dominates — each finding requires individual attention."
+            } else {
+                "Probleme verteilen sich über viele unabhängige Regeln. \
+                 Keine einzelne Ursache dominiert — jedes Finding erfordert individuelle Aufmerksamkeit."
+            }
+            .to_string(),
+        ),
+    };
+
+    // Category breakdown: (dimension, finding_count, worst_severity_label)
+    let mut dim_map: BTreeMap<String, (usize, crate::wcag::Severity)> = BTreeMap::new();
+    for f in &normalized.findings {
+        let dim = f.dimension.clone();
+        let entry = dim_map
+            .entry(dim)
+            .or_insert((0, crate::wcag::Severity::Low));
+        entry.0 += 1;
+        if f.severity > entry.1 {
+            entry.1 = f.severity;
+        }
+    }
+    let mut category_breakdown: Vec<(String, usize, String)> = dim_map
+        .into_iter()
+        .map(|(dim, (count, sev))| {
+            let sev_label = match sev {
+                crate::wcag::Severity::Critical => {
+                    if en { "Critical" } else { "Kritisch" }.to_string()
+                }
+                crate::wcag::Severity::High => if en { "High" } else { "Hoch" }.to_string(),
+                crate::wcag::Severity::Medium => if en { "Medium" } else { "Mittel" }.to_string(),
+                crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
+            };
+            (dim, count, sev_label)
+        })
+        .collect();
+    category_breakdown.sort_by(|a, b| b.1.cmp(&a.1));
+
+    let dominant_issue = audit_summary
+        .dominant_issue
+        .as_ref()
+        .map(|d| d.title.clone());
+
+    // Build clusters using the same logic, but from NormalizedReport for completeness
+    let clusters = {
+        let mut by_dim: BTreeMap<String, Vec<(String, usize, crate::wcag::Severity)>> =
+            BTreeMap::new();
+        for f in &normalized.findings {
+            by_dim.entry(f.dimension.clone()).or_default().push((
+                f.title.clone(),
+                f.occurrence_count,
+                f.severity,
+            ));
+        }
+        let mut result: Vec<FindingCluster> = by_dim
+            .into_iter()
+            .filter(|(_, items)| items.len() >= 2)
+            .map(|(dim, items)| {
+                let worst = items
+                    .iter()
+                    .map(|(_, _, s)| *s)
+                    .max()
+                    .unwrap_or(crate::wcag::Severity::Low);
+                let total_occ: usize = items.iter().map(|(_, c, _)| c).sum();
+                let sev_label = match worst {
+                    crate::wcag::Severity::Critical => {
+                        if en { "Critical" } else { "Kritisch" }.to_string()
+                    }
+                    crate::wcag::Severity::High => if en { "High" } else { "Hoch" }.to_string(),
+                    crate::wcag::Severity::Medium => {
+                        if en { "Medium" } else { "Mittel" }.to_string()
+                    }
+                    crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
+                };
+                FindingCluster {
+                    label: dimension_cluster_label(en, &dim, items.len()),
+                    dimension: dim.clone(),
+                    finding_count: items.len(),
+                    occurrence_total: total_occ,
+                    severity_label: sev_label,
+                    finding_titles: items.into_iter().map(|(t, _, _)| t).collect(),
+                }
+            })
+            .collect();
+        result.sort_by(|a, b| b.occurrence_total.cmp(&a.occurrence_total));
+        result
+    };
+
+    DiagnosisBlock {
+        section_title,
+        pattern_label,
+        pattern_description,
+        is_systematic: audit_summary.is_systematic,
+        category_breakdown,
+        dominant_issue,
+        verdict_intro: audit_summary.verdict_intro.clone(),
+        clusters,
     }
 }
 
@@ -2666,6 +3027,7 @@ fn finding_group_from_normalized(
                 f.dimension.as_str(),
                 f.severity,
                 Some(f.subcategory.as_str()),
+                f.occurrence_count,
             ),
             expl.typical_cause_for(locale).to_string(),
             expl.recommendation_for(locale).to_string(),
@@ -2685,6 +3047,7 @@ fn finding_group_from_normalized(
                 f.dimension.as_str(),
                 f.severity,
                 Some(f.subcategory.as_str()),
+                f.occurrence_count,
             ),
             if locale == "en" {
                 "Automatically detected issue."

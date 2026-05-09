@@ -135,20 +135,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     .add_component(DevicePreview::new(desktop_key, mobile_key));
             }
         } else {
-            let (title, body) = if i18n.locale() == "en" {
-                (
-                    "Device Preview",
-                    "No screenshots available — screenshots could not be captured during this audit. \
-                     Check that Chrome is installed and accessible.",
-                )
-            } else {
-                (
-                    "Gerätevorschau",
-                    "Keine Screenshots verfügbar — die Aufnahme ist bei diesem Audit fehlgeschlagen. \
-                     Prüfe, ob Chrome installiert und erreichbar ist (`auditmysite doctor`).",
-                )
-            };
-            builder = builder.add_component(Callout::info(body).with_title(title));
+            let title = i18n.t("section-device-preview");
+            let body = i18n.t("section-device-preview-no-screenshots");
+            builder = builder.add_component(Callout::info(&body).with_title(&title));
         }
     }
 
@@ -359,6 +348,16 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             builder = builder.add_component(spotlight);
         }
 
+        // Severity distribution — visual score-weight overview
+        if vm.severity.has_issues {
+            builder = builder.add_component(SeverityOverview::new(
+                vm.severity.critical,
+                vm.severity.high,
+                vm.severity.medium,
+                vm.severity.low,
+            ));
+        }
+
         // TopFixesTable
         if let Some(table) = build_top_hebel_table(&vm.findings, total_ch) {
             builder = builder.add_component(table.with_title(i18n.t("section-top-issues")));
@@ -518,7 +517,15 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     } else {
                         "bad"
                     };
-                    DiagnosisRow::new(&module.name, format!("{}/100", module.score))
+                    let display_name = if matches!(
+                        module.name.as_str(),
+                        "UX" | "Journey" | "AI Visibility" | "KI-Sichtbarkeit"
+                    ) {
+                        format!("{} (~)", module.name)
+                    } else {
+                        module.name.clone()
+                    };
+                    DiagnosisRow::new(&display_name, format!("{}/100", module.score))
                         .with_status(status)
                 })
                 .collect();
@@ -526,6 +533,14 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 DiagnosisPanel::new(diag_rows).with_title(i18n.t("panel-modules-overview")),
             );
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // SECTION 5b — SYSTEM DIAGNOSIS
+    // Goal: pattern analysis, clusters, systematic vs. isolated
+    // ─────────────────────────────────────────────────────────────────
+    if vm.severity.has_issues {
+        builder = render_diagnosis_section(builder, &vm.diagnosis, &i18n);
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -659,12 +674,14 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 }
 
 fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {
+    const HEURISTIC: &[&str] = &["UX", "Journey", "AI Visibility", "KI-Sichtbarkeit"];
     let items = vm
         .modules
         .dashboard
         .iter()
         .take(6)
         .map(|module| {
+            let heuristic = HEURISTIC.contains(&module.name.as_str());
             let status = if module.score >= 85 {
                 "good"
             } else if module.score >= 70 {
@@ -674,7 +691,17 @@ fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {
             } else {
                 "bad"
             };
-            MetricStripItem::new(&module.name, format!("{}/100", module.score))
+            let display_name = if heuristic {
+                format!("{} (~)", module.name)
+            } else {
+                module.name.clone()
+            };
+            let display_value = if heuristic {
+                format!("~{}/100", module.score)
+            } else {
+                format!("{}/100", module.score)
+            };
+            MetricStripItem::new(display_name, display_value)
                 .with_status(status)
                 .with_accent(module_score_color(module.score))
         })
@@ -859,6 +886,91 @@ fn render_next_steps_single(
         Callout::info(&vm.executive.next_steps_callout_body)
             .with_title(&vm.executive.next_steps_callout_title),
     );
+
+    builder
+}
+
+// ─── Diagnosis Section ───────────────────────────────────────────────────────
+
+fn render_diagnosis_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    diagnosis: &DiagnosisBlock,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+
+    builder = builder.add_component(Section::new(&diagnosis.section_title).with_level(2));
+
+    // Pattern overview — label + description
+    let pattern_intro = format!(
+        "{}: {}",
+        diagnosis.pattern_label, diagnosis.pattern_description
+    );
+    let callout = if diagnosis.is_systematic {
+        Callout::warning(&pattern_intro).with_title(&diagnosis.pattern_label)
+    } else {
+        Callout::info(&pattern_intro).with_title(&diagnosis.pattern_label)
+    };
+    builder = builder.add_component(callout);
+
+    // Dominant issue spotlight
+    if let Some(ref dominant) = diagnosis.dominant_issue {
+        let spotlight_text = if en {
+            format!(
+                "\"{}\" accounts for the majority of critical/high findings.",
+                dominant
+            )
+        } else {
+            format!(
+                "\"{}\" verursacht den Großteil der kritischen/hohen Findings.",
+                dominant
+            )
+        };
+        builder = builder.add_component(Callout::warning(&spotlight_text));
+    }
+
+    // Category breakdown table
+    if !diagnosis.category_breakdown.is_empty() {
+        let col_dim = i18n.t("diagnosis-col-category");
+        let col_count = i18n.t("diagnosis-col-findings");
+        let col_sev = i18n.t("diagnosis-col-worst-severity");
+        let table_title = i18n.t("diagnosis-table-categories");
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(col_dim),
+            TableColumn::new(col_count).with_width("15%"),
+            TableColumn::new(col_sev).with_width("25%"),
+        ])
+        .with_title(table_title);
+        for (dim, count, sev_label) in &diagnosis.category_breakdown {
+            table = table.add_row(vec![dim.clone(), count.to_string(), sev_label.clone()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Thematic clusters
+    if !diagnosis.clusters.is_empty() {
+        let clusters_title = i18n.t("diagnosis-table-clusters");
+        let col_cluster = "Cluster";
+        let col_findings = i18n.t("diagnosis-col-findings");
+        let col_occ = i18n.t("diagnosis-col-occurrences");
+        let col_sev = i18n.t("diagnosis-col-max-severity");
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(col_cluster),
+            TableColumn::new(col_findings).with_width("12%"),
+            TableColumn::new(col_occ).with_width("14%"),
+            TableColumn::new(col_sev).with_width("18%"),
+        ])
+        .with_title(clusters_title);
+        for cluster in &diagnosis.clusters {
+            table = table.add_row(vec![
+                cluster.label.clone(),
+                cluster.finding_count.to_string(),
+                cluster.occurrence_total.to_string(),
+                cluster.severity_label.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
 
     builder
 }
@@ -1467,7 +1579,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // Module overview
     if !pres.portfolio_summary.module_averages.is_empty() {
-        let mut module_kv = KeyValueList::new().with_title("Modulübersicht (Ø über alle URLs)");
+        let mut module_kv = KeyValueList::new().with_title(i18n.t("batch-panel-module-averages"));
         for (name, score) in &pres.portfolio_summary.module_averages {
             module_kv = module_kv.add(name, format!("{}/100", score));
         }
@@ -2710,6 +2822,95 @@ mod tests {
         AuditReport::new(url.to_string(), WcagLevel::AA, results, 1_200)
     }
 
+    /// Richer fixture with multiple violations across severities — closer to a real-world report.
+    fn pdf_fixture_report_rich() -> AuditReport {
+        let mut results = WcagResults::new();
+        results.nodes_checked = 320;
+        results.passes = 48;
+
+        let violations = [
+            (
+                "1.4.3",
+                "Contrast (Minimum)",
+                WcagLevel::AA,
+                Severity::Critical,
+                "Text has insufficient color contrast ratio",
+                "node-body-text",
+            ),
+            (
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::Critical,
+                "Image missing alternative text on hero banner",
+                "node-hero-1",
+            ),
+            (
+                "4.1.2",
+                "Name, Role, Value",
+                WcagLevel::A,
+                Severity::High,
+                "Button has no accessible name",
+                "node-cta-btn",
+            ),
+            (
+                "2.4.4",
+                "Link Purpose",
+                WcagLevel::A,
+                Severity::High,
+                "Link text is not descriptive enough",
+                "node-read-more",
+            ),
+            (
+                "1.3.1",
+                "Info and Relationships",
+                WcagLevel::A,
+                Severity::High,
+                "Form field missing label",
+                "node-email-input",
+            ),
+            (
+                "2.4.1",
+                "Bypass Blocks",
+                WcagLevel::A,
+                Severity::Medium,
+                "Skip navigation link missing",
+                "node-skip",
+            ),
+            (
+                "2.4.6",
+                "Headings and Labels",
+                WcagLevel::AA,
+                Severity::Medium,
+                "Heading hierarchy skips levels",
+                "node-h3",
+            ),
+            (
+                "3.1.1",
+                "Language of Page",
+                WcagLevel::A,
+                Severity::Low,
+                "HTML lang attribute not set",
+                "node-html",
+            ),
+        ];
+
+        for (criterion, rule_name, level, severity, msg, node_id) in violations {
+            results.add_violation(
+                Violation::new(criterion, rule_name, level, severity, msg, node_id)
+                    .with_selector(&format!("#{node_id}"))
+                    .with_fix(&format!("Fix required for {rule_name}")),
+            );
+        }
+
+        AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            3_800,
+        )
+    }
+
     fn find_executable(name: &str) -> Option<PathBuf> {
         let paths = std::env::var_os("PATH")?;
         std::env::split_paths(&paths)
@@ -2736,7 +2937,9 @@ mod tests {
 
     #[test]
     fn test_executive_pdf_page_count_within_target() {
-        let report = pdf_fixture_report();
+        // Use the richer fixture (8 violations across severities) to validate
+        // that executive stays compact even with a realistic finding load.
+        let report = pdf_fixture_report_rich();
         let config = ReportConfig {
             level: ReportLevel::Executive,
             ..ReportConfig::default()

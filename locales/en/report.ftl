@@ -247,3 +247,99 @@ comparison-cover-title = Competitive comparison
 comparison-domain-ranking = Domain ranking
 comparison-module-comparison = Module comparison
 comparison-top-findings-per-domain = Top findings per domain
+
+# Device preview
+section-device-preview = Device Preview
+section-device-preview-no-screenshots = No screenshots available — screenshots could not be captured during this audit. Check that Chrome is installed and accessible.
+
+# Diagnosis section tables
+diagnosis-table-categories = Category breakdown
+diagnosis-table-clusters = Problem clusters
+diagnosis-col-category = Category
+diagnosis-col-findings = Findings
+diagnosis-col-worst-severity = Worst severity
+diagnosis-col-occurrences = Occurrences
+diagnosis-col-max-severity = Max. severity
+
+# Batch module overview
+batch-panel-module-averages = Module averages (avg. across all URLs)
+
+# Heuristic indicator (shared by UX, Journey, AI Visibility)
+label-heuristic-indicator = Heuristic estimate based on structural signals
+
+# Performance section
+perf-score-card = Performance score
+perf-technical-indicators = Technical indicators
+perf-render-blocking-analysis = Render-blocking analysis
+
+# SEO section
+seo-score-card = Technical SEO
+seo-score-card-description = Measures technical signals (meta, structure, schema, hreflang). Content depth is evaluated separately.
+seo-maturity = Maturity
+
+# UX section
+ux-score-card = UX score (indicator)
+ux-dimensions = UX dimensions
+
+# Journey section
+journey-score-card = Journey score (indicator)
+journey-page-type-dimensions = Page type & dimensions
+
+# Budget section
+budget-callout-exceeded = Budget exceeded
+budget-callout-warnings = Budget warnings
+budget-table-metric = Metric
+budget-table-actual = Actual value
+budget-table-overage = Overage
+budget-table-title = Budget details
+
+# Finding cards (shared across executive / standard / technical)
+finding-key-problem = Problem
+finding-key-impact = What users experience
+finding-key-cause = Cause
+finding-key-fix = What to do
+finding-key-effort = Effort
+finding-key-quick-win = Quick win — a few hours, high impact
+finding-tech-context = Technical context
+finding-tech-rule = Rule
+finding-tech-instances = Instances
+finding-tech-affected-elements = Affected elements
+finding-tech-other-occurrences = Other similar occurrences
+finding-tech-affected-urls = Affected URLs
+finding-elements = Elements
+finding-occurrences = Occurrences
+finding-element-types = Element types
+finding-affected-selectors = Affected selectors
+finding-recommendation = Recommendation
+finding-wrong = ✕ Wrong
+finding-right = ✓ Correct
+finding-location = Location
+finding-note = Note
+finding-representative-occurrences = Representative occurrences
+finding-occurrence = Occurrence
+finding-suggested-fix = Suggested code fix
+finding-pattern = Pattern
+finding-frequent-patterns = Frequent patterns
+
+# SEO / Tracking section
+seo-tracking-services = Tracking and external services
+seo-kv-title = Technical SEO
+seo-serp-readiness = SERP readiness
+seo-serp-signals = SERP signals
+seo-page-health-issues = Detected issues
+seo-page-health-url-analysis = URL analysis
+seo-page-html-validation = HTML validation
+
+# Security section
+security-score-card = Security score
+
+# Mobile section
+mobile-score-card = Mobile score
+mobile-configured = Configured
+mobile-touch-targets = Touch targets
+mobile-viewport-config = Viewport configuration
+mobile-font-analysis = Font analysis
+mobile-content-sizing = Content sizing
+
+# AI Visibility section
+ai-score-card = AI visibility (indicator)

@@ -1,6 +1,6 @@
 # auditmysite Architecture
 
-This document describes the current implementation. For older browser-design explorations and proposals that are not fully implemented, see [browser-architecture.md](/Users/jseidel/GitHub/auditmysite/docs/browser-architecture.md).
+This document describes the current implementation. For older browser-design explorations and proposals that are not fully implemented, see [browser-architecture.md](browser-architecture.md).
 
 ## Overview
 

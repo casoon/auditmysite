@@ -247,3 +247,99 @@ comparison-cover-title = Wettbewerbsvergleich
 comparison-domain-ranking = Domain-Ranking
 comparison-module-comparison = Modul-Vergleich
 comparison-top-findings-per-domain = Wichtigste Findings je Domain
+
+# Device preview
+section-device-preview = Gerätevorschau
+section-device-preview-no-screenshots = Keine Screenshots verfügbar — die Aufnahme ist bei diesem Audit fehlgeschlagen. Prüfe, ob Chrome installiert und erreichbar ist (`auditmysite doctor`).
+
+# Diagnosis section tables
+diagnosis-table-categories = Kategorie-Übersicht
+diagnosis-table-clusters = Problemcluster
+diagnosis-col-category = Kategorie
+diagnosis-col-findings = Befunde
+diagnosis-col-worst-severity = Schwerster Schweregrad
+diagnosis-col-occurrences = Vorkommen
+diagnosis-col-max-severity = Max. Schweregrad
+
+# Batch module overview
+batch-panel-module-averages = Modulübersicht (Ø über alle URLs)
+
+# Heuristic indicator (shared by UX, Journey, AI Visibility)
+label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale
+
+# Performance section
+perf-score-card = Performance Score
+perf-technical-indicators = Technische Indikatoren
+perf-render-blocking-analysis = Render-Blocking Analyse
+
+# SEO section
+seo-score-card = Technisches SEO
+seo-score-card-description = Misst technische Signale (Meta, Struktur, Schema, hreflang). Inhaltliche Tiefe wird separat bewertet.
+seo-maturity = Reifegrad
+
+# UX section
+ux-score-card = UX Score (Indikator)
+ux-dimensions = UX-Dimensionen
+
+# Journey section
+journey-score-card = Journey Score (Indikator)
+journey-page-type-dimensions = Seitentyp & Dimensionen
+
+# Budget section
+budget-callout-exceeded = Budget überschritten
+budget-callout-warnings = Budget-Hinweise
+budget-table-metric = Metrik
+budget-table-actual = Ist-Wert
+budget-table-overage = Überschreitung
+budget-table-title = Budget-Details
+
+# Finding cards (shared across executive / standard / technical)
+finding-key-problem = Problem
+finding-key-impact = Was Nutzer erleben
+finding-key-cause = Ursache
+finding-key-fix = Was tun
+finding-key-effort = Aufwand
+finding-key-quick-win = Quick Win — wenige Stunden, hohe Wirkung
+finding-tech-context = Technische Einordnung
+finding-tech-rule = Regel
+finding-tech-instances = Instanzen
+finding-tech-affected-elements = Betroffene Elemente
+finding-tech-other-occurrences = Weitere ähnliche Vorkommen
+finding-tech-affected-urls = Betroffene URLs
+finding-elements = Elemente
+finding-occurrences = Vorkommen
+finding-element-types = Element-Typen
+finding-affected-selectors = Betroffene Selektoren
+finding-recommendation = Empfehlung
+finding-wrong = ✕ Falsch
+finding-right = ✓ Richtig
+finding-location = Fundstelle
+finding-note = Hinweis
+finding-representative-occurrences = Repräsentative Fundstellen
+finding-occurrence = Fundstelle
+finding-suggested-fix = Vorgeschlagene Code-Korrektur
+finding-pattern = Muster
+finding-frequent-patterns = Häufige Muster
+
+# SEO / Tracking section
+seo-tracking-services = Tracking und externe Dienste
+seo-kv-title = Technisches SEO
+seo-serp-readiness = SERP-Bereitschaft
+seo-serp-signals = SERP-Signale
+seo-page-health-issues = Gefundene Probleme
+seo-page-health-url-analysis = URL-Analyse
+seo-page-html-validation = HTML-Validierung
+
+# Security section
+security-score-card = Security Score
+
+# Mobile section
+mobile-score-card = Mobile Score
+mobile-configured = Konfiguriert
+mobile-touch-targets = Touch Targets
+mobile-viewport-config = Viewport-Konfiguration
+mobile-font-analysis = Schriftanalyse
+mobile-content-sizing = Content Sizing
+
+# AI Visibility section
+ai-score-card = AI-Sichtbarkeit (Indikator)

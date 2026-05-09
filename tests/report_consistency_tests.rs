@@ -68,10 +68,11 @@ fn make_performance() -> PerformanceResults {
         score: PerformanceScore {
             overall: 75,
             grade: PerformanceGrade::Silver,
-            lcp_score: 20,
-            fcp_score: 20,
-            cls_score: 20,
-            interactivity_score: 15,
+            lcp_score: Some(20),
+            fcp_score: Some(20),
+            cls_score: Some(20),
+            interactivity_score: Some(15),
+            metrics_available: 4,
         },
         render_blocking: None,
         content_weight: None,
@@ -726,4 +727,38 @@ fn test_view_model_preserves_cli_facts_and_finding_density() {
         top.occurrence_count
             .saturating_sub(top.representative_occurrences.len())
     );
+}
+
+#[test]
+fn test_i18n_en_returns_english_labels() {
+    let i18n = auditmysite::i18n::I18n::new("en").unwrap();
+    // Core finding labels
+    assert_eq!(i18n.t("finding-elements"), "Elements");
+    assert_eq!(i18n.t("finding-occurrences"), "Occurrences");
+    assert_eq!(i18n.t("finding-recommendation"), "Recommendation");
+    assert_eq!(
+        i18n.t("finding-representative-occurrences"),
+        "Representative occurrences"
+    );
+    // Module labels
+    assert_eq!(i18n.t("mobile-touch-targets"), "Touch targets");
+    assert_eq!(i18n.t("security-score-card"), "Security score");
+    assert_eq!(i18n.t("seo-serp-readiness"), "SERP readiness");
+}
+
+#[test]
+fn test_i18n_de_returns_german_labels() {
+    let i18n = auditmysite::i18n::I18n::new("de").unwrap();
+    assert_eq!(i18n.t("finding-elements"), "Elemente");
+    assert_eq!(i18n.t("finding-occurrences"), "Vorkommen");
+    assert_eq!(i18n.t("finding-recommendation"), "Empfehlung");
+    assert_eq!(i18n.t("mobile-touch-targets"), "Touch Targets");
+    assert_eq!(i18n.t("security-score-card"), "Security Score");
+    assert_eq!(i18n.t("seo-serp-readiness"), "SERP-Bereitschaft");
+}
+
+#[test]
+fn test_i18n_missing_key_returns_key_as_fallback() {
+    let i18n = auditmysite::i18n::I18n::new("en").unwrap();
+    assert_eq!(i18n.t("nonexistent-key-xyz"), "nonexistent-key-xyz");
 }

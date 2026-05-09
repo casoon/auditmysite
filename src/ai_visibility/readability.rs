@@ -214,6 +214,6 @@ pub(crate) fn analyze_readability(input: &ReadabilityInput) -> ReadabilityAnalys
     });
 
     ReadabilityAnalysis {
-        dimension: build_dimension("LLM-Lesbarkeit", &signals),
+        dimension: build_dimension("KI-Lesbarkeit", &signals),
     }
 }

@@ -108,6 +108,55 @@ impl ExecutionPriority {
     }
 }
 
+// ─── Evaluation Summary Types ────────────────────────────────────────────────
+
+/// Snapshot summary of all findings — derived from AuditSummary for quick access in renderers.
+pub struct FindingSummary {
+    pub total: usize,
+    pub critical: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
+    pub verdict: String,
+    pub dominant_issue_note: Option<String>,
+    pub cross_impact_notes: Vec<String>,
+    pub issue_pattern_label: String,
+}
+
+/// Summary of actionable tasks organized by semantic execution priority.
+pub struct TaskSummary {
+    pub blocker_count: usize,
+    pub high_count: usize,
+    pub medium_count: usize,
+    pub low_count: usize,
+    pub total_count: usize,
+    /// Label of the role responsible for the most tasks
+    pub primary_role: String,
+}
+
+/// Thematic cluster of related findings sharing a dimension or subcategory.
+pub struct FindingCluster {
+    pub label: String,
+    pub dimension: String,
+    pub finding_count: usize,
+    pub occurrence_total: usize,
+    pub severity_label: String,
+    pub finding_titles: Vec<String>,
+}
+
+/// System-level diagnosis section: pattern analysis, clusters, systematic assessment.
+pub struct DiagnosisBlock {
+    pub section_title: String,
+    pub pattern_label: String,
+    pub pattern_description: String,
+    pub is_systematic: bool,
+    /// (dimension, finding_count, severity_label) per category
+    pub category_breakdown: Vec<(String, usize, String)>,
+    pub dominant_issue: Option<String>,
+    pub verdict_intro: String,
+    pub clusters: Vec<FindingCluster>,
+}
+
 // ─── Report ViewModel (Single Report) ───────────────────────────────────────
 
 /// Complete ViewModel for a single audit report.
@@ -122,6 +171,7 @@ pub struct ReportViewModel {
     pub modules: ModulesBlock,
     pub severity: SeverityBlock,
     pub findings: FindingsBlock,
+    pub diagnosis: DiagnosisBlock,
     pub module_details: ModuleDetailsBlock,
     pub actions: ActionsBlock,
     pub appendix: AppendixBlock,
@@ -302,6 +352,8 @@ pub struct SeverityBlock {
 
 /// Grouped findings, already sorted by impact
 pub struct FindingsBlock {
+    pub summary: FindingSummary,
+    pub clusters: Vec<FindingCluster>,
     pub top_findings: Vec<FindingGroup>,
     pub all_findings: Vec<FindingGroup>,
 }
@@ -344,6 +396,7 @@ pub struct ActionsBlock {
     pub phase_preview: Vec<PhasePreview>,
     /// Label for the entire action block, context-sensitive
     pub block_title: String,
+    pub task_summary: TaskSummary,
 }
 
 pub struct RoadmapColumnData {

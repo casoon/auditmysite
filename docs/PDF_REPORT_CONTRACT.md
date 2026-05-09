@@ -19,6 +19,8 @@ PDF reports are customer-facing artifacts. They should help readers understand:
 
 Audience: management, project leads, non-technical stakeholders.
 
+Target page count: 5–8 pages (8 pages maximum with a realistic finding load).
+
 Minimum content:
 
 - branded cover with score, certificate, date, domain and active modules,
@@ -28,7 +30,9 @@ Minimum content:
 - prioritized next actions,
 - methodology note.
 
-Technical selectors, HTML snippets and code examples should not dominate this level.
+Technical selectors, HTML snippets and code examples must not dominate this level.
+Dense implementation tables, raw selector lists and grouped code examples are not
+appropriate at the Executive level.
 
 ### Standard
 
@@ -78,6 +82,32 @@ Minimum content:
 - domain ranking,
 - module comparison when module scores are available,
 - top findings by domain.
+
+## Module Classification: Measured vs. Heuristic
+
+Modules are divided into two classes:
+
+**Measured** — score derived from quantitative, reproducible signals (CDP data, DOM counts,
+network timings, WCAG rule checks). Examples: Accessibility, Performance, Security.
+
+**Heuristic indicators** — score derived from structural signals and inferred patterns.
+These are best-effort estimates, not definitive values. Examples: UX, User Journey,
+AI Visibility sub-scores.
+
+In the rendered PDF:
+
+- Heuristic score cards carry the "(Indicator)" / "(Indikator)" suffix in their title.
+- Heuristic score cards carry the description "Heuristic estimate based on structural
+  signals" in the subtitle.
+- No visual distinction between measured and heuristic modules in the module overview strip —
+  the indicator suffix is the only differentiator.
+
+## Language
+
+- CLI output (terminal table, progress messages) is always English.
+- PDF reports are localized via `--lang de|en`. Default is German.
+- All user-visible labels in PDF output must use Fluent (`.ftl`) keys.
+  Hard-coded German strings in PDF renderers are a contract violation.
 
 ## Visual Quality Requirements
 

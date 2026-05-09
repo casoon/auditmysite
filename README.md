@@ -5,7 +5,7 @@
 [![CI](https://github.com/casoon/auditmysite/actions/workflows/ci.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/ci.yml)
 [![Release](https://github.com/casoon/auditmysite/actions/workflows/release.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/release.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-LGPL--3.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
 ## Overview
 
@@ -183,6 +183,7 @@ Useful flags:
 - `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory
+- `--lang <de|en>`: set the language for PDF reports (default: `de`)
 
 For the full current interface, use:
 
@@ -195,9 +196,9 @@ auditmysite browser --help
 
 JSON output is treated as an automation contract.
 
-- Contract documentation: [docs/OUTPUT_CONTRACT.md](/Users/jseidel/GitHub/auditmysite/docs/OUTPUT_CONTRACT.md)
-- Single report schema: [docs/json-report.schema.json](/Users/jseidel/GitHub/auditmysite/docs/json-report.schema.json)
-- Batch report schema: [docs/json-batch-report.schema.json](/Users/jseidel/GitHub/auditmysite/docs/json-batch-report.schema.json)
+- Contract documentation: [docs/OUTPUT_CONTRACT.md](docs/OUTPUT_CONTRACT.md)
+- Single report schema: [docs/json-report.schema.json](docs/json-report.schema.json)
+- Batch report schema: [docs/json-batch-report.schema.json](docs/json-batch-report.schema.json)
 
 The repository validates these contracts in automated tests.
 
@@ -240,12 +241,18 @@ AAA is not fully implemented yet.
 
 ### Additional modules
 
-- Performance: Core Web Vitals and score interpretation
+Modules are classified as **measured** (based on real browser data) or **heuristic** (structural-signal estimates, marked with `~` in reports).
+
+Measured:
+- Performance: Core Web Vitals (FCP, LCP, TBT, CLS) and technical complexity (DOM size, render blocking, resource loading)
 - SEO: meta tags, headings, structured data, content profile, tracking/external services signals
 - Security: HTTPS and header checks
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
+
+Heuristic (indicator scores — tendency, not measurements):
 - UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
 - Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
+- AI Visibility: structural readiness for LLM indexing and citation (readability, citability, structured data, AI policy, chunk quality)
 
 ### Risk assessment
 
@@ -321,6 +328,9 @@ auditmysite https://example.com --full --logo ./assets/customer-logo.svg --outpu
 
 # pick a report depth: executive (management), standard (default), technical (developers)
 auditmysite https://example.com --full --report-level executive --output reports/exec.pdf
+
+# PDF language (default: de)
+auditmysite https://example.com --full --lang en --output reports/report-en.pdf
 ```
 
 ### CI / automation (JSON)
@@ -398,9 +408,9 @@ Key layers:
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
 
 More detail:
-- Current implementation: [docs/ARCHITECTURE.md](/Users/jseidel/GitHub/auditmysite/docs/ARCHITECTURE.md)
-- Browser dependency details: [docs/chrome-dependency.md](/Users/jseidel/GitHub/auditmysite/docs/chrome-dependency.md)
-- Troubleshooting: [docs/TROUBLESHOOTING.md](/Users/jseidel/GitHub/auditmysite/docs/TROUBLESHOOTING.md)
+- Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Browser dependency details: [docs/chrome-dependency.md](docs/chrome-dependency.md)
+- Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
 ## Development
 
@@ -502,7 +512,7 @@ cargo test
 
 ## License
 
-LGPL-3.0-or-later. See [LICENSE](LICENSE).
+AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
 ## Credits
 

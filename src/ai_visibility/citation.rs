@@ -207,6 +207,6 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     });
 
     CitationAnalysis {
-        dimension: build_dimension("Zitatfähigkeit", &signals),
+        dimension: build_dimension("Zitierbarkeit", &signals),
     }
 }

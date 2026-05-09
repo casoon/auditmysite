@@ -3,7 +3,7 @@
 > Statushinweis:
 > Dieses Dokument enthält neben dem Ist-Zustand auch Architekturideen und frühere Vorschläge.
 > Nicht jede hier beschriebene Option ist aktuell in der CLI implementiert.
-> Für den tatsächlichen Benutzerstand sind `auditmysite --help`, die [README](/Users/jseidel/GitHub/auditmysite/README.md) und [ARCHITECTURE.md](/Users/jseidel/GitHub/auditmysite/docs/ARCHITECTURE.md) maßgeblich.
+> Für den tatsächlichen Benutzerstand sind `auditmysite --help`, die [README](../README.md) und [ARCHITECTURE.md](ARCHITECTURE.md) maßgeblich.
 
 ## Status quo (Ist-Zustand)
 

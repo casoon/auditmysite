@@ -12,8 +12,8 @@
 
 ## Schemas
 
-- Single report: [json-report.schema.json](/Users/jseidel/GitHub/auditmysite/docs/json-report.schema.json)
-- Batch report: [json-batch-report.schema.json](/Users/jseidel/GitHub/auditmysite/docs/json-batch-report.schema.json)
+- Single report: [json-report.schema.json](json-report.schema.json)
+- Batch report: [json-batch-report.schema.json](json-batch-report.schema.json)
 
 These schemas are validated in automated tests and in the local release check.
 

@@ -66,7 +66,7 @@ pub struct Args {
     #[arg(short = 'l', long, default_value = "aa", value_enum)]
     pub level: WcagLevel,
 
-    /// Output format: `json`, `table`, or `pdf`.
+    /// Output format: `json`, `table`, `pdf`, or `ai`.
     ///
     /// Default for a single URL without `-f`: `pdf`.
     /// Default for batch inputs without `-f`: `table`.

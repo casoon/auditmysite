@@ -115,6 +115,40 @@ pub(super) fn derive_business_impact(
     dimension: &str,
     severity: Severity,
     subcategory: Option<&str>,
+    occurrence_count: usize,
+) -> String {
+    let en = is_en(locale);
+    let base = derive_business_impact_base(locale, user_impact, dimension, severity, subcategory);
+    let prefix = match occurrence_count {
+        n if n >= 20 => {
+            if en {
+                "Widespread: "
+            } else {
+                "Weitverbreitet: "
+            }
+        }
+        n if n >= 5 => {
+            if en {
+                "Frequent: "
+            } else {
+                "Häufig: "
+            }
+        }
+        _ => "",
+    };
+    if prefix.is_empty() {
+        base
+    } else {
+        format!("{}{}", prefix, base)
+    }
+}
+
+fn derive_business_impact_base(
+    locale: &str,
+    user_impact: &str,
+    dimension: &str,
+    severity: Severity,
+    subcategory: Option<&str>,
 ) -> String {
     let en = is_en(locale);
     match dimension {

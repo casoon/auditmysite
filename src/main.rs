@@ -1319,8 +1319,8 @@ fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) 
         })?;
         if !quiet {
             println!(
-                "{} {}-Report gespeichert in {}",
-                "Fertig:".green().bold(),
+                "{} {}-report saved to {}",
+                "Done:".green().bold(),
                 label,
                 path.display()
             );

@@ -55,35 +55,23 @@ pub(super) fn render_budget_violations(
     };
 
     builder = if error_count > 0 {
-        builder.add_component(Callout::warning(&summary_text).with_title(if is_en(i18n) {
-            "Budget exceeded"
-        } else {
-            "Budget überschritten"
-        }))
+        builder.add_component(
+            Callout::warning(&summary_text).with_title(i18n.t("budget-callout-exceeded")),
+        )
     } else {
-        builder.add_component(Callout::info(&summary_text).with_title(if is_en(i18n) {
-            "Budget notes"
-        } else {
-            "Budget-Hinweise"
-        }))
+        builder.add_component(
+            Callout::info(&summary_text).with_title(i18n.t("budget-callout-warnings")),
+        )
     };
 
     let mut table = AuditTable::new(vec![
-        TableColumn::new(if is_en(i18n) { "Metric" } else { "Metrik" }),
+        TableColumn::new(i18n.t("budget-table-metric")),
         TableColumn::new("Budget"),
-        TableColumn::new(if is_en(i18n) { "Actual" } else { "Ist-Wert" }),
-        TableColumn::new(if is_en(i18n) {
-            "Exceeded by"
-        } else {
-            "Überschreitung"
-        }),
+        TableColumn::new(i18n.t("budget-table-actual")),
+        TableColumn::new(i18n.t("budget-table-overage")),
         TableColumn::new(i18n.t("label-severity")),
     ])
-    .with_title(if is_en(i18n) {
-        "Budget details"
-    } else {
-        "Budget-Details"
-    });
+    .with_title(i18n.t("budget-table-title"));
 
     for v in violations {
         table = table.add_row(vec![
@@ -104,20 +92,36 @@ pub(super) fn render_performance(
     perf: &PerformancePresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let perf_section_title = if is_en(i18n) {
+        "Performance — User Experience & Technical Complexity"
+    } else {
+        "Performance — Nutzererlebnis & Technische Komplexität"
+    };
+    let perf_intro = KeyValueList::new()
+        .add(
+            i18n.t("section-user-experience"),
+            if is_en(i18n) {
+                "Core Web Vitals, render blocking — how fast the page feels to users"
+            } else {
+                "Core Web Vitals, Render-Blocking — wie schnell die Seite für Nutzer wirkt"
+            },
+        )
+        .add(
+            i18n.t("section-technical-complexity"),
+            if is_en(i18n) {
+                "DOM size, resource loading, blocking budget"
+            } else {
+                "DOM-Größe, Ressourcen-Loading, Blocking-Budget"
+            },
+        );
     builder = builder
-        .add_component(Section::new("Performance").with_level(2))
+        .add_component(Section::new(perf_section_title).with_level(2))
+        .add_component(perf_intro)
         .add_component(TextBlock::new(&perf.interpretation))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Performance score"
-                } else {
-                    "Performance Score"
-                },
-                perf.score,
-            )
-            .with_description(format!("Grade: {}", perf.grade))
-            .with_thresholds(75, 50),
+            ScoreCard::new(i18n.t("perf-score-card"), perf.score)
+                .with_description(format!("Grade: {}", perf.grade))
+                .with_thresholds(75, 50),
         );
 
     // ── User-perceived Performance (Core Web Vitals) ─────────────────
@@ -150,11 +154,7 @@ pub(super) fn render_performance(
             .add_component(Section::new(i18n.t("section-technical-complexity")).with_level(3));
 
         if !perf.additional_metrics.is_empty() {
-            let mut metrics = SummaryBox::new(if is_en(i18n) {
-                "Technical indicators"
-            } else {
-                "Technische Indikatoren"
-            });
+            let mut metrics = SummaryBox::new(i18n.t("perf-technical-indicators"));
             for (k, v) in &perf.additional_metrics {
                 metrics = metrics.add_item(k, v);
             }
@@ -163,11 +163,8 @@ pub(super) fn render_performance(
 
         if perf.has_render_blocking {
             if !perf.render_blocking_metrics.is_empty() {
-                let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-                    "Render-blocking analysis"
-                } else {
-                    "Render-Blocking Analyse"
-                });
+                let mut kv =
+                    KeyValueList::new().with_title(i18n.t("perf-render-blocking-analysis"));
                 for (k, v) in &perf.render_blocking_metrics {
                     kv = kv.add(k, v);
                 }
@@ -202,26 +199,12 @@ pub(super) fn render_seo(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
-        .add_component(
-            Section::new(i18n.t("section-seo-analysis"))
-                .with_level(2),
-        )
+        .add_component(Section::new(i18n.t("section-seo-analysis")).with_level(2))
         .add_component(TextBlock::new(&seo.interpretation))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Technical SEO"
-                } else {
-                    "Technisches SEO"
-                },
-                seo.score,
-            )
-            .with_description(if is_en(i18n) {
-                "Measures technical signals (meta, structure, schema, hreflang). Content depth is evaluated separately."
-            } else {
-                "Misst technische Signale (Meta, Struktur, Schema, hreflang). Inhaltliche Tiefe wird separat bewertet."
-            })
-            .with_thresholds(80, 50),
+            ScoreCard::new(i18n.t("seo-score-card"), seo.score)
+                .with_description(i18n.t("seo-score-card-description"))
+                .with_thresholds(80, 50),
         );
 
     let mut seo_strip = Vec::new();
@@ -282,20 +265,37 @@ pub(super) fn render_seo(
         builder = builder.add_component(table);
     }
 
-    builder = builder
-        .add_component(TextBlock::new(&seo.heading_summary))
-        .add_component(TextBlock::new(&seo.social_summary));
+    if !seo.heading_summary.is_empty() || !seo.social_summary.is_empty() {
+        let mut kv = KeyValueList::new();
+        if !seo.heading_summary.is_empty() {
+            kv = kv.add(
+                if is_en(i18n) {
+                    "Headings"
+                } else {
+                    "Überschriften"
+                },
+                &seo.heading_summary,
+            );
+        }
+        if !seo.social_summary.is_empty() {
+            kv = kv.add(
+                if is_en(i18n) {
+                    "Social tags"
+                } else {
+                    "Social Tags"
+                },
+                &seo.social_summary,
+            );
+        }
+        builder = builder.add_component(kv);
+    }
 
     if !seo.tracking_summary.is_empty() {
         let mut tracking_table = AuditTable::new(vec![
             TableColumn::new("Signal").with_width("32%"),
             TableColumn::new("Status").with_width("68%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Tracking and external services"
-        } else {
-            "Tracking und externe Dienste"
-        });
+        .with_title(i18n.t("seo-tracking-services"));
         for (k, v) in &seo.tracking_summary {
             tracking_table = tracking_table.add_row(vec![k.clone(), v.clone()]);
         }
@@ -308,11 +308,7 @@ pub(super) fn render_seo(
     }
 
     if !seo.technical_summary.is_empty() {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "Technical SEO"
-        } else {
-            "Technisches SEO"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("seo-kv-title"));
         for (k, v) in &seo.technical_summary {
             kv = kv.add(k, v);
         }
@@ -366,17 +362,13 @@ pub(super) fn render_serp(
             serp.fail_count,
         )
     };
-    let serp_readiness_title = if is_en(i18n) {
-        "SERP readiness"
-    } else {
-        "SERP-Bereitschaft"
-    };
+    let serp_readiness_title = i18n.t("seo-serp-readiness");
     builder = if serp.fail_count > 0 {
-        builder.add_component(Callout::warning(&summary).with_title(serp_readiness_title))
+        builder.add_component(Callout::warning(&summary).with_title(&serp_readiness_title))
     } else if serp.warning_count > 0 {
-        builder.add_component(Callout::info(&summary).with_title(serp_readiness_title))
+        builder.add_component(Callout::info(&summary).with_title(&serp_readiness_title))
     } else {
-        builder.add_component(Callout::success(&summary).with_title(serp_readiness_title))
+        builder.add_component(Callout::success(&summary).with_title(&serp_readiness_title))
     };
 
     if !serp.signals.is_empty() {
@@ -386,11 +378,7 @@ pub(super) fn render_serp(
             TableColumn::new("Status").with_width("14%"),
             TableColumn::new("Detail").with_width("36%"),
         ])
-        .with_title(if is_en(i18n) {
-            "SERP signals"
-        } else {
-            "SERP-Signale"
-        });
+        .with_title(i18n.t("seo-serp-signals"));
         for (cat, label, status, detail) in &serp.signals {
             table = table.add_row(vec![
                 cat.as_str(),
@@ -433,11 +421,7 @@ pub(super) fn render_page_health(
             TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("55%"),
             TableColumn::new(i18n.t("label-severity")).with_width("25%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Detected issues"
-        } else {
-            "Gefundene Probleme"
-        });
+        .with_title(i18n.t("seo-page-health-issues"));
         for (_, msg, sev) in &ph.issues {
             table = table.add_row(vec![msg.as_str(), sev.as_str()]);
         }
@@ -446,11 +430,7 @@ pub(super) fn render_page_health(
 
     // URL info KV
     if !ph.url_info.is_empty() {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "URL analysis"
-        } else {
-            "URL-Analyse"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("seo-page-health-url-analysis"));
         for (k, v) in &ph.url_info {
             kv = kv.add(k, v);
         }
@@ -495,11 +475,7 @@ pub(super) fn render_page_health(
             TableColumn::new(i18n.t("label-severity")).with_width("20%"),
             TableColumn::new("Detail").with_width("25%"),
         ])
-        .with_title(if is_en(i18n) {
-            "HTML validation"
-        } else {
-            "HTML-Validierung"
-        });
+        .with_title(i18n.t("seo-page-html-validation"));
         for (check, count, sev, detail) in &ph.html_issues {
             table = table.add_row(vec![
                 check.as_str(),
@@ -898,16 +874,9 @@ pub(super) fn render_security(
         .add_component(Section::new(i18n.t("section-security")).with_level(2))
         .add_component(TextBlock::new(&sec.interpretation))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Security score"
-                } else {
-                    "Security Score"
-                },
-                sec.score,
-            )
-            .with_description(format!("Grade: {}", sec.grade))
-            .with_thresholds(70, 50),
+            ScoreCard::new(i18n.t("security-score-card"), sec.score)
+                .with_description(format!("Grade: {}", sec.grade))
+                .with_thresholds(70, 50),
         );
 
     let header_count = sec
@@ -986,27 +955,16 @@ pub(super) fn render_mobile(
         .add_component(Section::new(i18n.t("section-mobile-usability")).with_level(2))
         .add_component(TextBlock::new(&mobile.interpretation))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Mobile score"
-                } else {
-                    "Mobile Score"
-                },
-                mobile.score,
-            )
-            .with_thresholds(80, 50),
+            ScoreCard::new(i18n.t("mobile-score-card"), mobile.score).with_thresholds(80, 50),
         );
 
+    let configured_label = i18n.t("mobile-configured");
     let viewport_status = mobile
         .viewport
         .iter()
         .find(|(k, _)| k.to_lowercase().contains("viewport"))
         .map(|(_, v)| v.as_str())
-        .unwrap_or(if is_en(i18n) {
-            "Configured"
-        } else {
-            "Konfiguriert"
-        });
+        .unwrap_or(&configured_label);
     let touch_targets = mobile
         .touch_targets
         .iter()
@@ -1016,59 +974,36 @@ pub(super) fn render_mobile(
     builder = builder.add_component(
         MetricStrip::new(vec![
             MetricStripItem::new("Viewport", viewport_status).with_accent("#0f766e"),
-            MetricStripItem::new(
-                if is_en(i18n) {
-                    "Touch targets"
-                } else {
-                    "Touch Targets"
-                },
-                touch_targets,
-            )
-            .with_accent("#d97706"),
+            MetricStripItem::new(i18n.t("mobile-touch-targets"), touch_targets)
+                .with_accent("#d97706"),
             MetricStripItem::new("Issues", mobile.issues.len().to_string()).with_accent("#dc2626"),
         ])
         .compact(),
     );
 
     if !mobile.viewport.is_empty() {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "Viewport configuration"
-        } else {
-            "Viewport-Konfiguration"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("mobile-viewport-config"));
         for (k, v) in &mobile.viewport {
             kv = kv.add(k, v);
         }
         builder = builder.add_component(kv);
     }
     if !mobile.touch_targets.is_empty() {
-        let mut box_ = SummaryBox::new(if is_en(i18n) {
-            "Touch targets"
-        } else {
-            "Touch Targets"
-        });
+        let mut box_ = SummaryBox::new(i18n.t("mobile-touch-targets"));
         for (k, v) in &mobile.touch_targets {
             box_ = box_.add_item(k, v);
         }
         builder = builder.add_component(box_);
     }
     if !mobile.font_analysis.is_empty() {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "Font analysis"
-        } else {
-            "Schriftanalyse"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("mobile-font-analysis"));
         for (k, v) in &mobile.font_analysis {
             kv = kv.add(k, v);
         }
         builder = builder.add_component(kv);
     }
     if !mobile.content_sizing.is_empty() {
-        let mut box_ = SummaryBox::new(if is_en(i18n) {
-            "Content sizing"
-        } else {
-            "Content Sizing"
-        });
+        let mut box_ = SummaryBox::new(i18n.t("mobile-content-sizing"));
         for (k, v) in &mobile.content_sizing {
             box_ = box_.add_item(k, v);
         }
@@ -1090,16 +1025,13 @@ pub(super) fn render_ux(
         .add_component(Section::new("User Experience").with_level(2))
         .add_component(TextBlock::new(&ux.interpretation))
         .add_component(
-            ScoreCard::new(if is_en(i18n) { "UX score" } else { "UX Score" }, ux.score)
+            ScoreCard::new(i18n.t("ux-score-card"), ux.score)
+                .with_description(i18n.t("label-heuristic-indicator"))
                 .with_thresholds(80, 50),
         );
 
     // Dimension scores as KeyValueList
-    let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-        "UX dimensions"
-    } else {
-        "UX-Dimensionen"
-    });
+    let mut kv = KeyValueList::new().with_title(i18n.t("ux-dimensions"));
     for dim in &ux.dimensions {
         kv = kv.add(&dim.name, format!("{}/100 — {}", dim.score, dim.summary));
     }
@@ -1128,28 +1060,13 @@ pub(super) fn render_journey(
         .add_component(Section::new("User Journey").with_level(2))
         .add_component(TextBlock::new(&journey.interpretation))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Journey score (indicator)"
-                } else {
-                    "Journey Score (Indikator)"
-                },
-                journey.score,
-            )
-            .with_description(if is_en(i18n) {
-                "Heuristic estimate based on structural signals"
-            } else {
-                "Heuristische Schätzung auf Basis struktureller Signale"
-            })
-            .with_thresholds(80, 50),
+            ScoreCard::new(i18n.t("journey-score-card"), journey.score)
+                .with_description(i18n.t("label-heuristic-indicator"))
+                .with_thresholds(80, 50),
         );
 
     // Page intent
-    let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-        "Page type & dimensions"
-    } else {
-        "Seitentyp & Dimensionen"
-    });
+    let mut kv = KeyValueList::new().with_title(i18n.t("journey-page-type-dimensions"));
     kv = kv.add(
         if is_en(i18n) {
             "Detected page type"
@@ -1461,9 +1378,9 @@ pub(super) fn render_ai_visibility(
     builder = builder
         .add_component(
             Section::new(if is_en(i18n) {
-                "AI visibility"
+                "AI Visibility (indicator)"
             } else {
-                "AI-Sichtbarkeit"
+                "AI-Sichtbarkeit (Indikator)"
             })
             .with_level(2),
         )
@@ -1502,9 +1419,9 @@ pub(super) fn render_ai_visibility(
         (
             &av.readability.dimension,
             if is_en(i18n) {
-                "LLM readability"
+                "AI readability"
             } else {
-                "LLM-Lesbarkeit"
+                "KI-Lesbarkeit"
             },
         ),
         (
@@ -1512,7 +1429,7 @@ pub(super) fn render_ai_visibility(
             if is_en(i18n) {
                 "Citability"
             } else {
-                "Zitatfähigkeit"
+                "Zitierbarkeit"
             },
         ),
         (
@@ -1541,11 +1458,14 @@ pub(super) fn render_ai_visibility(
         ),
     ] {
         builder = builder.add_component(Section::new(title).with_level(3));
-        builder = builder.add_component(
-            ScoreCard::new(&dim.name, dim.score)
-                .with_description(&dim.label)
-                .with_thresholds(70, 50),
+        let mut dim_kv = KeyValueList::new().add(
+            i18n.t("label-heuristic-indicator"),
+            format!("~{}/100 — {}", dim.score, score_quality_label(dim.score)),
         );
+        if !dim.label.is_empty() {
+            dim_kv = dim_kv.add(if is_en(i18n) { "Basis" } else { "Basis" }, &dim.label);
+        }
+        builder = builder.add_component(dim_kv);
 
         if !dim.signals.is_empty() {
             let mut table = AuditTable::new(vec![

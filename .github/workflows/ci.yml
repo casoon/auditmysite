@@ -41,6 +41,35 @@ jobs:
       - name: Run tests
         run: cargo test --no-default-features -- --nocapture --test-threads=1
 
+  check-all-features:
+    name: Check & Test (all features)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-all-features-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build (all features)
+        run: cargo build --all-features
+
+      - name: Run clippy (all features)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests (all features)
+        run: cargo test --all-features -- --nocapture --test-threads=1
+
   format:
     name: Formatting
     runs-on: ubuntu-latest
@@ -75,7 +104,7 @@ jobs:
 
   release-build:
     name: Release Build
-    needs: [check, format, browser-smoke]
+    needs: [check, check-all-features, format, browser-smoke]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
