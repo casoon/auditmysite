@@ -124,8 +124,11 @@ impl BrowserManager {
 
         let chrome_info = ChromeInfo::from(&resolved.browser);
 
-        let args =
-            Self::build_launch_args(&options, options.disable_gpu, chrome_info.version.as_deref());
+        let args = Self::build_launch_args(
+            &options,
+            options.disable_gpu,
+            chrome_info.version.as_deref(),
+        );
         debug!("Chrome launch args: {:?}", args);
 
         let mut launch_errors = Vec::new();
@@ -228,7 +231,11 @@ impl BrowserManager {
             .user_data_dir(user_data_dir)
             .window_size(options.window_size.0, options.window_size.1)
             .headless_mode(plan.headless_mode)
-            .args(Self::build_launch_args(options, plan.disable_gpu, chrome_version))
+            .args(Self::build_launch_args(
+                options,
+                plan.disable_gpu,
+                chrome_version,
+            ))
             .viewport(None);
 
         if options.no_sandbox {
@@ -321,13 +328,11 @@ impl BrowserManager {
     pub async fn new_page(&self) -> Result<Page> {
         use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 
-        let page = self
-            .browser
-            .new_page("about:blank")
-            .await
-            .map_err(|e| AuditError::BrowserLaunchFailed {
+        let page = self.browser.new_page("about:blank").await.map_err(|e| {
+            AuditError::BrowserLaunchFailed {
                 reason: format!("Failed to create new page: {}", e),
-            })?;
+            }
+        })?;
 
         // Patch navigator.webdriver = undefined on every document load.
         // --disable-blink-features=AutomationControlled removes it at the Blink level,

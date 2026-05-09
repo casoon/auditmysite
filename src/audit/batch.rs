@@ -248,14 +248,15 @@ pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
         .build()
         .unwrap_or_default();
 
-    let response = client
-        .get(sitemap_url)
-        .send()
-        .await
-        .map_err(|e| AuditError::SitemapParseFailed {
-            url: sitemap_url.to_string(),
-            reason: e.to_string(),
-        })?;
+    let response =
+        client
+            .get(sitemap_url)
+            .send()
+            .await
+            .map_err(|e| AuditError::SitemapParseFailed {
+                url: sitemap_url.to_string(),
+                reason: e.to_string(),
+            })?;
 
     let content = response
         .text()
@@ -308,7 +309,11 @@ pub async fn count_sitemap_entries_shallow(sitemap_url: &str) -> Option<usize> {
         .ok()?;
 
     let count = extract_all_loc_values(&content).len();
-    if count > 0 { Some(count) } else { None }
+    if count > 0 {
+        Some(count)
+    } else {
+        None
+    }
 }
 
 /// Extract all <loc> URLs from sitemap XML content.
