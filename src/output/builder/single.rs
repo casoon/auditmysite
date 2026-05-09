@@ -3484,6 +3484,25 @@ impl Clone for FindingGroup {
     }
 }
 
+impl Clone for ExampleBlock {
+    fn clone(&self) -> Self {
+        ExampleBlock {
+            bad: self.bad.clone(),
+            good: self.good.clone(),
+            decorative: self.decorative.clone(),
+        }
+    }
+}
+
+impl Clone for RoleAssignment {
+    fn clone(&self) -> Self {
+        RoleAssignment {
+            role: self.role,
+            responsibilities: self.responsibilities.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -3814,24 +3833,5 @@ mod tests {
             "Maturity label should be English, got {}",
             vm.summary.maturity_label
         );
-    }
-}
-
-impl Clone for ExampleBlock {
-    fn clone(&self) -> Self {
-        ExampleBlock {
-            bad: self.bad.clone(),
-            good: self.good.clone(),
-            decorative: self.decorative.clone(),
-        }
-    }
-}
-
-impl Clone for RoleAssignment {
-    fn clone(&self) -> Self {
-        RoleAssignment {
-            role: self.role,
-            responsibilities: self.responsibilities.clone(),
-        }
     }
 }

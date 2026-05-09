@@ -36,9 +36,9 @@ fn make_violations() -> WcagResults {
                 WcagLevel::A,
                 Severity::Critical,
                 "Button missing accessible name",
-                &format!("node-{}", i),
+                format!("node-{}", i),
             )
-            .with_selector(&format!("button.icon-{}", i))
+            .with_selector(format!("button.icon-{}", i))
             .with_fix("Add aria-label attribute"),
         );
     }
@@ -52,9 +52,9 @@ fn make_violations() -> WcagResults {
                 WcagLevel::A,
                 Severity::Medium,
                 "Content uses visual formatting instead of semantic HTML",
-                &format!("node-sem-{}", i),
+                format!("node-sem-{}", i),
             )
-            .with_selector(&format!("div.table-{}", i))
+            .with_selector(format!("div.table-{}", i))
             .with_fix("Use semantic HTML elements"),
         );
     }
@@ -80,9 +80,10 @@ fn make_performance() -> PerformanceResults {
 }
 
 fn make_seo() -> SeoAnalysis {
-    let mut seo = SeoAnalysis::default();
-    seo.score = 90;
-    seo
+    SeoAnalysis {
+        score: 90,
+        ..Default::default()
+    }
 }
 
 fn make_security() -> SecurityAnalysis {
@@ -409,7 +410,7 @@ fn test_grade_matches_score() {
                     WcagLevel::A,
                     Severity::Critical,
                     "Missing label",
-                    &format!("n-{}", i),
+                    format!("n-{}", i),
                 ));
             }
         }
@@ -608,7 +609,7 @@ fn test_risk_in_json_output() {
     assert!(risk.is_object(), "risk object missing from JSON report");
     assert_eq!(risk["level"].as_str().unwrap(), "critical");
     assert!(risk["critical_issues"].as_u64().unwrap() > 0);
-    assert!(risk["summary"].as_str().unwrap().len() > 0);
+    assert!(!risk["summary"].as_str().unwrap().is_empty());
 }
 
 #[test]
@@ -625,7 +626,7 @@ fn test_risk_independent_from_score() {
             WcagLevel::A,
             Severity::Critical,
             "Missing name",
-            &format!("n-{}", i),
+            format!("n-{}", i),
         ));
     }
 
