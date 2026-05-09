@@ -49,7 +49,7 @@ pub(super) fn build_top_hebel_table(
         return None;
     }
     // Sort by occurrence_count descending
-    groups.sort_by(|a, b| b.occurrence_count.cmp(&a.occurrence_count));
+    groups.sort_by_key(|g| std::cmp::Reverse(g.occurrence_count));
 
     let mut table = AuditTable::new(vec![
         TableColumn::new("Problem").with_width("31%"),
@@ -61,7 +61,9 @@ pub(super) fn build_top_hebel_table(
 
     for group in groups.iter().take(5) {
         let share = if total_critical_high > 0 {
-            let pct = group.occurrence_count * 100 / total_critical_high;
+            let pct = (group.occurrence_count * 100)
+                .checked_div(total_critical_high)
+                .unwrap_or(0);
             format!("{}%", pct.min(99))
         } else {
             "—".to_string()

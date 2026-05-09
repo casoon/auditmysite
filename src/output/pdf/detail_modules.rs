@@ -1463,7 +1463,7 @@ pub(super) fn render_ai_visibility(
             format!("~{}/100 — {}", dim.score, score_quality_label(dim.score)),
         );
         if !dim.label.is_empty() {
-            dim_kv = dim_kv.add(if is_en(i18n) { "Basis" } else { "Basis" }, &dim.label);
+            dim_kv = dim_kv.add("Basis", &dim.label);
         }
         builder = builder.add_component(dim_kv);
 

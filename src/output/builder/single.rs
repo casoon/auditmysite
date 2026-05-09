@@ -1359,7 +1359,7 @@ fn build_thematic_clusters(locale: &str, findings: &[FindingGroup]) -> Vec<Findi
         .collect();
 
     // Sort by occurrence_total descending for display priority
-    clusters.sort_by(|a, b| b.occurrence_total.cmp(&a.occurrence_total));
+    clusters.sort_by_key(|c| std::cmp::Reverse(c.occurrence_total));
     clusters
 }
 
@@ -1405,13 +1405,7 @@ fn dimension_cluster_label(en: bool, dimension: &str, count: usize) -> String {
                 format!("Mobile-Probleme ({count_label})")
             }
         }
-        other => {
-            if en {
-                format!("{other} ({count_label})")
-            } else {
-                format!("{other} ({count_label})")
-            }
-        }
+        other => format!("{other} ({count_label})"),
     }
 }
 
@@ -1510,7 +1504,7 @@ fn build_diagnosis_block(
             (dim, count, sev_label)
         })
         .collect();
-    category_breakdown.sort_by(|a, b| b.1.cmp(&a.1));
+    category_breakdown.sort_by_key(|c| std::cmp::Reverse(c.1));
 
     let dominant_issue = audit_summary
         .dominant_issue
@@ -1558,7 +1552,7 @@ fn build_diagnosis_block(
                 }
             })
             .collect();
-        result.sort_by(|a, b| b.occurrence_total.cmp(&a.occurrence_total));
+        result.sort_by_key(|c| std::cmp::Reverse(c.occurrence_total));
         result
     };
 

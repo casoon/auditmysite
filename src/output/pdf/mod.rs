@@ -329,10 +329,11 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .iter()
                 .map(|f| f.occurrence_count)
                 .sum();
-            let share = if total_occurrences > 0 {
-                (top.occurrence_count * 100 / total_occurrences).max(1)
-            } else if total_ch > 0 {
-                (top.occurrence_count * 100 / total_ch).max(1)
+            let share = if let Some(v) = (top.occurrence_count * 100).checked_div(total_occurrences)
+            {
+                v.max(1)
+            } else if let Some(v) = (top.occurrence_count * 100).checked_div(total_ch) {
+                v.max(1)
             } else {
                 100
             };

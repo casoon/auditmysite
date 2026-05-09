@@ -280,7 +280,7 @@ pub(super) fn render_finding_technical(
 /// Extract the HTML element type from a CSS selector path.
 /// Examples: "div.main > img" → "img", "a#skip-link" → "a", "button" → "button"
 fn extract_element_type(selector: &str) -> &str {
-    let last_segment = selector.split('>').last().unwrap_or(selector).trim();
+    let last_segment = selector.split('>').next_back().unwrap_or(selector).trim();
     let last_token = last_segment
         .split_whitespace()
         .last()
