@@ -97,9 +97,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .add_component(Label::new(&vm.cover.title).with_size("22pt").bold())
         .add_component(
             Label::new(format!(
-                "{}  ·  {}",
+                "{}  ·  {}  ·  auditmysite v{}",
                 extract_domain(&vm.cover.domain),
-                vm.cover.date
+                vm.cover.date,
+                vm.meta.version
             ))
             .with_size("11pt")
             .with_color("#0f766e"),
@@ -283,9 +284,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     .executive
                     .quick_actions
                     .iter()
-                    .map(|(action, timeframe)| {
-                        ChecklistRow::new(timeframe, action).with_status("warn")
-                    })
+                    .map(|(action, _timeframe)| ChecklistRow::new(action, "").with_status("warn"))
                     .collect();
                 builder = builder.add_component(
                     ChecklistPanel::new(rows).with_title(&vm.executive.quick_actions_title),
@@ -1568,9 +1567,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         if !actions.is_empty() {
             let rows: Vec<ChecklistRow> = actions
                 .iter()
-                .map(|(action, timeframe)| {
-                    ChecklistRow::new(timeframe.clone(), action).with_status("warn")
-                })
+                .map(|(action, _timeframe)| ChecklistRow::new(action, "").with_status("warn"))
                 .collect();
             builder = builder.add_component(
                 ChecklistPanel::new(rows).with_title(i18n.t("narrative-quick-actions-title")),
@@ -2899,8 +2896,8 @@ mod tests {
         for (criterion, rule_name, level, severity, msg, node_id) in violations {
             results.add_violation(
                 Violation::new(criterion, rule_name, level, severity, msg, node_id)
-                    .with_selector(&format!("#{node_id}"))
-                    .with_fix(&format!("Fix required for {rule_name}")),
+                    .with_selector(format!("#{node_id}"))
+                    .with_fix(format!("Fix required for {rule_name}")),
             );
         }
 
