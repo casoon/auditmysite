@@ -80,7 +80,11 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .metadata("author", &vm.meta.author)
         .metadata("score", &vm.meta.score_label)
         .metadata("footer_prefix", "Audit:")
-        .metadata("footer_link_url", "");
+        .metadata("footer_link_url", "")
+        .metadata(
+            "footer_tagline",
+            "A technical auditing platform by casoon.de",
+        );
 
     let cover_logo_asset = cover_logo_asset(config);
     builder = register_cover_logo_asset(builder, config, cover_logo_asset);
@@ -1372,7 +1376,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         .metadata("version", &pres.cover.version)
         .metadata("author", domain)
         .metadata("footer_prefix", "Audit:")
-        .metadata("footer_link_url", "");
+        .metadata("footer_link_url", "")
+        .metadata(
+            "footer_tagline",
+            "A technical auditing platform by casoon.de",
+        );
 
     let cover_logo_asset = cover_logo_asset(config);
     builder = register_cover_logo_asset(builder, config, cover_logo_asset);
@@ -2382,7 +2390,11 @@ pub fn generate_comparison_pdf(
         .metadata("date", chrono::Local::now().format(date_format).to_string())
         .metadata("author", &author)
         .metadata("footer_prefix", "Audit:")
-        .metadata("footer_link_url", "");
+        .metadata("footer_link_url", "")
+        .metadata(
+            "footer_tagline",
+            "A technical auditing platform by casoon.de",
+        );
 
     let cover_logo_asset = cover_logo_asset(config);
     builder = register_cover_logo_asset(builder, config, cover_logo_asset);
