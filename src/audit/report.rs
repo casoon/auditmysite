@@ -41,7 +41,7 @@ pub struct PageScreenshots {
 /// Why device-preview screenshots are or are not available in this report.
 /// Used by the PDF renderer to surface the right callout when screenshots
 /// are missing (failure reason vs. not-requested).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(tag = "state", content = "reason")]
 pub enum ScreenshotStatus {
     /// Screenshots were captured successfully.
@@ -49,13 +49,8 @@ pub enum ScreenshotStatus {
     /// Capture was attempted but failed; the string holds a short reason.
     Failed(String),
     /// Capture was not attempted for this audit (e.g. batch mode).
+    #[default]
     NotRequested,
-}
-
-impl Default for ScreenshotStatus {
-    fn default() -> Self {
-        Self::NotRequested
-    }
 }
 
 /// Raw audit data for a single viewport pass.

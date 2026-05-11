@@ -4,6 +4,7 @@
 //! without requiring scrolling in two dimensions for:
 //! - Vertical scrolling content at a width equivalent to 320 CSS pixels
 //! - Horizontal scrolling content at a height equivalent to 256 CSS pixels
+//!
 //! Level AA
 //!
 //! This check temporarily sets the viewport to 320×256 CSS pixels and tests

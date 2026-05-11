@@ -55,9 +55,7 @@ pub fn check_error_identification(tree: &AXTree) -> WcagResults {
                 ERROR_ID_RULE.name,
                 ERROR_ID_RULE.level,
                 Severity::Medium,
-                format!(
-                    "Form field is marked aria-invalid=\"true\" but has no accessible error description (no aria-describedby, no description). Screen readers cannot tell users what went wrong."
-                ),
+                "Form field is marked aria-invalid=\"true\" but has no accessible error description (no aria-describedby, no description). Screen readers cannot tell users what went wrong.".to_string(),
                 &node.node_id,
             )
             .with_role(Some(role.to_string()))

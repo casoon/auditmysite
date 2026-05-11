@@ -131,18 +131,12 @@ pub(super) fn render_performance(
         (Some(desktop), Some(mobile)) => {
             // Score comparison strip
             let score_strip = vec![
-                MetricStripItem::new(
-                    if is_en(i18n) { "Desktop" } else { "Desktop" },
-                    desktop.score.to_string(),
-                )
-                .with_status(score_status(desktop.score))
-                .with_accent(score_color(desktop.score)),
-                MetricStripItem::new(
-                    if is_en(i18n) { "Mobile" } else { "Mobile" },
-                    mobile.score.to_string(),
-                )
-                .with_status(score_status(mobile.score))
-                .with_accent(score_color(mobile.score)),
+                MetricStripItem::new("Desktop", desktop.score.to_string())
+                    .with_status(score_status(desktop.score))
+                    .with_accent(score_color(desktop.score)),
+                MetricStripItem::new("Mobile", mobile.score.to_string())
+                    .with_status(score_status(mobile.score))
+                    .with_accent(score_color(mobile.score)),
             ];
             builder = builder.add_component(MetricStrip::new(score_strip).compact());
 

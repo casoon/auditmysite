@@ -398,8 +398,8 @@ async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRed
     let parsed = url::Url::parse(url).ok()?;
     let host = parsed.host_str()?;
 
-    let (primary_host, alt_host) = if host.starts_with("www.") {
-        (host.to_string(), host[4..].to_string())
+    let (primary_host, alt_host) = if let Some(stripped) = host.strip_prefix("www.") {
+        (host.to_string(), stripped.to_string())
     } else {
         (host.to_string(), format!("www.{}", host))
     };
