@@ -61,9 +61,16 @@ src/
 ```bash
 cargo build --release          # Build optimized binary
 cargo check                    # Fast compile check
+cargo check --all-features     # PFLICHT vor jedem Push — was CI prüft
 cargo test                     # Run all tests
 cargo test --lib               # Unit tests only
 ```
+
+**Vor jedem Push `cargo check --all-features` ausführen.** CI prüft immer mit allen Features und Clippy.
+Ein pre-push Hook ist unter `.git/hooks/pre-push` eingerichtet und läuft automatisch.
+
+Häufige Falle: neue Felder in `NormalizedReport` brechen Struct-Initialisierer in
+`src/audit/history.rs` und `src/audit/summary.rs`. Immer beide prüfen.
 
 ## Testing Against Live Sites
 ```bash
