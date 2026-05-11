@@ -3000,8 +3000,8 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "renderreport"
-version = "0.2.12"
-source = "git+https://github.com/casoon/renderreport.git?tag=v0.2.12#c681ec9bcb9da1a67f9104d6dc13defe8814ce2e"
+version = "0.2.13"
+source = "git+https://github.com/casoon/renderreport.git?tag=v0.2.13#e3bb7e4e89c07c3b74c735b46b46c257108c9c7a"
 dependencies = [
  "anyhow",
  "barcoders",
