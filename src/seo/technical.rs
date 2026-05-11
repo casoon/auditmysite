@@ -5,7 +5,7 @@
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 use crate::taxonomy::Severity;
@@ -60,8 +60,26 @@ pub struct TechnicalSeo {
     pub zaraz: ZarazDetection,
     /// Favicon detected (<link rel="icon"> or apple-touch-icon)
     pub has_favicon: bool,
+    /// www / non-www redirect check result
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub www_redirect: Option<WwwRedirectCheck>,
     /// Issues found
     pub issues: Vec<TechnicalIssue>,
+}
+
+/// Result of the www ↔ non-www redirect check
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WwwRedirectCheck {
+    /// The URL variant that was audited (primary)
+    pub primary: String,
+    /// The alternative variant (www ↔ non-www)
+    pub alternative: String,
+    /// HTTP status code returned by the alternative
+    pub alternative_status: u16,
+    /// Does the alternative redirect (301/302/308) to the primary?
+    pub redirects_to_primary: bool,
+    /// Does the page canonical point to the primary domain? None if no canonical.
+    pub canonical_matches_primary: Option<bool>,
 }
 
 /// Tracking cookie detected on the page.
@@ -312,6 +330,38 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         zaraz.detected
     );
 
+    // www / non-www redirect check
+    let www_redirect = check_www_redirect(url, canonical_url.as_deref()).await;
+    if let Some(ref check) = www_redirect {
+        if !check.redirects_to_primary && check.alternative_status == 200 {
+            let canonical_note = match check.canonical_matches_primary {
+                Some(true) => " Canonical tag is set correctly, but a 301 is still recommended — canonicals are hints, not directives.",
+                Some(false) => " Additionally, canonical does not point to the primary domain.",
+                None => " No canonical tag found.",
+            };
+            issues.push(TechnicalIssue {
+                issue_type: "www_no_redirect".to_string(),
+                message: format!(
+                    "Both {} and {} serve content (HTTP 200). Add a 301 redirect from the alternative to the primary to prevent duplicate content.{}",
+                    check.primary, check.alternative, canonical_note
+                ),
+                severity: Severity::Medium,
+            });
+        } else if !check.redirects_to_primary && check.alternative_status == 0 {
+            // alternative unreachable — no issue, just informational
+        }
+        if let Some(false) = check.canonical_matches_primary {
+            issues.push(TechnicalIssue {
+                issue_type: "canonical_domain_mismatch".to_string(),
+                message: format!(
+                    "Canonical URL points to a different domain variant than the audited URL ({} vs canonical).",
+                    check.primary
+                ),
+                severity: Severity::Medium,
+            });
+        }
+    }
+
     Ok(TechnicalSeo {
         https,
         has_canonical: canonical_url.is_some(),
@@ -336,8 +386,90 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         tracking_signals,
         zaraz,
         has_favicon,
+        www_redirect,
         issues,
     })
+}
+
+/// Check whether the www ↔ non-www counterpart of `url` redirects to `url`
+/// or serves its own content (duplicate).
+async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRedirectCheck> {
+    // Build the alternative URL variant
+    let parsed = url::Url::parse(url).ok()?;
+    let host = parsed.host_str()?;
+
+    let (primary_host, alt_host) = if host.starts_with("www.") {
+        (host.to_string(), host[4..].to_string())
+    } else {
+        (host.to_string(), format!("www.{}", host))
+    };
+
+    // Only makes sense for plain domains; skip IPs and localhost
+    if primary_host.parse::<std::net::IpAddr>().is_ok() || primary_host == "localhost" {
+        return None;
+    }
+
+    let mut alt_url = parsed.clone();
+    alt_url.set_host(Some(&alt_host)).ok()?;
+    let alternative = alt_url.as_str().to_string();
+    let primary = url.to_string();
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(8))
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent("Mozilla/5.0 (compatible; AuditMySite/1.0)")
+        .build()
+        .ok()?;
+
+    let response = match client.head(&alternative).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("www-redirect check failed for {}: {}", alternative, e);
+            return Some(WwwRedirectCheck {
+                primary,
+                alternative,
+                alternative_status: 0,
+                redirects_to_primary: false,
+                canonical_matches_primary: canonical_matches(&primary_host, canonical),
+            });
+        }
+    };
+
+    let status = response.status().as_u16();
+    let redirects_to_primary = if matches!(status, 301 | 302 | 307 | 308) {
+        response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .map(|loc| {
+                // Location may be absolute or relative; check if it resolves to primary host
+                if let Ok(loc_url) = url::Url::parse(loc) {
+                    loc_url.host_str() == Some(&primary_host)
+                } else {
+                    // relative redirect — stays on same host
+                    false
+                }
+            })
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
+    Some(WwwRedirectCheck {
+        primary,
+        alternative,
+        alternative_status: status,
+        redirects_to_primary,
+        canonical_matches_primary: canonical_matches(&primary_host, canonical),
+    })
+}
+
+/// Returns Some(true) if canonical points to primary_host, Some(false) if it points elsewhere,
+/// None if no canonical.
+fn canonical_matches(primary_host: &str, canonical: Option<&str>) -> Option<bool> {
+    let canon = canonical?;
+    let parsed = url::Url::parse(canon).ok()?;
+    Some(parsed.host_str() == Some(primary_host))
 }
 
 fn parse_string_array(value: &serde_json::Value) -> Vec<String> {

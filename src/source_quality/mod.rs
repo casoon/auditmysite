@@ -747,6 +747,8 @@ mod tests {
             dual_viewport: None,
             viewport_scores: None,
             throttled_performance: vec![],
+            patterns: None,
+            screenshot_status: Default::default(),
         }
     }
 

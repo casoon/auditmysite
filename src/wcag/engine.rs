@@ -8,18 +8,23 @@ use super::rules::{
     check_accessible_name, check_aria_allowed_attr, check_aria_naming_rules,
     check_aria_prohibited_attr, check_aria_relationships, check_aria_required_attr,
     check_aria_required_parent, check_aria_roles, check_bypass_blocks, check_dialog_rules,
-    check_focus_order, check_focus_visible, check_form_rules, check_headings,
-    check_image_input_rules, check_info_relationships, check_input_purpose, check_instructions,
-    check_keyboard, check_label_in_name, check_label_title_only, check_labels,
+    check_error_identification, check_focus_order, check_focus_visible, check_form_rules,
+    check_headings, check_image_input_rules, check_info_relationships, check_input_purpose,
+    check_instructions, check_keyboard, check_label_in_name, check_label_title_only, check_labels,
     check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_extended, check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
     check_landmark_unique, check_landmarks, check_language, check_language_extended,
     check_link_purpose, check_list_structure, check_media_rules, check_meta_viewport_large,
-    check_non_text_contrast, check_on_focus, check_on_input, check_page_titled, check_region,
-    check_resize_text, check_section_headings, check_server_side_image_map, check_summary_name,
-    check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
-    check_wcag22_rules, check_widget_rules,
+    check_non_text_contrast, check_on_focus, check_on_input, check_page_titled, check_parsing,
+    check_region, check_resize_text, check_section_headings, check_server_side_image_map,
+    check_status_messages, check_summary_name, check_svg_rules, check_table_extended,
+    check_table_rules, check_text_alternatives, check_wcag22_rules, check_widget_rules,
+};
+pub use super::rules::{
+    check_click_handlers_with_page, check_content_on_hover_with_page,
+    check_focus_visible_css_with_page, check_orientation_with_page, check_reduced_motion_with_page,
+    check_reflow_with_page, check_timing_with_page, check_use_of_color_with_page,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -153,6 +158,15 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
 
     // 3.3.2 Labels or Instructions (Level A)
     run_if_allowed!(filter, "label", check_instructions, results, tree);
+
+    // 3.3.1 Error Identification (Level A)
+    run_if_allowed!(
+        filter,
+        "aria-invalid-without-describedby",
+        check_error_identification,
+        results,
+        tree
+    );
 
     // 2.4.3 Focus Order (Level A)
     run_if_allowed!(
@@ -376,6 +390,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
         tree
     );
 
+    // 4.1.1 Parsing (Level A) — aria-owns duplicate target detection
+    run_if_allowed!(filter, "duplicate-id-aria", check_parsing, results, tree);
+
     // Best Practice / WCAG 2.2 (Level A subset)
     run_if_allowed!(filter, "empty-heading", check_wcag22_rules, results, tree);
 }
@@ -420,6 +437,15 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
 
     // 2.4.7 Focus Visible (Level AA)
     run_if_allowed!(filter, "focus-visible", check_focus_visible, results, tree);
+
+    // 4.1.3 Status Messages (Level AA)
+    run_if_allowed!(
+        filter,
+        "aria-live-region-role",
+        check_status_messages,
+        results,
+        tree
+    );
 
     // 2.4.1 / 1.3.6 Landmark Regions (Level AA)
     run_if_allowed!(filter, "landmark-one-main", check_landmarks, results, tree);

@@ -339,7 +339,53 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         module_details,
         actions,
         appendix: build_appendix_block_from_normalized(normalized),
+        positive_signals: build_positive_signals(&config.locale, normalized),
     }
+}
+
+/// Map recognized patterns from NormalizedReport into the ViewModel block.
+/// Translates pattern names into localized titles; the message stays as the
+/// description (already human-readable from the detector).
+fn build_positive_signals(
+    locale: &str,
+    normalized: &NormalizedReport,
+) -> crate::output::report_model::PositiveSignalsBlock {
+    use crate::output::report_model::{PositiveSignal, PositiveSignalsBlock};
+
+    let en = locale == "en";
+    let items = normalized
+        .raw_patterns
+        .as_ref()
+        .map(|p| {
+            p.recognized
+                .iter()
+                .map(|r| {
+                    let title = match (en, r.pattern.as_str()) {
+                        (true, "MainNavigation") => "Semantic main navigation",
+                        (false, "MainNavigation") => "Semantische Hauptnavigation",
+                        (true, "DisclosureMenu") => "Disclosure menu",
+                        (false, "DisclosureMenu") => "Disclosure-Menü",
+                        (true, "ModalDialog") => "Modal dialog",
+                        (false, "ModalDialog") => "Modaler Dialog",
+                        (true, "TabList") => "Tab list",
+                        (false, "TabList") => "Tab-Liste",
+                        (true, "SkipLink") => "Skip link",
+                        (false, "SkipLink") => "Skip-Link",
+                        (true, "Accordion") => "Accordion",
+                        (false, "Accordion") => "Accordion",
+                        (_, other) => other,
+                    };
+                    PositiveSignal {
+                        title: title.to_string(),
+                        description: r.message.clone(),
+                        strong: matches!(r.confidence, crate::patterns::PatternConfidence::Strong),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    PositiveSignalsBlock { items }
 }
 
 fn build_executive_narrative(

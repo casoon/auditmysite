@@ -38,6 +38,26 @@ pub struct PageScreenshots {
     pub mobile: Vec<u8>,
 }
 
+/// Why device-preview screenshots are or are not available in this report.
+/// Used by the PDF renderer to surface the right callout when screenshots
+/// are missing (failure reason vs. not-requested).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "state", content = "reason")]
+pub enum ScreenshotStatus {
+    /// Screenshots were captured successfully.
+    Captured,
+    /// Capture was attempted but failed; the string holds a short reason.
+    Failed(String),
+    /// Capture was not attempted for this audit (e.g. batch mode).
+    NotRequested,
+}
+
+impl Default for ScreenshotStatus {
+    fn default() -> Self {
+        Self::NotRequested
+    }
+}
+
 /// Raw audit data for a single viewport pass.
 /// Not serialized — kept in-memory for output builders.
 #[derive(Debug, Clone)]
@@ -142,6 +162,12 @@ pub struct AuditReport {
     /// Only populated for single-page audits when performance analysis is enabled.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub throttled_performance: Vec<ThrottledPerfResult>,
+    /// Structural UI pattern detection results (MainNavigation, SkipLink, etc).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patterns: Option<crate::patterns::PatternAnalysis>,
+    /// Device preview screenshot capture state (issue #26).
+    #[serde(default)]
+    pub screenshot_status: ScreenshotStatus,
 }
 
 /// Performance analysis results wrapper
@@ -198,12 +224,20 @@ impl AuditReport {
             dual_viewport: None,
             viewport_scores: None,
             throttled_performance: Vec::new(),
+            patterns: None,
+            screenshot_status: ScreenshotStatus::NotRequested,
         }
     }
 
     /// Set performance results
     pub fn with_performance(mut self, performance: PerformanceResults) -> Self {
         self.performance = Some(performance);
+        self
+    }
+
+    /// Attach pattern detection results.
+    pub fn with_patterns(mut self, patterns: crate::patterns::PatternAnalysis) -> Self {
+        self.patterns = Some(patterns);
         self
     }
 
@@ -320,6 +354,10 @@ pub struct BatchReport {
     /// Optional crawl/link diagnostics if the batch originated from crawler discovery
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crawl_diagnostics: Option<CrawlDiagnostics>,
+    /// Cross-page consistency analysis (issues #44/#45/#46). None when the
+    /// batch contains fewer than 2 pages.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub consistency: Option<crate::audit::batch_consistency::BatchConsistencyAnalysis>,
     /// Total execution time
     pub total_duration_ms: u64,
 }
@@ -435,7 +473,7 @@ impl BatchReport {
 
         let total_violations = reports.iter().map(|r| r.violation_count()).sum();
 
-        Self {
+        let mut result = Self {
             reports,
             errors,
             summary: BatchSummary {
@@ -446,8 +484,11 @@ impl BatchReport {
                 total_violations,
             },
             crawl_diagnostics: None,
+            consistency: None,
             total_duration_ms,
-        }
+        };
+        result.consistency = crate::audit::batch_consistency::analyze(&result);
+        result
     }
 
     pub fn with_crawl_diagnostics(mut self, diagnostics: CrawlDiagnostics) -> Self {

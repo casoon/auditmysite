@@ -85,6 +85,7 @@ pub mod i18n;
 pub mod journey;
 pub mod mobile;
 pub mod output;
+pub mod patterns;
 pub mod performance;
 pub mod security;
 pub mod seo;

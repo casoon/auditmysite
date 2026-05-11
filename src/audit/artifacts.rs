@@ -242,6 +242,8 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         dual_viewport: None,
         viewport_scores: None,
         throttled_performance: Vec::new(),
+        patterns: None,
+        screenshot_status: Default::default(),
     };
 
     if report.wcag_level != artifacts.audit.wcag_level {

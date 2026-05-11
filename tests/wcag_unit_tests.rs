@@ -6,12 +6,13 @@
 //! Run with:
 //!   cargo test --test wcag_unit_tests
 
-use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
+use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
-    check_aria_roles, check_headings, check_language, check_link_purpose, check_page_titled,
-    check_resize_text, check_text_alternatives, Color, ContrastRule,
+    check_aria_roles, check_focus_order, check_headings, check_info_relationships,
+    check_label_title_only, check_language, check_link_purpose, check_list_structure,
+    check_page_titled, check_resize_text, check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -674,5 +675,296 @@ fn test_engine_missing_lang_detected_at_level_a() {
     assert!(
         results.violations.iter().any(|v| v.rule == "3.1.1"),
         "Missing lang should produce a 3.1.1 violation"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 1.3.1 Info and Relationships — check_info_relationships (table structure)
+// ---------------------------------------------------------------------------
+
+fn table_node(id: &str, row_ids: Vec<&str>) -> AXNode {
+    node_with_children(id, "table", None, row_ids)
+}
+
+fn row_node(id: &str, parent: &str, cell_ids: Vec<&str>) -> AXNode {
+    let mut n = node_with_children(id, "row", None, cell_ids);
+    n.parent_id = Some(parent.to_string());
+    n
+}
+
+fn cell_node(id: &str, role: &str, parent: &str, name: Option<&str>) -> AXNode {
+    let mut n = node(id, role, name);
+    n.parent_id = Some(parent.to_string());
+    n
+}
+
+#[test]
+fn test_131_table_with_columnheaders_passes() {
+    let tree = AXTree::from_nodes(vec![
+        table_node("t", vec!["r1", "r2"]),
+        row_node("r1", "t", vec!["h1", "h2"]),
+        cell_node("h1", "columnheader", "r1", Some("Name")),
+        cell_node("h2", "columnheader", "r1", Some("Age")),
+        row_node("r2", "t", vec!["c1", "c2"]),
+        cell_node("c1", "cell", "r2", Some("Alice")),
+        cell_node("c2", "cell", "r2", Some("30")),
+    ]);
+    let results = check_info_relationships(&tree);
+    let table_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.message.contains("header") && v.node_id == "t")
+        .collect();
+    assert!(
+        table_violations.is_empty(),
+        "Table with column headers should not produce a header violation"
+    );
+}
+
+#[test]
+fn test_131_table_without_headers_flagged() {
+    let tree = AXTree::from_nodes(vec![
+        table_node("t", vec!["r1"]),
+        row_node("r1", "t", vec!["c1", "c2"]),
+        cell_node("c1", "cell", "r1", Some("Alice")),
+        cell_node("c2", "cell", "r1", Some("30")),
+    ]);
+    let results = check_info_relationships(&tree);
+    assert!(
+        results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("header")),
+        "Table with data cells but no headers should be flagged"
+    );
+}
+
+#[test]
+fn test_131_table_with_only_headers_no_violation() {
+    // A table consisting only of headers (no data cells) is OK
+    let tree = AXTree::from_nodes(vec![
+        table_node("t", vec!["r1"]),
+        row_node("r1", "t", vec!["h1", "h2"]),
+        cell_node("h1", "columnheader", "r1", Some("Name")),
+        cell_node("h2", "columnheader", "r1", Some("Score")),
+    ]);
+    let results = check_info_relationships(&tree);
+    let table_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.message.contains("header") && v.node_id == "t")
+        .collect();
+    assert!(
+        table_violations.is_empty(),
+        "Table with only header cells should not be flagged"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 1.3.1 Info and Relationships — check_list_structure
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_131_listitem_inside_list_passes() {
+    let list = node_with_children("list", "list", None, vec!["i1", "i2"]);
+    let mut i1 = node("i1", "listitem", Some("First"));
+    i1.parent_id = Some("list".to_string());
+    let mut i2 = node("i2", "listitem", Some("Second"));
+    i2.parent_id = Some("list".to_string());
+    let tree = AXTree::from_nodes(vec![list, i1, i2]);
+    let results = check_list_structure(&tree);
+    let orphan_violations: Vec<_> = results
+        .violations
+        .iter()
+        .filter(|v| v.message.contains("List item is not contained"))
+        .collect();
+    assert!(
+        orphan_violations.is_empty(),
+        "List items inside a list should not be flagged"
+    );
+}
+
+#[test]
+fn test_131_listitem_without_list_parent_flagged() {
+    // listitem with no parent_id → no list ancestor
+    let item = node("i1", "listitem", Some("Orphan item"));
+    let tree = AXTree::from_nodes(vec![item]);
+    let results = check_list_structure(&tree);
+    assert!(
+        results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("List item is not contained")),
+        "Listitem without a list parent should be flagged"
+    );
+}
+
+#[test]
+fn test_131_empty_list_flagged() {
+    // A list with no visible children
+    let list = node("list", "list", None); // no child_ids
+    let tree = AXTree::from_nodes(vec![list]);
+    let results = check_list_structure(&tree);
+    assert!(
+        results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("no list items")),
+        "Empty list should be flagged"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 2.4.3 Focus Order — check_focus_order
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_243_positive_tabindex_flagged() {
+    let mut n = node("1", "link", Some("Home"));
+    n.properties.push(AXProperty {
+        name: "tabindex".to_string(),
+        value: AXValue::Int(5),
+    });
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_focus_order(&tree);
+    assert!(
+        results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("tabindex=5")),
+        "Positive tabindex should be flagged"
+    );
+}
+
+#[test]
+fn test_243_zero_tabindex_passes() {
+    let mut n = node("1", "link", Some("Home"));
+    n.properties.push(AXProperty {
+        name: "tabindex".to_string(),
+        value: AXValue::Int(0),
+    });
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_focus_order(&tree);
+    assert_eq!(
+        results.violations.len(),
+        0,
+        "tabindex=0 should not produce focus-order violations"
+    );
+}
+
+#[test]
+fn test_243_negative_tabindex_passes() {
+    let mut n = node("1", "link", Some("Home"));
+    n.properties.push(AXProperty {
+        name: "tabindex".to_string(),
+        value: AXValue::Int(-1),
+    });
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_focus_order(&tree);
+    assert_eq!(
+        results.violations.len(),
+        0,
+        "tabindex=-1 should not produce focus-order violations"
+    );
+}
+
+#[test]
+fn test_243_focusable_in_aria_hidden_flagged() {
+    let mut n = node("1", "button", Some("Hidden button"));
+    n.properties.push(AXProperty {
+        name: "aria-hidden".to_string(),
+        value: AXValue::String("true".to_string()),
+    });
+    n.properties.push(AXProperty {
+        name: "focusable".to_string(),
+        value: AXValue::Bool(true),
+    });
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_focus_order(&tree);
+    assert!(
+        results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("aria-hidden")),
+        "Focusable element inside aria-hidden should be flagged"
+    );
+}
+
+#[test]
+fn test_243_clean_interactive_tree_passes() {
+    let tree = AXTree::from_nodes(vec![
+        node("1", "link", Some("Home")),
+        node("2", "button", Some("Submit")),
+        node("3", "link", Some("About")),
+    ]);
+    let results = check_focus_order(&tree);
+    assert_eq!(
+        results.violations.len(),
+        0,
+        "Clean interactive tree should have no focus-order violations"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 1.3.1 Label Title Only — check_label_title_only
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_131_title_only_source_flagged() {
+    let mut n = node("1", "textbox", Some("Search"));
+    n.name_source = Some(NameSource::Title);
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_label_title_only(&tree);
+    assert!(
+        !results.violations.is_empty(),
+        "Input with title-only accessible name should be flagged"
+    );
+    assert_eq!(results.violations[0].rule, "1.3.1");
+}
+
+#[test]
+fn test_131_attribute_source_passes() {
+    let mut n = node("1", "textbox", Some("Search"));
+    n.name_source = Some(NameSource::Attribute); // aria-label
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_label_title_only(&tree);
+    assert!(
+        results.violations.is_empty(),
+        "Input with aria-label source should not be flagged"
+    );
+}
+
+#[test]
+fn test_131_title_heuristic_flagged() {
+    // No name_source but title property matches accessible name and no aria-label
+    let mut n = node("1", "textbox", Some("Enter email"));
+    n.properties.push(AXProperty {
+        name: "title".to_string(),
+        value: AXValue::String("Enter email".to_string()),
+    });
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_label_title_only(&tree);
+    assert!(
+        !results.violations.is_empty(),
+        "Input whose name matches its title attribute (no aria-label) should be flagged"
+    );
+}
+
+#[test]
+fn test_131_title_heuristic_with_aria_label_passes() {
+    let mut n = node("1", "textbox", Some("Enter email"));
+    n.properties.push(AXProperty {
+        name: "title".to_string(),
+        value: AXValue::String("Enter email".to_string()),
+    });
+    n.properties.push(AXProperty {
+        name: "aria-label".to_string(),
+        value: AXValue::String("Enter email".to_string()),
+    });
+    let tree = AXTree::from_nodes(vec![n]);
+    let results = check_label_title_only(&tree);
+    assert!(
+        results.violations.is_empty(),
+        "Input with aria-label in addition to title should not be flagged"
     );
 }

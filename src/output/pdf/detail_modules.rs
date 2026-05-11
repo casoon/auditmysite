@@ -1340,6 +1340,14 @@ pub(super) fn render_source_quality(
             .with_thresholds(70, 50),
         );
 
+    if sq.score >= 80 {
+        return builder.add_component(Callout::success(if is_en(i18n) {
+            "All source quality signals look good. No critical issues detected."
+        } else {
+            "Alle Quellenqualitäts-Signale sind in Ordnung. Keine kritischen Probleme erkannt."
+        }));
+    }
+
     for dim in [&sq.substance, &sq.consistency, &sq.authority] {
         builder = builder.add_component(Section::new(&dim.name).with_level(3));
 
@@ -1412,6 +1420,14 @@ pub(super) fn render_ai_visibility(
             })
             .with_thresholds(70, 50),
         );
+
+    if av.score >= 80 {
+        return builder.add_component(Callout::success(if is_en(i18n) {
+            "All AI visibility signals look good. No optimization required."
+        } else {
+            "Alle KI-Sichtbarkeits-Signale sind in Ordnung. Kein Optimierungsbedarf."
+        }));
+    }
 
     // Render each dimension
     for (dim, title) in [

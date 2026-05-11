@@ -140,8 +140,32 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     .add_component(DevicePreview::new(desktop_key, mobile_key));
             }
         } else {
+            // Differentiate between explicit failure and not-requested (issue #26).
             let title = i18n.t("section-device-preview");
-            let body = i18n.t("section-device-preview-no-screenshots");
+            let en = i18n.locale() == "en";
+            let body = match &report.screenshot_status {
+                crate::audit::ScreenshotStatus::Failed(reason) => {
+                    if en {
+                        format!("Screenshots could not be captured: {reason}.")
+                    } else {
+                        format!("Screenshots konnten nicht erstellt werden: {reason}.")
+                    }
+                }
+                crate::audit::ScreenshotStatus::NotRequested => {
+                    if en {
+                        "Screenshots were not captured for this audit (batch mode or screenshot capture disabled)."
+                            .to_string()
+                    } else {
+                        "Screenshots wurden für dieses Audit nicht erfasst (Batch-Modus oder Screenshot-Erfassung deaktiviert)."
+                            .to_string()
+                    }
+                }
+                crate::audit::ScreenshotStatus::Captured => {
+                    // Status says captured but page_screenshots is None — shouldn't happen
+                    // but fall back to the generic message.
+                    i18n.t("section-device-preview-no-screenshots")
+                }
+            };
             builder = builder.add_component(Callout::info(&body).with_title(&title));
         }
     }
@@ -313,6 +337,28 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             builder = builder
                 .add_component(ChecklistPanel::new(rows).with_title(i18n.t("panel-strengths")));
         }
+
+        // Recognized structural patterns (issue #38). Skip in Executive to keep
+        // that report compact; only show if at least one pattern was detected.
+        if vm.meta.report_level != ReportLevel::Executive && !vm.positive_signals.is_empty() {
+            let title = if vm.meta.report_level == ReportLevel::Standard && i18n.locale() == "en" {
+                "Recognized patterns"
+            } else if i18n.locale() == "en" {
+                "Recognized structural patterns"
+            } else {
+                "Erkannte strukturelle Patterns"
+            };
+            let rows: Vec<ChecklistRow> = vm
+                .positive_signals
+                .items
+                .iter()
+                .map(|signal| {
+                    ChecklistRow::new(&signal.title, &signal.description)
+                        .with_status(if signal.strong { "good" } else { "warning" })
+                })
+                .collect();
+            builder = builder.add_component(ChecklistPanel::new(rows).with_title(title));
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -453,6 +499,35 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             .with_level(1),
         );
 
+        // "Jetzt starten" — top 1-3 highest-priority actions
+        let top_actions: Vec<&RoadmapItemData> = vm
+            .actions
+            .roadmap_columns
+            .first()
+            .map(|col| col.items.iter().take(3).collect())
+            .unwrap_or_default();
+
+        if !top_actions.is_empty() {
+            let body = top_actions
+                .iter()
+                .enumerate()
+                .map(|(i, item)| {
+                    if item.user_effect.is_empty() {
+                        format!("{}. {}", i + 1, item.action)
+                    } else {
+                        format!("{}. {} — {}", i + 1, item.action, item.user_effect)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            let title = if i18n.locale() == "en" {
+                "Start here — highest leverage"
+            } else {
+                "Jetzt starten — höchste Hebelwirkung"
+            };
+            builder = builder.add_component(Callout::warning(&body).with_title(title));
+        }
+
         // Empfohlene Vorgehensweise
         builder = builder.add_component(
             Callout::info(&vm.executive.action_plan_callout_body)
@@ -558,6 +633,21 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         for group in &vm.findings.all_findings {
             builder = render_finding_technical(builder, group, &i18n);
         }
+    }
+
+    // ── WCAG Coverage (issue #37) ──────────────────────────────────
+    // Show how many WCAG criteria are automatically testable vs. require
+    // manual review. Sets honest expectations about audit scope.
+    if vm.meta.report_level != ReportLevel::Executive {
+        builder = render_wcag_coverage_section(builder, &i18n);
+    }
+
+    // ── Manual Review Recommendations (issue #47) ──────────────────
+    // Some WCAG criteria require behavioral testing that automated tools
+    // cannot perform. Surface them transparently so users understand the
+    // scope of automated coverage.
+    if vm.meta.report_level != ReportLevel::Executive {
+        builder = render_manual_review_section(builder, &i18n);
     }
 
     // ── Module Detail Metrics ───────────────────────────────────────
@@ -672,6 +762,149 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
 
     Ok(pdf_bytes)
+}
+
+/// Render a WCAG coverage section (issue #37).
+///
+/// Lists the criteria this tool automatically checks, plus the criteria
+/// that fundamentally require manual review. Communicates audit scope
+/// transparently so users avoid a false sense of security.
+fn render_wcag_coverage_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    use crate::wcag::coverage::{coverage_stats, AUTOMATED_CRITERIA, MANUAL_REVIEW_CRITERIA};
+
+    let en = i18n.locale() == "en";
+    let (automated, total) = coverage_stats();
+    let title = if en { "Audit scope" } else { "Prüfumfang" };
+    let intro = if en {
+        format!(
+            "This audit covers {automated} of ~{total} testable WCAG 2.1 AA criteria automatically. The criteria listed below require manual review."
+        )
+    } else {
+        format!(
+            "Dieses Audit prüft {automated} von ca. {total} WCAG-2.1-AA-Kriterien automatisch. Die unten aufgeführten Kriterien benötigen manuelle Prüfung."
+        )
+    };
+
+    builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
+
+    let automated_title = if en {
+        format!("Automatically checked ({})", automated)
+    } else {
+        format!("Automatisch geprüft ({})", automated)
+    };
+    let automated_rows: Vec<ChecklistRow> = AUTOMATED_CRITERIA
+        .iter()
+        .map(|(c, l)| {
+            ChecklistRow::new(format!("WCAG {} (Level {})", c, l), "").with_status("good")
+        })
+        .collect();
+    builder =
+        builder.add_component(ChecklistPanel::new(automated_rows).with_title(&automated_title));
+
+    let manual_title = if en {
+        format!("Requires manual review ({})", MANUAL_REVIEW_CRITERIA.len())
+    } else {
+        format!(
+            "Manuelle Prüfung erforderlich ({})",
+            MANUAL_REVIEW_CRITERIA.len()
+        )
+    };
+    let manual_rows: Vec<ChecklistRow> = MANUAL_REVIEW_CRITERIA
+        .iter()
+        .map(|(c, l, name)| {
+            ChecklistRow::new(format!("WCAG {} (Level {})", c, l), *name).with_status("info")
+        })
+        .collect();
+    builder.add_component(ChecklistPanel::new(manual_rows).with_title(&manual_title))
+}
+
+/// Render a static "Manual review recommended" section (issue #47).
+///
+/// Lists WCAG criteria that automated tools cannot reliably verify and
+/// require behavioral testing — keyboard traversal, screen reader use,
+/// 400% zoom, reduced-motion settings, modal interaction. Rendered as a
+/// ChecklistPanel with `info` status (not violations).
+fn render_manual_review_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let title = if en {
+        "Manual review recommended"
+    } else {
+        "Empfohlene manuelle Tests"
+    };
+    let intro = if en {
+        "These criteria cannot be reliably verified by automated tools and require behavioral testing."
+    } else {
+        "Diese Kriterien lassen sich nicht automatisiert prüfen und benötigen einen Verhaltenstest."
+    };
+
+    let items: &[(&str, &str)] = if en {
+        &[
+            (
+                "Keyboard navigation",
+                "Tab through the entire page. No focus loss, no keyboard trap, every interactive element reachable.",
+            ),
+            (
+                "Screen reader",
+                "Test with NVDA/JAWS (Windows) or VoiceOver (Mac/iOS) — landmark navigation and form interaction.",
+            ),
+            (
+                "400% zoom",
+                "At 400% browser zoom: page operable without horizontal scrolling, no content lost.",
+            ),
+            (
+                "Reduced motion",
+                "Enable the OS 'reduce motion' setting and verify animations are disabled or significantly diminished.",
+            ),
+            (
+                "Modal / dropdown interaction",
+                "Full keyboard interaction: Tab, Enter, Space, Escape, Arrow keys. Focus returns to the trigger on close.",
+            ),
+            (
+                "Color blindness simulation",
+                "Use a tool like 'Color Oracle' to verify information is conveyed by more than color alone.",
+            ),
+        ]
+    } else {
+        &[
+            (
+                "Tastaturnavigation",
+                "Komplette Seite per Tab navigieren. Kein Fokus verloren, kein Keyboard-Trap, jedes interaktive Element erreichbar.",
+            ),
+            (
+                "Screenreader",
+                "Test mit NVDA/JAWS (Windows) oder VoiceOver (Mac/iOS) — Landmark-Navigation und Formular-Interaktion.",
+            ),
+            (
+                "400% Zoom",
+                "Bei 400% Browser-Zoom: Seite ohne horizontales Scrollen bedienbar, kein Inhalt verloren.",
+            ),
+            (
+                "Reduced Motion",
+                "Betriebssystem-Einstellung „Bewegung reduzieren\" aktivieren und prüfen, ob Animationen deaktiviert oder reduziert werden.",
+            ),
+            (
+                "Modal- / Dropdown-Interaktion",
+                "Vollständige Tastaturbedienung: Tab, Enter, Space, Escape, Pfeiltasten. Fokus kehrt nach Schließen zum Trigger zurück.",
+            ),
+            (
+                "Farbenblindheit",
+                "Mit einem Werkzeug wie „Color Oracle\" prüfen, ob Informationen nicht ausschließlich über Farbe vermittelt werden.",
+            ),
+        ]
+    };
+
+    builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
+    let rows: Vec<ChecklistRow> = items
+        .iter()
+        .map(|(t, d)| ChecklistRow::new(*t, *d).with_status("info"))
+        .collect();
+    builder.add_component(ChecklistPanel::new(rows).with_title(title))
 }
 
 fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {
@@ -1265,6 +1498,127 @@ fn render_batch_action_plan_enhanced(
         i18n,
     );
     builder
+}
+
+/// Render cross-page consistency analysis (issues #44/#45/#46).
+/// Shows navigation, heading, and canonical consistency stats with any
+/// findings as warning rows.
+fn render_batch_consistency(
+    mut builder: renderreport::engine::ReportBuilder,
+    consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let title = if en {
+        "Cross-page consistency"
+    } else {
+        "Seitenübergreifende Konsistenz"
+    };
+    let intro = if en {
+        "Checks that shared structural elements (navigation, headings, canonical URLs) are consistent across all audited pages. WCAG 3.2.3 / 3.2.4."
+    } else {
+        "Prüft, ob geteilte strukturelle Elemente (Navigation, Überschriften, Canonical-URLs) auf allen geprüften Seiten konsistent sind. WCAG 3.2.3 / 3.2.4."
+    };
+    builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
+
+    let nav = &consistency.navigation;
+    let nav_title = if en {
+        format!(
+            "Navigation ({}/{} with main nav, {}/{} with skip link)",
+            nav.pages_with_main_nav, nav.total_pages, nav.pages_with_skip_link, nav.total_pages
+        )
+    } else {
+        format!(
+            "Navigation ({}/{} mit Hauptnav, {}/{} mit Skip-Link)",
+            nav.pages_with_main_nav, nav.total_pages, nav.pages_with_skip_link, nav.total_pages
+        )
+    };
+    let nav_rows: Vec<ChecklistRow> = if nav.findings.is_empty() {
+        vec![ChecklistRow::new(
+            if en { "Consistent" } else { "Konsistent" },
+            if en {
+                "No navigation inconsistencies detected."
+            } else {
+                "Keine Navigation-Inkonsistenzen erkannt."
+            },
+        )
+        .with_status("good")]
+    } else {
+        nav.findings
+            .iter()
+            .map(|f| {
+                ChecklistRow::new(if en { "Issue" } else { "Befund" }, f.as_str())
+                    .with_status("warn")
+            })
+            .collect()
+    };
+    builder = builder.add_component(ChecklistPanel::new(nav_rows).with_title(&nav_title));
+
+    let h = &consistency.headings;
+    let head_title = if en {
+        format!(
+            "Headings ({}/{} with single H1, {} missing, {} multiple)",
+            h.pages_with_single_h1, h.total_pages, h.pages_with_no_h1, h.pages_with_multiple_h1
+        )
+    } else {
+        format!(
+            "Überschriften ({}/{} mit einem H1, {} ohne H1, {} mit mehreren)",
+            h.pages_with_single_h1, h.total_pages, h.pages_with_no_h1, h.pages_with_multiple_h1
+        )
+    };
+    let head_rows: Vec<ChecklistRow> = if h.findings.is_empty() {
+        vec![ChecklistRow::new(
+            if en { "Consistent" } else { "Konsistent" },
+            if en {
+                "Every page starts with exactly one H1."
+            } else {
+                "Jede Seite beginnt mit genau einem H1."
+            },
+        )
+        .with_status("good")]
+    } else {
+        h.findings
+            .iter()
+            .map(|f| {
+                ChecklistRow::new(if en { "Issue" } else { "Befund" }, f.as_str())
+                    .with_status("warn")
+            })
+            .collect()
+    };
+    builder = builder.add_component(ChecklistPanel::new(head_rows).with_title(&head_title));
+
+    let c = &consistency.canonical;
+    let canon_title = if en {
+        format!(
+            "Canonical URLs (www: {}, non-www: {}, missing: {} of {})",
+            c.www_count, c.non_www_count, c.missing_count, c.total_pages
+        )
+    } else {
+        format!(
+            "Canonical-URLs (www: {}, ohne www: {}, fehlend: {} von {})",
+            c.www_count, c.non_www_count, c.missing_count, c.total_pages
+        )
+    };
+    let canon_rows: Vec<ChecklistRow> = if c.findings.is_empty() {
+        vec![ChecklistRow::new(
+            if en { "Consistent" } else { "Konsistent" },
+            if en {
+                "All pages canonicalize to the same domain variant."
+            } else {
+                "Alle Seiten kanonisieren auf dieselbe Domain-Variante."
+            },
+        )
+        .with_status("good")]
+    } else {
+        c.findings
+            .iter()
+            .map(|f| {
+                ChecklistRow::new(if en { "Issue" } else { "Befund" }, f.as_str())
+                    .with_status("warn")
+            })
+            .collect()
+    };
+    builder.add_component(ChecklistPanel::new(canon_rows).with_title(&canon_title))
 }
 
 /// Closing section for batch report
@@ -2293,6 +2647,11 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         builder = builder.add_component(strengths);
     }
 
+    // ── Cross-page consistency (issues #44/#45/#46) ─────────────────
+    if let Some(ref consistency) = batch.consistency {
+        builder = render_batch_consistency(builder, consistency, &i18n);
+    }
+
     // ── Empfohlene nächste Schritte ───────────────────────────────
     builder = render_next_steps_batch(builder, &pres, &i18n);
 
@@ -2791,6 +3150,117 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_pdf_technical_contains_violation_criteria() {
+        // Every WCAG criterion from the input must appear as text in the rendered PDF.
+        // This catches silent information loss between builder and renderer.
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let report = pdf_fixture_report_rich();
+        let criteria = [
+            "1.4.3", "1.1.1", "4.1.2", "2.4.4", "1.3.1", "2.4.1", "2.4.6", "3.1.1",
+        ];
+        let config = ReportConfig {
+            level: ReportLevel::Technical,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("criteria-check.pdf");
+        let txt_path = temp_dir.path().join("criteria-check.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read extracted text");
+
+        for criterion in criteria {
+            assert!(
+                text.contains(criterion),
+                "Criterion {criterion} missing from PDF text — information lost in renderer"
+            );
+        }
+    }
+
+    #[test]
+    fn test_pdf_renders_positive_signals_from_patterns() {
+        // When the report carries recognized patterns, the PDF text should
+        // include a localized pattern title (e.g. "Skip-Link").
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let mut report = pdf_fixture_report_rich();
+        report.patterns = Some(crate::patterns::PatternAnalysis {
+            recognized: vec![crate::patterns::RecognizedPattern {
+                pattern: "SkipLink".to_string(),
+                message: "Skip link recognized and correctly positioned.".to_string(),
+                confidence: crate::patterns::PatternConfidence::Strong,
+            }],
+            violations: vec![],
+        });
+
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("patterns-check.pdf");
+        let txt_path = temp_dir.path().join("patterns-check.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read text");
+
+        assert!(
+            text.contains("Skip-Link"),
+            "Expected localized pattern title 'Skip-Link' in PDF text"
+        );
+    }
+
+    #[test]
+    fn test_pdf_score_present_in_extracted_text() {
+        // The overall score computed by normalize() must appear as a number in the rendered PDF.
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let report = pdf_fixture_report_rich();
+        let normalized = crate::audit::normalize(&report);
+        let expected_score = normalized.score.to_string();
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("score-check.pdf");
+        let txt_path = temp_dir.path().join("score-check.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read extracted text");
+
+        assert!(
+            text.contains(&expected_score),
+            "Score {expected_score} missing from PDF text — score not rendered on page"
+        );
+    }
+
     fn assert_pdf_smoke(pdf: &[u8], min_size: usize) {
         assert!(pdf.starts_with(b"%PDF-"), "PDF header missing");
         assert!(
@@ -2940,6 +3410,144 @@ mod tests {
             i += 1;
         }
         count
+    }
+
+    /// Count PDF `/Annot` entries — proxy for callout boxes / links.
+    fn count_pdf_annotations(pdf: &[u8]) -> usize {
+        let doc = match lopdf::Document::load_mem(pdf) {
+            Ok(d) => d,
+            Err(_) => return 0,
+        };
+        doc.objects
+            .values()
+            .filter(|o| {
+                if let Ok(d) = o.as_dict() {
+                    return d
+                        .get(b"Type")
+                        .ok()
+                        .and_then(|v| v.as_name().ok())
+                        .map(|n| n == b"Annot")
+                        .unwrap_or(false);
+                }
+                false
+            })
+            .count()
+    }
+
+    /// Read PDF outline (bookmark) titles in tree order. Empty when there
+    /// is no outline.
+    fn pdf_outline_titles(pdf: &[u8]) -> Vec<String> {
+        let doc = match lopdf::Document::load_mem(pdf) {
+            Ok(d) => d,
+            Err(_) => return vec![],
+        };
+        let mut titles = Vec::new();
+        let catalog = match doc.catalog() {
+            Ok(c) => c,
+            Err(_) => return titles,
+        };
+        let outlines_ref = match catalog.get(b"Outlines") {
+            Ok(v) => v,
+            Err(_) => return titles,
+        };
+        let outlines_id = match outlines_ref.as_reference() {
+            Ok(id) => id,
+            Err(_) => return titles,
+        };
+        let outlines = match doc.get_dictionary(outlines_id) {
+            Ok(d) => d,
+            Err(_) => return titles,
+        };
+        let mut current = outlines
+            .get(b"First")
+            .ok()
+            .and_then(|v| v.as_reference().ok());
+        while let Some(id) = current {
+            let dict = match doc.get_dictionary(id) {
+                Ok(d) => d,
+                Err(_) => break,
+            };
+            if let Ok(title) = dict.get(b"Title").and_then(|v| v.as_str()) {
+                titles.push(String::from_utf8_lossy(title).trim().to_string());
+            }
+            current = dict.get(b"Next").ok().and_then(|v| v.as_reference().ok());
+        }
+        titles
+    }
+
+    #[test]
+    fn test_standard_pdf_larger_than_executive() {
+        let report = pdf_fixture_report_rich();
+        let exec_pdf = generate_pdf(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Executive,
+                ..ReportConfig::default()
+            },
+        )
+        .expect("executive PDF should render");
+        let std_pdf = generate_pdf(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Standard,
+                ..ReportConfig::default()
+            },
+        )
+        .expect("standard PDF should render");
+        assert!(
+            std_pdf.len() > exec_pdf.len(),
+            "Standard PDF ({} bytes) should be larger than Executive ({} bytes)",
+            std_pdf.len(),
+            exec_pdf.len()
+        );
+    }
+
+    #[test]
+    fn test_batch_pdf_page_count_reasonable() {
+        let batch = BatchReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://example.com"),
+                pdf_fixture_report_for_url("https://example.com/about"),
+            ],
+            vec![],
+            2_400,
+        );
+        let pdf = generate_batch_pdf(&batch, &ReportConfig::default()).expect("batch PDF");
+        let pages = count_pdf_pages(&pdf);
+        assert!(
+            pages >= 3,
+            "Batch PDF must have at least 3 pages, got {}",
+            pages
+        );
+    }
+
+    #[test]
+    fn test_comparison_pdf_renders_without_panic() {
+        let comparison = ComparisonReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://alpha.example.com"),
+                pdf_fixture_report_for_url("https://beta.example.com"),
+            ],
+            2_400,
+        );
+        let pdf = generate_comparison_pdf(&comparison, &ReportConfig::default())
+            .expect("comparison PDF should render");
+        assert!(!pdf.is_empty(), "comparison PDF should not be empty");
+    }
+
+    #[test]
+    fn test_pdf_has_annotations() {
+        // Renderreport emits annotations for some interactive constructs
+        // (links, etc.). This is a smoke check that lopdf can parse the PDF
+        // and the structural pipeline is intact.
+        let report = pdf_fixture_report_rich();
+        let pdf = generate_pdf(&report, &ReportConfig::default()).expect("standard PDF");
+        let _ = count_pdf_annotations(&pdf); // result not asserted; counts may be 0
+        let _ = pdf_outline_titles(&pdf);
+        assert!(
+            lopdf::Document::load_mem(&pdf).is_ok(),
+            "PDF must parse via lopdf"
+        );
     }
 
     #[test]

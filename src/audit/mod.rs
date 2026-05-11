@@ -5,6 +5,7 @@
 pub mod artifacts;
 pub mod baseline;
 mod batch;
+pub mod batch_consistency;
 pub mod budget;
 pub mod comparison;
 mod crawl;
@@ -33,6 +34,6 @@ pub use normalized::{normalize, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
-    CrawlDiagnostics, PerformanceResults, RedirectChain,
+    CrawlDiagnostics, PerformanceResults, RedirectChain, ScreenshotStatus,
 };
 pub use scoring::{AccessibilityScorer, ViolationStatistics};

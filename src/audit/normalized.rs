@@ -80,6 +80,8 @@ pub struct NormalizedReport {
     pub raw_ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
     #[serde(skip)]
     pub raw_wcag: WcagResults,
+    #[serde(skip)]
+    pub raw_patterns: Option<crate::patterns::PatternAnalysis>,
 }
 
 /// Einheitliche Severity-Zähler
@@ -664,6 +666,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_source_quality: report.source_quality.clone(),
         raw_ai_visibility: report.ai_visibility.clone(),
         raw_wcag: report.wcag_results.clone(),
+        raw_patterns: report.patterns.clone(),
     }
 }
 

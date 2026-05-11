@@ -82,6 +82,28 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
             results.add_violation(violation);
         }
 
+        // Check for interactive ARIA role on non-focusable element (issue #34)
+        if has_interactive_role_but_not_focusable(node) {
+            let role = node.role.as_deref().unwrap_or("interactive");
+            let violation = Violation::new(
+                KEYBOARD_RULE.id,
+                KEYBOARD_RULE.name,
+                KEYBOARD_RULE.level,
+                Severity::High,
+                format!(
+                    "Element has role=\"{role}\" but is not keyboard-focusable (missing tabindex on non-native element)"
+                ),
+                &node.node_id,
+            )
+            .with_role(node.role.clone())
+            .with_name(node.name.clone())
+            .with_fix(
+                "Add tabindex=\"0\" to make the element focusable, or replace with the native HTML element (e.g. <button>, <a>).",
+            )
+            .with_help_url(KEYBOARD_RULE.help_url);
+            results.add_violation(violation);
+        }
+
         // Check for potential keyboard traps (modal dialogs)
         if is_potential_keyboard_trap(node) {
             let violation = Violation::new(
@@ -128,6 +150,39 @@ fn is_focusable_without_interactive_role(node: &crate::accessibility::AXNode) ->
             .as_deref()
             .map(|r| non_interactive_roles.contains(&r.to_lowercase().as_str()))
             .unwrap_or(true)
+}
+
+/// Check if element has an interactive ARIA role but is not focusable.
+/// Catches `<div role="button">` without `tabindex` — keyboard-unreachable widgets.
+/// Native interactive elements (`<button>`, `<a>`, `<input>`) are auto-focusable
+/// even without tabindex, so this only flags ARIA-roled non-native elements.
+fn has_interactive_role_but_not_focusable(node: &crate::accessibility::AXNode) -> bool {
+    let role = match node.role.as_deref() {
+        Some(r) => r.to_lowercase(),
+        None => return false,
+    };
+
+    let interactive_roles = [
+        "button",
+        "link",
+        "checkbox",
+        "radio",
+        "switch",
+        "menuitem",
+        "menuitemcheckbox",
+        "menuitemradio",
+        "tab",
+        "option",
+        "treeitem",
+    ];
+    if !interactive_roles.contains(&role.as_str()) {
+        return false;
+    }
+
+    // Native interactive elements are focusable=true automatically.
+    // Only flag when role is interactive but element is not focusable.
+    let is_focusable = node.get_property_bool("focusable").unwrap_or(false);
+    !is_focusable
 }
 
 /// Check for potential keyboard traps
@@ -201,5 +256,55 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("Positive tabindex")));
+    }
+
+    fn create_node_with_focusable(id: &str, role: &str, focusable: bool) -> AXNode {
+        let mut node = create_test_node(id, role, None);
+        node.properties.push(AXProperty {
+            name: "focusable".to_string(),
+            value: AXValue::Bool(focusable),
+        });
+        node
+    }
+
+    #[test]
+    fn test_role_button_without_focusable_flagged() {
+        // <div role="button"> without tabindex → focusable=false → violation
+        let tree = AXTree::from_nodes(vec![create_node_with_focusable("1", "button", false)]);
+        let results = check_keyboard(&tree);
+        assert!(
+            results
+                .violations
+                .iter()
+                .any(|v| v.message.contains("not keyboard-focusable")),
+            "Expected violation for role=button without focusable; got: {:?}",
+            results
+                .violations
+                .iter()
+                .map(|v| &v.message)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_native_button_with_focusable_passes() {
+        // Native <button> is focusable=true → no violation
+        let tree = AXTree::from_nodes(vec![create_node_with_focusable("1", "button", true)]);
+        let results = check_keyboard(&tree);
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("not keyboard-focusable")));
+    }
+
+    #[test]
+    fn test_non_interactive_role_not_flagged() {
+        // role="generic" without focusable is not a #34 violation (different rule covers that)
+        let tree = AXTree::from_nodes(vec![create_node_with_focusable("1", "generic", false)]);
+        let results = check_keyboard(&tree);
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("not keyboard-focusable")));
     }
 }

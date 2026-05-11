@@ -159,11 +159,15 @@ pub async fn run_single_audit(
         match capture_page_screenshots(&page).await {
             Ok(shots) => {
                 report.page_screenshots = Some(shots);
+                report.screenshot_status = crate::audit::ScreenshotStatus::Captured;
             }
             Err(e) => {
                 warn!("Screenshot capture failed (continuing without): {}", e);
+                report.screenshot_status = crate::audit::ScreenshotStatus::Failed(e.to_string());
             }
         }
+    } else {
+        report.screenshot_status = crate::audit::ScreenshotStatus::NotRequested;
     }
 
     let duration = start_time.elapsed();
@@ -240,7 +244,19 @@ pub async fn audit_page(
         ..config.clone()
     };
     let mobile_snap = extract_snapshot(page, url, &mobile_config).await?;
-    let mobile_wcag = run_rules(page, &mobile_snap, config).await;
+    let mut mobile_wcag = run_rules(page, &mobile_snap, config).await;
+
+    // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile
+    if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
+        info!("Running reflow check at 320 CSS px...");
+        let reflow_violations = wcag::check_reflow_with_page(page).await;
+        if !reflow_violations.is_empty() {
+            info!("Found reflow violation at 320px");
+        }
+        mobile_wcag.violations.extend(reflow_violations);
+        // check_reflow_with_page leaves the viewport at 320px — restore mobile
+        let _ = set_viewport(page, Viewport::Mobile).await;
+    }
 
     // ── Merge ─────────────────────────────────────────────────────────────────
     let merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
@@ -628,6 +644,30 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
         }
     }
 
+    // 2.1.1 Keyboard — onclick on non-interactive tags without keyboard equivalent (Level A)
+    let click_handler_violations = wcag::check_click_handlers_with_page(page).await;
+    if !click_handler_violations.is_empty() {
+        info!(
+            "Found {} inline click-handler violations",
+            click_handler_violations.len()
+        );
+    }
+    wcag_results.violations.extend(click_handler_violations);
+
+    // 2.2.1 Timing Adjustable — <meta http-equiv="refresh"> (Level A)
+    let timing_violations = wcag::check_timing_with_page(page).await;
+    if !timing_violations.is_empty() {
+        info!("Found {} meta-refresh violations", timing_violations.len());
+    }
+    wcag_results.violations.extend(timing_violations);
+
+    // 1.4.1 Use of Color — inline links distinguishable by color alone (Level A)
+    let color_violations = wcag::check_use_of_color_with_page(page).await;
+    if !color_violations.is_empty() {
+        info!("Found {} use-of-color violations", color_violations.len());
+    }
+    wcag_results.violations.extend(color_violations);
+
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running contrast check with CDP...");
         let contrast_violations =
@@ -635,6 +675,46 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
                 .await;
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.violations.extend(contrast_violations);
+
+        // 1.3.4 Orientation — CSS inspection, no viewport change
+        let orientation_violations = wcag::check_orientation_with_page(page).await;
+        if !orientation_violations.is_empty() {
+            info!(
+                "Found {} orientation violations",
+                orientation_violations.len()
+            );
+        }
+        wcag_results.violations.extend(orientation_violations);
+
+        // 2.4.7 Focus Visible — CSS-level :focus { outline: none } detection
+        let focus_css_violations = wcag::check_focus_visible_css_with_page(page).await;
+        if !focus_css_violations.is_empty() {
+            info!(
+                "Found {} CSS focus-suppression violations",
+                focus_css_violations.len()
+            );
+        }
+        wcag_results.violations.extend(focus_css_violations);
+
+        // 2.3.3 prefers-reduced-motion — animations without reduced-motion handling
+        let reduced_motion_violations = wcag::check_reduced_motion_with_page(page).await;
+        if !reduced_motion_violations.is_empty() {
+            info!(
+                "Found {} reduced-motion violations",
+                reduced_motion_violations.len()
+            );
+        }
+        wcag_results.violations.extend(reduced_motion_violations);
+
+        // 1.4.13 Content on Hover or Focus — title-only descriptions, orphan tooltips
+        let hover_violations = wcag::check_content_on_hover_with_page(page).await;
+        if !hover_violations.is_empty() {
+            info!(
+                "Found {} content-on-hover violations",
+                hover_violations.len()
+            );
+        }
+        wcag_results.violations.extend(hover_violations);
     }
 
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
@@ -646,15 +726,24 @@ fn aggregate_report(
     url: &str,
     config: &PipelineConfig,
     snapshot: &SnapshotData,
-    wcag_results: WcagResults,
+    mut wcag_results: WcagResults,
     duration_ms: u64,
 ) -> AuditReport {
+    // Run pattern detection against the AXTree. Pattern violations are
+    // merged into wcag_results before the report is built so they contribute
+    // to score/grade/statistics like any other WCAG violation.
+    let pattern_analysis = crate::patterns::analyze(&snapshot.ax_tree);
+    wcag_results
+        .violations
+        .extend(pattern_analysis.violations.clone());
+
     let mut report = AuditReport::new(
         url.to_string(),
         config.wcag_level,
         wcag_results,
         duration_ms,
     );
+    report = report.with_patterns(pattern_analysis);
 
     if let Some(performance) = snapshot.performance.clone() {
         report = report.with_performance(performance);

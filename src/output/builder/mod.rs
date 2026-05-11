@@ -23,7 +23,7 @@ pub use single::build_view_model;
 mod tests {
     use super::*;
     use crate::audit::{normalize, AuditReport, BatchReport};
-    use crate::cli::WcagLevel;
+    use crate::cli::{ReportLevel, WcagLevel};
     use crate::output::report_model::ReportConfig;
     use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
     use crate::seo::technical::TechnicalSeo;
@@ -315,12 +315,95 @@ mod tests {
                     tracking_signals: vec![],
                     zaraz: crate::seo::technical::ZarazDetection::default(),
                     has_favicon: true,
+                    www_redirect: None,
                     issues: vec![],
                 };
                 seo.content_profile = Some(crate::seo::build_content_profile(&seo));
                 seo.score = seo_score;
                 seo
             })
+    }
+
+    #[test]
+    fn test_all_violation_criteria_reach_viewmodel_findings() {
+        // Every criterion from the input must appear in all_findings — no silent drop in the builder.
+        let criteria = ["1.1.1", "1.4.3", "2.4.4", "1.3.1", "4.1.2"];
+        let mut wcag = WcagResults::new();
+        for (i, &criterion) in criteria.iter().enumerate() {
+            wcag.add_violation(Violation::new(
+                criterion,
+                "Test Rule",
+                WcagLevel::AA,
+                crate::taxonomy::Severity::High,
+                "Test violation",
+                &format!("node-{i}"),
+            ));
+        }
+
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, wcag, 1500);
+        let normalized = normalize(&report);
+        let config = ReportConfig {
+            level: ReportLevel::Technical,
+            ..ReportConfig::default()
+        };
+        let vm = build_view_model(&normalized, &config);
+
+        let found: Vec<&str> = vm
+            .findings
+            .all_findings
+            .iter()
+            .map(|f| f.wcag_criterion.as_str())
+            .collect();
+
+        for &criterion in &criteria {
+            assert!(
+                found.iter().any(|c| c.starts_with(criterion)),
+                "Criterion {criterion} missing from ViewModel findings; present: {found:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_module_scores_in_viewmodel_match_normalized() {
+        // Module scores in NormalizedReport must all appear in vm.summary.metrics.
+        // Performance, SEO, Security, UX each produce a dashboard card.
+        // (Journey is intentionally absent from the dashboard — it has its own detail section.)
+        let report = make_topic_report_with_modules(
+            "https://example.com/",
+            "Test Page",
+            "Test description.",
+            &["Test Heading"],
+            "test content",
+            72.0,
+            88,
+            65,
+            90,
+        )
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()));
+
+        let normalized = normalize(&report);
+        let config = ReportConfig {
+            locale: "en".to_string(),
+            ..ReportConfig::default()
+        };
+        let vm = build_view_model(&normalized, &config);
+
+        // Each non-Journey module must have a matching dashboard card.
+        let dashboard_modules = ["Accessibility", "Performance", "SEO", "Security", "UX"];
+        for &expected in &dashboard_modules {
+            assert!(
+                vm.modules
+                    .dashboard
+                    .iter()
+                    .any(|m| m.name.contains(expected)),
+                "Module '{expected}' missing from vm.modules.dashboard"
+            );
+        }
+        assert_eq!(
+            vm.modules.dashboard.len(),
+            dashboard_modules.len(),
+            "Dashboard card count mismatch"
+        );
     }
 
     fn make_topic_report(
@@ -372,6 +455,7 @@ mod tests {
             tracking_signals: vec![],
             zaraz: crate::seo::technical::ZarazDetection::default(),
             has_favicon: true,
+            www_redirect: None,
             issues: vec![],
         };
         seo.content_profile = Some(crate::seo::build_content_profile(&seo));
