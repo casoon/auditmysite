@@ -5,7 +5,7 @@
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.1.1
 pub const KEYBOARD_RULE: RuleMetadata = RuleMetadata {
@@ -126,6 +126,26 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
             results.add_violation(violation);
         }
     }
+
+    // 2.1.2 No Keyboard Trap — structural check only detects modal `modal=true` dialogs.
+    // JavaScript focus management in custom widgets requires manual Tab-key verification.
+    results.add_violation(
+        Violation::new(
+            NO_KEYBOARD_TRAP_RULE.id,
+            NO_KEYBOARD_TRAP_RULE.name,
+            NO_KEYBOARD_TRAP_RULE.level,
+            Severity::Medium,
+            "Keyboard trap behavior cannot be verified automatically. \
+             Navigate the page using only the Tab key to confirm focus is never permanently trapped \
+             in dialogs, carousels, or custom JavaScript widgets.",
+            "page",
+        )
+        .with_fix(
+            "Ensure every focusable region has a keyboard escape path (Escape key, visible close button reachable by Tab, or documented keyboard shortcut).",
+        )
+        .with_help_url(NO_KEYBOARD_TRAP_RULE.help_url)
+        .with_kind(FindingKind::NotTestable),
+    );
 
     results
 }

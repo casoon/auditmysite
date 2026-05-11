@@ -157,6 +157,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let total_violations = normalized.severity_counts.total as u32;
     let nodes_analyzed = normalized.nodes_analyzed;
     let warning_count = normalized.raw_wcag.warnings.len() as u32;
+    let not_testable_count = normalized.raw_wcag.not_testables.len() as u32;
 
     let actions = build_actions_block(
         &config.locale,
@@ -257,6 +258,11 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                 } else {
                     format!("Heuristische{NBSP}Warnungen")
                 };
+                let label_not_testable = if en {
+                    format!("Manual{NBSP}testing{NBSP}required")
+                } else {
+                    format!("Manuell{NBSP}zu{NBSP}prüfen")
+                };
                 vec![
                     MetricItem {
                         title: label_violations_total,
@@ -314,6 +320,15 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                         title: label_warnings,
                         value: warning_count.to_string(),
                         accent_color: Some("#f97316".into()),
+                    })
+                } else {
+                    None
+                })
+                .chain(if not_testable_count > 0 {
+                    Some(MetricItem {
+                        title: label_not_testable,
+                        value: not_testable_count.to_string(),
+                        accent_color: Some("#6b7280".into()),
                     })
                 } else {
                     None

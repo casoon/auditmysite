@@ -5,7 +5,7 @@
 
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for media accessibility (1.2.x)
 pub const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
@@ -18,6 +18,18 @@ pub const RULE_META_MEDIA: RuleMetadata = RuleMetadata {
         "https://www.w3.org/WAI/WCAG21/Understanding/audio-only-and-video-only-prerecorded.html",
     axe_id: "video-caption",
     tags: &["wcag2a", "wcag121", "cat.media"],
+};
+
+/// Rule metadata for captions (1.2.2)
+pub const RULE_META_CAPTIONS: RuleMetadata = RuleMetadata {
+    id: "1.2.2",
+    name: "Captions (Prerecorded)",
+    level: WcagLevel::A,
+    severity: Severity::High,
+    description: "Prerecorded audio content in synchronized media has captions",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/captions-prerecorded.html",
+    axe_id: "video-caption",
+    tags: &["wcag2a", "wcag122", "cat.media"],
 };
 
 /// Rule metadata for SVG/image accessibility (1.1.1)
@@ -35,6 +47,7 @@ pub const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
 /// Run all media-related WCAG checks
 pub fn check_media_rules(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
+    let mut video_element_count = 0usize;
 
     for node in tree.iter() {
         if node.ignored {
@@ -49,6 +62,7 @@ pub fn check_media_rules(tree: &AXTree) -> WcagResults {
 
         match role {
             "application" => {
+                video_element_count += 1;
                 check_application_has_name(node, &mut results);
             }
             "img" => {
@@ -60,6 +74,32 @@ pub fn check_media_rules(tree: &AXTree) -> WcagResults {
             }
             _ => {}
         }
+    }
+
+    // 1.2.2 Caption quality cannot be verified automatically — the AXTree
+    // reveals that a media element is present, but whether captions are
+    // accurate, complete, and synchronized requires human review.
+    if video_element_count > 0 {
+        results.add_violation(
+            Violation::new(
+                RULE_META_CAPTIONS.id,
+                RULE_META_CAPTIONS.name,
+                RULE_META_CAPTIONS.level,
+                Severity::High,
+                format!(
+                    "{video_element_count} media element(s) detected. \
+                     Caption presence and accuracy cannot be verified automatically — \
+                     review each video for correct, synchronized captions."
+                ),
+                "page",
+            )
+            .with_fix(
+                "Ensure all prerecorded video with audio has synchronized captions. \
+                 Use the <track kind=\"captions\"> element or a captioning service.",
+            )
+            .with_help_url(RULE_META_CAPTIONS.help_url)
+            .with_kind(FindingKind::NotTestable),
+        );
     }
 
     results

@@ -9,7 +9,7 @@
 use chromiumoxide::Page;
 
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation};
+use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
 
 pub const TIMING_RULE: RuleMetadata = RuleMetadata {
     id: "2.2.1",
@@ -39,14 +39,34 @@ const META_REFRESH_JS: &str = r#"
 "#;
 
 pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
+    // JavaScript-driven session timeouts (setTimeout/setInterval) are not
+    // detectable from the DOM and always require manual testing.
+    let not_testable = Violation::new(
+        TIMING_RULE.id,
+        TIMING_RULE.name,
+        TIMING_RULE.level,
+        Severity::Medium,
+        "JavaScript-driven time limits (setTimeout/setInterval) are not automatically detectable. \
+         If the page has session timeouts or timed interactions, verify that users can turn off, \
+         adjust, or extend them.",
+        "page",
+    )
+    .with_fix(
+        "Provide a mechanism to disable, adjust (at least 10×), or extend any time limit before it expires, \
+         with at least 20 seconds to respond.",
+    )
+    .with_rule_id(TIMING_RULE.axe_id)
+    .with_help_url(TIMING_RULE.help_url)
+    .with_kind(FindingKind::NotTestable);
+
     let result = match page.evaluate(META_REFRESH_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => return vec![not_testable],
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => return vec![not_testable],
     };
 
     let present = val
@@ -54,7 +74,7 @@ pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     if !present {
-        return vec![];
+        return vec![not_testable];
     }
 
     let seconds = val.get("seconds").and_then(|v| v.as_u64());
@@ -64,34 +84,35 @@ pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
         .unwrap_or("")
         .to_string();
 
+    let mut findings = vec![not_testable];
+
     // Refreshes >= 20 hours are exempt under WCAG (the user has effectively
-    // unlimited time). Refreshes that point to the current URL within a
-    // long interval are also a softer case. We flag everything with a
-    // shorter interval (< 20h) at High severity.
+    // unlimited time). We flag everything with a shorter interval (< 20h).
     let exempt = seconds.map(|s| s >= 20 * 60 * 60).unwrap_or(false);
-    if exempt {
-        return vec![];
+    if !exempt {
+        let detail = match seconds {
+            Some(s) => format!("after {s} second(s)"),
+            None => format!("(content: \"{content}\")"),
+        };
+        findings.push(
+            Violation::new(
+                TIMING_RULE.id,
+                TIMING_RULE.name,
+                TIMING_RULE.level,
+                Severity::High,
+                format!(
+                    "Page uses <meta http-equiv=\"refresh\"> to auto-redirect or reload {detail} — users cannot pause, stop, or extend the timer."
+                ),
+                "meta[http-equiv=refresh]",
+            )
+            .with_selector("meta[http-equiv=refresh]")
+            .with_fix(
+                "Remove the meta-refresh and use a server-side redirect (HTTP 301/302) for navigation, or offer an explicit user action.",
+            )
+            .with_rule_id(TIMING_RULE.axe_id)
+            .with_help_url(TIMING_RULE.help_url),
+        );
     }
 
-    let detail = match seconds {
-        Some(s) => format!("after {s} second(s)"),
-        None => format!("(content: \"{content}\")"),
-    };
-
-    vec![Violation::new(
-        TIMING_RULE.id,
-        TIMING_RULE.name,
-        TIMING_RULE.level,
-        Severity::High,
-        format!(
-            "Page uses <meta http-equiv=\"refresh\"> to auto-redirect or reload {detail} — users cannot pause, stop, or extend the timer."
-        ),
-        "meta[http-equiv=refresh]",
-    )
-    .with_selector("meta[http-equiv=refresh]")
-    .with_fix(
-        "Remove the meta-refresh and use a server-side redirect (HTTP 301/302) for navigation, or offer an explicit user action.",
-    )
-    .with_rule_id(TIMING_RULE.axe_id)
-    .with_help_url(TIMING_RULE.help_url)]
+    findings
 }

@@ -253,7 +253,7 @@ pub async fn audit_page(
         if !reflow_violations.is_empty() {
             info!("Found reflow violation at 320px");
         }
-        mobile_wcag.violations.extend(reflow_violations);
+        mobile_wcag.extend_findings(reflow_violations);
         // check_reflow_with_page leaves the viewport at 320px — restore mobile
         let _ = set_viewport(page, Viewport::Mobile).await;
     }
@@ -421,8 +421,8 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
         }
     }
 
-    // Merge warnings and positives without deduplication (heuristic signals,
-    // viewport tagging not meaningful). Clone to work with shared refs.
+    // Merge warnings, positives, and not_testables without deduplication
+    // (heuristic/structural signals — viewport tagging not meaningful).
     let mut warnings = mobile.warnings.clone();
     warnings.extend(desktop.warnings.iter().cloned());
     warnings.dedup_by(|a, b| a.message == b.message);
@@ -431,10 +431,15 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
     positives.extend(desktop.positives.iter().cloned());
     positives.dedup_by(|a, b| a.message == b.message);
 
+    let mut not_testables = mobile.not_testables.clone();
+    not_testables.extend(desktop.not_testables.iter().cloned());
+    not_testables.dedup_by(|a, b| a.message == b.message);
+
     WcagResults {
         violations: merged,
         warnings,
         positives,
+        not_testables,
         passes: mobile.passes.max(desktop.passes),
         incomplete: mobile.incomplete.max(desktop.incomplete),
         nodes_checked: mobile.nodes_checked.max(desktop.nodes_checked),
@@ -664,21 +669,21 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
             click_handler_violations.len()
         );
     }
-    wcag_results.violations.extend(click_handler_violations);
+    wcag_results.extend_findings(click_handler_violations);
 
     // 2.2.1 Timing Adjustable — <meta http-equiv="refresh"> (Level A)
     let timing_violations = wcag::check_timing_with_page(page).await;
     if !timing_violations.is_empty() {
         info!("Found {} meta-refresh violations", timing_violations.len());
     }
-    wcag_results.violations.extend(timing_violations);
+    wcag_results.extend_findings(timing_violations);
 
     // 1.4.1 Use of Color — inline links distinguishable by color alone (Level A)
     let color_violations = wcag::check_use_of_color_with_page(page).await;
     if !color_violations.is_empty() {
         info!("Found {} use-of-color violations", color_violations.len());
     }
-    wcag_results.violations.extend(color_violations);
+    wcag_results.extend_findings(color_violations);
 
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running contrast check with CDP...");
@@ -686,7 +691,7 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
             wcag::rules::ContrastRule::check_with_page(page, &snapshot.ax_tree, config.wcag_level)
                 .await;
         info!("Found {} contrast violations", contrast_violations.len());
-        wcag_results.violations.extend(contrast_violations);
+        wcag_results.extend_findings(contrast_violations);
 
         // 1.3.4 Orientation — CSS inspection, no viewport change
         let orientation_violations = wcag::check_orientation_with_page(page).await;
@@ -696,7 +701,7 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
                 orientation_violations.len()
             );
         }
-        wcag_results.violations.extend(orientation_violations);
+        wcag_results.extend_findings(orientation_violations);
 
         // 2.4.7 Focus Visible — CSS-level :focus { outline: none } detection
         let focus_css_violations = wcag::check_focus_visible_css_with_page(page).await;
@@ -706,7 +711,7 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
                 focus_css_violations.len()
             );
         }
-        wcag_results.violations.extend(focus_css_violations);
+        wcag_results.extend_findings(focus_css_violations);
 
         // 2.3.3 prefers-reduced-motion — animations without reduced-motion handling
         let reduced_motion_violations = wcag::check_reduced_motion_with_page(page).await;
@@ -716,7 +721,7 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
                 reduced_motion_violations.len()
             );
         }
-        wcag_results.violations.extend(reduced_motion_violations);
+        wcag_results.extend_findings(reduced_motion_violations);
 
         // 1.4.13 Content on Hover or Focus — title-only descriptions, orphan tooltips
         let hover_violations = wcag::check_content_on_hover_with_page(page).await;
@@ -726,7 +731,7 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
                 hover_violations.len()
             );
         }
-        wcag_results.violations.extend(hover_violations);
+        wcag_results.extend_findings(hover_violations);
     }
 
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
@@ -965,6 +970,7 @@ mod tests {
             ],
             warnings: vec![],
             positives: vec![],
+            not_testables: vec![],
             passes: 5,
             incomplete: 0,
             nodes_checked: 100,
@@ -976,6 +982,7 @@ mod tests {
             ],
             warnings: vec![],
             positives: vec![],
+            not_testables: vec![],
             passes: 4,
             incomplete: 0,
             nodes_checked: 90,

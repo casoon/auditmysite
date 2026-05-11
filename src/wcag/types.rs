@@ -231,6 +231,9 @@ pub struct WcagResults {
     /// Good accessibility patterns actively detected (kind = Positive).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub positives: Vec<Violation>,
+    /// Criteria that cannot be evaluated automatically — require manual testing (kind = NotTestable).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub not_testables: Vec<Violation>,
     /// Number of rules that passed
     pub passes: usize,
     /// Number of elements that couldn't be checked
@@ -246,6 +249,7 @@ impl WcagResults {
             violations: Vec::new(),
             warnings: Vec::new(),
             positives: Vec::new(),
+            not_testables: Vec::new(),
             passes: 0,
             incomplete: 0,
             nodes_checked: 0,
@@ -257,7 +261,15 @@ impl WcagResults {
         match finding.kind {
             FindingKind::Warning => self.warnings.push(finding),
             FindingKind::Positive => self.positives.push(finding),
-            _ => self.violations.push(finding),
+            FindingKind::NotTestable => self.not_testables.push(finding),
+            FindingKind::Violation => self.violations.push(finding),
+        }
+    }
+
+    /// Route each finding by its kind (use instead of `.violations.extend()` for mixed vecs).
+    pub fn extend_findings(&mut self, findings: Vec<Violation>) {
+        for f in findings {
+            self.add_violation(f);
         }
     }
 
@@ -271,6 +283,12 @@ impl WcagResults {
     pub fn add_positive(&mut self, mut finding: Violation) {
         finding.kind = FindingKind::Positive;
         self.positives.push(finding);
+    }
+
+    /// Add a not-testable note directly.
+    pub fn add_not_testable(&mut self, mut finding: Violation) {
+        finding.kind = FindingKind::NotTestable;
+        self.not_testables.push(finding);
     }
 
     /// Count violations by severity
@@ -310,6 +328,7 @@ impl WcagResults {
         self.violations.extend(other.violations);
         self.warnings.extend(other.warnings);
         self.positives.extend(other.positives);
+        self.not_testables.extend(other.not_testables);
         self.passes += other.passes;
         self.incomplete += other.incomplete;
         self.nodes_checked += other.nodes_checked;
