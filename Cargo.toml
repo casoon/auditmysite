@@ -67,7 +67,7 @@ fluent-syntax = "0.11"
 unic-langid = "0.9"
 
 # PDF report generation via Typst.
-renderreport = { path = "../renderreport", optional = true }
+renderreport = { git = "https://github.com/casoon/renderreport.git", tag = "v0.2.9", optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
