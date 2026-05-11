@@ -7,7 +7,7 @@ Resource-efficient WCAG 2.1 Accessibility Checker written in Rust. Audits web pa
 - **Language:** Rust (async with tokio)
 - **Browser:** Chrome/Chromium via `chromiumoxide` (CDP)
 - **CLI:** `clap` with derive macros
-- **PDF:** `renderreport` (Typst-based, optional `pdf` feature, crate `0.1.0-alpha.3`)
+- **PDF:** `renderreport` (Typst-based, optional `pdf` feature) — lokales Repo unter `../renderreport`
 - **Config:** Optional `auditmysite.toml` files
 
 ## Module Structure
@@ -81,6 +81,34 @@ cargo test --lib               # Unit tests only
 # Quick CLI check
 ./target/release/auditmysite https://example.com --format table
 ```
+
+## renderreport-Workflow
+
+`renderreport` ist eine eigene Typst-basierte PDF-Library unter `/Users/jseidel/GitHub/renderreport`.
+
+**Dependency-Regel:** Immer als **git-Dependency mit Tag** — niemals als `path`-Dep (bricht CI):
+```toml
+renderreport = { git = "https://github.com/casoon/renderreport.git", tag = "v0.2.9", optional = true }
+```
+
+**Neue Komponente oder Bugfix in renderreport:**
+1. Änderungen in `/Users/jseidel/GitHub/renderreport` vornehmen
+2. Version in `renderreport/Cargo.toml` bumpen (z. B. `0.2.9` → `0.2.10`)
+3. In renderreport committen und pushen: `git push origin main`
+4. Tag setzen und pushen: `git tag v0.2.10 && git push origin v0.2.10`
+5. In `auditmysite/Cargo.toml` den Tag aktualisieren
+6. `cargo check --features pdf` zur Verifikation
+7. `Cargo.lock` committen
+
+**Komponenten** (Rust-Struct + Typst-Template + Registry-Eintrag):
+- Rust-Struct: `src/components/standard.rs` oder `advanced.rs`
+- Typst-Template: `templates/components/<name>.typ`
+- Registry: `src/components/registry.rs` → `self.register(ComponentId::new("name"), include_str!(...))`
+- Bei Verwendung in FlowGroup: Eintrag in `templates/components/flow_group.typ`
+- Export über `pub use standard::*` in `src/components/mod.rs` — kein separater Re-export nötig
+
+**Spacing-Tokens:** spacing-1=4pt, spacing-2=6pt, spacing-3=10pt, spacing-4=14pt, spacing-5=20pt
+**Font-Tokens:** xs=8.5pt, sm=8.8pt, base=10.5pt, lg=13pt, xl=18pt, 2xl=24pt
 
 ## Report Format Rules
 - **Always use PDF format** (`--format pdf`) when generating test reports
