@@ -502,7 +502,14 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
     );
     println!();
 
-    let items = vec!["Check single URL (homepage)", "Scan sitemap (all URLs)"];
+    let sample_label =
+        "Sample scan (20 URLs) — average across pages, good for template issues".to_string();
+    let full_label = format!("Scan sitemap (all {} URLs)", url_count);
+    let items = vec![
+        "Check single URL (homepage)",
+        sample_label.as_str(),
+        full_label.as_str(),
+    ];
     let selection = Select::new()
         .with_prompt("How would you like to proceed?")
         .items(&items)
@@ -511,6 +518,13 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         .map_err(|e| AuditError::ConfigError(e.to_string()))?;
 
     if selection == 1 {
+        let mut batch_args = suggested_sitemap_batch_args(args, sitemap_url);
+        batch_args.max_pages = 20;
+        println!();
+        return run_batch_mode(&batch_args).await.map(Some);
+    }
+
+    if selection == 2 {
         let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
         println!();
         return run_batch_mode(&batch_args).await.map(Some);
