@@ -212,6 +212,50 @@ pub(super) fn derive_performance_card_context(
     }
 }
 
+/// Build a `(name, formatted_value, rating)` vitals list from a PerformanceResults.
+/// Used for both desktop and mobile viewport presentations.
+pub(super) fn build_vitals_list(
+    p: &crate::audit::PerformanceResults,
+) -> Vec<(String, String, String)> {
+    let mut vitals = Vec::new();
+    if let Some(ref lcp) = p.vitals.lcp {
+        vitals.push((
+            "LCP".to_string(),
+            format!("{:.0}ms", lcp.value),
+            lcp.rating.clone(),
+        ));
+    }
+    if let Some(ref fcp) = p.vitals.fcp {
+        vitals.push((
+            "FCP".to_string(),
+            format!("{:.0}ms", fcp.value),
+            fcp.rating.clone(),
+        ));
+    }
+    if let Some(ref cls) = p.vitals.cls {
+        vitals.push((
+            "CLS".to_string(),
+            format!("{:.3}", cls.value),
+            cls.rating.clone(),
+        ));
+    }
+    if let Some(ref ttfb) = p.vitals.ttfb {
+        vitals.push((
+            "TTFB".to_string(),
+            format!("{:.0}ms", ttfb.value),
+            ttfb.rating.clone(),
+        ));
+    }
+    if let Some(ref tbt) = p.vitals.tbt {
+        vitals.push((
+            "TBT".to_string(),
+            format!("{:.0}ms", tbt.value),
+            tbt.rating.clone(),
+        ));
+    }
+    vitals
+}
+
 pub(super) fn derive_performance_recommendations(
     locale: &str,
     perf: &crate::audit::PerformanceResults,

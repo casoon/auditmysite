@@ -21,12 +21,12 @@ use super::helpers::{
     localized_report_title, truncate_list, truncate_url_list, yes_no,
 };
 use super::modules::{
-    build_tracking_summary_text, derive_accessibility_card_context, derive_accessibility_context,
-    derive_accessibility_lever, derive_mobile_card_context, derive_mobile_context,
-    derive_mobile_lever, derive_performance_card_context, derive_performance_context,
-    derive_performance_lever, derive_performance_recommendations, derive_security_card_context,
-    derive_security_context, derive_security_lever, derive_security_recommendations,
-    derive_seo_card_context, derive_seo_context, derive_seo_lever,
+    build_tracking_summary_text, build_vitals_list, derive_accessibility_card_context,
+    derive_accessibility_context, derive_accessibility_lever, derive_mobile_card_context,
+    derive_mobile_context, derive_mobile_lever, derive_performance_card_context,
+    derive_performance_context, derive_performance_lever, derive_performance_recommendations,
+    derive_security_card_context, derive_security_context, derive_security_lever,
+    derive_security_recommendations, derive_seo_card_context, derive_seo_context, derive_seo_lever,
 };
 use super::seo::{
     build_seo_interpretation, page_profile_optimization_note, summarize_page_profile,
@@ -2146,42 +2146,21 @@ fn build_module_details_from_normalized(
     normalized: &NormalizedReport,
 ) -> ModuleDetailsBlock {
     let performance = normalized.raw_performance.as_ref().map(|p| {
-        let mut vitals = Vec::new();
-        if let Some(ref lcp) = p.vitals.lcp {
-            vitals.push((
-                "Largest Contentful Paint (LCP)".to_string(),
-                format!("{:.0}ms", lcp.value),
-                lcp.rating.clone(),
-            ));
-        }
-        if let Some(ref fcp) = p.vitals.fcp {
-            vitals.push((
-                "First Contentful Paint (FCP)".to_string(),
-                format!("{:.0}ms", fcp.value),
-                fcp.rating.clone(),
-            ));
-        }
-        if let Some(ref cls) = p.vitals.cls {
-            vitals.push((
-                "Cumulative Layout Shift (CLS)".to_string(),
-                format!("{:.3}", cls.value),
-                cls.rating.clone(),
-            ));
-        }
-        if let Some(ref ttfb) = p.vitals.ttfb {
-            vitals.push((
-                "Time to First Byte (TTFB)".to_string(),
-                format!("{:.0}ms", ttfb.value),
-                ttfb.rating.clone(),
-            ));
-        }
-        if let Some(ref tbt) = p.vitals.tbt {
-            vitals.push((
-                "Total Blocking Time (TBT)".to_string(),
-                format!("{:.0}ms", tbt.value),
-                tbt.rating.clone(),
-            ));
-        }
+        let vitals = build_vitals_list(p);
+        let desktop_viewport =
+            normalized
+                .raw_performance_desktop
+                .as_ref()
+                .map(|d| PerformanceViewport {
+                    score: d.score.overall,
+                    grade: d.score.grade.label().to_string(),
+                    vitals: build_vitals_list(d),
+                });
+        let mobile_viewport = Some(PerformanceViewport {
+            score: p.score.overall,
+            grade: p.score.grade.label().to_string(),
+            vitals: vitals.clone(),
+        });
 
         let mut additional = Vec::new();
         if let Some(nodes) = p.vitals.dom_nodes {
@@ -2277,6 +2256,8 @@ fn build_module_details_from_normalized(
             grade: p.score.grade.label().to_string(),
             interpretation: perf_interpretation,
             vitals,
+            desktop: desktop_viewport,
+            mobile: mobile_viewport,
             additional_metrics: additional,
             recommendations,
             render_blocking_metrics,

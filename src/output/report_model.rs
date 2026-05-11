@@ -525,11 +525,24 @@ pub struct PositiveAspect {
 
 // ─── Module Detail Presentations ────────────────────────────────────────────
 
+/// Vitals for one viewport (desktop or mobile).
+#[derive(Debug, Clone)]
+pub struct PerformanceViewport {
+    pub score: u32,
+    pub grade: String,
+    /// (metric_name, formatted_value, rating)
+    pub vitals: Vec<(String, String, String)>,
+}
+
 pub struct PerformancePresentation {
     pub score: u32,
     pub grade: String,
     pub interpretation: String,
+    /// Flat vitals list (mobile, or blended if no split available)
     pub vitals: Vec<(String, String, String)>,
+    /// Per-viewport breakdown — Some when both desktop and mobile were measured
+    pub desktop: Option<PerformanceViewport>,
+    pub mobile: Option<PerformanceViewport>,
     pub additional_metrics: Vec<(String, String)>,
     pub recommendations: Vec<String>,
     /// Render-blocking: (label, value) pairs for display

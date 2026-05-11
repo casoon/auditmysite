@@ -125,27 +125,91 @@ pub(super) fn render_performance(
         );
 
     // ── User-perceived Performance (Core Web Vitals) ─────────────────
-    if !perf.vitals.is_empty() {
-        builder =
-            builder.add_component(Section::new(i18n.t("section-user-experience")).with_level(3));
+    builder = builder.add_component(Section::new(i18n.t("section-user-experience")).with_level(3));
 
-        let strip = perf
-            .vitals
-            .iter()
-            .take(4)
-            .map(|(name, value, rating)| {
-                MetricStripItem::new(name.replace(" (", "\n("), value)
-                    .with_status(vital_status(rating))
-                    .with_accent(vital_color(rating))
-            })
-            .collect();
-        builder = builder.add_component(MetricStrip::new(strip).compact());
+    match (&perf.desktop, &perf.mobile) {
+        (Some(desktop), Some(mobile)) => {
+            // Score comparison strip
+            let score_strip = vec![
+                MetricStripItem::new(
+                    if is_en(i18n) { "Desktop" } else { "Desktop" },
+                    desktop.score.to_string(),
+                )
+                .with_status(score_status(desktop.score))
+                .with_accent(score_color(desktop.score)),
+                MetricStripItem::new(
+                    if is_en(i18n) { "Mobile" } else { "Mobile" },
+                    mobile.score.to_string(),
+                )
+                .with_status(score_status(mobile.score))
+                .with_accent(score_color(mobile.score)),
+            ];
+            builder = builder.add_component(MetricStrip::new(score_strip).compact());
 
-        let mut kv = KeyValueList::new().with_title("Core Web Vitals");
-        for (name, value, rating) in &perf.vitals {
-            kv = kv.add(name, format!("{} — {}", value, rating));
+            // Desktop vitals
+            if !desktop.vitals.is_empty() {
+                builder =
+                    builder.add_component(Section::new("Desktop — Core Web Vitals").with_level(4));
+                let strip = desktop
+                    .vitals
+                    .iter()
+                    .take(4)
+                    .map(|(name, value, rating)| {
+                        MetricStripItem::new(name, value)
+                            .with_status(vital_status(rating))
+                            .with_accent(vital_color(rating))
+                    })
+                    .collect();
+                builder = builder.add_component(MetricStrip::new(strip).compact());
+                let mut kv = KeyValueList::new();
+                for (name, value, rating) in &desktop.vitals {
+                    kv = kv.add(name, format!("{} — {}", value, rating));
+                }
+                builder = builder.add_component(kv);
+            }
+
+            // Mobile vitals
+            if !mobile.vitals.is_empty() {
+                builder =
+                    builder.add_component(Section::new("Mobile — Core Web Vitals").with_level(4));
+                let strip = mobile
+                    .vitals
+                    .iter()
+                    .take(4)
+                    .map(|(name, value, rating)| {
+                        MetricStripItem::new(name, value)
+                            .with_status(vital_status(rating))
+                            .with_accent(vital_color(rating))
+                    })
+                    .collect();
+                builder = builder.add_component(MetricStrip::new(strip).compact());
+                let mut kv = KeyValueList::new();
+                for (name, value, rating) in &mobile.vitals {
+                    kv = kv.add(name, format!("{} — {}", value, rating));
+                }
+                builder = builder.add_component(kv);
+            }
         }
-        builder = builder.add_component(kv);
+        _ if !perf.vitals.is_empty() => {
+            // Fallback: flat vitals (no desktop data)
+            let strip = perf
+                .vitals
+                .iter()
+                .take(4)
+                .map(|(name, value, rating)| {
+                    MetricStripItem::new(name, value)
+                        .with_status(vital_status(rating))
+                        .with_accent(vital_color(rating))
+                })
+                .collect();
+            builder = builder.add_component(MetricStrip::new(strip).compact());
+            let mut kv = KeyValueList::new().with_title("Core Web Vitals");
+            for (name, value, rating) in &perf.vitals {
+                kv = kv.add(name, format!("{} — {}", value, rating));
+            }
+            builder = builder.add_component(kv);
+        }
+        _ => {}
     }
 
     // ── Technical Complexity ─────────────────────────────────────────
@@ -1264,6 +1328,26 @@ pub(super) fn render_dark_mode(
     }
 
     builder
+}
+
+fn score_status(score: u32) -> &'static str {
+    if score >= 75 {
+        "good"
+    } else if score >= 50 {
+        "warn"
+    } else {
+        "bad"
+    }
+}
+
+fn score_color(score: u32) -> &'static str {
+    if score >= 75 {
+        "#0f766e"
+    } else if score >= 50 {
+        "#d97706"
+    } else {
+        "#dc2626"
+    }
 }
 
 fn vital_status(rating: &str) -> &'static str {

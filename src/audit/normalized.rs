@@ -63,6 +63,8 @@ pub struct NormalizedReport {
     #[serde(skip)]
     pub raw_performance: Option<PerformanceResults>,
     #[serde(skip)]
+    pub raw_performance_desktop: Option<PerformanceResults>,
+    #[serde(skip)]
     pub raw_seo: Option<SeoAnalysis>,
     #[serde(skip)]
     pub raw_security: Option<SecurityAnalysis>,
@@ -657,6 +659,10 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         has_screenshots: report.page_screenshots.is_some(),
         viewport_scores: report.viewport_scores.clone(),
         raw_performance: report.performance.clone(),
+        raw_performance_desktop: report
+            .dual_viewport
+            .as_ref()
+            .and_then(|d| d.desktop.performance.clone()),
         raw_seo: report.seo.clone(),
         raw_security: report.security.clone(),
         raw_mobile: report.mobile.clone(),
