@@ -637,6 +637,7 @@ mod tests {
             has_screenshots: false,
             viewport_scores: None,
             raw_performance: None,
+            raw_performance_desktop: None,
             raw_seo: None,
             raw_security: None,
             raw_mobile: None,
