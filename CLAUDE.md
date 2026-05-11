@@ -67,11 +67,16 @@ cargo test --lib               # Unit tests only
 
 ## Testing Against Live Sites
 ```bash
-# Single page audit (all modules) — always use PDF format for reports
+# 1. Single page audit (all modules) — tiefe Analyse einer konkreten Seite
 ./target/release/auditmysite https://example.com --full --format pdf --output reports/example-audit.pdf
 
-# Sitemap batch audit
-./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full --format pdf --output reports/example-batch-audit.pdf --max-pages 5
+# 2. Sample batch audit — 20 Seiten als repräsentativer Durchschnitt
+# Ideal um template-weite Probleme (fehlendes ARIA, Struktur, SEO-Muster)
+# von seitenspezifischen Fehlern zu trennen. Liefert stabile Durchschnittswerte.
+./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full --format pdf --output reports/example-sample-audit.pdf --max-pages 20
+
+# 3. Full sitemap batch audit — alle Seiten, domain-weit
+./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full --format pdf --output reports/example-batch-audit.pdf
 
 # Quick CLI check
 ./target/release/auditmysite https://example.com --format table
@@ -89,9 +94,10 @@ cargo test --lib               # Unit tests only
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v0.4.0)
-- Branch: `feat/march-improvements`
-- 22 WCAG rules implemented (Level A, AA, some AAA)
+## Current State (v0.10.0)
+- Branch: `main`
+- 33+ WCAG rules implemented (Level A, AA, some AAA)
 - 3 output formats (json, table, pdf)
 - Batch processing with configurable concurrency
-- Performance, SEO, Security, Mobile analysis modules
+- Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList
+- Performance, SEO, Security, Mobile, Source Quality, AI Visibility modules
