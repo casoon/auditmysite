@@ -1,0 +1,12 @@
+{
+  "name": "auditmysite-scripts",
+  "private": true,
+  "description": "Development scripts for auditmysite",
+  "scripts": {
+    "axe-compare": "node axe-compare.js"
+  },
+  "dependencies": {
+    "axe-core": "^4.10.0",
+    "playwright": "^1.44.0"
+  }
+}

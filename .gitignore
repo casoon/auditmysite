@@ -47,3 +47,8 @@ tarpaulin-report.html
 *.tmp
 plans/
 todo.md
+
+# Node (scripts/)
+scripts/node_modules/
+scripts/package-lock.json
+!scripts/package.json
