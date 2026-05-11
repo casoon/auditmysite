@@ -18,6 +18,7 @@ use renderreport::components::advanced::{
     MetricStripItem, PageBreak, PhaseBlock, SectionHeaderSplit, TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::TagCloud;
 use renderreport::prelude::Image;
 use renderreport::prelude::*;
 
@@ -795,14 +796,11 @@ fn render_wcag_coverage_section(
     } else {
         format!("Automatisch geprüft ({})", automated)
     };
-    let automated_rows: Vec<ChecklistRow> = AUTOMATED_CRITERIA
-        .iter()
-        .map(|(c, l)| {
-            ChecklistRow::new(format!("WCAG {} (Level {})", c, l), "").with_status("good")
-        })
-        .collect();
-    builder =
-        builder.add_component(ChecklistPanel::new(automated_rows).with_title(&automated_title));
+    let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");
+    for (c, l) in AUTOMATED_CRITERIA.iter() {
+        tag_cloud = tag_cloud.add(format!("WCAG {} ({})", c, l), "good");
+    }
+    builder = builder.add_component(tag_cloud);
 
     let manual_title = if en {
         format!("Requires manual review ({})", MANUAL_REVIEW_CRITERIA.len())
