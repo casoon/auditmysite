@@ -968,3 +968,281 @@ fn test_131_title_heuristic_with_aria_label_passes() {
         "Input with aria-label in addition to title should not be flagged"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Scenario tests — determinism guard for complete page mocks
+//
+// Each test models a realistic page with exactly the accessibility issue named
+// in the scenario, then asserts the exact set of WCAG rule IDs that fire.
+// If a rule change silently expands or shrinks violation output, these tests
+// catch it immediately.
+//
+// The "clean page" baseline includes a proper landmark structure (main) and
+// focusable=true on interactive elements so region/keyboard rules don't fire.
+// All violation scenarios build on top of this baseline.
+// ---------------------------------------------------------------------------
+
+/// Build the sorted list of distinct rule IDs that produced violations.
+fn fired_rules(tree: &AXTree, level: WcagLevel) -> Vec<String> {
+    let mut ids: Vec<String> = check_all(tree, level)
+        .violations
+        .into_iter()
+        .map(|v| v.rule)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    ids.sort();
+    ids
+}
+
+/// Helper: AXNode for a focusable interactive element.
+fn focusable(id: &str, role: &str, name: Option<&str>) -> AXNode {
+    let mut n = node(id, role, name);
+    n.properties.push(AXProperty {
+        name: "focusable".to_string(),
+        value: AXValue::Bool(true),
+    });
+    n
+}
+
+/// Build a minimal clean page tree that passes all Level AA rules.
+///
+/// Includes all required Level AA landmarks (banner, navigation, main, contentinfo)
+/// and focusable interactive elements to satisfy keyboard/region rules.
+///
+/// Structure:
+///   RootWebArea [lang=en, children=[banner, nav, main, footer]]
+///     ├── banner (header) [children=[logo-link]]
+///     │    └── link "Home" (focusable)
+///     ├── navigation [name="Main"] [children=[nav-link]]
+///     │    └── link "About" (focusable)
+///     ├── main [children=[h1, img1, link1]]
+///     │    ├── heading h1 "Our Products"
+///     │    ├── image "A red bicycle"
+///     │    └── link "View product catalogue" (focusable)
+///     └── contentinfo (footer) []
+fn clean_page_tree() -> AXTree {
+    let root = {
+        let mut n = node_with_children(
+            "root",
+            "RootWebArea",
+            Some("Products - My Shop"),
+            vec!["skip", "banner", "nav", "main", "footer"],
+        );
+        n.properties.push(AXProperty {
+            name: "lang".to_string(),
+            value: AXValue::String("en".to_string()),
+        });
+        n
+    };
+    // Skip link before first landmark (satisfies 2.4.1 skip-link check)
+    let skip_link = focusable("skip", "link", Some("Skip to main content"));
+    let banner = node_with_children("banner", "banner", None, vec!["logo-link"]);
+    let logo_link = {
+        let mut n = focusable("logo-link", "link", Some("Home"));
+        n.parent_id = Some("banner".to_string());
+        n
+    };
+    let nav = {
+        let mut n = node_with_children("nav", "navigation", Some("Main"), vec!["nav-link"]);
+        n.parent_id = Some("root".to_string());
+        n
+    };
+    let nav_link = {
+        let mut n = focusable("nav-link", "link", Some("About us"));
+        n.parent_id = Some("nav".to_string());
+        n
+    };
+    let main_node = node_with_children("main", "main", None, vec!["h1", "img1", "link1"]);
+    let h1 = {
+        let mut n = heading("h1", 1, Some("Our Products"));
+        n.parent_id = Some("main".to_string());
+        n
+    };
+    let img = {
+        let mut n = node("img1", "image", Some("A red bicycle"));
+        n.parent_id = Some("main".to_string());
+        n
+    };
+    let link = {
+        let mut n = focusable("link1", "link", Some("View product catalogue"));
+        n.parent_id = Some("main".to_string());
+        n
+    };
+    let footer = {
+        let mut n = node("footer", "contentinfo", None);
+        n.parent_id = Some("root".to_string());
+        n
+    };
+    AXTree::from_nodes(vec![
+        root, skip_link, banner, logo_link, nav, nav_link, main_node, h1, img, link, footer,
+    ])
+}
+
+/// The clean page baseline must produce zero violations at Level AA.
+/// This acts as a guard: if this fails, a new rule broke with no matching fix.
+#[test]
+fn scenario_clean_page_no_violations() {
+    let tree = clean_page_tree();
+    let rules = fired_rules(&tree, WcagLevel::AA);
+    assert!(
+        rules.is_empty(),
+        "Clean page should produce zero violations; got: {rules:?}"
+    );
+}
+
+/// Build a complete clean page with custom main content nodes.
+///
+/// Replaces h1/img1/link1 in the main landmark with `main_children`.
+/// All landmark structure (banner, nav, contentinfo, skip link) is preserved.
+/// Call this from violation scenarios so each test adds exactly one bad element.
+fn page_with_main_content(main_children: Vec<(&str, AXNode)>) -> AXTree {
+    let child_ids: Vec<&str> = main_children.iter().map(|(id, _)| *id).collect();
+    let root = {
+        let mut n = node_with_children(
+            "root",
+            "RootWebArea",
+            Some("Test Page - My Site"),
+            vec!["skip", "banner", "nav", "main", "footer"],
+        );
+        n.properties.push(AXProperty {
+            name: "lang".to_string(),
+            value: AXValue::String("en".to_string()),
+        });
+        n
+    };
+    let skip_link = focusable("skip", "link", Some("Skip to main content"));
+    let banner = node_with_children("banner", "banner", None, vec!["logo-link"]);
+    let logo_link = {
+        let mut n = focusable("logo-link", "link", Some("Home"));
+        n.parent_id = Some("banner".to_string());
+        n
+    };
+    let nav = {
+        let mut n = node_with_children("nav", "navigation", Some("Main"), vec!["nav-link"]);
+        n.parent_id = Some("root".to_string());
+        n
+    };
+    let nav_link = {
+        let mut n = focusable("nav-link", "link", Some("About us"));
+        n.parent_id = Some("nav".to_string());
+        n
+    };
+    let main_node = node_with_children("main", "main", None, child_ids);
+    let footer = {
+        let mut n = node("footer", "contentinfo", None);
+        n.parent_id = Some("root".to_string());
+        n
+    };
+    let mut nodes = vec![
+        root, skip_link, banner, logo_link, nav, nav_link, main_node, footer,
+    ];
+    for (_, mut n) in main_children {
+        n.parent_id = Some("main".to_string());
+        nodes.push(n);
+    }
+    AXTree::from_nodes(nodes)
+}
+
+/// Page with a single image that has no alt text.
+/// Exactly rule 1.1.1 must fire — nothing else (baseline is clean).
+#[test]
+fn scenario_missing_alt_fires_only_111() {
+    let tree = page_with_main_content(vec![
+        ("h1", heading("h1", 1, Some("Catalogue"))),
+        ("img1", node("img1", "image", None)), // missing alt
+        (
+            "link1",
+            focusable("link1", "link", Some("Browse all items")),
+        ),
+    ]);
+    let rules = fired_rules(&tree, WcagLevel::AA);
+    assert_eq!(
+        rules,
+        vec!["1.1.1"],
+        "Missing alt should fire exactly 1.1.1; got: {rules:?}"
+    );
+}
+
+/// Page with an `<html>` element that carries no lang attribute.
+/// Exactly rule 3.1.1 must fire — the baseline otherwise passes.
+#[test]
+fn scenario_no_lang_fires_only_311() {
+    // Build clean tree, then remove the lang property from root
+    let mut tree = clean_page_tree();
+    let root = tree.nodes.get_mut("root").expect("root node");
+    root.properties.retain(|p| p.name != "lang");
+
+    let rules = fired_rules(&tree, WcagLevel::AA);
+    assert_eq!(
+        rules,
+        vec!["3.1.1"],
+        "Missing lang should fire exactly 3.1.1; got: {rules:?}"
+    );
+}
+
+/// Heading hierarchy that jumps from h1 directly to h3 (skips h2).
+/// Rule 1.3.1 must fire (the hierarchy violation is classified under Info and
+/// Relationships, not 2.4.6 Headings and Labels).  No other rule fires.
+#[test]
+fn scenario_heading_skip_fires_only_131() {
+    let tree = page_with_main_content(vec![
+        ("h1", heading("h1", 1, Some("My Blog Post"))),
+        ("h3", heading("h3", 3, Some("Section One"))), // skipped h2 → 1.3.1
+        (
+            "link1",
+            focusable("link1", "link", Some("Read the full post")),
+        ),
+    ]);
+    let rules = fired_rules(&tree, WcagLevel::AA);
+    assert_eq!(
+        rules,
+        vec!["1.3.1"],
+        "Skipped heading level should fire exactly 1.3.1; got: {rules:?}"
+    );
+}
+
+/// Page with an invalid ARIA role and a focusable element inside aria-hidden.
+/// Rules 4.1.2 (invalid role) and 2.4.3 (focusable+aria-hidden) must both fire.
+/// No other rules should fire (baseline is otherwise clean).
+#[test]
+fn scenario_broken_aria_fires_412_and_243() {
+    let hidden_focusable = {
+        let mut n = node("btn2", "button", Some("Hidden action"));
+        n.properties.push(AXProperty {
+            name: "aria-hidden".to_string(),
+            value: AXValue::String("true".to_string()),
+        });
+        n.properties.push(AXProperty {
+            name: "focusable".to_string(),
+            value: AXValue::Bool(true),
+        });
+        n
+    };
+    let tree = page_with_main_content(vec![
+        ("h1", heading("h1", 1, Some("Dashboard"))),
+        (
+            "btn1",
+            focusable("btn1", "superwidget", Some("Custom Button")),
+        ), // invalid role → 4.1.2
+        ("btn2", hidden_focusable), // focusable + aria-hidden → 2.4.3
+    ]);
+    let rules = fired_rules(&tree, WcagLevel::AA);
+    assert!(
+        rules.contains(&"4.1.2".to_string()),
+        "Invalid ARIA role should fire 4.1.2; got: {rules:?}"
+    );
+    assert!(
+        rules.contains(&"2.4.3".to_string()),
+        "Focusable element in aria-hidden should fire 2.4.3; got: {rules:?}"
+    );
+    // Only the two expected rules should fire — no regressions
+    let unexpected: Vec<_> = rules
+        .iter()
+        .filter(|r| *r != "4.1.2" && *r != "2.4.3")
+        .collect();
+    assert!(
+        unexpected.is_empty(),
+        "Unexpected rules fired in broken-aria scenario: {unexpected:?}"
+    );
+}
