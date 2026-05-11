@@ -88,3 +88,6 @@ path = "src/main.rs"
 [features]
 default = ["pdf"]
 pdf = ["dep:renderreport"]
+# Enables the heavy PDF smoke tests (Typst rendering). Run separately:
+#   cargo test --features pdf_test -- --test-threads=1
+pdf_test = ["pdf"]

@@ -2868,7 +2868,7 @@ pub fn generate_comparison_pdf(
     Ok(engine.render_pdf(&built_report)?)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pdf_test"))]
 mod tests {
     use super::*;
     use crate::audit::{AuditReport, BatchReport, ComparisonReport};
