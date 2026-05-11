@@ -432,7 +432,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // Goal: understand — compact cards, no tech detail here
     // ─────────────────────────────────────────────────────────────────
     {
-        builder = builder.add_component(
+        builder = builder.add_component(PageBreak::new()).add_component(
             SectionHeaderSplit::new(&vm.executive.findings_title, &vm.executive.findings_intro)
                 .with_level(1),
         );
@@ -487,7 +487,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // Goal: decide — quick wins, prioritized actions, execution note
     // ─────────────────────────────────────────────────────────────────
     {
-        builder = builder.add_component(
+        builder = builder.add_component(PageBreak::new()).add_component(
             SectionHeaderSplit::new(
                 &vm.executive.action_plan_title,
                 &vm.executive.action_plan_intro,
@@ -580,7 +580,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     // Goal: transition — intro for dev/design/content, severity overview
     // ─────────────────────────────────────────────────────────────────
     {
-        builder = builder.add_component(
+        builder = builder.add_component(PageBreak::new()).add_component(
             SectionHeaderSplit::new(&vm.executive.technical_title, &vm.executive.technical_intro)
                 .with_eyebrow("TECHNICAL HANDOFF")
                 .with_level(1),
@@ -643,18 +643,11 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         builder = render_wcag_coverage_section(builder, &i18n);
     }
 
-    // ── Manual Review Recommendations (issue #47) ──────────────────
-    // Some WCAG criteria require behavioral testing that automated tools
-    // cannot perform. Surface them transparently so users understand the
-    // scope of automated coverage.
-    if vm.meta.report_level != ReportLevel::Executive {
-        builder = render_manual_review_section(builder, &i18n);
-    }
-
     // ── Module Detail Metrics ───────────────────────────────────────
     if vm.module_details.has_any {
         builder = builder
-            .add_component(Section::new(i18n.t("section-tech-detail-metrics")).with_level(2));
+            .add_component(PageBreak::new())
+            .add_component(Section::new(i18n.t("section-tech-detail-metrics")).with_level(1));
     }
 
     if let Some(ref perf) = vm.module_details.performance {
@@ -690,7 +683,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
-        builder = builder.add_component(Section::new(i18n.t("section-appendix")).with_level(1));
+        builder = builder
+            .add_component(PageBreak::new())
+            .add_component(Section::new(i18n.t("section-appendix")).with_level(1));
 
         builder = builder.add_component(build_cli_snapshot_table(&vm, &i18n));
 
@@ -816,31 +811,14 @@ fn render_wcag_coverage_section(
             ChecklistRow::new(format!("WCAG {} (Level {})", c, l), *name).with_status("info")
         })
         .collect();
-    builder.add_component(ChecklistPanel::new(manual_rows).with_title(&manual_title))
-}
+    builder = builder.add_component(ChecklistPanel::new(manual_rows).with_title(&manual_title));
 
-/// Render a static "Manual review recommended" section (issue #47).
-///
-/// Lists WCAG criteria that automated tools cannot reliably verify and
-/// require behavioral testing — keyboard traversal, screen reader use,
-/// 400% zoom, reduced-motion settings, modal interaction. Rendered as a
-/// ChecklistPanel with `info` status (not violations).
-fn render_manual_review_section(
-    mut builder: renderreport::engine::ReportBuilder,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
-    let title = if en {
-        "Manual review recommended"
+    // Practical testing guide — how to test the manual criteria above
+    let how_title = if en {
+        "How to test manually"
     } else {
-        "Empfohlene manuelle Tests"
+        "So testen Sie manuell"
     };
-    let intro = if en {
-        "These criteria cannot be reliably verified by automated tools and require behavioral testing."
-    } else {
-        "Diese Kriterien lassen sich nicht automatisiert prüfen und benötigen einen Verhaltenstest."
-    };
-
     let items: &[(&str, &str)] = if en {
         &[
             (
@@ -896,13 +874,11 @@ fn render_manual_review_section(
             ),
         ]
     };
-
-    builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
     let rows: Vec<ChecklistRow> = items
         .iter()
         .map(|(t, d)| ChecklistRow::new(*t, *d).with_status("info"))
         .collect();
-    builder.add_component(ChecklistPanel::new(rows).with_title(title))
+    builder.add_component(ChecklistPanel::new(rows).with_title(how_title))
 }
 
 fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {

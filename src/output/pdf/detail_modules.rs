@@ -1,6 +1,8 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
-use renderreport::components::advanced::{KeyValueList, List, MetricStrip, MetricStripItem};
+use renderreport::components::advanced::{
+    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
 use renderreport::prelude::*;
@@ -115,6 +117,7 @@ pub(super) fn render_performance(
             },
         );
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(perf_section_title).with_level(2))
         .add_component(perf_intro)
         .add_component(TextBlock::new(&perf.interpretation))
@@ -257,6 +260,7 @@ pub(super) fn render_seo(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-seo-analysis")).with_level(2))
         .add_component(TextBlock::new(&seo.interpretation))
         .add_component(
@@ -929,6 +933,7 @@ pub(super) fn render_security(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-security")).with_level(2))
         .add_component(TextBlock::new(&sec.interpretation))
         .add_component(
@@ -1010,6 +1015,7 @@ pub(super) fn render_mobile(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-mobile-usability")).with_level(2))
         .add_component(TextBlock::new(&mobile.interpretation))
         .add_component(
@@ -1080,6 +1086,7 @@ pub(super) fn render_ux(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-ux")).with_level(2))
         .add_component(TextBlock::new(&ux.interpretation))
         .add_component(
@@ -1115,6 +1122,7 @@ pub(super) fn render_journey(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-journey")).with_level(2))
         .add_component(TextBlock::new(&journey.interpretation))
         .add_component(
@@ -1172,6 +1180,7 @@ pub(super) fn render_dark_mode(
         "Nicht unterstützt"
     };
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-dark-mode")).with_level(2))
         .add_component(
             ScoreCard::new(
@@ -1380,6 +1389,7 @@ pub(super) fn render_source_quality(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(
             Section::new(if is_en(i18n) {
                 "Source quality"
@@ -1461,6 +1471,7 @@ pub(super) fn render_ai_visibility(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
+        .add_component(PageBreak::new())
         .add_component(
             Section::new(if is_en(i18n) {
                 "AI Visibility (indicator)"
