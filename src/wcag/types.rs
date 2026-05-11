@@ -9,6 +9,27 @@ use crate::cli::WcagLevel;
 // Re-export Severity from taxonomy module (single source of truth)
 pub use crate::taxonomy::Severity;
 
+/// Confidence level of a WCAG finding.
+///
+/// Distinguishes between definitive violations detected by the accessibility
+/// tree and heuristic suspicions that require human verification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum FindingKind {
+    /// Automated check detected a concrete problem.
+    #[default]
+    Violation,
+    /// Heuristic suspicion — automated tool cannot definitively confirm without
+    /// behavioral testing (e.g. interactive-role without `focusable` attribute).
+    Warning,
+    /// Good accessibility pattern actively detected (skip link, main landmark,
+    /// semantic structure). Surfaced for transparency, not as a problem.
+    Positive,
+    /// WCAG criterion exists but cannot be evaluated without human interaction
+    /// (e.g. cognitive load, timed content, screen-reader behavior).
+    NotTestable,
+}
+
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Violation {
@@ -49,6 +70,10 @@ pub struct Violation {
     /// Concrete code fix — the corrected HTML showing how the element should look
     #[serde(default)]
     pub suggested_code: Option<String>,
+    /// Confidence level: whether this is a definitive violation, a heuristic
+    /// warning, a positive signal, or an untestable criterion (issue #36).
+    #[serde(default)]
+    pub kind: FindingKind,
 }
 
 impl Violation {
@@ -80,6 +105,7 @@ impl Violation {
             impact,
             html_snippet: None,
             suggested_code: None,
+            kind: FindingKind::Violation,
         }
     }
 
@@ -151,6 +177,22 @@ impl Violation {
         self.suggested_code = Some(code.into());
         self
     }
+
+    /// Override the default finding kind (defaults to `Violation`).
+    pub fn with_kind(mut self, kind: FindingKind) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    /// Convenience: mark as a heuristic warning rather than a confirmed violation.
+    pub fn as_warning(self) -> Self {
+        self.with_kind(FindingKind::Warning)
+    }
+
+    /// Convenience: mark as a positive signal (good pattern detected).
+    pub fn as_positive(self) -> Self {
+        self.with_kind(FindingKind::Positive)
+    }
 }
 
 // Severity enum is now defined in crate::taxonomy::severity
@@ -181,8 +223,14 @@ pub struct RuleMetadata {
 /// Result of running all WCAG checks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WcagResults {
-    /// All violations found
+    /// Confirmed violations (kind = Violation).
     pub violations: Vec<Violation>,
+    /// Heuristic suspicions that need human confirmation (kind = Warning).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<Violation>,
+    /// Good accessibility patterns actively detected (kind = Positive).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub positives: Vec<Violation>,
     /// Number of rules that passed
     pub passes: usize,
     /// Number of elements that couldn't be checked
@@ -196,15 +244,33 @@ impl WcagResults {
     pub fn new() -> Self {
         Self {
             violations: Vec::new(),
+            warnings: Vec::new(),
+            positives: Vec::new(),
             passes: 0,
             incomplete: 0,
             nodes_checked: 0,
         }
     }
 
-    /// Add a violation
-    pub fn add_violation(&mut self, violation: Violation) {
-        self.violations.push(violation);
+    /// Add a finding. Routes to the appropriate list based on `finding.kind`.
+    pub fn add_violation(&mut self, finding: Violation) {
+        match finding.kind {
+            FindingKind::Warning => self.warnings.push(finding),
+            FindingKind::Positive => self.positives.push(finding),
+            _ => self.violations.push(finding),
+        }
+    }
+
+    /// Add a heuristic warning directly (without `as_warning()` call on the finding).
+    pub fn add_warning(&mut self, mut finding: Violation) {
+        finding.kind = FindingKind::Warning;
+        self.warnings.push(finding);
+    }
+
+    /// Add a positive signal directly.
+    pub fn add_positive(&mut self, mut finding: Violation) {
+        finding.kind = FindingKind::Positive;
+        self.positives.push(finding);
     }
 
     /// Count violations by severity
@@ -242,6 +308,8 @@ impl WcagResults {
     /// Merge results from another check
     pub fn merge(&mut self, other: WcagResults) {
         self.violations.extend(other.violations);
+        self.warnings.extend(other.warnings);
+        self.positives.extend(other.positives);
         self.passes += other.passes;
         self.incomplete += other.incomplete;
         self.nodes_checked += other.nodes_checked;

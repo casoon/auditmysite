@@ -13,4 +13,4 @@ pub use engine::{
     check_orientation_with_page, check_reduced_motion_with_page, check_reflow_with_page,
     check_timing_with_page, check_use_of_color_with_page, RuleFilterConfig,
 };
-pub use types::{RuleMetadata, Severity, Violation, WcagResults};
+pub use types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};

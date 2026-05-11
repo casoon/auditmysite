@@ -156,6 +156,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         (normalized.severity_counts.critical + normalized.severity_counts.high) as u32;
     let total_violations = normalized.severity_counts.total as u32;
     let nodes_analyzed = normalized.nodes_analyzed;
+    let warning_count = normalized.raw_wcag.warnings.len() as u32;
 
     let actions = build_actions_block(
         &config.locale,
@@ -251,6 +252,11 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                 } else {
                     "WCAG-Level".to_string()
                 };
+                let label_warnings = if en {
+                    format!("Heuristic{NBSP}warnings")
+                } else {
+                    format!("Heuristische{NBSP}Warnungen")
+                };
                 vec![
                     MetricItem {
                         title: label_violations_total,
@@ -302,6 +308,17 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                         accent_color: Some("#7c3aed".into()),
                     },
                 ]
+                .into_iter()
+                .chain(if warning_count > 0 {
+                    Some(MetricItem {
+                        title: label_warnings,
+                        value: warning_count.to_string(),
+                        accent_color: Some("#f97316".into()),
+                    })
+                } else {
+                    None
+                })
+                .collect()
             },
             top_actions: top_findings
                 .iter()
@@ -353,7 +370,7 @@ fn build_positive_signals(
     use crate::output::report_model::{PositiveSignal, PositiveSignalsBlock};
 
     let en = locale == "en";
-    let items = normalized
+    let mut items: Vec<PositiveSignal> = normalized
         .raw_patterns
         .as_ref()
         .map(|p| {
@@ -384,6 +401,16 @@ fn build_positive_signals(
                 .collect()
         })
         .unwrap_or_default();
+
+    // Append WCAG-rule-level positive signals (from FindingKind::Positive findings).
+    for pos in &normalized.raw_wcag.positives {
+        let title = if en { "WCAG signal" } else { "WCAG-Signal" };
+        items.push(PositiveSignal {
+            title: title.to_string(),
+            description: pos.message.clone(),
+            strong: false,
+        });
+    }
 
     PositiveSignalsBlock { items }
 }

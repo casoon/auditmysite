@@ -82,26 +82,30 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
             results.add_violation(violation);
         }
 
-        // Check for interactive ARIA role on non-focusable element (issue #34)
+        // Check for interactive ARIA role on non-focusable element (issue #34).
+        // Reported as Warning: the AX tree `focusable` attribute may not
+        // reflect JS-added tab handling, so a definitive violation requires
+        // interactive testing.
         if has_interactive_role_but_not_focusable(node) {
             let role = node.role.as_deref().unwrap_or("interactive");
-            let violation = Violation::new(
+            let warning = Violation::new(
                 KEYBOARD_RULE.id,
                 KEYBOARD_RULE.name,
                 KEYBOARD_RULE.level,
                 Severity::High,
                 format!(
-                    "Element has role=\"{role}\" but is not keyboard-focusable (missing tabindex on non-native element)"
+                    "Element has role=\"{role}\" but appears not keyboard-focusable — verify that tabindex or JS event handling is present"
                 ),
                 &node.node_id,
             )
             .with_role(node.role.clone())
             .with_name(node.name.clone())
             .with_fix(
-                "Add tabindex=\"0\" to make the element focusable, or replace with the native HTML element (e.g. <button>, <a>).",
+                "Add tabindex=\"0\" to make the element focusable, or use the native HTML element (e.g. <button>, <a>).",
             )
-            .with_help_url(KEYBOARD_RULE.help_url);
-            results.add_violation(violation);
+            .with_help_url(KEYBOARD_RULE.help_url)
+            .as_warning();
+            results.add_violation(warning);
         }
 
         // Check for potential keyboard traps (modal dialogs)
@@ -269,17 +273,17 @@ mod tests {
 
     #[test]
     fn test_role_button_without_focusable_flagged() {
-        // <div role="button"> without tabindex → focusable=false → violation
+        // <div role="button"> without tabindex → focusable=false → warning (heuristic)
         let tree = AXTree::from_nodes(vec![create_node_with_focusable("1", "button", false)]);
         let results = check_keyboard(&tree);
         assert!(
             results
-                .violations
+                .warnings
                 .iter()
                 .any(|v| v.message.contains("not keyboard-focusable")),
-            "Expected violation for role=button without focusable; got: {:?}",
+            "Expected warning for role=button without focusable; got warnings: {:?}",
             results
-                .violations
+                .warnings
                 .iter()
                 .map(|v| &v.message)
                 .collect::<Vec<_>>()

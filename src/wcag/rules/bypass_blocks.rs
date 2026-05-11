@@ -5,7 +5,7 @@
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
 
 /// Rule metadata for 2.4.1
 pub const BYPASS_BLOCKS_RULE: RuleMetadata = RuleMetadata {
@@ -50,6 +50,35 @@ pub fn check_bypass_blocks(tree: &AXTree) -> WcagResults {
         results.add_violation(violation);
     } else {
         results.passes += 1;
+        // Surface detected bypass mechanisms as positive signals.
+        if has_skip_link {
+            results.add_violation(
+                Violation::new(
+                    BYPASS_BLOCKS_RULE.id,
+                    BYPASS_BLOCKS_RULE.name,
+                    BYPASS_BLOCKS_RULE.level,
+                    Severity::Low,
+                    "Skip navigation link detected — keyboard users can bypass repeated blocks",
+                    "page",
+                )
+                .with_help_url(BYPASS_BLOCKS_RULE.help_url)
+                .with_kind(FindingKind::Positive),
+            );
+        }
+        if has_main_landmark {
+            results.add_violation(
+                Violation::new(
+                    BYPASS_BLOCKS_RULE.id,
+                    BYPASS_BLOCKS_RULE.name,
+                    BYPASS_BLOCKS_RULE.level,
+                    Severity::Low,
+                    "<main> landmark detected — assistive technology users can navigate directly to main content",
+                    "page",
+                )
+                .with_help_url(BYPASS_BLOCKS_RULE.help_url)
+                .with_kind(FindingKind::Positive),
+            );
+        }
     }
 
     // Check for heading structure (separate concern from landmarks)

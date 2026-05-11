@@ -421,8 +421,20 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
         }
     }
 
+    // Merge warnings and positives without deduplication (heuristic signals,
+    // viewport tagging not meaningful). Clone to work with shared refs.
+    let mut warnings = mobile.warnings.clone();
+    warnings.extend(desktop.warnings.iter().cloned());
+    warnings.dedup_by(|a, b| a.message == b.message);
+
+    let mut positives = mobile.positives.clone();
+    positives.extend(desktop.positives.iter().cloned());
+    positives.dedup_by(|a, b| a.message == b.message);
+
     WcagResults {
         violations: merged,
+        warnings,
+        positives,
         passes: mobile.passes.max(desktop.passes),
         incomplete: mobile.incomplete.max(desktop.incomplete),
         nodes_checked: mobile.nodes_checked.max(desktop.nodes_checked),
@@ -951,6 +963,8 @@ mod tests {
                 make_v("1.1.1", "#img1"),  // shared
                 make_v("2.4.4", "#link1"), // desktop-only
             ],
+            warnings: vec![],
+            positives: vec![],
             passes: 5,
             incomplete: 0,
             nodes_checked: 100,
@@ -960,6 +974,8 @@ mod tests {
                 make_v("1.1.1", "#img1"),  // shared
                 make_v("1.4.3", "#text1"), // mobile-only
             ],
+            warnings: vec![],
+            positives: vec![],
             passes: 4,
             incomplete: 0,
             nodes_checked: 90,
