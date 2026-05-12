@@ -5,7 +5,7 @@
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::error::{AuditError, Result};
 use crate::taxonomy::Severity;
@@ -404,8 +404,13 @@ async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRed
         (host.to_string(), format!("www.{}", host))
     };
 
-    // Only makes sense for plain domains; skip IPs and localhost
+    // Only makes sense for plain domains; skip IPs, localhost, and subdomains
     if primary_host.parse::<std::net::IpAddr>().is_ok() || primary_host == "localhost" {
+        return None;
+    }
+    // Determine the bare host (without www prefix) and skip if it's a subdomain
+    let bare_host = host.strip_prefix("www.").unwrap_or(host);
+    if bare_host.split('.').count() > 2 {
         return None;
     }
 
@@ -424,7 +429,7 @@ async fn check_www_redirect(url: &str, canonical: Option<&str>) -> Option<WwwRed
     let response = match client.head(&alternative).send().await {
         Ok(r) => r,
         Err(e) => {
-            warn!("www-redirect check failed for {}: {}", alternative, e);
+            tracing::debug!("www-redirect check failed for {}: {}", alternative, e);
             return Some(WwwRedirectCheck {
                 primary,
                 alternative,

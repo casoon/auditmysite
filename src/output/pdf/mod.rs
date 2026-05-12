@@ -814,7 +814,9 @@ fn render_wcag_coverage_section(
             ChecklistRow::new(format!("WCAG {} (Level {})", c, l), *name).with_status("info")
         })
         .collect();
-    builder = builder.add_component(ChecklistPanel::new(manual_rows).with_title(&manual_title));
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(ChecklistPanel::new(manual_rows).with_title(&manual_title));
 
     // Practical testing guide — how to test the manual criteria above
     let how_title = if en {

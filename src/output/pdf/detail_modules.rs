@@ -4,7 +4,7 @@ use renderreport::components::advanced::{
     KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
 };
 use renderreport::components::text::TextBlock;
-use renderreport::components::{AuditTable, Finding, ScoreCard, SummaryBox, TableColumn};
+use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -97,7 +97,7 @@ pub(super) fn render_performance(
     let perf_section_title = if is_en(i18n) {
         "Performance — User Experience & Technical Complexity"
     } else {
-        "Performance — Nutzererlebnis & Technische Komplexität"
+        "Performance — Nutzererlebnis & Technische Metriken"
     };
     let perf_intro = KeyValueList::new()
         .add(
@@ -117,7 +117,6 @@ pub(super) fn render_performance(
             },
         );
     builder = builder
-        .add_component(PageBreak::new())
         .add_component(Section::new(perf_section_title).with_level(2))
         .add_component(perf_intro)
         .add_component(TextBlock::new(&perf.interpretation))
@@ -215,9 +214,9 @@ pub(super) fn render_performance(
             .add_component(Section::new(i18n.t("section-technical-complexity")).with_level(3));
 
         if !perf.additional_metrics.is_empty() {
-            let mut metrics = SummaryBox::new(i18n.t("perf-technical-indicators"));
+            let mut metrics = KeyValueList::new().with_title(i18n.t("perf-technical-indicators"));
             for (k, v) in &perf.additional_metrics {
-                metrics = metrics.add_item(k, v);
+                metrics = metrics.add(k, v);
             }
             builder = builder.add_component(metrics);
         }
@@ -894,17 +893,17 @@ pub(super) fn render_seo_profile(
     }
 
     // Maturity Rating
-    let mut maturity = SummaryBox::new(if is_en(i18n) {
+    let mut maturity = KeyValueList::new().with_title(if is_en(i18n) {
         "SEO maturity"
     } else {
         "SEO-Reifegrad"
     });
-    maturity = maturity.add_item("Level", &profile.maturity_level);
-    maturity = maturity.add_item(
+    maturity = maturity.add("Level", &profile.maturity_level);
+    maturity = maturity.add(
         if is_en(i18n) { "Rating" } else { "Bewertung" },
         &profile.maturity_description,
     );
-    maturity = maturity.add_item(
+    maturity = maturity.add(
         if is_en(i18n) {
             "Techniques"
         } else {
@@ -1053,11 +1052,11 @@ pub(super) fn render_mobile(
         builder = builder.add_component(kv);
     }
     if !mobile.touch_targets.is_empty() {
-        let mut box_ = SummaryBox::new(i18n.t("mobile-touch-targets"));
+        let mut kv = KeyValueList::new().with_title(i18n.t("mobile-touch-targets"));
         for (k, v) in &mobile.touch_targets {
-            box_ = box_.add_item(k, v);
+            kv = kv.add(k, v);
         }
-        builder = builder.add_component(box_);
+        builder = builder.add_component(kv);
     }
     if !mobile.font_analysis.is_empty() {
         let mut kv = KeyValueList::new().with_title(i18n.t("mobile-font-analysis"));
@@ -1067,11 +1066,11 @@ pub(super) fn render_mobile(
         builder = builder.add_component(kv);
     }
     if !mobile.content_sizing.is_empty() {
-        let mut box_ = SummaryBox::new(i18n.t("mobile-content-sizing"));
+        let mut kv = KeyValueList::new().with_title(i18n.t("mobile-content-sizing"));
         for (k, v) in &mobile.content_sizing {
-            box_ = box_.add_item(k, v);
+            kv = kv.add(k, v);
         }
-        builder = builder.add_component(box_);
+        builder = builder.add_component(kv);
     }
 
     for (cat, sev, msg) in &mobile.issues {
@@ -1398,11 +1397,7 @@ pub(super) fn render_source_quality(
             })
             .with_level(2),
         )
-        .add_component(Callout::info(&sq.disclaimer).with_title(if is_en(i18n) {
-            "Note"
-        } else {
-            "Hinweis"
-        }))
+        .add_component(TextBlock::new(&sq.disclaimer))
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
@@ -1601,11 +1596,7 @@ pub(super) fn render_ai_visibility(
             })
             .with_level(2),
         )
-        .add_component(Callout::info(&av.disclaimer).with_title(if is_en(i18n) {
-            "Note"
-        } else {
-            "Hinweis"
-        }))
+        .add_component(TextBlock::new(&av.disclaimer))
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
@@ -1713,10 +1704,9 @@ pub(super) fn render_ai_visibility(
             builder.add_component(Section::new(i18n.t("section-content-sections")).with_level(3));
 
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Section" } else { "Abschnitt" }),
-            TableColumn::new("Level"),
-            TableColumn::new(if is_en(i18n) { "Words" } else { "Wörter" }),
-            TableColumn::new(if is_en(i18n) { "Quality" } else { "Qualität" }),
+            TableColumn::new(if is_en(i18n) { "Section" } else { "Abschnitt" }).with_width("70%"),
+            TableColumn::new("Level").with_width("15%"),
+            TableColumn::new(if is_en(i18n) { "Words" } else { "Wörter" }).with_width("15%"),
         ])
         .with_title(if is_en(i18n) {
             "Sections"
@@ -1729,7 +1719,6 @@ pub(super) fn render_ai_visibility(
                 &section.heading,
                 &format!("H{}", section.level),
                 &section.word_count.to_string(),
-                &section.quality.to_string(),
             ]);
         }
         builder = builder.add_component(table);
@@ -1813,37 +1802,37 @@ pub(super) fn render_ai_visibility(
             .with_title("Kein KI-Zugang")
         });
     } else if av.policy.blocks_ai_citation {
-        builder = builder.add_component(if is_en(i18n) {
-            Callout::info(format!(
-                "Policy: {} — AI search bots are blocked. \
-                 Content will not appear in AI-generated answers.",
-                av.policy.inferred_policy
-            ))
-            .with_title("AI visibility limited")
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "AI visibility limited"
         } else {
-            Callout::info(format!(
-                "Policy: {} — KI-Suchbots sind blockiert. \
-                 Inhalte erscheinen nicht in KI-generierten Antworten.",
-                av.policy.inferred_policy
-            ))
-            .with_title("KI-Sichtbarkeit eingeschränkt")
+            "KI-Sichtbarkeit eingeschränkt"
         });
+        kv = kv.add("Policy", &av.policy.inferred_policy);
+        kv = kv.add(
+            "Status",
+            if is_en(i18n) {
+                "AI search bots blocked — content will not appear in AI-generated answers"
+            } else {
+                "KI-Suchbots blockiert — Inhalte erscheinen nicht in KI-generierten Antworten"
+            },
+        );
+        builder = builder.add_component(kv);
     } else if av.policy.blocks_ai_training {
-        builder = builder.add_component(if is_en(i18n) {
-            Callout::info(format!(
-                "Policy: {} — AI training bots blocked, AI search bots have access. \
-                 This is the recommended default configuration.",
-                av.policy.inferred_policy
-            ))
-            .with_title("AI policy: default")
+        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
+            "AI policy"
         } else {
-            Callout::info(format!(
-                "Policy: {} — KI-Trainingsbots blockiert, KI-Suchbots haben Zugang. \
-                 Das ist die empfohlene Standardkonfiguration.",
-                av.policy.inferred_policy
-            ))
-            .with_title("KI-Policy: Standard")
+            "KI-Policy"
         });
+        kv = kv.add("Policy", &av.policy.inferred_policy);
+        kv = kv.add(
+            "Status",
+            if is_en(i18n) {
+                "AI training bots blocked, AI search bots have access — recommended default"
+            } else {
+                "KI-Trainingsbots blockiert, KI-Suchbots haben Zugang — empfohlener Standard"
+            },
+        );
+        builder = builder.add_component(kv);
     }
 
     builder
