@@ -175,6 +175,10 @@ pub struct Args {
     #[arg(long)]
     pub skip_mobile: bool,
 
+    /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
+    #[arg(long)]
+    pub stack: bool,
+
     /// Reuse cached artifacts from previous runs when available
     #[arg(long)]
     pub reuse_cache: bool,
@@ -549,6 +553,7 @@ mod tests {
             security: false,
             mobile: false,
             skip_mobile: false,
+            stack: false,
             reuse_cache: false,
             force_refresh: false,
             no_sitemap_suggest: false,

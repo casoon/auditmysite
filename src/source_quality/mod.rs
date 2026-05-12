@@ -743,6 +743,7 @@ mod tests {
             dark_mode: None,
             source_quality: None,
             ai_visibility: None,
+            tech_stack: None,
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,

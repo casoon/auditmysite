@@ -654,6 +654,7 @@ mod tests {
             raw_dark_mode: None,
             raw_source_quality: None,
             raw_ai_visibility: None,
+            raw_tech_stack: None,
             raw_wcag: crate::wcag::WcagResults::new(),
             raw_patterns: None,
         }

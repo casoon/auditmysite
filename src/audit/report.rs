@@ -144,6 +144,9 @@ pub struct AuditReport {
     /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
+    /// Technology stack detection and stack-specific audit findings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     /// Screenshots for PDF cover page (captured during audit, not serialized).
     #[serde(skip)]
     pub page_screenshots: Option<PageScreenshots>,
@@ -215,6 +218,7 @@ impl AuditReport {
             dark_mode: None,
             source_quality: None,
             ai_visibility: None,
+            tech_stack: None,
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,
@@ -269,6 +273,11 @@ impl AuditReport {
     /// Set dark mode analysis results
     pub fn with_dark_mode(mut self, dark_mode: DarkModeAnalysis) -> Self {
         self.dark_mode = Some(dark_mode);
+        self
+    }
+
+    pub fn with_tech_stack(mut self, tech_stack: crate::tech_stack::TechStackAnalysis) -> Self {
+        self.tech_stack = Some(tech_stack);
         self
     }
 

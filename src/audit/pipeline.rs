@@ -86,6 +86,7 @@ struct SnapshotData {
     ux: Option<UxAnalysis>,
     journey: Option<JourneyAnalysis>,
     dark_mode: Option<DarkModeAnalysis>,
+    tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
 }
 
 // ── Pipeline config ───────────────────────────────────────────────────────────
@@ -109,6 +110,8 @@ pub struct PipelineConfig {
     pub check_mobile: bool,
     /// Run dark-mode analysis
     pub check_dark_mode: bool,
+    /// Run tech stack detection and stack-specific audits
+    pub check_stack: bool,
     /// Persist audit artifacts under ~/.auditmysite/cache
     pub persist_artifacts: bool,
     /// Capture desktop + mobile screenshots for PDF cover page
@@ -127,6 +130,7 @@ impl From<&Args> for PipelineConfig {
             check_security: full_audit || args.security,
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
             check_dark_mode: true,
+            check_stack: full_audit || args.stack,
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
@@ -220,6 +224,7 @@ pub async fn audit_page(
         check_security: false,
         check_mobile: false,
         check_dark_mode: true,
+        check_stack: false, // stack detection runs once on the mobile pass
         ..config.clone()
     };
     let desktop_snap = extract_snapshot(page, url, &desktop_config).await?;
@@ -241,6 +246,7 @@ pub async fn audit_page(
         check_security: false,
         check_mobile: config.check_mobile,
         check_dark_mode: false, // taken from desktop pass
+        check_stack: config.check_stack,
         ..config.clone()
     };
     let mobile_snap = extract_snapshot(page, url, &mobile_config).await?;
@@ -325,6 +331,7 @@ pub async fn audit_page(
         ux: mobile_snap.ux.clone(),
         journey: mobile_snap.journey.clone(),
         dark_mode: desktop_snap.dark_mode.clone(), // taken from desktop pass
+        tech_stack: mobile_snap.tech_stack.clone(),
     };
 
     let mut report = aggregate_report(
@@ -623,6 +630,18 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
+    let tech_stack = if config.check_stack {
+        match crate::tech_stack::analyze_tech_stack(page, url).await {
+            Ok(ts) => Some(ts),
+            Err(e) => {
+                warn!("Tech stack analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     Ok(SnapshotData {
         ax_tree,
         performance,
@@ -632,6 +651,7 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         ux,
         journey,
         dark_mode,
+        tech_stack,
     })
 }
 
@@ -784,6 +804,10 @@ fn aggregate_report(
         report = report.with_dark_mode(dark_mode);
     }
 
+    if let Some(tech_stack) = snapshot.tech_stack.clone() {
+        report = report.with_tech_stack(tech_stack);
+    }
+
     report.source_quality = Some(crate::source_quality::analyze_source_quality(&report));
     report.ai_visibility = Some(crate::ai_visibility::analyze_ai_visibility(&report));
 
@@ -931,6 +955,7 @@ mod tests {
             security: false,
             mobile: false,
             skip_mobile: false,
+            stack: false,
             reuse_cache: false,
             force_refresh: false,
             no_sitemap_suggest: false,
