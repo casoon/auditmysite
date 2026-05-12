@@ -51,9 +51,7 @@ use self::helpers::{
     severity_label_i18n, soft_flow_group,
 };
 use self::history::{render_history_section, render_methodology_section};
-use self::modules::{
-    build_summary_overview, build_top_hebel_table, build_was_jetzt_tun_table, WasJetztTunContent,
-};
+use self::modules::{build_summary_overview, build_was_jetzt_tun_table, WasJetztTunContent};
 
 const WORDMARK_ASSET: &str = "/auditmysite-wordmark.svg";
 const CUSTOM_COVER_LOGO_ASSET: &str = "/cover-logo-custom";
@@ -412,11 +410,6 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             );
         }
 
-        // TopFixesTable
-        if let Some(table) = build_top_hebel_table(&vm.findings, total_ch) {
-            builder = builder.add_component(table.with_title(i18n.t("section-top-issues")));
-        }
-
         // LeverageBlock — what fixing achieves
         if total_ch > 0 {
             if let Some(leverage_text) = &vm.executive.leverage_text {
@@ -425,19 +418,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 );
             }
         }
-    }
 
-    // ─────────────────────────────────────────────────────────────────
-    // SECTION 3 — KEY FINDINGS
-    // Goal: understand — compact cards, no tech detail here
-    // ─────────────────────────────────────────────────────────────────
-    {
-        builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(&vm.executive.findings_title, &vm.executive.findings_intro)
-                .with_level(1),
-        );
-
-        // FindingCards — compact: Problem/Impact/Ursache/Fix
+        // ── Key Findings — flow directly from Dominant Issue section ──
+        // TopFixesTable removed: all its data (occurrences, elements, impact)
+        // is contained in the FindingCards below.
         let findings_limit = if vm.meta.report_level == ReportLevel::Executive {
             3
         } else {

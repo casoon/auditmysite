@@ -40,50 +40,6 @@ pub(super) enum WasJetztTunContent {
 }
 
 /// Build the Top-Hebel table: top findings sorted by occurrence share, max 5 rows.
-pub(super) fn build_top_hebel_table(
-    findings: &FindingsBlock,
-    total_critical_high: usize,
-) -> Option<AuditTable> {
-    let mut groups: Vec<&FindingGroup> = findings.top_findings.iter().collect();
-    if groups.is_empty() {
-        return None;
-    }
-    // Sort by occurrence_count descending
-    groups.sort_by_key(|g| std::cmp::Reverse(g.occurrence_count));
-
-    let mut table = AuditTable::new(vec![
-        TableColumn::new("Problem").with_width("31%"),
-        TableColumn::new("Instanzen").with_width("11%"),
-        TableColumn::new("Elemente").with_width("11%"),
-        TableColumn::new("Anteil").with_width("12%"),
-        TableColumn::new("Wirkung").with_width("35%"),
-    ]);
-
-    for group in groups.iter().take(5) {
-        let share = if total_critical_high > 0 {
-            let pct = (group.occurrence_count * 100)
-                .checked_div(total_critical_high)
-                .unwrap_or(0);
-            format!("{}%", pct.min(99))
-        } else {
-            "—".to_string()
-        };
-        let impact = &group.user_impact;
-        table = table.add_row(vec![
-            group.title.clone(),
-            group.occurrence_count.to_string(),
-            group.affected_elements.to_string(),
-            share,
-            if impact.is_empty() {
-                group.recommendation.clone()
-            } else {
-                impact.clone()
-            },
-        ]);
-    }
-
-    Some(table)
-}
 
 /// Build the "Was jetzt tun?" task table (max 5 actions)
 pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunContent {
