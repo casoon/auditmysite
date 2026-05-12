@@ -36,7 +36,7 @@ use auditmysite::output::{
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{format_json_normalized, generate_batch_pdf, generate_pdf};
-use auditmysite::util::truncate_url;
+use auditmysite::util::{build_browser_client, truncate_url};
 
 #[tokio::main]
 async fn main() {
@@ -367,12 +367,12 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
                 OutputFormat::Json => {
                     let output = format_json_cached(&cached.audit, true)?;
                     output_text(&output, &args.output, "JSON", args.quiet)?;
-                    return Ok(cached.audit.overall_score as f64);
+                    return Ok(cached.audit.score as f64);
                 }
                 OutputFormat::Table | OutputFormat::Pdf | OutputFormat::Ai => {
                     let report = to_audit_report(&cached);
                     output_single_report(&report, args)?;
-                    return Ok(report.score as f64);
+                    return Ok(normalize(&report).score as f64);
                 }
             }
         }
@@ -446,7 +446,7 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
 
     output_single_report(&report, args)?;
 
-    Ok(report.score as f64)
+    Ok(normalize(&report).score as f64)
 }
 
 async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>> {
@@ -743,11 +743,7 @@ async fn sitemap_candidates_from_robots(base_url: &str) -> Vec<String> {
         return Vec::new();
     };
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        .build()
-        .unwrap_or_default();
+    let client = build_browser_client(10).unwrap_or_default();
     let Ok(response) = client.get(robots_url.clone()).send().await else {
         return Vec::new();
     };
@@ -768,65 +764,27 @@ async fn sitemap_candidates_from_robots(base_url: &str) -> Vec<String> {
         .collect()
 }
 
-/// Check whether a URL is reachable with a lightweight HTTP request.
-/// Fails fast with a human-readable error before the browser is launched.
+/// Check whether a URL is reachable before launching Chrome.
+/// Only fails on network-level errors (DNS, timeout, connection refused).
+/// Any HTTP response — including 4xx/5xx from bot-protection like Cloudflare —
+/// is treated as "server reachable"; Chrome handles auth and bot challenges itself.
 async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
     if !quiet {
         println!("{} {}", "Checking:".dimmed(), url);
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        .build()
-        .map_err(|e| AuditError::ConfigError(e.to_string()))?;
+    let client = build_browser_client(10).map_err(|e| AuditError::ConfigError(e.to_string()))?;
 
-    match client.head(url).send().await {
-        Ok(resp) => {
-            let status = resp.status();
-            if !status.is_success() && !status.is_redirection() {
-                check_url_reachable_with_get(&client, url, quiet).await?;
-            }
-        }
-        Err(e) => {
-            return Err(AuditError::ConfigError(format!(
-                "Domain unreachable: {}\n  Please check your internet connection and URL.",
-                e
-            )));
-        }
+    // Any HTTP response means the server is reachable — Chrome will handle it.
+    // Only bail on true network failures (DNS not found, connection refused, timeout).
+    if let Err(e) = client.head(url).send().await {
+        return Err(AuditError::ConfigError(format!(
+            "Domain unreachable: {}\n  Please check your internet connection and URL.",
+            e
+        )));
     }
 
     Ok(())
-}
-
-async fn check_url_reachable_with_get(
-    client: &reqwest::Client,
-    url: &str,
-    quiet: bool,
-) -> Result<()> {
-    match client.get(url).send().await {
-        Ok(resp) if resp.status().is_server_error() => Err(AuditError::ConfigError(format!(
-            "Server responded with {} for {}. Aborting audit.",
-            resp.status(),
-            url
-        ))),
-        Ok(resp) if resp.status().is_client_error() => {
-            if !quiet {
-                println!(
-                    "{} Preflight GET returned {}, browser audit will proceed anyway.",
-                    "Note:".yellow().bold(),
-                    resp.status()
-                );
-            }
-            Ok(())
-        }
-        Ok(_) => Ok(()),
-        Err(e) => Err(AuditError::ConfigError(format!(
-            "Domain unreachable: {}",
-            e
-        ))),
-    }
 }
 
 fn looks_like_base_url(url: &str) -> bool {
@@ -1039,11 +997,12 @@ async fn run_compare_mode(args: &Args) -> Result<f64> {
         println!("{}", "Ranking:".cyan().bold());
         for (rank, entry) in comparison.entries.iter().enumerate() {
             println!(
-                "  {}. {} — Score: {}/100 ({}), {} Violations",
+                "  {}. {} — Overall: {}/100 ({}), Accessibility: {}/100, {} Violations",
                 rank + 1,
                 entry.domain,
                 entry.overall_score,
                 entry.grade,
+                entry.accessibility_score,
                 entry.total_violations,
             );
         }
@@ -1076,13 +1035,17 @@ fn output_comparison_report(
         OutputFormat::Table => {
             // Summary table already printed inline above
             if let Some(path) = &args.output {
-                let mut lines = vec!["Rank,Domain,Score,Grade,Violations,Critical".to_string()];
+                let mut lines = vec![
+                    "Rank,Domain,Overall,Accessibility,OverallGrade,Violations,Critical"
+                        .to_string(),
+                ];
                 for (i, e) in comparison.entries.iter().enumerate() {
                     lines.push(format!(
-                        "{},{},{},{},{},{}",
+                        "{},{},{},{},{},{},{}",
                         i + 1,
                         e.domain,
                         e.overall_score,
+                        e.accessibility_score,
                         e.grade,
                         e.total_violations,
                         e.critical_violations,

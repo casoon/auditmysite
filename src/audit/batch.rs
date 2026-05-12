@@ -18,6 +18,7 @@ use super::report::{AuditReport, BatchError, BatchReport};
 use crate::browser::{BrowserOptions, BrowserPool, PoolConfig};
 use crate::cli::Args;
 use crate::error::{AuditError, Result};
+use crate::util::build_browser_client;
 
 /// Batch audit configuration
 #[derive(Debug, Clone)]
@@ -242,11 +243,7 @@ async fn audit_url_with_pool(
 pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
     info!("Fetching sitemap from: {}", sitemap_url);
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        .build()
-        .unwrap_or_default();
+    let client = build_browser_client(15).unwrap_or_default();
 
     let response =
         client
@@ -293,11 +290,7 @@ pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
 /// For sitemap indexes, each `<sitemap>` entry counts as one. Used by the discovery
 /// phase to avoid fetching hundreds of sub-sitemaps just to determine whether a sitemap exists.
 pub async fn count_sitemap_entries_shallow(sitemap_url: &str) -> Option<usize> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        .build()
-        .ok()?;
+    let client = build_browser_client(10).ok()?;
 
     let content = client
         .get(sitemap_url)
