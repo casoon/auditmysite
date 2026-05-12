@@ -390,6 +390,7 @@ pub struct ModuleDetailsBlock {
     pub dark_mode: Option<DarkModePresentation>,
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
+    pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     pub has_any: bool,
 }
 

@@ -1463,6 +1463,127 @@ pub(super) fn render_source_quality(
     builder
 }
 
+// ─── Tech Stack ─────────────────────────────────────────────────────────────
+
+pub(super) fn render_tech_stack(
+    mut builder: renderreport::engine::ReportBuilder,
+    ts: &crate::tech_stack::TechStackAnalysis,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    use crate::tech_stack::Confidence;
+
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Tech Stack"
+            } else {
+                "Tech-Stack"
+            })
+            .with_level(2),
+        )
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Stack security score"
+                } else {
+                    "Stack-Sicherheitsscore"
+                },
+                ts.score,
+            )
+            .with_description(format!("Grade: {}", ts.grade))
+            .with_thresholds(80, 50),
+        );
+
+    if !ts.detected.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if is_en(i18n) {
+                "Technology"
+            } else {
+                "Technologie"
+            })
+            .with_width("28%"),
+            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("22%"),
+            TableColumn::new(if is_en(i18n) { "Version" } else { "Version" }).with_width("18%"),
+            TableColumn::new(if is_en(i18n) {
+                "Confidence"
+            } else {
+                "Konfidenz"
+            })
+            .with_width("14%"),
+            TableColumn::new("Detail").with_width("18%"),
+        ])
+        .with_title(if is_en(i18n) {
+            "Detected technologies"
+        } else {
+            "Erkannte Technologien"
+        });
+
+        for tech in &ts.detected {
+            let confidence = match tech.confidence {
+                Confidence::High => {
+                    if is_en(i18n) {
+                        "High"
+                    } else {
+                        "Hoch"
+                    }
+                }
+                Confidence::Medium => {
+                    if is_en(i18n) {
+                        "Medium"
+                    } else {
+                        "Mittel"
+                    }
+                }
+                Confidence::Low => {
+                    if is_en(i18n) {
+                        "Low"
+                    } else {
+                        "Niedrig"
+                    }
+                }
+            };
+            table = table.add_row(vec![
+                tech.name.clone(),
+                format!("{:?}", tech.category),
+                tech.version.clone().unwrap_or_else(|| "—".to_string()),
+                confidence.to_string(),
+                tech.signals.join(", "),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !ts.findings.is_empty() {
+        let mut findings_table = AuditTable::new(vec![
+            TableColumn::new(if is_en(i18n) { "Finding" } else { "Befund" }).with_width("35%"),
+            TableColumn::new(if is_en(i18n) {
+                "Severity"
+            } else {
+                "Schweregrad"
+            })
+            .with_width("15%"),
+            TableColumn::new("Detail").with_width("50%"),
+        ])
+        .with_title(if is_en(i18n) {
+            "Stack security findings"
+        } else {
+            "Stack-Sicherheitsbefunde"
+        });
+
+        for finding in &ts.findings {
+            findings_table = findings_table.add_row(vec![
+                finding.title.clone(),
+                finding.severity.label().to_string(),
+                finding.detail.clone(),
+            ]);
+        }
+        builder = builder.add_component(findings_table);
+    }
+
+    builder
+}
+
 // ─── AI Visibility ──────────────────────────────────────────────────────────
 
 pub(super) fn render_ai_visibility(

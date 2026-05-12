@@ -43,7 +43,7 @@ use self::cover::{
 use self::detail_modules::{
     render_ai_visibility, render_budget_violations, render_dark_mode, render_journey,
     render_mobile, render_performance, render_security, render_seo, render_source_quality,
-    render_ux,
+    render_tech_stack, render_ux,
 };
 use self::findings::{first_sentence, render_finding_technical, render_key_finding_block};
 use self::helpers::{
@@ -679,6 +679,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     }
     if let Some(ref av) = vm.module_details.ai_visibility {
         builder = render_ai_visibility(builder, av, &i18n);
+    }
+    if let Some(ref ts) = vm.module_details.tech_stack {
+        builder = render_tech_stack(builder, ts, &i18n);
     }
 
     // ── Appendix ────────────────────────────────────────────────────
