@@ -344,27 +344,24 @@ async fn audit_wordpress(client: &Client, base: &str, tech: &DetectedTech) -> Ve
 
     // /wp-json/wp/v2/users — user enumeration
     let users_url = format!("{base}/wp-json/wp/v2/users");
-    match probe(client, &users_url).await {
-        Some(200) => {
-            findings.push(StackFinding {
-                tech: "WordPress".into(),
-                title: "WordPress REST API exposes user list".into(),
-                detail: format!(
-                    "{users_url} returns HTTP 200 and leaks usernames and user IDs. \
-                     Attackers can enumerate accounts for targeted login attacks."
-                ),
-                severity: Severity::High,
-                fix: Some(
-                    "Disable user enumeration via the REST API. Add \
-                     `add_filter('rest_endpoints', function($e) {{ unset($e['/wp/v2/users']); \
-                     unset($e['/wp/v2/users/(?P<id>[\\d]+)']); return $e; }});` \
-                     or use a security plugin."
-                        .into(),
-                ),
-                url_checked: Some(users_url),
-            });
-        }
-        _ => {}
+    if let Some(200) = probe(client, &users_url).await {
+        findings.push(StackFinding {
+            tech: "WordPress".into(),
+            title: "WordPress REST API exposes user list".into(),
+            detail: format!(
+                "{users_url} returns HTTP 200 and leaks usernames and user IDs. \
+                 Attackers can enumerate accounts for targeted login attacks."
+            ),
+            severity: Severity::High,
+            fix: Some(
+                "Disable user enumeration via the REST API. Add \
+                 `add_filter('rest_endpoints', function($e) {{ unset($e['/wp/v2/users']); \
+                 unset($e['/wp/v2/users/(?P<id>[\\d]+)']); return $e; }});` \
+                 or use a security plugin."
+                    .into(),
+            ),
+            url_checked: Some(users_url),
+        });
     }
 
     // /xmlrpc.php — XML-RPC interface
@@ -419,10 +416,9 @@ async fn audit_drupal(client: &Client, base: &str, tech: &DetectedTech) -> Vec<S
         findings.push(StackFinding {
             tech: "Drupal".into(),
             title: "Drupal user login page accessible".into(),
-            detail: format!(
-                "/user/login is publicly accessible. Brute-force and credential-stuffing \
+            detail: "/user/login is publicly accessible. Brute-force and credential-stuffing \
                  attacks are possible without additional rate limiting."
-            ),
+                .to_string(),
             severity: Severity::Medium,
             fix: Some(
                 "Enable Drupal's built-in flood control. Add IP-based rate limiting via \

@@ -218,16 +218,17 @@ mod tests {
         recognized: Vec<&str>,
     ) -> AuditReport {
         let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
-        let mut seo = SeoAnalysis::default();
-        seo.headings = HeadingStructure {
-            h1_count,
+        report.seo = Some(SeoAnalysis {
+            headings: HeadingStructure {
+                h1_count,
+                ..Default::default()
+            },
+            technical: TechnicalSeo {
+                canonical_url: canonical.map(String::from),
+                ..Default::default()
+            },
             ..Default::default()
-        };
-        seo.technical = TechnicalSeo {
-            canonical_url: canonical.map(String::from),
-            ..Default::default()
-        };
-        report.seo = Some(seo);
+        });
         report.patterns = Some(PatternAnalysis {
             recognized: recognized
                 .into_iter()

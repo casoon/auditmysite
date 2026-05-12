@@ -81,6 +81,7 @@ fn default_config() -> PipelineConfig {
         check_security: false,
         check_mobile: false,
         check_dark_mode: false,
+        check_stack: false,
         persist_artifacts: true,
         capture_screenshots: false,
     }

@@ -1499,7 +1499,7 @@ pub(super) fn render_tech_stack(
             })
             .with_width("28%"),
             TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("22%"),
-            TableColumn::new(if is_en(i18n) { "Version" } else { "Version" }).with_width("18%"),
+            TableColumn::new("Version").with_width("18%"),
             TableColumn::new(if is_en(i18n) {
                 "Confidence"
             } else {
