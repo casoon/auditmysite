@@ -1073,7 +1073,7 @@ fn build_technical_signals(seo: &SeoAnalysis) -> SignalCategory {
         ),
         check(
             "Hreflang (Mehrsprachigkeit)",
-            seo.technical.has_hreflang || !seo.technical.has_lang,
+            true,
             if seo.technical.has_hreflang {
                 Some(format!("{} Sprachen", seo.technical.hreflang.len()))
             } else {

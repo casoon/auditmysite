@@ -192,6 +192,7 @@ Useful flags:
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
+- `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
 
 For the full current interface, use:
 
@@ -245,6 +246,8 @@ ARIA and semantics:
 
 77 rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
+Some criteria (keyboard trap behavior, timed content, captions) cannot be reliably verified by automated means. These are flagged as `not_testable` in the JSON output and listed in the report's audit scope section as requiring manual review.
+
 AAA is not fully implemented yet.
 
 ### Additional modules
@@ -261,6 +264,9 @@ Heuristic (indicator scores — tendency, not measurements):
 - UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
 - Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
 - AI Visibility: structural readiness for LLM indexing and citation (readability, citability, structured data, AI policy, chunk quality)
+- Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
+- Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
+- Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
 
 ### Risk assessment
 
@@ -414,6 +420,7 @@ Key layers:
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI format
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
+- `tech_stack/`, `source_quality/`, `ai_visibility/`, `dark_mode/`: heuristic indicator modules
 
 More detail:
 - Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
