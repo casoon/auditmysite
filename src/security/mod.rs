@@ -9,6 +9,24 @@ use tracing::info;
 use crate::error::{AuditError, Result};
 use crate::taxonomy::Severity;
 
+/// A CDN, WAF, or hosting service detected from response headers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetectedProtection {
+    pub name: String,
+    /// Human-readable category, e.g. "CDN + WAF"
+    pub kind: String,
+    pub is_waf: bool,
+    pub is_cdn: bool,
+}
+
+/// CDN/WAF protection fingerprinted from response headers
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProtectionDetection {
+    pub services: Vec<DetectedProtection>,
+    pub has_waf: bool,
+    pub has_cdn: bool,
+}
+
 /// Security analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityAnalysis {
@@ -24,6 +42,8 @@ pub struct SecurityAnalysis {
     pub issues: Vec<SecurityIssue>,
     /// Recommendations
     pub recommendations: Vec<String>,
+    /// Detected CDN/WAF/hosting protection
+    pub protection: ProtectionDetection,
 }
 
 /// Security headers status
@@ -111,14 +131,19 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
         Err(_) => client.get(url).send().await,
     };
 
-    let headers = match response {
-        Ok(response) => extract_security_headers(response.headers()),
+    let (headers, protection) = match response {
+        Ok(response) => {
+            let raw = response.headers();
+            let h = extract_security_headers(raw);
+            let p = detect_protection(raw);
+            (h, p)
+        }
         Err(err) => {
             info!(
                 "Security header request failed for {}; continuing with URL-only security analysis: {}",
                 url, err
             );
-            SecurityHeaders::default()
+            (SecurityHeaders::default(), ProtectionDetection::default())
         }
     };
 
@@ -136,10 +161,15 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
     let grade = calculate_grade(score);
 
     info!(
-        "Security analysis: score={}, grade={}, headers={}",
+        "Security analysis: score={}, grade={}, headers={}, protection={:?}",
         score,
         grade,
-        headers.count()
+        headers.count(),
+        protection
+            .services
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect::<Vec<_>>(),
     );
 
     Ok(SecurityAnalysis {
@@ -149,7 +179,80 @@ pub async fn analyze_security(url: &str) -> Result<SecurityAnalysis> {
         ssl,
         issues,
         recommendations,
+        protection,
     })
+}
+
+fn detect_protection(headers: &HeaderMap) -> ProtectionDetection {
+    let hdr = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_lowercase()
+    };
+    let has = |name: &str| headers.contains_key(name);
+
+    let mut services: Vec<DetectedProtection> = Vec::new();
+
+    macro_rules! push {
+        ($name:expr, $kind:expr, $waf:expr, $cdn:expr) => {
+            services.push(DetectedProtection {
+                name: $name.to_string(),
+                kind: $kind.to_string(),
+                is_waf: $waf,
+                is_cdn: $cdn,
+            });
+        };
+    }
+
+    if has("cf-ray") || hdr("server").contains("cloudflare") {
+        push!("Cloudflare", "CDN + WAF", true, true);
+    }
+    if has("x-amz-cf-id") || hdr("via").contains("cloudfront") {
+        push!("AWS CloudFront", "CDN", false, true);
+    }
+    if has("x-akamai-request-id")
+        || has("x-check-cacheable")
+        || has("akamai-origin-hop")
+        || hdr("server").contains("akamaighost")
+    {
+        push!("Akamai", "CDN + WAF", true, true);
+    }
+    if has("x-fastly-request-id") || has("fastly-restarts") || hdr("x-served-by").contains("cache-")
+    {
+        push!("Fastly", "CDN", false, true);
+    }
+    if has("x-sucuri-id") || has("x-sucuri-cache") || hdr("server").contains("sucuri") {
+        push!("Sucuri", "WAF + CDN", true, true);
+    }
+    if has("x-iinfo") || hdr("x-cdn").contains("imperva") || hdr("x-cdn").contains("incapsula") {
+        push!("Imperva", "WAF + CDN", true, true);
+    }
+    if has("x-vercel-id") {
+        push!("Vercel", "Hosting + CDN", false, true);
+    }
+    if has("x-nf-request-id") || hdr("server").contains("netlify") {
+        push!("Netlify", "Hosting + CDN", false, true);
+    }
+    if has("cdn-pullzone") || has("bunny-request-id") || has("cdn-requestid") {
+        push!("BunnyCDN", "CDN", false, true);
+    }
+    if hdr("server").contains("keycdn-engine") || (has("x-edge-location") && !has("x-amz-cf-id")) {
+        push!("KeyCDN", "CDN", false, true);
+    }
+    if has("x-varnish") || hdr("via").contains("varnish") {
+        push!("Varnish", "Cache", false, true);
+    }
+
+    let has_waf = services.iter().any(|s| s.is_waf);
+    let has_cdn = services.iter().any(|s| s.is_cdn);
+
+    ProtectionDetection {
+        services,
+        has_waf,
+        has_cdn,
+    }
 }
 
 fn extract_security_headers(headers: &HeaderMap) -> SecurityHeaders {

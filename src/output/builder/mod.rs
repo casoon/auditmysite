@@ -272,6 +272,7 @@ mod tests {
                 },
                 issues: vec![],
                 recommendations: vec![],
+                protection: Default::default(),
             })
             .with_seo({
                 let mut seo = SeoAnalysis::default();

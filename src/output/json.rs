@@ -72,6 +72,9 @@ pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<Str
 
     let presentation = build_batch_presentation(batch_report);
 
+    let accessibility_average = batch_report.summary.average_score;
+    let overall_average = presentation.portfolio_summary.average_overall_score;
+
     let payload = BatchJsonReport {
         metadata: ReportMetadata {
             tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
@@ -82,7 +85,15 @@ pub fn format_json_batch(batch_report: &BatchReport, pretty: bool) -> Result<Str
                 .unwrap_or_else(|| "mixed".to_string()),
             execution_time_ms: batch_report.total_duration_ms,
         },
-        summary: &batch_report.summary,
+        summary: BatchJsonSummary {
+            total_urls: batch_report.summary.total_urls,
+            passed: batch_report.summary.passed,
+            failed: batch_report.summary.failed,
+            average_score: accessibility_average,
+            average_accessibility_score: accessibility_average,
+            average_overall_score: overall_average,
+            total_violations: batch_report.summary.total_violations,
+        },
         crawl_diagnostics: batch_report.crawl_diagnostics.as_ref(),
         errors: &batch_report.errors,
         url_matrix: presentation.url_matrix,
@@ -200,7 +211,7 @@ pub struct ReportMetadata {
 #[derive(Debug, Serialize)]
 struct BatchJsonReport<'a> {
     pub metadata: ReportMetadata,
-    pub summary: &'a crate::audit::BatchSummary,
+    pub summary: BatchJsonSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crawl_diagnostics: Option<&'a crate::audit::CrawlDiagnostics>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -208,6 +219,19 @@ struct BatchJsonReport<'a> {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub url_matrix: Vec<UrlMatrixRow>,
     pub reports: Vec<NormalizedReport>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BatchJsonSummary {
+    pub total_urls: usize,
+    pub passed: usize,
+    pub failed: usize,
+    /// Primary visible batch score: WCAG/accessibility average, matching PDF and CLI.
+    pub average_score: f64,
+    /// Accessibility-only average retained explicitly for WCAG-focused decisions.
+    pub average_accessibility_score: f64,
+    pub average_overall_score: u32,
+    pub total_violations: usize,
 }
 
 impl JsonReport {
@@ -226,12 +250,30 @@ impl JsonReport {
             },
             report: normalized.clone(),
             fix_guidance,
-            performance: raw.performance.as_ref().map(|m| m.to_json()),
-            seo: raw.seo.as_ref().map(|m| m.to_json()),
-            security: raw.security.as_ref().map(|m| m.to_json()),
-            mobile: raw.mobile.as_ref().map(|m| m.to_json()),
-            ux: raw.ux.as_ref().map(|m| m.to_json()),
-            journey: raw.journey.as_ref().map(|m| m.to_json()),
+            performance: raw
+                .performance
+                .as_ref()
+                .map(|m| with_normalized_score(m.to_json(), normalized, "Performance")),
+            seo: raw
+                .seo
+                .as_ref()
+                .map(|m| with_normalized_score(m.to_json(), normalized, "SEO")),
+            security: raw
+                .security
+                .as_ref()
+                .map(|m| with_normalized_score(m.to_json(), normalized, "Security")),
+            mobile: raw
+                .mobile
+                .as_ref()
+                .map(|m| with_normalized_score(m.to_json(), normalized, "Mobile")),
+            ux: raw
+                .ux
+                .as_ref()
+                .map(|m| with_normalized_score(m.to_json(), normalized, "UX")),
+            journey: raw
+                .journey
+                .as_ref()
+                .map(|m| with_normalized_score(m.to_json(), normalized, "Journey")),
             dark_mode: raw.dark_mode.as_ref().map(|m| m.to_json()),
             source_quality: raw.source_quality.as_ref().map(|m| m.to_json()),
             ai_visibility: raw.ai_visibility.as_ref().map(|m| m.to_json()),
@@ -335,6 +377,34 @@ impl JsonReport {
             reason: format!("JSON serialization failed: {}", e),
         })
     }
+}
+
+fn normalized_module_score(normalized: &NormalizedReport, module_name: &str) -> Option<u32> {
+    normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == module_name)
+        .map(|m| m.score)
+}
+
+fn with_normalized_score(
+    mut value: serde_json::Value,
+    normalized: &NormalizedReport,
+    module_name: &str,
+) -> serde_json::Value {
+    let Some(score) = normalized_module_score(normalized, module_name) else {
+        return value;
+    };
+
+    if module_name == "Performance" {
+        if let Some(score_obj) = value.get_mut("score").and_then(|v| v.as_object_mut()) {
+            score_obj.insert("overall".to_string(), serde_json::json!(score));
+        }
+    } else if let Some(obj) = value.as_object_mut() {
+        obj.insert("score".to_string(), serde_json::json!(score));
+    }
+
+    value
 }
 
 fn batch_report_timestamp(batch_report: &BatchReport) -> DateTime<Utc> {
@@ -533,6 +603,7 @@ mod tests {
             ssl: Default::default(),
             issues: vec![],
             recommendations: vec![],
+            protection: Default::default(),
         })
         .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
         .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));

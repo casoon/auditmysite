@@ -985,11 +985,12 @@ fn build_modules_block_from_normalized(
     }];
 
     if let Some(ref p) = normalized.raw_performance {
+        let score = normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
         dashboard.push(ModuleScore {
             name: "Performance".into(),
-            score: p.score.overall,
+            score,
             interpretation: interpret_score(
-                p.score.overall as f32,
+                score as f32,
                 if en { "performance" } else { "Performance" },
             ),
             card_context: derive_performance_card_context(locale, p),
@@ -1000,9 +1001,10 @@ fn build_modules_block_from_normalized(
         });
     }
     if let Some(ref s) = normalized.raw_seo {
+        let score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
         dashboard.push(ModuleScore {
             name: "SEO".into(),
-            score: s.score,
+            score,
             interpretation: build_seo_interpretation(locale, s),
             card_context: derive_seo_card_context(locale, s),
             score_context: derive_seo_context(locale, s),
@@ -1012,15 +1014,16 @@ fn build_modules_block_from_normalized(
         });
     }
     if let Some(ref s) = normalized.raw_security {
+        let score = normalized_module_score(normalized, "Security").unwrap_or(s.score);
         dashboard.push(ModuleScore {
             name: if en {
                 "Security".into()
             } else {
                 "Sicherheit".into()
             },
-            score: s.score,
+            score,
             interpretation: interpret_score(
-                s.score as f32,
+                score as f32,
                 if en { "security" } else { "Sicherheit" },
             ),
             card_context: derive_security_card_context(locale, s),
@@ -1031,11 +1034,12 @@ fn build_modules_block_from_normalized(
         });
     }
     if let Some(ref m) = normalized.raw_mobile {
+        let score = normalized_module_score(normalized, "Mobile").unwrap_or(m.score);
         dashboard.push(ModuleScore {
             name: "Mobile".into(),
-            score: m.score,
+            score,
             interpretation: interpret_score(
-                m.score as f32,
+                score as f32,
                 if en {
                     "mobile usability"
                 } else {
@@ -1050,6 +1054,7 @@ fn build_modules_block_from_normalized(
         });
     }
     if let Some(ref u) = normalized.raw_ux {
+        let ux_score = normalized_module_score(normalized, "UX").unwrap_or(u.score);
         let ux_context = format!(
             "CTA Clarity {}/100, Visual Hierarchy {}/100, Content Clarity {}/100, Trust Signals {}/100, Cognitive Load {}/100",
             u.cta_clarity.score, u.visual_hierarchy.score, u.content_clarity.score, u.trust_signals.score, u.cognitive_load.score
@@ -1080,8 +1085,8 @@ fn build_modules_block_from_normalized(
         .into();
         dashboard.push(ModuleScore {
             name: "UX".into(),
-            score: u.score,
-            interpretation: interpret_score(u.score as f32, "User Experience"),
+            score: ux_score,
+            interpretation: interpret_score(ux_score as f32, "User Experience"),
             card_context: ux_context.clone(),
             score_context: ux_context,
             key_lever: ux_lever,
@@ -2188,6 +2193,10 @@ fn build_module_details_from_normalized(
     normalized: &NormalizedReport,
 ) -> ModuleDetailsBlock {
     let performance = normalized.raw_performance.as_ref().map(|p| {
+        let performance_score =
+            normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
+        let performance_grade = normalized_module_grade(normalized, "Performance")
+            .unwrap_or_else(|| p.score.grade.label().to_string());
         let vitals = build_vitals_list(p);
         let desktop_viewport =
             normalized
@@ -2268,7 +2277,7 @@ fn build_module_details_from_normalized(
         let cwv_all_good = p.vitals.lcp.as_ref().is_none_or(|v| v.rating == "good")
             && p.vitals.fcp.as_ref().is_none_or(|v| v.rating == "good")
             && p.vitals.cls.as_ref().is_none_or(|v| v.rating == "good");
-        let score_below_excellent = p.score.overall < 85;
+        let score_below_excellent = performance_score < 85;
         let perf_interpretation = if cwv_all_good && score_below_excellent {
             let mut reasons = Vec::new();
             if p.vitals.dom_nodes.is_some_and(|n| n > 1500) {
@@ -2281,21 +2290,21 @@ fn build_module_details_from_normalized(
                 reasons.push("Total Blocking Time");
             }
             if reasons.is_empty() {
-                interpret_score(p.score.overall as f32, "Performance")
+                interpret_score(performance_score as f32, "Performance")
             } else {
                 format!(
                     "{} Score durch {} reduziert, obwohl Core Web Vitals im grünen Bereich liegen.",
-                    interpret_score(p.score.overall as f32, "Performance"),
+                    interpret_score(performance_score as f32, "Performance"),
                     reasons.join(", ")
                 )
             }
         } else {
-            interpret_score(p.score.overall as f32, "Performance")
+            interpret_score(performance_score as f32, "Performance")
         };
 
         PerformancePresentation {
-            score: p.score.overall,
-            grade: p.score.grade.label().to_string(),
+            score: performance_score,
+            grade: performance_grade,
             interpretation: perf_interpretation,
             vitals,
             desktop: desktop_viewport,
@@ -2309,6 +2318,7 @@ fn build_module_details_from_normalized(
     });
 
     let seo = normalized.raw_seo.as_ref().map(|s| {
+        let seo_score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
         if let Some(ref title) = s.meta.title {
             meta_tags.push(("Titel".to_string(), title.clone()));
@@ -2554,7 +2564,7 @@ fn build_module_details_from_normalized(
         });
 
         SeoPresentation {
-            score: s.score,
+            score: seo_score,
             interpretation: build_seo_interpretation(locale, s),
             meta_tags,
             meta_issues,
@@ -2707,6 +2717,7 @@ fn build_module_details_from_normalized(
     });
 
     let security = normalized.raw_security.as_ref().map(|sec| {
+        let security_score = normalized_module_score(normalized, "Security").unwrap_or(sec.score);
         let header_checks: Vec<(&str, &Option<String>)> = vec![
             (
                 "Content-Security-Policy",
@@ -2735,9 +2746,10 @@ fn build_module_details_from_normalized(
         ];
 
         SecurityPresentation {
-            score: sec.score,
-            grade: sec.grade.clone(),
-            interpretation: interpret_score(sec.score as f32, "Sicherheit"),
+            score: security_score,
+            grade: normalized_module_grade(normalized, "Security")
+                .unwrap_or_else(|| sec.grade.clone()),
+            interpretation: interpret_score(security_score as f32, "Sicherheit"),
             headers: header_checks
                 .iter()
                 .map(|(name, value)| {
@@ -2774,10 +2786,19 @@ fn build_module_details_from_normalized(
                 .map(|i| (i.header.clone(), i.severity, i.message.clone()))
                 .collect(),
             recommendations: derive_security_recommendations(locale, sec),
+            protection: sec
+                .protection
+                .services
+                .iter()
+                .map(|s| (s.name.clone(), s.kind.clone()))
+                .collect(),
+            has_waf: sec.protection.has_waf,
+            has_cdn: sec.protection.has_cdn,
         }
     });
 
     let mobile = normalized.raw_mobile.as_ref().map(|m| {
+        let mobile_score = normalized_module_score(normalized, "Mobile").unwrap_or(m.score);
         let small_targets = m.touch_targets.small_targets;
         let context_hint = if !m.touch_targets.small_by_context.is_empty() {
             let parts: Vec<String> = m
@@ -2794,15 +2815,15 @@ fn build_module_details_from_normalized(
         let mobile_interpretation = if small_targets >= 10 {
             format!(
                 "{} {} Touch-Targets kleiner als empfohlen (44×44 px){}.",
-                interpret_score(m.score as f32, "mobile Nutzbarkeit"),
+                interpret_score(mobile_score as f32, "mobile Nutzbarkeit"),
                 small_targets,
                 context_hint,
             )
         } else {
-            interpret_score(m.score as f32, "mobile Nutzbarkeit")
+            interpret_score(mobile_score as f32, "mobile Nutzbarkeit")
         };
         MobilePresentation {
-            score: m.score,
+            score: mobile_score,
             interpretation: mobile_interpretation,
             viewport: vec![
                 (
@@ -2908,51 +2929,55 @@ fn build_module_details_from_normalized(
                 .collect(),
         });
 
-    let ux = normalized.raw_ux.as_ref().map(|u| UxPresentation {
-        score: u.score,
-        grade: u.grade.clone(),
-        interpretation: interpret_score(u.score as f32, "User Experience"),
-        dimensions: vec![
-            UxDimensionPresentation {
-                name: u.cta_clarity.name.clone(),
-                score: u.cta_clarity.score,
-                summary: u.cta_clarity.summary.clone(),
-            },
-            UxDimensionPresentation {
-                name: u.visual_hierarchy.name.clone(),
-                score: u.visual_hierarchy.score,
-                summary: u.visual_hierarchy.summary.clone(),
-            },
-            UxDimensionPresentation {
-                name: u.content_clarity.name.clone(),
-                score: u.content_clarity.score,
-                summary: u.content_clarity.summary.clone(),
-            },
-            UxDimensionPresentation {
-                name: u.trust_signals.name.clone(),
-                score: u.trust_signals.score,
-                summary: u.trust_signals.summary.clone(),
-            },
-            UxDimensionPresentation {
-                name: u.cognitive_load.name.clone(),
-                score: u.cognitive_load.score,
-                summary: u.cognitive_load.summary.clone(),
-            },
-        ],
-        issues: u
-            .issues
-            .iter()
-            .map(|i| UxIssuePresentation {
-                dimension: i.dimension.clone(),
-                severity: i.severity.clone(),
-                problem: i.problem.clone(),
-                impact: i.impact.clone(),
-                recommendation: i.recommendation.clone(),
-            })
-            .collect(),
+    let ux = normalized.raw_ux.as_ref().map(|u| {
+        let ux_score = normalized_module_score(normalized, "UX").unwrap_or(u.score);
+        UxPresentation {
+            score: ux_score,
+            grade: normalized_module_grade(normalized, "UX").unwrap_or_else(|| u.grade.clone()),
+            interpretation: interpret_score(ux_score as f32, "User Experience"),
+            dimensions: vec![
+                UxDimensionPresentation {
+                    name: u.cta_clarity.name.clone(),
+                    score: u.cta_clarity.score,
+                    summary: u.cta_clarity.summary.clone(),
+                },
+                UxDimensionPresentation {
+                    name: u.visual_hierarchy.name.clone(),
+                    score: u.visual_hierarchy.score,
+                    summary: u.visual_hierarchy.summary.clone(),
+                },
+                UxDimensionPresentation {
+                    name: u.content_clarity.name.clone(),
+                    score: u.content_clarity.score,
+                    summary: u.content_clarity.summary.clone(),
+                },
+                UxDimensionPresentation {
+                    name: u.trust_signals.name.clone(),
+                    score: u.trust_signals.score,
+                    summary: u.trust_signals.summary.clone(),
+                },
+                UxDimensionPresentation {
+                    name: u.cognitive_load.name.clone(),
+                    score: u.cognitive_load.score,
+                    summary: u.cognitive_load.summary.clone(),
+                },
+            ],
+            issues: u
+                .issues
+                .iter()
+                .map(|i| UxIssuePresentation {
+                    dimension: i.dimension.clone(),
+                    severity: i.severity.clone(),
+                    problem: i.problem.clone(),
+                    impact: i.impact.clone(),
+                    recommendation: i.recommendation.clone(),
+                })
+                .collect(),
+        }
     });
 
     let journey = normalized.raw_journey.as_ref().map(|j| {
+        let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
         // Detect page type mismatch between SEO profile and Journey module
         let seo_type: Option<String> = normalized
             .raw_seo
@@ -2977,17 +3002,18 @@ fn build_module_details_from_normalized(
             _ => String::new(),
         };
         let journey_interpretation = if type_note.is_empty() {
-            interpret_score(j.score as f32, "User Journey")
+            interpret_score(journey_score as f32, "User Journey")
         } else {
             format!(
                 "{}{}",
-                interpret_score(j.score as f32, "User Journey"),
+                interpret_score(journey_score as f32, "User Journey"),
                 type_note
             )
         };
         JourneyPresentation {
-            score: j.score,
-            grade: j.grade.clone(),
+            score: journey_score,
+            grade: normalized_module_grade(normalized, "Journey")
+                .unwrap_or_else(|| j.grade.clone()),
             page_intent: j.page_intent.label().to_string(),
             interpretation: journey_interpretation,
             dimensions: vec![
@@ -3573,6 +3599,22 @@ impl Clone for RoleAssignment {
             responsibilities: self.responsibilities.clone(),
         }
     }
+}
+
+fn normalized_module_score(normalized: &NormalizedReport, module_name: &str) -> Option<u32> {
+    normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == module_name)
+        .map(|m| m.score)
+}
+
+fn normalized_module_grade(normalized: &NormalizedReport, module_name: &str) -> Option<String> {
+    normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == module_name)
+        .map(|m| m.grade.clone())
 }
 
 #[cfg(test)]

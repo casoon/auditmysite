@@ -659,6 +659,10 @@ pub struct SecurityPresentation {
     pub ssl_info: Vec<(String, String)>,
     pub issues: Vec<(String, Severity, String)>,
     pub recommendations: Vec<String>,
+    /// (service name, kind label) pairs detected from response headers
+    pub protection: Vec<(String, String)>,
+    pub has_waf: bool,
+    pub has_cdn: bool,
 }
 
 pub struct MobilePresentation {
@@ -804,9 +808,9 @@ pub struct PortfolioSummary {
     pub active_modules: Vec<String>,
     /// Domain name (extracted from first URL)
     pub domain: String,
-    /// Certificate label based on overall score
+    /// Certificate label based on the primary WCAG/accessibility score
     pub certificate: String,
-    /// Grade based on overall score
+    /// Grade based on the primary WCAG/accessibility score
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
     pub distribution_insights: Vec<String>,

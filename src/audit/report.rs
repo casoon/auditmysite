@@ -466,16 +466,30 @@ impl BatchReport {
         total_duration_ms: u64,
     ) -> Self {
         let total_urls = reports.len();
-        let passed = reports.iter().filter(|r| r.passed()).count();
+        let normalized_reports: Vec<_> = reports
+            .iter()
+            .map(crate::audit::normalized::normalize)
+            .collect();
+        let passed = normalized_reports
+            .iter()
+            .filter(|r| r.score >= 70 && r.severity_counts.critical == 0)
+            .count();
         let failed = total_urls - passed;
 
         let average_score = if total_urls > 0 {
-            reports.iter().map(|r| r.score as f64).sum::<f64>() / total_urls as f64
+            normalized_reports
+                .iter()
+                .map(|r| r.score as f64)
+                .sum::<f64>()
+                / total_urls as f64
         } else {
             0.0
         };
 
-        let total_violations = reports.iter().map(|r| r.violation_count()).sum();
+        let total_violations = normalized_reports
+            .iter()
+            .map(|r| r.severity_counts.total)
+            .sum();
 
         let mut result = Self {
             reports,
@@ -608,6 +622,7 @@ mod tests {
             ssl: Default::default(),
             issues: vec![],
             recommendations: vec![],
+            protection: Default::default(),
         });
         // Weighted: (100*40 + 50*10) / (40+10) = 4500/50 = 90
         assert_eq!(report.overall_score(), 90);
@@ -629,6 +644,7 @@ mod tests {
             ssl: Default::default(),
             issues: vec![],
             recommendations: vec![],
+            protection: Default::default(),
         });
 
         assert!(report.security.is_some());

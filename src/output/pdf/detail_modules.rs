@@ -994,6 +994,19 @@ pub(super) fn render_security(
         builder = builder.add_component(kv);
     }
 
+    if !sec.protection.is_empty() {
+        let title = if is_en(i18n) {
+            "Protection Infrastructure"
+        } else {
+            "Schutzinfrastruktur"
+        };
+        let mut kv = KeyValueList::new().with_title(title);
+        for (name, kind) in &sec.protection {
+            kv = kv.add(name, kind);
+        }
+        builder = builder.add_component(kv);
+    }
+
     for (title, sev, msg) in &sec.issues {
         builder = builder.add_component(Finding::new(title, map_severity(sev), msg));
     }
