@@ -1,6 +1,6 @@
 //! Single-report ViewModel builder.
 
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::{NormalizedReport, SeverityCounts};
 use crate::audit::summary::analyze_with_locale;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
@@ -55,6 +55,36 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         })
         .map(|f| finding_group_from_normalized(&config.locale, f))
         .collect();
+    let filtered_counts = {
+        let critical = sorted_groups
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let high = sorted_groups
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let medium = sorted_groups
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let low = sorted_groups
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .map(|f| f.occurrence_count)
+            .sum();
+        SeverityCounts {
+            critical,
+            high,
+            medium,
+            low,
+            total: critical + high + medium + low,
+        }
+    };
+
     sorted_groups.sort_by(|a, b| {
         let pa = priority_by_rule
             .get(a.rule_id.as_str())
@@ -141,20 +171,19 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     }
 
     let severity = SeverityBlock {
-        critical: normalized.severity_counts.critical as u32,
-        high: normalized.severity_counts.high as u32,
-        medium: normalized.severity_counts.medium as u32,
-        low: normalized.severity_counts.low as u32,
-        total: normalized.severity_counts.total as u32,
-        has_issues: normalized.severity_counts.total > 0,
+        critical: filtered_counts.critical as u32,
+        high: filtered_counts.high as u32,
+        medium: filtered_counts.medium as u32,
+        low: filtered_counts.low as u32,
+        total: filtered_counts.total as u32,
+        has_issues: filtered_counts.total > 0,
     };
 
     let modules = build_modules_block_from_normalized(&config.locale, normalized);
 
     let quick_win_count = action_plan.quick_wins.len();
-    let critical_count =
-        (normalized.severity_counts.critical + normalized.severity_counts.high) as u32;
-    let total_violations = normalized.severity_counts.total as u32;
+    let critical_count = (filtered_counts.critical + filtered_counts.high) as u32;
+    let total_violations = filtered_counts.total as u32;
     let nodes_analyzed = normalized.nodes_analyzed;
     let warning_count = normalized.raw_wcag.warnings.len() as u32;
     let not_testable_count = normalized.raw_wcag.not_testables.len() as u32;
@@ -359,7 +388,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         severity,
         findings: {
             let clusters = build_thematic_clusters(&config.locale, &sorted_groups);
-            let finding_summary = build_finding_summary(&config.locale, normalized, &audit_summary);
+            let finding_summary =
+                build_finding_summary(&config.locale, &filtered_counts, &audit_summary);
             FindingsBlock {
                 summary: finding_summary,
                 clusters,
@@ -1366,7 +1396,7 @@ fn build_actions_block(
 
 fn build_finding_summary(
     locale: &str,
-    normalized: &NormalizedReport,
+    counts: &SeverityCounts,
     audit_summary: &crate::audit::summary::AuditSummary,
 ) -> FindingSummary {
     let en = locale == "en";
@@ -1399,11 +1429,11 @@ fn build_finding_summary(
         .into(),
     };
     FindingSummary {
-        total: normalized.severity_counts.total,
-        critical: normalized.severity_counts.critical,
-        high: normalized.severity_counts.high,
-        medium: normalized.severity_counts.medium,
-        low: normalized.severity_counts.low,
+        total: counts.total,
+        critical: counts.critical,
+        high: counts.high,
+        medium: counts.medium,
+        low: counts.low,
         verdict: audit_summary.verdict_intro.clone(),
         dominant_issue_note: audit_summary.dominant_issue_note.clone(),
         cross_impact_notes,
