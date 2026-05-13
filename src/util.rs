@@ -16,12 +16,8 @@ pub fn browser_headers() -> HeaderMap {
     headers.insert("accept-language", h("en-US,en;q=0.9,de;q=0.8"));
     headers.insert("accept-encoding", h("gzip, deflate, br"));
     headers.insert("cache-control", h("no-cache"));
-    headers.insert(
-        "sec-ch-ua",
-        h("\"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\""),
-    );
-    headers.insert("sec-ch-ua-mobile", h("?0"));
-    headers.insert("sec-ch-ua-platform", h("\"macOS\""));
+    // Sec-CH-UA omitted intentionally: combining browser client-hints with a
+    // non-Chrome TLS fingerprint (rustls ≠ BoringSSL) worsens bot-detection mismatches.
     headers.insert("sec-fetch-dest", h("document"));
     headers.insert("sec-fetch-mode", h("navigate"));
     headers.insert("sec-fetch-site", h("none"));

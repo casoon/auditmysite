@@ -775,13 +775,21 @@ async fn check_url_reachable(url: &str, quiet: bool) -> Result<()> {
 
     let client = build_browser_client(10).map_err(|e| AuditError::ConfigError(e.to_string()))?;
 
-    // Any HTTP response means the server is reachable — Chrome will handle it.
-    // Only bail on true network failures (DNS not found, connection refused, timeout).
-    if let Err(e) = client.head(url).send().await {
-        return Err(AuditError::ConfigError(format!(
-            "Domain unreachable: {}\n  Please check your internet connection and URL.",
-            e
-        )));
+    // Any HTTP response = server is up; Chrome handles auth/bot-protection itself.
+    // Connection-level errors (TLS reset by Cloudflare, refused) are silently ignored —
+    // Chrome uses a different TLS stack and often succeeds where reqwest fails.
+    // Only abort on timeout: that means the host is genuinely unreachable.
+    match client.head(url).send().await {
+        Ok(_) => {}
+        Err(e) if e.is_timeout() => {
+            return Err(AuditError::ConfigError(format!(
+                "Domain unreachable (timeout): {}\n  Please check your internet connection and URL.",
+                url
+            )));
+        }
+        Err(e) => {
+            tracing::debug!("Preflight HEAD failed ({}); proceeding with Chrome", e);
+        }
     }
 
     Ok(())
