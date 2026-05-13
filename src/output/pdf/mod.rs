@@ -192,6 +192,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         )
+        .add_component(output_scope_callout(&i18n))
         .add_component(PageBreak::new());
 
     if vm.meta.report_level != ReportLevel::Executive {
@@ -1174,6 +1175,20 @@ fn render_diagnosis_section(
 
 // ─── Helper: Business Relevance ─────────────────────────────────────────────
 
+fn output_scope_callout(i18n: &I18n) -> Callout {
+    if i18n.locale() == "en" {
+        Callout::info(
+            "This PDF is a condensed decision and prioritization report. It highlights the most important findings, risks and actions, but does not list every technical occurrence. Use the accompanying JSON report for the complete machine-readable issue list with selectors, occurrences and detail data.",
+        )
+        .with_title("How to read this report")
+    } else {
+        Callout::info(
+            "Dieser PDF-Report ist eine verdichtete Entscheidungs- und Priorisierungshilfe. Er zeigt die wichtigsten Befunde, Risiken und Maßnahmen, enthält aber nicht jede technische Einzelstelle. Für die vollständige maschinenlesbare Fehlerliste mit Selektoren, Vorkommen und Detaildaten dient der begleitende JSON-Report.",
+        )
+        .with_title("Einordnung dieses Reports")
+    }
+}
+
 /// Map page type + URL to business relevance (hoch/mittel/niedrig)
 fn format_word_count(n: u32) -> String {
     if n >= 1_000 {
@@ -1226,7 +1241,8 @@ fn build_batch_assessment(
     i18n: &I18n,
 ) -> String {
     let en = i18n.locale() == "en";
-    if dist.critical > 0 && summary.average_overall_score < 50 {
+    let score = summary.average_score.round() as u32;
+    if dist.critical > 0 && score < 50 {
         if en {
             "Critical barriers — not WCAG conformant".to_string()
         } else {
@@ -1244,7 +1260,7 @@ fn build_batch_assessment(
         } else {
             "Gute Basis, aber nicht barrierefrei".to_string()
         }
-    } else if summary.average_overall_score >= 85 {
+    } else if score >= 85 {
         if en {
             "Largely accessible — polish".to_string()
         } else {
@@ -1683,7 +1699,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     let pres = build_batch_presentation(batch);
 
     let domain = &pres.portfolio_summary.domain;
-    let overall_score = pres.portfolio_summary.average_overall_score;
+    let score = pres.portfolio_summary.average_score.round() as u32;
 
     let mut builder = engine
         .report("wcag-batch-audit")
@@ -1748,7 +1764,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     let batch_badge_asset = "/certificate-badge-batch.svg";
     let batch_badge_enabled =
-        if let Ok(path) = certificate_badge_path(batch_certificate_label(overall_score)) {
+        if let Ok(path) = certificate_badge_path(batch_certificate_label(score)) {
             builder = builder.asset(batch_badge_asset, path);
             true
         } else {
@@ -1757,7 +1773,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     builder = builder
         .add_component(build_batch_cover_score_row(
-            overall_score,
+            score,
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
             batch_badge_enabled.then_some(batch_badge_asset),
@@ -1769,6 +1785,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         )
+        .add_component(output_scope_callout(&i18n))
         .add_component(PageBreak::new());
     if config.level != ReportLevel::Executive {
         builder = builder.add_component(TableOfContents::new().with_depth(1));
@@ -1809,7 +1826,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     // Score overview cards (sekundär)
     builder = builder.add_component(build_batch_overview_grid(
         pres.portfolio_summary.total_urls as u32,
-        overall_score,
+        score,
         pres.portfolio_summary.total_violations as u32,
         (dist.critical + dist.high) as u32,
         pres.portfolio_summary.crawl_links.as_ref().map(|links| {
@@ -2723,13 +2740,13 @@ pub fn generate_comparison_pdf(
 
     let comparison_subline = if en_cmp {
         format!(
-            "Comparison of {} domains — avg score: {}/100",
+            "Comparison of {} domains — avg overall: {}/100",
             comparison.entries.len(),
             avg_score
         )
     } else {
         format!(
-            "Vergleich von {} Domains — Ø Score: {}/100",
+            "Vergleich von {} Domains — Ø Gesamt: {}/100",
             comparison.entries.len(),
             avg_score
         )
@@ -2764,14 +2781,14 @@ pub fn generate_comparison_pdf(
     let ranking_intro = if en_cmp {
         format!(
             "Comparison of {} domains based on a full audit of each home page. \
-             Average score: {}/100.",
+             Average overall score: {}/100.",
             comparison.entries.len(),
             avg_score,
         )
     } else {
         format!(
             "Vergleich von {} Domains anhand eines vollständigen Audits der jeweiligen Startseite. \
-             Durchschnittlicher Score: {}/100.",
+             Durchschnittlicher Gesamtscore: {}/100.",
             comparison.entries.len(),
             avg_score,
         )

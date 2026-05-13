@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 
-use crate::audit::AuditReport;
+use crate::audit::{normalize, AuditReport};
 
 /// Impact sort order — lower number = higher priority.
 fn impact_order(impact: &str) -> u8 {
@@ -58,6 +58,7 @@ pub struct AiMetadata {
 pub struct AiReport {
     pub url: String,
     pub audit_date: String,
+    pub score: u32,
     pub overall_score: u32,
     pub summary: AiSummary,
     pub tasks: Vec<AiTask>,
@@ -68,25 +69,8 @@ pub struct AiReport {
 /// Build an [`AiReport`] from a raw [`AuditReport`] and serialise it as
 /// pretty-printed JSON.
 pub fn format_ai_json(report: &AuditReport) -> String {
+    let normalized = normalize(report);
     let violations = &report.wcag_results.violations;
-
-    // Severity counts
-    let critical = violations
-        .iter()
-        .filter(|v| v.impact.as_deref().unwrap_or(v.impact_str()) == "critical")
-        .count();
-    let serious = violations
-        .iter()
-        .filter(|v| v.impact.as_deref().unwrap_or(v.impact_str()) == "serious")
-        .count();
-    let moderate = violations
-        .iter()
-        .filter(|v| v.impact.as_deref().unwrap_or(v.impact_str()) == "moderate")
-        .count();
-    let minor = violations
-        .iter()
-        .filter(|v| v.impact.as_deref().unwrap_or(v.impact_str()) == "minor")
-        .count();
 
     // Build tasks, then sort by impact severity
     let mut tasks: Vec<AiTask> = violations
@@ -119,13 +103,14 @@ pub fn format_ai_json(report: &AuditReport) -> String {
     let ai_report = AiReport {
         url: report.url.clone(),
         audit_date: report.timestamp.format("%Y-%m-%d").to_string(),
-        overall_score: report.score.round() as u32,
+        score: normalized.score,
+        overall_score: normalized.overall_score,
         summary: AiSummary {
-            total_violations: violations.len(),
-            critical,
-            serious,
-            moderate,
-            minor,
+            total_violations: normalized.severity_counts.total,
+            critical: normalized.severity_counts.critical,
+            serious: normalized.severity_counts.high,
+            moderate: normalized.severity_counts.medium,
+            minor: normalized.severity_counts.low,
         },
         tasks,
         passing_checks: report.wcag_results.passes,

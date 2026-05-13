@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::audit::report::AuditReport;
+use crate::audit::{normalize, report::AuditReport, scoring::AccessibilityScorer};
 
 /// Comparison report aggregating multiple single-page audits.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,28 +73,30 @@ impl ComparisonReport {
 impl ComparisonEntry {
     fn from_report(report: &AuditReport) -> Self {
         let domain = extract_domain(&report.url);
+        let normalized = normalize(report);
 
-        let accessibility_score = report.score.round() as u32;
-        let overall_score = report.overall_score();
+        let accessibility_score = normalized.score;
+        let overall_score = normalized.overall_score;
 
-        let seo_score = report.seo.as_ref().map(|s| s.score);
-        let performance_score = report.performance.as_ref().map(|p| p.score.overall);
-        let security_score = report.security.as_ref().map(|s| s.score);
-        let mobile_score = report.mobile.as_ref().map(|m| m.score);
+        let module_score = |name: &str| {
+            normalized
+                .module_scores
+                .iter()
+                .find(|m| m.name == name)
+                .map(|m| m.score)
+        };
+        let seo_score = module_score("SEO");
+        let performance_score = module_score("Performance");
+        let security_score = module_score("Security");
+        let mobile_score = module_score("Mobile");
 
-        let critical_violations = report
-            .wcag_results
-            .violations
-            .iter()
-            .filter(|v| matches!(v.severity, crate::wcag::Severity::Critical))
-            .count();
+        let critical_violations = normalized.severity_counts.critical;
 
-        let top_issues: Vec<String> = report
-            .wcag_results
-            .violations
+        let top_issues: Vec<String> = normalized
+            .findings
             .iter()
             .take(3)
-            .map(|v| v.message.clone())
+            .map(|f| f.title.clone())
             .collect();
 
         Self {
@@ -107,8 +109,8 @@ impl ComparisonEntry {
             security_score,
             mobile_score,
             critical_violations,
-            total_violations: report.violation_count(),
-            grade: report.grade.clone(),
+            total_violations: normalized.severity_counts.total,
+            grade: AccessibilityScorer::calculate_grade(overall_score as f32).to_string(),
             top_issues,
         }
     }

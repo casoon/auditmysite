@@ -9,13 +9,15 @@
     "metadata": { "$ref": "#/$defs/metadata" },
     "summary": {
       "type": "object",
-      "required": ["total_urls", "passed", "failed", "average_score", "total_violations"],
+      "required": ["total_urls", "passed", "failed", "average_score", "average_accessibility_score", "average_overall_score", "total_violations"],
       "additionalProperties": false,
       "properties": {
         "total_urls": { "type": "integer", "minimum": 0 },
         "passed": { "type": "integer", "minimum": 0 },
         "failed": { "type": "integer", "minimum": 0 },
         "average_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "average_accessibility_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "average_overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "total_violations": { "type": "integer", "minimum": 0 }
       }
     },

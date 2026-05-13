@@ -7,13 +7,15 @@
 //! - fix_guidance entries match findings
 //! - Score/grade/certificate are consistent
 
-use auditmysite::audit::{normalize, AuditReport, PerformanceResults};
+use auditmysite::audit::{
+    normalize, AuditReport, BatchReport, ComparisonReport, PerformanceResults,
+};
 use auditmysite::cli::WcagLevel;
 use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::build_view_model;
 use auditmysite::output::report_model::ReportConfig;
-use auditmysite::output::JsonReport;
+use auditmysite::output::{format_ai_json, format_json_batch, JsonReport};
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
@@ -664,6 +666,110 @@ fn test_journey_in_json_output() {
 }
 
 #[test]
+fn test_json_module_detail_scores_match_normalized_scores() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
+
+    for (module_name, json_section, score_path) in [
+        (
+            "Performance",
+            json_report.performance.as_ref(),
+            &["score", "overall"][..],
+        ),
+        ("SEO", json_report.seo.as_ref(), &["score"][..]),
+        ("Security", json_report.security.as_ref(), &["score"][..]),
+        ("Mobile", json_report.mobile.as_ref(), &["score"][..]),
+        ("UX", json_report.ux.as_ref(), &["score"][..]),
+        ("Journey", json_report.journey.as_ref(), &["score"][..]),
+    ] {
+        let expected = normalized
+            .module_scores
+            .iter()
+            .find(|m| m.name == module_name)
+            .map(|m| m.score)
+            .expect("module score must exist");
+        let actual = score_path
+            .iter()
+            .try_fold(
+                json_section.expect("JSON module detail must exist"),
+                |value, key| value.get(*key),
+            )
+            .and_then(|value| value.as_u64())
+            .expect("JSON module detail score must exist") as u32;
+
+        assert_eq!(
+            actual, expected,
+            "{module_name} JSON detail score must match NormalizedReport.module_scores"
+        );
+    }
+}
+
+#[test]
+fn test_ai_json_scores_match_normalized_scores() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&format_ai_json(&report)).expect("AI JSON must parse");
+
+    assert_eq!(
+        parsed["score"].as_u64(),
+        Some(normalized.score as u64),
+        "AI JSON score must use NormalizedReport.score as primary WCAG score"
+    );
+    assert_eq!(
+        parsed["overall_score"].as_u64(),
+        Some(normalized.overall_score as u64),
+        "AI JSON overall_score must use NormalizedReport.overall_score as secondary weighted score"
+    );
+}
+
+#[test]
+fn test_comparison_scores_match_normalized_scores() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+    let comparison = ComparisonReport::from_reports(vec![report], 100);
+    let entry = comparison.entries.first().expect("entry must exist");
+
+    assert_eq!(entry.accessibility_score, normalized.score);
+    assert_eq!(entry.overall_score, normalized.overall_score);
+    assert_eq!(
+        entry.performance_score,
+        normalized
+            .module_scores
+            .iter()
+            .find(|m| m.name == "Performance")
+            .map(|m| m.score)
+    );
+}
+
+#[test]
+fn test_batch_json_average_score_is_accessibility_with_overall_separate() {
+    let reports = vec![make_full_report()];
+    let normalized = normalize(&reports[0]);
+    let expected_overall = normalized.overall_score as u64;
+    let batch = BatchReport::from_reports(reports, vec![], 100);
+    let expected_score = batch.summary.average_score;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&format_json_batch(&batch, true).expect("batch JSON must render"))
+            .expect("batch JSON must parse");
+
+    assert_eq!(
+        parsed["summary"]["average_score"].as_f64(),
+        Some(expected_score),
+        "Batch average_score must remain the primary WCAG/accessibility average"
+    );
+    assert_eq!(
+        parsed["summary"]["average_overall_score"].as_u64(),
+        Some(expected_overall)
+    );
+    assert_eq!(
+        parsed["summary"]["average_accessibility_score"].as_f64(),
+        Some(batch.summary.average_score)
+    );
+}
+
+#[test]
 fn test_journey_module_weight() {
     let report = make_full_report();
     let normalized = normalize(&report);
@@ -677,6 +783,25 @@ fn test_journey_module_weight() {
         10,
         "Journey weight must be 10%"
     );
+}
+
+#[test]
+fn test_batch_summary_uses_normalized_primary_score() {
+    let mut report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        100,
+    );
+    report.score = 69.6;
+
+    let normalized = normalize(&report);
+    let batch = BatchReport::from_reports(vec![report], vec![], 100);
+
+    assert_eq!(normalized.score, 70);
+    assert_eq!(batch.summary.average_score, 70.0);
+    assert_eq!(batch.summary.passed, 1);
+    assert_eq!(batch.summary.failed, 0);
 }
 
 #[test]

@@ -2,12 +2,12 @@
 
 use std::collections::HashMap;
 
-use crate::audit::{normalize, BatchReport, BrokenLinkSeverity};
+use crate::audit::normalized::NormalizedFinding;
+use crate::audit::{normalize, BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::*;
 use crate::seo::profile::PageType;
-use crate::taxonomy::RuleLookup;
 use crate::util::truncate_url;
 use crate::wcag::Severity;
 
@@ -29,36 +29,9 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
 /// Locale-aware variant of [`build_batch_presentation`].
 pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
-    let all_violations: Vec<_> = batch
-        .reports
-        .iter()
-        .flat_map(|r| r.wcag_results.violations.iter().map(move |v| (v, &r.url)))
-        .collect();
-
-    let mut rule_groups: HashMap<String, GroupAccumulator> = HashMap::new();
-    for (violation, url) in &all_violations {
-        let entry = rule_groups
-            .entry(violation.rule.clone())
-            .or_insert_with(|| GroupAccumulator {
-                rule: violation.rule.clone(),
-                rule_name: violation.rule_name.clone(),
-                severity: violation.severity,
-                count: 0,
-                urls: Vec::new(),
-            });
-        entry.count += 1;
-        if !entry.urls.contains(url) {
-            entry.urls.push((*url).clone());
-        }
-        if violation.severity > entry.severity {
-            entry.severity = violation.severity;
-        }
-    }
-
-    let mut top_issues: Vec<FindingGroup> = rule_groups
-        .values()
-        .map(|acc| build_finding_group_from_accumulator(i18n.locale(), acc))
-        .collect();
+    // Normalize all reports early — needed for overall scores, risk, module averages
+    let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
+    let mut top_issues = collect_batch_finding_groups(&normalized_reports, i18n.locale());
     top_issues.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
 
     let issue_frequency: Vec<IssueFrequency> = top_issues
@@ -74,27 +47,19 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
 
     let action_plan = derive_action_plan(i18n.locale(), &top_issues);
 
-    // Normalize all reports early — needed for overall scores, risk, module averages
-    let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
-
     let mut url_ranking: Vec<UrlSummary> = batch
         .reports
         .iter()
         .zip(normalized_reports.iter())
         .map(|(r, nr)| {
-            let critical_count = r
-                .wcag_results
-                .violations
-                .iter()
-                .filter(|v| matches!(v.severity, Severity::Critical | Severity::High))
-                .count();
+            let critical_count = nr.severity_counts.critical + nr.severity_counts.high;
             UrlSummary {
                 url: r.url.clone(),
                 score: nr.score as f32,
                 overall_score: nr.overall_score,
                 grade: nr.grade.clone(),
                 critical_violations: critical_count,
-                total_violations: r.wcag_results.violations.len(),
+                total_violations: nr.severity_counts.total,
                 passed: nr.score >= 70 && nr.severity_counts.critical == 0,
                 priority: score_to_priority(nr.score as f32),
             }
@@ -111,7 +76,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         .iter()
         .zip(normalized_reports.iter())
         .map(|(r, nr)| {
-            let per_url_groups = group_violations(i18n.locale(), &r.wcag_results.violations, &[]);
+            let per_url_groups = normalized_finding_groups(i18n.locale(), nr);
             let mut sorted = per_url_groups;
             sorted.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
             let top_issue_titles: Vec<String> =
@@ -129,13 +94,8 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
                 url: r.url.clone(),
                 score: nr.score as f32,
                 grade: nr.grade.clone(),
-                critical_violations: r
-                    .wcag_results
-                    .violations
-                    .iter()
-                    .filter(|v| matches!(v.severity, Severity::Critical | Severity::High))
-                    .count(),
-                total_violations: r.wcag_results.violations.len(),
+                critical_violations: nr.severity_counts.critical + nr.severity_counts.high,
+                total_violations: nr.severity_counts.total,
                 page_type: r
                     .seo
                     .as_ref()
@@ -199,15 +159,22 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         .collect();
 
     let severity_distribution = {
-        let (mut critical, mut high, mut medium, mut low) = (0usize, 0usize, 0usize, 0usize);
-        for (violation, _) in &all_violations {
-            match violation.severity {
-                Severity::Critical => critical += 1,
-                Severity::High => high += 1,
-                Severity::Medium => medium += 1,
-                Severity::Low => low += 1,
-            }
-        }
+        let critical = normalized_reports
+            .iter()
+            .map(|nr| nr.severity_counts.critical)
+            .sum();
+        let high = normalized_reports
+            .iter()
+            .map(|nr| nr.severity_counts.high)
+            .sum();
+        let medium = normalized_reports
+            .iter()
+            .map(|nr| nr.severity_counts.medium)
+            .sum();
+        let low = normalized_reports
+            .iter()
+            .map(|nr| nr.severity_counts.low)
+            .sum();
         SeverityDistribution {
             critical,
             high,
@@ -467,10 +434,11 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         0
     } else {
         let sum: u32 = normalized_reports.iter().map(|n| n.overall_score).sum();
-        sum / normalized_reports.len() as u32
+        (sum as f64 / normalized_reports.len() as f64).round() as u32
     };
 
-    let verdict_text = build_batch_verdict(i18n, batch.summary.total_urls, average_overall_score);
+    let average_score = batch.summary.average_score.round() as u32;
+    let verdict_text = build_batch_verdict(i18n, batch.summary.total_urls, average_score);
 
     // Aggregate module averages
     let module_averages = {
@@ -484,7 +452,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         }
         let mut avgs: Vec<(String, u32)> = module_sums
             .into_iter()
-            .map(|(name, (sum, count))| (name, sum / count as u32))
+            .map(|(name, (sum, count))| (name, (sum as f64 / count as f64).round() as u32))
             .collect();
         // Stable order: Accessibility first, then alphabetical
         avgs.sort_by(|a, b| {
@@ -557,8 +525,8 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         })
         .unwrap_or_default();
 
-    // Certificate and grade based on overall score
-    let certificate = match average_overall_score {
+    // Certificate and grade are based on the primary WCAG/accessibility score.
+    let certificate = match average_score {
         95.. => "SEHR GUT",
         85.. => "GUT",
         70.. => "SOLIDE",
@@ -567,7 +535,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
     }
     .to_string();
 
-    let grade = match average_overall_score {
+    let grade = match average_score {
         95.. => "A+",
         90.. => "A",
         85.. => "B+",
@@ -692,166 +660,68 @@ fn url_path(url: &str) -> String {
 
 // ─── Internal batch helpers ──────────────────────────────────────────────────
 
-fn taxonomy_fields(wcag_id: &str) -> (Option<String>, Option<String>, Option<String>, String) {
-    if let Some(rule) = RuleLookup::by_legacy_wcag_id(wcag_id) {
-        (
-            Some(rule.dimension.label().to_string()),
-            Some(rule.subcategory.label().to_string()),
-            Some(rule.issue_class.label().to_string()),
-            rule.id.to_string(),
-        )
-    } else {
-        (None, None, None, wcag_id.to_string())
-    }
-}
-
-struct GroupAccumulator {
-    rule: String,
-    rule_name: String,
+#[derive(Clone)]
+struct NormalizedFindingAccumulator {
+    finding: NormalizedFinding,
     severity: Severity,
     count: usize,
     urls: Vec<String>,
 }
 
-fn group_violations(
+fn collect_batch_finding_groups(
+    normalized_reports: &[NormalizedReport],
     locale: &str,
-    violations: &[crate::wcag::Violation],
-    _url_context: &[&str],
 ) -> Vec<FindingGroup> {
-    let mut groups: HashMap<String, (Vec<&crate::wcag::Violation>, usize)> = HashMap::new();
-    for v in violations {
-        let entry = groups
-            .entry(v.rule.clone())
-            .or_insert_with(|| (Vec::new(), 0));
-        entry.0.push(v);
-        entry.1 += 1;
+    let mut groups: HashMap<String, NormalizedFindingAccumulator> = HashMap::new();
+    for report in normalized_reports {
+        for finding in &report.findings {
+            let entry = groups
+                .entry(finding.aggregation_key.clone())
+                .or_insert_with(|| NormalizedFindingAccumulator {
+                    finding: finding.clone(),
+                    severity: finding.severity,
+                    count: 0,
+                    urls: Vec::new(),
+                });
+            entry.count += finding.occurrence_count;
+            if finding.severity > entry.severity {
+                entry.severity = finding.severity;
+            }
+            if !entry.urls.contains(&report.url) {
+                entry.urls.push(report.url.clone());
+            }
+        }
     }
 
     groups
-        .into_iter()
-        .map(|(rule_id, (violations, count))| {
-            let first = violations[0];
-            let explanation = get_explanation(&rule_id);
-            let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&rule_id);
-            let dimension_label = dimension.as_deref().unwrap_or("Accessibility");
+        .values()
+        .map(|acc| finding_group_from_normalized(locale, acc))
+        .collect()
+}
 
-            let (
-                title,
-                customer_desc,
-                user_impact_text,
-                business_impact,
-                typical_cause,
-                recommendation,
-                technical_note,
-                role,
-                effort,
-                execution_priority,
-            ) = if let Some(expl) = explanation {
-                (
-                    expl.customer_title_for(locale).to_string(),
-                    expl.customer_description_for(locale).to_string(),
-                    expl.user_impact_for(locale).to_string(),
-                    derive_business_impact(
-                        locale,
-                        expl.user_impact_for(locale),
-                        dimension_label,
-                        first.severity,
-                        subcategory.as_deref(),
-                        count,
-                    ),
-                    expl.typical_cause_for(locale).to_string(),
-                    expl.recommendation_for(locale).to_string(),
-                    expl.technical_note_for(locale).to_string(),
-                    expl.responsible_role,
-                    expl.effort_estimate,
-                    derive_execution_priority(
-                        first.severity,
-                        expl.effort_estimate,
-                        dimension_label,
-                    ),
-                )
-            } else {
-                let users_affected = if locale == "en" {
-                    "Users with disabilities may be affected.".to_string()
-                } else {
-                    "Nutzer mit Einschränkungen können betroffen sein.".to_string()
-                };
-                let auto_detected = if locale == "en" {
-                    "Automatically detected issue.".to_string()
-                } else {
-                    "Automatisch erkanntes Problem.".to_string()
-                };
-                (
-                    format!("{} — {}", first.rule, first.rule_name),
-                    first.message.clone(),
-                    users_affected.clone(),
-                    derive_business_impact(
-                        locale,
-                        &users_affected,
-                        dimension_label,
-                        first.severity,
-                        subcategory.as_deref(),
-                        count,
-                    ),
-                    auto_detected,
-                    first
-                        .fix_suggestion
-                        .clone()
-                        .unwrap_or_else(|| "Bitte prüfen und beheben.".to_string()),
-                    first.fix_suggestion.clone().unwrap_or_default(),
-                    Role::Development,
-                    Effort::Medium,
-                    derive_execution_priority(first.severity, Effort::Medium, dimension_label),
-                )
-            };
-
-            let examples = explanation.map(|e| e.examples()).unwrap_or_default();
-            let location_hints = violations
-                .iter()
-                .filter_map(|occ| {
-                    occ.selector
-                        .clone()
-                        .or_else(|| Some(format!("AX-Node {}", occ.node_id)))
-                })
-                .take(5)
-                .collect();
-
-            FindingGroup {
-                title,
-                rule_id: mapped_rule_id,
-                wcag_criterion: rule_id,
-                wcag_level: format!("{:?}", first.level),
-                dimension,
-                subcategory,
-                issue_class,
-                severity: first.severity,
-                priority: severity_to_priority(first.severity),
-                customer_description: customer_desc,
-                user_impact: user_impact_text,
-                business_impact,
-                typical_cause,
-                recommendation,
-                technical_note,
-                occurrence_count: count,
-                affected_urls: Vec::new(),
-                affected_elements: count,
-                additional_occurrences: count,
-                pattern_clusters: Vec::new(),
-                location_hints,
-                representative_occurrences: Vec::new(),
-                responsible_role: role,
-                effort,
-                execution_priority,
-                examples,
-            }
+fn normalized_finding_groups(locale: &str, normalized: &NormalizedReport) -> Vec<FindingGroup> {
+    normalized
+        .findings
+        .iter()
+        .map(|finding| {
+            finding_group_from_normalized(
+                locale,
+                &NormalizedFindingAccumulator {
+                    finding: finding.clone(),
+                    severity: finding.severity,
+                    count: finding.occurrence_count,
+                    urls: vec![normalized.url.clone()],
+                },
+            )
         })
         .collect()
 }
 
-fn build_finding_group_from_accumulator(locale: &str, acc: &GroupAccumulator) -> FindingGroup {
-    let explanation = get_explanation(&acc.rule);
-    let (dimension, subcategory, issue_class, mapped_rule_id) = taxonomy_fields(&acc.rule);
-    let dimension_label = dimension.as_deref().unwrap_or("Accessibility");
+fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulator) -> FindingGroup {
+    let finding = &acc.finding;
+    let explanation =
+        get_explanation(&finding.rule_id).or_else(|| get_explanation(&finding.wcag_criterion));
+    let dimension_label = finding.dimension.as_str();
     let (
         title,
         customer_desc,
@@ -873,7 +743,7 @@ fn build_finding_group_from_accumulator(locale: &str, acc: &GroupAccumulator) ->
                 expl.user_impact_for(locale),
                 dimension_label,
                 acc.severity,
-                None,
+                Some(finding.subcategory.as_str()),
                 acc.count,
             ),
             expl.typical_cause_for(locale).to_string(),
@@ -884,30 +754,67 @@ fn build_finding_group_from_accumulator(locale: &str, acc: &GroupAccumulator) ->
             derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),
         )
     } else {
+        let auto_detected = if locale == "en" {
+            "Automatically detected issue.".to_string()
+        } else {
+            "Automatisch erkanntes Problem.".to_string()
+        };
         (
-            format!("{} — {}", acc.rule, acc.rule_name),
-            String::new(),
-            String::new(),
-            derive_business_impact(locale, "", dimension_label, acc.severity, None, acc.count),
-            String::new(),
-            String::new(),
-            String::new(),
+            finding.title.clone(),
+            finding.description.clone(),
+            finding.user_impact.clone(),
+            derive_business_impact(
+                locale,
+                &finding.user_impact,
+                dimension_label,
+                acc.severity,
+                Some(finding.subcategory.as_str()),
+                acc.count,
+            ),
+            auto_detected,
+            finding
+                .occurrences
+                .iter()
+                .find_map(|o| o.fix_suggestion.clone())
+                .unwrap_or_else(|| {
+                    if locale == "en" {
+                        "Review and remediate the affected implementation.".to_string()
+                    } else {
+                        "Betroffene Umsetzung prüfen und beheben.".to_string()
+                    }
+                }),
+            finding.technical_impact.clone(),
             Role::Development,
             Effort::Medium,
             derive_execution_priority(acc.severity, Effort::Medium, dimension_label),
         )
     };
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
-    let location_hints = Vec::new();
+    let location_hints = finding
+        .occurrences
+        .iter()
+        .filter_map(|occ| {
+            occ.selector
+                .clone()
+                .or_else(|| Some(format!("AX-Node {}", occ.node_id)))
+        })
+        .take(5)
+        .collect();
+    let representative_occurrences = finding
+        .occurrences
+        .iter()
+        .take(3)
+        .map(representative_occurrence_from_normalized)
+        .collect();
 
     FindingGroup {
         title,
-        rule_id: mapped_rule_id,
-        wcag_criterion: acc.rule.clone(),
-        wcag_level: String::new(),
-        dimension,
-        subcategory,
-        issue_class,
+        rule_id: finding.rule_id.clone(),
+        wcag_criterion: finding.wcag_criterion.clone(),
+        wcag_level: finding.wcag_level.clone(),
+        dimension: Some(finding.dimension.clone()),
+        subcategory: Some(finding.subcategory.clone()),
+        issue_class: Some(finding.issue_class.clone()),
         severity: acc.severity,
         priority: severity_to_priority(acc.severity),
         customer_description: customer_desc,
@@ -922,10 +829,25 @@ fn build_finding_group_from_accumulator(locale: &str, acc: &GroupAccumulator) ->
         additional_occurrences: acc.count,
         pattern_clusters: Vec::new(),
         location_hints,
-        representative_occurrences: Vec::new(),
+        representative_occurrences,
         responsible_role: role,
         effort,
         execution_priority,
         examples,
+    }
+}
+
+fn representative_occurrence_from_normalized(
+    occurrence: &crate::audit::normalized::OccurrenceDetail,
+) -> RepresentativeOccurrence {
+    RepresentativeOccurrence {
+        selector: occurrence
+            .selector
+            .clone()
+            .unwrap_or_else(|| format!("AX-Node {}", occurrence.node_id)),
+        node_id: occurrence.node_id.clone(),
+        message: occurrence.message.clone(),
+        html_snippet: occurrence.html_snippet.clone(),
+        suggested_code: occurrence.suggested_code.clone(),
     }
 }

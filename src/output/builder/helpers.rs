@@ -500,39 +500,34 @@ pub(super) fn build_batch_appendix(batch: &BatchReport) -> BatchAppendixData {
             .reports
             .iter()
             .map(|r| {
-                let mut rule_map: std::collections::HashMap<String, AppendixViolation> =
-                    std::collections::HashMap::new();
-                let mut rule_order: Vec<String> = Vec::new();
-
-                for v in &r.wcag_results.violations {
-                    let element = AffectedElement {
-                        selector: v.selector.clone().unwrap_or_else(|| v.node_id.clone()),
-                        node_id: v.node_id.clone(),
-                    };
-
-                    if let Some(existing) = rule_map.get_mut(&v.rule) {
-                        existing.affected_elements.push(element);
-                    } else {
-                        rule_order.push(v.rule.clone());
-                        rule_map.insert(
-                            v.rule.clone(),
-                            AppendixViolation {
-                                rule: v.rule.clone(),
-                                rule_name: v.rule_name.clone(),
-                                severity: v.severity,
-                                message: v.message.clone(),
-                                fix_suggestion: v.fix_suggestion.clone(),
-                                affected_elements: vec![element],
-                            },
-                        );
-                    }
-                }
+                let normalized = crate::audit::normalize(r);
 
                 UrlAppendix {
                     url: r.url.clone(),
-                    violations: rule_order
-                        .into_iter()
-                        .filter_map(|rule| rule_map.remove(&rule))
+                    violations: normalized
+                        .findings
+                        .iter()
+                        .map(|finding| AppendixViolation {
+                            rule: finding.rule_id.clone(),
+                            rule_name: finding.title.clone(),
+                            severity: finding.severity,
+                            message: finding.description.clone(),
+                            fix_suggestion: finding
+                                .occurrences
+                                .iter()
+                                .find_map(|occ| occ.fix_suggestion.clone()),
+                            affected_elements: finding
+                                .occurrences
+                                .iter()
+                                .map(|occ| AffectedElement {
+                                    selector: occ
+                                        .selector
+                                        .clone()
+                                        .unwrap_or_else(|| occ.node_id.clone()),
+                                    node_id: occ.node_id.clone(),
+                                })
+                                .collect(),
+                        })
                         .collect(),
                 }
             })

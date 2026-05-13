@@ -75,7 +75,7 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
             level,
             report.nodes_analyzed,
             report.duration_ms as f64 / 1000.0,
-            report.overall_score(),
+            crate::audit::normalize(report).overall_score,
             report.certificate
         )
         .dimmed()
@@ -117,45 +117,50 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
 }
 
 fn dashboard_rows(report: &AuditReport) -> Vec<String> {
+    let normalized = crate::audit::normalize(report);
     let mut rows = vec![render_dashboard_row(
         "Accessibility",
-        report.score.round() as u32,
-        &report.grade,
+        normalized.score,
+        &normalized.grade,
     )];
 
-    if let Some(ref seo) = report.seo {
-        rows.push(render_dashboard_row(
-            "SEO",
-            seo.score,
-            score_grade(seo.score),
-        ));
+    if let Some(module) = normalized.module_scores.iter().find(|m| m.name == "SEO") {
+        rows.push(render_dashboard_row("SEO", module.score, &module.grade));
     }
-    if let Some(ref perf) = report.performance {
+    if let Some(module) = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Performance")
+    {
         rows.push(render_dashboard_row(
             "Performance",
-            perf.score.overall,
-            score_grade(perf.score.overall),
+            module.score,
+            &module.grade,
         ));
     }
-    if let Some(ref sec) = report.security {
-        rows.push(render_dashboard_row("Security", sec.score, &sec.grade));
-    }
-    if let Some(ref mobile) = report.mobile {
+    if let Some(module) = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Security")
+    {
         rows.push(render_dashboard_row(
-            "Mobile",
-            mobile.score,
-            score_grade(mobile.score),
+            "Security",
+            module.score,
+            &module.grade,
         ));
     }
-    if let Some(ref ux) = report.ux {
-        rows.push(render_dashboard_row("UX", ux.score, &ux.grade));
+    if let Some(module) = normalized.module_scores.iter().find(|m| m.name == "Mobile") {
+        rows.push(render_dashboard_row("Mobile", module.score, &module.grade));
     }
-    if let Some(ref journey) = report.journey {
-        rows.push(render_dashboard_row(
-            "Journey",
-            journey.score,
-            &journey.grade,
-        ));
+    if let Some(module) = normalized.module_scores.iter().find(|m| m.name == "UX") {
+        rows.push(render_dashboard_row("UX", module.score, &module.grade));
+    }
+    if let Some(module) = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Journey")
+    {
+        rows.push(render_dashboard_row("Journey", module.score, &module.grade));
     }
 
     rows.push(String::new());
@@ -243,17 +248,6 @@ fn bar_color(score: u32, text: &str) -> colored::ColoredString {
         text.truecolor(255, 165, 0)
     } else {
         text.red()
-    }
-}
-
-fn score_grade(score: u32) -> &'static str {
-    match score {
-        97..=100 => "A+",
-        90..=96 => "A",
-        80..=89 => "B",
-        70..=79 => "C",
-        60..=69 => "D",
-        _ => "F",
     }
 }
 
@@ -357,13 +351,8 @@ fn print_fix_suggestions(violations: &[Violation]) {
 
 /// Print the report footer
 fn print_footer(report: &AuditReport) {
-    let pass_fail = if report.score >= 70.0
-        && report
-            .wcag_results
-            .violations
-            .iter()
-            .all(|v| v.severity != Severity::Critical)
-    {
+    let normalized = crate::audit::normalize(report);
+    let pass_fail = if normalized.score >= 70 && normalized.severity_counts.critical == 0 {
         "PASS".green().bold()
     } else {
         "NEEDS IMPROVEMENT".red().bold()
@@ -562,6 +551,7 @@ pub fn print_batch_table(batch_report: &BatchReport, level: WcagLevel) {
 /// Format batch results as a table string for terminal or file output
 pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_color: bool) -> String {
     set_override(use_color);
+    let presentation = crate::output::builder::build_batch_presentation(batch_report);
 
     let mut output = String::new();
     output.push('\n');
@@ -573,11 +563,13 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
 
     // Summary block
     output.push_str(&format!(
-        "  {}  {}   {}  {:.1}   {}  {}   {}  {}ms\n\n",
+        "  {}  {}   {}  {:.1}/100   {}  {}/100   {}  {}   {}  {}ms\n\n",
         "URLs:".bold(),
         batch_report.summary.total_urls,
-        "Passed:".bold(),
-        batch_report.summary.average_score,
+        "Average accessibility:".bold(),
+        presentation.portfolio_summary.average_score,
+        "Average overall:".bold(),
+        presentation.portfolio_summary.average_overall_score,
         "Violations:".bold(),
         batch_report.summary.total_violations,
         "Duration:".bold(),
@@ -596,6 +588,9 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
             Cell::new("Score")
                 .add_attribute(Attribute::Bold)
                 .fg(Color::Cyan),
+            Cell::new("Overall")
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
             Cell::new("Violations")
                 .add_attribute(Attribute::Bold)
                 .fg(Color::Cyan),
@@ -604,8 +599,8 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
                 .fg(Color::Cyan),
         ]);
 
-    for report in &batch_report.reports {
-        let (status_cell, score_color) = if report.passed() {
+    for report in &presentation.url_ranking {
+        let (status_cell, score_color) = if report.passed {
             (
                 Cell::new("PASS")
                     .fg(Color::Green)
@@ -627,8 +622,9 @@ pub fn format_batch_table(batch_report: &BatchReport, level: WcagLevel, use_colo
 
         table.add_row(vec![
             Cell::new(truncate_url(&report.url, 55)),
-            Cell::new(format!("{:.1}", report.score)).fg(score_color),
-            Cell::new(report.violation_count().to_string()),
+            Cell::new(format!("{:.0}/100", report.score)).fg(score_color),
+            Cell::new(format!("{}/100", report.overall_score)),
+            Cell::new(report.total_violations.to_string()),
             status_cell,
         ]);
     }
@@ -699,16 +695,6 @@ mod tests {
         assert!(row.contains("Security"));
         assert!(row.contains("98/100"));
         assert!(row.contains("A+"));
-    }
-
-    #[test]
-    fn test_score_grade_mapping() {
-        assert_eq!(score_grade(98), "A+");
-        assert_eq!(score_grade(92), "A");
-        assert_eq!(score_grade(84), "B");
-        assert_eq!(score_grade(74), "C");
-        assert_eq!(score_grade(61), "D");
-        assert_eq!(score_grade(49), "F");
     }
 
     #[test]
