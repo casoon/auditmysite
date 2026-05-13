@@ -31,8 +31,8 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_ai_json, format_batch_table, format_json_batch, format_json_cached, print_batch_table,
-    print_report, JsonReport,
+    format_ai_json, format_batch_table, format_json_batch, format_json_cached, format_summary,
+    print_batch_table, print_report, JsonReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{format_json_normalized, generate_batch_pdf, generate_pdf};
@@ -369,7 +369,10 @@ async fn run_single_mode(args: &Args, config: &Option<auditmysite::cli::Config>)
                     output_text(&output, &args.output, "JSON", args.quiet)?;
                     return Ok(cached.audit.score as f64);
                 }
-                OutputFormat::Table | OutputFormat::Pdf | OutputFormat::Ai => {
+                OutputFormat::Table
+                | OutputFormat::Pdf
+                | OutputFormat::Ai
+                | OutputFormat::Summary => {
                     let report = to_audit_report(&cached);
                     output_single_report(&report, args)?;
                     return Ok(normalize(&report).score as f64);
@@ -629,10 +632,12 @@ fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
             }
             outputs
         }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table => match args.output.as_ref() {
-            Some(path) => vec![path.display().to_string()],
-            None => vec!["stdout".to_string()],
-        },
+        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
+            match args.output.as_ref() {
+                Some(path) => vec![path.display().to_string()],
+                None => vec!["stdout".to_string()],
+            }
+        }
     }
 }
 
@@ -652,10 +657,12 @@ fn planned_batch_outputs(args: &Args) -> Vec<String> {
                 path.with_extension("json").display().to_string(),
             ]
         }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table => match args.output.as_ref() {
-            Some(path) => vec![path.display().to_string()],
-            None => vec!["stdout".to_string()],
-        },
+        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
+            match args.output.as_ref() {
+                Some(path) => vec![path.display().to_string()],
+                None => vec!["stdout".to_string()],
+            }
+        }
     }
 }
 
@@ -667,10 +674,12 @@ fn planned_comparison_outputs(args: &Args) -> Vec<String> {
             .unwrap_or_else(|| std::path::PathBuf::from("comparison-report.pdf"))
             .display()
             .to_string()],
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table => match args.output.as_ref() {
-            Some(path) => vec![path.display().to_string()],
-            None => vec!["stdout".to_string()],
-        },
+        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
+            match args.output.as_ref() {
+                Some(path) => vec![path.display().to_string()],
+                None => vec!["stdout".to_string()],
+            }
+        }
     }
 }
 
@@ -1104,6 +1113,13 @@ fn output_comparison_report(
                 })?;
             output_text(&output, &args.output, "AI JSON comparison", args.quiet)?;
         }
+        OutputFormat::Summary => {
+            let output =
+                serde_json::to_string_pretty(comparison).map_err(|e| AuditError::OutputError {
+                    reason: e.to_string(),
+                })?;
+            output_text(&output, &args.output, "summary JSON comparison", args.quiet)?;
+        }
     }
     Ok(())
 }
@@ -1202,6 +1218,13 @@ fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Resul
             let output = format_ai_json(report);
             output_text(&output, &args.output, "AI JSON", args.quiet)?;
         }
+        OutputFormat::Summary => {
+            let normalized = normalize(report);
+            let output = format_summary(&normalized).map_err(|e| AuditError::OutputError {
+                reason: e.to_string(),
+            })?;
+            output_text(&output, &args.output, "summary JSON", args.quiet)?;
+        }
     }
     Ok(())
 }
@@ -1260,6 +1283,18 @@ fn output_batch_report(batch_report: &auditmysite::audit::BatchReport, args: &Ar
             let outputs: Vec<String> = batch_report.reports.iter().map(format_ai_json).collect();
             let combined = format!("[\n{}\n]", outputs.join(",\n"));
             output_text(&combined, &args.output, "AI JSON batch", args.quiet)?;
+        }
+        OutputFormat::Summary => {
+            let summaries: Vec<String> = batch_report
+                .reports
+                .iter()
+                .filter_map(|r| {
+                    let normalized = normalize(r);
+                    format_summary(&normalized).ok()
+                })
+                .collect();
+            let combined = format!("[\n{}\n]", summaries.join(",\n"));
+            output_text(&combined, &args.output, "summary JSON batch", args.quiet)?;
         }
     }
     Ok(())
@@ -1352,6 +1387,7 @@ fn per_page_output_path(
         OutputFormat::Json => PathBuf::from(format!("{subject}-{date}-single-report.json")),
         OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
         OutputFormat::Ai => PathBuf::from(format!("{subject}-{date}-single-report-ai.json")),
+        OutputFormat::Summary => PathBuf::from(format!("{subject}-{date}-summary.json")),
     };
 
     match filename.file_name() {

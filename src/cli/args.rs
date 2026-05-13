@@ -306,6 +306,9 @@ pub enum OutputFormat {
     /// AI/LLM-optimised JSON output (task-oriented, impact-sorted)
     #[value(name = "ai")]
     Ai,
+    /// Compact summary JSON for ranking dashboards (lastAudit-compatible)
+    #[value(name = "summary")]
+    Summary,
 }
 
 /// Report detail level for PDF reports
@@ -340,6 +343,7 @@ impl std::fmt::Display for OutputFormat {
             OutputFormat::Table => write!(f, "table"),
             OutputFormat::Pdf => write!(f, "pdf"),
             OutputFormat::Ai => write!(f, "ai"),
+            OutputFormat::Summary => write!(f, "summary"),
         }
     }
 }
