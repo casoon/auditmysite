@@ -143,9 +143,20 @@ pub enum SchemaExtracted {
     LocalBusiness {
         name: Option<String>,
         address: Option<String>,
+        postal_code: Option<String>,
+        locality: Option<String>,
+        country: Option<String>,
         phone: Option<String>,
+        url: Option<String>,
         opening_hours: Vec<String>,
         price_range: Option<String>,
+        same_as: Vec<String>,
+        logo: Option<String>,
+        image: Option<String>,
+        area_served: Vec<String>,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
+        aggregate_rating: Option<String>,
     },
     Article {
         headline: Option<String>,
@@ -650,12 +661,26 @@ fn analyze_organization(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtr
 }
 
 fn analyze_local_business(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec!["name", "address", "telephone", "openingHours", "priceRange"];
+    let expected = vec![
+        "name",
+        "address",
+        "telephone",
+        "openingHours",
+        "priceRange",
+        "geo",
+        "sameAs",
+        "url",
+    ];
 
-    let address = v["address"]["streetAddress"]
+    let addr = &v["address"];
+    let address = addr["streetAddress"]
         .as_str()
         .map(|s| s.to_string())
         .or_else(|| str_opt(v, "address"));
+    let postal_code = str_opt(addr, "postalCode");
+    let locality = str_opt(addr, "addressLocality");
+    let country = str_opt(addr, "addressCountry")
+        .or_else(|| addr["addressCountry"]["@id"].as_str().map(String::from));
 
     let opening_hours = v["openingHours"]
         .as_array()
@@ -667,12 +692,70 @@ fn analyze_local_business(v: &serde_json::Value) -> (Vec<&'static str>, SchemaEx
         .or_else(|| v["openingHours"].as_str().map(|s| vec![s.to_string()]))
         .unwrap_or_default();
 
+    let same_as = v["sameAs"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|s| s.as_str().map(String::from))
+                .collect()
+        })
+        .or_else(|| v["sameAs"].as_str().map(|s| vec![s.to_string()]))
+        .unwrap_or_default();
+
+    let area_served = v["areaServed"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|s| s.as_str().map(String::from))
+                .collect()
+        })
+        .or_else(|| v["areaServed"].as_str().map(|s| vec![s.to_string()]))
+        .unwrap_or_default();
+
+    let geo = &v["geo"];
+    let latitude = geo["latitude"]
+        .as_f64()
+        .or_else(|| geo["latitude"].as_str().and_then(|s| s.parse().ok()));
+    let longitude = geo["longitude"]
+        .as_f64()
+        .or_else(|| geo["longitude"].as_str().and_then(|s| s.parse().ok()));
+
+    let logo = v["logo"]
+        .as_str()
+        .map(String::from)
+        .or_else(|| str_opt(&v["logo"], "url"));
+
+    let image = v["image"]
+        .as_str()
+        .map(String::from)
+        .or_else(|| str_opt(&v["image"], "url"));
+
+    let aggregate_rating = v["aggregateRating"]["ratingValue"]
+        .as_str()
+        .map(String::from)
+        .or_else(|| {
+            v["aggregateRating"]["ratingValue"]
+                .as_f64()
+                .map(|r| format!("{:.1}", r))
+        });
+
     let extracted = SchemaExtracted::LocalBusiness {
         name: str_opt(v, "name"),
         address,
+        postal_code,
+        locality,
+        country,
         phone: str_opt(v, "telephone"),
+        url: str_opt(v, "url"),
         opening_hours,
         price_range: str_opt(v, "priceRange"),
+        same_as,
+        logo,
+        image,
+        area_served,
+        latitude,
+        longitude,
+        aggregate_rating,
     };
     (expected, extracted)
 }
@@ -1104,7 +1187,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         )
     });
 
-    let checks = vec![
+    let mut checks = vec![
         check(
             "Strukturierte Daten vorhanden",
             has_any,
@@ -1125,6 +1208,110 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         ),
         check("Organization/WebSite Schema", has_org, None),
     ];
+
+    // LocalBusiness-specific quality checks
+    let local_businesses: Vec<_> = seo
+        .structured_data
+        .json_ld
+        .iter()
+        .filter(|s| {
+            s.schema_type == "LocalBusiness"
+                || s.schema_types
+                    .iter()
+                    .any(|t| t == "LocalBusiness" || t.ends_with("Business"))
+        })
+        .collect();
+
+    if !local_businesses.is_empty() {
+        let lb = &local_businesses[0].content;
+
+        // NAP completeness: name + street address + postal code + locality + phone
+        let has_street = !lb["address"]["streetAddress"].is_null();
+        let has_postal = !lb["address"]["postalCode"].is_null();
+        let has_locality = !lb["address"]["addressLocality"].is_null();
+        let has_phone = !lb["telephone"].is_null();
+        let nap_complete = has_street && has_postal && has_locality && has_phone;
+        let nap_detail = if nap_complete {
+            None
+        } else {
+            let missing: Vec<&str> = [
+                (!has_street).then_some("streetAddress"),
+                (!has_postal).then_some("postalCode"),
+                (!has_locality).then_some("addressLocality"),
+                (!has_phone).then_some("telephone"),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            Some(format!("Fehlt: {}", missing.join(", ")))
+        };
+        checks.push(check(
+            "LocalBusiness NAP vollständig",
+            nap_complete,
+            nap_detail,
+        ));
+
+        // Geo coordinates
+        let has_geo = !lb["geo"].is_null()
+            && (!lb["geo"]["latitude"].is_null() || !lb["geo"]["longitude"].is_null());
+        checks.push(check(
+            "LocalBusiness Geo-Koordinaten",
+            has_geo,
+            if has_geo {
+                None
+            } else {
+                Some("geo.latitude/longitude fehlt".to_string())
+            },
+        ));
+
+        // Trust signals: sameAs (authority links to social profiles / Wikidata)
+        let has_same_as = !lb["sameAs"].is_null();
+        checks.push(check(
+            "LocalBusiness sameAs (Autoritätslinks)",
+            has_same_as,
+            if has_same_as {
+                None
+            } else {
+                Some("sameAs fehlt — verhindert Knowledge-Panel".to_string())
+            },
+        ));
+
+        // aggregateRating
+        let has_rating = !lb["aggregateRating"].is_null();
+        checks.push(check(
+            "LocalBusiness aggregateRating",
+            has_rating,
+            if has_rating {
+                None
+            } else {
+                Some("aggregateRating fehlt — keine Sterne im SERP".to_string())
+            },
+        ));
+
+        // Contradiction check: multiple conflicting LocalBusiness schemas
+        if local_businesses.len() > 1 {
+            let first_name = lb["name"].as_str().unwrap_or("");
+            let consistent = local_businesses
+                .iter()
+                .all(|s| s.content["name"].as_str().unwrap_or("") == first_name);
+            checks.push(check(
+                "LocalBusiness-Schemas konsistent",
+                consistent,
+                if consistent {
+                    Some(format!(
+                        "{} Schemas, Name einheitlich",
+                        local_businesses.len()
+                    ))
+                } else {
+                    Some(format!(
+                        "{} Schemas mit widersprüchlichem Namen",
+                        local_businesses.len()
+                    ))
+                },
+            ));
+        }
+    }
+
     let score_pct = category_score(&checks);
     SignalCategory {
         name: "Strukturierte Daten".to_string(),
