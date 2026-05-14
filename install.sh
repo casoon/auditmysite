@@ -93,6 +93,18 @@ verify_checksum() {
     fi
 }
 
+# Resolve the install directory: use the directory of any existing installation
+# found in PATH, so upgrades always replace the binary in the right place.
+resolve_install_dir() {
+    local existing
+    existing=$(command -v "$BINARY_NAME" 2>/dev/null || true)
+    if [ -n "$existing" ]; then
+        dirname "$existing"
+    else
+        echo "${INSTALL_DIR:-$HOME/.local/bin}"
+    fi
+}
+
 # Download and install
 install() {
     local platform version archive_name checksum_name url checksum_url tmp_dir
@@ -103,6 +115,10 @@ install() {
     if [ -z "$version" ]; then
         error "Could not determine latest version"
     fi
+
+    # Install into the directory of any existing binary so PATH order never
+    # causes an old installation to shadow the new one.
+    INSTALL_DIR=$(resolve_install_dir)
 
     info "Installing $BINARY_NAME $version for $platform"
 
