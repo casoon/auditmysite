@@ -14,7 +14,7 @@ pub fn browser_headers() -> HeaderMap {
     let h = |s: &str| HeaderValue::from_str(s).expect("valid header value");
     headers.insert("accept", h("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"));
     headers.insert("accept-language", h("en-US,en;q=0.9,de;q=0.8"));
-    headers.insert("accept-encoding", h("gzip, deflate, br"));
+    headers.insert("accept-encoding", h("gzip"));
     headers.insert("cache-control", h("no-cache"));
     // Sec-CH-UA omitted intentionally: combining browser client-hints with a
     // non-Chrome TLS fingerprint (rustls ≠ BoringSSL) worsens bot-detection mismatches.
@@ -71,5 +71,11 @@ mod tests {
         let result = truncate_url(url, 30);
         assert!(result.len() <= 30);
         assert!(result.ends_with("..."));
+    }
+
+    #[test]
+    fn test_browser_headers_only_advertise_supported_encoding() {
+        let headers = browser_headers();
+        assert_eq!(headers["accept-encoding"], "gzip");
     }
 }
