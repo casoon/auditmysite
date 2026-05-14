@@ -58,6 +58,14 @@ curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh 
 
 The installer downloads the latest GitHub Release asset for your platform and verifies it against the published `.sha256` checksum before installing it.
 
+**Upgrading:** run the same command again. The installer detects where your current binary lives and replaces it in place — no PATH conflicts, no leftover old version.
+
+> **Note:** If you previously installed via `cargo install auditmysite`, remove that binary first so the script installs to the right location:
+> ```bash
+> rm ~/.cargo/bin/auditmysite
+> curl -fsSL https://raw.githubusercontent.com/casoon/auditmysite/main/install.sh | bash
+> ```
+
 Verify the installation:
 
 ```bash
