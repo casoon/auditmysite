@@ -62,7 +62,11 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
         // Trigger without aria-controls is a warning (not strictly required
         // but strongly recommended for screen readers).
-        if role == "button" && !has_controls {
+        // Exception: skip navigation/banner contexts — those are disclosure
+        // patterns where the controlled element is often hidden (display:none)
+        // and therefore absent from the AXTree, making the controls property
+        // unreliable even when aria-controls is correctly set in the DOM.
+        if role == "button" && !has_controls && !in_nav_or_banner(node, tree) {
             out.violations.push(
                 Violation::new(
                     "4.1.2",
@@ -98,6 +102,22 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ),
         confidence,
     );
+}
+
+fn in_nav_or_banner(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {
+    let mut current = node.parent_id.as_deref();
+    while let Some(id) = current {
+        if let Some(parent) = tree.get_node(id) {
+            match parent.role.as_deref() {
+                Some("navigation") | Some("banner") => return true,
+                _ => {}
+            }
+            current = parent.parent_id.as_deref();
+        } else {
+            break;
+        }
+    }
+    false
 }
 
 #[cfg(test)]

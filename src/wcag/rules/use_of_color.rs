@@ -56,6 +56,11 @@ const USE_OF_COLOR_JS: &str = r#"
       if (!link.textContent || !link.textContent.trim()) continue;
 
       const linkStyle = window.getComputedStyle(link);
+      // Skip block-level and flex/grid links — these are card or structural
+      // links that are visually distinguishable by layout, not just color.
+      const display = linkStyle.display || '';
+      if (display === 'block' || display === 'flex' || display === 'grid' ||
+          display === 'inline-flex' || display === 'inline-grid') continue;
       const parentStyle = window.getComputedStyle(parent);
 
       const linkDecoration = (linkStyle.textDecorationLine || linkStyle.textDecoration || '').toLowerCase();
