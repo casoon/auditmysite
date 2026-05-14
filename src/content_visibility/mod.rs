@@ -1017,4 +1017,105 @@ mod tests {
         assert_eq!(analysis.signal_count, 2);
         assert_eq!(analysis.problem_count, 1);
     }
+
+    #[test]
+    fn organic_visibility_title_too_short_is_warning() {
+        let mut seo = minimal_seo();
+        seo.meta.title = Some("Short".to_string()); // 5 chars < 30
+        let signals = build_organic_visibility(&seo);
+        assert!(signals
+            .iter()
+            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("Title zu kurz")));
+    }
+
+    #[test]
+    fn organic_visibility_title_too_long_is_warning() {
+        let mut seo = minimal_seo();
+        seo.meta.title = Some("A".repeat(61)); // 61 chars > 60
+        let signals = build_organic_visibility(&seo);
+        assert!(signals
+            .iter()
+            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("Title zu lang")));
+    }
+
+    #[test]
+    fn organic_visibility_description_too_short_is_warning() {
+        let mut seo = minimal_seo();
+        seo.meta.description = Some("Too short".to_string()); // < 120
+        let signals = build_organic_visibility(&seo);
+        assert!(signals.iter().any(|s| {
+            s.level == AssessmentLevel::Warning
+                && s.title.contains("Description außerhalb optimaler Länge")
+        }));
+    }
+
+    #[test]
+    fn organic_visibility_description_too_long_is_warning() {
+        let mut seo = minimal_seo();
+        seo.meta.description = Some("A".repeat(161)); // > 160
+        let signals = build_organic_visibility(&seo);
+        assert!(signals.iter().any(|s| {
+            s.level == AssessmentLevel::Warning
+                && s.title.contains("Description außerhalb optimaler Länge")
+        }));
+    }
+
+    #[test]
+    fn eeat_no_organization_schema_is_warning() {
+        let seo = minimal_seo();
+        let signals = build_eeat(&seo, None);
+        assert!(signals
+            .iter()
+            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("Kein Organization")));
+    }
+
+    fn make_json_ld(
+        schema_type: &str,
+        content: serde_json::Value,
+    ) -> crate::seo::schema::JsonLdSchema {
+        crate::seo::schema::JsonLdSchema {
+            schema_type: schema_type.to_string(),
+            schema_types: vec![schema_type.to_string()],
+            content,
+            is_valid: true,
+        }
+    }
+
+    #[test]
+    fn eeat_with_organization_schema_is_positive() {
+        use crate::seo::schema::StructuredData;
+        use crate::seo::SchemaType;
+        let mut seo = minimal_seo();
+        seo.structured_data = StructuredData {
+            types: vec![SchemaType::Organization],
+            json_ld: vec![make_json_ld(
+                "Organization",
+                serde_json::json!({"name": "Casoon"}),
+            )],
+            ..Default::default()
+        };
+        let signals = build_eeat(&seo, None);
+        assert!(signals.iter().any(|s| {
+            s.level == AssessmentLevel::Positive && s.title.contains("Organization-Schema")
+        }));
+    }
+
+    #[test]
+    fn local_business_nap_incomplete_is_warning() {
+        use crate::seo::schema::StructuredData;
+        use crate::seo::SchemaType;
+        let mut seo = minimal_seo();
+        seo.structured_data = StructuredData {
+            types: vec![SchemaType::LocalBusiness],
+            json_ld: vec![make_json_ld(
+                "LocalBusiness",
+                serde_json::json!({"name": "Testfirma"}), // missing address fields
+            )],
+            ..Default::default()
+        };
+        let signals = build_local_business(&seo);
+        assert!(signals
+            .iter()
+            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("NAP unvollständig")));
+    }
 }

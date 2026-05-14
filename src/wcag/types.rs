@@ -407,9 +407,61 @@ mod tests {
 
     #[test]
     fn test_severity_ordering() {
-        // More severe = greater value
         assert!(Severity::Critical > Severity::High);
         assert!(Severity::High > Severity::Medium);
         assert!(Severity::Medium > Severity::Low);
+    }
+
+    #[test]
+    fn violation_evidence_ax_tree_constructor() {
+        let ev = ViolationEvidence::ax_tree("img#logo");
+        assert_eq!(ev.source, "ax_tree");
+        assert_eq!(ev.value.as_deref(), Some("img#logo"));
+        assert!(ev.field.is_none());
+    }
+
+    #[test]
+    fn violation_evidence_dom_attribute_constructor() {
+        let ev = ViolationEvidence::dom_attribute("alt", Some("".to_string()));
+        assert_eq!(ev.source, "dom_attribute");
+        assert_eq!(ev.field.as_deref(), Some("alt"));
+        assert_eq!(ev.value.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn violation_evidence_dom_attribute_no_value() {
+        let ev = ViolationEvidence::dom_attribute("role", None);
+        assert_eq!(ev.source, "dom_attribute");
+        assert!(ev.value.is_none());
+    }
+
+    #[test]
+    fn violation_with_evidence_item_accumulates() {
+        let v = Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "msg",
+            "n1",
+        )
+        .with_evidence_item(ViolationEvidence::ax_tree("img.hero"))
+        .with_evidence_item(ViolationEvidence::dom_attribute("alt", None));
+        assert_eq!(v.evidence.len(), 2);
+        assert_eq!(v.evidence[0].source, "ax_tree");
+        assert_eq!(v.evidence[1].source, "dom_attribute");
+    }
+
+    #[test]
+    fn violation_new_starts_with_empty_evidence() {
+        let v = Violation::new(
+            "2.1.1",
+            "Keyboard",
+            WcagLevel::A,
+            Severity::High,
+            "msg",
+            "n1",
+        );
+        assert!(v.evidence.is_empty());
     }
 }

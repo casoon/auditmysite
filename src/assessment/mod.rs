@@ -498,4 +498,54 @@ mod tests {
         assert_eq!(sig.evidence.len(), 1);
         assert_eq!(sig.evidence[0].field_path.as_deref(), Some("canonical"));
     }
+
+    #[test]
+    fn content_signal_from_violation_maps_violation_evidence() {
+        use crate::cli::WcagLevel;
+        use crate::wcag::types::{Violation, ViolationEvidence};
+
+        let v = Violation::new(
+            "4.1.2",
+            "Name, Role, Value",
+            WcagLevel::A,
+            crate::wcag::Severity::High,
+            "Missing role",
+            "btn-1",
+        )
+        .with_evidence_item(ViolationEvidence::ax_tree("button.nav-toggle"))
+        .with_evidence_item(ViolationEvidence::dom_attribute("aria-label", None));
+
+        let sig = ContentSignal::from(&v);
+        assert_eq!(sig.evidence.len(), 2);
+        assert!(matches!(sig.evidence[0].source, EvidenceSource::AxTree));
+        assert!(matches!(
+            sig.evidence[1].source,
+            EvidenceSource::DomAttribute
+        ));
+        assert_eq!(
+            sig.evidence[0].value_excerpt.as_deref(),
+            Some("button.nav-toggle")
+        );
+    }
+
+    #[test]
+    fn content_signal_from_violation_uses_selector_fallback_when_no_evidence() {
+        use crate::cli::WcagLevel;
+        use crate::wcag::types::Violation;
+
+        let v = Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            crate::wcag::Severity::High,
+            "No alt",
+            "img-1",
+        )
+        .with_selector("img.hero");
+
+        let sig = ContentSignal::from(&v);
+        assert_eq!(sig.evidence.len(), 1);
+        assert!(matches!(sig.evidence[0].source, EvidenceSource::AxTree));
+        assert_eq!(sig.evidence[0].value_excerpt.as_deref(), Some("img.hero"));
+    }
 }
