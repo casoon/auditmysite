@@ -156,6 +156,21 @@ pub struct JsonReport {
     /// Historical timeline for this URL (score trend, deltas, recent snapshots)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
+    /// Tech stack analysis (CMS/framework detection and hardening score)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tech_stack: Option<serde_json::Value>,
+    /// Performance budget violations (metric, budget, actual, severity)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub budget_violations: Vec<serde_json::Value>,
+    /// Performance under throttled network profiles (LCP/TBT/CLS per profile)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub throttled_performance: Vec<serde_json::Value>,
+    /// Detected UI patterns (recognized patterns and pattern violations)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patterns: Option<serde_json::Value>,
+    /// Screenshot capture status for this audit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screenshot_status: Option<serde_json::Value>,
 }
 
 /// AI-oriented fix guidance for a single finding group
@@ -278,9 +293,18 @@ impl JsonReport {
                 .as_ref()
                 .map(|m| with_normalized_score(m.to_json(), normalized, "Journey")),
             dark_mode: raw.dark_mode.as_ref().map(|m| m.to_json()),
-            source_quality: raw.source_quality.as_ref().map(|m| m.to_json()),
-            ai_visibility: raw.ai_visibility.as_ref().map(|m| m.to_json()),
-            content_visibility: raw.content_visibility.as_ref().map(|m| m.to_json()),
+            source_quality: raw
+                .source_quality
+                .as_ref()
+                .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+            ai_visibility: raw
+                .ai_visibility
+                .as_ref()
+                .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+            content_visibility: raw
+                .content_visibility
+                .as_ref()
+                .map(|m| with_measurement_type(m.to_json(), "heuristic")),
             confidence_summary: vm
                 .methodology
                 .confidence_summary
@@ -303,6 +327,28 @@ impl JsonReport {
                 })
                 .collect(),
             history: None,
+            tech_stack: raw
+                .tech_stack
+                .as_ref()
+                .and_then(|m| serde_json::to_value(m).ok()),
+            budget_violations: raw
+                .budget_violations
+                .iter()
+                .filter_map(|v| serde_json::to_value(v).ok())
+                .collect(),
+            throttled_performance: raw
+                .throttled_performance
+                .iter()
+                .filter_map(|v| serde_json::to_value(v).ok())
+                .collect(),
+            patterns: raw
+                .patterns
+                .as_ref()
+                .and_then(|m| serde_json::to_value(m).ok()),
+            screenshot_status: match &raw.screenshot_status {
+                crate::audit::ScreenshotStatus::NotRequested => None,
+                s => serde_json::to_value(s).ok(),
+            },
         }
     }
 
@@ -408,6 +454,19 @@ fn with_normalized_score(
         obj.insert("score".to_string(), serde_json::json!(score));
     }
 
+    value
+}
+
+fn with_measurement_type(
+    mut value: serde_json::Value,
+    measurement_type: &str,
+) -> serde_json::Value {
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert(
+            "measurement_type".to_string(),
+            serde_json::json!(measurement_type),
+        );
+    }
     value
 }
 

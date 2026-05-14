@@ -168,8 +168,9 @@ async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Resu
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
+    #[cfg(feature = "pdf")]
+    use crate::output_paths::{default_batch_pdf_output_path, default_single_json_output_path};
     use crate::output_paths::{
-        default_batch_pdf_output_path, default_single_json_output_path,
         default_single_pdf_output_path, output_directory, per_page_output_directory,
         per_page_output_path, report_subject_from_url,
     };

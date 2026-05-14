@@ -196,9 +196,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         .add_component(PageBreak::new());
 
     if vm.meta.report_level != ReportLevel::Executive {
-        builder = builder
-            .add_component(TableOfContents::new())
-            .add_component(PageBreak::new());
+        builder = builder.add_component(TableOfContents::new());
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -265,7 +263,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         ));
 
         if vm.meta.report_level != ReportLevel::Executive {
-            builder = builder.add_component(build_module_strip(&vm));
+            builder = builder.add_component(build_module_strip(&vm, &i18n));
             builder = builder.add_component(build_raw_audit_snapshot(&vm, &i18n));
         }
 
@@ -585,11 +583,13 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     } else {
                         "bad"
                     };
-                    let display_name = if matches!(
-                        module.name.as_str(),
-                        "UX" | "Journey" | "AI Visibility" | "KI-Sichtbarkeit"
-                    ) {
-                        format!("{} (~)", module.name)
+                    let display_name = if module.measurement_type == "heuristic" {
+                        let suffix = if i18n.locale() == "en" {
+                            "Indicator"
+                        } else {
+                            "Indikator"
+                        };
+                        format!("{} ({suffix})", module.name)
                     } else {
                         module.name.clone()
                     };
@@ -870,15 +870,13 @@ fn render_wcag_coverage_section(
     builder.add_component(ChecklistPanel::new(rows).with_title(how_title))
 }
 
-fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {
-    const HEURISTIC: &[&str] = &["UX", "Journey", "AI Visibility", "KI-Sichtbarkeit"];
+fn build_module_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStrip {
     let items = vm
         .modules
         .dashboard
         .iter()
-        .take(6)
         .map(|module| {
-            let heuristic = HEURISTIC.contains(&module.name.as_str());
+            let heuristic = module.measurement_type == "heuristic";
             let status = if module.score >= 85 {
                 "good"
             } else if module.score >= 70 {
@@ -889,15 +887,16 @@ fn build_module_strip(vm: &ReportViewModel) -> MetricStrip {
                 "bad"
             };
             let display_name = if heuristic {
-                format!("{} (~)", module.name)
+                let suffix = if i18n.locale() == "en" {
+                    "Indicator"
+                } else {
+                    "Indikator"
+                };
+                format!("{} ({suffix})", module.name)
             } else {
                 module.name.clone()
             };
-            let display_value = if heuristic {
-                format!("~{}/100", module.score)
-            } else {
-                format!("{}/100", module.score)
-            };
+            let display_value = format!("{}/100", module.score);
             MetricStripItem::new(display_name, display_value)
                 .with_status(status)
                 .with_accent(module_score_color(module.score))
@@ -3204,6 +3203,62 @@ mod tests {
         assert!(
             text.contains("Skip-Link"),
             "Expected localized pattern title 'Skip-Link' in PDF text"
+        );
+    }
+
+    #[test]
+    fn test_pdf_renders_throttled_performance_table() {
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let mut report =
+            pdf_fixture_report_rich().with_performance(crate::audit::PerformanceResults {
+                vitals: crate::performance::WebVitals::default(),
+                score: crate::performance::PerformanceScore {
+                    overall: 80,
+                    grade: crate::performance::PerformanceGrade::Gold,
+                    lcp_score: None,
+                    fcp_score: None,
+                    cls_score: None,
+                    interactivity_score: None,
+                    metrics_available: 0,
+                },
+                render_blocking: None,
+                content_weight: None,
+            });
+        report.throttled_performance = vec![crate::audit::ThrottledPerfResult {
+            profile: crate::browser::ThrottleProfile::Slow3G,
+            lcp_ms: Some(3200.0),
+            tbt_ms: Some(180.0),
+            cls: Some(0.03),
+            score: 72,
+        }];
+
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("throttled-perf-check.pdf");
+        let txt_path = temp_dir.path().join("throttled-perf-check.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read text");
+
+        assert!(
+            text.contains("Performance unter gedrosselten Bedingungen"),
+            "Expected throttled-performance section title in PDF text"
+        );
+        assert!(
+            text.contains("Slow3G") && text.contains("3200 ms") && text.contains("180 ms"),
+            "Expected throttled-performance values in PDF text"
         );
     }
 

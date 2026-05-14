@@ -92,13 +92,15 @@ network timings, WCAG rule checks). Examples: Accessibility, Performance, Securi
 
 **Heuristic indicators** — score derived from structural signals and inferred patterns.
 These are best-effort estimates, not definitive values. Examples: UX, User Journey,
-AI Visibility sub-scores.
+Source Quality, AI Visibility and Content Visibility.
 
 In the rendered PDF:
 
-- Heuristic score cards carry the "(Indicator)" / "(Indikator)" suffix in their title.
+- Heuristic score cards and module overview entries carry the "(Indicator)" / "(Indikator)" suffix in their title.
 - Heuristic score cards carry the description "Heuristic estimate based on structural
   signals" in the subtitle.
+- Indicator modules may be displayed in the module dashboard, but do not contribute to
+  the weighted overall score unless explicitly marked as contributing in the JSON model.
 - No visual distinction between measured and heuristic modules in the module overview strip —
   the indicator suffix is the only differentiator.
 

@@ -540,6 +540,7 @@ mod tests {
             raw_content_visibility: None,
             raw_wcag: crate::wcag::WcagResults::new(),
             raw_patterns: None,
+            raw_throttled_performance: Vec::new(),
         };
 
         let written = write_report_history(

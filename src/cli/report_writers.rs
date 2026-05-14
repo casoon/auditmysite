@@ -16,12 +16,15 @@ use auditmysite::output::{
     print_report, JsonReport,
 };
 #[cfg(feature = "pdf")]
-use auditmysite::output::{format_json_normalized, generate_batch_pdf, generate_pdf};
+use auditmysite::output::{generate_batch_pdf, generate_pdf};
 
 #[cfg(feature = "pdf")]
 use crate::output_paths::output_bytes;
+#[cfg(feature = "pdf")]
 use crate::output_paths::{
     default_batch_pdf_output_path, default_single_json_output_path, default_single_pdf_output_path,
+};
+use crate::output_paths::{
     output_directory, output_text, per_page_output_directory, per_page_output_path,
 };
 
@@ -58,37 +61,37 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                 } else {
                     None
                 };
-                let history_preview =
+                let raw_history =
                     preview_report_history(output_directory(&path), &path, &normalized)
                         .ok()
-                        .flatten()
-                        .map(
-                            |preview| auditmysite::output::report_model::ReportHistoryPreview {
-                                previous_date: preview.previous_date,
-                                timeline_entries: preview.timeline_entries,
-                                previous_accessibility_score: preview.previous_accessibility_score,
-                                previous_overall_score: preview.previous_overall_score,
-                                delta_accessibility: preview.delta.accessibility_score_delta,
-                                delta_overall: preview.delta.overall_score_delta,
-                                delta_total_issues: preview.delta.total_issues_delta,
-                                delta_critical_issues: preview.delta.critical_issues_delta,
-                                recent_entries: preview
-                                    .recent_entries
-                                    .into_iter()
-                                    .map(|entry| {
-                                        (
-                                            entry.timestamp.format("%d.%m.%Y").to_string(),
-                                            entry.accessibility_score,
-                                            entry.overall_score,
-                                            entry.grade,
-                                            entry.severity_counts.total as u32,
-                                        )
-                                    })
-                                    .collect(),
-                                new_findings: preview.delta.new_findings,
-                                resolved_findings: preview.delta.resolved_findings,
-                            },
-                        );
+                        .flatten();
+                let history_preview = raw_history.as_ref().map(|preview| {
+                    auditmysite::output::report_model::ReportHistoryPreview {
+                        previous_date: preview.previous_date.clone(),
+                        timeline_entries: preview.timeline_entries,
+                        previous_accessibility_score: preview.previous_accessibility_score,
+                        previous_overall_score: preview.previous_overall_score,
+                        delta_accessibility: preview.delta.accessibility_score_delta,
+                        delta_overall: preview.delta.overall_score_delta,
+                        delta_total_issues: preview.delta.total_issues_delta,
+                        delta_critical_issues: preview.delta.critical_issues_delta,
+                        recent_entries: preview
+                            .recent_entries
+                            .iter()
+                            .map(|entry| {
+                                (
+                                    entry.timestamp.format("%d.%m.%Y").to_string(),
+                                    entry.accessibility_score,
+                                    entry.overall_score,
+                                    entry.grade.clone(),
+                                    entry.severity_counts.total as u32,
+                                )
+                            })
+                            .collect(),
+                        new_findings: preview.delta.new_findings.clone(),
+                        resolved_findings: preview.delta.resolved_findings.clone(),
+                    }
+                });
                 let config = ReportConfig {
                     level: args.report_level,
                     logo_path: args.logo.clone(),
@@ -101,7 +104,11 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                     }
                 })?;
                 if let Some(json_path) = auto_json_path.as_ref() {
-                    let json_output = format_json_normalized(&normalized, report, true)?;
+                    let mut json_report = JsonReport::from_normalized(&normalized, report);
+                    if let Some(ref preview) = raw_history {
+                        json_report.history = serde_json::to_value(preview).ok();
+                    }
+                    let json_output = json_report.to_json(true)?;
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;

@@ -250,6 +250,34 @@ pub(super) fn render_performance(
         builder = builder.add_component(rec_list);
     }
 
+    // ── Throttled Network Performance ────────────────────────────────
+    if !perf.throttled_profiles.is_empty() {
+        let title = if is_en(i18n) {
+            "Performance under throttled conditions"
+        } else {
+            "Performance unter gedrosselten Bedingungen"
+        };
+        let col_profile = if is_en(i18n) { "Profile" } else { "Profil" };
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(col_profile).with_width("28%"),
+            TableColumn::new("LCP").with_width("18%"),
+            TableColumn::new("TBT").with_width("18%"),
+            TableColumn::new("CLS").with_width("18%"),
+            TableColumn::new("Score").with_width("18%"),
+        ])
+        .with_title(title);
+        for entry in &perf.throttled_profiles {
+            table = table.add_row(vec![
+                entry.profile_name.clone(),
+                entry.lcp.clone(),
+                entry.tbt.clone(),
+                entry.cls.clone(),
+                entry.score.to_string(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
     builder
 }
 
@@ -1862,7 +1890,25 @@ pub(super) fn render_content_visibility(
 
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(Section::new("Content Visibility & Trust").with_level(2))
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Content Visibility & Trust (indicator)"
+            } else {
+                "Content Visibility & Trust (Indikator)"
+            })
+            .with_level(2),
+        )
+        .add_component(TextBlock::new(if is_en(i18n) {
+            "Aggregated indicator from SEO, Source Quality, and AI Visibility signals. \
+             Covers organic search indexability, E-E-A-T authority markers, local business \
+             presence, content depth, and topical authority heuristics. \
+             Heuristic estimate — not a directly measured value."
+        } else {
+            "Aggregierter Indikator aus SEO-, Quellenqualitäts- und KI-Sichtbarkeitssignalen. \
+             Umfasst organische Indexierbarkeit, E-E-A-T-Autoritätssignale, lokale Geschäftspräsenz, \
+             Inhaltstiefe und topische Relevanz-Heuristiken. \
+             Heuristischer Schätzwert — kein direkt gemessener Wert."
+        }))
         .add_component(TextBlock::new(&if is_en(i18n) {
             format!(
                 "{} signals analyzed, {} with optimization potential.",

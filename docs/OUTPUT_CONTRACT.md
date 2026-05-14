@@ -10,6 +10,13 @@
 - New top-level fields may be added in a backward-compatible way.
 - Existing required fields should not be removed or renamed without a versioned contract change.
 
+## Module Classification
+
+- Every `report.module_scores[]` entry includes `measurement_type`.
+- `measurement_type = "measured"` means the score is based on direct audit data such as WCAG checks, CDP metrics, HTTP headers, or mobile viewport measurements.
+- `measurement_type = "heuristic"` means the score is an indicator inferred from structural signals. These values are report guidance, not direct measurements.
+- Heuristic top-level module payloads such as `source_quality`, `ai_visibility`, and `content_visibility` include `measurement_type = "heuristic"` when present.
+
 ## Schemas
 
 - Single report: [json-report.schema.json](json-report.schema.json)

@@ -920,6 +920,11 @@ fn test_schema_contains_extra_module_top_level_keys() {
         "ai_visibility",
         "source_quality",
         "content_visibility",
+        "tech_stack",
+        "budget_violations",
+        "throttled_performance",
+        "patterns",
+        "screenshot_status",
     ] {
         assert!(
             props.contains_key(*key),
@@ -975,6 +980,71 @@ fn test_json_report_includes_extra_module_keys() {
         !parsed["content_visibility"].is_null(),
         "content_visibility missing from JSON"
     );
+    assert_eq!(parsed["source_quality"]["measurement_type"], "heuristic");
+    assert_eq!(parsed["ai_visibility"]["measurement_type"], "heuristic");
+    assert_eq!(
+        parsed["content_visibility"]["measurement_type"],
+        "heuristic"
+    );
+}
+
+#[test]
+fn test_json_report_includes_report_artifact_fields() {
+    let mut report = make_full_report();
+    report.tech_stack = Some(auditmysite::tech_stack::TechStackAnalysis {
+        detected: vec![auditmysite::tech_stack::DetectedTech {
+            name: "Astro".to_string(),
+            category: auditmysite::tech_stack::TechCategory::Framework,
+            version: None,
+            confidence: auditmysite::tech_stack::Confidence::High,
+            signals: vec!["test signal".to_string()],
+        }],
+        findings: vec![],
+        score: 100,
+        grade: "A".to_string(),
+    });
+    report.budget_violations = vec![auditmysite::audit::BudgetViolation {
+        metric: "LCP".to_string(),
+        budget_label: "<= 2500 ms".to_string(),
+        actual_label: "3200 ms".to_string(),
+        budget_value: 2500.0,
+        actual_value: 3200.0,
+        exceeded_by_pct: 28.0,
+        severity: auditmysite::audit::BudgetSeverity::Warning,
+    }];
+    report.throttled_performance = vec![auditmysite::audit::ThrottledPerfResult {
+        profile: auditmysite::browser::ThrottleProfile::Slow3G,
+        lcp_ms: Some(3200.0),
+        tbt_ms: Some(180.0),
+        cls: Some(0.03),
+        score: 72,
+    }];
+    report.patterns = Some(auditmysite::patterns::PatternAnalysis {
+        recognized: vec![auditmysite::patterns::RecognizedPattern {
+            pattern: "MainNavigation".to_string(),
+            message: "Main navigation recognized".to_string(),
+            confidence: auditmysite::patterns::PatternConfidence::Strong,
+        }],
+        violations: vec![],
+    });
+    report.screenshot_status = auditmysite::audit::ScreenshotStatus::Failed("test".to_string());
+
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_report.to_json(true).unwrap()).unwrap();
+
+    assert!(
+        !parsed["tech_stack"].is_null(),
+        "tech_stack missing from JSON"
+    );
+    assert_eq!(parsed["budget_violations"].as_array().unwrap().len(), 1);
+    assert_eq!(parsed["throttled_performance"].as_array().unwrap().len(), 1);
+    assert!(!parsed["patterns"].is_null(), "patterns missing from JSON");
+    assert!(
+        !parsed["screenshot_status"].is_null(),
+        "screenshot_status missing from JSON"
+    );
 }
 
 #[test]
@@ -999,6 +1069,10 @@ fn test_contributes_to_overall_flags_correct() {
                 m.name
             );
         }
+        match m.name.as_str() {
+            "UX" | "Journey" => assert_eq!(m.measurement_type, "heuristic"),
+            _ => assert_eq!(m.measurement_type, "measured"),
+        }
     }
 
     // Core weights must sum to exactly 100 so overall_score is a proper percentage
@@ -1013,4 +1087,19 @@ fn test_contributes_to_overall_flags_correct() {
         "contributes_to_overall=true modules must sum to 100 weight_pct, got {}",
         core_weight
     );
+}
+
+#[test]
+fn test_view_model_shows_journey_as_indicator_dashboard_module() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+    let vm = build_view_model(&normalized, &ReportConfig::default());
+    let journey = vm
+        .modules
+        .dashboard
+        .iter()
+        .find(|m| m.name == "Journey")
+        .expect("Journey must be visible in module dashboard");
+
+    assert_eq!(journey.measurement_type, "heuristic");
 }

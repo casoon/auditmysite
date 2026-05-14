@@ -34,6 +34,6 @@ pub use normalized::{normalize, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
-    CrawlDiagnostics, PerformanceResults, RedirectChain, ScreenshotStatus,
+    CrawlDiagnostics, PerformanceResults, RedirectChain, ScreenshotStatus, ThrottledPerfResult,
 };
 pub use scoring::{AccessibilityScorer, ViolationStatistics};

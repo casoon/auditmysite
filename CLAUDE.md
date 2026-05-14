@@ -156,10 +156,12 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v0.12.3)
+## Current State (v0.14.0)
 - Branch: `main`
 - 50+ WCAG rules implemented (Level A, AA, some AAA)
 - 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency
 - Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList
 - Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack
+- JSON: vollständige Rohdaten (tech_stack, budget_violations, throttled_performance, patterns, screenshot_status, measurement_type)
+- PDF: Throttled-Performance-Tabelle, Indikator-Kennzeichnung konsistent, leere Seite nach ToC behoben

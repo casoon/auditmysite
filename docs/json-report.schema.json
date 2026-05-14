@@ -22,6 +22,17 @@
     "ai_visibility": { "type": ["object", "null"] },
     "source_quality": { "type": ["object", "null"] },
     "content_visibility": { "type": ["object", "null"] },
+    "tech_stack": { "type": ["object", "null"] },
+    "budget_violations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/budgetViolation" }
+    },
+    "throttled_performance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/throttledPerformance" }
+    },
+    "patterns": { "type": ["object", "null"] },
+    "screenshot_status": { "type": ["object", "null"] },
     "confidence_summary": {
       "type": "array",
       "items": { "$ref": "#/$defs/confidenceSignal" }
@@ -58,7 +69,7 @@
     },
     "moduleScore": {
       "type": "object",
-      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall"],
+      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall", "measurement_type"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
@@ -68,7 +79,46 @@
         "contributes_to_overall": {
           "type": "boolean",
           "description": "True when this module feeds into overall_score. False for supplemental dimensions (UX, Journey)."
+        },
+        "measurement_type": {
+          "type": "string",
+          "enum": ["measured", "heuristic"],
+          "description": "Measured modules use direct audit data; heuristic modules are indicator scores inferred from structural signals."
         }
+      }
+    },
+    "budgetViolation": {
+      "type": "object",
+      "required": [
+        "metric",
+        "budget_label",
+        "actual_label",
+        "budget_value",
+        "actual_value",
+        "exceeded_by_pct",
+        "severity"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "metric": { "type": "string" },
+        "budget_label": { "type": "string" },
+        "actual_label": { "type": "string" },
+        "budget_value": { "type": "number" },
+        "actual_value": { "type": "number" },
+        "exceeded_by_pct": { "type": "number", "minimum": 0 },
+        "severity": { "type": "string", "enum": ["warning", "error"] }
+      }
+    },
+    "throttledPerformance": {
+      "type": "object",
+      "required": ["profile", "score"],
+      "additionalProperties": false,
+      "properties": {
+        "profile": { "type": "string" },
+        "lcp_ms": { "type": ["number", "null"], "minimum": 0 },
+        "tbt_ms": { "type": ["number", "null"], "minimum": 0 },
+        "cls": { "type": ["number", "null"], "minimum": 0 },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 }
       }
     },
     "occurrence": {

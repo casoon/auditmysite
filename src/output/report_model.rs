@@ -353,6 +353,7 @@ pub struct ModulesBlock {
 pub struct ModuleScore {
     pub name: String,
     pub score: u32,
+    pub measurement_type: String,
     pub interpretation: String,
     pub card_context: String,
     pub score_context: String,
@@ -536,6 +537,15 @@ pub struct PerformanceViewport {
     pub vitals: Vec<(String, String, String)>,
 }
 
+/// One row in the throttled-performance table.
+pub struct ThrottledPerfEntry {
+    pub profile_name: String,
+    pub lcp: String,
+    pub tbt: String,
+    pub cls: String,
+    pub score: u32,
+}
+
 pub struct PerformancePresentation {
     pub score: u32,
     pub grade: String,
@@ -553,6 +563,8 @@ pub struct PerformancePresentation {
     pub render_blocking_suggestions: Vec<String>,
     /// Whether render-blocking or heavy third-party load was detected
     pub has_render_blocking: bool,
+    /// Throttled network performance profiles (empty if not measured)
+    pub throttled_profiles: Vec<ThrottledPerfEntry>,
 }
 
 pub struct SeoPresentation {

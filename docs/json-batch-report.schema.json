@@ -84,7 +84,7 @@
     },
     "moduleScore": {
       "type": "object",
-      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall"],
+      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall", "measurement_type"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
@@ -94,6 +94,11 @@
         "contributes_to_overall": {
           "type": "boolean",
           "description": "True when this module feeds into overall_score. False for supplemental dimensions (UX, Journey)."
+        },
+        "measurement_type": {
+          "type": "string",
+          "enum": ["measured", "heuristic"],
+          "description": "Measured modules use direct audit data; heuristic modules are indicator scores inferred from structural signals."
         }
       }
     },

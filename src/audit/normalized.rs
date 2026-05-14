@@ -88,6 +88,8 @@ pub struct NormalizedReport {
     pub raw_wcag: WcagResults,
     #[serde(skip)]
     pub raw_patterns: Option<crate::patterns::PatternAnalysis>,
+    #[serde(skip)]
+    pub raw_throttled_performance: Vec<crate::audit::report::ThrottledPerfResult>,
 }
 
 /// Einheitliche Severity-Zähler
@@ -204,6 +206,8 @@ pub struct ModuleScoreEntry {
     /// False for supplemental dimensions (UX, Journey) that are displayed
     /// but not part of the core weighted average.
     pub contributes_to_overall: bool,
+    /// Whether this module uses direct measurement or heuristic inference.
+    pub measurement_type: String,
 }
 
 /// Risk level — independent from score.
@@ -452,6 +456,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         grade: grade.clone(),
         weight_pct: 40,
         contributes_to_overall: true,
+        measurement_type: "measured".to_string(),
     });
 
     if let Some(ref perf) = report.performance {
@@ -461,6 +466,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             grade: AccessibilityScorer::calculate_grade(perf.score.overall as f32).to_string(),
             weight_pct: 20,
             contributes_to_overall: true,
+            measurement_type: "measured".to_string(),
         });
     }
     if let Some(ref seo) = report.seo {
@@ -470,6 +476,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             grade: AccessibilityScorer::calculate_grade(seo.score as f32).to_string(),
             weight_pct: 20,
             contributes_to_overall: true,
+            measurement_type: "measured".to_string(),
         });
     }
     if let Some(ref sec) = report.security {
@@ -479,6 +486,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             grade: sec.grade.clone(),
             weight_pct: 10,
             contributes_to_overall: true,
+            measurement_type: "measured".to_string(),
         });
     }
     if let Some(ref mob) = report.mobile {
@@ -488,6 +496,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             grade: AccessibilityScorer::calculate_grade(mob.score as f32).to_string(),
             weight_pct: 10,
             contributes_to_overall: true,
+            measurement_type: "measured".to_string(),
         });
     }
     if let Some(ref ux) = report.ux {
@@ -522,6 +531,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             grade: adjusted_grade.to_string(),
             weight_pct: 15,
             contributes_to_overall: false,
+            measurement_type: "heuristic".to_string(),
         });
     }
     if let Some(ref journey) = report.journey {
@@ -552,6 +562,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             grade: adjusted_grade.to_string(),
             weight_pct: 10,
             contributes_to_overall: false,
+            measurement_type: "heuristic".to_string(),
         });
     }
 
@@ -679,6 +690,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_content_visibility: report.content_visibility.clone(),
         raw_wcag: report.wcag_results.clone(),
         raw_patterns: report.patterns.clone(),
+        raw_throttled_performance: report.throttled_performance.clone(),
     }
 }
 
