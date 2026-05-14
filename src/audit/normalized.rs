@@ -361,8 +361,17 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 )
             };
 
+            // Deduplicate by selector: multiple DOM nodes that share an identical
+            // CSS selector string collapse into a single representative occurrence.
+            // occurrence_count still reflects the actual number of affected elements.
+            let occurrence_count = violations.len();
+            let mut seen_selectors = std::collections::HashSet::new();
             let occurrences: Vec<OccurrenceDetail> = violations
                 .iter()
+                .filter(|v| {
+                    let key = v.selector.as_deref().unwrap_or(&v.node_id);
+                    seen_selectors.insert(key.to_string())
+                })
                 .map(|v| OccurrenceDetail {
                     node_id: v.node_id.clone(),
                     message: v.message.clone(),
@@ -372,8 +381,6 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     suggested_code: v.suggested_code.clone(),
                 })
                 .collect();
-
-            let occurrence_count = violations.len();
             let priority_score =
                 calculate_priority_score(first.severity, occurrence_count, &tax_id);
 

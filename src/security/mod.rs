@@ -55,8 +55,6 @@ pub struct SecurityHeaders {
     pub x_content_type_options: Option<String>,
     /// X-Frame-Options
     pub x_frame_options: Option<String>,
-    /// X-XSS-Protection
-    pub x_xss_protection: Option<String>,
     /// Referrer-Policy
     pub referrer_policy: Option<String>,
     /// Permissions-Policy
@@ -76,7 +74,6 @@ impl SecurityHeaders {
             self.content_security_policy.is_some(),
             self.x_content_type_options.is_some(),
             self.x_frame_options.is_some(),
-            self.x_xss_protection.is_some(),
             self.referrer_policy.is_some(),
             self.permissions_policy.is_some(),
             self.strict_transport_security.is_some(),
@@ -269,10 +266,6 @@ fn extract_security_headers(headers: &HeaderMap) -> SecurityHeaders {
             .get("x-frame-options")
             .and_then(|v| v.to_str().ok())
             .map(String::from),
-        x_xss_protection: headers
-            .get("x-xss-protection")
-            .and_then(|v| v.to_str().ok())
-            .map(String::from),
         referrer_policy: headers
             .get("referrer-policy")
             .and_then(|v| v.to_str().ok())
@@ -418,6 +411,22 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
             .push("Add Permissions-Policy header to control browser features".to_string());
     }
 
+    if headers.cross_origin_opener_policy.is_none() {
+        recommendations.push(
+            "Consider Cross-Origin-Opener-Policy (same-origin) if the site uses SharedArrayBuffer, \
+             high-resolution timers, or cross-origin popups — not required for standard sites."
+                .to_string(),
+        );
+    }
+
+    if headers.cross_origin_resource_policy.is_none() {
+        recommendations.push(
+            "Consider Cross-Origin-Resource-Policy if the site serves fonts, scripts, or media \
+             that other origins should not be able to load — not required if resources are intentionally public."
+                .to_string(),
+        );
+    }
+
     recommendations
 }
 
@@ -477,6 +486,30 @@ mod tests {
         };
 
         assert_eq!(headers.count(), 3);
+    }
+
+    #[test]
+    fn test_generate_recommendations_coop_corp_are_informational() {
+        let headers = SecurityHeaders {
+            content_security_policy: Some("default-src 'self'".to_string()),
+            x_content_type_options: Some("nosniff".to_string()),
+            x_frame_options: Some("DENY".to_string()),
+            strict_transport_security: Some("max-age=31536000".to_string()),
+            referrer_policy: Some("strict-origin".to_string()),
+            permissions_policy: Some("camera=()".to_string()),
+            ..Default::default()
+        };
+        let recs = generate_recommendations(&headers, true);
+        // COOP and CORP absent → informational recommendations, not score-affecting issues
+        assert!(recs
+            .iter()
+            .any(|r| r.contains("Cross-Origin-Opener-Policy")));
+        assert!(recs
+            .iter()
+            .any(|r| r.contains("Cross-Origin-Resource-Policy")));
+        // No issues generated for them
+        let issues = generate_security_issues(&headers, true);
+        assert!(issues.is_empty());
     }
 
     #[test]

@@ -2307,6 +2307,16 @@ fn build_module_details_from_normalized(
         let cwv_all_good = p.vitals.lcp.as_ref().is_none_or(|v| v.rating == "good")
             && p.vitals.fcp.as_ref().is_none_or(|v| v.rating == "good")
             && p.vitals.cls.as_ref().is_none_or(|v| v.rating == "good");
+
+        // When render-blocking resources exist but all vitals are good, clarify that
+        // they had no measured impact on this run (fast server / warm cache).
+        if has_render_blocking && cwv_all_good && !render_blocking_suggestions.is_empty() {
+            render_blocking_suggestions.push(
+                "Kein messbarer Einfluss auf die gemessenen Vitals — trotzdem vorbeugend beheben, \
+                 da langsame Verbindungen oder kalte Caches stärker betroffen sein können."
+                    .to_string(),
+            );
+        }
         let score_below_excellent = performance_score < 85;
         let perf_interpretation = if cwv_all_good && score_below_excellent {
             let mut reasons = Vec::new();
@@ -2762,7 +2772,6 @@ fn build_module_details_from_normalized(
                 &sec.headers.x_content_type_options,
             ),
             ("X-Frame-Options", &sec.headers.x_frame_options),
-            ("X-XSS-Protection", &sec.headers.x_xss_protection),
             ("Referrer-Policy", &sec.headers.referrer_policy),
             ("Permissions-Policy", &sec.headers.permissions_policy),
             (

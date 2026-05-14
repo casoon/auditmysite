@@ -253,7 +253,6 @@ mod tests {
                     content_security_policy: Some("default-src 'self'".to_string()),
                     x_frame_options: Some("DENY".to_string()),
                     x_content_type_options: Some("nosniff".to_string()),
-                    x_xss_protection: Some("1; mode=block".to_string()),
                     referrer_policy: Some("strict-origin-when-cross-origin".to_string()),
                     permissions_policy: None,
                     strict_transport_security: Some(

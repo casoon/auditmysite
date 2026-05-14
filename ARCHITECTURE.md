@@ -3,8 +3,8 @@
 Technische Struktur und Designentscheidungen des Projekts.
 
 **Sprache:** Rust (async, tokio)
-**Größe:** ~39.000 Zeilen Rust, 80+ Module
-**Version:** 0.6.3
+**Größe:** ~45.000 Zeilen Rust, 100+ Module
+**Version:** 0.12.3
 
 ---
 
@@ -20,7 +20,13 @@ src/
 ├── cli/
 │   ├── args.rs                # Clap-Argumente (Args, WcagLevel, OutputFormat)
 │   ├── config.rs              # Konfigurationsdatei (auditmysite.toml)
-│   └── doctor.rs              # Diagnose-Werkzeug
+│   ├── doctor.rs              # Diagnose-Werkzeug
+│   ├── commands.rs            # Subcommand-Handler (browser, doctor, plan)
+│   ├── runners.rs             # Modus-Runner (single, batch, compare)
+│   ├── report_writers.rs      # Output-Dispatch (single/batch/comparison)
+│   ├── output_paths.rs        # Dateinamengenerierung für Reports
+│   ├── plan.rs                # Pre-Audit-Plan- und Banner-Ausgabe
+│   └── sitemap_suggest.rs     # Sitemap-Discovery und interaktiver Prompt
 │
 ├── audit/
 │   ├── pipeline.rs            # Kern-Audit-Pipeline (audit_page, run_single_audit)
@@ -92,16 +98,20 @@ src/
 ├── seo/                       # Meta, Headings, Schema.org, Social, Technical
 ├── security/                  # Security-Header-Analyse
 ├── mobile/                    # Mobile-Friendliness, UX-Heuristiken
+├── dark_mode/                 # Dark-Mode-Support-Analyse, Kontrast-Vergleich
 ├── ux/                        # UX-Analyse (5 Dimensionen, Sättigungskurven)
-│   ├── mod.rs                 # Modul-Exports
-│   ├── analysis.rs            # 5-Dimensionen-Analyse auf AXTree-Basis
-│   └── scoring.rs             # Sättigungskurven, Dimensions-Score, gewichteter Durchschnitt
 ├── journey/                   # Journey-Analyse (Nutzerfluss, Seitentyp-Erkennung)
-│   ├── mod.rs                 # Modul-Exports
-│   ├── analysis.rs            # 5-Dimensionen-Journey-Analyse auf AXTree-Basis
-│   ├── page_intent.rs         # Seitentyp-Erkennung (Shop, LeadGen, Editorial, etc.)
-│   └── scoring.rs             # Dimensions-Score, gewichteter Durchschnitt mit Intent-Gewichten
-├── dark_mode/                 # Dark-Mode-Support-Analyse
+├── ai_visibility/             # KI/LLM-Sichtbarkeit (Zitierbarkeit, Lesbarkeit, Policy)
+│   ├── chunks.rs              # Content-Chunking für LLM-Optimierung
+│   ├── citation.rs            # Zitierbarkeits-Analyse
+│   ├── knowledge_graph.rs     # Knowledge-Graph-Signale
+│   └── readability.rs         # Lesbarkeit für KI-Modelle
+├── content_visibility/        # Modulübergreifende Signal-Aggregation (SEO+AI+Quality)
+├── source_quality/            # Qualitätssignale (Header, Schema, HTTPS, Authorship)
+├── tech_stack/                # CMS-/Framework-Erkennung aus In-Page-Signalen
+├── patterns/                  # UI-Pattern-Erkennung (Navigation, Accordion, Modal, …)
+├── assessment/                # Gemeinsame Assessment-Typen und Evidence-Modell
+├── studio/                    # Studio-Vertragstypen (GUI-Datenkontrakt)
 ├── i18n/                      # Project Fluent (.ftl), Standard-Sprache: Deutsch
 └── taxonomy/                  # Severity, Dimensions, IssueClass, Score-Enums
 ```

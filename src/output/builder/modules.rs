@@ -442,7 +442,6 @@ pub(super) fn derive_security_context(
         sec.headers.strict_transport_security.is_some(),
         sec.headers.x_content_type_options.is_some(),
         sec.headers.x_frame_options.is_some(),
-        sec.headers.x_xss_protection.is_some(),
         sec.headers.referrer_policy.is_some(),
         sec.headers.permissions_policy.is_some(),
         sec.headers.cross_origin_opener_policy.is_some(),
@@ -453,12 +452,12 @@ pub(super) fn derive_security_context(
     .count();
     if en {
         format!(
-            "{present_headers} of 9 core headers present, HTTPS {}.",
+            "{present_headers} of 8 core headers present, HTTPS {}.",
             if sec.ssl.https { "active" } else { "missing" }
         )
     } else {
         format!(
-            "{} von 9 Kern-Headern vorhanden, HTTPS {}.",
+            "{} von 8 Kern-Headern vorhanden, HTTPS {}.",
             present_headers,
             if sec.ssl.https { "aktiv" } else { "fehlt" }
         )
@@ -475,7 +474,6 @@ pub(super) fn derive_security_card_context(
         sec.headers.strict_transport_security.is_some(),
         sec.headers.x_content_type_options.is_some(),
         sec.headers.x_frame_options.is_some(),
-        sec.headers.x_xss_protection.is_some(),
         sec.headers.referrer_policy.is_some(),
         sec.headers.permissions_policy.is_some(),
         sec.headers.cross_origin_opener_policy.is_some(),
@@ -485,9 +483,9 @@ pub(super) fn derive_security_card_context(
     .filter(|p| *p)
     .count();
     if en {
-        format!("{present_headers} of 9 core headers present")
+        format!("{present_headers} of 8 core headers present")
     } else {
-        format!("{present_headers} von 9 Kern-Headern vorhanden")
+        format!("{present_headers} von 8 Kern-Headern vorhanden")
     }
 }
 
@@ -524,17 +522,25 @@ pub(super) fn derive_security_recommendations(
 
     if sec.headers.cross_origin_opener_policy.is_none() {
         recommendations.push(if en {
-            "Review and set Cross-Origin-Opener-Policy to strengthen browser context isolation for modern web features.".to_string()
+            "Cross-Origin-Opener-Policy (COOP) is relevant when the site uses SharedArrayBuffer, \
+             high-resolution timers, or communicates with cross-origin popups. \
+             Set to same-origin to enable cross-origin isolation — not required for standard sites.".to_string()
         } else {
-            "Cross-Origin-Opener-Policy prüfen und setzen, um die Isolation des Browser-Kontexts für moderne Webfunktionen zu stärken.".to_string()
+            "Cross-Origin-Opener-Policy (COOP) ist relevant, wenn die Seite SharedArrayBuffer, \
+             hochauflösende Timer oder Cross-Origin-Popup-Kommunikation nutzt. \
+             Mit same-origin Cross-Origin-Isolation aktivieren — für Standardseiten nicht erforderlich.".to_string()
         });
     }
 
     if sec.headers.cross_origin_resource_policy.is_none() {
         recommendations.push(if en {
-            "Add Cross-Origin-Resource-Policy so embedded resources cannot be reused by unrelated origins unnecessarily.".to_string()
+            "Cross-Origin-Resource-Policy (CORP) is relevant when the site serves fonts, scripts, \
+             or media that should not be loadable by other origins (Spectre mitigation). \
+             Set to same-origin or same-site — not required if resources are intentionally public.".to_string()
         } else {
-            "Cross-Origin-Resource-Policy ergänzen, damit eingebundene Ressourcen nicht unnötig von fremden Origins mitgenutzt werden können.".to_string()
+            "Cross-Origin-Resource-Policy (CORP) ist relevant, wenn die Seite Schriften, Skripte oder Medien \
+             ausliefert, die von fremden Origins nicht geladen werden sollen (Spectre-Mitigation). \
+             Auf same-origin oder same-site setzen — nicht erforderlich, wenn Ressourcen bewusst öffentlich sind.".to_string()
         });
     }
 

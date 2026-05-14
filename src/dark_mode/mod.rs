@@ -140,18 +140,12 @@ pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<Dar
     let score = compute_score(&static_info, dark_contrast_count, dark_only);
 
     // ── 6. Detection methods ──────────────────────────────────────────────────
+    // Only include signals that actually implement dark styling, not mere hints.
+    // color-scheme CSS / meta_color_scheme tell the browser which scheme the site
+    // prefers but do not apply dark styles — they stay as separate boolean fields.
     let mut detection_methods: Vec<String> = Vec::new();
     if static_info.has_dark_media_query {
         detection_methods.push("@media (prefers-color-scheme: dark)".to_string());
-    }
-    if static_info.color_scheme_css {
-        detection_methods.push("color-scheme CSS property".to_string());
-    }
-    if static_info.meta_color_scheme.is_some() {
-        detection_methods.push(format!(
-            "<meta name=\"color-scheme\" content=\"{}\">",
-            static_info.meta_color_scheme.as_deref().unwrap_or("")
-        ));
     }
     if static_info.meta_theme_color_dark {
         detection_methods.push("<meta name=\"theme-color\" media dark>".to_string());

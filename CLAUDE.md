@@ -13,20 +13,44 @@ Resource-efficient WCAG 2.1 Accessibility Checker written in Rust. Audits web pa
 ## Module Structure
 ```
 src/
-├── main.rs              # CLI entry point
+├── main.rs              # CLI entry point + test module
 ├── lib.rs               # Library exports
 ├── error.rs             # Centralized error types (AuditError)
 ├── util.rs              # Utility functions
+│
+├── cli/                 # CLI layer (args, config, orchestration)
+│   ├── args.rs          # Clap args (Args, WcagLevel, OutputFormat)
+│   ├── config.rs        # auditmysite.toml config file support
+│   ├── commands.rs      # Subcommand handlers (browser, doctor, plan)
+│   ├── runners.rs       # Mode runners (single, batch, compare)
+│   ├── report_writers.rs# Output dispatch (single/batch/comparison)
+│   ├── output_paths.rs  # File path generation for reports
+│   ├── plan.rs          # Pre-audit plan/banner printing
+│   └── sitemap_suggest.rs # Sitemap discovery + interactive prompt
+│
+├── audit/               # Pipeline, batch, scoring, normalization
+├── browser/             # Chrome detection, launch, pooling
 ├── accessibility/       # AXTree extraction via CDP
-├── audit/               # Pipeline, batch processing, scoring, reports
-├── browser/             # Chrome detection, management, pooling
-├── cli/                 # Args (clap), config file support
-├── output/              # Formatters: cli, json, pdf
-├── performance/         # Core Web Vitals, content weight
-├── seo/                 # Meta, headings, schema, social, technical
+├── wcag/                # WCAG rule engine + 50+ rule files
+│
+├── performance/         # Core Web Vitals, render-blocking, content weight
+├── seo/                 # Meta, headings, schema, social, technical SEO
 ├── security/            # Security header analysis
 ├── mobile/              # Mobile friendliness analysis
-└── wcag/                # WCAG rule engine + 22 individual rule files
+├── dark_mode/           # Dark mode support detection and contrast
+├── ux/                  # UX analysis (5 dimensions, saturation curves)
+├── journey/             # User journey analysis, page intent detection
+├── ai_visibility/       # AI/LLM discoverability analysis
+├── content_visibility/  # Cross-module signal aggregation (SEO+AI+Quality)
+├── source_quality/      # Source quality signals (headers, schema, HTTPS)
+├── tech_stack/          # CMS/framework detection from in-page signals
+├── patterns/            # UI pattern detection (nav, accordion, modal, …)
+├── assessment/          # Shared assessment types and evidence model
+├── studio/              # Studio contract types (GUI data contract)
+│
+├── output/              # Formatters: table, json, pdf
+├── taxonomy/            # Severity, Dimension, IssueClass enums
+└── i18n/                # Project Fluent (.ftl), default language: German
 ```
 
 ## Key CLI Modes
@@ -122,6 +146,9 @@ renderreport = { git = "https://github.com/casoon/renderreport.git", tag = "v0.2
 - Never use HTML export for reports
 - PDF reports use the `renderreport` Typst engine with full module detail sections
 
+## Architecture Documentation
+Whenever a new module is added, renamed, or removed, update the Module Structure section above **and** `ARCHITECTURE.md` in the same commit. Also update the `Current State` version and module list when bumping the version.
+
 ## Code Conventions
 - Use `thiserror` for error types, `anyhow` for propagation
 - WCAG rules go in `src/wcag/rules/` as individual files, register in `mod.rs`
@@ -129,10 +156,10 @@ renderreport = { git = "https://github.com/casoon/renderreport.git", tag = "v0.2
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v0.10.0)
+## Current State (v0.12.3)
 - Branch: `main`
-- 33+ WCAG rules implemented (Level A, AA, some AAA)
-- 3 output formats (json, table, pdf)
+- 50+ WCAG rules implemented (Level A, AA, some AAA)
+- 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency
 - Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList
-- Performance, SEO, Security, Mobile, Source Quality, AI Visibility modules
+- Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack

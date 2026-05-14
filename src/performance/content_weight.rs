@@ -136,7 +136,14 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
 
     for resource in &resources {
         request_count += 1;
-        total_bytes += resource.decoded_size;
+        // decodedBodySize is 0 for cached resources and some font/image types;
+        // fall back to transferSize so the breakdown doesn't silently show zero.
+        let effective_size = if resource.decoded_size > 0 {
+            resource.decoded_size
+        } else {
+            resource.transfer_size
+        };
+        total_bytes += effective_size;
         transfer_bytes += resource.transfer_size;
 
         let stats = match categorize_resource(&resource.name, &resource.resource_type) {
@@ -150,11 +157,11 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
         };
 
         stats.count += 1;
-        stats.bytes += resource.decoded_size;
+        stats.bytes += effective_size;
         stats.transfer_bytes += resource.transfer_size;
 
-        if resource.decoded_size > stats.largest_bytes {
-            stats.largest_bytes = resource.decoded_size;
+        if effective_size > stats.largest_bytes {
+            stats.largest_bytes = effective_size;
             stats.largest_url = Some(truncate_url(&resource.name));
         }
     }
