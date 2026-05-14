@@ -47,7 +47,12 @@ pub async fn enrich_violations_with_page(
         };
 
         match describe_node_selector(page, backend_id).await {
-            Some(sel) => violation.selector = Some(sel),
+            Some(sel) => {
+                violation
+                    .evidence
+                    .push(crate::wcag::types::ViolationEvidence::ax_tree(&sel));
+                violation.selector = Some(sel);
+            }
             None => warn!(
                 "Could not resolve backend DOM node {} for violation {}",
                 backend_id, violation.rule

@@ -144,6 +144,9 @@ pub struct AuditReport {
     /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
+    /// Content visibility analysis (organic visibility, local business, E-E-A-T, depth, topical authority)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
     /// Technology stack detection and stack-specific audit findings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
@@ -218,6 +221,7 @@ impl AuditReport {
             dark_mode: None,
             source_quality: None,
             ai_visibility: None,
+            content_visibility: None,
             tech_stack: None,
             page_screenshots: None,
             dual_viewport: None,

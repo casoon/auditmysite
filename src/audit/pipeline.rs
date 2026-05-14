@@ -810,6 +810,9 @@ fn aggregate_report(
 
     report.source_quality = Some(crate::source_quality::analyze_source_quality(&report));
     report.ai_visibility = Some(crate::ai_visibility::analyze_ai_visibility(&report));
+    report.content_visibility = Some(crate::content_visibility::analyze_content_visibility(
+        &report,
+    ));
 
     report
 }

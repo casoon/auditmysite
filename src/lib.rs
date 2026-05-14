@@ -81,6 +81,7 @@ pub mod assessment;
 pub mod audit;
 pub mod browser;
 pub mod cli;
+pub mod content_visibility;
 pub mod dark_mode;
 pub mod error;
 pub mod i18n;
@@ -117,6 +118,7 @@ pub use browser::{
     DetectedBrowser, InstallTarget, PoolConfig, ResolvedBrowser,
 };
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
+pub use content_visibility::{analyze_content_visibility, ContentVisibilityAnalysis};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use error::{AuditError, Result};
 pub use journey::{analyze_journey, JourneyAnalysis, PageIntent};

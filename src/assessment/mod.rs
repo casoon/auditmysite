@@ -305,11 +305,33 @@ impl From<&crate::wcag::Violation> for ContentSignal {
             format!("WCAG {} – {}", v.rule, v.rule_name),
             v.message.clone(),
         );
-        if let Some(sel) = &v.selector {
-            sig.evidence.push(
-                ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::High)
-                    .with_value(sel),
-            );
+        // Map ViolationEvidence items from the violation itself.
+        for ev in &v.evidence {
+            let source = match ev.source.as_str() {
+                "ax_tree" => EvidenceSource::AxTree,
+                "dom_attribute" => EvidenceSource::DomAttribute,
+                "meta" => EvidenceSource::Meta,
+                "css_property" => EvidenceSource::CssProperty,
+                "http_header" => EvidenceSource::HttpHeader,
+                _ => EvidenceSource::Computed,
+            };
+            let mut ce = ContentEvidence::new(source, confidence);
+            if let Some(f) = &ev.field {
+                ce = ce.with_field(f);
+            }
+            if let Some(val) = &ev.value {
+                ce = ce.with_value(val);
+            }
+            sig.evidence.push(ce);
+        }
+        // Fallback: if no structured evidence, use the selector.
+        if sig.evidence.is_empty() {
+            if let Some(sel) = &v.selector {
+                sig.evidence.push(
+                    ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::High)
+                        .with_value(sel),
+                );
+            }
         }
         sig
     }

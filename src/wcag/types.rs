@@ -30,6 +30,38 @@ pub enum FindingKind {
     NotTestable,
 }
 
+/// Machine-readable provenance for a single WCAG finding (issue #52).
+///
+/// `source` uses the same vocabulary as `assessment::EvidenceSource` but as a
+/// plain string to avoid a circular crate dependency. Values: `"ax_tree"`,
+/// `"dom_attribute"`, `"meta"`, `"css_property"`, `"http_header"`, `"computed"`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViolationEvidence {
+    pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+}
+
+impl ViolationEvidence {
+    pub fn ax_tree(value: impl Into<String>) -> Self {
+        Self {
+            source: "ax_tree".to_string(),
+            field: None,
+            value: Some(value.into()),
+        }
+    }
+
+    pub fn dom_attribute(field: impl Into<String>, value: Option<String>) -> Self {
+        Self {
+            source: "dom_attribute".to_string(),
+            field: Some(field.into()),
+            value,
+        }
+    }
+}
+
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Violation {
@@ -74,6 +106,10 @@ pub struct Violation {
     /// warning, a positive signal, or an untestable criterion (issue #36).
     #[serde(default)]
     pub kind: FindingKind,
+    /// Machine-readable provenance for this finding (issue #52).
+    /// Populated incrementally — not all violations carry evidence yet.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<ViolationEvidence>,
 }
 
 impl Violation {
@@ -106,6 +142,7 @@ impl Violation {
             html_snippet: None,
             suggested_code: None,
             kind: FindingKind::Violation,
+            evidence: Vec::new(),
         }
     }
 
@@ -185,6 +222,11 @@ impl Violation {
     }
 
     /// Convenience: mark as a heuristic warning rather than a confirmed violation.
+    pub fn with_evidence_item(mut self, ev: ViolationEvidence) -> Self {
+        self.evidence.push(ev);
+        self
+    }
+
     pub fn as_warning(self) -> Self {
         self.with_kind(FindingKind::Warning)
     }
