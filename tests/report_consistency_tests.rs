@@ -889,3 +889,118 @@ fn test_i18n_missing_key_returns_key_as_fallback() {
     let i18n = auditmysite::i18n::I18n::new("en").unwrap();
     assert_eq!(i18n.t("nonexistent-key-xyz"), "nonexistent-key-xyz");
 }
+
+// ─── #62 / #63: Schema contract + module weight semantics ─────────────────────
+
+#[test]
+fn test_schema_contains_extra_module_top_level_keys() {
+    let schema_path =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/json-report.schema.json");
+    let schema_str = std::fs::read_to_string(&schema_path)
+        .expect("docs/json-report.schema.json must be readable");
+    let schema: serde_json::Value =
+        serde_json::from_str(&schema_str).expect("schema must be valid JSON");
+
+    let props = schema["properties"]
+        .as_object()
+        .expect("schema must have top-level properties object");
+
+    for key in &[
+        "dark_mode",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility",
+    ] {
+        assert!(
+            props.contains_key(*key),
+            "schema top-level properties missing '{key}'"
+        );
+    }
+}
+
+#[test]
+fn test_json_report_includes_extra_module_keys() {
+    use auditmysite::{
+        analyze_ai_visibility, analyze_content_visibility, analyze_source_quality, DarkModeAnalysis,
+    };
+
+    let base = make_full_report();
+    let mut report = make_full_report();
+    report.source_quality = Some(analyze_source_quality(&base));
+    report.ai_visibility = Some(analyze_ai_visibility(&base));
+    report.content_visibility = Some(analyze_content_visibility(&base));
+    report.dark_mode = Some(DarkModeAnalysis {
+        supported: false,
+        score: 0,
+        detection_methods: vec![],
+        color_scheme_css: false,
+        meta_color_scheme: None,
+        meta_theme_color_dark: false,
+        css_custom_properties: 0,
+        dark_contrast_violations: 0,
+        light_only_violations: 0,
+        dark_only_violations: 0,
+        contrast_violations: vec![],
+        issues: vec![],
+    });
+
+    let normalized = normalize(&report);
+    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let json_str = json_report.to_json(true).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+    assert!(
+        !parsed["dark_mode"].is_null(),
+        "dark_mode missing from JSON"
+    );
+    assert!(
+        !parsed["ai_visibility"].is_null(),
+        "ai_visibility missing from JSON"
+    );
+    assert!(
+        !parsed["source_quality"].is_null(),
+        "source_quality missing from JSON"
+    );
+    assert!(
+        !parsed["content_visibility"].is_null(),
+        "content_visibility missing from JSON"
+    );
+}
+
+#[test]
+fn test_contributes_to_overall_flags_correct() {
+    let report = make_full_report();
+    let normalized = normalize(&report);
+
+    let core = ["Accessibility", "Performance", "SEO", "Security", "Mobile"];
+    let supplemental = ["UX", "Journey"];
+
+    for m in &normalized.module_scores {
+        if core.contains(&m.name.as_str()) {
+            assert!(
+                m.contributes_to_overall,
+                "{} should have contributes_to_overall=true",
+                m.name
+            );
+        } else if supplemental.contains(&m.name.as_str()) {
+            assert!(
+                !m.contributes_to_overall,
+                "{} should have contributes_to_overall=false",
+                m.name
+            );
+        }
+    }
+
+    // Core weights must sum to exactly 100 so overall_score is a proper percentage
+    let core_weight: u32 = normalized
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall)
+        .map(|m| m.weight_pct)
+        .sum();
+    assert_eq!(
+        core_weight, 100,
+        "contributes_to_overall=true modules must sum to 100 weight_pct, got {}",
+        core_weight
+    );
+}

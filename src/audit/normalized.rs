@@ -200,6 +200,10 @@ pub struct ModuleScoreEntry {
     pub score: u32,
     pub grade: String,
     pub weight_pct: u32,
+    /// True when this module's score feeds directly into overall_score.
+    /// False for supplemental dimensions (UX, Journey) that are displayed
+    /// but not part of the core weighted average.
+    pub contributes_to_overall: bool,
 }
 
 /// Risk level — independent from score.
@@ -440,6 +444,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         score,
         grade: grade.clone(),
         weight_pct: 40,
+        contributes_to_overall: true,
     });
 
     if let Some(ref perf) = report.performance {
@@ -448,6 +453,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             score: perf.score.overall,
             grade: AccessibilityScorer::calculate_grade(perf.score.overall as f32).to_string(),
             weight_pct: 20,
+            contributes_to_overall: true,
         });
     }
     if let Some(ref seo) = report.seo {
@@ -456,6 +462,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             score: seo.score,
             grade: AccessibilityScorer::calculate_grade(seo.score as f32).to_string(),
             weight_pct: 20,
+            contributes_to_overall: true,
         });
     }
     if let Some(ref sec) = report.security {
@@ -464,6 +471,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             score: sec.score,
             grade: sec.grade.clone(),
             weight_pct: 10,
+            contributes_to_overall: true,
         });
     }
     if let Some(ref mob) = report.mobile {
@@ -472,6 +480,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             score: mob.score,
             grade: AccessibilityScorer::calculate_grade(mob.score as f32).to_string(),
             weight_pct: 10,
+            contributes_to_overall: true,
         });
     }
     if let Some(ref ux) = report.ux {
@@ -505,6 +514,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             score: adjusted_ux,
             grade: adjusted_grade.to_string(),
             weight_pct: 15,
+            contributes_to_overall: false,
         });
     }
     if let Some(ref journey) = report.journey {
@@ -534,6 +544,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             score: adjusted_journey,
             grade: adjusted_grade.to_string(),
             weight_pct: 10,
+            contributes_to_overall: false,
         });
     }
 
