@@ -215,6 +215,13 @@ impl AXNode {
             .and_then(|p| p.value.as_str())
     }
 
+    /// Returns true if a property with this name exists, regardless of value type.
+    /// Use this for relationship attributes (controls, owns, …) whose CDP values are
+    /// node references rather than plain strings.
+    pub fn has_property(&self, name: &str) -> bool {
+        self.properties.iter().any(|p| p.name == name)
+    }
+
     /// Check if the node has a specific role
     pub fn has_role(&self, role: &str) -> bool {
         self.role.as_deref() == Some(role)

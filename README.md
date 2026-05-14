@@ -17,7 +17,7 @@ It is designed for teams that want a fast local check, stable JSON for automatio
 
 - Real browser signals instead of static guesses
 - Works for single pages, sitemaps, URL lists, and same-domain crawl discovery
-- Outputs as terminal table, JSON, PDF, or AI-optimized task list
+- Outputs as terminal table, JSON, PDF, AI-optimized task list, or compact summary JSON for dashboards
 - JSON output is schema-backed and tested for release stability
 - Ships as a Rust binary instead of a Node-based toolchain
 
@@ -257,7 +257,7 @@ Modules are classified as **measured** (based on real browser data) or **heurist
 Measured:
 - Performance: Core Web Vitals (FCP, LCP, TBT, CLS) and technical complexity (DOM size, render blocking, resource loading)
 - SEO: meta tags, headings, structured data, content profile, tracking/external services signals
-- Security: HTTPS and header checks
+- Security: HTTPS, header checks, and CDN/WAF protection detection
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
 
 Heuristic (indicator scores — tendency, not measurements):
@@ -367,6 +367,14 @@ Compact, agent-friendly output that focuses on actionable fixes.
 auditmysite https://example.com -f ai -o fixes.json
 ```
 
+### Dashboard / ranking feed
+
+Compact summary JSON with score, grade, medal, issue counts, and top 10 findings — matches the `lastAudit` schema used by dashboard tools.
+
+```bash
+auditmysite https://example.com -f summary -o summary.json
+```
+
 ### Sitemap / batch
 
 Domain-wide audits with cross-page aggregation.
@@ -418,7 +426,7 @@ Key layers:
 - `browser/`: browser detection, resolution, install, lifecycle, pooling
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
-- `output/`: CLI, JSON, PDF, AI format
+- `output/`: CLI, JSON, PDF, AI, summary format
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
 - `tech_stack/`, `source_quality/`, `ai_visibility/`, `dark_mode/`: heuristic indicator modules
 

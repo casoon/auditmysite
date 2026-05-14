@@ -8,7 +8,7 @@ use chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
-use super::tree::{AXNode, AXProperty, AXTree, AXValue, NameSource};
+use super::tree::{AXNode, AXProperty, AXTree, AXValue, NameSource, RelatedNode};
 use crate::error::{AuditError, Result};
 
 /// Extract the full Accessibility Tree from a page
@@ -177,6 +177,25 @@ fn convert_json_node(json: &serde_json::Value) -> Result<AXNode> {
 
 /// Convert a JSON value to our AXValue format
 fn convert_json_value(json: &serde_json::Value) -> Option<AXValue> {
+    // CDP sends relationship attributes (aria-controls, aria-owns, etc.) as
+    // {"type": "idref"/"idrefList", "relatedNodes": [...], "value": null}.
+    // Handle these before checking "value", which is always null for references.
+    if let Some(related) = json["relatedNodes"].as_array() {
+        let nodes: Vec<RelatedNode> = related
+            .iter()
+            .map(|n| RelatedNode {
+                backend_dom_node_id: n["backendDOMNodeId"].as_i64(),
+                idref: n["idref"].as_str().map(String::from),
+                text: n["text"].as_str().map(String::from),
+            })
+            .collect();
+        if !nodes.is_empty() {
+            return Some(AXValue::Node {
+                related_nodes: nodes,
+            });
+        }
+    }
+
     let value = &json["value"];
 
     if value.is_null() {

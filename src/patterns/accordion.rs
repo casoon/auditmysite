@@ -31,7 +31,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
         triggers += 1;
 
-        let has_controls = node.get_property_str("controls").is_some();
+        // aria-controls is a node reference in the AX tree (idrefList), not a plain
+        // string — use has_property() which matches regardless of value type.
+        let has_controls = node.has_property("controls");
         if has_controls {
             with_controls += 1;
         }
