@@ -34,10 +34,9 @@ pub fn check_error_identification(tree: &AXTree) -> WcagResults {
             continue;
         }
 
-        // aria-describedby on the AX tree may surface as either a property
-        // or a name source; we check both common spellings.
-        let has_describedby = node.get_property_str("describedby").is_some()
-            || node.get_property_str("aria-describedby").is_some()
+        // aria-describedby is a relatedNodes property in the AX tree — use
+        // has_property() which matches regardless of value type.
+        let has_describedby = node.has_property("describedby")
             || node
                 .description
                 .as_deref()

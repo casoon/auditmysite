@@ -56,15 +56,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
                 );
             }
 
-            // aria-controls → tabpanel
-            let controls_id = tab.get_property_str("controls");
-            if let Some(target) = controls_id {
-                let target_exists = tree
-                    .iter_all()
-                    .any(|n| n.role.as_deref() == Some("tabpanel") && id_matches(n, target));
-                if target_exists {
-                    tabs_with_valid_controls += 1;
-                }
+            // aria-controls → tabpanel (id_matches is a stub; just count presence)
+            if tab.has_property("controls") {
+                tabs_with_valid_controls += 1;
             }
         }
     }
@@ -85,15 +79,6 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ),
         confidence,
     );
-}
-
-fn id_matches(node: &crate::accessibility::AXNode, target_id: &str) -> bool {
-    // The AXTree node_id is a CDP node id; the aria-controls attribute holds
-    // the DOM id. We cannot directly correlate these without DOM enrichment,
-    // so we accept any tabpanel as evidence that the controls relationship
-    // could resolve. Future work: enrich nodes with their DOM id attribute.
-    let _ = (node, target_id);
-    true
 }
 
 #[cfg(test)]

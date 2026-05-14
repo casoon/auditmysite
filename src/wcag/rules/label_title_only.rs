@@ -63,7 +63,7 @@ pub fn check_label_title_only(tree: &AXTree) -> WcagResults {
             // Fallback heuristic
             let title_val = node.get_property_str("title");
             let has_aria_label = node.get_property_str("aria-label").is_some();
-            let has_aria_labelledby = node.get_property_str("aria-labelledby").is_some();
+            let has_aria_labelledby = node.has_property("labelledby");
 
             if let (Some(name), Some(title)) = (node.name.as_deref(), title_val) {
                 name == title && !has_aria_label && !has_aria_labelledby

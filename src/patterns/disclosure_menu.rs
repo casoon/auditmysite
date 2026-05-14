@@ -23,7 +23,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         }
         disclosure_count += 1;
 
-        let has_controls = btn.get_property_str("controls").is_some();
+        let has_controls = btn.has_property("controls");
         if has_controls {
             with_controls += 1;
         }
