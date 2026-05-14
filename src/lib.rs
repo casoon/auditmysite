@@ -77,6 +77,7 @@
 
 pub mod accessibility;
 pub mod ai_visibility;
+pub mod assessment;
 pub mod audit;
 pub mod browser;
 pub mod cli;
@@ -101,6 +102,10 @@ pub mod wcag;
 // Re-export commonly used types
 pub use accessibility::{AXNode, AXTree};
 pub use ai_visibility::{analyze_ai_visibility, AiVisibilityAnalysis};
+pub use assessment::{
+    signal_from_check, AssessmentLevel, ContentArea, ContentEvidence, ContentSignal,
+    EvidenceConfidence, EvidenceSource,
+};
 pub use audit::{
     analyze_crawl_links, audit_page, crawl_site, parse_sitemap, read_url_file,
     run_concurrent_batch, AuditReport, BatchConfig, BatchReport, BrokenLink, BrokenLinkSeverity,
