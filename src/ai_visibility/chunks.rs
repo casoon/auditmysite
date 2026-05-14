@@ -301,8 +301,8 @@ fn build_sections(input: &ChunkInput) -> Vec<ContentSection> {
         // Each heading starts a section
         for h in &input.headings {
             sections.push(ContentSection {
-                heading: if h.text.len() > 80 {
-                    format!("{}…", &h.text[..77])
+                heading: if h.text.chars().count() > 80 {
+                    format!("{}…", h.text.chars().take(77).collect::<String>())
                 } else {
                     h.text.clone()
                 },
