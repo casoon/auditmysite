@@ -3,11 +3,17 @@
 //! Bootstrap, logging setup, and top-level command dispatch.
 //! Orchestration logic lives in the sibling modules declared below.
 
+#[path = "cli/commands.rs"]
 mod commands;
+#[path = "cli/output_paths.rs"]
 mod output_paths;
+#[path = "cli/plan.rs"]
 mod plan;
+#[path = "cli/report_writers.rs"]
 mod report_writers;
+#[path = "cli/runners.rs"]
 mod runners;
+#[path = "cli/sitemap_suggest.rs"]
 mod sitemap_suggest;
 
 use commands::{detect_chrome_command, handle_command};
