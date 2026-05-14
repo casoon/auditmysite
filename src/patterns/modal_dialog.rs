@@ -23,10 +23,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let mut well_formed = 0usize;
     for dialog in &dialogs {
         let has_name = dialog.name.as_deref().is_some_and(|n| !n.trim().is_empty());
-        let is_modal = dialog
-            .get_property_bool("modal")
-            .or_else(|| dialog.get_property_bool("aria-modal"))
-            .unwrap_or(false);
+        let is_modal = dialog.get_property_bool("modal").unwrap_or(false);
         let has_focusable_descendant = dialog
             .child_ids
             .iter()

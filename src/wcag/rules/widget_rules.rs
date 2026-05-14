@@ -80,12 +80,7 @@ fn check_tablist_has_tabpanel(node: &AXNode, has_tabpanel: bool, results: &mut W
 
 /// Each tab must expose a selected/aria-selected state
 fn check_tab_selected_state(node: &AXNode, results: &mut WcagResults) {
-    let has_selected = node.get_property_bool("selected").is_some()
-        || node.get_property_bool("aria-selected").is_some()
-        || node
-            .properties
-            .iter()
-            .any(|p| p.name == "selected" || p.name == "aria-selected");
+    let has_selected = node.has_property("selected");
 
     if !has_selected {
         let violation = Violation::new(
@@ -135,11 +130,8 @@ fn check_combobox_has_options(node: &AXNode, tree: &AXTree, results: &mut WcagRe
 
 /// slider must have an accessible value via value property or aria-valuenow
 fn check_slider_has_value(node: &AXNode, results: &mut WcagResults) {
-    let has_value = node.value.as_ref().is_some_and(|v| !v.trim().is_empty())
-        || node.get_property_str("aria-valuenow").is_some()
-        || node.get_property_int("aria-valuenow").is_some()
-        || node.get_property_str("valuenow").is_some()
-        || node.get_property_int("valuenow").is_some();
+    let has_value =
+        node.value.as_ref().is_some_and(|v| !v.trim().is_empty()) || node.has_property("valuenow");
 
     if !has_value {
         let violation = Violation::new(
@@ -312,7 +304,7 @@ mod tests {
     fn test_slider_with_value_passes() {
         let mut node = make_node("s", "slider", Some("Volume"), None, vec![]);
         node.properties.push(AXProperty {
-            name: "aria-valuenow".to_string(),
+            name: "valuenow".to_string(),
             value: AXValue::Int(50),
         });
         let tree = AXTree::from_nodes(vec![node]);

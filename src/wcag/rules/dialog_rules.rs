@@ -74,10 +74,7 @@ fn check_dialog_has_name(node: &AXNode, results: &mut WcagResults) {
 
 /// Dialogs should indicate modal status via aria-modal
 fn check_dialog_modal_property(node: &AXNode, results: &mut WcagResults) {
-    let is_modal = node
-        .get_property_bool("modal")
-        .or_else(|| node.get_property_bool("aria-modal"))
-        .unwrap_or(false);
+    let is_modal = node.get_property_bool("modal").unwrap_or(false);
 
     if !is_modal {
         let violation = Violation::new(

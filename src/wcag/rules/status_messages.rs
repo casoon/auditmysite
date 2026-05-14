@@ -41,7 +41,7 @@ pub fn check_status_messages(tree: &AXTree) -> WcagResults {
             None => continue,
         };
 
-        let live = node.get_property_str("aria-live").map(|v| v.to_lowercase());
+        let live = node.get_property_str("live").map(|v| v.to_lowercase());
 
         match role.as_str() {
             // role="alert" implies aria-live="assertive"
@@ -147,7 +147,7 @@ mod tests {
         let mut properties = vec![];
         if let Some(live_val) = live {
             properties.push(AXProperty {
-                name: "aria-live".to_string(),
+                name: "live".to_string(),
                 value: AXValue::String(live_val.to_string()),
             });
         }

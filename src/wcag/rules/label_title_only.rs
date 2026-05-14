@@ -62,7 +62,7 @@ pub fn check_label_title_only(tree: &AXTree) -> WcagResults {
         } else if node.has_name() && node.name_source.is_none() {
             // Fallback heuristic
             let title_val = node.get_property_str("title");
-            let has_aria_label = node.get_property_str("aria-label").is_some();
+            let has_aria_label = node.get_property_str("label").is_some();
             let has_aria_labelledby = node.has_property("labelledby");
 
             if let (Some(name), Some(title)) = (node.name.as_deref(), title_val) {
@@ -209,7 +209,7 @@ mod tests {
             "searchbox",
             Some("Search site"),
             None,
-            vec![("title", "Search site"), ("aria-label", "Search site")],
+            vec![("title", "Search site"), ("label", "Search site")],
         );
         let tree = AXTree::from_nodes(vec![node]);
         let r = check_label_title_only(&tree);

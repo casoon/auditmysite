@@ -34,8 +34,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         for tab in &tabs {
             tabs_total += 1;
 
-            let has_selected = tab.get_property_bool("selected").is_some()
-                || tab.get_property_bool("aria-selected").is_some();
+            let has_selected = tab.has_property("selected");
             if has_selected {
                 tabs_with_selected += 1;
             } else {
