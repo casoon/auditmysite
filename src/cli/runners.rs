@@ -160,9 +160,21 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         return Ok(None);
     }
 
+    if !args.quiet {
+        print!("{} ", "Checking for sitemap...".dimmed());
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+    }
+
     let Some((sitemap_url, url_count)) = discover_populated_sitemap(url).await? else {
+        if !args.quiet {
+            println!();
+        }
         return Ok(None);
     };
+
+    if !args.quiet {
+        println!();
+    }
 
     if args.prefer_sitemap {
         let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
@@ -173,7 +185,8 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         return Ok(None);
     }
 
-    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+    // dialoguer opens /dev/tty directly — only stdin needs to be a terminal
+    if !io::stdin().is_terminal() {
         println!();
         println!("{}", "Sitemap found".cyan().bold());
         println!(
