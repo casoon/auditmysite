@@ -60,6 +60,17 @@ pub struct TouchTargetAnalysis {
     /// Small targets grouped by context (navigation, footer, header, etc.)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub small_by_context: Vec<(String, u32)>,
+    /// Sample of small targets with selector + dimensions (up to 10)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub small_target_samples: Vec<SmallTargetSample>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmallTargetSample {
+    pub selector: String,
+    pub width: u32,
+    pub height: u32,
+    pub context: String,
 }
 
 /// Font size analysis
@@ -73,6 +84,8 @@ pub struct FontSizeAnalysis {
     pub legible_percentage: f32,
     /// Uses relative units
     pub uses_relative_units: bool,
+    /// Number of interactive elements (a, button, label) with font < 12px
+    pub small_interactive_count: u32,
 }
 
 /// Content sizing analysis
@@ -126,9 +139,12 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         const interactiveElements = document.querySelectorAll('a, button, input, select, textarea, [onclick], [role="button"]');
         result.touchTargets.total = interactiveElements.length;
         const smallByContext = {};
+        const smallTargetDetails = [];
 
         interactiveElements.forEach(el => {
             const rect = el.getBoundingClientRect();
+            // Skip elements that are fully hidden (behind hamburger, display:none, etc.)
+            if (rect.width === 0 && rect.height === 0) return;
             if (rect.width < 44 || rect.height < 44) {
                 result.touchTargets.small++;
                 // Classify context of small target
@@ -148,9 +164,20 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                     ctx = 'button';
                 }
                 smallByContext[ctx] = (smallByContext[ctx] || 0) + 1;
+                // Capture selector for debugging (up to 10 samples)
+                if (smallTargetDetails.length < 10) {
+                    let sel = tag;
+                    if (el.id) sel = '#' + el.id;
+                    else if (el.className && typeof el.className === 'string') {
+                        const first = el.className.trim().split(/\s+/)[0];
+                        if (first) sel = tag + '.' + first;
+                    }
+                    smallTargetDetails.push({ selector: sel, width: Math.round(rect.width), height: Math.round(rect.height), context: ctx });
+                }
             }
         });
         result.touchTargets.smallByContext = smallByContext;
+        result.touchTargets.details = smallTargetDetails;
 
         // Font analysis
         const textElements = document.querySelectorAll('p, span, a, li, td, th, div, h1, h2, h3, h4, h5, h6');
@@ -172,6 +199,17 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
 
         result.fonts.smallest = smallestFont < 100 ? smallestFont : 16;
         result.fonts.base = parseFloat(window.getComputedStyle(document.body).fontSize) || 16;
+
+        // Count interactive elements with small font (distinguishes real violations from decorative)
+        let smallInteractiveCount = 0;
+        document.querySelectorAll('a, button, label, input, select, textarea').forEach(el => {
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return;
+            const style = window.getComputedStyle(el);
+            const fontSize = parseFloat(style.fontSize);
+            if (fontSize > 0 && fontSize < 12) smallInteractiveCount++;
+        });
+        result.fonts.smallInteractiveCount = smallInteractiveCount;
 
         // Content sizing
         result.content.viewportWidth = window.innerWidth;
@@ -263,6 +301,21 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             pairs
         })
         .unwrap_or_default();
+    let small_target_samples: Vec<SmallTargetSample> = tt["details"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|item| {
+                    Some(SmallTargetSample {
+                        selector: item["selector"].as_str()?.to_string(),
+                        width: item["width"].as_u64().unwrap_or(0) as u32,
+                        height: item["height"].as_u64().unwrap_or(0) as u32,
+                        context: item["context"].as_str().unwrap_or("").to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     let touch_targets = TouchTargetAnalysis {
         total_targets,
@@ -270,6 +323,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         small_targets,
         crowded_targets: tt["crowded"].as_u64().unwrap_or(0) as u32,
         small_by_context,
+        small_target_samples,
     };
 
     // Parse fonts
@@ -285,6 +339,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             100.0
         },
         uses_relative_units: fonts["usesRelativeUnits"].as_bool().unwrap_or(false),
+        small_interactive_count: fonts["smallInteractiveCount"].as_u64().unwrap_or(0) as u32,
     };
 
     // Parse content sizing
@@ -339,12 +394,23 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         } else {
             String::new()
         };
+        let sample_detail = if !touch_targets.small_target_samples.is_empty() {
+            let examples: Vec<String> = touch_targets
+                .small_target_samples
+                .iter()
+                .take(3)
+                .map(|s| format!("{} ({}×{}px)", s.selector, s.width, s.height))
+                .collect();
+            format!(" — e.g. {}", examples.join(", "))
+        } else {
+            String::new()
+        };
         issues.push(MobileIssue {
             category: "touch_targets".to_string(),
             issue_type: "small_targets".to_string(),
             message: format!(
-                "{} touch targets are too small (<44x44px){}",
-                small_targets, context_detail
+                "{} touch targets are too small (<44x44px){}{}",
+                small_targets, context_detail, sample_detail
             ),
             severity: Severity::Medium,
             impact: "Difficult to tap on mobile devices".to_string(),
@@ -352,15 +418,29 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     }
 
     if font_sizes.smallest_font_size < 12.0 {
+        let (severity, impact) = if font_sizes.small_interactive_count > 0 {
+            (
+                Severity::Medium,
+                format!(
+                    "{} interactive elements (links, buttons, labels) use text below 12px — difficult to read on mobile",
+                    font_sizes.small_interactive_count
+                ),
+            )
+        } else {
+            (
+                Severity::Low,
+                "Sub-12px text appears to be decorative only (not on interactive elements) — lower risk".to_string(),
+            )
+        };
         issues.push(MobileIssue {
             category: "fonts".to_string(),
             issue_type: "small_fonts".to_string(),
             message: format!(
-                "Smallest font size is {}px (recommended: ≥12px)",
+                "Smallest font size is {:.1}px (recommended: ≥12px)",
                 font_sizes.smallest_font_size
             ),
-            severity: Severity::Medium,
-            impact: "Text may be difficult to read on mobile".to_string(),
+            severity,
+            impact,
         });
     }
 

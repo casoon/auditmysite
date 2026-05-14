@@ -83,6 +83,8 @@ pub struct NormalizedReport {
     #[serde(skip)]
     pub raw_tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     #[serde(skip)]
+    pub raw_content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
+    #[serde(skip)]
     pub raw_wcag: WcagResults,
     #[serde(skip)]
     pub raw_patterns: Option<crate::patterns::PatternAnalysis>,
@@ -674,6 +676,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_source_quality: report.source_quality.clone(),
         raw_ai_visibility: report.ai_visibility.clone(),
         raw_tech_stack: report.tech_stack.clone(),
+        raw_content_visibility: report.content_visibility.clone(),
         raw_wcag: report.wcag_results.clone(),
         raw_patterns: report.patterns.clone(),
     }

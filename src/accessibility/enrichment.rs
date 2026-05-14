@@ -43,7 +43,12 @@ pub async fn enrich_violations_with_page(
             .and_then(|n| n.backend_dom_node_id)
         {
             Some(id) => id,
-            None => continue,
+            // AX node exists in tree but has no DOM node ID — ghost element.
+            // Demote to warning: cannot be verified or located by a developer.
+            None => {
+                violation.kind = crate::wcag::types::FindingKind::Warning;
+                continue;
+            }
         };
 
         match describe_node_selector(page, backend_id).await {
@@ -53,10 +58,14 @@ pub async fn enrich_violations_with_page(
                     .push(crate::wcag::types::ViolationEvidence::ax_tree(&sel));
                 violation.selector = Some(sel);
             }
-            None => warn!(
-                "Could not resolve backend DOM node {} for violation {}",
-                backend_id, violation.rule
-            ),
+            None => {
+                warn!(
+                    "Could not resolve backend DOM node {} for violation {}",
+                    backend_id, violation.rule
+                );
+                // Element not locatable in live DOM — cannot be confirmed.
+                violation.kind = crate::wcag::types::FindingKind::Warning;
+            }
         }
 
         // Fetch outer HTML and generate a concrete code fix

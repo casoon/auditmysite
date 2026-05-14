@@ -62,6 +62,11 @@ const USE_OF_COLOR_JS: &str = r#"
       if (display === 'block' || display === 'flex' || display === 'grid' ||
           display === 'inline-flex' || display === 'inline-grid') continue;
       const parentStyle = window.getComputedStyle(parent);
+      // Skip if the link is a flex/grid item — even if its own display is inline,
+      // the parent container makes it visually block-like (card, row, tile).
+      const parentDisplay = parentStyle.display || '';
+      if (parentDisplay === 'flex' || parentDisplay === 'grid' ||
+          parentDisplay === 'inline-flex' || parentDisplay === 'inline-grid') continue;
 
       const linkDecoration = (linkStyle.textDecorationLine || linkStyle.textDecoration || '').toLowerCase();
       const hasUnderline = linkDecoration.includes('underline');

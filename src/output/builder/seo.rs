@@ -8,39 +8,74 @@ use crate::output::report_model::CompactUrlSummary;
 
 pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalysis) -> String {
     let en = locale == "en";
-    if seo.score >= 90 {
+    let lead = if seo.score >= 90 {
         if en {
             "Technical SEO foundations largely met — relevant ranking signals are in place."
-                .to_string()
         } else {
             "Technische SEO-Grundlagen weitgehend erfüllt — relevante Ranking-Signale vorhanden."
-                .to_string()
         }
     } else if seo.score >= 70 {
         if en {
-            "Solid SEO base with targeted optimization potential.".to_string()
+            "Solid SEO base with targeted optimization potential."
         } else {
-            "Solide SEO-Basis mit gezieltem Optimierungspotenzial.".to_string()
+            "Solide SEO-Basis mit gezieltem Optimierungspotenzial."
         }
     } else if seo.score >= 55 {
         if en {
             "SEO base patchy — relevant ranking signals missing, visibility clearly limited."
-                .to_string()
         } else {
-            "SEO-Basis lückenhaft — relevante Ranking-Signale fehlen, Sichtbarkeit deutlich eingeschränkt.".to_string()
+            "SEO-Basis lückenhaft — relevante Ranking-Signale fehlen, Sichtbarkeit deutlich eingeschränkt."
         }
     } else if seo.score >= 35 {
         if en {
-            "SEO insufficient — essential foundations missing. Ranking in competitive areas is almost impossible.".to_string()
+            "SEO insufficient — essential foundations missing. Ranking in competitive areas is almost impossible."
         } else {
-            "SEO unzureichend — wesentliche Grundlagen fehlen. Ranking in kompetitiven Bereichen quasi unmöglich.".to_string()
+            "SEO unzureichend — wesentliche Grundlagen fehlen. Ranking in kompetitiven Bereichen quasi unmöglich."
         }
     } else if en {
         "SEO critical — the site is barely indexable for search engines. Not competitive."
-            .to_string()
     } else {
         "SEO kritisch — Seite ist für Suchmaschinen kaum indexierbar. Nicht wettbewerbsfähig."
-            .to_string()
+    };
+
+    if let Some(profile) = &seo.content_profile {
+        let page_type = profile.page_classification.primary_type.label();
+        let reference = profile.page_classification.intent_fit_score;
+        let score = seo.score;
+        let context = if score >= reference {
+            if en {
+                format!(
+                    "Classified as \u{201C}{page_type}\u{201D} — score {score} meets the reference value for this page type ({reference})."
+                )
+            } else {
+                format!(
+                    "Seitentyp: \u{201E}{page_type}\u{201C} — Score {score} liegt im erwarteten Bereich für diesen Seitentyp (Referenz: {reference})."
+                )
+            }
+        } else if reference.saturating_sub(score) <= 10 {
+            if en {
+                format!(
+                    "Classified as \u{201C}{page_type}\u{201D} — score {score} is slightly below the reference for this page type ({reference}); a few signals are still missing."
+                )
+            } else {
+                format!(
+                    "Seitentyp: \u{201E}{page_type}\u{201C} — Score {score} liegt knapp unter dem Erwartungswert für diesen Seitentyp ({reference}); einzelne Signale fehlen noch."
+                )
+            }
+        } else {
+            if en {
+                format!(
+                    "Classified as \u{201C}{page_type}\u{201D} — score {score} is notably below the reference for this page type ({reference})."
+                )
+            } else {
+                format!(
+                    "Seitentyp: \u{201E}{page_type}\u{201C} — Score {score} liegt deutlich unter dem Erwartungswert für diesen Seitentyp ({reference})."
+                )
+            }
+        };
+        format!("{lead} {context}")
+    } else {
+        lead.to_string()
     }
 }
 

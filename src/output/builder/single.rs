@@ -3102,9 +3102,13 @@ fn build_module_details_from_normalized(
     let source_quality = normalized.raw_source_quality.clone();
     let ai_visibility = normalized.raw_ai_visibility.clone();
     let tech_stack = normalized.raw_tech_stack.clone();
+    let content_visibility = normalized.raw_content_visibility.clone();
 
-    let has_any =
-        has_any || source_quality.is_some() || ai_visibility.is_some() || tech_stack.is_some();
+    let has_any = has_any
+        || source_quality.is_some()
+        || ai_visibility.is_some()
+        || tech_stack.is_some()
+        || content_visibility.is_some();
 
     ModuleDetailsBlock {
         performance,
@@ -3117,6 +3121,7 @@ fn build_module_details_from_normalized(
         source_quality,
         ai_visibility,
         tech_stack,
+        content_visibility,
         has_any,
     }
 }

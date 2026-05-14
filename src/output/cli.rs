@@ -43,6 +43,9 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
     if let Some(ref dm) = report.dark_mode {
         print_dark_mode_section(dm);
     }
+    if let Some(ref cv) = report.content_visibility {
+        print_content_visibility_section(cv);
+    }
 
     print_footer(report);
 }
@@ -518,6 +521,74 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
         }
     }
     println!();
+}
+
+/// Print content visibility & trust section
+fn print_content_visibility_section(cv: &crate::content_visibility::ContentVisibilityAnalysis) {
+    use crate::assessment::AssessmentLevel;
+
+    println!("{}", "Content Visibility & Trust".bold().underline());
+    println!();
+    println!(
+        "  {} signals analyzed, {} with optimization potential",
+        cv.signal_count, cv.problem_count
+    );
+    println!();
+
+    let areas: &[(&str, &[crate::assessment::ContentSignal])] = &[
+        ("Organic Visibility", &cv.organic_visibility),
+        ("Local Business & Trust Data", &cv.local_business),
+        ("E-E-A-T Indicators", &cv.eeat),
+        ("Content Depth & Localization", &cv.content_depth),
+        ("Topical Authority (heuristic)", &cv.topical_authority),
+    ];
+
+    for (area_name, signals) in areas {
+        let visible: Vec<_> = signals
+            .iter()
+            .filter(|s| s.level != AssessmentLevel::NotTestable)
+            .collect();
+        if visible.is_empty() {
+            continue;
+        }
+
+        println!("  {}", area_name.bold());
+
+        let mut table = Table::new();
+        table
+            .load_preset(presets::UTF8_BORDERS_ONLY)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec![
+                Cell::new("Level").add_attribute(Attribute::Bold),
+                Cell::new("Conf").add_attribute(Attribute::Bold),
+                Cell::new("Signal").add_attribute(Attribute::Bold),
+            ]);
+
+        for signal in visible {
+            let level_cell = match signal.level {
+                AssessmentLevel::Pass => Cell::new("PASS").fg(Color::Green),
+                AssessmentLevel::Positive => Cell::new("POSITIVE").fg(Color::Cyan),
+                AssessmentLevel::Warning => Cell::new("WARN").fg(Color::Yellow),
+                AssessmentLevel::Violation => Cell::new("VIOLATION").fg(Color::Red),
+                AssessmentLevel::NotTestable => Cell::new("N/T").fg(Color::DarkGrey),
+            };
+            let conf_cell = match signal.confidence {
+                crate::assessment::EvidenceConfidence::High => Cell::new("●"),
+                crate::assessment::EvidenceConfidence::Medium => Cell::new("◐"),
+                crate::assessment::EvidenceConfidence::Low => Cell::new("○"),
+            };
+            let detail_truncated = if signal.detail.len() > 60 {
+                format!("{}…", &signal.detail[..60])
+            } else {
+                signal.detail.clone()
+            };
+            let text = format!("{} — {}", signal.title, detail_truncated);
+            table.add_row(vec![level_cell, conf_cell, Cell::new(text)]);
+        }
+
+        println!("{table}");
+        println!();
+    }
 }
 
 /// Print budget violations section

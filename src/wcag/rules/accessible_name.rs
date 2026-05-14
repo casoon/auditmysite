@@ -5,7 +5,7 @@
 
 use crate::accessibility::{AXTree, NameSource};
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation, ViolationEvidence, WcagResults};
 
 /// Rule metadata for accessible name checks
 pub const RULE_META: RuleMetadata = RuleMetadata {
@@ -78,6 +78,17 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
 
         // 1. Empty accessible name
         if !node.has_name() {
+            let labelledby = node.get_property_idref("labelledby");
+            let aria_label_state = if labelledby.is_some() {
+                "aria-labelledby present but resolves to empty string"
+            } else if node.name.as_deref().is_some_and(|n| n.is_empty()) {
+                "aria-label present but empty"
+            } else {
+                "no accessible name attribute found"
+            };
+            let focusable = node.is_focusable();
+            // Non-focusable elements with interactive roles are likely structural/browser-
+            // assigned roles (e.g. <dl> → DescriptionList) — lower confidence finding.
             let violation = Violation::new(
                 RULE_META.id,
                 RULE_META.name,
@@ -91,9 +102,18 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
             )
             .with_role(node.role.clone())
             .with_fix("Add aria-label, aria-labelledby, or visible text content")
-            .with_help_url(RULE_META.help_url);
+            .with_help_url(RULE_META.help_url)
+            .with_evidence_item(ViolationEvidence::dom_attribute(
+                "aria-label",
+                Some(aria_label_state.to_string()),
+            ))
+            .with_evidence_item(ViolationEvidence::ax_tree(format!("focusable={focusable}")));
 
-            results.add_violation(violation);
+            if focusable {
+                results.add_violation(violation);
+            } else {
+                results.add_warning(violation.as_warning());
+            }
             continue;
         }
 
@@ -227,11 +247,27 @@ mod tests {
 
     #[test]
     fn test_button_without_name_fails() {
-        let nodes = vec![make_node("1", "button", None)];
-        let tree = AXTree::from_nodes(nodes);
+        let mut node = make_node("1", "button", None);
+        // Real Chrome AXTree buttons are focusable — this is what triggers a violation
+        node.properties.push(AXProperty {
+            name: "focusable".to_string(),
+            value: AXValue::Bool(true),
+        });
+        let tree = AXTree::from_nodes(vec![node]);
         let results = check_accessible_name(&tree);
         assert_eq!(results.violations.len(), 1);
         assert!(results.violations[0].message.contains("no accessible name"));
+    }
+
+    #[test]
+    fn test_non_focusable_without_name_is_warning() {
+        // Non-focusable elements with interactive roles (e.g. browser-assigned dl → DescriptionList)
+        // are lower confidence — they become warnings, not violations.
+        let node = make_node("1", "button", None);
+        let tree = AXTree::from_nodes(vec![node]);
+        let results = check_accessible_name(&tree);
+        assert_eq!(results.violations.len(), 0);
+        assert_eq!(results.warnings.len(), 1);
     }
 
     #[test]

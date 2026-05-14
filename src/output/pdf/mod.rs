@@ -41,9 +41,9 @@ use self::cover::{
     build_cover_score_row, certificate_badge_path,
 };
 use self::detail_modules::{
-    render_ai_visibility, render_budget_violations, render_dark_mode, render_journey,
-    render_mobile, render_performance, render_security, render_seo, render_source_quality,
-    render_tech_stack, render_ux,
+    render_ai_visibility, render_budget_violations, render_content_visibility, render_dark_mode,
+    render_journey, render_mobile, render_performance, render_security, render_seo,
+    render_source_quality, render_tech_stack, render_ux,
 };
 use self::findings::{first_sentence, render_finding_technical, render_key_finding_block};
 use self::helpers::{
@@ -668,6 +668,9 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     if let Some(ref ts) = vm.module_details.tech_stack {
         builder = render_tech_stack(builder, ts, &i18n);
     }
+    if let Some(ref cv) = vm.module_details.content_visibility {
+        builder = render_content_visibility(builder, cv, &i18n);
+    }
 
     // ── Appendix ────────────────────────────────────────────────────
     if vm.appendix.has_violations {
@@ -793,15 +796,11 @@ fn render_wcag_coverage_section(
             MANUAL_REVIEW_CRITERIA.len()
         )
     };
-    let manual_rows: Vec<ChecklistRow> = MANUAL_REVIEW_CRITERIA
-        .iter()
-        .map(|(c, l, name)| {
-            ChecklistRow::new(format!("WCAG {} (Level {})", c, l), *name).with_status("info")
-        })
-        .collect();
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(ChecklistPanel::new(manual_rows).with_title(&manual_title));
+    let mut manual_cloud = TagCloud::new().with_title(&manual_title).with_gap("5pt");
+    for (c, l, name) in MANUAL_REVIEW_CRITERIA.iter() {
+        manual_cloud = manual_cloud.add(format!("{c} ({l}) – {name}"), "info");
+    }
+    builder = builder.add_component(manual_cloud);
 
     // Practical testing guide — how to test the manual criteria above
     let how_title = if en {

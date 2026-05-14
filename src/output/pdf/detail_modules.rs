@@ -1,7 +1,7 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
 use renderreport::components::advanced::{
-    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    ChecklistPanel, ChecklistRow, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
 };
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
@@ -1846,6 +1846,140 @@ pub(super) fn render_ai_visibility(
             },
         );
         builder = builder.add_component(kv);
+    }
+
+    builder
+}
+
+// ─── Content Visibility & Trust ─────────────────────────────────────────────
+
+pub(super) fn render_content_visibility(
+    mut builder: renderreport::engine::ReportBuilder,
+    cv: &crate::content_visibility::ContentVisibilityAnalysis,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    use crate::assessment::AssessmentLevel;
+
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Content Visibility & Trust"
+            } else {
+                "Content Visibility & Trust"
+            })
+            .with_level(2),
+        )
+        .add_component(TextBlock::new(&if is_en(i18n) {
+            format!(
+                "{} signals analyzed, {} with optimization potential.",
+                cv.signal_count, cv.problem_count
+            )
+        } else {
+            format!(
+                "{} Signale analysiert, {} Hinweise auf Optimierungsbedarf.",
+                cv.signal_count, cv.problem_count
+            )
+        }));
+
+    let areas: &[(&str, &str, &[crate::assessment::ContentSignal])] = &[
+        (
+            "Organische Sichtbarkeit",
+            "Organic Visibility",
+            &cv.organic_visibility,
+        ),
+        (
+            "Local Business & Vertrauensdaten",
+            "Local Business & Trust Data",
+            &cv.local_business,
+        ),
+        ("E-E-A-T-Indizien", "E-E-A-T Indicators", &cv.eeat),
+        (
+            "Inhaltstiefe & Lokalisierung",
+            "Content Depth & Localization",
+            &cv.content_depth,
+        ),
+        (
+            "Topical Authority (Heuristik)",
+            "Topical Authority (heuristic)",
+            &cv.topical_authority,
+        ),
+    ];
+
+    let mut not_testable_rows: Vec<ChecklistRow> = Vec::new();
+
+    for (de_name, en_name, signals) in areas {
+        let area_name = if is_en(i18n) { en_name } else { de_name };
+        let visible: Vec<_> = signals
+            .iter()
+            .filter(|s| s.level != AssessmentLevel::NotTestable)
+            .collect();
+
+        // Collect NotTestable signals across all areas
+        for s in signals
+            .iter()
+            .filter(|s| s.level == AssessmentLevel::NotTestable)
+        {
+            not_testable_rows.push(ChecklistRow::new(&s.title, &s.detail).with_status("info"));
+        }
+
+        if visible.is_empty() {
+            continue;
+        }
+
+        builder = builder.add_component(Section::new(*area_name).with_level(3));
+
+        for signal in visible {
+            let conf_prefix = match signal.confidence {
+                crate::assessment::EvidenceConfidence::High => "● ",
+                crate::assessment::EvidenceConfidence::Medium => "◐ ",
+                crate::assessment::EvidenceConfidence::Low => "○ ",
+            };
+            let body = format!("{}{}", conf_prefix, signal.detail);
+            let title = signal.title.clone();
+
+            builder = builder.add_component(match signal.level {
+                AssessmentLevel::Pass | AssessmentLevel::Positive => {
+                    Callout::success(&body).with_title(&title)
+                }
+                AssessmentLevel::Warning => Callout::warning(&body).with_title(&title),
+                AssessmentLevel::Violation => Callout::warning(&body).with_title(&title),
+                AssessmentLevel::NotTestable => unreachable!(),
+            });
+
+            if !signal.evidence.is_empty() {
+                let mut kv = KeyValueList::new();
+                for ev in &signal.evidence {
+                    let source_label = format!("{:?}", ev.source);
+                    let mut detail = String::new();
+                    if let Some(ref fp) = ev.field_path {
+                        detail.push_str(fp);
+                    }
+                    if let Some(ref val) = ev.value_excerpt {
+                        if !detail.is_empty() {
+                            detail.push_str(": ");
+                        }
+                        detail.push_str(val);
+                    }
+                    if detail.is_empty() {
+                        detail = source_label.clone();
+                    }
+                    kv = kv.add(&source_label, &detail);
+                }
+                builder = builder.add_component(kv);
+            }
+        }
+    }
+
+    if !not_testable_rows.is_empty() {
+        let title = if is_en(i18n) {
+            "Manual review required"
+        } else {
+            "Manuell prüfen"
+        };
+        builder = builder
+            .add_component(Section::new(title).with_level(3))
+            .add_component(ChecklistPanel::new(not_testable_rows).with_title(title));
     }
 
     builder

@@ -756,6 +756,16 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
 
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
 
+    // After enrichment, violations whose kind was demoted to Warning (e.g. because
+    // no DOM element could be located) must be moved to the warnings Vec so they
+    // don't inflate violation counts or affect scoring.
+    let (kept, demoted): (Vec<_>, Vec<_>) = wcag_results
+        .violations
+        .drain(..)
+        .partition(|v| v.kind == crate::wcag::types::FindingKind::Violation);
+    wcag_results.violations = kept;
+    wcag_results.warnings.extend(demoted);
+
     wcag_results
 }
 

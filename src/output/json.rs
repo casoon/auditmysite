@@ -150,6 +150,9 @@ pub struct JsonReport {
     /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_visibility: Option<serde_json::Value>,
+    /// Content visibility & trust analysis (organic visibility, local business, E-E-A-T, etc.)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_visibility: Option<serde_json::Value>,
     /// Historical timeline for this URL (score trend, deltas, recent snapshots)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
@@ -277,6 +280,7 @@ impl JsonReport {
             dark_mode: raw.dark_mode.as_ref().map(|m| m.to_json()),
             source_quality: raw.source_quality.as_ref().map(|m| m.to_json()),
             ai_visibility: raw.ai_visibility.as_ref().map(|m| m.to_json()),
+            content_visibility: raw.content_visibility.as_ref().map(|m| m.to_json()),
             confidence_summary: vm
                 .methodology
                 .confidence_summary

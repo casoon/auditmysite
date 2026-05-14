@@ -14,6 +14,7 @@ use serde_json::Value;
 
 use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::{AuditReport, PerformanceResults};
+use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
@@ -112,6 +113,15 @@ impl ReportModule for AiVisibilityAnalysis {
     }
 }
 
+impl ReportModule for ContentVisibilityAnalysis {
+    fn module_key(&self) -> &'static str {
+        "content_visibility"
+    }
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+}
+
 /// Returns all active (Some) modules for a report as (key, value) pairs.
 ///
 /// This is the canonical module registry. Both JSON and PDF output must cover
@@ -148,6 +158,9 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
         push(m);
     }
     if let Some(ref m) = report.ai_visibility {
+        push(m);
+    }
+    if let Some(ref m) = report.content_visibility {
         push(m);
     }
 
