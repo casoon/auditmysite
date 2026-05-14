@@ -36,13 +36,11 @@ pub fn check_parsing(tree: &AXTree) -> WcagResults {
         if node.ignored {
             continue;
         }
-        if let Some(owns_val) = node.get_property_str("aria-owns") {
-            for target_id in owns_val.split_whitespace().filter(|s| !s.is_empty()) {
-                owners
-                    .entry(target_id.to_string())
-                    .or_default()
-                    .push(node.node_id.clone());
-            }
+        for target_id in node.get_property_idrefs("owns") {
+            owners
+                .entry(target_id.to_string())
+                .or_default()
+                .push(node.node_id.clone());
         }
     }
 
@@ -92,7 +90,7 @@ mod tests {
             description: None,
             value: None,
             properties: vec![AXProperty {
-                name: "aria-owns".to_string(),
+                name: "owns".to_string(),
                 value: AXValue::String(owns.to_string()),
             }],
             child_ids: vec![],

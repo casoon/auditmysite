@@ -67,11 +67,16 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
             header_cells.iter().map(|h| h.node_id.as_str()).collect();
 
         for cell in data_cells.iter().chain(header_cells.iter()) {
-            let headers_val = cell
-                .get_property_str("headers")
-                .or_else(|| cell.get_property_str("aria-owns"));
-            if let Some(hdrs) = headers_val {
-                let refs: Vec<&str> = hdrs.split_whitespace().collect();
+            let has_header_rel = cell.has_property("headers") || cell.has_property("owns");
+            if !has_header_rel {
+                continue;
+            }
+            let refs: Vec<&str> = if let Some(hdrs) = cell.get_property_str("headers") {
+                hdrs.split_whitespace().collect()
+            } else {
+                cell.get_property_idrefs("owns")
+            };
+            {
                 if refs.is_empty() {
                     // empty headers attribute
                     results.add_violation(

@@ -147,7 +147,7 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
         }
 
         // 4. aria-labelledby present but value is empty
-        if let Some(val) = node.get_property_str("aria-labelledby") {
+        if let Some(val) = node.get_property_idref("labelledby") {
             if val.trim().is_empty() {
                 let violation = Violation::new(
                     RULE_META.id,
@@ -167,7 +167,7 @@ pub fn check_accessible_name(tree: &AXTree) -> WcagResults {
         }
 
         // 5. aria-describedby present but value is empty
-        if let Some(val) = node.get_property_str("aria-describedby") {
+        if let Some(val) = node.get_property_idref("describedby") {
             if val.trim().is_empty() {
                 let violation = Violation::new(
                     RULE_META.id,
@@ -262,7 +262,7 @@ mod tests {
     fn test_empty_aria_labelledby_flagged() {
         let mut node = make_node("1", "textbox", Some("Name"));
         node.properties.push(AXProperty {
-            name: "aria-labelledby".to_string(),
+            name: "labelledby".to_string(),
             value: AXValue::String(String::new()),
         });
         let tree = AXTree::from_nodes(vec![node]);

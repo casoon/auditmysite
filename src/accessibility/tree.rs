@@ -222,6 +222,37 @@ impl AXNode {
         self.properties.iter().any(|p| p.name == name)
     }
 
+    /// Get the first idref from a relationship property.
+    /// Handles both `AXValue::String` (test fixtures / enriched properties) and
+    /// `AXValue::Node` (real CDP idref/idrefList traffic).
+    pub fn get_property_idref(&self, name: &str) -> Option<&str> {
+        self.properties
+            .iter()
+            .find(|p| p.name == name)
+            .and_then(|p| match &p.value {
+                AXValue::String(s) => Some(s.as_str()),
+                AXValue::Node { related_nodes } => related_nodes.first()?.idref.as_deref(),
+                _ => None,
+            })
+    }
+
+    /// Get all idrefs from a multi-target relationship property (e.g. aria-owns).
+    /// Handles both `AXValue::String` (space-separated IDs) and `AXValue::Node`.
+    pub fn get_property_idrefs(&self, name: &str) -> Vec<&str> {
+        self.properties
+            .iter()
+            .find(|p| p.name == name)
+            .map(|p| match &p.value {
+                AXValue::String(s) => s.split_whitespace().collect(),
+                AXValue::Node { related_nodes } => related_nodes
+                    .iter()
+                    .filter_map(|n| n.idref.as_deref())
+                    .collect(),
+                _ => vec![],
+            })
+            .unwrap_or_default()
+    }
+
     /// Check if the node has a specific role
     pub fn has_role(&self, role: &str) -> bool {
         self.role.as_deref() == Some(role)
