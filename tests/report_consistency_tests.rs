@@ -96,6 +96,7 @@ fn make_security() -> SecurityAnalysis {
         ssl: Default::default(),
         issues: vec![],
         recommendations: vec![],
+        protection: Default::default(),
     }
 }
 
