@@ -46,13 +46,17 @@
   "$defs": {
     "moduleScore": {
       "type": "object",
-      "required": ["name", "score", "grade", "weight_pct"],
+      "required": ["name", "score", "grade", "weight_pct", "contributes_to_overall"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
         "score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
-        "weight_pct": { "type": "integer", "minimum": 0 }
+        "weight_pct": { "type": "integer", "minimum": 0 },
+        "contributes_to_overall": {
+          "type": "boolean",
+          "description": "True when this module feeds into overall_score. False for supplemental dimensions (UX, Journey)."
+        }
       }
     },
     "findingPreview": {

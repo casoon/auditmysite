@@ -559,33 +559,15 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         }
         (weighted / total).round() as u32
     } else {
-        // Single-pass fallback — same formula as before
-        let mut weighted_sum = score as f64 * 40.0;
-        let mut total_weight = 40.0;
-        if let Some(ref perf) = report.performance {
-            weighted_sum += perf.score.overall as f64 * 20.0;
-            total_weight += 20.0;
-        }
-        if let Some(ref seo) = report.seo {
-            weighted_sum += seo.score as f64 * 20.0;
-            total_weight += 20.0;
-        }
-        if let Some(ref security) = report.security {
-            weighted_sum += security.score as f64 * 10.0;
-            total_weight += 10.0;
-        }
-        if let Some(ref mobile) = report.mobile {
-            weighted_sum += mobile.score as f64 * 10.0;
-            total_weight += 10.0;
-        }
-        if let Some(ux_entry) = module_scores.iter().find(|m| m.name == "UX") {
-            weighted_sum += ux_entry.score as f64 * 15.0;
-            total_weight += 15.0;
-        }
-        if let Some(journey_entry) = module_scores.iter().find(|m| m.name == "Journey") {
-            weighted_sum += journey_entry.score as f64 * 10.0;
-            total_weight += 10.0;
-        }
+        let contributing_modules = module_scores.iter().filter(|m| m.contributes_to_overall);
+        let (weighted_sum, total_weight) =
+            contributing_modules.fold((0.0, 0.0), |(sum, total), module| {
+                (
+                    sum + module.score as f64 * module.weight_pct as f64,
+                    total + module.weight_pct as f64,
+                )
+            });
+
         (weighted_sum / total_weight).round() as u32
     };
 

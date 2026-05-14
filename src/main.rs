@@ -1,13 +1,25 @@
 //! AuditMySit CLI Entry Point
 //!
-//! Resource-efficient WCAG 2.1 Accessibility Checker in Rust
+//! Bootstrap, logging setup, and top-level command dispatch.
+//! Orchestration logic lives in the sibling modules declared below.
 
-use std::fs;
+mod output_paths;
+mod plan;
+
+#[cfg(feature = "pdf")]
+use output_paths::output_bytes;
+use output_paths::output_text;
+use output_paths::{
+    default_batch_pdf_output_path, default_single_json_output_path, default_single_pdf_output_path,
+    output_directory, per_page_output_directory, per_page_output_path,
+};
+use plan::{
+    print_banner, print_batch_audit_plan, print_comparison_audit_plan, print_single_audit_plan,
+};
+
 use std::io::{self, IsTerminal};
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
 use dialoguer::{Input, Select};
@@ -549,158 +561,6 @@ fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
     }
 
     batch_args
-}
-
-fn print_single_audit_plan(args: &Args, url: &str) {
-    if args.quiet {
-        return;
-    }
-
-    println!("{}", "Audit plan".cyan().bold());
-    println!("  {} Single URL", "Mode:".dimmed());
-    println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report level:".dimmed(), args.report_level);
-    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
-
-    let outputs = planned_single_outputs(args, url);
-    if !outputs.is_empty() {
-        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
-    }
-    println!();
-}
-
-fn print_batch_audit_plan(args: &Args, total_urls: usize) {
-    if args.quiet {
-        return;
-    }
-
-    println!("{}", "Audit plan".cyan().bold());
-    println!(
-        "  {} {}",
-        "Mode:".dimmed(),
-        if args.per_page_reports {
-            "Individual reports from batch"
-        } else if args.crawl {
-            "Crawl"
-        } else if args.sitemap.is_some() {
-            "Sitemap"
-        } else {
-            "URL file"
-        }
-    );
-    println!("  {} {} URLs", "Scope:".dimmed(), total_urls);
-    println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report level:".dimmed(), args.report_level);
-    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
-
-    let outputs = planned_batch_outputs(args);
-    if !outputs.is_empty() {
-        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
-    }
-    println!();
-}
-
-fn print_comparison_audit_plan(args: &Args) {
-    if args.quiet {
-        return;
-    }
-
-    println!("{}", "Audit plan".cyan().bold());
-    println!("  {} Competitive comparison", "Mode:".dimmed());
-    println!("  {} {} domains", "Scope:".dimmed(), args.compare.len());
-    println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report level:".dimmed(), args.report_level);
-    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
-
-    let outputs = planned_comparison_outputs(args);
-    if !outputs.is_empty() {
-        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
-    }
-    println!();
-}
-
-fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
-    match args.effective_format() {
-        OutputFormat::Pdf => {
-            let path = args
-                .output
-                .clone()
-                .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
-            let mut outputs = vec![path.display().to_string()];
-            if args.output.is_none() {
-                outputs.push(default_single_json_output_path(&path).display().to_string());
-            }
-            outputs
-        }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
-            match args.output.as_ref() {
-                Some(path) => vec![path.display().to_string()],
-                None => vec!["stdout".to_string()],
-            }
-        }
-    }
-}
-
-fn planned_batch_outputs(args: &Args) -> Vec<String> {
-    if args.per_page_reports {
-        return vec![format!("{}/*", per_page_output_directory(args).display())];
-    }
-
-    match args.effective_format() {
-        OutputFormat::Pdf => {
-            let path = args
-                .output
-                .clone()
-                .unwrap_or_else(|| default_batch_pdf_output_path(args));
-            vec![
-                path.display().to_string(),
-                path.with_extension("json").display().to_string(),
-            ]
-        }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
-            match args.output.as_ref() {
-                Some(path) => vec![path.display().to_string()],
-                None => vec!["stdout".to_string()],
-            }
-        }
-    }
-}
-
-fn planned_comparison_outputs(args: &Args) -> Vec<String> {
-    match args.effective_format() {
-        OutputFormat::Pdf => vec![args
-            .output
-            .clone()
-            .unwrap_or_else(|| std::path::PathBuf::from("comparison-report.pdf"))
-            .display()
-            .to_string()],
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
-            match args.output.as_ref() {
-                Some(path) => vec![path.display().to_string()],
-                None => vec!["stdout".to_string()],
-            }
-        }
-    }
-}
-
-fn active_modules_label(args: &Args) -> String {
-    let mut modules = vec!["Accessibility"];
-    let full = args.full_audit_enabled();
-
-    if (full || args.performance) && !args.skip_performance {
-        modules.push("Performance");
-    }
-    if full || args.seo {
-        modules.push("SEO");
-    }
-    if full || args.security {
-        modules.push("Security");
-    }
-    if (full || args.mobile) && !args.skip_mobile {
-        modules.push("Mobile");
-    }
-
-    modules.join(", ")
 }
 
 async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
@@ -1332,144 +1192,6 @@ fn output_batch_as_single_reports(
     Ok(())
 }
 
-/// Write text content to file or stdout
-fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) -> Result<()> {
-    if let Some(path) = path {
-        fs::create_dir_all(output_directory(path))?;
-        fs::write(path, content).map_err(|e| AuditError::FileError {
-            path: path.clone(),
-            reason: e.to_string(),
-        })?;
-        if !quiet {
-            println!(
-                "{} {}-report saved to {}",
-                "Done:".green().bold(),
-                label,
-                path.display()
-            );
-        }
-    } else {
-        println!("{}", content);
-    }
-    Ok(())
-}
-
-fn output_directory(path: &std::path::Path) -> &std::path::Path {
-    match path.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent,
-        _ => std::path::Path::new("."),
-    }
-}
-
-fn default_single_json_output_path(pdf_path: &std::path::Path) -> PathBuf {
-    pdf_path.with_extension("json")
-}
-
-fn per_page_output_directory(args: &Args) -> PathBuf {
-    match args.output.as_ref() {
-        Some(path) if path.extension().is_none() => path.clone(),
-        Some(path) => output_directory(path).to_path_buf(),
-        None => PathBuf::from("."),
-    }
-}
-
-fn per_page_output_path(
-    base_dir: &std::path::Path,
-    url: &str,
-    format: OutputFormat,
-    report_level: auditmysite::cli::ReportLevel,
-) -> PathBuf {
-    let _ = report_level;
-    let date = Local::now().format("%Y-%m-%d");
-    let subject = report_subject_from_url(url);
-    let filename = match format {
-        OutputFormat::Pdf => default_single_pdf_output_path(url, report_level),
-        OutputFormat::Json => PathBuf::from(format!("{subject}-{date}-single-report.json")),
-        OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
-        OutputFormat::Ai => PathBuf::from(format!("{subject}-{date}-single-report-ai.json")),
-        OutputFormat::Summary => PathBuf::from(format!("{subject}-{date}-summary.json")),
-    };
-
-    match filename.file_name() {
-        Some(name) => base_dir.join(name),
-        None => base_dir.join(filename),
-    }
-}
-
-fn default_single_pdf_output_path(
-    url: &str,
-    report_level: auditmysite::cli::ReportLevel,
-) -> PathBuf {
-    let _ = report_level;
-    let date = Local::now().format("%Y-%m-%d");
-    let subject = report_subject_from_url(url);
-    PathBuf::from(format!("{subject}-{date}-single-report.pdf"))
-}
-
-fn default_batch_pdf_output_path(args: &Args) -> PathBuf {
-    let date = Local::now().format("%Y-%m-%d");
-    let kind = if args.sitemap.is_some() {
-        "sitemap"
-    } else if args.crawl {
-        "crawl"
-    } else {
-        "batch"
-    };
-    // Derive domain from sitemap URL, crawl URL, or url-file name
-    let source_url = args
-        .sitemap
-        .as_deref()
-        .or(args.url.as_deref())
-        .unwrap_or("");
-    let subject = report_subject_from_url(source_url);
-    PathBuf::from(format!("{subject}-{date}-{kind}-report.pdf"))
-}
-
-fn report_subject_from_url(url: &str) -> String {
-    let fallback = "audit-report".to_string();
-    let Ok(parsed) = url::Url::parse(url) else {
-        return fallback;
-    };
-    let Some(host) = parsed.host_str() else {
-        return fallback;
-    };
-
-    let host = host.strip_prefix("www.").unwrap_or(host);
-    let slug: String = host
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect();
-
-    let slug = slug.trim_matches('-').to_string();
-    if slug.is_empty() {
-        fallback
-    } else {
-        slug
-    }
-}
-
-/// Write binary content to file
-#[cfg(feature = "pdf")]
-fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Result<()> {
-    fs::create_dir_all(output_directory(path))?;
-    fs::write(path, content)?;
-    if !quiet {
-        println!(
-            "{} {} report saved to {}",
-            "Done:".green().bold(),
-            label,
-            path.display()
-        );
-    }
-    Ok(())
-}
-
 /// Handle --detect-chrome command
 fn detect_chrome_command(args: &Args) -> Result<f64> {
     println!("{}", "Searching for Chrome/Chromium...".cyan().bold());
@@ -1497,7 +1219,17 @@ fn detect_chrome_command(args: &Args) -> Result<f64> {
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
+    use crate::output_paths::{
+        default_batch_pdf_output_path, default_single_json_output_path,
+        default_single_pdf_output_path, output_directory, per_page_output_directory,
+        per_page_output_path, report_subject_from_url,
+    };
+    use crate::plan::{
+        active_modules_label, planned_batch_outputs, planned_comparison_outputs,
+        planned_single_outputs,
+    };
     use auditmysite::cli::ReportLevel;
+    use std::path::PathBuf;
 
     #[test]
     fn test_report_subject_from_url_strips_www_and_normalizes() {
@@ -1716,25 +1448,4 @@ mod tests {
 
         assert_eq!(label, "Accessibility");
     }
-}
-
-/// Print application banner
-fn print_banner() {
-    println!(
-        "{}",
-        r#"
-    _             _ _ _   __  __       ____  _ _
-   / \  _   _  __| (_) |_|  \/  |_   _/ ___|(_) |_ ___
-  / _ \| | | |/ _` | | __| |\/| | | | \___ \| | __/ _ \
- / ___ \ |_| | (_| | | |_| |  | | |_| |___) | | ||  __/
-/_/   \_\__,_|\__,_|_|\__|_|  |_|\__, |____/|_|\__\___|
-                                 |___/
-"#
-        .cyan()
-    );
-    println!(
-        "  {} v{} - WCAG 2.1 Accessibility Checker\n",
-        "AuditMySite".bold(),
-        env!("CARGO_PKG_VERSION")
-    );
 }

@@ -102,6 +102,7 @@ pub struct StudioModuleScore {
     pub score: u32,
     pub grade: String,
     pub weight_pct: u32,
+    pub contributes_to_overall: bool,
 }
 
 /// Compact finding for the findings list — no full descriptions or code.
@@ -134,6 +135,7 @@ impl StudioAuditResponse {
                 score: m.score,
                 grade: m.grade.clone(),
                 weight_pct: m.weight_pct,
+                contributes_to_overall: m.contributes_to_overall,
             })
             .collect();
 

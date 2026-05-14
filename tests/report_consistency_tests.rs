@@ -230,15 +230,17 @@ fn test_overall_score_equals_weighted_average() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
-    // Calculate expected weighted average
+    // Calculate expected weighted average from modules that contribute to overall_score.
     let weighted_sum: f64 = normalized
         .module_scores
         .iter()
+        .filter(|m| m.contributes_to_overall)
         .map(|m| m.score as f64 * m.weight_pct as f64)
         .sum();
     let total_weight: f64 = normalized
         .module_scores
         .iter()
+        .filter(|m| m.contributes_to_overall)
         .map(|m| m.weight_pct as f64)
         .sum();
     let expected = (weighted_sum / total_weight).round() as u32;
@@ -252,7 +254,12 @@ fn test_overall_score_equals_weighted_average() {
         normalized
             .module_scores
             .iter()
-            .map(|m| format!("{}={} ({}%)", m.name, m.score, m.weight_pct))
+            .map(|m| {
+                format!(
+                    "{}={} ({}%, contributes={})",
+                    m.name, m.score, m.weight_pct, m.contributes_to_overall
+                )
+            })
             .collect::<Vec<_>>()
     );
 }
@@ -450,12 +457,15 @@ fn test_module_weights_sum_to_expected() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
-    let total_weight: u32 = normalized.module_scores.iter().map(|m| m.weight_pct).sum();
-    // With UX (15%) + Journey (10%) added to base modules (100%), total is 125%
-    // The overall_score calculation divides by actual total weight
+    let total_weight: u32 = normalized
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall)
+        .map(|m| m.weight_pct)
+        .sum();
     assert_eq!(
-        total_weight, 125,
-        "Module weights should sum to 125% (with UX + Journey), got {}%",
+        total_weight, 100,
+        "Contributing module weights should sum to 100%, got {}%",
         total_weight
     );
 }
