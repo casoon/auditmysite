@@ -1862,14 +1862,7 @@ pub(super) fn render_content_visibility(
 
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(
-            Section::new(if is_en(i18n) {
-                "Content Visibility & Trust"
-            } else {
-                "Content Visibility & Trust"
-            })
-            .with_level(2),
-        )
+        .add_component(Section::new("Content Visibility & Trust").with_level(2))
         .add_component(TextBlock::new(&if is_en(i18n) {
             format!(
                 "{} signals analyzed, {} with optimization potential.",

@@ -337,7 +337,7 @@ mod tests {
                 WcagLevel::AA,
                 crate::taxonomy::Severity::High,
                 "Test violation",
-                &format!("node-{i}"),
+                format!("node-{i}"),
             ));
         }
 

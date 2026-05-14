@@ -1008,11 +1008,13 @@ mod tests {
 
     #[test]
     fn finish_counts_signals_and_problems() {
-        let mut analysis = ContentVisibilityAnalysis::default();
-        analysis.organic_visibility = vec![
-            ContentSignal::pass(ContentArea::Seo, EvidenceConfidence::High, "A", ""),
-            ContentSignal::violation(ContentArea::Seo, EvidenceConfidence::High, "B", ""),
-        ];
+        let analysis = ContentVisibilityAnalysis {
+            organic_visibility: vec![
+                ContentSignal::pass(ContentArea::Seo, EvidenceConfidence::High, "A", ""),
+                ContentSignal::violation(ContentArea::Seo, EvidenceConfidence::High, "B", ""),
+            ],
+            ..ContentVisibilityAnalysis::default()
+        };
         let analysis = analysis.finish();
         assert_eq!(analysis.signal_count, 2);
         assert_eq!(analysis.problem_count, 1);

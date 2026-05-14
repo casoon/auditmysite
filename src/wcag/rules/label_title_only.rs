@@ -62,8 +62,14 @@ pub fn check_label_title_only(tree: &AXTree) -> WcagResults {
         } else if node.has_name() && node.name_source.is_none() {
             // Fallback heuristic
             let title_val = node.get_property_str("title");
-            let has_aria_label = node.get_property_str("label").is_some();
-            let has_aria_labelledby = node.has_property("labelledby");
+            let has_aria_label = ["label", "aria-label"].iter().any(|name| {
+                node.get_property_str(name)
+                    .is_some_and(|v| !v.trim().is_empty())
+            });
+            let has_aria_labelledby = node.has_property("labelledby")
+                || node
+                    .get_property_str("aria-labelledby")
+                    .is_some_and(|v| !v.trim().is_empty());
 
             if let (Some(name), Some(title)) = (node.name.as_deref(), title_val) {
                 name == title && !has_aria_label && !has_aria_labelledby

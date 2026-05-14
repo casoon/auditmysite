@@ -39,8 +39,6 @@ pub(super) enum WasJetztTunContent {
     Empty(Callout),
 }
 
-/// Build the Top-Hebel table: top findings sorted by occurrence share, max 5 rows.
-
 /// Build the "Was jetzt tun?" task table (max 5 actions)
 pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunContent {
     // Collect top items from action roadmap, prioritize by execution priority

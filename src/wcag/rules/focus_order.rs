@@ -64,7 +64,10 @@ pub fn check_focus_order(tree: &AXTree) -> WcagResults {
             continue;
         }
 
-        let is_aria_hidden = node.get_property_bool("hidden").unwrap_or(false);
+        let is_aria_hidden = node.get_property_bool("hidden").unwrap_or(false)
+            || node
+                .get_property_str("aria-hidden")
+                .is_some_and(|v| v.eq_ignore_ascii_case("true"));
 
         if is_aria_hidden && node.is_focusable() {
             let violation = Violation::new(
