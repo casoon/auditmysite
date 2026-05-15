@@ -1,0 +1,42 @@
+---
+source: tests/snapshot_tests.rs
+expression: value
+---
+{
+  "average_score": 83.0,
+  "certificate": "SOLIDE",
+  "grade": "B",
+  "module_averages": [
+    {
+      "name": "Accessibility",
+      "score": 83
+    },
+    {
+      "name": "Journey",
+      "score": 48
+    },
+    {
+      "name": "Mobile",
+      "score": 85
+    },
+    {
+      "name": "Performance",
+      "score": 75
+    },
+    {
+      "name": "SEO",
+      "score": 90
+    },
+    {
+      "name": "Security",
+      "score": 80
+    },
+    {
+      "name": "UX",
+      "score": 44
+    }
+  ],
+  "top_issue_count": 2,
+  "total_urls": 2,
+  "url_ranking_count": 2
+}

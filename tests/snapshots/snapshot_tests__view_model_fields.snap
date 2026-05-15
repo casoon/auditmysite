@@ -1,0 +1,43 @@
+---
+source: tests/snapshot_tests.rs
+expression: value
+---
+{
+  "action_column_count": 2,
+  "cover": {
+    "certificate": "SOLIDE",
+    "critical_issues": 5,
+    "grade": "B",
+    "score": 83,
+    "total_issues": 8
+  },
+  "finding_count": 2,
+  "finding_rule_ids": [
+    "a11y.name_role.missing",
+    "a11y.structure.missing"
+  ],
+  "module_count": 7,
+  "module_names": [
+    "Barrierefreiheit",
+    "Journey",
+    "Mobile",
+    "Performance",
+    "SEO",
+    "Sicherheit",
+    "UX"
+  ],
+  "severity": {
+    "critical": 5,
+    "high": 0,
+    "low": 0,
+    "medium": 3,
+    "total": 8
+  },
+  "summary": {
+    "certificate": "SOLIDE",
+    "grade": "B",
+    "maturity_label": "Kritisch",
+    "score": 83
+  },
+  "total_action_items": 2
+}
