@@ -791,7 +791,7 @@ fn build_content_depth(
 fn build_topical_authority(
     seo: &crate::seo::SeoAnalysis,
     ai_visibility: Option<&crate::ai_visibility::AiVisibilityAnalysis>,
-    _patterns: Option<&crate::patterns::PatternAnalysis>,
+    patterns: Option<&crate::patterns::PatternAnalysis>,
 ) -> Vec<ContentSignal> {
     use crate::assessment::AssessmentLevel;
 
@@ -899,6 +899,178 @@ fn build_topical_authority(
                     EvidenceSource::Computed,
                     EvidenceConfidence::Medium,
                 )),
+            );
+        }
+    }
+
+    // Internal link cluster — proxy for site embeddedness
+    let internal_links = seo.technical.internal_links;
+    if internal_links >= 10 {
+        signals.push(
+            ContentSignal::positive(
+                ContentArea::Seo,
+                EvidenceConfidence::Medium,
+                "Internes Linkgeflecht erkennbar",
+                format!(
+                    "{internal_links} interne Links — Seite ist in ein Themencluster eingebettet."
+                ),
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
+                    .with_field("internal_links")
+                    .with_value(internal_links.to_string()),
+            ),
+        );
+    } else if internal_links >= 3 {
+        signals.push(
+            ContentSignal::pass(
+                ContentArea::Seo,
+                EvidenceConfidence::Medium,
+                "Interne Verlinkung vorhanden",
+                format!("{internal_links} interne Links gefunden."),
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
+                    .with_field("internal_links")
+                    .with_value(internal_links.to_string()),
+            ),
+        );
+    } else if internal_links == 0 {
+        signals.push(
+            ContentSignal::warning(
+                ContentArea::Seo,
+                EvidenceConfidence::Medium,
+                "Keine internen Links",
+                "Seite wirkt isoliert — fehlende Cluster-Einbettung schwächt topische Autorität.",
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
+                    .with_field("internal_links")
+                    .with_value("0".to_string()),
+            ),
+        );
+    }
+
+    // Heading diversity — proxy for semantic topic coverage
+    let h2_plus_count = seo
+        .headings
+        .headings
+        .iter()
+        .filter(|h| h.level >= 2)
+        .count();
+    if h2_plus_count >= 5 {
+        signals.push(
+            ContentSignal::positive(
+                ContentArea::Content,
+                EvidenceConfidence::Medium,
+                "Thematische Gliederung erkennbar",
+                format!("{h2_plus_count} Unterüberschriften (H2+) — breite Themenabdeckung im Single-Durchlauf sichtbar."),
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::Medium)
+                    .with_field("headings.h2_plus")
+                    .with_value(h2_plus_count.to_string()),
+            ),
+        );
+    } else if h2_plus_count >= 2 {
+        signals.push(
+            ContentSignal::pass(
+                ContentArea::Content,
+                EvidenceConfidence::Medium,
+                "Grundstruktur durch Überschriften vorhanden",
+                format!("{h2_plus_count} Unterüberschriften (H2+) gefunden."),
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::Medium)
+                    .with_field("headings.h2_plus")
+                    .with_value(h2_plus_count.to_string()),
+            ),
+        );
+    } else {
+        signals.push(
+            ContentSignal::warning(
+                ContentArea::Content,
+                EvidenceConfidence::Low,
+                "Flache Inhaltsstruktur",
+                "Weniger als 2 Unterüberschriften — Themenabdeckung im Single-Durchlauf nicht erkennbar.",
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::Medium)
+                    .with_field("headings.h2_plus")
+                    .with_value(h2_plus_count.to_string()),
+            ),
+        );
+    }
+
+    // Content-type schema — identifies what kind of content this page represents
+    let has_content_schema = seo.structured_data.types.iter().any(|t| {
+        matches!(
+            t,
+            SchemaType::Article
+                | SchemaType::BlogPosting
+                | SchemaType::NewsArticle
+                | SchemaType::HowTo
+                | SchemaType::WebPage
+                | SchemaType::Product
+                | SchemaType::Recipe
+                | SchemaType::Event
+                | SchemaType::VideoObject
+        )
+    });
+    if has_content_schema {
+        let schema_label = seo
+            .structured_data
+            .types
+            .iter()
+            .find(|t| {
+                matches!(
+                    t,
+                    SchemaType::Article
+                        | SchemaType::BlogPosting
+                        | SchemaType::NewsArticle
+                        | SchemaType::HowTo
+                        | SchemaType::WebPage
+                        | SchemaType::Product
+                        | SchemaType::Recipe
+                        | SchemaType::Event
+                        | SchemaType::VideoObject
+                )
+            })
+            .map(|t| format!("{t:?}"))
+            .unwrap_or_default();
+        signals.push(
+            ContentSignal::positive(
+                ContentArea::Seo,
+                EvidenceConfidence::High,
+                "Inhaltstyp durch Schema identifiziert",
+                format!("{schema_label}-Schema vorhanden — Seitentyp für Suchmaschinen eindeutig erkennbar."),
+            )
+            .with_evidence(
+                ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
+                    .with_field("structured_data.type")
+                    .with_value(schema_label),
+            ),
+        );
+    }
+
+    // Accordion/DisclosureMenu patterns → structured FAQ-like topic coverage
+    if let Some(pats) = patterns {
+        let has_structured_content = pats
+            .recognized
+            .iter()
+            .any(|p| p.pattern == "Accordion" || p.pattern == "DisclosureMenu");
+        if has_structured_content {
+            signals.push(
+                ContentSignal::pass(
+                    ContentArea::Content,
+                    EvidenceConfidence::Medium,
+                    "Strukturierte Inhaltsabschnitte erkannt",
+                    "Accordion oder Disclosure-Pattern gefunden — Hinweis auf thematisch gegliederte Inhalte.",
+                )
+                .with_evidence(
+                    ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::Medium)
+                        .with_field("patterns.recognized"),
+                ),
             );
         }
     }

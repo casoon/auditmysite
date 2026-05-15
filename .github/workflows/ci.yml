@@ -106,7 +106,7 @@ jobs:
         run: cargo fmt -- --check
 
   browser-smoke:
-    name: Browser Smoke
+    name: Browser Integration Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -114,14 +114,24 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Install Chrome
         id: setup-chrome
         uses: browser-actions/setup-chrome@v2
 
-      - name: Run browser smoke test
+      - name: Run browser integration tests
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
-        run: cargo test --test integration_test test_perfect_page_scores_high -- --ignored --exact --nocapture
+          CI: "true"
+        run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
 
   release-build:
     name: Release Build
