@@ -137,7 +137,9 @@ fn build_location_hints(occurrences: &[OccurrenceDetail]) -> Vec<String> {
     hints
 }
 
-fn build_representative_occurrences(occurrences: &[OccurrenceDetail]) -> Vec<RepresentativeOccurrence> {
+fn build_representative_occurrences(
+    occurrences: &[OccurrenceDetail],
+) -> Vec<RepresentativeOccurrence> {
     let mut ranked: Vec<(usize, i32, &OccurrenceDetail)> = occurrences
         .iter()
         .enumerate()
