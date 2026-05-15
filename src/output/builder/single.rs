@@ -1134,7 +1134,7 @@ fn build_modules_block_from_normalized(
         let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
         let journey_context = format!(
             "{}: {} · Entry {}/100, Orientation {}/100, Navigation {}/100, Interaction {}/100, Conversion {}/100",
-            if en { "Intent" } else { "Intent" },
+            if en { "Intent" } else { "Seitenabsicht" },
             j.page_intent.label(),
             j.entry_clarity.score,
             j.orientation.score,
