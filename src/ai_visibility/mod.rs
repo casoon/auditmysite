@@ -416,13 +416,6 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
     let word_count = seo.map_or(0, |s| s.technical.word_count);
     let heading_count = seo.map_or(0, |s| s.headings.headings.len());
 
-    let has_meta_description = seo
-        .and_then(|s| s.meta.description.as_ref())
-        .is_some_and(|d| !d.is_empty());
-    let meta_desc_len = seo
-        .and_then(|s| s.meta.description.as_ref())
-        .map_or(0, |d| d.len());
-
     // Check for datePublished in JSON-LD
     let has_date_published = seo.is_some_and(|s| {
         s.structured_data.json_ld.iter().any(|ld| {
@@ -460,8 +453,6 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
         has_og_meta,
         word_count,
         heading_count,
-        has_meta_description,
-        meta_desc_len,
         security_score: report.security.as_ref().map(|s| s.score),
         a11y_score: report.score,
         has_faq_schema,
@@ -494,13 +485,6 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
     });
 
     let total_word_count = seo.map_or(0, |s| s.technical.word_count);
-    let paragraph_count = if !headings.is_empty() {
-        headings.len() as u32 * 2
-    } else if total_word_count > 100 {
-        (total_word_count / 80).max(1)
-    } else {
-        1
-    };
 
     // Check for semantic HTML from accessibility tree or mobile analysis
     let has_nav_landmarks = report
@@ -524,9 +508,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
     chunks::ChunkInput {
         headings,
         total_word_count,
-        paragraph_count,
         has_semantic_html,
-        has_nav_landmarks,
         has_article_tag,
         has_section_tags,
     }
@@ -585,10 +567,6 @@ fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::Knowled
             .collect()
     });
 
-    let headings: Vec<String> = seo.map_or(vec![], |s| {
-        s.headings.headings.iter().map(|h| h.text.clone()).collect()
-    });
-
     let page_title = seo.and_then(|s| s.meta.title.clone());
     let site_name = seo.and_then(|s| {
         s.social
@@ -605,22 +583,12 @@ fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::Knowled
             .any(|t| matches!(t, SchemaType::BreadcrumbList))
     });
 
-    let schema_types: Vec<String> = seo.map_or(vec![], |s| {
-        s.structured_data
-            .types
-            .iter()
-            .map(|t| format!("{:?}", t))
-            .collect()
-    });
-
     knowledge_graph::KnowledgeGraphInput {
         schemas,
-        headings,
         page_title,
         site_name,
         internal_links,
         has_breadcrumb,
-        schema_types,
     }
 }
 

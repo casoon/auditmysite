@@ -83,9 +83,6 @@ pub struct LinkSuggestion {
 pub(crate) struct KnowledgeGraphInput {
     /// JSON-LD schemas found on the page
     pub schemas: Vec<SchemaEntity>,
-    /// Headings from the page
-    #[allow(dead_code)]
-    pub headings: Vec<String>,
     /// Page title from meta
     pub page_title: Option<String>,
     /// Site name from meta/schema
@@ -94,9 +91,6 @@ pub(crate) struct KnowledgeGraphInput {
     pub internal_links: u32,
     /// Whether breadcrumb schema exists
     pub has_breadcrumb: bool,
-    /// Schema types present
-    #[allow(dead_code)]
-    pub schema_types: Vec<String>,
 }
 
 /// A schema entity extracted from JSON-LD

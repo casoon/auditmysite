@@ -241,12 +241,6 @@ pub fn find_chrome(manual_path: Option<&str>) -> Result<ChromeInfo> {
     Err(AuditError::ChromeNotFound)
 }
 
-/// Legacy: Verify Chrome is executable (kept for backward compatibility)
-#[allow(dead_code)]
-pub fn verify_chrome_executable(path: &PathBuf) -> Result<()> {
-    verify_executable(path)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

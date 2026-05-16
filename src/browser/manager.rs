@@ -63,8 +63,7 @@ pub struct BrowserManager {
     chrome_info: ChromeInfo,
     options: BrowserOptions,
     user_data_dir: PathBuf,
-    #[allow(dead_code)]
-    handler: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    _handler: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -181,7 +180,7 @@ impl BrowserManager {
             chrome_info,
             options,
             user_data_dir,
-            handler: Arc::new(Mutex::new(Some(handler_task))),
+            _handler: Arc::new(Mutex::new(Some(handler_task))),
         })
     }
 

@@ -58,18 +58,6 @@ pub const RULE_META_VIEWPORT_LARGE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aa", "wcag144", "cat.sensory-and-visual-cues"],
 };
 
-#[allow(dead_code)]
-pub const RULE_TARGET_SIZE: RuleMetadata = RuleMetadata {
-    id: "2.5.8",
-    name: "Target Size",
-    level: WcagLevel::AA,
-    severity: Severity::Medium,
-    description: "Interactive targets should be at least 24 × 24 CSS pixels (WCAG 2.2 AA)",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
-    axe_id: "target-size",
-    tags: &["wcag22aa", "wcag258", "cat.sensory-and-visual-cues"],
-};
-
 // ── Heading roles ──────────────────────────────────────────────────────────────
 
 const HEADING_ROLES: &[&str] = &[

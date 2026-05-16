@@ -61,11 +61,7 @@ impl std::fmt::Display for ChunkQuality {
 pub(crate) struct ChunkInput {
     pub headings: Vec<HeadingInfo>,
     pub total_word_count: u32,
-    #[allow(dead_code)]
-    pub paragraph_count: u32,
     pub has_semantic_html: bool,
-    #[allow(dead_code)]
-    pub has_nav_landmarks: bool,
     pub has_article_tag: bool,
     pub has_section_tags: bool,
 }

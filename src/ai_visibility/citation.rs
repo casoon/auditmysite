@@ -25,10 +25,6 @@ pub(crate) struct CitationInput {
     pub has_og_meta: bool,
     pub word_count: u32,
     pub heading_count: usize,
-    #[allow(dead_code)]
-    pub has_meta_description: bool,
-    #[allow(dead_code)]
-    pub meta_desc_len: usize,
     pub security_score: Option<u32>,
     pub a11y_score: f32,
     pub has_faq_schema: bool,

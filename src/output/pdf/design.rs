@@ -28,9 +28,6 @@ pub mod tokens {
     // Accent tones
     /// Informational / link-style accent.
     pub const INFO: &str = "#2563eb";
-    /// Branded purple for category accents.
-    #[allow(dead_code)]
-    pub const ACCENT_VIOLET: &str = "#7c3aed";
     /// Earthy bronze for date / certificate context.
     pub const ACCENT_BRONZE: &str = "#b45309";
 }
@@ -57,20 +54,6 @@ pub fn module_score_color(score: u32) -> &'static str {
         tokens::WARN_DEEP
     } else {
         tokens::DANGER
-    }
-}
-
-/// Map a 0–100 score to a status keyword consumed by `MetricStrip`/`Callout`.
-#[allow(dead_code)]
-pub fn score_status(score: u32) -> &'static str {
-    if score >= 85 {
-        "good"
-    } else if score >= 70 {
-        "info"
-    } else if score >= 50 {
-        "warn"
-    } else {
-        "bad"
     }
 }
 

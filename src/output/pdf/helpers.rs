@@ -95,15 +95,6 @@ pub(super) fn soft_flow_group(threshold: &str, items: Vec<serde_json::Value>) ->
     group.with_keep_together_if_under(threshold)
 }
 
-#[allow(dead_code)]
-pub(super) fn execution_priority_label(priority: ExecutionPriority) -> &'static str {
-    match priority {
-        ExecutionPriority::Immediate => "Direkt angehen",
-        ExecutionPriority::Important => "Als Nächstes einplanen",
-        ExecutionPriority::Optional => "Bei der nächsten Optimierungsrunde mitnehmen",
-    }
-}
-
 pub(super) fn score_quality_label(score: u32) -> &'static str {
     match score {
         85..=100 => "Stark",

@@ -167,19 +167,6 @@ impl ContrastRule {
     }
 }
 
-/// Check if a node represents text content
-#[allow(dead_code)]
-fn is_text_node(node: &crate::accessibility::AXNode) -> bool {
-    matches!(
-        node.role.as_deref(),
-        Some("StaticText")
-            | Some("InlineTextBox")
-            | Some("text")
-            | Some("paragraph")
-            | Some("heading")
-    )
-}
-
 /// RGB Color representation
 #[derive(Debug, Clone, Copy)]
 pub struct Color {
