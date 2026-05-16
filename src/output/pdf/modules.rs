@@ -1,9 +1,10 @@
 //! Module overview components for PDF reports.
 
-use renderreport::components::advanced::Grid;
+use renderreport::components::advanced::{Grid, List, SectionHeaderSplit};
 use renderreport::components::{AuditTable, MetricCard, ScoreCard, TableColumn};
 use renderreport::prelude::*;
 
+use super::findings::first_sentence;
 use crate::output::report_model::*;
 
 pub(super) fn build_summary_overview(summary: &SummaryBlock) -> Grid {
@@ -96,4 +97,52 @@ pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunCont
     }
 
     WasJetztTunContent::Table(table)
+}
+
+/// Closing section: recommended next steps
+pub(super) fn render_next_steps_single(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            &vm.executive.next_steps_title,
+            &vm.executive.next_steps_intro,
+        )
+        .with_level(1),
+    );
+
+    let mut steps: Vec<String> = Vec::new();
+
+    // Highest priority from quick wins
+    for col in &vm.actions.roadmap_columns {
+        for item in &col.items {
+            if steps.len() >= 3 {
+                break;
+            }
+            steps.push(item.action.clone());
+        }
+    }
+
+    // Fallback from findings
+    if steps.is_empty() {
+        for group in vm.findings.top_findings.iter().take(3) {
+            steps.push(first_sentence(&group.recommendation).to_string());
+        }
+    }
+
+    if !steps.is_empty() {
+        let mut list = List::new();
+        for action in &steps {
+            list = list.add_item(action);
+        }
+        builder = builder.add_component(list);
+    }
+
+    builder = builder.add_component(
+        Callout::info(&vm.executive.next_steps_callout_body)
+            .with_title(&vm.executive.next_steps_callout_title),
+    );
+
+    builder
 }
