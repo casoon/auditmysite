@@ -217,3 +217,104 @@ pub(crate) fn analyze_readability(input: &ReadabilityInput) -> ReadabilityAnalys
         dimension: build_dimension("KI-Lesbarkeit", &signals),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rich_input() -> ReadabilityInput {
+        ReadabilityInput {
+            word_count: 800,
+            heading_count: 6,
+            max_heading_depth: 4,
+            has_lists: true,
+            list_count: 3,
+            has_tables: true,
+            has_schema: true,
+            schema_type_count: 3,
+            has_faq_schema: true,
+            has_howto_schema: false,
+            has_meta_description: true,
+            meta_desc_len: 150,
+            has_lang: true,
+            paragraph_count: 10,
+            avg_paragraph_len: 80,
+            has_definition_patterns: true,
+        }
+    }
+
+    fn minimal_input() -> ReadabilityInput {
+        ReadabilityInput {
+            word_count: 0,
+            heading_count: 0,
+            max_heading_depth: 0,
+            has_lists: false,
+            list_count: 0,
+            has_tables: false,
+            has_schema: false,
+            schema_type_count: 0,
+            has_faq_schema: false,
+            has_howto_schema: false,
+            has_meta_description: false,
+            meta_desc_len: 0,
+            has_lang: false,
+            paragraph_count: 0,
+            avg_paragraph_len: 0,
+            has_definition_patterns: false,
+        }
+    }
+
+    #[test]
+    fn rich_input_produces_high_score() {
+        let result = analyze_readability(&rich_input());
+        assert!(result.dimension.score >= 70);
+        assert_eq!(result.dimension.name, "KI-Lesbarkeit");
+    }
+
+    #[test]
+    fn minimal_input_produces_low_score() {
+        let result = analyze_readability(&minimal_input());
+        assert!(result.dimension.score <= 20);
+    }
+
+    #[test]
+    fn very_long_content_penalized() {
+        let mut input = rich_input();
+        input.word_count = 6000; // above the 5000-word penalty threshold
+        let rich_score = analyze_readability(&rich_input()).dimension.score;
+        let long_score = analyze_readability(&input).dimension.score;
+        assert!(long_score < rich_score);
+    }
+
+    #[test]
+    fn faq_and_howto_both_present_detected() {
+        let mut input = rich_input();
+        input.has_howto_schema = true;
+        let result = analyze_readability(&input);
+        let qa_signal = result
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.name == "Extrahierbare Antworten")
+            .expect("signal must exist");
+        assert!(qa_signal.present);
+        assert!(qa_signal.detail.contains("FAQ") && qa_signal.detail.contains("HowTo"));
+    }
+
+    #[test]
+    fn short_meta_description_not_counted_as_good() {
+        let input = ReadabilityInput {
+            has_meta_description: true,
+            meta_desc_len: 30, // below the 80-char threshold
+            ..minimal_input()
+        };
+        let result = analyze_readability(&input);
+        let meta_signal = result
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.name == "Zusammenfassung (Meta)")
+            .expect("signal must exist");
+        assert!(!meta_signal.present);
+    }
+}

@@ -314,6 +314,171 @@ fn build_sections(input: &ChunkInput) -> Vec<ContentSection> {
     sections
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rich_input() -> ChunkInput {
+        ChunkInput {
+            headings: vec![
+                HeadingInfo {
+                    text: "Introduction".into(),
+                    level: 1,
+                    word_count_after: 250,
+                },
+                HeadingInfo {
+                    text: "Core Concepts".into(),
+                    level: 2,
+                    word_count_after: 400,
+                },
+                HeadingInfo {
+                    text: "Deep Dive".into(),
+                    level: 3,
+                    word_count_after: 300,
+                },
+                HeadingInfo {
+                    text: "Conclusion".into(),
+                    level: 2,
+                    word_count_after: 150,
+                },
+            ],
+            total_word_count: 1100,
+            has_semantic_html: true,
+            has_article_tag: true,
+            has_section_tags: true,
+        }
+    }
+
+    fn minimal_input() -> ChunkInput {
+        ChunkInput {
+            headings: vec![],
+            total_word_count: 0,
+            has_semantic_html: false,
+            has_article_tag: false,
+            has_section_tags: false,
+        }
+    }
+
+    #[test]
+    fn rich_input_produces_high_score() {
+        let result = analyze_chunks(&rich_input());
+        assert!(result.dimension.score >= 60);
+        assert_eq!(result.dimension.name, "Technische KI-Lesbarkeit");
+        assert!(!result.sections.is_empty());
+    }
+
+    #[test]
+    fn minimal_input_produces_single_section_low_score() {
+        let result = analyze_chunks(&minimal_input());
+        // No headings → one section covering all 0 words
+        assert_eq!(result.sections.len(), 1);
+        assert_eq!(result.sections[0].heading, "Gesamter Inhalt");
+        assert_eq!(result.sections[0].quality, ChunkQuality::TooShort);
+        assert!(result.dimension.score <= 30);
+    }
+
+    #[test]
+    fn oversized_section_penalizes_score() {
+        let small_input = ChunkInput {
+            headings: vec![
+                HeadingInfo {
+                    text: "Intro".into(),
+                    level: 1,
+                    word_count_after: 300,
+                },
+                HeadingInfo {
+                    text: "Body".into(),
+                    level: 2,
+                    word_count_after: 300,
+                },
+                HeadingInfo {
+                    text: "End".into(),
+                    level: 2,
+                    word_count_after: 300,
+                },
+            ],
+            total_word_count: 900,
+            has_semantic_html: true,
+            has_article_tag: true,
+            has_section_tags: true,
+        };
+        let large_input = ChunkInput {
+            headings: vec![
+                HeadingInfo {
+                    text: "Intro".into(),
+                    level: 1,
+                    word_count_after: 2000,
+                },
+                HeadingInfo {
+                    text: "Body".into(),
+                    level: 2,
+                    word_count_after: 300,
+                },
+                HeadingInfo {
+                    text: "End".into(),
+                    level: 2,
+                    word_count_after: 300,
+                },
+            ],
+            total_word_count: 2600,
+            has_semantic_html: true,
+            has_article_tag: true,
+            has_section_tags: true,
+        };
+        let small_score = analyze_chunks(&small_input).dimension.score;
+        let large_score = analyze_chunks(&large_input).dimension.score;
+        assert!(small_score > large_score);
+    }
+
+    #[test]
+    fn classify_chunk_size_boundaries() {
+        assert_eq!(classify_chunk_size(0), ChunkQuality::TooShort);
+        assert_eq!(classify_chunk_size(50), ChunkQuality::TooShort);
+        assert_eq!(classify_chunk_size(51), ChunkQuality::Acceptable);
+        assert_eq!(classify_chunk_size(100), ChunkQuality::Optimal);
+        assert_eq!(classify_chunk_size(800), ChunkQuality::Optimal);
+        assert_eq!(classify_chunk_size(801), ChunkQuality::Acceptable);
+        assert_eq!(classify_chunk_size(1200), ChunkQuality::Acceptable);
+        assert_eq!(classify_chunk_size(1201), ChunkQuality::TooLong);
+    }
+
+    #[test]
+    fn hierarchy_requires_both_h2_and_h3() {
+        let flat_input = ChunkInput {
+            headings: vec![
+                HeadingInfo {
+                    text: "A".into(),
+                    level: 2,
+                    word_count_after: 200,
+                },
+                HeadingInfo {
+                    text: "B".into(),
+                    level: 2,
+                    word_count_after: 200,
+                },
+                HeadingInfo {
+                    text: "C".into(),
+                    level: 2,
+                    word_count_after: 200,
+                },
+            ],
+            total_word_count: 600,
+            has_semantic_html: false,
+            has_article_tag: false,
+            has_section_tags: false,
+        };
+        let result = analyze_chunks(&flat_input);
+        let hier_signal = result
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.name == "Hierarchische Gliederung")
+            .expect("signal must exist");
+        // Only H2, no H3 → flat
+        assert!(!hier_signal.present);
+    }
+}
+
 fn classify_chunk_size(words: u32) -> ChunkQuality {
     match words {
         0..=50 => ChunkQuality::TooShort,

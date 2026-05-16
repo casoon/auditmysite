@@ -323,6 +323,122 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rich_input() -> KnowledgeGraphInput {
+        KnowledgeGraphInput {
+            schemas: vec![
+                SchemaEntity {
+                    schema_type: "Article".into(),
+                    name: Some("Understanding Rust".into()),
+                    properties: vec![
+                        ("author".into(), "Jane Doe".into()),
+                        ("publisher".into(), "TechBlog".into()),
+                    ],
+                },
+                SchemaEntity {
+                    schema_type: "Organization".into(),
+                    name: Some("TechBlog".into()),
+                    properties: vec![("url".into(), "https://techblog.example".into())],
+                },
+                SchemaEntity {
+                    schema_type: "Person".into(),
+                    name: Some("Jane Doe".into()),
+                    properties: vec![],
+                },
+            ],
+            page_title: Some("Understanding Rust".into()),
+            site_name: Some("TechBlog".into()),
+            internal_links: 10,
+            has_breadcrumb: true,
+        }
+    }
+
+    fn minimal_input() -> KnowledgeGraphInput {
+        KnowledgeGraphInput {
+            schemas: vec![],
+            page_title: None,
+            site_name: None,
+            internal_links: 0,
+            has_breadcrumb: false,
+        }
+    }
+
+    #[test]
+    fn rich_input_produces_high_score() {
+        let result = analyze_knowledge_graph(&rich_input());
+        // Should score well with 3 schemas + breadcrumb + many links
+        assert!(result.dimension.score >= 60);
+        assert!(!result.entities.is_empty());
+        assert!(!result.relationships.is_empty());
+    }
+
+    #[test]
+    fn minimal_input_produces_low_score() {
+        let result = analyze_knowledge_graph(&minimal_input());
+        assert_eq!(result.dimension.score, 0);
+        assert!(result.entities.is_empty());
+        assert!(result.relationships.is_empty());
+        assert!(result.link_suggestions.is_empty());
+    }
+
+    #[test]
+    fn page_and_site_titles_become_entities() {
+        let input = KnowledgeGraphInput {
+            schemas: vec![],
+            page_title: Some("My Page".into()),
+            site_name: Some("My Site".into()),
+            internal_links: 0,
+            has_breadcrumb: false,
+        };
+        let result = analyze_knowledge_graph(&input);
+        let names: Vec<&str> = result.entities.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"My Page"));
+        assert!(names.contains(&"My Site"));
+        // A page+site relationship should be inferred
+        assert!(result
+            .relationships
+            .iter()
+            .any(|r| r.predicate == "isPartOf"));
+    }
+
+    #[test]
+    fn low_internal_links_triggers_suggestion() {
+        // 2 entities + < 5 links → link suggestion
+        let input = KnowledgeGraphInput {
+            schemas: vec![SchemaEntity {
+                schema_type: "Article".into(),
+                name: Some("Article One".into()),
+                properties: vec![],
+            }],
+            page_title: Some("Article One".into()),
+            site_name: Some("Blog".into()),
+            internal_links: 2,
+            has_breadcrumb: false,
+        };
+        let result = analyze_knowledge_graph(&input);
+        assert!(!result.link_suggestions.is_empty());
+    }
+
+    #[test]
+    fn breadcrumb_adds_relationship() {
+        let input = KnowledgeGraphInput {
+            schemas: vec![],
+            page_title: Some("Leaf Page".into()),
+            site_name: None,
+            internal_links: 5,
+            has_breadcrumb: true,
+        };
+        let result = analyze_knowledge_graph(&input);
+        assert!(result
+            .relationships
+            .iter()
+            .any(|r| r.predicate == "breadcrumbPath"));
+    }
+}
+
 fn build_schema_relationships(
     entities: &[GraphEntity],
     schemas: &[SchemaEntity],

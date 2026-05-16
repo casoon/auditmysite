@@ -206,3 +206,112 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
         dimension: build_dimension("Zitierbarkeit", &signals),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rich_input() -> CitationInput {
+        CitationInput {
+            has_https: true,
+            has_author_schema: true,
+            has_org_schema: true,
+            has_article_schema: true,
+            has_canonical: true,
+            has_og_meta: true,
+            word_count: 800,
+            heading_count: 5,
+            security_score: Some(90),
+            a11y_score: 95.0,
+            has_faq_schema: true,
+            has_lists: true,
+            short_paragraph_ratio: 0.6,
+            has_date_published: true,
+            has_breadcrumb: true,
+        }
+    }
+
+    fn minimal_input() -> CitationInput {
+        CitationInput {
+            has_https: false,
+            has_author_schema: false,
+            has_org_schema: false,
+            has_article_schema: false,
+            has_canonical: false,
+            has_og_meta: false,
+            word_count: 0,
+            heading_count: 0,
+            security_score: None,
+            a11y_score: 0.0,
+            has_faq_schema: false,
+            has_lists: false,
+            short_paragraph_ratio: 0.0,
+            has_date_published: false,
+            has_breadcrumb: false,
+        }
+    }
+
+    #[test]
+    fn rich_input_produces_high_score() {
+        let result = analyze_citation(&rich_input());
+        assert!(result.dimension.score >= 80);
+        assert_eq!(result.dimension.name, "Zitierbarkeit");
+    }
+
+    #[test]
+    fn minimal_input_produces_low_score() {
+        let result = analyze_citation(&minimal_input());
+        // Only signal that might be present is technical trust (no security score = None → sec_good=true, a11y=0 → bad)
+        assert!(result.dimension.score <= 10);
+    }
+
+    #[test]
+    fn author_and_org_both_present_detected() {
+        let result = analyze_citation(&rich_input());
+        let identity_signal = result
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.name == "Herausgeber-Identität")
+            .expect("signal must exist");
+        assert!(identity_signal.present);
+        assert!(
+            identity_signal.detail.contains("Autor")
+                && identity_signal.detail.contains("Organisation")
+        );
+    }
+
+    #[test]
+    fn snippet_quality_with_lists_only() {
+        let input = CitationInput {
+            has_lists: true,
+            short_paragraph_ratio: 0.1, // below 0.4 threshold
+            ..minimal_input()
+        };
+        let result = analyze_citation(&input);
+        let snippet_signal = result
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.name == "Snippet-Qualität")
+            .expect("signal must exist");
+        assert!(snippet_signal.present);
+    }
+
+    #[test]
+    fn low_a11y_score_triggers_tech_trust_failure() {
+        let input = CitationInput {
+            a11y_score: 50.0, // below 80.0 threshold
+            security_score: Some(90),
+            ..minimal_input()
+        };
+        let result = analyze_citation(&input);
+        let trust_signal = result
+            .dimension
+            .signals
+            .iter()
+            .find(|s| s.name == "Technisches Vertrauen")
+            .expect("signal must exist");
+        assert!(!trust_signal.present);
+    }
+}
