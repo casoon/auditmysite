@@ -51,9 +51,12 @@ for (let i = 1; i < args.length; i++) {
 function runAuditMySite(targetUrl, binPath, level) {
   console.error(`[1/3] Running auditmysite on ${targetUrl} ...`);
   try {
-    const cmd = `${binPath} "${targetUrl}" --format json --wcag-level ${level}`;
-    const raw = execSync(cmd, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 });
-    return JSON.parse(raw);
+    const cmd = `${binPath} "${targetUrl}" --format json --level ${level}`;
+    const raw = execSync(cmd, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+    // Strip any non-JSON prefix (e.g. ASCII banner written to stdout)
+    const jsonStart = raw.indexOf('{');
+    if (jsonStart < 0) throw new Error('No JSON found in output: ' + raw.slice(0, 200));
+    return JSON.parse(raw.slice(jsonStart));
   } catch (err) {
     const msg = err.stdout || err.stderr || err.message;
     console.error('auditmysite failed:', msg.slice(0, 500));
@@ -64,29 +67,37 @@ function runAuditMySite(targetUrl, binPath, level) {
 // Extract findings from our JSON: violations + warnings
 // Returns Map<axeId, { count, criterion, level, ourOnly: violations[] }>
 function extractOurFindings(json) {
-  const raw = json?.report?.raw_wcag;
-  if (!raw) {
-    console.error('No raw_wcag field in auditmysite JSON output. Re-run with a current binary.');
+  // Support both old (report.raw_wcag) and new (report.findings) JSON schema
+  const findings = json?.report?.findings || json?.report?.raw_wcag?.violations || [];
+  const warnings = json?.report?.raw_wcag?.warnings || [];
+  if (!json?.report) {
+    console.error('No report field in auditmysite JSON output. Re-run with a current binary.');
     process.exit(1);
   }
 
   const map = new Map(); // axeId → { count, criterion, wcagLevel, messages }
 
   const add = (v) => {
-    const axeId = v.rule_id || `(no-axe-id:${v.rule})`;
+    // Prefer axe_id (mapped from taxonomy), fall back to rule_id, then synthesize
+    const axeId = v.axe_id || v.rule_id || `(no-axe-id:${v.wcag_criterion || v.criterion || '?'})`;
+    const criterion = v.wcag_criterion || v.criterion || v.rule || '?';
+    const wcagLevel = v.wcag_level || v.level || '?';
     if (!map.has(axeId)) {
-      map.set(axeId, { axeId, criterion: v.rule || '?', wcagLevel: v.level || '?', count: 0, messages: [] });
+      map.set(axeId, { axeId, criterion, wcagLevel, count: 0, messages: [] });
     }
     const entry = map.get(axeId);
-    entry.count++;
-    if (v.message && entry.messages.length < 3) entry.messages.push(v.message.slice(0, 80));
+    entry.count += (v.occurrence_count || 1);
+    const msg = v.description || v.message || '';
+    if (msg && entry.messages.length < 3) entry.messages.push(msg.slice(0, 80));
   };
 
-  (raw.violations || []).forEach(add);
-  (raw.warnings || []).forEach((v) => {
-    const axeId = v.rule_id || `(warning:${v.rule})`;
+  findings.forEach(add);
+  warnings.forEach((v) => {
+    const axeId = v.axe_id || v.rule_id || `(warning:${v.wcag_criterion || v.criterion || '?'})`;
+    const criterion = v.wcag_criterion || v.criterion || v.rule || '?';
+    const wcagLevel = v.wcag_level || v.level || '?';
     if (!map.has(axeId)) {
-      map.set(axeId, { axeId, criterion: v.rule || '?', wcagLevel: v.level || '?', count: 0, messages: [], isWarning: true });
+      map.set(axeId, { axeId, criterion, wcagLevel, count: 0, messages: [], isWarning: true });
     }
     const entry = map.get(axeId);
     entry.count++;
