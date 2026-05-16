@@ -486,6 +486,7 @@ mod tests {
             findings: vec![crate::audit::normalized::NormalizedFinding {
                 rule_id: "a11y.alt_text.missing".to_string(),
                 wcag_criterion: "1.1.1".to_string(),
+                axe_id: None,
                 wcag_level: "A".to_string(),
                 dimension: "Accessibility".to_string(),
                 subcategory: "Inhalte".to_string(),

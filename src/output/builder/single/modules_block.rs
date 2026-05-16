@@ -1,0 +1,263 @@
+use crate::audit::normalized::NormalizedReport;
+use crate::output::report_model::{ModuleScore, ModulesBlock};
+
+use super::super::helpers::interpret_score;
+use super::super::modules::{
+    derive_accessibility_card_context, derive_accessibility_context, derive_accessibility_lever,
+    derive_mobile_card_context, derive_mobile_context, derive_mobile_lever,
+    derive_performance_card_context, derive_performance_context, derive_performance_lever,
+    derive_security_card_context, derive_security_context, derive_security_lever,
+    derive_seo_card_context, derive_seo_context, derive_seo_lever,
+};
+use super::super::seo::build_seo_interpretation;
+use super::module_details::normalized_module_score;
+
+pub(super) fn build_modules_block_from_normalized(
+    locale: &str,
+    normalized: &NormalizedReport,
+) -> ModulesBlock {
+    let en = locale == "en";
+    let a11y_score = normalized.score as f32;
+    let mut dashboard = vec![ModuleScore {
+        name: if en {
+            "Accessibility".into()
+        } else {
+            "Barrierefreiheit".into()
+        },
+        score: a11y_score.round() as u32,
+        measurement_type: "measured".into(),
+        interpretation: interpret_score(
+            a11y_score,
+            if en {
+                "accessibility"
+            } else {
+                "Barrierefreiheit"
+            },
+        ),
+        card_context: derive_accessibility_card_context(locale, normalized),
+        score_context: derive_accessibility_context(locale, normalized),
+        key_lever: derive_accessibility_lever(locale, normalized),
+        good_threshold: 75,
+        warn_threshold: 50,
+    }];
+
+    if let Some(ref p) = normalized.raw_performance {
+        let score = normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
+        dashboard.push(ModuleScore {
+            name: "Performance".into(),
+            score,
+            measurement_type: "measured".into(),
+            interpretation: interpret_score(
+                score as f32,
+                if en { "performance" } else { "Performance" },
+            ),
+            card_context: derive_performance_card_context(locale, p),
+            score_context: derive_performance_context(locale, p),
+            key_lever: derive_performance_lever(locale, p),
+            good_threshold: 75,
+            warn_threshold: 50,
+        });
+    }
+    if let Some(ref s) = normalized.raw_seo {
+        let score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
+        dashboard.push(ModuleScore {
+            name: "SEO".into(),
+            score,
+            measurement_type: "measured".into(),
+            interpretation: build_seo_interpretation(locale, s),
+            card_context: derive_seo_card_context(locale, s),
+            score_context: derive_seo_context(locale, s),
+            key_lever: derive_seo_lever(locale, s),
+            good_threshold: 75,
+            warn_threshold: 50,
+        });
+    }
+    if let Some(ref s) = normalized.raw_security {
+        let score = normalized_module_score(normalized, "Security").unwrap_or(s.score);
+        dashboard.push(ModuleScore {
+            name: if en {
+                "Security".into()
+            } else {
+                "Sicherheit".into()
+            },
+            score,
+            measurement_type: "measured".into(),
+            interpretation: interpret_score(
+                score as f32,
+                if en { "security" } else { "Sicherheit" },
+            ),
+            card_context: derive_security_card_context(locale, s),
+            score_context: derive_security_context(locale, s),
+            key_lever: derive_security_lever(locale, s),
+            good_threshold: 75,
+            warn_threshold: 50,
+        });
+    }
+    if let Some(ref m) = normalized.raw_mobile {
+        let score = normalized_module_score(normalized, "Mobile").unwrap_or(m.score);
+        dashboard.push(ModuleScore {
+            name: "Mobile".into(),
+            score,
+            measurement_type: "measured".into(),
+            interpretation: interpret_score(
+                score as f32,
+                if en {
+                    "mobile usability"
+                } else {
+                    "mobile Nutzbarkeit"
+                },
+            ),
+            card_context: derive_mobile_card_context(locale, m),
+            score_context: derive_mobile_context(locale, m),
+            key_lever: derive_mobile_lever(locale, m),
+            good_threshold: 75,
+            warn_threshold: 50,
+        });
+    }
+    if let Some(ref u) = normalized.raw_ux {
+        let ux_score = normalized_module_score(normalized, "UX").unwrap_or(u.score);
+        let ux_context = format!(
+            "CTA Clarity {}/100, Visual Hierarchy {}/100, Content Clarity {}/100, Trust Signals {}/100, Cognitive Load {}/100",
+            u.cta_clarity.score, u.visual_hierarchy.score, u.content_clarity.score, u.trust_signals.score, u.cognitive_load.score
+        );
+        let ux_lever: String = if u.cta_clarity.score < 60 {
+            if en {
+                "Phrase CTA texts more clearly and specifically"
+            } else {
+                "CTA-Texte klarer und spezifischer formulieren"
+            }
+        } else if u.trust_signals.score < 60 {
+            if en {
+                "Add trust signals (contact, imprint)"
+            } else {
+                "Vertrauenssignale (Kontakt, Impressum) ergänzen"
+            }
+        } else if u.visual_hierarchy.score < 60 {
+            if en {
+                "Clean up heading structure (H1 → H2 → H3)"
+            } else {
+                "Heading-Struktur bereinigen (H1 → H2 → H3)"
+            }
+        } else if en {
+            "Maintain UX quality at the current good level"
+        } else {
+            "UX-Qualität auf gutem Niveau halten"
+        }
+        .into();
+        dashboard.push(ModuleScore {
+            name: "UX".into(),
+            score: ux_score,
+            measurement_type: "heuristic".into(),
+            interpretation: interpret_score(ux_score as f32, "User Experience"),
+            card_context: ux_context.clone(),
+            score_context: ux_context,
+            key_lever: ux_lever,
+            good_threshold: 80,
+            warn_threshold: 55,
+        });
+    }
+    if let Some(ref j) = normalized.raw_journey {
+        let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
+        let journey_context = format!(
+            "{}: {} · Entry {}/100, Orientation {}/100, Navigation {}/100, Interaction {}/100, Conversion {}/100",
+            if en { "Intent" } else { "Seitenabsicht" },
+            j.page_intent.label(),
+            j.entry_clarity.score,
+            j.orientation.score,
+            j.navigation.score,
+            j.interaction.score,
+            j.conversion.score
+        );
+        let journey_lever = j
+            .friction_points
+            .first()
+            .map(|fp| fp.recommendation.clone())
+            .unwrap_or_else(|| {
+                if en {
+                    "Maintain journey clarity at the current level".to_string()
+                } else {
+                    "Journey-Klarheit auf aktuellem Niveau halten".to_string()
+                }
+            });
+        dashboard.push(ModuleScore {
+            name: "Journey".into(),
+            score: journey_score,
+            measurement_type: "heuristic".into(),
+            interpretation: interpret_score(journey_score as f32, "User Journey"),
+            card_context: journey_context.clone(),
+            score_context: journey_context,
+            key_lever: journey_lever,
+            good_threshold: 80,
+            warn_threshold: 55,
+        });
+    }
+
+    let has_multiple = dashboard.len() > 1;
+    let overall_score = if has_multiple {
+        Some(normalized.overall_score)
+    } else {
+        None
+    };
+    let overall_interpretation =
+        overall_score.map(|_| build_overall_score_explanation(locale, normalized));
+
+    ModulesBlock {
+        dashboard,
+        overall_score,
+        overall_interpretation,
+    }
+}
+
+fn build_overall_score_explanation(locale: &str, normalized: &NormalizedReport) -> String {
+    let en = locale == "en";
+    let indicator_names: Vec<String> = normalized
+        .module_scores
+        .iter()
+        .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
+        .map(|m| m.name.clone())
+        .collect();
+    let indicator_note = if indicator_names.is_empty() {
+        String::new()
+    } else if en {
+        format!(
+            " Indicator modules ({}) are shown separately and do not change the overall score.",
+            indicator_names.join(", ")
+        )
+    } else {
+        format!(
+            " Indikator-Module ({}) werden separat ausgewiesen und verändern den Gesamtscore nicht.",
+            indicator_names.join(", ")
+        )
+    };
+
+    if normalized.viewport_scores.is_some() {
+        if en {
+            format!(
+                "Overall score uses the dual-viewport result: 70% mobile and 30% desktop. \
+                 Security contributes 10% when active.{indicator_note}"
+            )
+        } else {
+            format!(
+                "Der Gesamtscore nutzt das Dual-Viewport-Ergebnis: 70% Mobile und 30% Desktop. \
+                 Sicherheit fließt mit 10% ein, wenn aktiv.{indicator_note}"
+            )
+        }
+    } else {
+        let contributing: Vec<String> = normalized
+            .module_scores
+            .iter()
+            .filter(|m| m.contributes_to_overall)
+            .map(|m| format!("{} {}%", m.name, m.weight_pct))
+            .collect();
+        let weights = if contributing.is_empty() {
+            "Accessibility 100%".to_string()
+        } else {
+            contributing.join(", ")
+        };
+        if en {
+            format!("Weighted average of contributing modules: {weights}.{indicator_note}")
+        } else {
+            format!("Gewichteter Durchschnitt der beitragenden Module: {weights}.{indicator_note}")
+        }
+    }
+}

@@ -573,6 +573,7 @@ mod tests {
         NormalizedFinding {
             rule_id: rule_id.into(),
             wcag_criterion: "1.1.1".into(),
+            axe_id: None,
             wcag_level: "A".into(),
             dimension: "Accessibility".into(),
             subcategory: "Images".into(),

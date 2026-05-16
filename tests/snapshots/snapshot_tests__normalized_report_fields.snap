@@ -1,0 +1,33 @@
+---
+source: tests/snapshot_tests.rs
+expression: value
+---
+{
+  "certificate": "SOLIDE",
+  "finding_count": 2,
+  "finding_rule_ids": [
+    "a11y.name_role.missing",
+    "a11y.structure.missing"
+  ],
+  "grade": "B",
+  "module_count": 7,
+  "module_names": [
+    "Accessibility",
+    "Journey",
+    "Mobile",
+    "Performance",
+    "SEO",
+    "Security",
+    "UX"
+  ],
+  "overall_score": 83,
+  "score": 83,
+  "severity_counts": {
+    "critical": 5,
+    "high": 0,
+    "low": 0,
+    "medium": 3,
+    "total": 8
+  },
+  "url": "https://example.com"
+}

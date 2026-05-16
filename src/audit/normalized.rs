@@ -109,6 +109,8 @@ pub struct NormalizedFinding {
     pub rule_id: String,
     /// WCAG-Kriterium (z.B. "1.1.1")
     pub wcag_criterion: String,
+    /// Primary axe-core rule ID, if applicable
+    pub axe_id: Option<String>,
     /// WCAG-Level (z.B. "A", "AA")
     pub wcag_level: String,
 
@@ -385,12 +387,14 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     suggested_code: v.suggested_code.clone(),
                 })
                 .collect();
+            let axe_id = taxonomy_rule.and_then(|r| r.axe_id).map(String::from);
             let priority_score =
                 calculate_priority_score(first.severity, occurrence_count, &tax_id);
 
             NormalizedFinding {
                 rule_id: tax_id.clone(),
                 wcag_criterion: rule_id.to_string(),
+                axe_id,
                 wcag_level: first.level.to_string(),
                 dimension,
                 subcategory,
