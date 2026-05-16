@@ -112,7 +112,8 @@ function extractOurFindings(json) {
 async function runAxeCore(targetUrl) {
   console.error('[2/3] Running axe-core via Playwright ...');
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext({ bypassCSP: true });
+  const page = await context.newPage();
 
   try {
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -129,6 +130,7 @@ async function runAxeCore(targetUrl) {
     });
     return results;
   } finally {
+    await context.close();
     await browser.close();
   }
 }

@@ -4,6 +4,7 @@
 
 mod accessible_name;
 mod aria_allowed_attr;
+mod aria_hidden_focus;
 mod aria_naming_rules;
 mod aria_prohibited_attr;
 mod aria_relationships;
@@ -63,6 +64,7 @@ mod widget_rules;
 
 pub use accessible_name::check_accessible_name;
 pub use aria_allowed_attr::check_aria_allowed_attr;
+pub use aria_hidden_focus::check_aria_hidden_focus;
 pub use aria_naming_rules::check_aria_naming_rules;
 pub use aria_prohibited_attr::check_aria_prohibited_attr;
 pub use aria_relationships::check_aria_relationships;

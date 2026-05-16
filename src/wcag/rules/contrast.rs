@@ -66,9 +66,10 @@ impl ContrastRule {
                 None => continue, // No color specified
             };
 
+            // JS getEffectiveBackgroundColor already traverses up the DOM to
+            // resolve transparent backgrounds; this value is never transparent.
             let bg_color_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
 
-            // Parse colors
             let fg_color = match Color::from_css(fg_color_str) {
                 Some(c) => c,
                 None => {
@@ -76,15 +77,6 @@ impl ContrastRule {
                     continue;
                 }
             };
-
-            // Skip elements with fully transparent backgrounds
-            if Color::is_transparent(bg_color_str) {
-                debug!(
-                    "Skipping element with transparent background: {}",
-                    bg_color_str
-                );
-                continue;
-            }
 
             let bg_color = match Color::from_css(bg_color_str) {
                 Some(c) => c,
@@ -131,6 +123,7 @@ impl ContrastRule {
                     &message,
                     format!("{}#{}", selector, style.node_id),
                 )
+                .with_selector(selector)
                 .with_fix(&fix)
                 .with_help_url(CONTRAST_RULE.help_url);
                 if let Some(snippet) = &style.html_snippet {

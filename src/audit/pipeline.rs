@@ -681,6 +681,16 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
         }
     }
 
+    // 4.1.2 aria-hidden-focus — focusable elements inside aria-hidden subtree (Level A)
+    let aria_hidden_focus_violations = wcag::rules::check_aria_hidden_focus(page).await;
+    if !aria_hidden_focus_violations.is_empty() {
+        info!(
+            "Found {} aria-hidden-focus violations",
+            aria_hidden_focus_violations.len()
+        );
+    }
+    wcag_results.extend_findings(aria_hidden_focus_violations);
+
     // 2.1.1 Keyboard — onclick on non-interactive tags without keyboard equivalent (Level A)
     let click_handler_violations = wcag::check_click_handlers_with_page(page).await;
     if !click_handler_violations.is_empty() {
