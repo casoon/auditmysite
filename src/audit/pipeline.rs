@@ -764,6 +764,69 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
         wcag_results.extend_findings(hover_violations);
     }
 
+    // AAA-only page rules
+    if config.wcag_level == WcagLevel::AAA {
+        // 1.3.6 Identify Purpose
+        let violations = wcag::check_identify_purpose_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 1.4.7 Low or No Background Audio
+        let violations = wcag::check_background_audio_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 1.4.8 Visual Presentation
+        let violations = wcag::check_visual_presentation_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.2.3 No Timing
+        let violations = wcag::check_no_timing_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.2.4 Interruptions
+        let violations = wcag::check_no_interruptions_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.2.5 Re-authenticating
+        let violations = wcag::check_re_authenticate_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.2.6 Timeouts
+        let violations = wcag::check_timeouts_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.4.8 Location
+        let violations = wcag::check_location_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.5.1 Pointer Gestures
+        let violations = wcag::check_pointer_gestures_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.5.2 Pointer Cancellation
+        let violations = wcag::check_pointer_cancellation_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.5.3 Label in Name (Enhanced)
+        let violations = wcag::check_label_in_name_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.5.4 Motion Actuation
+        let violations = wcag::check_motion_actuation_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 2.5.5 Target Size (Enhanced)
+        let violations = wcag::check_target_size_enhanced_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 3.1.4 Abbreviations
+        let violations = wcag::check_abbreviations_with_page(page).await;
+        wcag_results.extend_findings(violations);
+
+        // 4.1.1 Duplicate IDs (DOM check)
+        let violations = wcag::check_parsing_with_page(page).await;
+        wcag_results.extend_findings(violations);
+    }
+
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
 
     // After enrichment, violations whose kind was demoted to Warning (e.g. because

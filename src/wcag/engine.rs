@@ -4,27 +4,36 @@
 
 use tracing::{debug, info};
 
+pub use super::rules::{
+    check_abbreviations_with_page, check_background_audio_with_page,
+    check_click_handlers_with_page, check_content_on_hover_with_page,
+    check_focus_visible_css_with_page, check_identify_purpose_with_page,
+    check_label_in_name_with_page, check_location_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
+    check_parsing_with_page, check_pointer_cancellation_with_page,
+    check_pointer_gestures_with_page, check_re_authenticate_with_page,
+    check_reduced_motion_with_page, check_reflow_with_page, check_target_size_enhanced_with_page,
+    check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
+    check_visual_presentation_with_page,
+};
 use super::rules::{
     check_accessible_name, check_aria_allowed_attr, check_aria_naming_rules,
     check_aria_prohibited_attr, check_aria_relationships, check_aria_required_attr,
     check_aria_required_parent, check_aria_roles, check_bypass_blocks, check_dialog_rules,
     check_error_identification, check_focus_order, check_focus_visible, check_form_rules,
-    check_headings, check_image_input_rules, check_info_relationships, check_input_purpose,
-    check_instructions, check_keyboard, check_label_in_name, check_label_title_only, check_labels,
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
-    check_landmark_extended, check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_headings, check_help, check_image_input_rules, check_info_relationships,
+    check_input_purpose, check_instructions, check_keyboard, check_label_in_name,
+    check_label_title_only, check_labels, check_landmark_banner_is_top_level,
+    check_landmark_contentinfo_is_top_level, check_landmark_extended,
+    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
     check_landmark_unique, check_landmarks, check_language, check_language_extended,
-    check_link_purpose, check_list_structure, check_media_rules, check_meta_viewport_large,
-    check_non_text_contrast, check_on_focus, check_on_input, check_page_titled, check_parsing,
-    check_region, check_resize_text, check_section_headings, check_server_side_image_map,
-    check_status_messages, check_summary_name, check_svg_rules, check_table_extended,
-    check_table_rules, check_text_alternatives, check_wcag22_rules, check_widget_rules,
-};
-pub use super::rules::{
-    check_click_handlers_with_page, check_content_on_hover_with_page,
-    check_focus_visible_css_with_page, check_orientation_with_page, check_reduced_motion_with_page,
-    check_reflow_with_page, check_timing_with_page, check_use_of_color_with_page,
+    check_link_purpose, check_link_purpose_link_only, check_list_structure,
+    check_media_alternative, check_media_rules, check_meta_viewport_large, check_non_text_contrast,
+    check_on_focus, check_on_input, check_page_titled, check_parsing, check_region,
+    check_resize_text, check_section_headings, check_server_side_image_map, check_status_messages,
+    check_summary_name, check_svg_rules, check_table_extended, check_table_rules,
+    check_text_alternatives, check_unusual_words, check_wcag22_rules, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -465,6 +474,24 @@ fn run_level_aaa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFi
         tree
     );
 
+    // 2.4.9 Link Purpose (Link Only) (Level AAA)
+    run_if_allowed!(
+        filter,
+        "link-name",
+        check_link_purpose_link_only,
+        results,
+        tree
+    );
+
+    // 1.2.8 Media Alternative (Prerecorded) (Level AAA)
+    run_if_allowed!(filter, "media-alt", check_media_alternative, results, tree);
+
+    // 3.1.3 Unusual Words (Level AAA)
+    run_if_allowed!(filter, "unusual-words", check_unusual_words, results, tree);
+
+    // 3.3.5 Help (Level AAA)
+    run_if_allowed!(filter, "help", check_help, results, tree);
+
     debug!("Level AAA rules executed");
 }
 
@@ -525,5 +552,39 @@ mod tests {
 
         // Should run both A and AA rules
         assert!(!results.violations.is_empty());
+    }
+
+    #[test]
+    fn test_rule_filter_disabled_rules() {
+        let tree = create_test_tree();
+        let filter = RuleFilterConfig {
+            disabled_rules: vec!["image-alt".to_string()],
+            enabled_only_rules: vec![],
+        };
+        let results = check_all_with_config(&tree, WcagLevel::A, &filter);
+        // image-alt disabled → no 1.1.1 violation from text_alternatives
+        assert!(results.violations.iter().all(|v| v.rule != "1.1.1"));
+    }
+
+    #[test]
+    fn test_rule_filter_wcag_level() {
+        let tree = create_test_tree();
+        let results_a = check_all(&tree, WcagLevel::A);
+        let results_aa = check_all(&tree, WcagLevel::AA);
+        // AA scan runs at least as many checks as A scan
+        assert!(results_aa.violations.len() >= results_a.violations.len());
+        // AAA-only rule (section-headings) is absent in an A-only scan
+        let results_aaa = check_all(&tree, WcagLevel::AAA);
+        assert!(results_aaa.violations.len() >= results_aa.violations.len());
+    }
+
+    #[test]
+    fn test_rule_filter_default_runs_all() {
+        let tree = create_test_tree();
+        let default_filter = RuleFilterConfig::default();
+        let filtered = check_all_with_config(&tree, WcagLevel::A, &default_filter);
+        let unfiltered = check_all(&tree, WcagLevel::A);
+        // Default (empty) filter behaves identically to no filter
+        assert_eq!(filtered.violations.len(), unfiltered.violations.len());
     }
 }

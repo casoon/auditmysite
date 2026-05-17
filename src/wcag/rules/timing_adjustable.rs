@@ -38,6 +38,38 @@ const META_REFRESH_JS: &str = r#"
 })()
 "#;
 
+pub const TIMEOUT_RULE: RuleMetadata = RuleMetadata {
+    id: "2.2.6",
+    name: "Timeouts",
+    level: WcagLevel::AAA,
+    severity: Severity::Medium,
+    description: "Users are warned of data loss due to inactivity timeouts",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/timeouts.html",
+    axe_id: "timeouts",
+    tags: &["wcag21aaa", "wcag226", "cat.time-and-media"],
+};
+
+pub async fn check_timeouts_with_page(_page: &Page) -> Vec<Violation> {
+    vec![Violation::new(
+        TIMEOUT_RULE.id,
+        TIMEOUT_RULE.name,
+        TIMEOUT_RULE.level,
+        Severity::Medium,
+        "WCAG 2.2.6 (Timeouts) requires manual testing. Verify that users are warned \
+         about inactivity timeouts that could cause data loss, at least 20 seconds \
+         before the session expires.",
+        "page",
+    )
+    .with_fix(
+        "Display a warning before session expiry that tells users how long they have \
+         left and allows them to extend the session. Preserve entered data across \
+         authentication timeouts.",
+    )
+    .with_rule_id(TIMEOUT_RULE.axe_id)
+    .with_help_url(TIMEOUT_RULE.help_url)
+    .with_kind(FindingKind::NotTestable)]
+}
+
 pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
     // JavaScript-driven session timeouts (setTimeout/setInterval) are not
     // detectable from the DOM and always require manual testing.

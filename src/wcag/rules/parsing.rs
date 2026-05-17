@@ -12,9 +12,86 @@
 
 use std::collections::HashMap;
 
+use chromiumoxide::Page;
+
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+
+pub const PARSING_PAGE_RULE: RuleMetadata = RuleMetadata {
+    id: "4.1.1",
+    name: "Parsing (Duplicate IDs)",
+    level: WcagLevel::A,
+    severity: Severity::Critical,
+    description: "IDs must be unique in the DOM",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
+    axe_id: "duplicate-id",
+    tags: &["wcag2a", "wcag411", "cat.parsing"],
+};
+
+const DUPLICATE_ID_JS: &str = r#"
+(function() {
+  var counts = {};
+  var elements = document.querySelectorAll('[id]');
+  for (var i = 0; i < elements.length; i++) {
+    var id = elements[i].id;
+    counts[id] = (counts[id] || 0) + 1;
+  }
+  var duplicates = [];
+  for (var key in counts) {
+    if (counts[key] > 1) {
+      duplicates.push({ id: key, count: counts[key] });
+    }
+  }
+  return { duplicates: duplicates };
+})()
+"#;
+
+pub async fn check_parsing_with_page(page: &Page) -> Vec<Violation> {
+    let result = match page.evaluate(DUPLICATE_ID_JS).await {
+        Ok(r) => r,
+        Err(_) => return vec![],
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let duplicates = match val.get("duplicates").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    duplicates
+        .iter()
+        .filter_map(|item| {
+            let id = item.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+            let count = item.get("count").and_then(|v| v.as_u64()).unwrap_or(2);
+            Some(
+                Violation::new(
+                    PARSING_PAGE_RULE.id,
+                    PARSING_PAGE_RULE.name,
+                    PARSING_PAGE_RULE.level,
+                    Severity::Critical,
+                    format!(
+                        "Duplicate id='{}' appears {} times in the DOM. Duplicate IDs cause \
+                         AT to resolve references incorrectly.",
+                        id, count
+                    ),
+                    format!("[id=\"{}\"]", id),
+                )
+                .with_selector(format!("[id=\"{}\"]", id))
+                .with_fix(format!(
+                    "Make id='{}' unique. Each id must appear exactly once in the document.",
+                    id
+                ))
+                .with_rule_id(PARSING_PAGE_RULE.axe_id)
+                .with_help_url(PARSING_PAGE_RULE.help_url),
+            )
+        })
+        .collect()
+}
 
 pub const PARSING_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.1",
