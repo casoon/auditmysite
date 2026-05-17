@@ -53,30 +53,28 @@ pub async fn check_abbreviations_with_page(page: &Page) -> Vec<Violation> {
 
     elements
         .iter()
-        .filter_map(|item| {
+        .map(|item| {
             let text = item.get("text").and_then(|v| v.as_str()).unwrap_or("abbr");
             let tag = item.get("tag").and_then(|v| v.as_str()).unwrap_or("abbr");
 
-            Some(
-                Violation::new(
-                    ABBREVIATIONS_RULE.id,
-                    ABBREVIATIONS_RULE.name,
-                    ABBREVIATIONS_RULE.level,
-                    Severity::Low,
-                    format!(
-                        "<{}> element '{}' has no title attribute to expand the abbreviation.",
-                        tag, text
-                    ),
-                    tag,
-                )
-                .with_selector(tag)
-                .with_fix(
-                    "Add a title attribute to <abbr> elements with the full expansion: \
-                     e.g. <abbr title=\"World Wide Web Consortium\">W3C</abbr>.",
-                )
-                .with_rule_id(ABBREVIATIONS_RULE.axe_id)
-                .with_help_url(ABBREVIATIONS_RULE.help_url),
+            Violation::new(
+                ABBREVIATIONS_RULE.id,
+                ABBREVIATIONS_RULE.name,
+                ABBREVIATIONS_RULE.level,
+                Severity::Low,
+                format!(
+                    "<{}> element '{}' has no title attribute to expand the abbreviation.",
+                    tag, text
+                ),
+                tag,
             )
+            .with_selector(tag)
+            .with_fix(
+                "Add a title attribute to <abbr> elements with the full expansion: \
+                 e.g. <abbr title=\"World Wide Web Consortium\">W3C</abbr>.",
+            )
+            .with_rule_id(ABBREVIATIONS_RULE.axe_id)
+            .with_help_url(ABBREVIATIONS_RULE.help_url)
         })
         .collect()
 }

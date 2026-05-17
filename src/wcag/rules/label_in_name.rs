@@ -59,7 +59,7 @@ pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
 
     violations
         .iter()
-        .filter_map(|item| {
+        .map(|item| {
             let selector = item
                 .get("selector")
                 .and_then(|v| v.as_str())
@@ -69,29 +69,28 @@ pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
                 .get("visibleText")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            Some(
-                Violation::new(
-                    LABEL_IN_NAME_PAGE_RULE.id,
-                    LABEL_IN_NAME_PAGE_RULE.name,
-                    LABEL_IN_NAME_PAGE_RULE.level,
-                    Severity::Medium,
-                    format!(
-                        "Button aria-label '{}' does not contain its visible text '{}'. \
-                         Speech input users who speak the visible label will not activate \
-                         the button.",
-                        aria_label, visible_text
-                    ),
-                    selector,
-                )
-                .with_selector(selector)
-                .with_fix(
-                    "Ensure the aria-label starts with or contains the visible button text. \
-                     For example, if visible text is 'Search', use aria-label=\"Search products\" \
-                     not aria-label=\"Find items\".",
-                )
-                .with_rule_id(LABEL_IN_NAME_PAGE_RULE.axe_id)
-                .with_help_url(LABEL_IN_NAME_PAGE_RULE.help_url),
+
+            Violation::new(
+                LABEL_IN_NAME_PAGE_RULE.id,
+                LABEL_IN_NAME_PAGE_RULE.name,
+                LABEL_IN_NAME_PAGE_RULE.level,
+                Severity::Medium,
+                format!(
+                    "Button aria-label '{}' does not contain its visible text '{}'. \
+                     Speech input users who speak the visible label will not activate \
+                     the button.",
+                    aria_label, visible_text
+                ),
+                selector,
             )
+            .with_selector(selector)
+            .with_fix(
+                "Ensure the aria-label starts with or contains the visible button text. \
+                 For example, if visible text is 'Search', use aria-label=\"Search products\" \
+                 not aria-label=\"Find items\".",
+            )
+            .with_rule_id(LABEL_IN_NAME_PAGE_RULE.axe_id)
+            .with_help_url(LABEL_IN_NAME_PAGE_RULE.help_url)
         })
         .collect()
 }

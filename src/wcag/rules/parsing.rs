@@ -65,30 +65,29 @@ pub async fn check_parsing_with_page(page: &Page) -> Vec<Violation> {
 
     duplicates
         .iter()
-        .filter_map(|item| {
+        .map(|item| {
             let id = item.get("id").and_then(|v| v.as_str()).unwrap_or("?");
             let count = item.get("count").and_then(|v| v.as_u64()).unwrap_or(2);
-            Some(
-                Violation::new(
-                    PARSING_PAGE_RULE.id,
-                    PARSING_PAGE_RULE.name,
-                    PARSING_PAGE_RULE.level,
-                    Severity::Critical,
-                    format!(
-                        "Duplicate id='{}' appears {} times in the DOM. Duplicate IDs cause \
-                         AT to resolve references incorrectly.",
-                        id, count
-                    ),
-                    format!("[id=\"{}\"]", id),
-                )
-                .with_selector(format!("[id=\"{}\"]", id))
-                .with_fix(format!(
-                    "Make id='{}' unique. Each id must appear exactly once in the document.",
-                    id
-                ))
-                .with_rule_id(PARSING_PAGE_RULE.axe_id)
-                .with_help_url(PARSING_PAGE_RULE.help_url),
+
+            Violation::new(
+                PARSING_PAGE_RULE.id,
+                PARSING_PAGE_RULE.name,
+                PARSING_PAGE_RULE.level,
+                Severity::Critical,
+                format!(
+                    "Duplicate id='{}' appears {} times in the DOM. Duplicate IDs cause \
+                     AT to resolve references incorrectly.",
+                    id, count
+                ),
+                format!("[id=\"{}\"]", id),
             )
+            .with_selector(format!("[id=\"{}\"]", id))
+            .with_fix(format!(
+                "Make id='{}' unique. Each id must appear exactly once in the document.",
+                id
+            ))
+            .with_rule_id(PARSING_PAGE_RULE.axe_id)
+            .with_help_url(PARSING_PAGE_RULE.help_url)
         })
         .collect()
 }

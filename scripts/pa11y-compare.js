@@ -14,8 +14,8 @@
  *   --bin <path>      Path to auditmysite binary (default: ./target/release/auditmysite)
  *   --level <A|AA>    WCAG level to pass to auditmysite (default: AA)
  *
- * Requirements (run once):
- *   npm install pa11y
+ * Requirements (run once from scripts/):
+ *   npm install
  */
 
 'use strict';

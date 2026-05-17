@@ -14,6 +14,8 @@
 mod detection;
 pub mod installer;
 mod manager;
+#[doc(hidden)]
+pub mod mock;
 mod pool;
 mod registry;
 pub mod resolver;

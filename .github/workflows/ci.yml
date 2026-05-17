@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Nightly E2E run against live Chrome (21:00 UTC = 23:00 CET)
+    - cron: '0 21 * * *'
 
 env:
   CARGO_TERM_COLOR: always
@@ -105,9 +108,68 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
-  browser-smoke:
-    name: Browser Integration Tests
+  integration-mocked:
+    name: Mocked Integration Tests (no Chrome)
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-mocked-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run mocked integration tests
+        run: cargo test --test integration_mocked --no-default-features -- --nocapture
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Measure coverage (unit tests + mocked integration)
+        run: >
+          cargo tarpaulin
+          --no-default-features
+          --tests
+          --exclude-files 'src/output/*' 'src/i18n/*'
+          --out xml
+          --output-dir coverage/
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/cobertura.xml
+          fail_ci_if_error: false
+
+  browser-smoke:
+    name: Browser Integration Tests (E2E)
+    runs-on: ubuntu-latest
+    # Run on push/PR events and on the nightly schedule
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule'
     steps:
       - uses: actions/checkout@v5
 
@@ -135,7 +197,7 @@ jobs:
 
   release-build:
     name: Release Build
-    needs: [check, check-all-features, pdf-smoke, format, browser-smoke]
+    needs: [check, check-all-features, pdf-smoke, format, integration-mocked, browser-smoke]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

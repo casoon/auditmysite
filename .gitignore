@@ -13,6 +13,7 @@ Cargo.lock
 *.swo
 *~
 .DS_Store
+.claude/worktrees/
 
 # Testing
 *.profraw
@@ -24,6 +25,7 @@ Cargo.lock
 *.json
 *.html
 !tests/fixtures/*.html
+!scripts/package-lock.json
 
 # Logs
 *.log
@@ -48,7 +50,8 @@ tarpaulin-report.html
 plans/
 todo.md
 
-# Node (scripts/)
+# Node (scripts/ and root)
+/node_modules/
+/package-lock.json
 scripts/node_modules/
-scripts/package-lock.json
 !scripts/package.json

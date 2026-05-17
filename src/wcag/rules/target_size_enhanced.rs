@@ -69,7 +69,7 @@ pub async fn check_target_size_enhanced_with_page(page: &Page) -> Vec<Violation>
 
     violations
         .iter()
-        .filter_map(|item| {
+        .map(|item| {
             let selector = item
                 .get("selector")
                 .and_then(|v| v.as_str())
@@ -81,26 +81,24 @@ pub async fn check_target_size_enhanced_with_page(page: &Page) -> Vec<Violation>
             let width = item.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
             let height = item.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
 
-            Some(
-                Violation::new(
-                    TARGET_SIZE_ENHANCED_RULE.id,
-                    TARGET_SIZE_ENHANCED_RULE.name,
-                    TARGET_SIZE_ENHANCED_RULE.level,
-                    Severity::Medium,
-                    format!(
-                        "Interactive target '{}' is {}×{} CSS pixels, below the 44×44 minimum.",
-                        label, width, height
-                    ),
-                    selector,
-                )
-                .with_selector(selector)
-                .with_fix(
-                    "Increase the target size to at least 44×44 CSS pixels using padding, \
-                     min-width/min-height, or by enlarging the element.",
-                )
-                .with_rule_id(TARGET_SIZE_ENHANCED_RULE.axe_id)
-                .with_help_url(TARGET_SIZE_ENHANCED_RULE.help_url),
+            Violation::new(
+                TARGET_SIZE_ENHANCED_RULE.id,
+                TARGET_SIZE_ENHANCED_RULE.name,
+                TARGET_SIZE_ENHANCED_RULE.level,
+                Severity::Medium,
+                format!(
+                    "Interactive target '{}' is {}×{} CSS pixels, below the 44×44 minimum.",
+                    label, width, height
+                ),
+                selector,
             )
+            .with_selector(selector)
+            .with_fix(
+                "Increase the target size to at least 44×44 CSS pixels using padding, \
+                 min-width/min-height, or by enlarging the element.",
+            )
+            .with_rule_id(TARGET_SIZE_ENHANCED_RULE.axe_id)
+            .with_help_url(TARGET_SIZE_ENHANCED_RULE.help_url)
         })
         .collect()
 }
