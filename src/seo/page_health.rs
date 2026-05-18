@@ -134,6 +134,10 @@ pub struct PageHealthAnalysis {
     pub jsonld_invalid_count: u32,
     /// LCP image candidate (largest visible img) lacks a preload hint
     pub lcp_image_without_preload: bool,
+    /// LCP image candidate is missing fetchpriority="high"
+    pub lcp_image_without_fetchpriority: bool,
+    /// LCP image candidate has loading="lazy" (incorrect — delays LCP)
+    pub lcp_image_lazy_loaded: bool,
     /// URL of the heuristic LCP image candidate
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lcp_image_url: Option<String>,
@@ -417,8 +421,12 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
             const hasPreload = [...preloadHrefs].some(h => h === lcpSrc);
             r.lcpImageWithoutPreload = !hasPreload;
             r.lcpImageUrl = lcpSrc;
+            r.lcpImageWithoutFetchpriority = lcpImg.getAttribute('fetchpriority') !== 'high';
+            r.lcpImageLazyLoaded = lcpImg.getAttribute('loading') === 'lazy';
         } else {
             r.lcpImageWithoutPreload = false;
+            r.lcpImageWithoutFetchpriority = false;
+            r.lcpImageLazyLoaded = false;
         }
 
         // Deprecated API detection in inline scripts
@@ -508,6 +516,10 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.dns_prefetch_hints = parsed["dnsPrefetchHints"].as_u64().unwrap_or(0) as u32;
     a.orphaned_preload_count = parsed["orphanedPreloadCount"].as_u64().unwrap_or(0) as u32;
     a.lcp_image_without_preload = parsed["lcpImageWithoutPreload"].as_bool().unwrap_or(false);
+    a.lcp_image_without_fetchpriority = parsed["lcpImageWithoutFetchpriority"]
+        .as_bool()
+        .unwrap_or(false);
+    a.lcp_image_lazy_loaded = parsed["lcpImageLazyLoaded"].as_bool().unwrap_or(false);
     a.lcp_image_url = parsed["lcpImageUrl"].as_str().map(String::from);
     a.deprecated_api_count = parsed["deprecatedApiCount"].as_u64().unwrap_or(0) as u32;
     a.hreflang_count = parsed["hreflangCount"].as_u64().unwrap_or(0) as u32;
@@ -1046,6 +1058,16 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
         });
     }
 
+    if a.lcp_image_lazy_loaded {
+        issues.push(PageHealthIssue {
+            issue_type: "lcp_image_lazy_loaded".to_string(),
+            message:
+                "LCP-Bildkandidat hat loading=\"lazy\" — verzögert den Largest Contentful Paint"
+                    .to_string(),
+            severity: "high".to_string(),
+        });
+    }
+
     if a.lcp_image_without_preload {
         let url_hint = a
             .lcp_image_url
@@ -1059,6 +1081,16 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
                 url_hint
             ),
             severity: "medium".to_string(),
+        });
+    }
+
+    if a.lcp_image_without_fetchpriority && !a.lcp_image_lazy_loaded {
+        issues.push(PageHealthIssue {
+            issue_type: "lcp_image_without_fetchpriority".to_string(),
+            message:
+                "LCP-Bildkandidat fehlt fetchpriority=\"high\" — Ladepriorität nicht signalisiert"
+                    .to_string(),
+            severity: "low".to_string(),
         });
     }
 
