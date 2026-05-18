@@ -82,6 +82,13 @@ pub struct PageHealthAnalysis {
     pub images_without_dimensions: u32,
     /// `<input type="password">` fields with an inline `onpaste` handler that blocks paste
     pub paste_blocking_password_fields: u32,
+    /// `<img>` elements below the initial viewport without `loading="lazy"`
+    pub offscreen_images_without_lazy: u32,
+    /// Third-party origins without a matching `<link rel="preconnect">` hint
+    pub missing_preconnect_count: u32,
+    /// Sample of origins missing preconnect (up to 5)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_preconnect_origins: Vec<String>,
 
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
@@ -253,6 +260,33 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         }
         r.domMaxDepth = domMaxDepth;
 
+        // Offscreen images without lazy loading
+        const vh = window.innerHeight;
+        r.offscreenWithoutLazy = Array.from(document.querySelectorAll('img'))
+            .filter(img => {
+                const rect = img.getBoundingClientRect();
+                return rect.top > vh && img.getAttribute('loading') !== 'lazy';
+            }).length;
+
+        // Missing preconnect hints for third-party origins
+        const preconnected = new Set(
+            Array.from(document.querySelectorAll('link[rel="preconnect"]'))
+                .map(l => { try { return new URL(l.href).origin; } catch(e) { return null; } })
+                .filter(Boolean)
+        );
+        const extOrigins = new Set();
+        document.querySelectorAll('script[src],link[rel="stylesheet"][href],img[src],iframe[src]')
+            .forEach(el => {
+                const src = el.src || el.href;
+                try {
+                    const o = new URL(src).origin;
+                    if (o !== window.location.origin) extOrigins.add(o);
+                } catch(e) {}
+            });
+        const missingPreconnect = [...extOrigins].filter(o => !preconnected.has(o));
+        r.missingPreconnectCount = missingPreconnect.length;
+        r.missingPreconnectOrigins = missingPreconnect.slice(0, 5);
+
         return JSON.stringify(r);
     })()
     "#;
@@ -297,6 +331,16 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.images_without_dimensions = parsed["imagesWithoutDimensions"].as_u64().unwrap_or(0) as u32;
     a.paste_blocking_password_fields =
         parsed["pasteBlockingPasswords"].as_u64().unwrap_or(0) as u32;
+    a.offscreen_images_without_lazy = parsed["offscreenWithoutLazy"].as_u64().unwrap_or(0) as u32;
+    a.missing_preconnect_count = parsed["missingPreconnectCount"].as_u64().unwrap_or(0) as u32;
+    a.missing_preconnect_origins = parsed["missingPreconnectOrigins"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     a.html_issues = build_html_issues(a, &parsed);
 
     Ok(())
@@ -613,6 +657,38 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
                 a.paste_blocking_password_fields
             ),
             severity: "medium".to_string(),
+        });
+    }
+
+    if a.offscreen_images_without_lazy > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "offscreen_images_without_lazy".to_string(),
+            message: format!(
+                "{} Bilder unterhalb des Viewports ohne loading=\"lazy\" — verzögern ersten Seitenaufbau",
+                a.offscreen_images_without_lazy
+            ),
+            severity: if a.offscreen_images_without_lazy >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.missing_preconnect_count > 0 {
+        let sample = if a.missing_preconnect_origins.is_empty() {
+            String::new()
+        } else {
+            format!(" (z.B. {})", a.missing_preconnect_origins.join(", "))
+        };
+        issues.push(PageHealthIssue {
+            issue_type: "missing_preconnect".to_string(),
+            message: format!(
+                "{} externe Origins ohne <link rel=\"preconnect\">{}",
+                a.missing_preconnect_count, sample
+            ),
+            severity: "low".to_string(),
         });
     }
 
