@@ -90,6 +90,25 @@ pub struct PageHealthAnalysis {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub missing_preconnect_origins: Vec<String>,
 
+    /// `<a>` elements with non-crawlable hrefs (javascript:, empty, missing)
+    pub non_crawlable_links: u32,
+    /// `<img>` elements served as JPEG/PNG without a WebP/AVIF alternative
+    pub images_without_modern_format: u32,
+    /// `<img>` elements whose natural size significantly exceeds their display size
+    pub oversized_images: u32,
+    /// `<img src="*.gif">` elements (potential animated GIFs to convert to video)
+    pub gif_images: u32,
+    /// Count of `@font-face` rules with missing or blocking `font-display`
+    pub font_display_issues: u32,
+    /// Number of `<link rel="preload">` hints
+    pub preload_hints: u32,
+    /// Number of `<link rel="prefetch">` hints
+    pub prefetch_hints: u32,
+    /// Number of `<link rel="dns-prefetch">` hints
+    pub dns_prefetch_hints: u32,
+    /// Preload hints that don't match any loaded resource (orphaned)
+    pub orphaned_preload_count: u32,
+
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
 }
@@ -287,6 +306,66 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         r.missingPreconnectCount = missingPreconnect.length;
         r.missingPreconnectOrigins = missingPreconnect.slice(0, 5);
 
+        // Non-crawlable links
+        r.nonCrawlableLinks = Array.from(document.querySelectorAll('a')).filter(a => {
+            const href = a.getAttribute('href');
+            if (href === null) return a.hasAttribute('onclick');
+            return href === '' || href === '#' || href.startsWith('javascript:');
+        }).length;
+
+        // Images without modern format (no WebP/AVIF in picture or srcset type)
+        r.imagesWithoutModernFormat = Array.from(document.querySelectorAll('img')).filter(img => {
+            const src = img.getAttribute('src') || '';
+            if (!src.match(/\.(jpe?g|png)(\?|$)/i)) return false;
+            const picture = img.closest('picture');
+            if (picture && picture.querySelector('source[type="image/webp"], source[type="image/avif"]')) return false;
+            const srcset = img.getAttribute('srcset') || '';
+            if (srcset.match(/\.(webp|avif)/i)) return false;
+            return true;
+        }).length;
+
+        // Oversized images (natural > 4x display area)
+        r.oversizedImages = Array.from(document.querySelectorAll('img')).filter(img => {
+            if (!img.naturalWidth || !img.clientWidth) return false;
+            const naturalPixels = img.naturalWidth * img.naturalHeight;
+            const displayPixels = img.clientWidth * img.clientHeight;
+            return displayPixels > 0 && naturalPixels > displayPixels * 4;
+        }).length;
+
+        // GIF images
+        r.gifImages = Array.from(document.querySelectorAll('img[src]'))
+            .filter(img => (img.getAttribute('src') || '').match(/\.gif(\?|$)/i)).length;
+
+        // Font-display issues in @font-face rules
+        let fontDisplayIssues = 0;
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule.type === CSSRule.FONT_FACE_RULE) {
+                        const display = rule.style.getPropertyValue('font-display');
+                        if (!display || display === 'block' || display === 'auto') fontDisplayIssues++;
+                    }
+                }
+            } catch(e) {}
+        }
+        r.fontDisplayIssues = fontDisplayIssues;
+
+        // Resource hints inventory
+        let preloadCount = 0, prefetchCount = 0, dnsPrefetchCount = 0;
+        const preloadHrefs = new Set();
+        document.querySelectorAll('link[rel]').forEach(link => {
+            const rel = link.getAttribute('rel');
+            if (rel === 'preload') { preloadCount++; preloadHrefs.add(link.href); }
+            else if (rel === 'prefetch') prefetchCount++;
+            else if (rel === 'dns-prefetch') dnsPrefetchCount++;
+        });
+        r.preloadHints = preloadCount;
+        r.prefetchHints = prefetchCount;
+        r.dnsPrefetchHints = dnsPrefetchCount;
+        // Orphaned preloads: preloaded but not in Resource Timing
+        const loadedResources = new Set(performance.getEntriesByType('resource').map(e => e.name));
+        r.orphanedPreloadCount = [...preloadHrefs].filter(href => href && !loadedResources.has(href)).length;
+
         return JSON.stringify(r);
     })()
     "#;
@@ -341,6 +420,16 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
                 .collect()
         })
         .unwrap_or_default();
+    a.non_crawlable_links = parsed["nonCrawlableLinks"].as_u64().unwrap_or(0) as u32;
+    a.images_without_modern_format =
+        parsed["imagesWithoutModernFormat"].as_u64().unwrap_or(0) as u32;
+    a.oversized_images = parsed["oversizedImages"].as_u64().unwrap_or(0) as u32;
+    a.gif_images = parsed["gifImages"].as_u64().unwrap_or(0) as u32;
+    a.font_display_issues = parsed["fontDisplayIssues"].as_u64().unwrap_or(0) as u32;
+    a.preload_hints = parsed["preloadHints"].as_u64().unwrap_or(0) as u32;
+    a.prefetch_hints = parsed["prefetchHints"].as_u64().unwrap_or(0) as u32;
+    a.dns_prefetch_hints = parsed["dnsPrefetchHints"].as_u64().unwrap_or(0) as u32;
+    a.orphaned_preload_count = parsed["orphanedPreloadCount"].as_u64().unwrap_or(0) as u32;
     a.html_issues = build_html_issues(a, &parsed);
 
     Ok(())
@@ -687,6 +776,82 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
             message: format!(
                 "{} externe Origins ohne <link rel=\"preconnect\">{}",
                 a.missing_preconnect_count, sample
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.non_crawlable_links > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "non_crawlable_links".to_string(),
+            message: format!(
+                "{} Links nicht crawlbar (javascript:, leer, kein href) — PageRank-Verlust",
+                a.non_crawlable_links
+            ),
+            severity: if a.non_crawlable_links >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.images_without_modern_format > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "images_without_modern_format".to_string(),
+            message: format!(
+                "{} Bilder als JPEG/PNG ohne WebP/AVIF-Alternative — erhöhte Ladezeit",
+                a.images_without_modern_format
+            ),
+            severity: if a.images_without_modern_format >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.oversized_images > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "oversized_images".to_string(),
+            message: format!(
+                "{} Bilder werden deutlich kleiner dargestellt als ihre natürliche Auflösung",
+                a.oversized_images
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.gif_images > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "gif_images".to_string(),
+            message: format!(
+                "{} GIF-Bild(er) gefunden — ggf. als MP4/WebM ersetzen (80–95 % kleiner)",
+                a.gif_images
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.font_display_issues > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "font_display_missing".to_string(),
+            message: format!(
+                "{} @font-face-Regeln ohne font-display: swap/fallback/optional — FOIT-Risiko",
+                a.font_display_issues
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.orphaned_preload_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "orphaned_preload".to_string(),
+            message: format!(
+                "{} <link rel=\"preload\">-Hinweise auf nicht geladene Ressourcen (orphaned)",
+                a.orphaned_preload_count
             ),
             severity: "low".to_string(),
         });
