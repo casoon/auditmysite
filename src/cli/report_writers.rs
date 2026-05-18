@@ -13,7 +13,7 @@ use auditmysite::error::{AuditError, Result};
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
     format_ai_json, format_batch_table, format_json_batch, format_summary, print_batch_table,
-    print_report, JsonReport,
+    print_report, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_pdf};
@@ -32,15 +32,17 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
     match args.effective_format() {
         OutputFormat::Json => {
             let normalized = normalize(report);
-            let mut json_report = JsonReport::from_normalized(&normalized, report);
+            let mut unified = UnifiedReport::single(&normalized, report);
             if let Some(path) = args.output.as_ref() {
                 if let Ok(Some(preview)) =
                     preview_report_history(output_directory(path), path, &normalized)
                 {
-                    json_report.history = serde_json::to_value(&preview).ok();
+                    if let Ok(history) = serde_json::to_value(&preview) {
+                        unified.set_history(history);
+                    }
                 }
             }
-            let output = json_report.to_json(true)?;
+            let output = unified.to_json(true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
         }
         OutputFormat::Table => {
@@ -104,11 +106,13 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                     }
                 })?;
                 if let Some(json_path) = auto_json_path.as_ref() {
-                    let mut json_report = JsonReport::from_normalized(&normalized, report);
+                    let mut unified = UnifiedReport::single(&normalized, report);
                     if let Some(ref preview) = raw_history {
-                        json_report.history = serde_json::to_value(preview).ok();
+                        if let Ok(history) = serde_json::to_value(preview) {
+                            unified.set_history(history);
+                        }
                     }
-                    let json_output = json_report.to_json(true)?;
+                    let json_output = unified.to_json(true)?;
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;

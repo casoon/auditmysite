@@ -156,12 +156,13 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v0.17.0)
+## Current State (v0.18.0)
 - Branch: `main`
 - 70+ WCAG rules implemented (Level A, AA, full AAA coverage)
 - 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency
 - Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList
 - Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack
-- JSON: vollständige Rohdaten (tech_stack, budget_violations, throttled_performance, patterns, screenshot_status, measurement_type)
+- JSON: **Unified Report Envelope v2.0** — einheitliches Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`). Breaking Change ggü. v0.17.
+- Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor, WCAG-Prinzip-Coverage
 - PDF: Throttled-Performance-Tabelle, Indikator-Kennzeichnung konsistent, leere Seite nach ToC behoben

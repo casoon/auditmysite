@@ -1,47 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/casoon/auditmysite/docs/json-report.schema.json",
-  "title": "auditmysite single report",
+  "title": "auditmysite unified report (single)",
   "type": "object",
-  "required": ["metadata", "report"],
+  "required": ["schema_version", "report_type", "metadata", "summary", "pages"],
   "additionalProperties": false,
   "properties": {
+    "schema_version": { "type": "string", "const": "2.0" },
+    "report_type": { "type": "string", "const": "single" },
     "metadata": { "$ref": "#/$defs/metadata" },
-    "report": { "$ref": "#/$defs/normalizedReport" },
-    "fix_guidance": {
+    "summary": { "$ref": "#/$defs/summary" },
+    "pages": {
       "type": "array",
-      "items": { "$ref": "#/$defs/fixGuidance" }
-    },
-    "performance": { "type": ["object", "null"] },
-    "seo": { "type": ["object", "null"] },
-    "security": { "type": ["object", "null"] },
-    "mobile": { "type": ["object", "null"] },
-    "ux": { "type": ["object", "null"] },
-    "journey": { "type": ["object", "null"] },
-    "dark_mode": { "type": ["object", "null"] },
-    "ai_visibility": { "type": ["object", "null"] },
-    "source_quality": { "type": ["object", "null"] },
-    "content_visibility": { "type": ["object", "null"] },
-    "tech_stack": { "type": ["object", "null"] },
-    "budget_violations": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/budgetViolation" }
-    },
-    "throttled_performance": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/throttledPerformance" }
-    },
-    "patterns": { "type": ["object", "null"] },
-    "screenshot_status": { "type": ["object", "null"] },
-    "confidence_summary": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/confidenceSignal" }
-    },
-    "capabilities": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/capabilitySignal" }
-    },
-    "history": { "type": ["object", "null"] }
+      "minItems": 1,
+      "maxItems": 1,
+      "items": { "$ref": "#/$defs/pageEntry" }
+    }
   },
   "$defs": {
     "metadata": {
@@ -53,6 +27,138 @@
         "timestamp": { "type": "string", "format": "date-time" },
         "wcag_level": { "type": "string" },
         "execution_time_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "url_count",
+        "accessibility_score",
+        "overall_score",
+        "grade",
+        "certificate",
+        "violation_count",
+        "severity_counts",
+        "passed_url_count",
+        "failed_url_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url_count": { "type": "integer", "minimum": 0 },
+        "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string" },
+        "certificate": { "type": "string" },
+        "violation_count": { "type": "integer", "minimum": 0 },
+        "severity_counts": { "$ref": "#/$defs/severityCounts" },
+        "passed_url_count": { "type": "integer", "minimum": 0 },
+        "failed_url_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "pageEntry": {
+      "type": "object",
+      "required": [
+        "url",
+        "accessibility_score",
+        "overall_score",
+        "grade",
+        "certificate",
+        "violation_count",
+        "severity_counts",
+        "nodes_analyzed",
+        "duration_ms",
+        "module_scores",
+        "risk",
+        "principle_coverage",
+        "findings"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "url": { "type": "string" },
+        "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "type": "string" },
+        "certificate": { "type": "string" },
+        "violation_count": { "type": "integer", "minimum": 0 },
+        "severity_counts": { "$ref": "#/$defs/severityCounts" },
+        "nodes_analyzed": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "module_scores": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/moduleScore" }
+        },
+        "risk": { "$ref": "#/$defs/riskAssessment" },
+        "principle_coverage": { "$ref": "#/$defs/principleCoverage" },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "audit_flags": { "type": "array" },
+        "detail": { "$ref": "#/$defs/pageDetail" }
+      }
+    },
+    "pageDetail": {
+      "type": "object",
+      "required": ["modules"],
+      "additionalProperties": true,
+      "properties": {
+        "fix_guidance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fixGuidance" }
+        },
+        "modules": { "$ref": "#/$defs/moduleBlob" },
+        "confidence_summary": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/confidenceSignal" }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/capabilitySignal" }
+        },
+        "viewport_scores": { "type": ["object", "null"] },
+        "budget_violations": { "type": "array" },
+        "throttled_performance": { "type": "array" },
+        "screenshot_status": { "type": ["object", "null"] },
+        "history": { "type": ["object", "null"] }
+      }
+    },
+    "moduleBlob": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "performance": { "type": ["object", "null"] },
+        "seo": { "type": ["object", "null"] },
+        "security": { "type": ["object", "null"] },
+        "mobile": { "type": ["object", "null"] },
+        "ux": { "type": ["object", "null"] },
+        "journey": { "type": ["object", "null"] },
+        "dark_mode": { "type": ["object", "null"] },
+        "source_quality": { "type": ["object", "null"] },
+        "ai_visibility": { "type": ["object", "null"] },
+        "content_visibility": { "type": ["object", "null"] },
+        "tech_stack": { "type": ["object", "null"] },
+        "patterns": { "type": ["object", "null"] }
+      }
+    },
+    "principleCoverage": {
+      "type": "object",
+      "required": ["perceivable", "operable", "understandable", "robust"],
+      "additionalProperties": false,
+      "properties": {
+        "perceivable": { "$ref": "#/$defs/coverageRatio" },
+        "operable": { "$ref": "#/$defs/coverageRatio" },
+        "understandable": { "$ref": "#/$defs/coverageRatio" },
+        "robust": { "$ref": "#/$defs/coverageRatio" }
+      }
+    },
+    "coverageRatio": {
+      "type": "object",
+      "required": ["passed", "total", "ratio"],
+      "additionalProperties": false,
+      "properties": {
+        "passed": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "ratio": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
     "severityCounts": {
@@ -76,49 +182,8 @@
         "score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
         "weight_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "contributes_to_overall": {
-          "type": "boolean",
-          "description": "True when this module feeds into overall_score. False for supplemental dimensions (UX, Journey)."
-        },
-        "measurement_type": {
-          "type": "string",
-          "enum": ["measured", "heuristic"],
-          "description": "Measured modules use direct audit data; heuristic modules are indicator scores inferred from structural signals."
-        }
-      }
-    },
-    "budgetViolation": {
-      "type": "object",
-      "required": [
-        "metric",
-        "budget_label",
-        "actual_label",
-        "budget_value",
-        "actual_value",
-        "exceeded_by_pct",
-        "severity"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "metric": { "type": "string" },
-        "budget_label": { "type": "string" },
-        "actual_label": { "type": "string" },
-        "budget_value": { "type": "number" },
-        "actual_value": { "type": "number" },
-        "exceeded_by_pct": { "type": "number", "minimum": 0 },
-        "severity": { "type": "string", "enum": ["warning", "error"] }
-      }
-    },
-    "throttledPerformance": {
-      "type": "object",
-      "required": ["profile", "score"],
-      "additionalProperties": false,
-      "properties": {
-        "profile": { "type": "string" },
-        "lcp_ms": { "type": ["number", "null"], "minimum": 0 },
-        "tbt_ms": { "type": ["number", "null"], "minimum": 0 },
-        "cls": { "type": ["number", "null"], "minimum": 0 },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        "contributes_to_overall": { "type": "boolean" },
+        "measurement_type": { "type": "string", "enum": ["measured", "heuristic"] }
       }
     },
     "occurrence": {
@@ -236,45 +301,6 @@
           "items": { "type": "string" }
         },
         "note": { "type": "string" }
-      }
-    },
-    "normalizedReport": {
-      "type": "object",
-      "required": [
-        "url",
-        "wcag_level",
-        "timestamp",
-        "duration_ms",
-        "nodes_analyzed",
-        "score",
-        "grade",
-        "certificate",
-        "findings",
-        "severity_counts",
-        "module_scores",
-        "overall_score"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "url": { "type": "string" },
-        "wcag_level": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "duration_ms": { "type": "integer", "minimum": 0 },
-        "nodes_analyzed": { "type": "integer", "minimum": 0 },
-        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "grade": { "type": "string" },
-        "certificate": { "type": "string" },
-        "findings": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/finding" }
-        },
-        "severity_counts": { "$ref": "#/$defs/severityCounts" },
-        "module_scores": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/moduleScore" }
-        },
-        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "risk": { "$ref": "#/$defs/riskAssessment" }
       }
     },
     "riskAssessment": {

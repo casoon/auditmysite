@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport};
 use auditmysite::cli::WcagLevel;
-use auditmysite::output::{format_json_batch, JsonReport};
+use auditmysite::output::{format_json_batch, UnifiedReport};
 use auditmysite::studio::{StudioAuditResponse, StudioHistoryEntry};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
 
@@ -74,21 +74,23 @@ fn assert_matches_schema(instance: &serde_json::Value, schema_name: &str) {
 fn test_json_report_generation() {
     let report = create_test_report();
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let unified = UnifiedReport::single(&normalized, &report);
 
-    let json_str = json_report.to_json(false).expect("JSON generation failed");
+    let json_str = unified.to_json(false).expect("JSON generation failed");
 
     let parsed: serde_json::Value =
         serde_json::from_str(&json_str).expect("Failed to parse generated JSON");
 
-    assert_eq!(parsed["report"]["url"], "https://example.com");
+    assert_eq!(parsed["schema_version"], "2.0");
+    assert_eq!(parsed["report_type"], "single");
+    assert_eq!(parsed["pages"][0]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
     assert_eq!(parsed["metadata"]["timestamp"], "2026-01-15T12:00:00Z");
-    assert!(parsed["confidence_summary"].is_array());
-    assert!(parsed["capabilities"].is_array());
+    assert!(parsed["pages"][0]["detail"]["confidence_summary"].is_array());
+    assert!(parsed["pages"][0]["detail"]["capabilities"].is_array());
     // Findings are now grouped by rule, with taxonomy fields
-    assert!(parsed["report"]["findings"].is_array());
-    let findings = parsed["report"]["findings"].as_array().unwrap();
+    assert!(parsed["pages"][0]["findings"].is_array());
+    let findings = parsed["pages"][0]["findings"].as_array().unwrap();
     assert_eq!(findings.len(), 1);
     assert!(findings[0]["dimension"].is_string());
     assert!(findings[0]["subcategory"].is_string());
@@ -100,13 +102,14 @@ fn test_json_report_generation() {
 fn test_json_report_exposes_confidence_and_capabilities() {
     let report = create_test_report();
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
-    let parsed = serde_json::to_value(&json_report).expect("serialization must work");
+    let unified = UnifiedReport::single(&normalized, &report);
+    let parsed = serde_json::to_value(&unified).expect("serialization must work");
 
-    let confidence = parsed["confidence_summary"]
+    let detail = &parsed["pages"][0]["detail"];
+    let confidence = detail["confidence_summary"]
         .as_array()
         .expect("confidence_summary must be an array");
-    let capabilities = parsed["capabilities"]
+    let capabilities = detail["capabilities"]
         .as_array()
         .expect("capabilities must be an array");
 
@@ -125,10 +128,10 @@ fn test_json_report_exposes_confidence_and_capabilities() {
 fn test_json_report_pretty_print() {
     let report = create_test_report();
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let unified = UnifiedReport::single(&normalized, &report);
 
-    let pretty = json_report.to_json(true).expect("Pretty JSON failed");
-    let compact = json_report.to_json(false).expect("Compact JSON failed");
+    let pretty = unified.to_json(true).expect("Pretty JSON failed");
+    let compact = unified.to_json(false).expect("Compact JSON failed");
 
     assert!(pretty.contains('\n'));
     assert!(!compact.contains('\n'));
@@ -161,9 +164,10 @@ fn test_batch_json_report_generation() {
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid batch JSON");
 
     assert_eq!(parsed["metadata"]["timestamp"], "2026-01-15T12:00:00Z");
-    assert_eq!(parsed["summary"]["total_urls"], 1);
-    assert_eq!(parsed["reports"][0]["url"], "https://example.com");
-    assert!(parsed["reports"][0]["findings"].is_array());
+    assert_eq!(parsed["report_type"], "batch");
+    assert_eq!(parsed["summary"]["url_count"], 1);
+    assert_eq!(parsed["pages"][0]["url"], "https://example.com");
+    assert!(parsed["pages"][0]["findings"].is_array());
     assert_matches_schema(&parsed, "json-batch-report.schema.json");
 }
 

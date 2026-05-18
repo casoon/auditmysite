@@ -15,7 +15,7 @@ use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::build_view_model;
 use auditmysite::output::report_model::ReportConfig;
-use auditmysite::output::{format_ai_json, format_json_batch, JsonReport};
+use auditmysite::output::{format_ai_json, format_json_batch, UnifiedReport};
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
@@ -182,23 +182,27 @@ fn test_all_modules_present_in_module_scores() {
 #[test]
 fn test_module_data_present_when_scored() {
     let report = make_full_report();
-    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
+    let unified = UnifiedReport::single(&normalize(&report), &report);
+    let detail = unified.pages[0]
+        .detail
+        .as_ref()
+        .expect("single report must carry detail");
 
     // If module has a score, its detail data must be present
     assert!(
-        json_report.performance.is_some(),
+        detail.modules.performance.is_some(),
         "Performance score exists but detail data missing"
     );
     assert!(
-        json_report.seo.is_some(),
+        detail.modules.seo.is_some(),
         "SEO score exists but detail data missing"
     );
     assert!(
-        json_report.security.is_some(),
+        detail.modules.security.is_some(),
         "Security score exists but detail data missing"
     );
     assert!(
-        json_report.mobile.is_some(),
+        detail.modules.mobile.is_some(),
         "Mobile score exists but detail data missing"
     );
 }
@@ -333,15 +337,20 @@ fn test_severity_counts_match_findings() {
 fn test_fix_guidance_matches_findings() {
     let report = make_full_report();
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let fix_guidance = &unified.pages[0]
+        .detail
+        .as_ref()
+        .expect("single report must carry detail")
+        .fix_guidance;
 
     assert_eq!(
-        json_report.fix_guidance.len(),
+        fix_guidance.len(),
         normalized.findings.len(),
         "fix_guidance count should match findings count"
     );
 
-    for (guidance, finding) in json_report.fix_guidance.iter().zip(&normalized.findings) {
+    for (guidance, finding) in fix_guidance.iter().zip(&normalized.findings) {
         assert_eq!(
             guidance.rule_id, finding.rule_id,
             "fix_guidance rule_id mismatch"
@@ -357,9 +366,10 @@ fn test_fix_guidance_matches_findings() {
 #[test]
 fn test_fix_guidance_has_actionable_content() {
     let report = make_full_report();
-    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
+    let unified = UnifiedReport::single(&normalize(&report), &report);
+    let detail = unified.pages[0].detail.as_ref().expect("detail");
 
-    for g in &json_report.fix_guidance {
+    for g in &detail.fix_guidance {
         assert!(
             !g.problem.is_empty(),
             "fix_guidance for {} has empty problem",
@@ -381,10 +391,11 @@ fn test_fix_guidance_has_actionable_content() {
 #[test]
 fn test_fix_guidance_code_examples_present() {
     let report = make_full_report();
-    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
+    let unified = UnifiedReport::single(&normalize(&report), &report);
+    let detail = unified.pages[0].detail.as_ref().expect("detail");
 
     // At least some findings should have code examples (from our explanation database)
-    let with_code = json_report
+    let with_code = detail
         .fix_guidance
         .iter()
         .filter(|g| g.code_example.is_some())
@@ -499,18 +510,23 @@ fn test_module_weights_correct() {
 #[test]
 fn test_json_contains_all_sections() {
     let report = make_full_report();
-    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
-    let json_str = json_report.to_json(true).unwrap();
+    let unified = UnifiedReport::single(&normalize(&report), &report);
+    let json_str = unified.to_json(true).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
     // All required sections present
     assert!(parsed["metadata"].is_object(), "metadata missing");
-    assert!(parsed["report"].is_object(), "report missing");
-    assert!(parsed["fix_guidance"].is_array(), "fix_guidance missing");
-    assert!(!parsed["performance"].is_null(), "performance data missing");
-    assert!(!parsed["seo"].is_null(), "seo data missing");
-    assert!(!parsed["security"].is_null(), "security data missing");
-    assert!(!parsed["mobile"].is_null(), "mobile data missing");
+    assert!(parsed["summary"].is_object(), "summary missing");
+    let detail = &parsed["pages"][0]["detail"];
+    assert!(detail["fix_guidance"].is_array(), "fix_guidance missing");
+    let modules = &detail["modules"];
+    assert!(
+        !modules["performance"].is_null(),
+        "performance data missing"
+    );
+    assert!(!modules["seo"].is_null(), "seo data missing");
+    assert!(!modules["security"].is_null(), "security data missing");
+    assert!(!modules["mobile"].is_null(), "mobile data missing");
 }
 
 #[test]
@@ -536,11 +552,10 @@ fn test_audit_flags_surface_in_json_output() {
     report = report.with_seo(seo);
 
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
-    let parsed: serde_json::Value =
-        serde_json::from_str(&json_report.to_json(true).unwrap()).unwrap();
+    let unified = UnifiedReport::single(&normalized, &report);
+    let parsed: serde_json::Value = serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
 
-    let flags = parsed["report"]["audit_flags"]
+    let flags = parsed["pages"][0]["audit_flags"]
         .as_array()
         .expect("audit_flags should be present");
     assert_eq!(flags.len(), 1);
@@ -554,9 +569,9 @@ fn test_audit_flags_surface_in_json_output() {
 #[test]
 fn test_json_field_order_fix_guidance_before_history() {
     let report = make_full_report();
-    let mut json_report = JsonReport::from_normalized(&normalize(&report), &report);
-    json_report.history = Some(serde_json::json!({"test": true}));
-    let json_str = json_report.to_json(true).unwrap();
+    let mut unified = UnifiedReport::single(&normalize(&report), &report);
+    unified.set_history(serde_json::json!({"test": true}));
+    let json_str = unified.to_json(true).unwrap();
 
     // fix_guidance should appear before history in serialized output
     let fg_pos = json_str
@@ -614,11 +629,11 @@ fn test_risk_low_without_violations() {
 #[test]
 fn test_risk_in_json_output() {
     let report = make_full_report();
-    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
-    let json_str = json_report.to_json(true).unwrap();
+    let unified = UnifiedReport::single(&normalize(&report), &report);
+    let json_str = unified.to_json(true).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
-    let risk = &parsed["report"]["risk"];
+    let risk = &parsed["pages"][0]["risk"];
     assert!(risk.is_object(), "risk object missing from JSON report");
     assert_eq!(risk["level"].as_str().unwrap(), "critical");
     assert!(risk["critical_issues"].as_u64().unwrap() > 0);
@@ -669,9 +684,10 @@ fn test_risk_independent_from_score() {
 #[test]
 fn test_journey_in_json_output() {
     let report = make_full_report();
-    let json_report = JsonReport::from_normalized(&normalize(&report), &report);
+    let unified = UnifiedReport::single(&normalize(&report), &report);
+    let detail = unified.pages[0].detail.as_ref().expect("detail");
     assert!(
-        json_report.journey.is_some(),
+        detail.modules.journey.is_some(),
         "Journey detail data should be present in JSON"
     );
 }
@@ -680,19 +696,20 @@ fn test_journey_in_json_output() {
 fn test_json_module_detail_scores_match_normalized_scores() {
     let report = make_full_report();
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let m = &unified.pages[0].detail.as_ref().expect("detail").modules;
 
     for (module_name, json_section, score_path) in [
         (
             "Performance",
-            json_report.performance.as_ref(),
+            m.performance.as_ref(),
             &["score", "overall"][..],
         ),
-        ("SEO", json_report.seo.as_ref(), &["score"][..]),
-        ("Security", json_report.security.as_ref(), &["score"][..]),
-        ("Mobile", json_report.mobile.as_ref(), &["score"][..]),
-        ("UX", json_report.ux.as_ref(), &["score"][..]),
-        ("Journey", json_report.journey.as_ref(), &["score"][..]),
+        ("SEO", m.seo.as_ref(), &["score"][..]),
+        ("Security", m.security.as_ref(), &["score"][..]),
+        ("Mobile", m.mobile.as_ref(), &["score"][..]),
+        ("UX", m.ux.as_ref(), &["score"][..]),
+        ("Journey", m.journey.as_ref(), &["score"][..]),
     ] {
         let expected = normalized
             .module_scores
@@ -760,23 +777,19 @@ fn test_batch_json_average_score_is_accessibility_with_overall_separate() {
     let normalized = normalize(&reports[0]);
     let expected_overall = normalized.overall_score as u64;
     let batch = BatchReport::from_reports(reports, vec![], 100);
-    let expected_score = batch.summary.average_score;
+    let expected_score = batch.summary.average_score.round() as u64;
     let parsed: serde_json::Value =
         serde_json::from_str(&format_json_batch(&batch, true).expect("batch JSON must render"))
             .expect("batch JSON must parse");
 
     assert_eq!(
-        parsed["summary"]["average_score"].as_f64(),
+        parsed["summary"]["accessibility_score"].as_u64(),
         Some(expected_score),
-        "Batch average_score must remain the primary WCAG/accessibility average"
+        "Batch accessibility_score must be the WCAG/accessibility average"
     );
     assert_eq!(
-        parsed["summary"]["average_overall_score"].as_u64(),
+        parsed["summary"]["overall_score"].as_u64(),
         Some(expected_overall)
-    );
-    assert_eq!(
-        parsed["summary"]["average_accessibility_score"].as_f64(),
-        Some(batch.summary.average_score)
     );
 }
 
@@ -911,24 +924,35 @@ fn test_schema_contains_extra_module_top_level_keys() {
     let schema: serde_json::Value =
         serde_json::from_str(&schema_str).expect("schema must be valid JSON");
 
-    let props = schema["properties"]
+    // v2.0 envelope: module detail lives under pages[].detail.
+    let module_props = schema["$defs"]["moduleBlob"]["properties"]
         .as_object()
-        .expect("schema must have top-level properties object");
-
+        .expect("schema must define $defs.moduleBlob.properties");
     for key in &[
         "dark_mode",
         "ai_visibility",
         "source_quality",
         "content_visibility",
         "tech_stack",
+        "patterns",
+    ] {
+        assert!(
+            module_props.contains_key(*key),
+            "schema $defs.moduleBlob missing module '{key}'"
+        );
+    }
+
+    let detail_props = schema["$defs"]["pageDetail"]["properties"]
+        .as_object()
+        .expect("schema must define $defs.pageDetail.properties");
+    for key in &[
         "budget_violations",
         "throttled_performance",
-        "patterns",
         "screenshot_status",
     ] {
         assert!(
-            props.contains_key(*key),
-            "schema top-level properties missing '{key}'"
+            detail_props.contains_key(*key),
+            "schema $defs.pageDetail missing '{key}'"
         );
     }
 }
@@ -960,30 +984,31 @@ fn test_json_report_includes_extra_module_keys() {
     });
 
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
-    let json_str = json_report.to_json(true).unwrap();
+    let unified = UnifiedReport::single(&normalized, &report);
+    let json_str = unified.to_json(true).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+    let modules = &parsed["pages"][0]["detail"]["modules"];
 
     assert!(
-        !parsed["dark_mode"].is_null(),
+        !modules["dark_mode"].is_null(),
         "dark_mode missing from JSON"
     );
     assert!(
-        !parsed["ai_visibility"].is_null(),
+        !modules["ai_visibility"].is_null(),
         "ai_visibility missing from JSON"
     );
     assert!(
-        !parsed["source_quality"].is_null(),
+        !modules["source_quality"].is_null(),
         "source_quality missing from JSON"
     );
     assert!(
-        !parsed["content_visibility"].is_null(),
+        !modules["content_visibility"].is_null(),
         "content_visibility missing from JSON"
     );
-    assert_eq!(parsed["source_quality"]["measurement_type"], "heuristic");
-    assert_eq!(parsed["ai_visibility"]["measurement_type"], "heuristic");
+    assert_eq!(modules["source_quality"]["measurement_type"], "heuristic");
+    assert_eq!(modules["ai_visibility"]["measurement_type"], "heuristic");
     assert_eq!(
-        parsed["content_visibility"]["measurement_type"],
+        modules["content_visibility"]["measurement_type"],
         "heuristic"
     );
 }
@@ -1030,19 +1055,20 @@ fn test_json_report_includes_report_artifact_fields() {
     report.screenshot_status = auditmysite::audit::ScreenshotStatus::Failed("test".to_string());
 
     let normalized = normalize(&report);
-    let json_report = JsonReport::from_normalized(&normalized, &report);
-    let parsed: serde_json::Value =
-        serde_json::from_str(&json_report.to_json(true).unwrap()).unwrap();
+    let unified = UnifiedReport::single(&normalized, &report);
+    let parsed: serde_json::Value = serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
+    let detail = &parsed["pages"][0]["detail"];
+    let modules = &detail["modules"];
 
     assert!(
-        !parsed["tech_stack"].is_null(),
+        !modules["tech_stack"].is_null(),
         "tech_stack missing from JSON"
     );
-    assert_eq!(parsed["budget_violations"].as_array().unwrap().len(), 1);
-    assert_eq!(parsed["throttled_performance"].as_array().unwrap().len(), 1);
-    assert!(!parsed["patterns"].is_null(), "patterns missing from JSON");
+    assert_eq!(detail["budget_violations"].as_array().unwrap().len(), 1);
+    assert_eq!(detail["throttled_performance"].as_array().unwrap().len(), 1);
+    assert!(!modules["patterns"].is_null(), "patterns missing from JSON");
     assert!(
-        !parsed["screenshot_status"].is_null(),
+        !detail["screenshot_status"].is_null(),
         "screenshot_status missing from JSON"
     );
 }

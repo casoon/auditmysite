@@ -69,16 +69,23 @@ pub struct HistoryPreview {
     pub recent_entries: Vec<HistorySnapshot>,
 }
 
+/// Parses the Unified Report Envelope v2.0 — `{ metadata, pages[] }`.
+/// A batch file contributes one snapshot per page.
 #[derive(Debug, Deserialize)]
 struct StoredJsonReport {
-    report: StoredNormalizedReport,
+    metadata: StoredMetadata,
+    pages: Vec<StoredPage>,
 }
 
 #[derive(Debug, Deserialize)]
-struct StoredNormalizedReport {
-    url: String,
+struct StoredMetadata {
     timestamp: DateTime<Utc>,
-    score: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct StoredPage {
+    url: String,
+    accessibility_score: u32,
     overall_score: u32,
     grade: String,
     certificate: String,
@@ -206,43 +213,46 @@ fn load_history_entries(reports_dir: &Path, host: &str) -> Result<Vec<HistorySna
             Ok(report) => report,
             Err(_) => continue,
         };
-        let stored_host = match host_from_url(&stored.report.url) {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        if stored_host != host {
-            continue;
-        }
+        let source_file = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string();
 
-        entries.push(HistorySnapshot {
-            source_file: path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or_default()
-                .to_string(),
-            url: stored.report.url,
-            host: stored_host,
-            timestamp: stored.report.timestamp,
-            accessibility_score: stored.report.score,
-            overall_score: stored.report.overall_score,
-            grade: stored.report.grade,
-            certificate: stored.report.certificate,
-            nodes_analyzed: stored.report.nodes_analyzed,
-            duration_ms: stored.report.duration_ms,
-            severity_counts: stored.report.severity_counts,
-            module_scores: stored.report.module_scores,
-            top_findings: stored
-                .report
-                .findings
-                .into_iter()
-                .take(5)
-                .map(|finding| HistoryFindingSummary {
-                    rule_id: finding.rule_id,
-                    title: finding.title,
-                    occurrence_count: finding.occurrence_count,
-                })
-                .collect(),
-        });
+        for page in stored.pages {
+            let stored_host = match host_from_url(&page.url) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if stored_host != host {
+                continue;
+            }
+
+            entries.push(HistorySnapshot {
+                source_file: source_file.clone(),
+                url: page.url,
+                host: stored_host,
+                timestamp: stored.metadata.timestamp,
+                accessibility_score: page.accessibility_score,
+                overall_score: page.overall_score,
+                grade: page.grade,
+                certificate: page.certificate,
+                nodes_analyzed: page.nodes_analyzed,
+                duration_ms: page.duration_ms,
+                severity_counts: page.severity_counts,
+                module_scores: page.module_scores,
+                top_findings: page
+                    .findings
+                    .into_iter()
+                    .take(5)
+                    .map(|finding| HistoryFindingSummary {
+                        rule_id: finding.rule_id,
+                        title: finding.title,
+                        occurrence_count: finding.occurrence_count,
+                    })
+                    .collect(),
+            });
+        }
     }
 
     Ok(dedupe_snapshots(entries))
@@ -442,10 +452,9 @@ mod tests {
                 "wcag_level": "AA",
                 "execution_time_ms": 1000
             },
-            "report": {
+            "pages": [{
                 "url": "https://www.casoon.de",
-                "timestamp": "2026-03-01T08:00:00Z",
-                "score": 88,
+                "accessibility_score": 88,
                 "overall_score": 82,
                 "grade": "A",
                 "certificate": "GUT",
@@ -466,7 +475,7 @@ mod tests {
                         "occurrence_count": 2
                     }
                 ]
-            }
+            }]
         });
         fs::write(
             reports_dir.join("casoon-2026-03-01.json"),

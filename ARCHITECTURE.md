@@ -243,7 +243,7 @@ audit_page():
 
 AuditReport
   │
-  ├─ [JSON] format_json_normalized() → JsonReport
+  ├─ [JSON] format_json_normalized() → UnifiedReport (Envelope v2.0)
   ├─ [Table] print_report()
   └─ [PDF]
       │
