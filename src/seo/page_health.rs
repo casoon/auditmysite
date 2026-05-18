@@ -108,6 +108,13 @@ pub struct PageHealthAnalysis {
     pub dns_prefetch_hints: u32,
     /// Preload hints that don't match any loaded resource (orphaned)
     pub orphaned_preload_count: u32,
+    /// LCP image candidate (largest visible img) lacks a preload hint
+    pub lcp_image_without_preload: bool,
+    /// URL of the heuristic LCP image candidate
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcp_image_url: Option<String>,
+    /// Number of deprecated browser API patterns detected in inline scripts
+    pub deprecated_api_count: u32,
 
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
@@ -366,6 +373,29 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         const loadedResources = new Set(performance.getEntriesByType('resource').map(e => e.name));
         r.orphanedPreloadCount = [...preloadHrefs].filter(href => href && !loadedResources.has(href)).length;
 
+        // LCP image candidate: largest visible img by display area
+        let lcpImg = null, lcpArea = 0;
+        document.querySelectorAll('img[src]').forEach(img => {
+            const rect = img.getBoundingClientRect();
+            if (rect.top < 0 || rect.top > window.innerHeight) return;
+            const area = rect.width * rect.height;
+            if (area > lcpArea) { lcpArea = area; lcpImg = img; }
+        });
+        if (lcpImg) {
+            const lcpSrc = lcpImg.src;
+            const hasPreload = [...preloadHrefs].some(h => h === lcpSrc);
+            r.lcpImageWithoutPreload = !hasPreload;
+            r.lcpImageUrl = lcpSrc;
+        } else {
+            r.lcpImageWithoutPreload = false;
+        }
+
+        // Deprecated API detection in inline scripts
+        const DEPRECATED = ['AppCache', 'document.domain =', 'webkitStorageInfo',
+            'webkitIndexedDB', 'navigator.userAgentData', 'importScripts'];
+        const inlineText = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent).join('\n');
+        r.deprecatedApiCount = DEPRECATED.filter(p => inlineText.includes(p)).length;
+
         return JSON.stringify(r);
     })()
     "#;
@@ -430,6 +460,9 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.prefetch_hints = parsed["prefetchHints"].as_u64().unwrap_or(0) as u32;
     a.dns_prefetch_hints = parsed["dnsPrefetchHints"].as_u64().unwrap_or(0) as u32;
     a.orphaned_preload_count = parsed["orphanedPreloadCount"].as_u64().unwrap_or(0) as u32;
+    a.lcp_image_without_preload = parsed["lcpImageWithoutPreload"].as_bool().unwrap_or(false);
+    a.lcp_image_url = parsed["lcpImageUrl"].as_str().map(String::from);
+    a.deprecated_api_count = parsed["deprecatedApiCount"].as_u64().unwrap_or(0) as u32;
     a.html_issues = build_html_issues(a, &parsed);
 
     Ok(())
@@ -854,6 +887,33 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
                 a.orphaned_preload_count
             ),
             severity: "low".to_string(),
+        });
+    }
+
+    if a.lcp_image_without_preload {
+        let url_hint = a
+            .lcp_image_url
+            .as_deref()
+            .map(|u| format!(" ({})", u))
+            .unwrap_or_default();
+        issues.push(PageHealthIssue {
+            issue_type: "lcp_image_without_preload".to_string(),
+            message: format!(
+                "Größtes sichtbares Bild{} hat keinen <link rel=\"preload\" as=\"image\">-Hint",
+                url_hint
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.deprecated_api_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "deprecated_apis".to_string(),
+            message: format!(
+                "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
+                a.deprecated_api_count
+            ),
+            severity: "medium".to_string(),
         });
     }
 
