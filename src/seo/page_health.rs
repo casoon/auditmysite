@@ -113,6 +113,8 @@ pub struct PageHealthAnalysis {
     pub dns_prefetch_hints: u32,
     /// Preload hints that don't match any loaded resource (orphaned)
     pub orphaned_preload_count: u32,
+    /// True when the main page is served over HTTP/2 or HTTP/3
+    pub uses_http2: bool,
     /// True when the main page response is compressed (gzip/br/zstd)
     pub has_compression: bool,
     /// Raw Cache-Control header value from the main page response
@@ -681,7 +683,8 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
     a.redirect_chain = hops;
 
     // HTTP headers
-    if let Some((compression, cache_control, server_timing_count)) = header_result {
+    if let Some((uses_http2, compression, cache_control, server_timing_count)) = header_result {
+        a.uses_http2 = uses_http2;
         a.has_compression = compression;
         a.has_efficient_cache = cache_control
             .as_deref()
@@ -696,8 +699,8 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
     }
 }
 
-/// Probe main page headers: compression, Cache-Control, Server-Timing.
-async fn probe_headers(url: &str) -> Option<(bool, Option<String>, u32)> {
+/// Probe main page headers: HTTP version, compression, Cache-Control, Server-Timing.
+async fn probe_headers(url: &str) -> Option<(bool, bool, Option<String>, u32)> {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::limited(5))
         .timeout(std::time::Duration::from_secs(10))
@@ -706,6 +709,10 @@ async fn probe_headers(url: &str) -> Option<(bool, Option<String>, u32)> {
         .ok()?;
 
     let resp = client.get(url).send().await.ok()?;
+    let uses_http2 = matches!(
+        resp.version(),
+        reqwest::Version::HTTP_2 | reqwest::Version::HTTP_3
+    );
     let headers = resp.headers();
 
     let compression = headers
@@ -725,7 +732,7 @@ async fn probe_headers(url: &str) -> Option<(bool, Option<String>, u32)> {
         .map(|v| v.split(',').count() as u32)
         .unwrap_or(0);
 
-    Some((compression, cache_control, server_timing_count))
+    Some((uses_http2, compression, cache_control, server_timing_count))
 }
 
 /// Follow redirect chain manually, returning (status, url) pairs for each hop.
@@ -1062,6 +1069,14 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
                 "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
                 a.deprecated_api_count
             ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if !a.uses_http2 {
+        issues.push(PageHealthIssue {
+            issue_type: "http1_only".to_string(),
+            message: "Seite wird über HTTP/1.1 ausgeliefert — HTTP/2 ermöglicht Multiplexing und Header-Komprimierung".to_string(),
             severity: "medium".to_string(),
         });
     }
