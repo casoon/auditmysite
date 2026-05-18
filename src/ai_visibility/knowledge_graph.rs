@@ -323,6 +323,82 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
     }
 }
 
+fn build_schema_relationships(
+    entities: &[GraphEntity],
+    schemas: &[SchemaEntity],
+    relationships: &mut Vec<EntityRelationship>,
+) {
+    // Find author/publisher relationships
+    for schema in schemas {
+        let subject = match &schema.name {
+            Some(n) => n.clone(),
+            None => continue,
+        };
+
+        for (key, value) in &schema.properties {
+            match key.as_str() {
+                "author" | "creator" => {
+                    relationships.push(EntityRelationship {
+                        subject: subject.clone(),
+                        predicate: key.clone(),
+                        object: value.clone(),
+                        source: EntitySource::SchemaOrg,
+                    });
+                }
+                "publisher" | "provider" => {
+                    relationships.push(EntityRelationship {
+                        subject: subject.clone(),
+                        predicate: key.clone(),
+                        object: value.clone(),
+                        source: EntitySource::SchemaOrg,
+                    });
+                }
+                "isPartOf" | "mainEntityOfPage" | "about" => {
+                    relationships.push(EntityRelationship {
+                        subject: subject.clone(),
+                        predicate: key.clone(),
+                        object: value.clone(),
+                        source: EntitySource::SchemaOrg,
+                    });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Connect entities of type Organization to the site
+    let org_entities: Vec<&GraphEntity> = entities
+        .iter()
+        .filter(|e| e.entity_type == "Organization" || e.entity_type == "LocalBusiness")
+        .collect();
+
+    let article_entities: Vec<&GraphEntity> = entities
+        .iter()
+        .filter(|e| {
+            e.entity_type == "Article"
+                || e.entity_type == "BlogPosting"
+                || e.entity_type == "NewsArticle"
+        })
+        .collect();
+
+    // Infer publisher relationship if not explicit
+    for article in &article_entities {
+        let has_publisher = relationships
+            .iter()
+            .any(|r| r.subject == article.name && r.predicate == "publisher");
+        if !has_publisher {
+            if let Some(org) = org_entities.first() {
+                relationships.push(EntityRelationship {
+                    subject: article.name.clone(),
+                    predicate: "publisher (inferred)".into(),
+                    object: org.name.clone(),
+                    source: EntitySource::SchemaOrg,
+                });
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -436,81 +512,5 @@ mod tests {
             .relationships
             .iter()
             .any(|r| r.predicate == "breadcrumbPath"));
-    }
-}
-
-fn build_schema_relationships(
-    entities: &[GraphEntity],
-    schemas: &[SchemaEntity],
-    relationships: &mut Vec<EntityRelationship>,
-) {
-    // Find author/publisher relationships
-    for schema in schemas {
-        let subject = match &schema.name {
-            Some(n) => n.clone(),
-            None => continue,
-        };
-
-        for (key, value) in &schema.properties {
-            match key.as_str() {
-                "author" | "creator" => {
-                    relationships.push(EntityRelationship {
-                        subject: subject.clone(),
-                        predicate: key.clone(),
-                        object: value.clone(),
-                        source: EntitySource::SchemaOrg,
-                    });
-                }
-                "publisher" | "provider" => {
-                    relationships.push(EntityRelationship {
-                        subject: subject.clone(),
-                        predicate: key.clone(),
-                        object: value.clone(),
-                        source: EntitySource::SchemaOrg,
-                    });
-                }
-                "isPartOf" | "mainEntityOfPage" | "about" => {
-                    relationships.push(EntityRelationship {
-                        subject: subject.clone(),
-                        predicate: key.clone(),
-                        object: value.clone(),
-                        source: EntitySource::SchemaOrg,
-                    });
-                }
-                _ => {}
-            }
-        }
-    }
-
-    // Connect entities of type Organization to the site
-    let org_entities: Vec<&GraphEntity> = entities
-        .iter()
-        .filter(|e| e.entity_type == "Organization" || e.entity_type == "LocalBusiness")
-        .collect();
-
-    let article_entities: Vec<&GraphEntity> = entities
-        .iter()
-        .filter(|e| {
-            e.entity_type == "Article"
-                || e.entity_type == "BlogPosting"
-                || e.entity_type == "NewsArticle"
-        })
-        .collect();
-
-    // Infer publisher relationship if not explicit
-    for article in &article_entities {
-        let has_publisher = relationships
-            .iter()
-            .any(|r| r.subject == article.name && r.predicate == "publisher");
-        if !has_publisher {
-            if let Some(org) = org_entities.first() {
-                relationships.push(EntityRelationship {
-                    subject: article.name.clone(),
-                    predicate: "publisher (inferred)".into(),
-                    object: org.name.clone(),
-                    source: EntitySource::SchemaOrg,
-                });
-            }
-        }
     }
 }

@@ -224,21 +224,29 @@ async fn test_output_formats() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    // JSON output should be valid JSON
+    // JSON output should be valid JSON (v2.0 envelope)
     let normalized = auditmysite::audit::normalize(&report);
     let json = auditmysite::format_json_normalized(&normalized, &report, true)
         .expect("JSON formatting failed");
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid JSON output");
-    let report_obj = parsed
-        .get("report")
-        .expect("JSON should contain report field");
+    assert_eq!(
+        parsed.get("schema_version").and_then(|v| v.as_str()),
+        Some("2.0"),
+        "JSON should contain schema_version 2.0"
+    );
+    let pages = parsed
+        .get("pages")
+        .expect("JSON should contain pages array");
+    let page = pages
+        .get(0)
+        .expect("pages array should have at least one entry");
     assert!(
-        report_obj.get("url").is_some(),
-        "JSON should contain url field"
+        page.get("url").is_some(),
+        "page entry should contain url field"
     );
     assert!(
-        report_obj.get("score").is_some(),
-        "JSON should contain score field"
+        page.get("accessibility_score").is_some(),
+        "page entry should contain accessibility_score field"
     );
 }
 

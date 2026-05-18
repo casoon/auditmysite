@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 #[cfg(all(test, feature = "pdf_test"))]
 mod tests {
     use super::super::*;

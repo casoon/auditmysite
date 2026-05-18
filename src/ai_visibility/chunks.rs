@@ -314,6 +314,16 @@ fn build_sections(input: &ChunkInput) -> Vec<ContentSection> {
     sections
 }
 
+fn classify_chunk_size(words: u32) -> ChunkQuality {
+    match words {
+        0..=50 => ChunkQuality::TooShort,
+        51..=99 => ChunkQuality::Acceptable,
+        100..=800 => ChunkQuality::Optimal,
+        801..=1200 => ChunkQuality::Acceptable,
+        _ => ChunkQuality::TooLong,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -476,15 +486,5 @@ mod tests {
             .expect("signal must exist");
         // Only H2, no H3 → flat
         assert!(!hier_signal.present);
-    }
-}
-
-fn classify_chunk_size(words: u32) -> ChunkQuality {
-    match words {
-        0..=50 => ChunkQuality::TooShort,
-        51..=99 => ChunkQuality::Acceptable,
-        100..=800 => ChunkQuality::Optimal,
-        801..=1200 => ChunkQuality::Acceptable,
-        _ => ChunkQuality::TooLong,
     }
 }
