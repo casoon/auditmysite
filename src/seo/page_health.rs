@@ -49,6 +49,11 @@ pub struct PageHealthAnalysis {
     pub own_redirect_detected: bool,
     /// Final URL after navigation (when different from requested URL)
     pub own_final_url: Option<String>,
+    /// Number of HTTP redirect hops before the final response
+    pub redirect_count: u32,
+    /// Full redirect chain (status + URL per hop, up to 10)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub redirect_chain: Vec<RedirectHop>,
 
     /// www ↔ non-www redirect configuration
     pub www_consolidation: Option<WwwConsolidation>,
@@ -135,6 +140,13 @@ pub struct PageHealthAnalysis {
 
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
+}
+
+/// A single hop in the HTTP redirect chain
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedirectHop {
+    pub status: u16,
+    pub url: String,
 }
 
 /// www ↔ non-www redirect configuration
@@ -642,10 +654,11 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
 
     // Run all probes concurrently
     let probe_url = format!("{}/auditmysite-404-probe-xyz123", origin);
-    let (soft_404_result, www_result, header_result) = tokio::join!(
+    let (soft_404_result, www_result, header_result, redirect_chain) = tokio::join!(
         probe_status(&probe_url),
         check_www_consolidation(url),
-        probe_headers(url)
+        probe_headers(url),
+        follow_redirect_chain(url)
     );
 
     // Soft 404
@@ -657,6 +670,15 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
 
     // www consolidation
     a.www_consolidation = www_result;
+
+    // Redirect chain
+    let hops: Vec<RedirectHop> = redirect_chain
+        .into_iter()
+        .filter(|(status, _)| *status >= 300 && *status < 400)
+        .map(|(status, url)| RedirectHop { status, url })
+        .collect();
+    a.redirect_count = hops.len() as u32;
+    a.redirect_chain = hops;
 
     // HTTP headers
     if let Some((compression, cache_control, server_timing_count)) = header_result {
@@ -704,6 +726,46 @@ async fn probe_headers(url: &str) -> Option<(bool, Option<String>, u32)> {
         .unwrap_or(0);
 
     Some((compression, cache_control, server_timing_count))
+}
+
+/// Follow redirect chain manually, returning (status, url) pairs for each hop.
+async fn follow_redirect_chain(url: &str) -> Vec<(u16, String)> {
+    let Ok(client) = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(5))
+        .user_agent("auditmysite-probe/1.0")
+        .build()
+    else {
+        return Vec::new();
+    };
+
+    let mut chain = Vec::new();
+    let mut current = url.to_string();
+
+    for _ in 0..10 {
+        let Ok(resp) = client.head(&current).send().await else {
+            break;
+        };
+        let status = resp.status().as_u16();
+        chain.push((status, current.clone()));
+        if status < 300 || status >= 400 {
+            break;
+        }
+        let Some(location) = resp.headers().get("location").and_then(|v| v.to_str().ok()) else {
+            break;
+        };
+        current = if location.starts_with("http") {
+            location.to_string()
+        } else if let Ok(base) = url::Url::parse(&current) {
+            match base.join(location) {
+                Ok(u) => u.to_string(),
+                Err(_) => break,
+            }
+        } else {
+            break;
+        };
+    }
+    chain
 }
 
 /// Probe a URL and return its HTTP status (no redirect following).
@@ -1114,7 +1176,21 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
         });
     }
 
-    if a.own_redirect_detected {
+    if a.redirect_count >= 2 {
+        issues.push(PageHealthIssue {
+            issue_type: "multiple_redirects".to_string(),
+            message: format!(
+                "{} HTTP-Weiterleitungen vor der finalen Seite — jeder Hop kostet ~100–300 ms",
+                a.redirect_count
+            ),
+            severity: if a.redirect_count >= 3 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
+        });
+    } else if a.own_redirect_detected {
         issues.push(PageHealthIssue {
             issue_type: "redirect".to_string(),
             message: format!(
