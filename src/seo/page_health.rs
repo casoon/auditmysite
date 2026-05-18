@@ -70,6 +70,19 @@ pub struct PageHealthAnalysis {
     /// Additional detail about validator execution or skip reason
     pub html_validator_detail: Option<String>,
 
+    /// True when a valid HTML5 `<!DOCTYPE html>` declaration is present
+    pub has_doctype: bool,
+    /// Number of inline `<script>` elements that call `document.write()`
+    pub document_write_count: u32,
+    /// Total DOM element count (`document.querySelectorAll('*').length`)
+    pub dom_node_count: u32,
+    /// Maximum nesting depth of the DOM tree
+    pub dom_max_depth: u32,
+    /// `<img>` elements without explicit `width` + `height` attributes (CLS risk)
+    pub images_without_dimensions: u32,
+    /// `<input type="password">` fields with an inline `onpaste` handler that blocks paste
+    pub paste_blocking_password_fields: u32,
+
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
 }
@@ -204,6 +217,42 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         // Nested interactive elements
         r.nestedInteractive = document.querySelectorAll('button button, a a').length;
 
+        // Doctype detection
+        r.hasDoctype = !!(document.doctype && document.doctype.name === 'html');
+
+        // document.write() usage in inline scripts
+        const inlineScripts = Array.from(document.querySelectorAll('script:not([src])'));
+        r.documentWriteCount = inlineScripts.filter(s => s.textContent.includes('document.write(')).length;
+
+        // Images without explicit width+height (CLS risk)
+        r.imagesWithoutDimensions = Array.from(document.querySelectorAll('img'))
+            .filter(img => {
+                const style = window.getComputedStyle(img);
+                const pos = style.position;
+                if (pos === 'absolute' || pos === 'fixed') return false;
+                const hasAttrs = img.hasAttribute('width') && img.hasAttribute('height');
+                const hasAspectRatio = style.aspectRatio && style.aspectRatio !== 'auto';
+                return !hasAttrs && !hasAspectRatio;
+            }).length;
+
+        // Paste-blocking password fields (inline handler only)
+        r.pasteBlockingPasswords = Array.from(document.querySelectorAll('input[type="password"]'))
+            .filter(inp => {
+                const attr = inp.getAttribute('onpaste') || '';
+                return attr.includes('return false') || attr.includes('preventDefault');
+            }).length;
+
+        // DOM size
+        r.domNodeCount = document.querySelectorAll('*').length;
+        let domMaxDepth = 0;
+        const domQueue = [[document.documentElement, 0]];
+        while (domQueue.length && domQueue.length < 50000) {
+            const [el, d] = domQueue.shift();
+            if (d > domMaxDepth) domMaxDepth = d;
+            for (const child of el.children) domQueue.push([child, d + 1]);
+        }
+        r.domMaxDepth = domMaxDepth;
+
         return JSON.stringify(r);
     })()
     "#;
@@ -241,6 +290,13 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.tables_without_headers = parsed["tablesWithoutHeaders"].as_u64().unwrap_or(0) as u32;
     a.empty_headings = parsed["emptyHeadings"].as_u64().unwrap_or(0) as u32;
     a.nested_interactive_count = parsed["nestedInteractive"].as_u64().unwrap_or(0) as u32;
+    a.has_doctype = parsed["hasDoctype"].as_bool().unwrap_or(false);
+    a.document_write_count = parsed["documentWriteCount"].as_u64().unwrap_or(0) as u32;
+    a.dom_node_count = parsed["domNodeCount"].as_u64().unwrap_or(0) as u32;
+    a.dom_max_depth = parsed["domMaxDepth"].as_u64().unwrap_or(0) as u32;
+    a.images_without_dimensions = parsed["imagesWithoutDimensions"].as_u64().unwrap_or(0) as u32;
+    a.paste_blocking_password_fields =
+        parsed["pasteBlockingPasswords"].as_u64().unwrap_or(0) as u32;
     a.html_issues = build_html_issues(a, &parsed);
 
     Ok(())
@@ -497,6 +553,68 @@ async fn check_www_consolidation(url: &str) -> Option<WwwConsolidation> {
 
 fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     let mut issues = Vec::new();
+
+    if !a.has_doctype && a.dom_node_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "missing_doctype".to_string(),
+            message: "Fehlende HTML5-Doctype-Deklaration — Browser rendert im Quirks-Mode"
+                .to_string(),
+            severity: "high".to_string(),
+        });
+    }
+
+    if a.document_write_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "document_write".to_string(),
+            message: format!(
+                "{} Inline-Script(s) verwenden document.write() — blockiert HTML-Parsing",
+                a.document_write_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.dom_node_count >= 1500 {
+        issues.push(PageHealthIssue {
+            issue_type: "excessive_dom".to_string(),
+            message: format!(
+                "DOM-Größe kritisch: {} Elemente (Empfehlung: <1500, max Tiefe: {})",
+                a.dom_node_count, a.dom_max_depth
+            ),
+            severity: "high".to_string(),
+        });
+    } else if a.dom_node_count >= 800 {
+        issues.push(PageHealthIssue {
+            issue_type: "large_dom".to_string(),
+            message: format!(
+                "DOM-Größe erhöht: {} Elemente (Empfehlung: <800, max Tiefe: {})",
+                a.dom_node_count, a.dom_max_depth
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.images_without_dimensions > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "images_without_dimensions".to_string(),
+            message: format!(
+                "{} <img>-Elemente ohne explizite width/height — CLS-Risiko",
+                a.images_without_dimensions
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.paste_blocking_password_fields > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "paste_blocked_password".to_string(),
+            message: format!(
+                "{} Passwortfeld(er) blockieren Einfügen (onpaste-Handler) — beeinträchtigt Passwort-Manager",
+                a.paste_blocking_password_fields
+            ),
+            severity: "medium".to_string(),
+        });
+    }
 
     if a.is_soft_404 {
         issues.push(PageHealthIssue {
