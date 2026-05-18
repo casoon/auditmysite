@@ -528,6 +528,7 @@ mod tests {
             audit_flags: vec![],
             has_screenshots: false,
             viewport_scores: None,
+            score_calculation_method: "module_weighted".to_string(),
             raw_performance: None,
             raw_performance_desktop: None,
             raw_seo: None,

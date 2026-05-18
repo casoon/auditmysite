@@ -92,6 +92,8 @@ pub struct PageEntry {
     pub nodes_analyzed: usize,
     pub duration_ms: u64,
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
+    /// How `overall_score` was computed: `"module_weighted"` or `"viewport_weighted"`.
+    pub score_calculation_method: String,
     pub risk: crate::audit::normalized::RiskAssessment,
     pub principle_coverage: crate::audit::PrincipleCoverage,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
@@ -359,6 +361,7 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
         module_scores: normalized.module_scores.clone(),
+        score_calculation_method: normalized.score_calculation_method.clone(),
         risk: normalized.risk.clone(),
         principle_coverage: normalized.principle_coverage.clone(),
         findings: normalized.findings.clone(),

@@ -62,7 +62,7 @@ src/
 ├── wcag/
 │   ├── engine.rs              # Rule-Dispatcher (check_all, RuleFilterConfig)
 │   ├── types.rs               # Violation, Severity, WcagResults, RuleMetadata
-│   └── rules/                 # 40+ WCAG-Regelimplementierungen (je eine Datei)
+│   └── rules/                 # 75+ WCAG-Regelimplementierungen (je eine Datei)
 │       ├── mod.rs             # Regel-Exports und Dispatcher-Registrierung
 │       ├── text_alternatives.rs   # 1.1.1
 │       ├── contrast.rs            # 1.4.3 (benötigt CDP)
@@ -491,9 +491,9 @@ Wichtige Varianten:
 
 ## Bewusste Designentscheidungen
 
-**Nur JSON und PDF als Output-Formate** — kein Output-Formatter-Trait, kein drittes Format geplant. Fokus auf wenige, hochwertige Ausgaben statt generischer Abstraktion.
+**Fünf Output-Formate, kein generischer Formatter-Trait** — `json`, `table`, `pdf`, `ai`, `summary`. JSON und PDF sind die primären Artefakt-Formate; `table` dient der Terminal-Ausgabe; `ai` liefert ein impact-sortiertes Task-JSON für LLM-Kontext; `summary` ein kompaktes Dashboard-JSON. Kein sechstes Format geplant.
 
-**renderreport als lokale Path-Dependency** — renderreport ist ein eigenständiges Projekt, bereits auf crates.io veröffentlicht. Die lokale Abhängigkeit ist Entwicklungsbequemlichkeit während beide Projekte parallel weiterentwickelt werden. Wird auf Registry-Version umgestellt sobald renderreport stabil ist.
+**renderreport als crates.io-Dependency** — renderreport ist ein eigenständiges Projekt, veröffentlicht auf crates.io (`version = "0.2.16"`). Niemals als Path-Dependency verwenden — das bricht CI. Neue Versionen werden über Git-Tag bezogen und in `Cargo.toml` eingetragen.
 
 **ViewModel ohne Logik** — `report_model.rs` enthält ausschließlich Datenstrukturen. Alle Berechnungen, Gruppierungen und Ableitungen finden im Builder statt. Der PDF-Renderer transformiert nur noch.
 

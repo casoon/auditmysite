@@ -205,13 +205,17 @@ pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
     Ok(if val > 0.0 { Some(val) } else { None })
 }
 
-/// Wait for LCP to be captured by the pre-injected observer.
+/// Wait for LCP and TBT to stabilize before reading vitals.
 ///
-/// LCP entries are dispatched asynchronously after `readyState=complete`. Without
-/// a settle period the observer's buffer is often empty when we call takeRecords().
-/// Polls `window.__ams_lcp` at 250 ms intervals for up to ~3 s after an initial
-/// 300 ms minimum wait — mirrors Lighthouse's idle-detection heuristic.
-async fn wait_for_lcp_stable(page: &Page) {
+/// **Phase 1 – LCP**: polls `window.__ams_lcp` every 250 ms (initial 300 ms wait,
+/// up to ~3 s) until an LCP entry is captured.
+///
+/// **Phase 2 – TBT settle**: JS bundles execute *after* LCP fires, so Long Tasks
+/// are not yet visible when LCP > 0. Polls `window.__ams_tbt` every 200 ms and
+/// breaks only when the value is stable for three consecutive reads (≥ 600 ms
+/// unchanged). Max 5 s — matches Lighthouse's quiet-window heuristic.
+async fn wait_for_vitals_stable(page: &Page) {
+    // Phase 1: wait for first LCP entry
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     for _ in 0..11u8 {
         let lcp = page
@@ -224,6 +228,33 @@ async fn wait_for_lcp_stable(page: &Page) {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+
+    // Phase 2: wait for TBT to stop growing (Long Tasks settle after LCP)
+    let mut last_tbt = -1.0_f64;
+    let mut stable_ticks: u8 = 0;
+    for _ in 0..25u8 {
+        // max 5 s (25 × 200 ms)
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        let tbt = page
+            .evaluate("window.__ams_tbt || 0")
+            .await
+            .ok()
+            .and_then(|r| r.value().and_then(|v| v.as_f64()))
+            .unwrap_or(0.0);
+        if (tbt - last_tbt).abs() < 1.0 {
+            stable_ticks += 1;
+            if stable_ticks >= 3 {
+                debug!(
+                    "TBT stable at {:.0}ms after {} settle ticks",
+                    tbt, stable_ticks
+                );
+                break;
+            }
+        } else {
+            stable_ticks = 0;
+        }
+        last_tbt = tbt;
     }
 }
 
@@ -238,7 +269,7 @@ async fn wait_for_lcp_stable(page: &Page) {
 pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     info!("Extracting Core Web Vitals...");
 
-    wait_for_lcp_stable(page).await;
+    wait_for_vitals_stable(page).await;
 
     let mut vitals = WebVitals::default();
 

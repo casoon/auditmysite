@@ -32,9 +32,9 @@ pub struct NormalizedReport {
 
     /// Korrigierter Score (nach Suppressions, gerundet)
     pub score: u32,
-    /// Grade aus korrigiertem Score
+    /// Grade aus overall_score (gewichteter Gesamtscore über alle aktiven Module)
     pub grade: String,
-    /// Certificate aus korrigiertem Score
+    /// Certificate aus korrigiertem Accessibility-Score
     pub certificate: String,
 
     /// Normalisierte, gruppierte Findings mit Taxonomie-Feldern
@@ -62,6 +62,9 @@ pub struct NormalizedReport {
     /// Per-viewport scores from dual-pass audit (70 % mobile / 30 % desktop).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<ViewportScores>,
+    /// How `overall_score` was computed: `"module_weighted"` (standard) or
+    /// `"viewport_weighted"` (dual-pass: 70 % mobile + 30 % desktop + 10 % security).
+    pub score_calculation_method: String,
 
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
@@ -427,7 +430,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     });
 
     let score = report.score.round() as u32;
-    let grade = AccessibilityScorer::calculate_grade(report.score).to_string();
+    let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
     let certificate = AccessibilityScorer::calculate_certificate(report.score).to_string();
 
     // Severity counts from normalized findings
@@ -461,7 +464,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     module_scores.push(ModuleScoreEntry {
         name: "Accessibility".to_string(),
         score,
-        grade: grade.clone(),
+        grade: accessibility_grade,
         weight_pct: 40,
         contributes_to_overall: true,
         measurement_type: "measured".to_string(),
@@ -575,15 +578,23 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     }
 
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
-    let overall_score = if let Some(ref vs) = report.viewport_scores {
-        // Blend in security (10 %) on top of the 70/30 viewport base
+    let (overall_score, score_calculation_method) = if let Some(ref vs) = report.viewport_scores {
+        // Blend in security (10 %) on top of the 70/30 viewport base.
+        // module_scores still reflect individual module quality but do NOT
+        // additively produce the overall_score — mark them accordingly.
+        for m in &mut module_scores {
+            m.contributes_to_overall = false;
+        }
         let mut weighted = vs.weighted_overall as f64 * 90.0;
         let mut total = 90.0;
         if let Some(ref security) = report.security {
             weighted += security.score as f64 * 10.0;
             total += 10.0;
         }
-        (weighted / total).round() as u32
+        (
+            (weighted / total).round() as u32,
+            "viewport_weighted".to_string(),
+        )
     } else {
         let contributing_modules = module_scores.iter().filter(|m| m.contributes_to_overall);
         let (weighted_sum, total_weight) =
@@ -594,8 +605,13 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 )
             });
 
-        (weighted_sum / total_weight).round() as u32
+        (
+            (weighted_sum / total_weight).round() as u32,
+            "module_weighted".to_string(),
+        )
     };
+
+    let grade = AccessibilityScorer::calculate_grade(overall_score as f32).to_string();
 
     let mut audit_flags = Vec::new();
     if seo_reports_lang && had_311 {
@@ -682,6 +698,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         audit_flags,
         has_screenshots: report.page_screenshots.is_some(),
         viewport_scores: report.viewport_scores.clone(),
+        score_calculation_method,
         raw_performance: report.performance.clone(),
         raw_performance_desktop: report
             .dual_viewport

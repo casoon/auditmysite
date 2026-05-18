@@ -117,15 +117,18 @@ fn calculate_seo_score(
 ) -> u32 {
     let mut score = 100u32;
 
-    // Meta tags (-5 to -20 per issue)
-    for issue in meta_issues {
-        score = score.saturating_sub(match issue.severity {
+    // Meta tags — cap total penalty at 20 to avoid collapse from many minor issues
+    let meta_penalty: u32 = meta_issues
+        .iter()
+        .map(|issue| match issue.severity {
             crate::taxonomy::Severity::Critical => 15,
             crate::taxonomy::Severity::High => 10,
             crate::taxonomy::Severity::Medium => 5,
             crate::taxonomy::Severity::Low => 2,
-        });
-    }
+        })
+        .sum::<u32>()
+        .min(20);
+    score = score.saturating_sub(meta_penalty);
 
     // Heading structure
     if headings.h1_count == 0 {
@@ -134,7 +137,9 @@ fn calculate_seo_score(
         score = score.saturating_sub(5);
     }
     if !headings.issues.is_empty() {
-        score = score.saturating_sub(headings.issues.len() as u32 * 3);
+        // Cap at 15 — reflects severity, not the count of repeated instances
+        let heading_penalty = (headings.issues.len() as u32 * 3).min(15);
+        score = score.saturating_sub(heading_penalty);
     }
 
     // Social tags
