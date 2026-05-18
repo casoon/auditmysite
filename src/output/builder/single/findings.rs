@@ -358,6 +358,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: None,
                 suggested_code: None,
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-2".into(),
@@ -384,6 +385,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: None,
                 suggested_code: None,
+                tags: vec![],
             },
         ];
 
@@ -421,6 +423,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: None,
                 suggested_code: None,
+                tags: vec![],
             },
         ];
 
@@ -441,6 +444,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: None,
                 suggested_code: None,
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-2".into(),
@@ -449,6 +453,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: None,
                 suggested_code: None,
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-3".into(),
@@ -457,6 +462,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: None,
                 suggested_code: None,
+                tags: vec![],
             },
         ];
 
