@@ -532,6 +532,7 @@ mod tests {
                 blocking_issues: 0,
                 summary: String::new(),
             },
+            principle_coverage: crate::audit::scoring::AccessibilityScorer::calculate_coverage(&[]),
             raw_ux: None,
             raw_journey: None,
             raw_dark_mode: None,

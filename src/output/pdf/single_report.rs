@@ -189,7 +189,7 @@ pub(super) fn render_tech_details(
 
     // WCAG Coverage (issue #37)
     if vm.meta.report_level != ReportLevel::Executive {
-        builder = render_wcag_coverage_section(builder, i18n);
+        builder = render_wcag_coverage_section(builder, report, i18n);
     }
 
     // Module Detail Metrics

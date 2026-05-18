@@ -1,8 +1,11 @@
 //! WCAG coverage section for PDF reports (issue #37).
 
-use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, SectionHeaderSplit};
+use renderreport::components::advanced::{
+    ChecklistPanel, ChecklistRow, KeyValueList, SectionHeaderSplit,
+};
 use renderreport::components::TagCloud;
 
+use crate::audit::{AccessibilityScorer, AuditReport, CoverageRatio};
 use crate::i18n::I18n;
 
 /// Render a WCAG coverage section (issue #37).
@@ -12,11 +15,35 @@ use crate::i18n::I18n;
 /// transparently so users avoid a false sense of security.
 pub(super) fn render_wcag_coverage_section(
     mut builder: renderreport::engine::ReportBuilder,
+    report: &AuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::wcag::coverage::{coverage_stats, AUTOMATED_CRITERIA, MANUAL_REVIEW_CRITERIA};
 
     let en = i18n.locale() == "en";
+
+    // Principle coverage — informative secondary indicator (#99).
+    let coverage = AccessibilityScorer::calculate_coverage(&report.wcag_results.violations);
+    let cov_title = if en {
+        "Principle coverage (criteria passed)"
+    } else {
+        "Prinzip-Abdeckung (bestandene Kriterien)"
+    };
+    let fmt_ratio =
+        |r: &CoverageRatio| format!("{}/{} ({:.0} %)", r.passed, r.total, r.ratio * 100.0);
+    let (p_perc, p_op, p_und, p_rob) = if en {
+        ("Perceivable", "Operable", "Understandable", "Robust")
+    } else {
+        ("Wahrnehmbar", "Bedienbar", "Verständlich", "Robust")
+    };
+    builder = builder.add_component(
+        KeyValueList::new()
+            .with_title(cov_title)
+            .add(p_perc, fmt_ratio(&coverage.perceivable))
+            .add(p_op, fmt_ratio(&coverage.operable))
+            .add(p_und, fmt_ratio(&coverage.understandable))
+            .add(p_rob, fmt_ratio(&coverage.robust)),
+    );
     let (automated, total) = coverage_stats();
     let title = if en { "Audit scope" } else { "Prüfumfang" };
     let intro = if en {

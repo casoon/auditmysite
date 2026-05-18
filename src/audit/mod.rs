@@ -36,4 +36,4 @@ pub use report::{
     AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
     CrawlDiagnostics, PerformanceResults, RedirectChain, ScreenshotStatus, ThrottledPerfResult,
 };
-pub use scoring::{AccessibilityScorer, ViolationStatistics};
+pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

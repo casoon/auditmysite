@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::audit::report::{AuditReport, PerformanceResults, ViewportScores};
-use crate::audit::scoring::AccessibilityScorer;
+use crate::audit::scoring::{AccessibilityScorer, PrincipleCoverage};
 use crate::cli::WcagLevel;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
@@ -49,6 +49,10 @@ pub struct NormalizedReport {
 
     /// Risk assessment — independent from score
     pub risk: RiskAssessment,
+    /// WCAG principle coverage — informative secondary indicator, does not
+    /// affect the numeric score.
+    #[serde(default)]
+    pub principle_coverage: PrincipleCoverage,
     /// Audit flags for noteworthy signal conflicts or caveats
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audit_flags: Vec<AuditFlag>,
@@ -674,6 +678,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         module_scores,
         overall_score,
         risk,
+        principle_coverage: AccessibilityScorer::calculate_coverage(violations),
         audit_flags,
         has_screenshots: report.page_screenshots.is_some(),
         viewport_scores: report.viewport_scores.clone(),
