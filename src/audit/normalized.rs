@@ -429,7 +429,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .then_with(|| b.severity.cmp(&a.severity))
     });
 
-    let score = report.score.round() as u32;
+    let score = report.score.round().max(1.0) as u32;
     let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
     let certificate = AccessibilityScorer::calculate_certificate(report.score).to_string();
 

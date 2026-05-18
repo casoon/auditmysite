@@ -287,12 +287,12 @@ pub async fn audit_page(
 
     let viewport_scores = ViewportScores {
         desktop: ViewportScoreSet {
-            accessibility: desktop_acc.round() as u32,
+            accessibility: desktop_acc.round().max(1.0) as u32,
             performance: desktop_perf_score,
             overall: desktop_overall,
         },
         mobile: ViewportScoreSet {
-            accessibility: mobile_acc.round() as u32,
+            accessibility: mobile_acc.round().max(1.0) as u32,
             performance: mobile_perf_score,
             overall: mobile_overall,
         },

@@ -145,6 +145,8 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
             const rect = el.getBoundingClientRect();
             // Skip elements that are fully hidden (behind hamburger, display:none, etc.)
             if (rect.width === 0 && rect.height === 0) return;
+            // Skip visually hidden elements (sr-only pattern: clipped to 1×1px)
+            if (rect.width <= 1 && rect.height <= 1) return;
             if (rect.width < 44 || rect.height < 44) {
                 result.touchTargets.small++;
                 // Classify context of small target
