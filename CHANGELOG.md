@@ -5,6 +5,268 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-05-18
+
+### Added
+- **Unified Report Envelope v2.0**: einheitliches JSON-Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`) — Breaking Change gegenüber v0.17
+- **WCAG-Prinzip-Coverage** als sekundärer Indikator: prozentualer Abdeckungsgrad nach WCAG-Prinzip (Wahrnehmbar, Bedienbar, Verständlich, Robust)
+- **Depth-Saturation Scoring**: Zwei-Phasen-Sättigungskurve, Diversity-Faktor, Soft Floor — verhindert Score-Inflation bei wenig geprüften Regeln
+
+### Fixed
+- Visually-hidden-Erkennung, echte Fokus-Erreichbarkeit, lokalisierbare Selektoren in WCAG-Regeln
+
+---
+
+## [0.17.0] - 2026-05-17
+
+### Added
+- **17 neue WCAG AAA Regeln** (Issues #84–#89): vollständige AAA-Abdeckung (70+ Regeln gesamt)
+
+---
+
+## [0.16.0] - 2026-05-16
+
+### Added
+- 20 Unit-Tests für AI-Visibility-Module (knowledge_graph, readability, citation, chunks)
+
+### Changed
+- **PDF-Modularisierung**: `pdf/mod.rs` von 1976 auf 460 LOC reduziert — 6 separate Module extrahiert
+
+### Removed
+- 14 tote `dead_code`-Suppressionen — unbenutzte Felder, Funktionen und Konstanten entfernt
+
+---
+
+## [0.15.0] - 2026-05-16
+
+### Added
+- **axe_id-Feld** in `Rule` und `NormalizedFinding` (JSON) für Pa11y/axe-core-Vergleich
+- **Topical Authority Signals** im SEO-Modul
+- **Browser Integration Tests** (E2E mit Chrome)
+- Snapshot-Tests als Regressionsnetz vor weiteren Refactorings
+
+### Fixed
+- Kontrast-Erkennung, aria-hidden-focus-Regel, pa11y-Vergleich
+
+---
+
+## [0.14.0] - 2026-05-14
+
+### Added
+- **Throttled Performance PDF-Sektion**: Desktop- und Mobile-Vitals getrennt dargestellt
+- Heuristische Modul-Markierungen in JSON und PDF
+
+### Fixed
+- JSON-Vollständigkeit, History-Datei-Bug, leere Seite nach Inhaltsverzeichnis im PDF
+
+---
+
+## [0.13.0] - 2026-05-14
+
+### Fixed
+- Security-Header-Bereinigung, Occurrence-Deduplizierung, Content-Weight-Berechnung, Dark-Mode-Konsistenz
+
+---
+
+## [0.12.3] - 2026-05-14
+
+### Fixed
+- Sitemap-Prompt-Sichtbarkeit und Terminal-Detection für interaktiven Select-Dialog
+
+---
+
+## [0.12.2] - 2026-05-14
+
+### Changed
+- **CLI-Orchestrierung** aus `main.rs` in `src/cli/`-Unterverzeichnis ausgelagert (runners, commands, report_writers, output_paths, plan, sitemap_suggest)
+- Schema-Vertrag und Modul-Gewichtungs-Semantik formalisiert
+
+---
+
+## [0.12.0] - 2026-05-14
+
+### Added
+- **Content-Visibility-Kapitel** im PDF-Report
+- Manual-Review TagCloud für WCAG-Kriterien
+
+### Fixed
+- False Positives in ARIA-Rollen, Landmark-Regeln und aria-controls-Erkennung reduziert
+
+---
+
+## [0.11.9] - 2026-05-14
+
+### Added
+- **Unified Assessment Types** (`src/assessment/`): Issues #51, #52, #54 — einheitliches Typ-System, Evidence-Model, Content-Visibility-Builder
+- Testabdeckung: ViolationEvidence, content_visibility, From-Konversionen
+
+---
+
+## [0.11.4] - 2026-05-13
+
+### Fixed
+- PDF-Severity-Counts nach Visibility-Filter (Zählung stimmte nicht mit angezeigten Findings überein)
+
+---
+
+## [0.11.3] - 2026-05-13
+
+### Added
+- `--format summary` für Ranking-Dashboard-Export (kompakter Score-Überblick aller URLs)
+
+---
+
+## [0.11.2] - 2026-05-13
+
+### Fixed
+- Unbekannte Taxonomy-Rule-IDs für WCAG 1.4.1, 1.4.13, 2.3.3
+
+---
+
+## [0.11.1] - 2026-05-13
+
+### Changed
+- Batch-Builder, CLI-Output, PDF und Tests überarbeitet und konsistent gemacht
+
+---
+
+## [0.11.0] - 2026-05-13
+
+### Added
+- **CDN/WAF-Erkennung** aus Response-Headern (Security-Modul)
+
+### Fixed
+- TLS-Resets von Cloudflare toleriert; `Sec-CH-UA`-Header entfernt (Bot-Detection-Reduzierung)
+
+---
+
+## [0.10.9–0.10.4] - 2026-05-11/12
+
+### Added
+- **Tech Stack im PDF-Report**: CMS/Framework-Erkennung in eigenem PDF-Abschnitt
+- **URL-Matrix-Tabelle** in Batch- und Single-Page-Reports
+
+### Fixed
+- PDF-Layout (Seitenumbrüche, Orphan-Schutz via renderreport 0.2.13–0.2.15)
+- `www`-Subdomains-Guard bei Domain-Checks
+- hreflang-Behandlung für einsprachige Sites
+
+---
+
+## [0.10.1] - 2026-05-11
+
+### Added
+- **Desktop/Mobile Performance-Split**: getrennte Vitals-Sektionen für beide Viewports
+- **Sample-Scan** (20 Seiten) als dritte Sitemap-Option
+- **WCAG-Coverage TagCloud**: automatisch geprüfte Kriterien visuell dargestellt
+
+---
+
+## [0.10.0] - 2026-05-11
+
+### Added
+- **WCAG-Regelexpansion**: zahlreiche neue Regeln, `NotTestable`-Findings für manuelle Kriterien (#48), `FindingKind`-Konfidenz-Level (#36)
+- **Pattern Detection**: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList
+- **axe-core Vergleichsskript** (`scripts/axe-compare`) für Cross-Tool-Vergleich (#50)
+- **SERP-Pass**: Aggregationsschicht über SEO-Signale
+- **Page Health**: W3C Nu HTML Validator + 9 weitere Signale
+- Schema-Typ-Verteilung im Batch-Report
+
+---
+
+## [0.9.22–0.9.29] - 2026-05-08/10
+
+### Added
+- **Desktop/Mobile-Screenshot-Preview** auf der PDF-Titelseite
+- **Dual-Viewport Dark-Mode-Scoring**: Desktop + Mobile mit 70/30-Gewichtung
+- `ReportModule`-Trait für JSON/PDF-Parität
+
+### Changed
+- **i18n-Vollständigkeit**: alle PDF-Texte auf Deutsch, mehrsprachige generische Link-Phrasen (14 Sprachen)
+- Executive-Abschnitt im PDF gestrafft, CLI-Sprache auf Englisch vereinheitlicht
+
+### Fixed
+- Dark-Mode-Kontraststrafe begrenzt (verhindert Score-Kollaps auf 0)
+- Performance-Metriken: Lighthouse-style pre-navigation, LCP-Observer-Wartezeit, INP durch TBT ersetzt
+
+---
+
+## [0.9.12] - 2026-04-22
+
+### Added
+- **PDF-Report-Redesign**: neue Modulabschnitte, Section-Akzente, kompaktere Struktur
+
+---
+
+## [0.9.6–0.9.11] - 2026-04-17/22
+
+### Added
+- **SERP-Aggregationsschicht** über SEO-Signale
+- **W3C Nu HTML Validator** im Page-Health-Modul
+
+### Fixed
+- ARIA-Rollen und Landmark-Regeln: False Positives reduziert
+- CLS-Messung via PerformanceObserver (erfasst Post-Load-Shifts)
+
+---
+
+## [0.9.0–0.9.5] - 2026-04-09/16
+
+### Added
+- **AI-Visibility-Modul** (`src/ai_visibility/`): Chunks, Knowledge Graph, Readability, Citations
+- Gewichtungsanzeige auf 100% normalisiert (war 125% bei 7 Modulen)
+
+### Fixed
+- Score-Gewichtung, Seitentyp-Konflikt, robots.txt-KI-Training-Block kein Fehler mehr
+
+---
+
+## [0.8.3–0.8.9] - 2026-04-06/09
+
+### Added
+- **Source Quality-Modul** (`src/source_quality/`): Header-Signale, Schema, HTTPS
+- **Executive Narrative**, Confidence Matrix, AuditFlags, Batch-Normalisierung
+
+### Fixed
+- Batch-Report-Dateiname mit Domain und Datum
+- UTF-8-Truncate-Panics bei Multibyte-Zeichen
+
+---
+
+## [0.8.0–0.8.2] - 2026-04-05
+
+### Added
+- **Studio-Vertrag** (`src/studio/`): Shared Types und JSON-Schema für GUI-Anbindung
+- **PDF-Report-Redesign**: 6-Seiten-Struktur nach 9-Punkte-Review
+
+### Changed
+- renderreport auf crates.io 0.2.3 umgestellt (zuvor lokale Path-Dep)
+
+---
+
+## [0.7.0] - 2026-04-05
+
+### Added
+- **UX-Modul** (`src/ux/`): 5 Dimensionen, Sättigungskurven, PDF/JSON-Integration
+- **Journey-Modul** (`src/journey/`): Seitentyp-Erkennung, Friction-Points, 5 Dimensionen
+- **Score ≠ Risk**: unabhängige Risikobewertung neben dem Accessibility-Score
+- 21 neue WCAG-Regeln
+
+### Changed
+- renderreport 0.2.2: neue PDF-Komponenten, Section-Akzente, Orphan-Schutz
+
+---
+
+## [0.6.1–0.6.3] - 2026-04-02/03
+
+### Added
+- `--format ai` Output-Format für AI-lesbare Ausgabe (0.6.3)
+
+### Fixed
+- Binary-Umbenennung in Release-Workflow, Clippy/fmt-Fehler (0.6.1/0.6.2)
+
+---
+
 ## [0.6.0] - 2026-04-02
 
 ### Added

@@ -4,7 +4,7 @@ Technische Struktur und Designentscheidungen des Projekts.
 
 **Sprache:** Rust (async, tokio)
 **Größe:** ~45.000 Zeilen Rust, 100+ Module
-**Version:** 0.12.3
+**Version:** 0.19.0
 
 ---
 
