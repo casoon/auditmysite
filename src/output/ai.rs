@@ -33,6 +33,8 @@ pub struct AiTask {
     pub selector: String,
     pub node_id: String,
     pub help_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html_snippet: Option<String>,
 }
 
 /// Violation summary counts broken down by impact level.
@@ -72,18 +74,26 @@ pub fn format_ai_json(report: &AuditReport) -> String {
     let normalized = normalize(report);
     let violations = &report.wcag_results.violations;
 
-    // Build tasks, then sort by impact severity
+    // Build tasks, then sort by impact severity.
+    // task_id is numbered per rule_id (a stable, rule-local sequence) rather
+    // than by position in the unsorted violation list.
+    let mut per_rule_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut tasks: Vec<AiTask> = violations
         .iter()
-        .enumerate()
-        .map(|(idx, v)| {
+        .map(|v| {
             let rule_id = v.rule_id.clone().unwrap_or_else(|| v.rule.clone());
             let impact = v
                 .impact
                 .clone()
                 .unwrap_or_else(|| v.impact_str().to_string());
+            let seq = {
+                let c = per_rule_counts.entry(rule_id.clone()).or_insert(0);
+                *c += 1;
+                *c
+            };
             AiTask {
-                task_id: format!("{}-{:03}", rule_id, idx + 1),
+                task_id: format!("{}-{:03}", rule_id, seq),
                 rule_id,
                 impact,
                 wcag: v.rule.clone(),
@@ -94,6 +104,7 @@ pub fn format_ai_json(report: &AuditReport) -> String {
                 selector: v.selector.clone().unwrap_or_default(),
                 node_id: v.node_id.clone(),
                 help_url: v.help_url.clone().unwrap_or_default(),
+                html_snippet: v.html_snippet.clone(),
             }
         })
         .collect();

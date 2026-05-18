@@ -78,6 +78,74 @@ impl ComputedStyles {
     }
 }
 
+/// Body of the style-extraction script (wrapped in an IIFE at call time,
+/// after the shared `__amsCssSelector` / `__amsIsVisuallyHidden` helpers).
+const STYLES_EXTRACT_JS: &str = r#"
+    function getEffectiveBackgroundColor(el) {
+        let current = el;
+        while (current && current !== document.documentElement) {
+            const bg = window.getComputedStyle(current).backgroundColor;
+            if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+                const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (match) {
+                    const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
+                    if (alpha > 0) return bg;
+                } else {
+                    return bg;
+                }
+            }
+            current = current.parentElement;
+        }
+        const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
+        if (htmlBg && htmlBg !== 'transparent' && htmlBg !== 'rgba(0, 0, 0, 0)') return htmlBg;
+        return 'rgb(255, 255, 255)';
+    }
+
+    const selectors = ['p', 'span', 'div', 'a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'label', 'strong', 'em'];
+    const results = [];
+    const seen = new Set();
+
+    selectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach((el, idx) => {
+            if (seen.has(el)) return;
+            seen.add(el);
+
+            // Skip elements hidden from assistive technology (self or ancestor)
+            if (el.closest('[aria-hidden="true"]') !== null) return;
+
+            // Skip visually-hidden / .sr-only text — WCAG 1.4.3 does not apply
+            if (__amsIsVisuallyHidden(el)) return;
+
+            let hasDirectText = false;
+            for (const child of el.childNodes) {
+                if (child.nodeType === 3 && child.textContent.trim().length > 0) {
+                    hasDirectText = true;
+                    break;
+                }
+            }
+            if (!hasDirectText) return;
+
+            const styles = window.getComputedStyle(el);
+            if (styles.display === 'none' || styles.visibility === 'hidden') return;
+
+            results.push({
+                cssPath: __amsCssSelector(el),
+                snippet: el.outerHTML.substring(0, 200),
+                index: idx,
+                color: styles.color,
+                backgroundColor: getEffectiveBackgroundColor(el),
+                fontSize: styles.fontSize,
+                fontWeight: styles.fontWeight,
+                visibility: styles.visibility,
+                display: styles.display
+            });
+        });
+    });
+
+    return results;
+"#;
+
 /// Extract computed styles for text elements using JavaScript evaluation
 ///
 /// This function uses JavaScript to extract computed styles directly from the DOM,
@@ -85,90 +153,19 @@ impl ComputedStyles {
 pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
     info!("Extracting computed styles via JavaScript...");
 
-    // Use JavaScript to extract styles for all text elements
-    let js_code = r#"
-    (() => {
-        function getEffectiveBackgroundColor(el) {
-            let current = el;
-            while (current && current !== document.documentElement) {
-                const bg = window.getComputedStyle(current).backgroundColor;
-                if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
-                    const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-                    if (match) {
-                        const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
-                        if (alpha > 0) return bg;
-                    } else {
-                        return bg;
-                    }
-                }
-                current = current.parentElement;
-            }
-            const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
-            if (htmlBg && htmlBg !== 'transparent' && htmlBg !== 'rgba(0, 0, 0, 0)') return htmlBg;
-            return 'rgb(255, 255, 255)';
-        }
+    // Use JavaScript to extract styles for all text elements.
+    // Shared CSS-path and visually-hidden helpers are prepended so this rule
+    // uses the same heuristics as the other in-page WCAG checks.
+    let js_code = [
+        "(() => {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        crate::accessibility::js_helpers::IS_VISUALLY_HIDDEN_JS,
+        STYLES_EXTRACT_JS,
+        "})();",
+    ]
+    .concat();
 
-        function getCssPath(el) {
-            if (el.id) return '#' + el.id;
-            const parts = [];
-            let current = el;
-            while (current && current.tagName && current !== document.body) {
-                let part = current.tagName.toLowerCase();
-                if (current.id) { parts.unshift('#' + current.id); break; }
-                const cls = Array.from(current.classList)
-                    .filter(c => c.length > 0 && c.length < 30)
-                    .slice(0, 2).join('.');
-                if (cls) part += '.' + cls;
-                parts.unshift(part);
-                current = current.parentElement;
-            }
-            return parts.slice(-3).join(' > ');
-        }
-
-        const selectors = ['p', 'span', 'div', 'a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'label', 'strong', 'em'];
-        const results = [];
-        const seen = new Set();
-
-        selectors.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach((el, idx) => {
-                if (seen.has(el)) return;
-                seen.add(el);
-
-                // Skip elements hidden from assistive technology (self or ancestor)
-                if (el.closest('[aria-hidden="true"]') !== null) return;
-
-                let hasDirectText = false;
-                for (const child of el.childNodes) {
-                    if (child.nodeType === 3 && child.textContent.trim().length > 0) {
-                        hasDirectText = true;
-                        break;
-                    }
-                }
-                if (!hasDirectText) return;
-
-                const styles = window.getComputedStyle(el);
-                if (styles.display === 'none' || styles.visibility === 'hidden') return;
-
-                results.push({
-                    cssPath: getCssPath(el),
-                    snippet: el.outerHTML.substring(0, 200),
-                    index: idx,
-                    color: styles.color,
-                    backgroundColor: getEffectiveBackgroundColor(el),
-                    fontSize: styles.fontSize,
-                    fontWeight: styles.fontWeight,
-                    visibility: styles.visibility,
-                    display: styles.display
-                });
-            });
-        });
-
-        return results;
-    })();
-    "#;
-
-    let eval_result = page.evaluate(js_code).await;
+    let eval_result = page.evaluate(js_code.as_str()).await;
 
     let styles_vec: Vec<ComputedStyles> = match eval_result {
         Ok(result) => {

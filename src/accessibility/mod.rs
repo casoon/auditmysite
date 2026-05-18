@@ -5,6 +5,7 @@
 pub(crate) mod code_gen;
 mod enrichment;
 mod extractor;
+pub(crate) mod js_helpers;
 mod styles;
 mod tree;
 
