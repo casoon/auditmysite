@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-05-18
+
+### Removed
+- `ChromiumInstaller` struct entfernt — war interner Wrapper für den Auto-Download-Fallback
+- Auto-Download-Fallback in `BrowserManager::with_options()` entfernt: kein stilles Herunterladen von Chrome mehr, wenn kein System-Browser gefunden wird; `resolve_browser()` schlägt jetzt direkt mit `ChromeNotFound` fehl
+- `pub use installer::ChromiumInstaller` aus `browser/mod.rs` entfernt
+
+`BrowserInstaller` und `auditmysite browser install` bleiben unverändert — explizites Opt-in für Nutzer ohne System-Chrome.
+
+---
+
 ## [0.19.0] - 2026-05-18
 
 ### Added
