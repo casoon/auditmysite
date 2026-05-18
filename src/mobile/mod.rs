@@ -407,6 +407,14 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         } else {
             String::new()
         };
+        // Severity scales with violation count so fewer violations incur a smaller penalty
+        let severity = if small_targets >= 20 {
+            Severity::High
+        } else if small_targets >= 5 {
+            Severity::Medium
+        } else {
+            Severity::Low
+        };
         issues.push(MobileIssue {
             category: "touch_targets".to_string(),
             issue_type: "small_targets".to_string(),
@@ -414,7 +422,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 "{} touch targets are too small (<44x44px){}{}",
                 small_targets, context_detail, sample_detail
             ),
-            severity: Severity::Medium,
+            severity,
             impact: "Difficult to tap on mobile devices".to_string(),
         });
     }

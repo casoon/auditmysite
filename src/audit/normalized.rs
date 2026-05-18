@@ -202,6 +202,9 @@ pub struct OccurrenceDetail {
     /// Concrete code fix — the corrected HTML
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggested_code: Option<String>,
+    /// Viewport tags, e.g. "mobile-only", "desktop-only", "both-viewports"
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
 }
 
 /// Score-Eintrag pro Modul
@@ -392,6 +395,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     fix_suggestion: v.fix_suggestion.clone(),
                     html_snippet: v.html_snippet.clone(),
                     suggested_code: v.suggested_code.clone(),
+                    tags: v.tags.clone(),
                 })
                 .collect();
             let axe_id = taxonomy_rule.and_then(|r| r.axe_id).map(String::from);
@@ -420,6 +424,67 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             }
         })
         .collect();
+
+    // Aggregate SEO heading issues into findings
+    if let Some(seo) = &report.seo {
+        let mut heading_groups: HashMap<&str, Vec<&crate::seo::HeadingIssue>> = HashMap::new();
+        for issue in &seo.headings.issues {
+            heading_groups
+                .entry(&issue.issue_type)
+                .or_default()
+                .push(issue);
+        }
+        for (issue_type, issues) in heading_groups {
+            let first = issues[0];
+            let occurrence_count = issues.len();
+            let rule_id = format!("seo.headings.{}", issue_type);
+            let title = match issue_type {
+                "long_heading" => "Überschrift zu lang".to_string(),
+                "missing_h1" => "Fehlende H1-Überschrift".to_string(),
+                "multiple_h1" => "Mehrere H1-Überschriften".to_string(),
+                "skipped_level" => "Übersprungene Überschriftenebene".to_string(),
+                "empty_heading" => "Leere Überschrift".to_string(),
+                other => other.replace('_', " "),
+            };
+            let priority_score =
+                calculate_priority_score(first.severity, occurrence_count, &rule_id);
+            findings.push(NormalizedFinding {
+                rule_id: rule_id.clone(),
+                wcag_criterion: String::new(),
+                axe_id: None,
+                wcag_level: String::new(),
+                dimension: "SEO".to_string(),
+                subcategory: "Content".to_string(),
+                issue_class: "issue".to_string(),
+                severity: first.severity,
+                user_impact: String::new(),
+                technical_impact: first.message.clone(),
+                score_impact: ScoreImpactData {
+                    base_penalty: 0.0,
+                    max_penalty: 0.0,
+                    scaling: "none".to_string(),
+                },
+                report_visibility: ReportVisibilityData::default(),
+                aggregation_key: rule_id,
+                title,
+                description: first.message.clone(),
+                occurrence_count,
+                priority_score,
+                occurrences: issues
+                    .iter()
+                    .map(|i| OccurrenceDetail {
+                        node_id: i.issue_type.clone(),
+                        message: i.message.clone(),
+                        selector: None,
+                        fix_suggestion: None,
+                        html_snippet: None,
+                        suggested_code: None,
+                        tags: vec!["seo".to_string()],
+                    })
+                    .collect(),
+            });
+        }
+    }
 
     // Sort by priority score (highest first), then by severity
     findings.sort_by(|a, b| {
@@ -581,9 +646,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let (overall_score, score_calculation_method) = if let Some(ref vs) = report.viewport_scores {
         // Blend in security (10 %) on top of the 70/30 viewport base.
         // module_scores still reflect individual module quality but do NOT
-        // additively produce the overall_score — mark them accordingly.
+        // additively produce the overall_score — mark them accordingly
+        // and clear weight_pct to avoid implying a weighted-average model.
         for m in &mut module_scores {
             m.contributes_to_overall = false;
+            m.weight_pct = 0;
         }
         let mut weighted = vs.weighted_overall as f64 * 90.0;
         let mut total = 90.0;
