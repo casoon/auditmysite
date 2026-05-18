@@ -28,18 +28,40 @@ pub struct ScoreImpact {
     pub occurrence_scaling: Scaling,
 }
 
+/// Sättigungsschwelle: ab so vielen Vorkommen greift Phase-2-Scaling.
+pub const SATURATION_THRESHOLD: usize = 10;
+
+/// Phase-2-Uplift pro zusätzlichem Vorkommen, als Anteil des `base_penalty`.
+///
+/// Niedrig genug gewählt, dass auch hohe Occurrence-Counts (50, 200) unterhalb
+/// des `2 × max_penalty`-Caps strikt wachsende Penalties ergeben statt
+/// gemeinsam zu saturieren.
+const PHASE2_RATE: f32 = 0.05;
+
 impl ScoreImpact {
-    /// Berechne den tatsächlichen Abzug für n Vorkommen
+    /// Berechne den tatsächlichen Abzug für n Vorkommen.
+    ///
+    /// Logarithmische Regeln nutzen Zwei-Phasen-Scaling: bis zur
+    /// `SATURATION_THRESHOLD` logarithmisch (gedeckelt auf `max_penalty`),
+    /// darüber ein langsamer linearer Uplift. So unterscheidet sich eine
+    /// Seite mit 200 fehlenden Alt-Texten von einer mit 10 — ohne dass
+    /// Ergebnisse für 1–10 Vorkommen sich ändern.
     pub fn calculate_penalty(&self, occurrences: usize) -> f32 {
         if occurrences == 0 {
             return 0.0;
         }
-        let raw = match self.occurrence_scaling {
-            Scaling::Fixed => self.base_penalty,
-            Scaling::Linear => occurrences as f32 * self.base_penalty,
-            Scaling::Logarithmic => self.base_penalty * (1.0 + (occurrences as f32).ln()),
-        };
-        raw.min(self.max_penalty)
+        match self.occurrence_scaling {
+            Scaling::Fixed => self.base_penalty.min(self.max_penalty),
+            Scaling::Linear => (occurrences as f32 * self.base_penalty).min(self.max_penalty),
+            Scaling::Logarithmic => {
+                let phase1_count = occurrences.min(SATURATION_THRESHOLD);
+                let phase2_count = occurrences.saturating_sub(SATURATION_THRESHOLD);
+                let phase1 =
+                    (self.base_penalty * (1.0 + (phase1_count as f32).ln())).min(self.max_penalty);
+                let phase2 = phase2_count as f32 * self.base_penalty * PHASE2_RATE;
+                (phase1 + phase2).min(self.max_penalty * 2.0)
+            }
+        }
     }
 }
 
@@ -133,6 +155,27 @@ mod tests {
         assert!(p1 < p3);
         assert!(p3 < p10);
         assert!(p10 <= 15.0);
+    }
+
+    #[test]
+    fn test_depth_saturation_phase2() {
+        // Rule 1.1.1: base=3.0, max=10.0, Logarithmic
+        let impact = ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        };
+        let p10 = impact.calculate_penalty(10);
+        let p50 = impact.calculate_penalty(50);
+        let p200 = impact.calculate_penalty(200);
+
+        // Phase-2-Uplift: höhere Occurrence-Counts ergeben strikt höhere Penalty
+        assert!(p50 > p10, "p50={} should exceed p10={}", p50, p10);
+        assert!(p200 > p50, "p200={} should exceed p50={}", p200, p50);
+        // Erweiterter Cap: nie über 2 × max_penalty
+        assert!(p200 <= 20.0, "p200={} should not exceed 2×max", p200);
+        // Vorkommen 1–10 unverändert (Phase 2 inaktiv)
+        assert!((impact.calculate_penalty(2) - 3.0 * (1.0 + 2.0_f32.ln())).abs() < 0.01);
     }
 
     #[test]

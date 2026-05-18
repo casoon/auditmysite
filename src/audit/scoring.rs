@@ -1,10 +1,37 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::taxonomy::{RuleLookup, Scaling, ScoreImpact};
+use crate::taxonomy::{criterion_for_rule, RuleLookup, Scaling, ScoreImpact};
 use crate::wcag::types::{Severity, Violation};
 
 /// Calculates accessibility scores and grades based on WCAG violations
 pub struct AccessibilityScorer;
+
+/// Below this raw score the hard `clamp(0)` is replaced by an asymptotic
+/// curve, so that semantically different catastrophic states (score 0 vs 5)
+/// remain distinguishable instead of collapsing onto a single value.
+const SOFT_FLOOR_START: f32 = 15.0;
+
+/// Diversity factor for `unique_criteria` violated WCAG success criteria.
+///
+/// A focused failure (≤3 criteria) gets no surcharge; broad, systemic
+/// failure is penalised, with logarithmic — bounded — growth.
+fn diversity_factor(unique_criteria: usize) -> f32 {
+    if unique_criteria <= 3 {
+        1.0
+    } else {
+        (1.0 + 0.15 * (1.0 + (unique_criteria as f32 / 5.0).ln())).min(1.5)
+    }
+}
+
+/// Soft floor: above `SOFT_FLOOR_START` the raw score passes through
+/// unchanged; below it, an exponential curve approaches zero asymptotically.
+fn apply_soft_floor(raw_score: f32) -> f32 {
+    if raw_score >= SOFT_FLOOR_START {
+        raw_score
+    } else {
+        SOFT_FLOOR_START * ((raw_score - SOFT_FLOOR_START) / 8.0).exp()
+    }
+}
 
 /// Default penalty for rules not found in the taxonomy registry
 fn default_impact(severity: Severity) -> ScoreImpact {
@@ -65,7 +92,17 @@ impl AccessibilityScorer {
             total_penalty += impact.calculate_penalty(*count);
         }
 
-        let raw_score = (100.0 - total_penalty).clamp(0.0, 100.0);
+        // Diversity factor: failing many distinct WCAG criteria is a broader,
+        // more systemic problem than failing one criterion repeatedly.
+        let unique_criteria: HashSet<String> = rule_counts
+            .keys()
+            .map(|rule_id| criterion_for_rule(rule_id).unwrap_or_else(|| (*rule_id).to_string()))
+            .collect();
+        total_penalty *= diversity_factor(unique_criteria.len());
+
+        // Soft floor instead of a hard clamp(0): keeps the 1–15 band usable
+        // for distinguishing degrees of catastrophic failure.
+        let raw_score = apply_soft_floor(100.0 - total_penalty).min(100.0);
 
         // Semantic score cap: a site with open critical/high issues cannot be
         // reported as near-perfect even if penalties are individually small.
@@ -283,12 +320,81 @@ mod tests {
         }
 
         let score = AccessibilityScorer::calculate_score(&violations);
-        assert_eq!(score, 0.0);
+        // Soft floor: catastrophic failure approaches 0 asymptotically rather
+        // than hard-clamping, but stays well below 2.0.
+        assert!(score < 2.0, "score was {}", score);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "F");
         assert_eq!(
             AccessibilityScorer::calculate_certificate(score),
             "UNGENÜGEND"
         );
+    }
+
+    #[test]
+    fn test_diversity_penalises_breadth() {
+        use crate::cli::WcagLevel;
+
+        // 5× the same High violation — a focused failure.
+        let same: Vec<Violation> = (0..5)
+            .map(|i| {
+                Violation::new(
+                    "1.1.1",
+                    "Non-text Content",
+                    WcagLevel::A,
+                    Severity::High,
+                    "Image missing alt",
+                    format!("n{}", i),
+                )
+            })
+            .collect();
+
+        // 5 distinct High violations — a broader failure.
+        let diverse_rules = [
+            ("1.1.1", "Non-text Content"),
+            ("1.3.1", "Info and Relationships"),
+            ("2.4.3", "Focus Order"),
+            ("3.3.2", "Labels"),
+            ("1.4.4", "Resize Text"),
+        ];
+        let diverse: Vec<Violation> = diverse_rules
+            .iter()
+            .map(|(rule, name)| {
+                Violation::new(*rule, *name, WcagLevel::A, Severity::High, "Error", "node")
+            })
+            .collect();
+
+        let score_same = AccessibilityScorer::calculate_score(&same);
+        let score_diverse = AccessibilityScorer::calculate_score(&diverse);
+        assert!(
+            score_diverse < score_same,
+            "diverse {} should score lower than same {}",
+            score_diverse,
+            score_same
+        );
+    }
+
+    #[test]
+    fn test_diversity_factor_growth() {
+        // ≤3 criteria: no surcharge.
+        assert_eq!(diversity_factor(1), 1.0);
+        assert_eq!(diversity_factor(3), 1.0);
+        // Logarithmic, bounded growth.
+        assert!(diversity_factor(5) > 1.0);
+        assert!(diversity_factor(20) > diversity_factor(5));
+        assert!(diversity_factor(40) <= 1.5);
+    }
+
+    #[test]
+    fn test_soft_floor_curve() {
+        // Above the floor start: unchanged.
+        assert_eq!(apply_soft_floor(20.0), 20.0);
+        assert_eq!(apply_soft_floor(50.0), 50.0);
+        // Below: approaches 0 but never hard-clamps to it.
+        assert!(apply_soft_floor(0.0) > 0.0);
+        assert!(apply_soft_floor(-30.0) > 0.0);
+        assert!(apply_soft_floor(-30.0) < apply_soft_floor(0.0));
+        // Catastrophic penalties drop below 1.0.
+        assert!(apply_soft_floor(-60.0) < 1.0);
     }
 
     #[test]
