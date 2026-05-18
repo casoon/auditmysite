@@ -108,6 +108,23 @@ pub struct PageHealthAnalysis {
     pub dns_prefetch_hints: u32,
     /// Preload hints that don't match any loaded resource (orphaned)
     pub orphaned_preload_count: u32,
+    /// True when the main page response is compressed (gzip/br/zstd)
+    pub has_compression: bool,
+    /// Raw Cache-Control header value from the main page response
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<String>,
+    /// True when Cache-Control includes a positive max-age or s-maxage
+    pub has_efficient_cache: bool,
+    /// Number of Server-Timing header entries on the main page response
+    pub server_timing_count: u32,
+    /// hreflang link elements present (count of rel="alternate" hreflang)
+    pub hreflang_count: u32,
+    /// hreflang entries with invalid language codes
+    pub hreflang_invalid_count: u32,
+    /// JSON-LD blocks found on the page
+    pub jsonld_count: u32,
+    /// JSON-LD blocks that are missing @context or @type (invalid)
+    pub jsonld_invalid_count: u32,
     /// LCP image candidate (largest visible img) lacks a preload hint
     pub lcp_image_without_preload: bool,
     /// URL of the heuristic LCP image candidate
@@ -396,6 +413,22 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         const inlineText = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent).join('\n');
         r.deprecatedApiCount = DEPRECATED.filter(p => inlineText.includes(p)).length;
 
+        // Hreflang validation
+        const hreflangLinks = Array.from(document.querySelectorAll('link[rel="alternate"][hreflang]'));
+        r.hreflangCount = hreflangLinks.length;
+        const langPattern = /^[a-z]{2,3}(-[A-Z]{2})?$|^x-default$/;
+        r.hreflangInvalidCount = hreflangLinks.filter(l => !langPattern.test(l.getAttribute('hreflang') || '')).length;
+
+        // JSON-LD validation
+        const jsonldBlocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+        r.jsonldCount = jsonldBlocks.length;
+        r.jsonldInvalidCount = jsonldBlocks.filter(s => {
+            try {
+                const data = JSON.parse(s.textContent);
+                return !data['@context'] || !data['@type'];
+            } catch(e) { return true; }
+        }).length;
+
         return JSON.stringify(r);
     })()
     "#;
@@ -463,6 +496,10 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.lcp_image_without_preload = parsed["lcpImageWithoutPreload"].as_bool().unwrap_or(false);
     a.lcp_image_url = parsed["lcpImageUrl"].as_str().map(String::from);
     a.deprecated_api_count = parsed["deprecatedApiCount"].as_u64().unwrap_or(0) as u32;
+    a.hreflang_count = parsed["hreflangCount"].as_u64().unwrap_or(0) as u32;
+    a.hreflang_invalid_count = parsed["hreflangInvalidCount"].as_u64().unwrap_or(0) as u32;
+    a.jsonld_count = parsed["jsonldCount"].as_u64().unwrap_or(0) as u32;
+    a.jsonld_invalid_count = parsed["jsonldInvalidCount"].as_u64().unwrap_or(0) as u32;
     a.html_issues = build_html_issues(a, &parsed);
 
     Ok(())
@@ -603,10 +640,13 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
     };
     let origin = format!("{}://{}", parsed.scheme(), parsed.host_str().unwrap_or(""));
 
-    // Run soft-404 probe and www-consolidation check concurrently
+    // Run all probes concurrently
     let probe_url = format!("{}/auditmysite-404-probe-xyz123", origin);
-    let (soft_404_result, www_result) =
-        tokio::join!(probe_status(&probe_url), check_www_consolidation(url));
+    let (soft_404_result, www_result, header_result) = tokio::join!(
+        probe_status(&probe_url),
+        check_www_consolidation(url),
+        probe_headers(url)
+    );
 
     // Soft 404
     if let Some(status) = soft_404_result {
@@ -617,6 +657,53 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
 
     // www consolidation
     a.www_consolidation = www_result;
+
+    // HTTP headers
+    if let Some((compression, cache_control, server_timing_count)) = header_result {
+        a.has_compression = compression;
+        a.has_efficient_cache = cache_control
+            .as_deref()
+            .map(|cc| {
+                cc.contains("max-age=") && !cc.contains("max-age=0")
+                    || cc.contains("s-maxage=") && !cc.contains("s-maxage=0")
+                    || cc.contains("immutable")
+            })
+            .unwrap_or(false);
+        a.cache_control = cache_control;
+        a.server_timing_count = server_timing_count;
+    }
+}
+
+/// Probe main page headers: compression, Cache-Control, Server-Timing.
+async fn probe_headers(url: &str) -> Option<(bool, Option<String>, u32)> {
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("auditmysite-probe/1.0")
+        .build()
+        .ok()?;
+
+    let resp = client.get(url).send().await.ok()?;
+    let headers = resp.headers();
+
+    let compression = headers
+        .get("content-encoding")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.contains("gzip") || v.contains("br") || v.contains("zstd"))
+        .unwrap_or(false);
+
+    let cache_control = headers
+        .get("cache-control")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+
+    let server_timing_count = headers
+        .get("server-timing")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.split(',').count() as u32)
+        .unwrap_or(0);
+
+    Some((compression, cache_control, server_timing_count))
 }
 
 /// Probe a URL and return its HTTP status (no redirect following).
@@ -912,6 +999,48 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
             message: format!(
                 "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
                 a.deprecated_api_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if !a.has_compression {
+        issues.push(PageHealthIssue {
+            issue_type: "missing_compression".to_string(),
+            message: "Seiteninhalt wird ohne Komprimierung übertragen (kein gzip/brotli)"
+                .to_string(),
+            severity: "high".to_string(),
+        });
+    }
+
+    if !a.has_efficient_cache && a.cache_control.is_some() {
+        issues.push(PageHealthIssue {
+            issue_type: "inefficient_cache".to_string(),
+            message: format!(
+                "Cache-Control ohne effektive Caching-Dauer: {}",
+                a.cache_control.as_deref().unwrap_or("")
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.hreflang_invalid_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "hreflang_invalid".to_string(),
+            message: format!(
+                "{} hreflang-Einträge mit ungültigem Sprachcode",
+                a.hreflang_invalid_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.jsonld_invalid_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "jsonld_invalid".to_string(),
+            message: format!(
+                "{} JSON-LD-Blöcke ohne @context oder @type",
+                a.jsonld_invalid_count
             ),
             severity: "medium".to_string(),
         });
