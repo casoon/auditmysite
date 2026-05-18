@@ -107,14 +107,14 @@ cargo build --release
 ## Requirements
 
 - Rust 1.75+ for local builds
-- Chrome/Chromium or a managed browser install
+- Chrome, Chromium, or a managed browser install (`auditmysite browser install`)
 - macOS, Linux, or Windows for released binaries
 
-If no compatible browser is installed:
+`auditmysite` requires a browser to be present at run time. It does **not** download or install one automatically — it reports an error and exits if none is found. To install a managed Chrome for Testing into `~/.auditmysite/browsers/`:
 
 ```bash
-auditmysite browser detect
-auditmysite browser install
+auditmysite browser detect   # show what's found
+auditmysite browser install  # download Chrome for Testing (opt-in)
 ```
 
 ## Quick Start
@@ -191,7 +191,7 @@ Primary commands:
 - `auditmysite --url-file <file>`: audit URLs from file
 - `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
 - `auditmysite browser detect`: show available browsers
-- `auditmysite browser install`: install managed Chrome for Testing
+- `auditmysite browser install`: download and install Chrome for Testing into `~/.auditmysite/browsers/` (opt-in, never automatic)
 - `auditmysite doctor`: run local diagnostics
 
 Useful flags:
@@ -431,7 +431,7 @@ CLI -> Browser Manager -> Chrome/CDP -> Accessibility Tree -> WCAG Engine -> Out
 ```
 
 Key layers:
-- `browser/`: browser detection, resolution, install, lifecycle, pooling
+- `browser/`: browser detection, resolution, explicit install (`browser install` command only — no auto-download), lifecycle, pooling
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI, summary format

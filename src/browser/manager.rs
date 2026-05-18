@@ -16,7 +16,6 @@ use tracing::{debug, info, warn};
 
 use super::detection::{verify_executable, ChromeInfo};
 use super::resolver::{self, BrowserResolveOptions};
-use super::types::DetectedBrowser;
 use crate::error::{AuditError, Result};
 
 static BROWSER_PROFILE_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -90,34 +89,13 @@ impl BrowserManager {
             strict: false,
         };
 
-        let resolved = match resolver::resolve_browser(&resolve_opts) {
-            Ok(resolved) => {
-                info!(
-                    "Using {}: {} v{}",
-                    resolved.browser.kind.display_name(),
-                    resolved.browser.path.display(),
-                    resolved.browser.version.as_deref().unwrap_or("unknown")
-                );
-                resolved
-            }
-            Err(_) => {
-                // Fallback: try managed install via legacy installer
-                info!("No system browser found, trying managed install...");
-                let chromium_path = super::installer::ChromiumInstaller::ensure_chromium().await?;
-
-                let browser = DetectedBrowser {
-                    kind: super::types::BrowserKind::ChromeForTesting,
-                    path: chromium_path,
-                    version: Some("managed".to_string()),
-                    source: super::types::BrowserSource::ManagedInstall,
-                };
-                super::types::ResolvedBrowser {
-                    browser,
-                    mode: super::types::BrowserMode::Standard,
-                    all_candidates: vec![],
-                }
-            }
-        };
+        let resolved = resolver::resolve_browser(&resolve_opts)?;
+        info!(
+            "Using {}: {} v{}",
+            resolved.browser.kind.display_name(),
+            resolved.browser.path.display(),
+            resolved.browser.version.as_deref().unwrap_or("unknown")
+        );
 
         verify_executable(&resolved.browser.path)?;
 

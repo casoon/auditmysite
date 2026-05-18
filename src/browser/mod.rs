@@ -32,7 +32,6 @@ pub use types::{
 
 // Legacy API (still used by main.rs and manager.rs)
 pub use detection::{detect_chrome, find_chrome, ChromeInfo};
-pub use installer::ChromiumInstaller;
 pub use manager::{BrowserManager, BrowserOptions};
 pub use pool::{BrowserPool, PoolConfig, PoolStats, PooledPage};
 pub use throttle::ThrottleProfile;
