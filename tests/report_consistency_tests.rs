@@ -78,6 +78,11 @@ fn make_performance() -> PerformanceResults {
         },
         render_blocking: None,
         content_weight: None,
+        third_party: None,
+        critical_chain: None,
+        minification: None,
+        animations: None,
+        coverage: None,
     }
 }
 
