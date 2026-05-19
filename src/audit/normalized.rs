@@ -693,13 +693,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
     let (overall_score, score_calculation_method) = if let Some(ref vs) = report.viewport_scores {
         // Blend in security (10 %) on top of the 70/30 viewport base.
-        // module_scores reflect individual module quality but do NOT
-        // additively produce overall_score in this mode — mark accordingly.
         // weight_pct is kept so consumers can understand intended module weights;
         // score_calculation_method = "viewport_weighted" signals the actual formula.
-        for m in &mut module_scores {
-            m.contributes_to_overall = false;
-        }
+        // UX/Journey/Best Practices retain their pre-set contributes_to_overall=false.
         let mut weighted = vs.weighted_overall as f64 * 90.0;
         let mut total = 90.0;
         if let Some(ref security) = report.security {
@@ -780,9 +776,15 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .map(|f| f.occurrence_count)
             .sum::<usize>();
 
+        let risk_score = (legal_flags as u32 * 20
+            + critical_issues as u32 * 10
+            + high_issues as u32 * 3
+            + blocking_issues as u32 * 2)
+            .min(100);
+
         let level = if legal_flags > 0 && critical_issues > 0 {
             RiskLevel::Critical
-        } else if critical_issues >= 3 || blocking_issues >= 10 {
+        } else if critical_issues >= 3 || blocking_issues >= 5 || risk_score >= 80 {
             RiskLevel::High
         } else if high_issues >= 3 || critical_issues >= 1 || score <= 20 {
             RiskLevel::Medium
@@ -805,12 +807,6 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             ),
             RiskLevel::Low => "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden.".to_string(),
         };
-
-        let risk_score = (legal_flags as u32 * 20
-            + critical_issues as u32 * 10
-            + high_issues as u32 * 3
-            + blocking_issues as u32 * 2)
-            .min(100);
         let (threshold, driven_by) = match level {
             RiskLevel::Critical => (
                 60u32,

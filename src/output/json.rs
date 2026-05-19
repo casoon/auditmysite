@@ -80,10 +80,6 @@ pub struct UnifiedSummary {
     pub failed_url_count: usize,
 }
 
-fn is_zero(n: &usize) -> bool {
-    *n == 0
-}
-
 /// One audited page. `detail` is present for single reports, omitted for batch.
 #[derive(Debug, Serialize)]
 pub struct PageEntry {
@@ -94,7 +90,6 @@ pub struct PageEntry {
     pub certificate: String,
     pub violation_count: usize,
     /// Number of distinct WCAG rules that fired — `findings[].length` for wcag-category entries.
-    #[serde(skip_serializing_if = "is_zero")]
     pub violated_rule_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
     pub nodes_analyzed: usize,
