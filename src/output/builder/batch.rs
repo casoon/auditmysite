@@ -31,7 +31,29 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
     // Normalize all reports early — needed for overall scores, risk, module averages
     let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
-    let mut top_issues = collect_batch_finding_groups(&normalized_reports, i18n.locale());
+    let collected = collect_batch_finding_groups(&normalized_reports, i18n.locale());
+    // Deduplicate findings with the same title across rule sources; prefer
+    // non-"unknown." rule_ids, merge occurrence counts.
+    let mut seen_titles: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    let mut deduped: Vec<FindingGroup> = Vec::with_capacity(collected.len());
+    for group in collected {
+        let key = group.title.trim().to_lowercase();
+        if let Some(&idx) = seen_titles.get(&key) {
+            let existing = &mut deduped[idx];
+            if existing.rule_id.starts_with("unknown.") && !group.rule_id.starts_with("unknown.") {
+                let merged = existing.occurrence_count + group.occurrence_count;
+                *existing = group;
+                existing.occurrence_count = merged;
+            } else {
+                existing.occurrence_count += group.occurrence_count;
+            }
+        } else {
+            seen_titles.insert(key, deduped.len());
+            deduped.push(group);
+        }
+    }
+    let mut top_issues = deduped;
     top_issues.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
 
     let issue_frequency: Vec<IssueFrequency> = top_issues
@@ -766,11 +788,6 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
             derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),
         )
     } else {
-        let auto_detected = if locale == "en" {
-            "Automatically detected issue.".to_string()
-        } else {
-            "Automatisch erkanntes Problem.".to_string()
-        };
         (
             finding.title.clone(),
             finding.description.clone(),
@@ -783,18 +800,12 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
                 Some(finding.subcategory.as_str()),
                 acc.count,
             ),
-            auto_detected,
+            String::new(),
             finding
                 .occurrences
                 .iter()
                 .find_map(|o| o.fix_suggestion.clone())
-                .unwrap_or_else(|| {
-                    if locale == "en" {
-                        "Review and remediate the affected implementation.".to_string()
-                    } else {
-                        "Betroffene Umsetzung prüfen und beheben.".to_string()
-                    }
-                }),
+                .unwrap_or_default(),
             finding.technical_impact.clone(),
             Role::Development,
             Effort::Medium,

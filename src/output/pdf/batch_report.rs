@@ -179,10 +179,10 @@ pub(super) fn build_batch_quick_actions(
     // Fallback from top issues
     if actions.is_empty() {
         for group in pres.top_issues.iter().take(3) {
-            actions.push((
-                first_sentence(&group.recommendation).to_string(),
-                timeframe_label(group.effort).to_string(),
-            ));
+            let rec = first_sentence(&group.recommendation);
+            if !rec.is_empty() {
+                actions.push((rec.to_string(), timeframe_label(group.effort).to_string()));
+            }
         }
     }
 
@@ -858,17 +858,21 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             scope
         );
 
-        let mut kv = KeyValueList::new().with_title(&group.title);
-        kv = kv
+        let mut kv = KeyValueList::new()
+            .with_title(&group.title)
             .add(
                 i18n.t("findings-card-key-problem"),
                 &group.customer_description,
             )
             .add(impact_user_label, &group.user_impact)
-            .add(impact_business_label, &group.business_impact)
-            .add(i18n.t("findings-card-key-cause"), &group.typical_cause)
-            .add(fix_label, &group.recommendation)
-            .add(meta_label, meta_line);
+            .add(impact_business_label, &group.business_impact);
+        if !group.typical_cause.is_empty() {
+            kv = kv.add(i18n.t("findings-card-key-cause"), &group.typical_cause);
+        }
+        if !group.recommendation.is_empty() {
+            kv = kv.add(fix_label, &group.recommendation);
+        }
+        kv = kv.add(meta_label, meta_line);
         builder = builder.add_component(kv);
     }
 

@@ -63,6 +63,9 @@ pub struct UnifiedReport {
     /// Batch only — per-URL audit errors.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<serde_json::Value>,
+    /// Serialization errors encountered while building this report.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub collection_errors: Vec<ReportError>,
 }
 
 /// Uniform summary — identical field names for single and batch.
@@ -127,6 +130,9 @@ pub struct PageDetail {
     pub screenshot_status: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub history: Option<serde_json::Value>,
+    /// Serialization errors encountered while building this page's detail.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub collection_errors: Vec<ReportError>,
 }
 
 /// Module detail data, grouped under `detail.modules`.
@@ -202,6 +208,14 @@ pub struct OutputCapabilitySignal {
     pub note: String,
 }
 
+/// A non-fatal error that occurred during report collection or serialization.
+#[derive(Debug, Serialize)]
+pub struct ReportError {
+    pub module: &'static str,
+    pub error_type: &'static str,
+    pub reason: String,
+}
+
 /// Report metadata block.
 #[derive(Debug, Serialize)]
 pub struct ReportMetadata {
@@ -216,16 +230,41 @@ pub struct ReportMetadata {
 impl UnifiedReport {
     /// Build a single-page report with full module detail.
     pub fn single(normalized: &NormalizedReport, raw: &AuditReport) -> Self {
+        let mut collection_errors: Vec<ReportError> = Vec::new();
+
+        let budget_violations = raw
+            .budget_violations
+            .iter()
+            .filter_map(|v| {
+                serde_json::to_value(v)
+                    .map_err(|e| {
+                        collection_errors.push(ReportError {
+                            module: "budget_violations",
+                            error_type: "serialization_failed",
+                            reason: e.to_string(),
+                        })
+                    })
+                    .ok()
+            })
+            .collect();
+
+        let screenshot_status = match &raw.screenshot_status {
+            crate::audit::ScreenshotStatus::NotRequested => None,
+            s => serde_json::to_value(s)
+                .map_err(|e| {
+                    collection_errors.push(ReportError {
+                        module: "screenshot_status",
+                        error_type: "serialization_failed",
+                        reason: e.to_string(),
+                    })
+                })
+                .ok(),
+        };
+
         let ctx = DetailContext {
-            budget_violations: raw
-                .budget_violations
-                .iter()
-                .filter_map(|v| serde_json::to_value(v).ok())
-                .collect(),
-            screenshot_status: match &raw.screenshot_status {
-                crate::audit::ScreenshotStatus::NotRequested => None,
-                s => serde_json::to_value(s).ok(),
-            },
+            budget_violations,
+            screenshot_status,
+            collection_errors,
         };
         let page = build_page(normalized, Some(ctx));
         Self::wrap_single(normalized, page)
@@ -276,6 +315,36 @@ impl UnifiedReport {
             failed_url_count: batch_report.summary.failed,
         };
 
+        let mut collection_errors: Vec<ReportError> = Vec::new();
+
+        let crawl_diagnostics = batch_report.crawl_diagnostics.as_ref().and_then(|c| {
+            serde_json::to_value(c)
+                .map_err(|e| {
+                    collection_errors.push(ReportError {
+                        module: "crawl_diagnostics",
+                        error_type: "serialization_failed",
+                        reason: e.to_string(),
+                    })
+                })
+                .ok()
+        });
+
+        let errors: Vec<serde_json::Value> = batch_report
+            .errors
+            .iter()
+            .filter_map(|e| {
+                serde_json::to_value(e)
+                    .map_err(|err| {
+                        collection_errors.push(ReportError {
+                            module: "errors",
+                            error_type: "serialization_failed",
+                            reason: err.to_string(),
+                        })
+                    })
+                    .ok()
+            })
+            .collect();
+
         UnifiedReport {
             schema_version: SCHEMA_VERSION,
             report_type: "batch",
@@ -291,15 +360,9 @@ impl UnifiedReport {
             summary,
             pages,
             url_matrix: presentation.url_matrix,
-            crawl_diagnostics: batch_report
-                .crawl_diagnostics
-                .as_ref()
-                .and_then(|c| serde_json::to_value(c).ok()),
-            errors: batch_report
-                .errors
-                .iter()
-                .filter_map(|e| serde_json::to_value(e).ok())
-                .collect(),
+            crawl_diagnostics,
+            errors,
+            collection_errors,
         }
     }
 
@@ -351,6 +414,7 @@ impl UnifiedReport {
             url_matrix: Vec::new(),
             crawl_diagnostics: None,
             errors: Vec::new(),
+            collection_errors: Vec::new(),
         }
     }
 }
@@ -360,6 +424,7 @@ impl UnifiedReport {
 struct DetailContext {
     budget_violations: Vec<serde_json::Value>,
     screenshot_status: Option<serde_json::Value>,
+    collection_errors: Vec<ReportError>,
 }
 
 fn compute_worst_risk(
@@ -410,6 +475,7 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
 
 fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail {
     let vm = build_view_model(normalized, &ReportConfig::default());
+    let mut errors = ctx.collection_errors;
 
     let wcag_findings: Vec<_> = normalized
         .findings
@@ -421,6 +487,77 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
         .iter()
         .filter(|f| f.category == "seo")
         .collect();
+
+    let tech_stack = normalized.raw_tech_stack.as_ref().and_then(|m| {
+        serde_json::to_value(m)
+            .map_err(|e| {
+                errors.push(ReportError {
+                    module: "tech_stack",
+                    error_type: "serialization_failed",
+                    reason: e.to_string(),
+                })
+            })
+            .ok()
+    });
+
+    let patterns = normalized.raw_patterns.as_ref().map(|m| {
+        let total = m.recognized.len() + m.violations.len();
+        let pattern_score: u32 = if total > 0 {
+            (m.recognized.len() as u32 * 100) / total as u32
+        } else {
+            75
+        };
+        match serde_json::to_value(m) {
+            Ok(mut v) => {
+                if let Some(obj) = v.as_object_mut() {
+                    obj.insert("score".to_string(), serde_json::json!(pattern_score));
+                }
+                v
+            }
+            Err(e) => {
+                errors.push(ReportError {
+                    module: "patterns",
+                    error_type: "serialization_failed",
+                    reason: e.to_string(),
+                });
+                serde_json::json!({ "score": pattern_score })
+            }
+        }
+    });
+
+    let throttled_performance: Vec<serde_json::Value> = {
+        let mut acc = Vec::new();
+        for v in normalized.raw_throttled_performance.iter() {
+            match serde_json::to_value(v) {
+                Ok(json) => acc.push(json),
+                Err(e) => errors.push(ReportError {
+                    module: "throttled_performance",
+                    error_type: "serialization_failed",
+                    reason: e.to_string(),
+                }),
+            }
+        }
+        acc
+    };
+
+    let seo = normalized.raw_seo.as_ref().map(|m| {
+        let mut v = with_normalized_score(m.to_json(), normalized, "SEO");
+        let findings_value = match serde_json::to_value(&seo_findings) {
+            Ok(json) => json,
+            Err(e) => {
+                errors.push(ReportError {
+                    module: "seo",
+                    error_type: "findings_serialization_failed",
+                    reason: e.to_string(),
+                });
+                serde_json::json!([])
+            }
+        };
+        if let Some(obj) = v.as_object_mut() {
+            obj.insert("findings".to_string(), findings_value);
+        }
+        v
+    });
 
     let modules = ModuleBlob {
         accessibility: Some(serde_json::json!({
@@ -434,16 +571,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .raw_performance
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Performance")),
-        seo: normalized.raw_seo.as_ref().map(|m| {
-            let mut v = with_normalized_score(m.to_json(), normalized, "SEO");
-            if let Some(obj) = v.as_object_mut() {
-                obj.insert(
-                    "findings".to_string(),
-                    serde_json::to_value(&seo_findings).unwrap_or_default(),
-                );
-            }
-            v
-        }),
+        seo,
         security: normalized
             .raw_security
             .as_ref()
@@ -483,23 +611,8 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             }
             Some(v)
         }),
-        tech_stack: normalized
-            .raw_tech_stack
-            .as_ref()
-            .and_then(|m| serde_json::to_value(m).ok()),
-        patterns: normalized.raw_patterns.as_ref().map(|m| {
-            let total = m.recognized.len() + m.violations.len();
-            let pattern_score: u32 = if total > 0 {
-                (m.recognized.len() as u32 * 100) / total as u32
-            } else {
-                75
-            };
-            let mut v = serde_json::to_value(m).unwrap_or_default();
-            if let Some(obj) = v.as_object_mut() {
-                obj.insert("score".to_string(), serde_json::json!(pattern_score));
-            }
-            v
-        }),
+        tech_stack,
+        patterns,
         best_practices: normalized.raw_best_practices.as_ref().map(|m| m.to_json()),
     };
 
@@ -529,13 +642,10 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .collect(),
         viewport_scores: normalized.viewport_scores.clone(),
         budget_violations: ctx.budget_violations,
-        throttled_performance: normalized
-            .raw_throttled_performance
-            .iter()
-            .filter_map(|v| serde_json::to_value(v).ok())
-            .collect(),
+        throttled_performance,
         screenshot_status: ctx.screenshot_status,
         history: None,
+        collection_errors: errors,
     }
 }
 
@@ -1116,5 +1226,109 @@ mod tests {
             "batch page must not emit \"detail\" key when detail is None, got: {}",
             json_str
         );
+    }
+
+    #[test]
+    fn test_collection_errors_absent_when_empty() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let normalized = normalize(&report);
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(false).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        assert!(
+            !json_value
+                .as_object()
+                .unwrap()
+                .contains_key("collection_errors"),
+            "collection_errors must be absent from JSON when there are no errors"
+        );
+        let detail = &json_value["pages"][0]["detail"];
+        assert!(
+            !detail
+                .as_object()
+                .unwrap()
+                .contains_key("collection_errors"),
+            "detail.collection_errors must be absent from JSON when there are no errors"
+        );
+    }
+
+    #[test]
+    fn test_collection_errors_serialized_when_present() {
+        let mut unified = UnifiedReport {
+            schema_version: "2.0",
+            report_type: "batch",
+            metadata: ReportMetadata {
+                tool: "test".to_string(),
+                timestamp: chrono::DateTime::<chrono::Utc>::UNIX_EPOCH,
+                wcag_level: "AA".to_string(),
+                execution_time_ms: 0,
+            },
+            summary: UnifiedSummary {
+                url_count: 0,
+                accessibility_score: 0,
+                overall_score: 0,
+                grade: "F".to_string(),
+                certificate: "None".to_string(),
+                risk_level: crate::audit::normalized::RiskLevel::Low,
+                violation_count: 0,
+                severity_counts: crate::audit::normalized::SeverityCounts {
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    total: 0,
+                },
+                passed_url_count: 0,
+                failed_url_count: 0,
+            },
+            pages: vec![],
+            url_matrix: vec![],
+            crawl_diagnostics: None,
+            errors: vec![],
+            collection_errors: vec![ReportError {
+                module: "crawl_diagnostics",
+                error_type: "serialization_failed",
+                reason: "NaN value in field".to_string(),
+            }],
+        };
+        let json_str = unified.to_json(false).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        let errs = &json_value["collection_errors"];
+        assert!(errs.is_array(), "collection_errors must be an array");
+        assert_eq!(errs.as_array().unwrap().len(), 1);
+        assert_eq!(errs[0]["module"], "crawl_diagnostics");
+        assert_eq!(errs[0]["error_type"], "serialization_failed");
+        assert!(errs[0]["reason"].as_str().unwrap().contains("NaN"));
+
+        // Verify detail-level collection_errors work the same way
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let normalized = normalize(&report);
+        let mut page_unified = UnifiedReport::single(&normalized, &report);
+        if let Some(detail) = page_unified.pages[0].detail.as_mut() {
+            detail.collection_errors.push(ReportError {
+                module: "tech_stack",
+                error_type: "serialization_failed",
+                reason: "custom serializer error".to_string(),
+            });
+        }
+        let json_str2 = page_unified.to_json(false).unwrap();
+        let json_value2: serde_json::Value = serde_json::from_str(&json_str2).unwrap();
+        let detail_errs = &json_value2["pages"][0]["detail"]["collection_errors"];
+        assert!(detail_errs.is_array());
+        assert_eq!(detail_errs[0]["module"], "tech_stack");
+        // suppress unused warning from the first mut binding
+        let _ = &mut unified;
     }
 }

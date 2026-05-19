@@ -127,7 +127,10 @@ pub(super) fn render_next_steps_single(
     // Fallback from findings
     if steps.is_empty() {
         for group in vm.findings.top_findings.iter().take(3) {
-            steps.push(first_sentence(&group.recommendation).to_string());
+            let rec = first_sentence(&group.recommendation);
+            if !rec.is_empty() {
+                steps.push(rec.to_string());
+            }
         }
     }
 

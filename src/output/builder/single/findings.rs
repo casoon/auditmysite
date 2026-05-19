@@ -58,22 +58,11 @@ pub(super) fn finding_group_from_normalized(
                 Some(f.subcategory.as_str()),
                 f.occurrence_count,
             ),
-            if locale == "en" {
-                "Automatically detected issue."
-            } else {
-                "Automatisch erkanntes Problem."
-            }
-            .to_string(),
+            String::new(),
             f.occurrences
                 .first()
                 .and_then(|o| o.fix_suggestion.clone())
-                .unwrap_or_else(|| {
-                    if locale == "en" {
-                        "Please review and fix.".to_string()
-                    } else {
-                        "Bitte prüfen und beheben.".to_string()
-                    }
-                }),
+                .unwrap_or_default(),
             String::new(),
             Role::Development,
             Effort::Medium,

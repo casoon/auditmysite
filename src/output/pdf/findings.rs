@@ -54,10 +54,12 @@ pub(super) fn render_key_finding_block(
         );
     }
 
-    kv = kv.add(
-        i18n.t("finding-key-fix"),
-        first_sentence(&group.recommendation),
-    );
+    if !group.recommendation.is_empty() {
+        kv = kv.add(
+            i18n.t("finding-key-fix"),
+            first_sentence(&group.recommendation),
+        );
+    }
 
     if is_quick_win {
         kv = kv.add(
@@ -192,9 +194,11 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(sel_list);
     }
 
-    builder = builder.add_component(
-        Callout::success(&group.recommendation).with_title(i18n.t("finding-recommendation")),
-    );
+    if !group.recommendation.is_empty() {
+        builder = builder.add_component(
+            Callout::success(&group.recommendation).with_title(i18n.t("finding-recommendation")),
+        );
+    }
 
     for example in &group.examples {
         builder = builder.add_component(
