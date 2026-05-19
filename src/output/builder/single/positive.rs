@@ -1,7 +1,7 @@
 use crate::audit::normalized::NormalizedReport;
 use crate::output::report_model::{
-    ExampleBlock, FindingGroup, FindingPatternCluster, PositiveAspect, RepresentativeOccurrence,
-    RoleAssignment,
+    ExampleBlock, FindingGroup, FindingPatternCluster, NarrativeArc, PositiveAspect,
+    RepresentativeOccurrence, RoleAssignment,
 };
 
 pub(super) fn derive_positive_aspects_from_normalized(
@@ -156,6 +156,12 @@ impl Clone for FindingGroup {
             effort: self.effort,
             execution_priority: self.execution_priority,
             examples: self.examples.clone(),
+            narrative: NarrativeArc {
+                diagnose: self.narrative.diagnose.clone(),
+                ursache: self.narrative.ursache.clone(),
+                wirkung: self.narrative.wirkung.clone(),
+                umsetzung: self.narrative.umsetzung.clone(),
+            },
         }
     }
 }

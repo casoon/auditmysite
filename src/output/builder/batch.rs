@@ -12,8 +12,8 @@ use crate::util::truncate_url;
 use crate::wcag::Severity;
 
 use super::actions::{
-    derive_action_plan, derive_business_impact, derive_execution_priority, impact_score,
-    score_to_priority, severity_to_priority,
+    build_narrative_arc, derive_action_plan, derive_business_impact, derive_execution_priority,
+    impact_score, score_to_priority, severity_to_priority,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
 use super::seo::{
@@ -830,6 +830,20 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
         .map(representative_occurrence_from_normalized)
         .collect();
 
+    let narrative = build_narrative_arc(
+        locale,
+        acc.count,
+        acc.severity,
+        dimension_label,
+        &customer_desc,
+        &user_impact_text,
+        &business_impact,
+        &typical_cause,
+        &recommendation,
+        effort,
+        role,
+    );
+
     FindingGroup {
         title,
         rule_id: finding.rule_id.clone(),
@@ -857,6 +871,7 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
         effort,
         execution_priority,
         examples,
+        narrative,
     }
 }
 

@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 
 use crate::output::report_model::{
-    ActionItem, ActionPlan, Effort, ExecutionPriority, FindingGroup, Priority, Role, RoleAssignment,
+    ActionItem, ActionPlan, Effort, ExecutionPriority, FindingGroup, NarrativeArc, Priority, Role,
+    RoleAssignment,
 };
 use crate::wcag::Severity;
 
@@ -539,6 +540,198 @@ pub(super) fn derive_conversion_effect_from_action(
             (Effort::Structural, true) => "Solid technical baseline for future growth".to_string(),
             (Effort::Structural, false) => {
                 "Solide technische Basis für weiteres Wachstum".to_string()
+            }
+        }
+    }
+}
+
+// ─── Narrative Arc ──────────────────────────────────────────────────────────
+
+/// Build a four-stage narrative arc (Diagnose → Ursache → Wirkung → Umsetzung)
+/// for a finding. Called by both single and batch report builders.
+pub(super) fn build_narrative_arc(
+    locale: &str,
+    occurrence_count: usize,
+    severity: Severity,
+    dimension: &str,
+    customer_description: &str,
+    user_impact: &str,
+    business_impact: &str,
+    typical_cause: &str,
+    recommendation: &str,
+    effort: Effort,
+    role: Role,
+) -> NarrativeArc {
+    let en = is_en(locale);
+
+    // Diagnose: occurrence-enriched version of the customer description
+    let diagnose = if occurrence_count > 1 {
+        let desc = narrative_first_sentence(customer_description);
+        if en {
+            format!("Detected {occurrence_count} times: {desc}")
+        } else {
+            format!("{occurrence_count}× festgestellt: {desc}")
+        }
+    } else {
+        customer_description.to_string()
+    };
+
+    // Ursache: typical_cause or dimension-based fallback
+    let ursache = if !typical_cause.is_empty() {
+        typical_cause.to_string()
+    } else {
+        narrative_cause_fallback(en, dimension, severity)
+    };
+
+    // Wirkung: user_impact + business_impact combined into one statement
+    let wirkung = match (
+        narrative_first_sentence(user_impact),
+        narrative_first_sentence(business_impact),
+    ) {
+        ("", "") => narrative_impact_fallback(en, severity),
+        (u, "") => u.to_string(),
+        ("", b) => b.to_string(),
+        (u, b) => format!("{u} {b}"),
+    };
+
+    // Umsetzung: recommendation enriched with effort + role context
+    let effort_context = if en {
+        match effort {
+            Effort::Quick => "Quick win — a few hours",
+            Effort::Medium => "Medium effort — a few days",
+            Effort::Structural => "Structural change required",
+        }
+    } else {
+        match effort {
+            Effort::Quick => "Quick Win — wenige Stunden",
+            Effort::Medium => "Mittelfristig — einige Tage",
+            Effort::Structural => "Strukturelle Änderung erforderlich",
+        }
+    };
+    let role_context = if en {
+        match role {
+            Role::Development => "Development",
+            Role::Editorial => "Editorial",
+            Role::DesignUx => "Design / UX",
+            Role::ProjectManagement => "Project Management",
+        }
+    } else {
+        match role {
+            Role::Development => "Entwicklung",
+            Role::Editorial => "Redaktion",
+            Role::DesignUx => "Design / UX",
+            Role::ProjectManagement => "Projektleitung",
+        }
+    };
+    let umsetzung = if !recommendation.is_empty() {
+        if en {
+            format!("{recommendation} ({effort_context}, Owner: {role_context})")
+        } else {
+            format!("{recommendation} ({effort_context}, Verantwortlich: {role_context})")
+        }
+    } else {
+        format!("{effort_context} — {role_context}")
+    };
+
+    NarrativeArc {
+        diagnose,
+        ursache,
+        wirkung,
+        umsetzung,
+    }
+}
+
+/// Extract the first sentence (skips common abbreviations like "z. B.").
+pub(super) fn narrative_first_sentence(text: &str) -> &str {
+    let mut search_from = 0;
+    while let Some(rel) = text[search_from..].find(". ") {
+        let pos = search_from + rel;
+        if pos >= 2 {
+            let bytes = text.as_bytes();
+            let b0 = bytes[pos - 2];
+            let b1 = bytes[pos - 1];
+            if b0 == b' ' && b1.is_ascii_alphabetic() {
+                search_from = pos + 2;
+                continue;
+            }
+        }
+        return &text[..pos + 1];
+    }
+    text
+}
+
+fn narrative_cause_fallback(en: bool, dimension: &str, severity: Severity) -> String {
+    let severity_note = if en {
+        match severity {
+            Severity::Critical | Severity::High => " This is a high-priority structural gap.",
+            _ => "",
+        }
+    } else {
+        match severity {
+            Severity::Critical | Severity::High => {
+                " Dies ist eine strukturelle Lücke mit hoher Priorität."
+            }
+            _ => "",
+        }
+    };
+    let base = if en {
+        match dimension {
+            "Accessibility" => "This typically results from missing or incomplete semantic markup.",
+            "SEO" => "This typically results from missing or incomplete meta information.",
+            "Performance" => {
+                "This typically results from unoptimized assets or render-blocking resources."
+            }
+            "Security" => {
+                "This typically results from missing or misconfigured HTTP security headers."
+            }
+            "Mobile" => {
+                "This typically results from a layout or sizing issue not adapted for small screens."
+            }
+            _ => "This typically results from a configuration or implementation gap.",
+        }
+    } else {
+        match dimension {
+            "Accessibility" => "Dies resultiert typischerweise aus fehlendem oder unvollständigem semantischen Markup.",
+            "SEO" => "Dies resultiert typischerweise aus fehlenden oder unvollständigen Meta-Informationen.",
+            "Performance" => "Dies resultiert typischerweise aus nicht optimierten Assets oder render-blockierenden Ressourcen.",
+            "Security" => "Dies resultiert typischerweise aus fehlenden oder falsch konfigurierten HTTP-Sicherheits-Headern.",
+            "Mobile" => "Dies resultiert typischerweise aus einem Layout- oder Größenproblem, das nicht für kleine Bildschirme angepasst wurde.",
+            _ => "Dies resultiert typischerweise aus einer Konfigurations- oder Implementierungslücke.",
+        }
+    };
+    format!("{base}{severity_note}")
+}
+
+fn narrative_impact_fallback(en: bool, severity: Severity) -> String {
+    if en {
+        match severity {
+            Severity::Critical => {
+                "This blocks a critical user interaction — affected users cannot complete the task."
+                    .to_string()
+            }
+            Severity::High => {
+                "This significantly impairs usability for affected user groups.".to_string()
+            }
+            Severity::Medium => {
+                "This causes a noticeable friction point for some users.".to_string()
+            }
+            Severity::Low => "This is a minor issue that may affect a subset of users.".to_string(),
+        }
+    } else {
+        match severity {
+            Severity::Critical => {
+                "Dies blockiert eine kritische Nutzerinteraktion — betroffene Nutzer können die Aufgabe nicht abschließen.".to_string()
+            }
+            Severity::High => {
+                "Dies beeinträchtigt die Nutzbarkeit für betroffene Nutzergruppen erheblich."
+                    .to_string()
+            }
+            Severity::Medium => {
+                "Dies verursacht einen spürbaren Reibungspunkt für bestimmte Nutzer.".to_string()
+            }
+            Severity::Low => {
+                "Dies ist ein kleineres Problem, das eine Teilgruppe der Nutzer betreffen kann."
+                    .to_string()
             }
         }
     }

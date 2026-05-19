@@ -1,7 +1,7 @@
 //! Finding renderers for PDF reports.
 
 use renderreport::components::advanced::WrongRightBlock;
-use renderreport::components::advanced::{KeyValueList, List};
+use renderreport::components::advanced::{KeyValueList, List, StepCardRow};
 use renderreport::components::text::Label;
 use renderreport::components::SummaryBox;
 use renderreport::prelude::*;
@@ -35,40 +35,33 @@ pub(super) fn render_key_finding_block(
     } else {
         format!("{} — {}", sev_label, group.title)
     };
-    let mut kv = KeyValueList::new().with_title(title);
 
-    let problem = first_sentence(&group.customer_description);
-    kv = kv.add(i18n.t("finding-key-problem"), problem);
-
-    if !group.user_impact.is_empty() {
-        kv = kv.add(
-            i18n.t("finding-key-impact"),
-            first_sentence(&group.user_impact),
+    // Narrative arc: 4-step story flow (Diagnose → Ursache → Wirkung → Umsetzung)
+    let arc = &group.narrative;
+    let step_row = StepCardRow::new()
+        .with_columns(4)
+        .add_step(
+            i18n.t("finding-narrative-diagnose"),
+            first_sentence(&arc.diagnose),
+        )
+        .add_step(
+            i18n.t("finding-narrative-ursache"),
+            first_sentence(&arc.ursache),
+        )
+        .add_step(
+            i18n.t("finding-narrative-wirkung"),
+            first_sentence(&arc.wirkung),
+        )
+        .add_step(
+            i18n.t("finding-narrative-umsetzung"),
+            first_sentence(&arc.umsetzung),
         );
-    }
 
-    if !group.typical_cause.is_empty() {
-        kv = kv.add(
-            i18n.t("finding-key-cause"),
-            first_sentence(&group.typical_cause),
-        );
-    }
+    // Title label above the step row
+    builder = builder
+        .add_component(Label::new(&title).bold().with_size("11pt"))
+        .add_component(step_row);
 
-    if !group.recommendation.is_empty() {
-        kv = kv.add(
-            i18n.t("finding-key-fix"),
-            first_sentence(&group.recommendation),
-        );
-    }
-
-    if is_quick_win {
-        kv = kv.add(
-            i18n.t("finding-key-effort"),
-            i18n.t("finding-key-quick-win"),
-        );
-    }
-
-    builder = builder.add_component(kv);
     if include_technical_context {
         let tech_context_title = if !group.wcag_criterion.is_empty() {
             format!(

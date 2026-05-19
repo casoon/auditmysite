@@ -475,6 +475,19 @@ pub struct AppendixBlock {
 
 // ─── Finding Types (shared between single and batch) ────────────────────────
 
+/// Four-stage narrative arc: Diagnose → Ursache → Wirkung → Umsetzung.
+/// Each field holds a complete, renderer-ready sentence — no raw labels.
+pub struct NarrativeArc {
+    /// What was observed — occurrence-enriched diagnosis sentence.
+    pub diagnose: String,
+    /// Why it happens — root cause with technical context.
+    pub ursache: String,
+    /// What it means — user and business impact combined.
+    pub wirkung: String,
+    /// How to fix it — actionable recommendation with effort context.
+    pub umsetzung: String,
+}
+
 /// A grouped finding with customer-facing explanation
 pub struct FindingGroup {
     pub title: String,
@@ -503,6 +516,8 @@ pub struct FindingGroup {
     pub effort: Effort,
     pub execution_priority: ExecutionPriority,
     pub examples: Vec<ExampleBlock>,
+    /// Precomputed narrative arc for story-flow rendering.
+    pub narrative: NarrativeArc,
 }
 
 pub struct RepresentativeOccurrence {

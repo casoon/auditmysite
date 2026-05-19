@@ -5,7 +5,7 @@ use crate::output::report_model::{
 };
 
 use super::super::actions::{
-    derive_business_impact, derive_execution_priority, severity_to_priority,
+    build_narrative_arc, derive_business_impact, derive_execution_priority, severity_to_priority,
 };
 
 pub(super) fn finding_group_from_normalized(
@@ -78,6 +78,20 @@ pub(super) fn finding_group_from_normalized(
         .occurrence_count
         .saturating_sub(representative_occurrences.len());
 
+    let narrative = build_narrative_arc(
+        locale,
+        f.occurrence_count,
+        f.severity,
+        f.dimension.as_str(),
+        &customer_desc,
+        &user_impact_text,
+        &business_impact,
+        &typical_cause,
+        &recommendation,
+        effort,
+        role,
+    );
+
     FindingGroup {
         title,
         rule_id: f.rule_id.clone(),
@@ -105,6 +119,7 @@ pub(super) fn finding_group_from_normalized(
         effort,
         execution_priority,
         examples,
+        narrative,
     }
 }
 

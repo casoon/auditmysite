@@ -296,6 +296,12 @@ budget-table-actual = Actual value
 budget-table-overage = Overage
 budget-table-title = Budget details
 
+# Finding narrative arc labels (Diagnose → Cause → Effect → Implementation)
+finding-narrative-diagnose = Diagnosis
+finding-narrative-ursache = Cause
+finding-narrative-wirkung = Effect
+finding-narrative-umsetzung = Implementation
+
 # Finding cards (shared across executive / standard / technical)
 finding-key-problem = Problem
 finding-key-impact = What users experience
