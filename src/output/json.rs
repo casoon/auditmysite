@@ -454,18 +454,19 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .raw_ai_visibility
             .as_ref()
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),
-        content_visibility: normalized.raw_content_visibility.as_ref().map(|m| {
-            let cv_score = if m.signal_count > 0 {
-                (m.signal_count.saturating_sub(m.problem_count) as u32 * 100)
-                    / m.signal_count as u32
-            } else {
-                0
-            };
+        content_visibility: normalized.raw_content_visibility.as_ref().and_then(|m| {
+            // Only emit when SEO data was available — all signal sections are empty
+            // without --full, which is misleading.
+            if m.signal_count == 0 {
+                return None;
+            }
+            let cv_score = (m.signal_count.saturating_sub(m.problem_count) as u32 * 100)
+                / m.signal_count as u32;
             let mut v = with_measurement_type(m.to_json(), "heuristic");
             if let Some(obj) = v.as_object_mut() {
                 obj.insert("score".to_string(), serde_json::json!(cv_score));
             }
-            v
+            Some(v)
         }),
         tech_stack: normalized
             .raw_tech_stack
