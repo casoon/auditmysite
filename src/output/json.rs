@@ -933,6 +933,133 @@ mod tests {
         }
     }
 
+    /// Builds an AuditReport with all 11 modules registered in `active_modules()`.
+    fn all_active_modules_report() -> AuditReport {
+        use crate::audit::PerformanceResults;
+        use crate::dark_mode::DarkModeAnalysis;
+        use crate::mobile::{
+            ContentSizing, FontSizeAnalysis, MobileFriendliness, TouchTargetAnalysis,
+            ViewportAnalysis,
+        };
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        )
+        .with_performance(PerformanceResults {
+            vitals: WebVitals::default(),
+            score: PerformanceScore {
+                overall: 80,
+                grade: PerformanceGrade::Gold,
+                lcp_score: None,
+                fcp_score: None,
+                cls_score: None,
+                interactivity_score: None,
+                metrics_available: 0,
+            },
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+        })
+        .with_seo(crate::seo::SeoAnalysis::default())
+        .with_security(crate::security::SecurityAnalysis {
+            score: 80,
+            grade: "B".into(),
+            headers: Default::default(),
+            ssl: Default::default(),
+            issues: vec![],
+            recommendations: vec![],
+            protection: Default::default(),
+        })
+        .with_mobile(MobileFriendliness {
+            score: 75,
+            viewport: ViewportAnalysis::default(),
+            touch_targets: TouchTargetAnalysis::default(),
+            font_sizes: FontSizeAnalysis::default(),
+            content_sizing: ContentSizing::default(),
+            issues: vec![],
+        })
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
+        .with_dark_mode(DarkModeAnalysis {
+            supported: false,
+            score: 50,
+            detection_methods: vec![],
+            color_scheme_css: false,
+            meta_color_scheme: None,
+            meta_theme_color_dark: false,
+            css_custom_properties: 0,
+            dark_contrast_violations: 0,
+            light_only_violations: 0,
+            dark_only_violations: 0,
+            contrast_violations: vec![],
+            issues: vec![],
+        })
+        .with_best_practices(crate::best_practices::BestPracticesAnalysis {
+            console_errors: crate::best_practices::ConsoleErrorsAnalysis {
+                errors: vec![],
+                warnings: vec![],
+                error_count: 0,
+                warning_count: 0,
+            },
+            vulnerable_libraries: crate::best_practices::VulnerableLibrariesAnalysis {
+                detected: vec![],
+                vulnerable: vec![],
+                has_vulnerabilities: false,
+            },
+            score: 100,
+        });
+        let sq = crate::source_quality::analyze_source_quality(&report);
+        let av = crate::ai_visibility::analyze_ai_visibility(&report);
+        report.source_quality = Some(sq);
+        report.ai_visibility = Some(av);
+        // content_visibility is set separately per test — its JSON emission
+        // is conditional on signal_count > 0.
+        report
+    }
+
+    #[test]
+    fn test_json_all_active_modules_non_null() {
+        use crate::output::module::active_modules;
+
+        let report = all_active_modules_report();
+        let active_keys: Vec<&'static str> = active_modules(&report)
+            .into_iter()
+            .map(|(key, _)| key)
+            // content_visibility is intentionally skipped: the JSON emitter suppresses it
+            // when signal_count == 0 (an empty fixture produces no signals). This is
+            // expected behavior, not a bug — tested via the PDF ViewModel path instead.
+            .filter(|k| *k != "content_visibility")
+            .collect();
+
+        let normalized = normalize(&report);
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let modules = &json_value["pages"][0]["detail"]["modules"];
+
+        for key in &active_keys {
+            let value = modules.get(key);
+            assert!(
+                value.is_some(),
+                "Module '{}' missing from pages[0].detail.modules",
+                key
+            );
+            assert!(
+                !value.unwrap().is_null(),
+                "Module '{}' is null in pages[0].detail.modules",
+                key
+            );
+        }
+    }
+
     #[test]
     fn test_score_breakdown_present_for_viewport_weighted() {
         use crate::audit::{ViewportScoreSet, ViewportScores};

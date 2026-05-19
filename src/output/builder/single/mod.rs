@@ -101,6 +101,32 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             .then_with(|| impact_score(b).cmp(&impact_score(a)))
     });
 
+    // Deduplicate findings with the same title (e.g. WCAG + SEO rules detecting
+    // the same issue). Prefer the non-"unknown." rule_id; merge occurrence counts.
+    {
+        let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut deduped: Vec<FindingGroup> = Vec::with_capacity(sorted_groups.len());
+        for group in sorted_groups {
+            let key = group.title.trim().to_lowercase();
+            if let Some(&idx) = seen.get(&key) {
+                let existing = &mut deduped[idx];
+                if existing.rule_id.starts_with("unknown.")
+                    && !group.rule_id.starts_with("unknown.")
+                {
+                    let merged = existing.occurrence_count + group.occurrence_count;
+                    *existing = group;
+                    existing.occurrence_count = merged;
+                } else {
+                    existing.occurrence_count += group.occurrence_count;
+                }
+            } else {
+                seen.insert(key, deduped.len());
+                deduped.push(group);
+            }
+        }
+        sorted_groups = deduped;
+    }
+
     let score = normalized.score;
     let grade = normalized.grade.clone();
     let certificate = normalized.certificate.clone();
@@ -610,6 +636,250 @@ mod tests {
                 .contains(&vm.summary.maturity_label.as_str()),
             "Maturity label should be English, got {}",
             vm.summary.maturity_label
+        );
+    }
+
+    /// Builds an AuditReport with all 11 modules registered in `active_modules()`.
+    fn all_active_modules_report() -> AuditReport {
+        use crate::audit::PerformanceResults;
+        use crate::dark_mode::DarkModeAnalysis;
+        use crate::mobile::{
+            ContentSizing, FontSizeAnalysis, MobileFriendliness, TouchTargetAnalysis,
+            ViewportAnalysis,
+        };
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        )
+        .with_performance(PerformanceResults {
+            vitals: WebVitals::default(),
+            score: PerformanceScore {
+                overall: 80,
+                grade: PerformanceGrade::Gold,
+                lcp_score: None,
+                fcp_score: None,
+                cls_score: None,
+                interactivity_score: None,
+                metrics_available: 0,
+            },
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+        })
+        .with_seo(crate::seo::SeoAnalysis::default())
+        .with_security(crate::security::SecurityAnalysis {
+            score: 80,
+            grade: "B".into(),
+            headers: Default::default(),
+            ssl: Default::default(),
+            issues: vec![],
+            recommendations: vec![],
+            protection: Default::default(),
+        })
+        .with_mobile(MobileFriendliness {
+            score: 75,
+            viewport: ViewportAnalysis::default(),
+            touch_targets: TouchTargetAnalysis::default(),
+            font_sizes: FontSizeAnalysis::default(),
+            content_sizing: ContentSizing::default(),
+            issues: vec![],
+        })
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
+        .with_dark_mode(DarkModeAnalysis {
+            supported: false,
+            score: 50,
+            detection_methods: vec![],
+            color_scheme_css: false,
+            meta_color_scheme: None,
+            meta_theme_color_dark: false,
+            css_custom_properties: 0,
+            dark_contrast_violations: 0,
+            light_only_violations: 0,
+            dark_only_violations: 0,
+            contrast_violations: vec![],
+            issues: vec![],
+        })
+        .with_best_practices(crate::best_practices::BestPracticesAnalysis {
+            console_errors: crate::best_practices::ConsoleErrorsAnalysis {
+                errors: vec![],
+                warnings: vec![],
+                error_count: 0,
+                warning_count: 0,
+            },
+            vulnerable_libraries: crate::best_practices::VulnerableLibrariesAnalysis {
+                detected: vec![],
+                vulnerable: vec![],
+                has_vulnerabilities: false,
+            },
+            score: 100,
+        });
+        let sq = crate::source_quality::analyze_source_quality(&report);
+        let av = crate::ai_visibility::analyze_ai_visibility(&report);
+        report.source_quality = Some(sq);
+        report.ai_visibility = Some(av);
+        report.content_visibility =
+            Some(crate::content_visibility::ContentVisibilityAnalysis::default());
+        report
+    }
+
+    #[test]
+    fn test_pdf_viewmodel_covers_all_active_modules() {
+        use crate::output::module::active_modules;
+
+        let report = all_active_modules_report();
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+        let details = &vm.module_details;
+
+        let active_keys: std::collections::BTreeSet<&str> = active_modules(&report)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect();
+
+        if active_keys.contains("performance") {
+            assert!(
+                details.performance.is_some(),
+                "ModuleDetailsBlock.performance must be Some"
+            );
+        }
+        if active_keys.contains("seo") {
+            assert!(details.seo.is_some(), "ModuleDetailsBlock.seo must be Some");
+        }
+        if active_keys.contains("security") {
+            assert!(
+                details.security.is_some(),
+                "ModuleDetailsBlock.security must be Some"
+            );
+        }
+        if active_keys.contains("mobile") {
+            assert!(
+                details.mobile.is_some(),
+                "ModuleDetailsBlock.mobile must be Some"
+            );
+        }
+        if active_keys.contains("ux") {
+            assert!(details.ux.is_some(), "ModuleDetailsBlock.ux must be Some");
+        }
+        if active_keys.contains("journey") {
+            assert!(
+                details.journey.is_some(),
+                "ModuleDetailsBlock.journey must be Some"
+            );
+        }
+        if active_keys.contains("dark_mode") {
+            assert!(
+                details.dark_mode.is_some(),
+                "ModuleDetailsBlock.dark_mode must be Some"
+            );
+        }
+        if active_keys.contains("source_quality") {
+            assert!(
+                details.source_quality.is_some(),
+                "ModuleDetailsBlock.source_quality must be Some"
+            );
+        }
+        if active_keys.contains("ai_visibility") {
+            assert!(
+                details.ai_visibility.is_some(),
+                "ModuleDetailsBlock.ai_visibility must be Some"
+            );
+        }
+        if active_keys.contains("content_visibility") {
+            assert!(
+                details.content_visibility.is_some(),
+                "ModuleDetailsBlock.content_visibility must be Some"
+            );
+        }
+        if active_keys.contains("best_practices") {
+            assert!(
+                details.best_practices.is_some(),
+                "ModuleDetailsBlock.best_practices must be Some"
+            );
+        }
+    }
+
+    /// Parity: active_modules() keys must equal pdf_rendered_modules() keys.
+    ///
+    /// Currently ignored: `tech_stack` is present in `ModuleDetailsBlock` but absent
+    /// from `active_modules()` and therefore absent from the JSON output via that
+    /// path. Un-ignore once the gap is resolved (add tech_stack to active_modules
+    /// or remove it from ModuleDetailsBlock).
+    #[test]
+    #[ignore = "tech_stack is in ModuleDetailsBlock but absent from active_modules() — un-ignore once gap is closed"]
+    fn test_module_parity_json_vs_pdf_viewmodel() {
+        use crate::output::module::active_modules;
+        use std::collections::BTreeSet;
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        );
+
+        let json_keys: BTreeSet<&str> = active_modules(&report)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect();
+        let pdf_keys = super::module_details::pdf_rendered_modules();
+
+        let only_json: Vec<&&str> = json_keys.difference(&pdf_keys).collect();
+        let only_pdf: Vec<&&str> = pdf_keys.difference(&json_keys).collect();
+
+        assert!(
+            only_json.is_empty() && only_pdf.is_empty(),
+            "Module set mismatch:\n  only in JSON (active_modules): {:?}\n  only in PDF ViewModel (ModuleDetailsBlock): {:?}",
+            only_json,
+            only_pdf,
+        );
+    }
+
+    /// Documents that `patterns` is rendered in both JSON (via ModuleBlob) and PDF
+    /// but is absent from `active_modules()` and `ModuleDetailsBlock`.
+    ///
+    /// Un-ignore once patterns is added to both `active_modules()` (with a
+    /// `ReportModule` impl) and `ModuleDetailsBlock` / `pdf_rendered_modules()`.
+    #[test]
+    #[ignore = "patterns is in AuditReport and JSON/PDF output but absent from active_modules() and ModuleDetailsBlock — un-ignore once gap is closed"]
+    fn test_patterns_parity_with_active_modules() {
+        use crate::output::module::active_modules;
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            0,
+        )
+        .with_patterns(crate::patterns::PatternAnalysis {
+            recognized: vec![],
+            violations: vec![],
+        });
+
+        let active_keys: std::collections::BTreeSet<&str> = active_modules(&report)
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect();
+
+        assert!(
+            active_keys.contains("patterns"),
+            "patterns is in AuditReport (and emitted in JSON/PDF) but missing from active_modules() — \
+             add ReportModule impl for PatternAnalysis and register it in active_modules()"
+        );
+
+        let pdf_keys = super::module_details::pdf_rendered_modules();
+        assert!(
+            pdf_keys.contains("patterns"),
+            "patterns is missing from ModuleDetailsBlock — \
+             add a patterns field and update pdf_rendered_modules()"
         );
     }
 }

@@ -1097,6 +1097,31 @@ pub(super) fn build_module_details_from_normalized(
     }
 }
 
+/// Static set of module keys covered by [`ModuleDetailsBlock`].
+///
+/// Every optional field in `ModuleDetailsBlock` that carries module data must
+/// appear here. The parity test compares this against `active_modules()` to
+/// detect future coverage gaps.
+#[cfg(test)]
+pub(super) fn pdf_rendered_modules() -> std::collections::BTreeSet<&'static str> {
+    [
+        "performance",
+        "seo",
+        "security",
+        "mobile",
+        "ux",
+        "journey",
+        "dark_mode",
+        "source_quality",
+        "ai_visibility",
+        "tech_stack",
+        "content_visibility",
+        "best_practices",
+    ]
+    .into_iter()
+    .collect()
+}
+
 pub(super) fn normalized_module_score(
     normalized: &NormalizedReport,
     module_name: &str,
