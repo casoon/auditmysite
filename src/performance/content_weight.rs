@@ -106,17 +106,26 @@ pub fn format_bytes(bytes: u64) -> String {
 pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
     info!("Analyzing content weight...");
 
-    // Get resource timing entries via JavaScript
+    // Get resource timing entries via JavaScript.
+    // Include the navigation entry (main HTML document) which is not in 'resource' entries.
     let js_code = r#"
     (() => {
         const resources = performance.getEntriesByType('resource');
-        return JSON.stringify(resources.map(r => ({
+        const nav = performance.getEntriesByType('navigation')[0];
+        const navEntry = nav ? [{
+            name: nav.name,
+            type: 'navigation',
+            transferSize: nav.transferSize || 0,
+            decodedSize: nav.decodedBodySize || 0,
+            duration: nav.duration
+        }] : [];
+        return JSON.stringify([...navEntry, ...resources.map(r => ({
             name: r.name,
             type: r.initiatorType,
             transferSize: r.transferSize || 0,
             decodedSize: r.decodedBodySize || 0,
             duration: r.duration
-        })));
+        }))]);
     })()
     "#;
 
@@ -210,7 +219,9 @@ fn categorize_resource(url: &str, initiator_type: &str) -> ResourceCategory {
     let url_lower = url.to_lowercase();
 
     // Check by extension first
-    if url_lower.ends_with(".css") || initiator_type == "css" {
+    if initiator_type == "navigation" {
+        ResourceCategory::Html
+    } else if url_lower.ends_with(".css") || initiator_type == "css" {
         ResourceCategory::Css
     } else if url_lower.ends_with(".js") || initiator_type == "script" {
         ResourceCategory::JavaScript

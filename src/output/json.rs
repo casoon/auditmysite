@@ -453,7 +453,12 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         overall_score: normalized.overall_score,
         grade: normalized.grade.clone(),
         certificate: normalized.certificate.clone(),
-        violation_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
+        violation_count: normalized
+            .findings
+            .iter()
+            .filter(|f| f.category == "wcag")
+            .map(|f| f.occurrence_count)
+            .sum(),
         violated_rule_count: normalized
             .findings
             .iter()

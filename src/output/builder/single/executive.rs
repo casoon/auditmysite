@@ -1,8 +1,8 @@
 use crate::audit::normalized::NormalizedReport;
 use crate::i18n::I18n;
 use crate::output::report_model::{
-    ActionPlan, Effort, ExecutiveNarrativeBlock, FindingGroup, PositiveSignal,
-    PositiveSignalsBlock, SeverityBlock,
+    ActionPlan, ExecutiveNarrativeBlock, FindingGroup, PositiveSignal, PositiveSignalsBlock,
+    SeverityBlock,
 };
 
 use super::super::helpers::{build_business_consequence, build_overall_impact};
@@ -391,37 +391,19 @@ fn build_single_key_points_text(
 }
 
 fn build_single_quick_actions_text(
-    locale: &str,
+    _locale: &str,
     action_plan: &ActionPlan,
     top_findings: &[FindingGroup],
-) -> Vec<(String, String)> {
-    let en = locale == "en";
-    let timeframe_label = |effort: Effort| -> &'static str {
-        match (effort, en) {
-            (Effort::Quick, true) => "1–2 days",
-            (Effort::Quick, false) => "1–2 Tage",
-            (Effort::Medium, true) => "3–5 days",
-            (Effort::Medium, false) => "3–5 Tage",
-            (Effort::Structural, true) => "1–2 weeks",
-            (Effort::Structural, false) => "1–2 Wochen",
-        }
-    };
-
-    let mut actions = Vec::new();
+) -> Vec<String> {
+    let mut actions: Vec<String> = Vec::new();
 
     for item in &action_plan.quick_wins {
-        actions.push((
-            item.action.clone(),
-            timeframe_label(item.effort).to_string(),
-        ));
+        actions.push(item.action.clone());
     }
 
     if actions.is_empty() {
         for group in top_findings.iter().take(3) {
-            actions.push((
-                sentence_preview(&group.recommendation).to_string(),
-                timeframe_label(group.effort).to_string(),
-            ));
+            actions.push(sentence_preview(&group.recommendation).to_string());
         }
     }
 

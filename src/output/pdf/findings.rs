@@ -1,8 +1,8 @@
 //! Finding renderers for PDF reports.
 
 use renderreport::components::advanced::WrongRightBlock;
-use renderreport::components::advanced::{KeyValueList, List, StepCardRow};
-use renderreport::components::text::Label;
+use renderreport::components::advanced::{KeyValueList, List};
+use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::SummaryBox;
 use renderreport::prelude::*;
 
@@ -36,31 +36,20 @@ pub(super) fn render_key_finding_block(
         format!("{} — {}", sev_label, group.title)
     };
 
-    // Narrative arc: 4-step story flow (Diagnose → Ursache → Wirkung → Umsetzung)
     let arc = &group.narrative;
-    let step_row = StepCardRow::new()
-        .with_columns(4)
-        .add_step(
-            i18n.t("finding-narrative-diagnose"),
-            first_sentence(&arc.diagnose),
-        )
-        .add_step(
-            i18n.t("finding-narrative-ursache"),
-            first_sentence(&arc.ursache),
-        )
-        .add_step(
-            i18n.t("finding-narrative-wirkung"),
-            first_sentence(&arc.wirkung),
-        )
-        .add_step(
-            i18n.t("finding-narrative-umsetzung"),
-            first_sentence(&arc.umsetzung),
-        );
+    let en = i18n.locale() == "en";
+    let recommendation_label = if en { "Recommendation" } else { "Empfehlung" };
 
-    // Title label above the step row
     builder = builder
         .add_component(Label::new(&title).bold().with_size("11pt"))
-        .add_component(step_row);
+        .add_component(
+            TextBlock::new(first_sentence(&arc.wirkung))
+                .with_size("10.5pt")
+                .with_line_height("1.4em"),
+        )
+        .add_component(
+            Callout::success(first_sentence(&arc.umsetzung)).with_title(recommendation_label),
+        );
 
     if include_technical_context {
         let tech_context_title = if !group.wcag_criterion.is_empty() {
@@ -176,15 +165,6 @@ pub(super) fn render_finding_technical(
             builder = builder
                 .add_component(KeyValueList::new().add(i18n.t("finding-element-types"), summary));
         }
-
-        let mut sel_list = List::new().with_title(i18n.t("finding-affected-selectors"));
-        let mut seen = std::collections::HashSet::new();
-        for occ in &group.representative_occurrences {
-            if seen.insert(occ.selector.as_str()) {
-                sel_list = sel_list.add_item(truncate_url(&occ.selector, 70));
-            }
-        }
-        builder = builder.add_component(sel_list);
     }
 
     if !group.recommendation.is_empty() {
@@ -229,7 +209,9 @@ pub(super) fn render_finding_technical(
         }
         builder = builder.add_component(table);
 
-        for occ in &group.representative_occurrences {
+        let en = i18n.locale() == "en";
+        let hidden = group.representative_occurrences.len().saturating_sub(3);
+        for occ in group.representative_occurrences.iter().take(3) {
             let mut snapshot = SummaryBox::new(format!(
                 "{}: {}",
                 i18n.t("finding-occurrence"),
@@ -260,6 +242,14 @@ pub(super) fn render_finding_technical(
                         .with_title(i18n.t("finding-suggested-fix")),
                 );
             }
+        }
+        if hidden > 0 {
+            let msg = if en {
+                format!("{hidden} more occurrence(s) documented in the technical appendix.")
+            } else {
+                format!("{hidden} weitere(s) Vorkommen im technischen Anhang dokumentiert.")
+            };
+            builder = builder.add_component(Callout::info(&msg));
         }
     }
 

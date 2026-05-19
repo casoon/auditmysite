@@ -142,23 +142,8 @@ pub(super) fn build_batch_key_points(
 }
 
 /// Concrete quick actions for batch report
-pub(super) fn build_batch_quick_actions(
-    pres: &BatchPresentation,
-    i18n: &I18n,
-) -> Vec<(String, String)> {
-    let en = i18n.locale() == "en";
-    let timeframe_label = |effort: Effort| -> &'static str {
-        match (effort, en) {
-            (Effort::Quick, true) => "1–2 days",
-            (Effort::Quick, false) => "1–2 Tage",
-            (Effort::Medium, true) => "3–5 days",
-            (Effort::Medium, false) => "3–5 Tage",
-            (Effort::Structural, true) => "1–2 weeks",
-            (Effort::Structural, false) => "1–2 Wochen",
-        }
-    };
-
-    let mut actions: Vec<(String, String)> = Vec::new();
+pub(super) fn build_batch_quick_actions(pres: &BatchPresentation, _i18n: &I18n) -> Vec<String> {
+    let mut actions: Vec<String> = Vec::new();
 
     for item in &pres.action_plan.quick_wins {
         if actions.len() >= 3 {
@@ -170,10 +155,7 @@ pub(super) fn build_batch_quick_actions(
         } else {
             ""
         };
-        actions.push((
-            format!("{}{}", item.action, scope),
-            timeframe_label(item.effort).to_string(),
-        ));
+        actions.push(format!("{}{}", item.action, scope));
     }
 
     // Fallback from top issues
@@ -181,7 +163,7 @@ pub(super) fn build_batch_quick_actions(
         for group in pres.top_issues.iter().take(3) {
             let rec = first_sentence(&group.recommendation);
             if !rec.is_empty() {
-                actions.push((rec.to_string(), timeframe_label(group.effort).to_string()));
+                actions.push(rec.to_string());
             }
         }
     }
@@ -406,12 +388,8 @@ pub(super) fn render_next_steps_batch(
         SectionHeaderSplit::new(i18n.t("section-next-steps-recommended"), intro).with_level(1),
     );
 
-    let mut steps: Vec<(String, &str, &str)> = Vec::new();
+    let mut steps: Vec<(String, &str)> = Vec::new();
 
-    let timeframe_quick = if en { "Week 1" } else { "Woche 1" };
-    let timeframe_medium = if en { "Week 2–3" } else { "Woche 2–3" };
-    let timeframe_structural = if en { "Month 1–2" } else { "Monat 1–2" };
-    let timeframe_medium_alt = if en { "Month 1" } else { "Monat 1" };
     let scope_global = "global";
     let scope_component = if en {
         "component-based"
@@ -424,11 +402,6 @@ pub(super) fn render_next_steps_batch(
         if steps.len() >= 3 {
             break;
         }
-        let timeframe = match item.effort {
-            Effort::Quick => timeframe_quick,
-            Effort::Medium => timeframe_medium,
-            Effort::Structural => timeframe_structural,
-        };
         let action_lower = item.action.to_lowercase();
         let scope = if action_lower.contains("alle")
             || action_lower.contains("designsystem")
@@ -439,7 +412,7 @@ pub(super) fn render_next_steps_batch(
         } else {
             scope_component
         };
-        steps.push((item.action.clone(), timeframe, scope));
+        steps.push((item.action.clone(), scope));
     }
 
     // Fallback from medium_term
@@ -448,7 +421,7 @@ pub(super) fn render_next_steps_batch(
             if steps.len() >= 3 {
                 break;
             }
-            steps.push((item.action.clone(), timeframe_medium_alt, scope_component));
+            steps.push((item.action.clone(), scope_component));
         }
     }
 
@@ -456,14 +429,12 @@ pub(super) fn render_next_steps_batch(
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("column-priority")),
             TableColumn::new(i18n.t("column-action")),
-            TableColumn::new(i18n.t("column-timeframe")),
             TableColumn::new("Scope"),
         ]);
-        for (i, (action, timeframe, scope)) in steps.iter().enumerate() {
+        for (i, (action, scope)) in steps.iter().enumerate() {
             table = table.add_row(vec![
                 format!("{}", i + 1),
                 action.clone(),
-                timeframe.to_string(),
                 scope.to_string(),
             ]);
         }
@@ -696,7 +667,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         if !actions.is_empty() {
             let rows: Vec<ChecklistRow> = actions
                 .iter()
-                .map(|(action, _timeframe)| ChecklistRow::new(action, "").with_status("warn"))
+                .map(|action| ChecklistRow::new(action, "").with_status("warn"))
                 .collect();
             builder = builder.add_component(
                 ChecklistPanel::new(rows).with_title(i18n.t("narrative-quick-actions-title")),

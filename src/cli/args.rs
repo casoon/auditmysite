@@ -218,6 +218,13 @@ pub struct Args {
     #[arg(long, default_value = "de", value_parser = ["de", "en"], global = true)]
     pub lang: String,
 
+    /// Also write a JSON report alongside the primary output format.
+    ///
+    /// When combined with `--format pdf`, writes a `.json` file next to the PDF
+    /// without running a second audit. Useful for both single and batch modes.
+    #[arg(long, global = true)]
+    pub also_json: bool,
+
     /// Logo image path for PDF cover page
     #[arg(long, value_name = "PATH")]
     pub logo: Option<PathBuf>,
@@ -574,6 +581,7 @@ mod tests {
             dismiss_consent: false,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
+            also_json: false,
             logo: None,
             compare: vec![],
         }

@@ -277,7 +277,7 @@ pub struct ExecutiveNarrativeBlock {
     pub impact_title: String,
     pub impact_rows: Vec<(String, String)>,
     pub quick_actions_title: String,
-    pub quick_actions: Vec<(String, String)>,
+    pub quick_actions: Vec<String>,
     pub spotlight_eyebrow: String,
     pub spotlight_body: String,
     pub spotlight_impact: String,

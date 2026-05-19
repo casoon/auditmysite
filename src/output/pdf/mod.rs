@@ -296,7 +296,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                 .executive
                 .quick_actions
                 .iter()
-                .map(|(action, _timeframe)| ChecklistRow::new(action, "").with_status("warn"))
+                .map(|action| ChecklistRow::new(action, "").with_status("warn"))
                 .collect();
             builder = builder.add_component(
                 ChecklistPanel::new(rows).with_title(&vm.executive.quick_actions_title),
@@ -401,12 +401,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
             5
         };
         for group in vm.findings.top_findings.iter().take(findings_limit) {
-            builder = render_key_finding_block(
-                builder,
-                group,
-                &i18n,
-                vm.meta.report_level != ReportLevel::Executive,
-            );
+            builder = render_key_finding_block(builder, group, &i18n, false);
         }
     }
 

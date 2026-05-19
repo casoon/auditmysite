@@ -279,6 +279,54 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
+        "1.4.1",
+        RuleExplanation {
+            customer_title: "Links nur durch Farbe erkennbar",
+            customer_title_en: "Links distinguishable by color alone",
+            customer_description:
+                "Links im Fließtext lassen sich ausschließlich durch ihre Farbe von normalem \
+                 Text unterscheiden. Für Menschen mit Farbsehschwäche sind diese Links \
+                 nicht als klickbar erkennbar.",
+            customer_description_en:
+                "Links within body text are distinguishable from regular text only by their \
+                 color. For people with color vision deficiency, these links are not \
+                 recognizable as clickable.",
+            user_impact:
+                "Nutzer mit Rot-Grün-Schwäche oder anderen Farbsehschwächen können Links \
+                 im Text nicht erkennen und verpassen so wichtige Navigationsmöglichkeiten.",
+            user_impact_en:
+                "Users with red-green deficiency or other color vision impairments cannot \
+                 recognize links in text and miss important navigation options.",
+            typical_cause:
+                "CSS setzt `text-decoration: none` auf Links im Fließtext ohne ein \
+                 alternatives nicht-farbliches Unterscheidungsmerkmal wie Unterstrich, \
+                 Fettschrift oder ein Icon.",
+            typical_cause_en:
+                "CSS sets `text-decoration: none` on inline links without an alternative \
+                 non-color distinguishing feature such as underline, bold, or an icon.",
+            recommendation:
+                "Links im Fließtext mit einem nicht-farblichen Merkmal kennzeichnen: \
+                 Unterstrich (Standard und empfohlen), Fettschrift oder ein kleines Icon. \
+                 Der Unterstrich ist die stärkste Konvention.",
+            recommendation_en:
+                "Mark inline links with a non-color cue: underline (standard and recommended), \
+                 bold text, or a small icon. Underline is the strongest convention.",
+            technical_note:
+                "CSS: `a { text-decoration: underline; }` oder bei `text-decoration: none` \
+                 mindestens `font-weight: bold` oder `border-bottom`. \
+                 Gilt nur für Links im Fließtext, nicht für Links in Navigationselementen.",
+            technical_note_en:
+                "CSS: `a { text-decoration: underline; }` or, if `text-decoration: none`, \
+                 at least `font-weight: bold` or `border-bottom`. \
+                 Applies only to inline links in body text, not to navigation links.",
+            responsible_role: Role::DesignUx,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("a { color: #0057b8; text-decoration: none; }"),
+            example_good: Some("a { color: #0057b8; text-decoration: underline; }"),
+            example_decorative: None,
+        },
+    ),
+    (
         "1.4.3",
         RuleExplanation {
             customer_title: "Unzureichender Farbkontrast",
@@ -413,6 +461,59 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Medium,
             example_bad: Some("border: 1px solid #cccccc; /* auf #ffffff = 1.6:1 */"),
             example_good: Some("border: 1px solid #767676; /* auf #ffffff = 4.5:1 */"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "1.4.13",
+        RuleExplanation {
+            customer_title: "Inhalte bei Hover/Fokus nicht steuerbar",
+            customer_title_en: "Content on hover or focus not controllable",
+            customer_description:
+                "Inhalte, die bei Hover oder Fokus eingeblendet werden (z. B. Tooltips, \
+                 Dropdowns), verschwinden sofort, wenn die Maus bewegt wird, oder können \
+                 nicht per Tastatur geschlossen werden.",
+            customer_description_en:
+                "Content that appears on hover or focus (e.g. tooltips, dropdowns) \
+                 disappears immediately when the mouse is moved, or cannot be dismissed \
+                 with the keyboard.",
+            user_impact:
+                "Nutzer mit motorischen Einschränkungen können Tooltip-Inhalte nicht \
+                 vollständig lesen, bevor sie verschwinden. Screenreader-Nutzer können \
+                 eingeblendete Inhalte möglicherweise nicht erreichen.",
+            user_impact_en:
+                "Users with motor impairments cannot fully read tooltip content before it \
+                 disappears. Screen reader users may not be able to reach the revealed content.",
+            typical_cause:
+                "Tooltips oder Overlays, die `onmouseleave` sofort schließen, ohne \
+                 dem Nutzer Zeit zu lassen, den Zeiger in den Tooltip zu bewegen. \
+                 Fehlende Escape-Taste-Unterstützung.",
+            typical_cause_en:
+                "Tooltips or overlays that close on `onmouseleave` immediately, without \
+                 giving the user time to move the pointer into the tooltip. \
+                 Missing Escape-key support.",
+            recommendation:
+                "Hover-Inhalte so implementieren, dass sie bestehen bleiben, wenn der \
+                 Zeiger in den Inhalt bewegt wird, per Escape-Taste schließbar sind und \
+                 ausreichend lange sichtbar bleiben.",
+            recommendation_en:
+                "Implement hover content so it persists when the pointer moves into it, \
+                 is dismissible with the Escape key, and remains visible long enough to read.",
+            technical_note:
+                "WCAG 2.1 Level AA: Hover-Inhalt muss (1) hoverbar sein, (2) dismissible \
+                 (Escape), (3) persistent bleiben bis der Nutzer es schließt oder den \
+                 Trigger verlässt. CSS-only-Tooltips via :hover reichen nicht.",
+            technical_note_en:
+                "WCAG 2.1 Level AA: Hover content must be (1) hoverable, (2) dismissible \
+                 (Escape), (3) persistent until the user closes it or leaves the trigger. \
+                 CSS-only tooltips via :hover are insufficient.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("<div onmouseleave=\"hide()\">Tooltip</div>"),
+            example_good: Some(
+                "<div onmouseleave=\"scheduleHide()\" onmouseenter=\"cancelHide()\">\
+                 Tooltip — schließbar mit Escape</div>",
+            ),
             example_decorative: None,
         },
     ),
@@ -1091,6 +1192,54 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<button><svg>...</svg></button>"),
             example_good: Some("<button aria-label=\"Menü öffnen\"><svg aria-hidden=\"true\">...</svg></button>"),
+            example_decorative: None,
+        },
+    ),
+    // ── SEO rules (no WCAG criterion) ────────────────────────────────────────
+    (
+        "seo.headings.long_heading",
+        RuleExplanation {
+            customer_title: "Überschrift zu lang",
+            customer_title_en: "Heading too long",
+            customer_description:
+                "Überschriften auf der Seite überschreiten die empfohlene Länge von \
+                 70 Zeichen. Lange Überschriften werden in Suchergebnissen abgeschnitten \
+                 und sind für Leser schwerer zu erfassen.",
+            customer_description_en:
+                "Headings on the page exceed the recommended length of 70 characters. \
+                 Long headings are truncated in search results and harder for readers to scan.",
+            user_impact:
+                "In Suchergebnissen und sozialen Medien werden die Überschriften \
+                 abgeschnitten, was den Klickanreiz verringert. Leser müssen mehr \
+                 kognitive Arbeit leisten, um den Inhalt einzuordnen.",
+            user_impact_en:
+                "In search results and social media the headings are cut off, reducing \
+                 click-through appeal. Readers need more cognitive effort to understand \
+                 the content at a glance.",
+            typical_cause:
+                "Redaktionelle Texte werden ungekürzt als Überschrift eingesetzt. \
+                 CMS-Felder für Überschriften haben keine Längenbeschränkung.",
+            typical_cause_en:
+                "Editorial text is used as a heading without trimming. \
+                 CMS heading fields have no character limit enforced.",
+            recommendation:
+                "Überschriften auf unter 70 Zeichen kürzen und den Kern der Aussage \
+                 voranstellen. Längere Beschreibungen gehören in den Fließtext.",
+            recommendation_en:
+                "Shorten headings to under 70 characters and lead with the core message. \
+                 Longer descriptions belong in the body text.",
+            technical_note:
+                "Google zeigt typischerweise 50–60 Zeichen im Title-Tag an. \
+                 Für H2/H3 gilt keine feste Grenze, aber über 70 Zeichen sinkt \
+                 die Lesbarkeit deutlich. CMS-Validierung empfohlen.",
+            technical_note_en:
+                "Google typically displays 50–60 characters in the title tag. \
+                 There is no hard limit for H2/H3, but readability drops noticeably \
+                 beyond 70 characters. CMS-level validation is recommended.",
+            responsible_role: Role::Editorial,
+            effort_estimate: Effort::Quick,
+            example_bad: None,
+            example_good: None,
             example_decorative: None,
         },
     ),

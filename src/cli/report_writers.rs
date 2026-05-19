@@ -58,7 +58,7 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                 let path = args.output.clone().unwrap_or_else(|| {
                     default_single_pdf_output_path(report.url.as_str(), args.report_level)
                 });
-                let auto_json_path = if args.output.is_none() {
+                let auto_json_path = if args.also_json || args.output.is_none() {
                     Some(default_single_json_output_path(&path))
                 } else {
                     None
