@@ -705,11 +705,7 @@ fn test_json_module_detail_scores_match_normalized_scores() {
     let m = &unified.pages[0].detail.as_ref().expect("detail").modules;
 
     for (module_name, json_section, score_path) in [
-        (
-            "Performance",
-            m.performance.as_ref(),
-            &["score", "overall"][..],
-        ),
+        ("Performance", m.performance.as_ref(), &["score"][..]),
         ("SEO", m.seo.as_ref(), &["score"][..]),
         ("Security", m.security.as_ref(), &["score"][..]),
         ("Mobile", m.mobile.as_ref(), &["score"][..]),

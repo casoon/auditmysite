@@ -271,6 +271,12 @@ impl RiskLevel {
 pub struct RiskAssessment {
     /// Overall risk level
     pub level: RiskLevel,
+    /// Numeric risk score 0–100 (higher = more risk)
+    pub score: u32,
+    /// Minimum score at which the current level is triggered
+    pub threshold: u32,
+    /// Module or factor primarily driving the risk level
+    pub driven_by: String,
     /// Number of critical accessibility issues
     pub critical_issues: usize,
     /// Number of high-severity issues
@@ -687,12 +693,12 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
     let (overall_score, score_calculation_method) = if let Some(ref vs) = report.viewport_scores {
         // Blend in security (10 %) on top of the 70/30 viewport base.
-        // module_scores still reflect individual module quality but do NOT
-        // additively produce the overall_score — mark them accordingly
-        // and clear weight_pct to avoid implying a weighted-average model.
+        // module_scores reflect individual module quality but do NOT
+        // additively produce overall_score in this mode — mark accordingly.
+        // weight_pct is kept so consumers can understand intended module weights;
+        // score_calculation_method = "viewport_weighted" signals the actual formula.
         for m in &mut module_scores {
             m.contributes_to_overall = false;
-            m.weight_pct = 0;
         }
         let mut weighted = vs.weighted_overall as f64 * 90.0;
         let mut total = 90.0;
@@ -800,8 +806,39 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             RiskLevel::Low => "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden.".to_string(),
         };
 
+        let risk_score = (legal_flags as u32 * 20
+            + critical_issues as u32 * 10
+            + high_issues as u32 * 3
+            + blocking_issues as u32 * 2)
+            .min(100);
+        let (threshold, driven_by) = match level {
+            RiskLevel::Critical => (
+                60u32,
+                if legal_flags > 0 {
+                    "Legal Compliance"
+                } else {
+                    "Accessibility"
+                }
+                .to_string(),
+            ),
+            RiskLevel::High => (30u32, "Accessibility".to_string()),
+            RiskLevel::Medium => (
+                10u32,
+                if score <= 20 {
+                    "Score"
+                } else {
+                    "Accessibility"
+                }
+                .to_string(),
+            ),
+            RiskLevel::Low => (0u32, String::new()),
+        };
+
         RiskAssessment {
             level,
+            score: risk_score,
+            threshold,
+            driven_by,
             critical_issues,
             high_issues,
             legal_flags,

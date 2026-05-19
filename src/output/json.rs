@@ -73,6 +73,7 @@ pub struct UnifiedSummary {
     pub overall_score: u32,
     pub grade: String,
     pub certificate: String,
+    pub risk_level: crate::audit::normalized::RiskLevel,
     pub violation_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
     pub passed_url_count: usize,
@@ -135,6 +136,8 @@ pub struct PageDetail {
 /// Module detail data, grouped under `detail.modules`.
 #[derive(Debug, Serialize)]
 pub struct ModuleBlob {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessibility: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -255,6 +258,11 @@ impl UnifiedReport {
         let severity_counts = aggregate_severity(&pages);
         let accessibility_score = batch_report.summary.average_score.round() as u32;
 
+        let worst_risk = normalized_reports
+            .iter()
+            .map(|r| r.risk.level)
+            .max()
+            .unwrap_or(crate::audit::normalized::RiskLevel::Low);
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score,
@@ -262,6 +270,7 @@ impl UnifiedReport {
             grade: AccessibilityScorer::calculate_grade(accessibility_score as f32).to_string(),
             certificate: AccessibilityScorer::calculate_certificate(accessibility_score as f32)
                 .to_string(),
+            risk_level: worst_risk,
             violation_count: batch_report.summary.total_violations,
             severity_counts,
             passed_url_count: batch_report.summary.passed,
@@ -315,14 +324,14 @@ impl UnifiedReport {
     }
 
     fn wrap_single(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        let passed =
-            usize::from(page.severity_counts.critical == 0 && page.severity_counts.high == 0);
+        let passed = usize::from(page.overall_score >= 80 && page.severity_counts.critical == 0);
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
             overall_score: page.overall_score,
             grade: page.grade.clone(),
             certificate: page.certificate.clone(),
+            risk_level: page.risk.level,
             violation_count: page.violation_count,
             severity_counts: page.severity_counts.clone(),
             passed_url_count: passed,
@@ -387,15 +396,39 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
 fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail {
     let vm = build_view_model(normalized, &ReportConfig::default());
 
+    let wcag_findings: Vec<_> = normalized
+        .findings
+        .iter()
+        .filter(|f| f.category == "wcag")
+        .collect();
+    let seo_findings: Vec<_> = normalized
+        .findings
+        .iter()
+        .filter(|f| f.category == "seo")
+        .collect();
+
     let modules = ModuleBlob {
+        accessibility: Some(serde_json::json!({
+            "score": normalized.score,
+            "grade": normalized.grade,
+            "severity_counts": normalized.severity_counts,
+            "principle_coverage": normalized.principle_coverage,
+            "findings": wcag_findings,
+        })),
         performance: normalized
             .raw_performance
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Performance")),
-        seo: normalized
-            .raw_seo
-            .as_ref()
-            .map(|m| with_normalized_score(m.to_json(), normalized, "SEO")),
+        seo: normalized.raw_seo.as_ref().map(|m| {
+            let mut v = with_normalized_score(m.to_json(), normalized, "SEO");
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert(
+                    "findings".to_string(),
+                    serde_json::to_value(&seo_findings).unwrap_or_default(),
+                );
+            }
+            v
+        }),
         security: normalized
             .raw_security
             .as_ref()
@@ -421,18 +454,36 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .raw_ai_visibility
             .as_ref()
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),
-        content_visibility: normalized
-            .raw_content_visibility
-            .as_ref()
-            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+        content_visibility: normalized.raw_content_visibility.as_ref().map(|m| {
+            let cv_score = if m.signal_count > 0 {
+                (m.signal_count.saturating_sub(m.problem_count) as u32 * 100)
+                    / m.signal_count as u32
+            } else {
+                0
+            };
+            let mut v = with_measurement_type(m.to_json(), "heuristic");
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert("score".to_string(), serde_json::json!(cv_score));
+            }
+            v
+        }),
         tech_stack: normalized
             .raw_tech_stack
             .as_ref()
             .and_then(|m| serde_json::to_value(m).ok()),
-        patterns: normalized
-            .raw_patterns
-            .as_ref()
-            .and_then(|m| serde_json::to_value(m).ok()),
+        patterns: normalized.raw_patterns.as_ref().map(|m| {
+            let total = m.recognized.len() + m.violations.len();
+            let pattern_score: u32 = if total > 0 {
+                (m.recognized.len() as u32 * 100) / total as u32
+            } else {
+                75
+            };
+            let mut v = serde_json::to_value(m).unwrap_or_default();
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert("score".to_string(), serde_json::json!(pattern_score));
+            }
+            v
+        }),
         best_practices: normalized.raw_best_practices.as_ref().map(|m| m.to_json()),
     };
 
@@ -561,11 +612,13 @@ fn with_normalized_score(
         return value;
     };
 
-    if module_name == "Performance" {
-        if let Some(score_obj) = value.get_mut("score").and_then(|v| v.as_object_mut()) {
-            score_obj.insert("overall".to_string(), serde_json::json!(score));
+    if let Some(obj) = value.as_object_mut() {
+        if module_name == "Performance" {
+            // Move sub-scores to score_details; score itself becomes the scalar overall
+            if let Some(existing) = obj.remove("score") {
+                obj.insert("score_details".to_string(), existing);
+            }
         }
-    } else if let Some(obj) = value.as_object_mut() {
         obj.insert("score".to_string(), serde_json::json!(score));
     }
 

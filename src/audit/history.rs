@@ -553,6 +553,9 @@ mod tests {
             raw_mobile: None,
             risk: crate::audit::normalized::RiskAssessment {
                 level: crate::audit::normalized::RiskLevel::Low,
+                score: 0,
+                threshold: 0,
+                driven_by: String::new(),
                 critical_issues: 0,
                 high_issues: 0,
                 legal_flags: 0,

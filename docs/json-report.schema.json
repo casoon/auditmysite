@@ -37,6 +37,7 @@
         "overall_score",
         "grade",
         "certificate",
+        "risk_level",
         "violation_count",
         "severity_counts",
         "passed_url_count",
@@ -49,6 +50,7 @@
         "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
         "certificate": { "type": "string" },
+        "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "violation_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
         "passed_url_count": { "type": "integer", "minimum": 0 },
@@ -126,6 +128,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "accessibility": { "type": ["object", "null"] },
         "performance": { "type": ["object", "null"] },
         "seo": { "type": ["object", "null"] },
         "security": { "type": ["object", "null"] },
@@ -137,7 +140,8 @@
         "ai_visibility": { "type": ["object", "null"] },
         "content_visibility": { "type": ["object", "null"] },
         "tech_stack": { "type": ["object", "null"] },
-        "patterns": { "type": ["object", "null"] }
+        "patterns": { "type": ["object", "null"] },
+        "best_practices": { "type": ["object", "null"] }
       }
     },
     "principleCoverage": {
@@ -305,10 +309,13 @@
     },
     "riskAssessment": {
       "type": "object",
-      "required": ["level", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "summary"],
+      "required": ["level", "score", "threshold", "driven_by", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "summary"],
       "additionalProperties": false,
       "properties": {
         "level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "threshold": { "type": "integer", "minimum": 0 },
+        "driven_by": { "type": "string" },
         "critical_issues": { "type": "integer", "minimum": 0 },
         "high_issues": { "type": "integer", "minimum": 0 },
         "legal_flags": { "type": "integer", "minimum": 0 },
