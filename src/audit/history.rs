@@ -48,6 +48,12 @@ pub struct HistoryDelta {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportHistory {
+    /// Fixed at "1.0" — distinct from the Unified Report Envelope v2.0 used by audit outputs.
+    #[serde(default = "history_schema_version")]
+    pub schema_version: String,
+    /// Always "history" — allows consumers to detect the format without inspecting field names.
+    #[serde(default = "history_report_type")]
+    pub report_type: String,
     pub subject: String,
     pub host: String,
     pub url: String,
@@ -131,6 +137,8 @@ pub fn write_report_history(
     let latest_delta = previous.as_ref().map(|prev| build_delta(prev, &latest));
 
     let history = ReportHistory {
+        schema_version: history_schema_version(),
+        report_type: history_report_type(),
         subject: subject.clone(),
         host,
         url: normalized.url.clone(),
@@ -394,6 +402,14 @@ fn collapse_same_day(entries: Vec<HistorySnapshot>) -> Vec<HistorySnapshot> {
     collapsed
 }
 
+fn history_schema_version() -> String {
+    "1.0".to_string()
+}
+
+fn history_report_type() -> String {
+    "history".to_string()
+}
+
 fn host_from_url(url: &str) -> Result<String> {
     let parsed = url::Url::parse(url).map_err(|e| AuditError::ConfigError(e.to_string()))?;
     parsed
@@ -493,6 +509,7 @@ mod tests {
             grade: "A".to_string(),
             certificate: "GUT".to_string(),
             findings: vec![crate::audit::normalized::NormalizedFinding {
+                category: "wcag".to_string(),
                 rule_id: "a11y.alt_text.missing".to_string(),
                 wcag_criterion: "1.1.1".to_string(),
                 axe_id: None,
@@ -553,6 +570,7 @@ mod tests {
             raw_wcag: crate::wcag::WcagResults::new(),
             raw_patterns: None,
             raw_throttled_performance: Vec::new(),
+            raw_best_practices: None,
         };
 
         let written = write_report_history(

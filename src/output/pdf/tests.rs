@@ -354,6 +354,11 @@ mod tests {
                 },
                 render_blocking: None,
                 content_weight: None,
+                third_party: None,
+                critical_chain: None,
+                minification: None,
+                animations: None,
+                coverage: None,
             });
         report.throttled_performance = vec![crate::audit::ThrottledPerfResult {
             profile: crate::browser::ThrottleProfile::Slow3G,

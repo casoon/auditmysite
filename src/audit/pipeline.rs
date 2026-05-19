@@ -19,6 +19,9 @@ use super::report::{
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
+use crate::best_practices::{
+    analyze_best_practices, prepare_console_collection, BestPracticesAnalysis,
+};
 use crate::browser::{throttle, BrowserManager, ThrottleProfile};
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
@@ -26,8 +29,10 @@ use crate::error::Result;
 use crate::journey::{analyze_journey, JourneyAnalysis};
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{
-    analyze_content_weight, analyze_render_blocking, calculate_performance_score,
-    extract_web_vitals, prepare_vitals_collection,
+    analyze_content_weight, analyze_critical_chain, analyze_minification,
+    analyze_non_composited_animations, analyze_render_blocking, analyze_third_party_attribution,
+    calculate_performance_score, extract_web_vitals, prepare_coverage_collection,
+    prepare_vitals_collection, take_coverage_results,
 };
 use crate::security::{analyze_security, SecurityAnalysis};
 use crate::seo::{analyze_seo, SeoAnalysis};
@@ -87,6 +92,7 @@ struct SnapshotData {
     journey: Option<JourneyAnalysis>,
     dark_mode: Option<DarkModeAnalysis>,
     tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
+    best_practices: Option<BestPracticesAnalysis>,
 }
 
 // ── Pipeline config ───────────────────────────────────────────────────────────
@@ -215,6 +221,12 @@ pub async fn audit_page(
         if let Err(e) = prepare_vitals_collection(page).await {
             warn!("Vitals observer injection failed (desktop): {}", e);
         }
+        if let Err(e) = prepare_coverage_collection(page).await {
+            warn!("Coverage collection setup failed (desktop): {}", e);
+        }
+        if let Err(e) = prepare_console_collection(page).await {
+            warn!("Console collection setup failed (desktop): {}", e);
+        }
     }
     browser.navigate(page, url).await?;
 
@@ -236,6 +248,12 @@ pub async fn audit_page(
     if config.check_performance {
         if let Err(e) = prepare_vitals_collection(page).await {
             warn!("Vitals observer injection failed (mobile): {}", e);
+        }
+        if let Err(e) = prepare_coverage_collection(page).await {
+            warn!("Coverage collection setup failed (mobile): {}", e);
+        }
+        if let Err(e) = prepare_console_collection(page).await {
+            warn!("Console collection setup failed (mobile): {}", e);
         }
     }
     browser.navigate(page, url).await?;
@@ -332,6 +350,7 @@ pub async fn audit_page(
         journey: mobile_snap.journey.clone(),
         dark_mode: desktop_snap.dark_mode.clone(), // taken from desktop pass
         tech_stack: mobile_snap.tech_stack.clone(),
+        best_practices: mobile_snap.best_practices.clone(),
     };
 
     let mut report = aggregate_report(
@@ -562,11 +581,51 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
                         None
                     }
                 };
+                let third_party = match analyze_third_party_attribution(page, url).await {
+                    Ok(tp) => Some(tp),
+                    Err(e) => {
+                        warn!("Third-party attribution analysis failed: {}", e);
+                        None
+                    }
+                };
+                let critical_chain = match analyze_critical_chain(page).await {
+                    Ok(cc) => Some(cc),
+                    Err(e) => {
+                        warn!("Critical chain analysis failed: {}", e);
+                        None
+                    }
+                };
+                let minification = match analyze_minification(page).await {
+                    Ok(m) => Some(m),
+                    Err(e) => {
+                        warn!("Minification analysis failed: {}", e);
+                        None
+                    }
+                };
+                let animations = match analyze_non_composited_animations(page).await {
+                    Ok(a) => Some(a),
+                    Err(e) => {
+                        warn!("Non-composited animation analysis failed: {}", e);
+                        None
+                    }
+                };
+                let coverage = match take_coverage_results(page).await {
+                    Ok(c) => Some(c),
+                    Err(e) => {
+                        warn!("Coverage analysis failed: {}", e);
+                        None
+                    }
+                };
                 Some(PerformanceResults {
                     vitals,
                     score,
                     render_blocking,
                     content_weight,
+                    third_party,
+                    critical_chain,
+                    minification,
+                    animations,
+                    coverage,
                 })
             }
             Err(e) => {
@@ -642,6 +701,18 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         None
     };
 
+    let best_practices = if config.check_performance {
+        match analyze_best_practices(page).await {
+            Ok(bp) => Some(bp),
+            Err(e) => {
+                warn!("Best practices analysis failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     Ok(SnapshotData {
         ax_tree,
         performance,
@@ -652,6 +723,7 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
         journey,
         dark_mode,
         tech_stack,
+        best_practices,
     })
 }
 
@@ -889,6 +961,10 @@ fn aggregate_report(
 
     if let Some(tech_stack) = snapshot.tech_stack.clone() {
         report = report.with_tech_stack(tech_stack);
+    }
+
+    if let Some(bp) = snapshot.best_practices.clone() {
+        report = report.with_best_practices(bp);
     }
 
     report.source_quality = Some(crate::source_quality::analyze_source_quality(&report));

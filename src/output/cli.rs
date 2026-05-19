@@ -71,6 +71,7 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
         String::new()
     };
 
+    let normalized = crate::audit::normalize(report);
     println!(
         "{}",
         format!(
@@ -78,13 +79,21 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
             level,
             report.nodes_analyzed,
             report.duration_ms as f64 / 1000.0,
-            crate::audit::normalize(report).overall_score,
+            normalized.overall_score,
             report.certificate
         )
         .dimmed()
     );
     if !viewport_info.is_empty() {
         println!("{}", viewport_info);
+    }
+    for flag in &normalized.audit_flags {
+        if flag.kind == "viewport_gap" {
+            println!(
+                "  {}",
+                format!("Note: {}", flag.message).truecolor(255, 165, 0)
+            );
+        }
     }
 
     // Risk level (computed from violations)

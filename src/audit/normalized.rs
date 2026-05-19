@@ -97,6 +97,8 @@ pub struct NormalizedReport {
     pub raw_patterns: Option<crate::patterns::PatternAnalysis>,
     #[serde(skip)]
     pub raw_throttled_performance: Vec<crate::audit::report::ThrottledPerfResult>,
+    #[serde(skip)]
+    pub raw_best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
 }
 
 /// Einheitliche Severity-Zähler
@@ -109,9 +111,16 @@ pub struct SeverityCounts {
     pub total: usize,
 }
 
+fn default_finding_category() -> String {
+    "wcag".to_string()
+}
+
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NormalizedFinding {
+    /// Category: "wcag" for WCAG accessibility findings, "seo" for SEO findings.
+    #[serde(default = "default_finding_category")]
+    pub category: String,
     /// Taxonomie-Regel-ID (z.B. "a11y.alt_text.missing")
     pub rule_id: String,
     /// WCAG-Kriterium (z.B. "1.1.1")
@@ -403,6 +412,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 calculate_priority_score(first.severity, occurrence_count, &tax_id);
 
             NormalizedFinding {
+                category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
                 wcag_criterion: rule_id.to_string(),
                 axe_id,
@@ -449,6 +459,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             let priority_score =
                 calculate_priority_score(first.severity, occurrence_count, &rule_id);
             findings.push(NormalizedFinding {
+                category: "seo".to_string(),
                 rule_id: rule_id.clone(),
                 wcag_criterion: String::new(),
                 axe_id: None,
@@ -498,29 +509,30 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
     let certificate = AccessibilityScorer::calculate_certificate(report.score).to_string();
 
-    // Severity counts from normalized findings
+    // Severity counts — only WCAG findings count (not SEO findings)
+    let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category == "wcag").collect();
     let severity_counts = SeverityCounts {
-        critical: findings
+        critical: wcag_findings
             .iter()
             .filter(|f| f.severity == Severity::Critical)
             .map(|f| f.occurrence_count)
             .sum(),
-        high: findings
+        high: wcag_findings
             .iter()
             .filter(|f| f.severity == Severity::High)
             .map(|f| f.occurrence_count)
             .sum(),
-        medium: findings
+        medium: wcag_findings
             .iter()
             .filter(|f| f.severity == Severity::Medium)
             .map(|f| f.occurrence_count)
             .sum(),
-        low: findings
+        low: wcag_findings
             .iter()
             .filter(|f| f.severity == Severity::Low)
             .map(|f| f.occurrence_count)
             .sum(),
-        total: findings.iter().map(|f| f.occurrence_count).sum(),
+        total: wcag_findings.iter().map(|f| f.occurrence_count).sum(),
     };
 
     // Module scores
@@ -555,11 +567,31 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             measurement_type: "measured".to_string(),
         });
     }
+    // Vulnerable JS libraries (Best Practices) count as security findings.
+    // The penalty is applied to the Security module score so that XSS/RCE-level
+    // library issues move the security signal — not just an informational entry.
+    let vuln_security_penalty: u32 = report
+        .best_practices
+        .as_ref()
+        .map(|bp| {
+            bp.vulnerable_libraries
+                .vulnerable
+                .iter()
+                .map(|v| match v.severity.as_str() {
+                    "high" => 15,
+                    "medium" => 8,
+                    _ => 3,
+                })
+                .sum::<u32>()
+                .min(30)
+        })
+        .unwrap_or(0);
     if let Some(ref sec) = report.security {
+        let adjusted = sec.score.saturating_sub(vuln_security_penalty);
         module_scores.push(ModuleScoreEntry {
             name: "Security".to_string(),
-            score: sec.score,
-            grade: sec.grade.clone(),
+            score: adjusted,
+            grade: AccessibilityScorer::calculate_grade(adjusted as f32).to_string(),
             weight_pct: 10,
             contributes_to_overall: true,
             measurement_type: "measured".to_string(),
@@ -641,6 +673,16 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             measurement_type: "heuristic".to_string(),
         });
     }
+    if let Some(ref bp) = report.best_practices {
+        module_scores.push(ModuleScoreEntry {
+            name: "Best Practices".to_string(),
+            score: bp.score,
+            grade: AccessibilityScorer::calculate_grade(bp.score as f32).to_string(),
+            weight_pct: 0,
+            contributes_to_overall: false,
+            measurement_type: "measured".to_string(),
+        });
+    }
 
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
     let (overall_score, score_calculation_method) = if let Some(ref vs) = report.viewport_scores {
@@ -655,7 +697,8 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         let mut weighted = vs.weighted_overall as f64 * 90.0;
         let mut total = 90.0;
         if let Some(ref security) = report.security {
-            weighted += security.score as f64 * 10.0;
+            let adjusted = security.score.saturating_sub(vuln_security_penalty);
+            weighted += adjusted as f64 * 10.0;
             total += 10.0;
         }
         (
@@ -689,6 +732,26 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             message: "SEO detected a language declaration while WCAG still reported 3.1.1. The finding remains in the report and should be verified against the rendered DOM.".to_string(),
         });
     }
+    if let Some(ref vs) = report.viewport_scores {
+        let desktop_a11y = vs.desktop.accessibility as i32;
+        let mobile_a11y = vs.mobile.accessibility as i32;
+        let gap = (desktop_a11y - mobile_a11y).abs();
+        if gap >= 20 {
+            let (higher, lower, higher_score, lower_score) = if desktop_a11y >= mobile_a11y {
+                ("Desktop", "Mobile", desktop_a11y, mobile_a11y)
+            } else {
+                ("Mobile", "Desktop", mobile_a11y, desktop_a11y)
+            };
+            audit_flags.push(AuditFlag {
+                kind: "viewport_gap".to_string(),
+                related_rule: None,
+                source: "viewport_scores.accessibility".to_string(),
+                message: format!(
+                    "{higher} scored {higher_score}, {lower} scored {lower_score} — a {gap}-point gap suggests {lower}-specific rendering differences (e.g. lazy-loaded components, injected markup, or different DOM paths) rather than a site-wide failure.",
+                ),
+            });
+        }
+    }
 
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = {
@@ -715,7 +778,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             RiskLevel::Critical
         } else if critical_issues >= 3 || blocking_issues >= 10 {
             RiskLevel::High
-        } else if high_issues >= 3 || critical_issues >= 1 {
+        } else if high_issues >= 3 || critical_issues >= 1 || score <= 20 {
             RiskLevel::Medium
         } else {
             RiskLevel::Low
@@ -784,6 +847,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_wcag: report.wcag_results.clone(),
         raw_patterns: report.patterns.clone(),
         raw_throttled_performance: report.throttled_performance.clone(),
+        raw_best_practices: report.best_practices.clone(),
     }
 }
 
@@ -1024,5 +1088,146 @@ mod tests {
         let expected_cert = AccessibilityScorer::calculate_certificate(norm.score as f32);
         assert_eq!(norm.grade, expected_grade);
         assert_eq!(norm.certificate, expected_cert);
+    }
+
+    #[test]
+    fn test_normalize_with_best_practices_produces_module_entry() {
+        use crate::best_practices::{
+            BestPracticesAnalysis, ConsoleErrorsAnalysis, VulnerableLibrariesAnalysis,
+        };
+
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.best_practices = Some(BestPracticesAnalysis {
+            console_errors: ConsoleErrorsAnalysis {
+                errors: vec![],
+                warnings: vec![],
+                error_count: 0,
+                warning_count: 0,
+            },
+            vulnerable_libraries: VulnerableLibrariesAnalysis {
+                detected: vec![],
+                vulnerable: vec![],
+                has_vulnerabilities: false,
+            },
+            score: 90,
+        });
+
+        let norm = normalize(&report);
+
+        let bp_entry = norm
+            .module_scores
+            .iter()
+            .find(|m| m.name == "Best Practices");
+        assert!(
+            bp_entry.is_some(),
+            "Best Practices module score must be present"
+        );
+        let entry = bp_entry.unwrap();
+        assert_eq!(entry.score, 90);
+        assert!(!entry.contributes_to_overall);
+
+        assert!(
+            norm.raw_best_practices.is_some(),
+            "raw_best_practices must be passed through"
+        );
+    }
+
+    #[test]
+    fn test_vulnerable_libraries_reduce_security_score() {
+        use crate::best_practices::{
+            BestPracticesAnalysis, ConsoleErrorsAnalysis, VulnerableLibrariesAnalysis,
+            VulnerableLibrary,
+        };
+        use crate::security::{SecurityAnalysis, SecurityHeaders, SslInfo};
+
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.security = Some(SecurityAnalysis {
+            score: 80,
+            grade: "B".to_string(),
+            headers: SecurityHeaders::default(),
+            ssl: SslInfo::default(),
+            issues: vec![],
+            protection: Default::default(),
+            recommendations: vec![],
+        });
+        report.best_practices = Some(BestPracticesAnalysis {
+            console_errors: ConsoleErrorsAnalysis {
+                errors: vec![],
+                warnings: vec![],
+                error_count: 0,
+                warning_count: 0,
+            },
+            vulnerable_libraries: VulnerableLibrariesAnalysis {
+                detected: vec![],
+                vulnerable: vec![
+                    VulnerableLibrary {
+                        name: "jQuery".to_string(),
+                        version: "1.11.3".to_string(),
+                        severity: "high".to_string(),
+                        description: "XSS".to_string(),
+                        safe_version: "3.5.0+".to_string(),
+                    },
+                    VulnerableLibrary {
+                        name: "Lodash".to_string(),
+                        version: "4.17.20".to_string(),
+                        severity: "medium".to_string(),
+                        description: "Prototype pollution".to_string(),
+                        safe_version: "4.17.21+".to_string(),
+                    },
+                ],
+                has_vulnerabilities: true,
+            },
+            score: 60,
+        });
+
+        let norm = normalize(&report);
+
+        let sec_entry = norm.module_scores.iter().find(|m| m.name == "Security");
+        assert!(sec_entry.is_some());
+        // high=15 + medium=8 = 23 penalty; 80 - 23 = 57
+        assert_eq!(sec_entry.unwrap().score, 57);
+    }
+
+    #[test]
+    fn test_performance_results_new_fields_serialize() {
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+
+        let perf = PerformanceResults {
+            vitals: WebVitals::default(),
+            score: PerformanceScore {
+                overall: 80,
+                grade: PerformanceGrade::Gold,
+                lcp_score: None,
+                fcp_score: None,
+                cls_score: None,
+                interactivity_score: None,
+                metrics_available: 0,
+            },
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+        };
+
+        let json = serde_json::to_string(&perf).expect("PerformanceResults must serialize");
+        // New optional fields are skip_serializing_if = "Option::is_none" so they should be absent
+        assert!(!json.contains("\"third_party\""));
+        assert!(!json.contains("\"minification\""));
+        assert!(!json.contains("\"coverage\""));
+        assert!(!json.contains("\"animations\""));
+        assert!(json.contains("\"score\""));
     }
 }

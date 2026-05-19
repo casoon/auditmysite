@@ -1,9 +1,11 @@
 use crate::audit::normalized::NormalizedReport;
 use crate::output::report_model::{
-    DarkModePresentation, FrictionPointPresentation, JourneyDimensionPresentation,
-    JourneyPresentation, MobilePresentation, ModuleDetailsBlock, PerformancePresentation,
-    PerformanceViewport, RobotsPresentation, SecurityPresentation, SeoPresentation,
-    SeoProfilePresentation, SignalDetails, ThrottledPerfEntry, UxDimensionPresentation,
+    AnimationPresentation, CoveragePresentation, CriticalChainPresentation, DarkModePresentation,
+    FrictionPointPresentation, ImageEfficiencyPresentation, JourneyDimensionPresentation,
+    JourneyPresentation, MinificationPresentation, MobilePresentation, ModuleDetailsBlock,
+    OversizedImageRow, PerformancePresentation, PerformanceViewport, RobotsPresentation,
+    SecurityPresentation, SeoPresentation, SeoProfilePresentation, SignalDetails,
+    ThirdPartyOriginRow, ThirdPartyPresentation, ThrottledPerfEntry, UxDimensionPresentation,
     UxIssuePresentation, UxPresentation,
 };
 
@@ -163,6 +165,115 @@ pub(super) fn build_module_details_from_normalized(
             })
             .collect();
 
+        let cls_attribution = p
+            .vitals
+            .cls_attribution
+            .iter()
+            .take(5)
+            .map(|s| {
+                (
+                    format!("{:.4}", s.value),
+                    format!("{:.0}ms", s.start_time_ms),
+                    s.sources
+                        .first()
+                        .map(|src| src.node.clone())
+                        .unwrap_or_default(),
+                )
+            })
+            .collect();
+
+        let third_party = p.third_party.as_ref().map(|tp| {
+            let page_total = p
+                .content_weight
+                .as_ref()
+                .map(|cw| cw.transfer_bytes)
+                .unwrap_or(0);
+            ThirdPartyPresentation {
+                origins: tp
+                    .origins
+                    .iter()
+                    .take(10)
+                    .map(|o| ThirdPartyOriginRow {
+                        origin: o.origin.clone(),
+                        request_count: o.request_count,
+                        transfer_kb: o.transfer_bytes as f64 / 1024.0,
+                        resource_kinds: o.resource_kinds.join(", "),
+                    })
+                    .collect(),
+                total_origins: tp.total_origins,
+                total_kb: tp.total_bytes as f64 / 1024.0,
+                total_requests: tp.total_requests,
+                is_significant: tp.is_significant(page_total),
+            }
+        });
+
+        let critical_chain = p
+            .critical_chain
+            .as_ref()
+            .map(|cc| CriticalChainPresentation {
+                max_depth: cc.max_depth,
+                critical_path_ms: format!("{:.0}ms", cc.critical_path_ms),
+                critical_path_kb: format!("{:.1} KB", cc.critical_path_bytes as f64 / 1024.0),
+                total_requests: cc.total_requests as usize,
+            });
+
+        let minification = p
+            .minification
+            .as_ref()
+            .filter(|m| m.total_unminified_count > 0)
+            .map(|m| {
+                let top_assets: Vec<(String, String, String)> = m
+                    .unminified_scripts
+                    .iter()
+                    .chain(m.unminified_styles.iter())
+                    .take(5)
+                    .map(|a| {
+                        (
+                            truncate_url(&a.url, 60),
+                            a.kind.clone(),
+                            format!("{:.1} KB", a.savings_bytes as f64 / 1024.0),
+                        )
+                    })
+                    .collect();
+                MinificationPresentation {
+                    total_count: m.total_unminified_count as usize,
+                    total_savings_kb: m.total_savings_bytes as f64 / 1024.0,
+                    top_assets,
+                }
+            });
+
+        let coverage = p.coverage.as_ref().map(|cov| CoveragePresentation {
+            js_used_pct: Some(cov.unused_js.used_pct),
+            js_unused_kb: Some(cov.unused_js.unused_bytes as f64 / 1024.0),
+            css_used_pct: Some(cov.unused_css.used_pct),
+            css_total_rules: Some(cov.unused_css.total_rules),
+            css_used_rules: Some(cov.unused_css.used_rules),
+        });
+
+        let animations = p
+            .animations
+            .as_ref()
+            .filter(|a| a.total_count > 0)
+            .map(|a| {
+                let findings: Vec<(String, String, String)> = a
+                    .findings
+                    .iter()
+                    .take(10)
+                    .map(|f| {
+                        (
+                            f.kind.clone(),
+                            f.property.clone(),
+                            truncate_url(&f.source, 60),
+                        )
+                    })
+                    .collect();
+                AnimationPresentation {
+                    total_count: a.total_count as usize,
+                    affected_properties: a.affected_properties.clone(),
+                    findings,
+                }
+            });
+
         PerformancePresentation {
             score: performance_score,
             grade: performance_grade,
@@ -176,6 +287,12 @@ pub(super) fn build_module_details_from_normalized(
             render_blocking_suggestions,
             has_render_blocking,
             throttled_profiles,
+            cls_attribution,
+            third_party,
+            critical_chain,
+            minification,
+            coverage,
+            animations,
         }
     });
 
@@ -575,6 +692,25 @@ pub(super) fn build_module_details_from_normalized(
                     blocked_ai_bots,
                 }
             }),
+            image_efficiency: s
+                .image_efficiency
+                .as_ref()
+                .filter(|ie| ie.total_images > 0)
+                .map(|ie| ImageEfficiencyPresentation {
+                    total_images: ie.total_images,
+                    modern_format_pct: ie.modern_format_pct,
+                    legacy_count: ie.legacy_format_count,
+                    oversized: ie
+                        .oversized_images
+                        .iter()
+                        .take(5)
+                        .map(|o| OversizedImageRow {
+                            src: truncate_url(&o.src, 60),
+                            natural: format!("{}×{}", o.natural_width, o.natural_height),
+                            display: format!("{}×{}", o.display_width, o.display_height),
+                        })
+                        .collect(),
+                }),
         }
     });
 
@@ -935,11 +1071,14 @@ pub(super) fn build_module_details_from_normalized(
     let tech_stack = normalized.raw_tech_stack.clone();
     let content_visibility = normalized.raw_content_visibility.clone();
 
+    let best_practices = normalized.raw_best_practices.clone();
+
     let has_any = has_any
         || source_quality.is_some()
         || ai_visibility.is_some()
         || tech_stack.is_some()
-        || content_visibility.is_some();
+        || content_visibility.is_some()
+        || best_practices.is_some();
 
     ModuleDetailsBlock {
         performance,
@@ -953,6 +1092,7 @@ pub(super) fn build_module_details_from_normalized(
         ai_visibility,
         tech_stack,
         content_visibility,
+        best_practices,
         has_any,
     }
 }

@@ -32,9 +32,18 @@ src/
 ├── browser/             # Chrome detection, launch, pooling
 ├── accessibility/       # AXTree extraction via CDP
 ├── wcag/                # WCAG rule engine + 50+ rule files
+├── best_practices/      # Console errors and vulnerable JS library detection
+│   ├── console_errors.rs # CDP-based console error/warning collection
+│   └── vulnerable_libs.rs # Known-CVE JS library detection (jQuery, Bootstrap, …)
 │
 ├── performance/         # Core Web Vitals, render-blocking, content weight
+│   ├── animations.rs    # Non-composited animation detection
+│   ├── coverage.rs      # Unused JS/CSS detection via CDP Coverage API
+│   ├── critical_chain.rs # Critical request chain analysis
+│   ├── minification.rs  # Unminified JS/CSS asset detection
+│   └── third_party.rs   # Third-party resource attribution per origin
 ├── seo/                 # Meta, headings, schema, social, technical SEO
+│   └── image_efficiency.rs # Image format and resolution analysis
 ├── security/            # Security header analysis
 ├── mobile/              # Mobile friendliness analysis
 ├── dark_mode/           # Dark mode support detection and contrast
@@ -156,13 +165,16 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v0.19.0)
+## Current State (v0.23.0)
 - Branch: `main`
 - 70+ WCAG rules implemented (Level A, AA, full AAA coverage)
 - 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency
 - Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList
-- Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack
+- Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack, Best Practices
 - JSON: **Unified Report Envelope v2.0** — einheitliches Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`). Breaking Change ggü. v0.17.
-- Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor, WCAG-Prinzip-Coverage
+- Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor + logarithmische Kompression für extreme Penalties (≥85 Punkte), WCAG-Prinzip-Coverage
+- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt nur WCAG-Findings; `violated_rule_count` im JSON-PageEntry
+- Risk Level: Score-basierter Fallback (score ≤ 20 → mindestens Medium)
+- History: `schema_version: "1.0"`, `report_type: "history"` in History-JSON-Dateien
 - PDF: Throttled-Performance-Tabelle, Indikator-Kennzeichnung konsistent, leere Seite nach ToC behoben

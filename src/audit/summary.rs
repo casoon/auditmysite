@@ -571,6 +571,7 @@ mod tests {
         count: usize,
     ) -> NormalizedFinding {
         NormalizedFinding {
+            category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.1.1".into(),
             axe_id: None,
@@ -662,6 +663,7 @@ mod tests {
             raw_wcag: crate::wcag::WcagResults::new(),
             raw_patterns: None,
             raw_throttled_performance: Vec::new(),
+            raw_best_practices: None,
         }
     }
 

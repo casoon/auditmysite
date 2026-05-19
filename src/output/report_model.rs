@@ -393,6 +393,7 @@ pub struct ModuleDetailsBlock {
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
     pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
+    pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
     pub has_any: bool,
 }
 
@@ -546,6 +547,69 @@ pub struct ThrottledPerfEntry {
     pub score: u32,
 }
 
+/// Per-origin row for third-party attribution display
+pub struct ThirdPartyOriginRow {
+    pub origin: String,
+    pub request_count: u32,
+    pub transfer_kb: f64,
+    pub resource_kinds: String,
+}
+
+/// Third-party attribution presentation
+pub struct ThirdPartyPresentation {
+    pub origins: Vec<ThirdPartyOriginRow>,
+    pub total_origins: u32,
+    pub total_kb: f64,
+    pub total_requests: u32,
+    pub is_significant: bool,
+}
+
+/// Critical request chain summary
+pub struct CriticalChainPresentation {
+    pub max_depth: usize,
+    pub critical_path_ms: String,
+    pub critical_path_kb: String,
+    pub total_requests: usize,
+}
+
+/// Unminified assets summary
+pub struct MinificationPresentation {
+    pub total_count: usize,
+    pub total_savings_kb: f64,
+    pub top_assets: Vec<(String, String, String)>, // (url_truncated, kind, savings_kb_str)
+}
+
+/// JS/CSS coverage (unused code) summary
+pub struct CoveragePresentation {
+    pub js_used_pct: Option<f64>,
+    pub js_unused_kb: Option<f64>,
+    pub css_used_pct: Option<f64>,
+    pub css_total_rules: Option<u32>,
+    pub css_used_rules: Option<u32>,
+}
+
+/// Non-composited animation findings
+pub struct AnimationPresentation {
+    pub total_count: usize,
+    pub affected_properties: Vec<String>,
+    pub findings: Vec<(String, String, String)>, // (kind, property, source_truncated)
+}
+
+/// Oversized image row for display
+pub struct OversizedImageRow {
+    pub src: String,
+    pub natural: String,
+    pub display: String,
+}
+
+/// Image efficiency section for SEO presentation
+pub struct ImageEfficiencyPresentation {
+    pub total_images: usize,
+    pub modern_format_pct: f64,
+    pub legacy_count: usize,
+    pub oversized: Vec<OversizedImageRow>,
+}
+
 pub struct PerformancePresentation {
     pub score: u32,
     pub grade: String,
@@ -565,6 +629,18 @@ pub struct PerformancePresentation {
     pub has_render_blocking: bool,
     /// Throttled network performance profiles (empty if not measured)
     pub throttled_profiles: Vec<ThrottledPerfEntry>,
+    /// CLS shift attribution (top 5, value + start_time + element)
+    pub cls_attribution: Vec<(String, String, String)>,
+    /// Third-party attribution — None if not collected
+    pub third_party: Option<ThirdPartyPresentation>,
+    /// Critical request chain summary
+    pub critical_chain: Option<CriticalChainPresentation>,
+    /// Unminified assets
+    pub minification: Option<MinificationPresentation>,
+    /// JS/CSS coverage
+    pub coverage: Option<CoveragePresentation>,
+    /// Non-composited animations
+    pub animations: Option<AnimationPresentation>,
 }
 
 pub struct SeoPresentation {
@@ -584,6 +660,8 @@ pub struct SeoPresentation {
     pub page_health: Option<PageHealthPresentation>,
     /// SERP pass presentation
     pub serp: Option<SerpPresentation>,
+    /// Image efficiency analysis
+    pub image_efficiency: Option<ImageEfficiencyPresentation>,
 }
 
 /// SERP pass presentation

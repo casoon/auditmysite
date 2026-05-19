@@ -278,6 +278,225 @@ pub(super) fn render_performance(
         builder = builder.add_component(table);
     }
 
+    // ── CLS Attribution ──────────────────────────────────────────────
+    if !perf.cls_attribution.is_empty() {
+        let title = if is_en(i18n) {
+            "CLS — Layout Shifts"
+        } else {
+            "CLS — Layout-Verschiebungen"
+        };
+        let col_val = if is_en(i18n) { "Shift" } else { "Wert" };
+        let col_time = if is_en(i18n) { "Time" } else { "Zeitpunkt" };
+        let col_elem = "Element";
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(col_val).with_width("15%"),
+            TableColumn::new(col_time).with_width("20%"),
+            TableColumn::new(col_elem).with_width("65%"),
+        ])
+        .with_title(title);
+        for (val, time, node) in &perf.cls_attribution {
+            let display_node = if node.is_empty() {
+                "—"
+            } else {
+                node.as_str()
+            };
+            table = table.add_row(vec![val.as_str(), time.as_str(), display_node]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // ── Third-Party Attribution ───────────────────────────────────────
+    if let Some(ref tp) = perf.third_party {
+        if !tp.origins.is_empty() {
+            let title = if is_en(i18n) {
+                "Third-Party Resources"
+            } else {
+                "Drittanbieter-Ressourcen"
+            };
+            let col_origin = "Origin";
+            let col_req = if is_en(i18n) { "Requests" } else { "Anfragen" };
+            let mut kv = KeyValueList::new().with_title(title);
+            kv = kv.add(
+                if is_en(i18n) {
+                    "Total origins"
+                } else {
+                    "Drittanbieter gesamt"
+                },
+                tp.total_origins.to_string(),
+            );
+            kv = kv.add(
+                if is_en(i18n) {
+                    "Total transfer"
+                } else {
+                    "Übertragung gesamt"
+                },
+                format!("{:.1} KB / {} Anfragen", tp.total_kb, tp.total_requests),
+            );
+            if tp.is_significant {
+                kv = kv.add(
+                    if is_en(i18n) { "Impact" } else { "Einfluss" },
+                    if is_en(i18n) {
+                        "Significant (>20% of page bytes)"
+                    } else {
+                        "Signifikant (>20% der Seitengröße)"
+                    },
+                );
+            }
+            builder = builder.add_component(kv);
+
+            let mut table = AuditTable::new(vec![
+                TableColumn::new(col_origin).with_width("48%"),
+                TableColumn::new(col_req).with_width("16%"),
+                TableColumn::new("KB").with_width("18%"),
+                TableColumn::new(if is_en(i18n) { "Types" } else { "Typen" }).with_width("18%"),
+            ]);
+            for row in &tp.origins {
+                table = table.add_row(vec![
+                    row.origin.as_str(),
+                    &row.request_count.to_string(),
+                    &format!("{:.1}", row.transfer_kb),
+                    row.resource_kinds.as_str(),
+                ]);
+            }
+            builder = builder.add_component(table);
+        }
+    }
+
+    // ── Critical Request Chain ────────────────────────────────────────
+    if let Some(ref cc) = perf.critical_chain {
+        let title = if is_en(i18n) {
+            "Critical Request Chain"
+        } else {
+            "Kritische Request-Kette"
+        };
+        let mut kv = KeyValueList::new().with_title(title);
+        kv = kv.add(
+            if is_en(i18n) {
+                "Max depth"
+            } else {
+                "Max. Tiefe"
+            },
+            cc.max_depth.to_string(),
+        );
+        kv = kv.add(
+            if is_en(i18n) {
+                "Critical path"
+            } else {
+                "Kritischer Pfad"
+            },
+            format!("{} / {}", cc.critical_path_ms, cc.critical_path_kb),
+        );
+        kv = kv.add(
+            if is_en(i18n) {
+                "Total requests"
+            } else {
+                "Anfragen gesamt"
+            },
+            cc.total_requests.to_string(),
+        );
+        builder = builder.add_component(kv);
+    }
+
+    // ── Minification ─────────────────────────────────────────────────
+    if let Some(ref min) = perf.minification {
+        let title = if is_en(i18n) {
+            "Unminified Assets"
+        } else {
+            "Unminifizierte Assets"
+        };
+        let mut kv = KeyValueList::new().with_title(title);
+        kv = kv.add(
+            if is_en(i18n) {
+                "Unminified files"
+            } else {
+                "Unminifizierte Dateien"
+            },
+            min.total_count.to_string(),
+        );
+        kv = kv.add(
+            if is_en(i18n) {
+                "Est. savings"
+            } else {
+                "Geschätzte Einsparung"
+            },
+            format!("{:.1} KB", min.total_savings_kb),
+        );
+        builder = builder.add_component(kv);
+
+        if !min.top_assets.is_empty() {
+            let col_url = "URL";
+            let col_kind = if is_en(i18n) { "Type" } else { "Typ" };
+            let col_save = if is_en(i18n) { "Savings" } else { "Einsparung" };
+            let mut table = AuditTable::new(vec![
+                TableColumn::new(col_url).with_width("62%"),
+                TableColumn::new(col_kind).with_width("16%"),
+                TableColumn::new(col_save).with_width("22%"),
+            ]);
+            for (url, kind, savings) in &min.top_assets {
+                table = table.add_row(vec![url.as_str(), kind.as_str(), savings.as_str()]);
+            }
+            builder = builder.add_component(table);
+        }
+    }
+
+    // ── Coverage (unused JS/CSS) ──────────────────────────────────────
+    if let Some(ref cov) = perf.coverage {
+        let title = if is_en(i18n) {
+            "Code Coverage"
+        } else {
+            "Code-Abdeckung"
+        };
+        let mut kv = KeyValueList::new().with_title(title);
+        if let (Some(used_pct), Some(unused_kb)) = (cov.js_used_pct, cov.js_unused_kb) {
+            kv = kv.add(
+                if is_en(i18n) { "JS used" } else { "JS genutzt" },
+                format!("{:.1}% ({:.1} KB ungenutzt)", used_pct, unused_kb),
+            );
+        }
+        if let Some(used_pct) = cov.css_used_pct {
+            let rules_str = match (cov.css_used_rules, cov.css_total_rules) {
+                (Some(used), Some(total)) => {
+                    format!("{:.1}% ({}/{} Regeln genutzt)", used_pct, used, total)
+                }
+                _ => format!("{:.1}%", used_pct),
+            };
+            kv = kv.add(
+                if is_en(i18n) {
+                    "CSS used"
+                } else {
+                    "CSS genutzt"
+                },
+                rules_str,
+            );
+        }
+        builder = builder.add_component(kv);
+    }
+
+    // ── Non-composited Animations ─────────────────────────────────────
+    if let Some(ref anim) = perf.animations {
+        let title = if is_en(i18n) {
+            "Non-composited Animations"
+        } else {
+            "Nicht-composited Animationen"
+        };
+        let mut kv = KeyValueList::new().with_title(title);
+        kv = kv.add(
+            if is_en(i18n) { "Total" } else { "Gesamt" },
+            anim.total_count.to_string(),
+        );
+        if !anim.affected_properties.is_empty() {
+            kv = kv.add(
+                if is_en(i18n) {
+                    "Properties"
+                } else {
+                    "Eigenschaften"
+                },
+                anim.affected_properties.join(", "),
+            );
+        }
+        builder = builder.add_component(kv);
+    }
+
     builder
 }
 
@@ -422,6 +641,72 @@ pub(super) fn render_seo(
     // Page health
     if let Some(ph) = &seo.page_health {
         builder = render_page_health(builder, ph, i18n);
+    }
+
+    // ── Image Efficiency ──────────────────────────────────────────────
+    if let Some(ref ie) = seo.image_efficiency {
+        let title = if is_en(i18n) {
+            "Image Efficiency"
+        } else {
+            "Bild-Effizienz"
+        };
+        let mut kv = KeyValueList::new().with_title(title);
+        kv = kv.add(
+            if is_en(i18n) {
+                "Total images"
+            } else {
+                "Bilder gesamt"
+            },
+            ie.total_images.to_string(),
+        );
+        kv = kv.add(
+            if is_en(i18n) {
+                "Modern formats"
+            } else {
+                "Moderne Formate"
+            },
+            format!("{:.1}% (WebP/AVIF/SVG)", ie.modern_format_pct),
+        );
+        if ie.legacy_count > 0 {
+            kv = kv.add(
+                if is_en(i18n) {
+                    "Legacy formats"
+                } else {
+                    "Legacy-Formate"
+                },
+                format!("{} (JPG/PNG/GIF)", ie.legacy_count),
+            );
+        }
+        builder = builder.add_component(kv);
+
+        if !ie.oversized.is_empty() {
+            let title_tbl = if is_en(i18n) {
+                "Oversized images (top 5)"
+            } else {
+                "Übergroße Bilder (Top 5)"
+            };
+            let col_src = if is_en(i18n) { "Source" } else { "Quelle" };
+            let col_nat = if is_en(i18n) { "Natural" } else { "Nativ" };
+            let col_dis = if is_en(i18n) {
+                "Displayed"
+            } else {
+                "Angezeigt"
+            };
+            let mut table = AuditTable::new(vec![
+                TableColumn::new(col_src).with_width("56%"),
+                TableColumn::new(col_nat).with_width("22%"),
+                TableColumn::new(col_dis).with_width("22%"),
+            ])
+            .with_title(title_tbl);
+            for row in &ie.oversized {
+                table = table.add_row(vec![
+                    row.src.as_str(),
+                    row.natural.as_str(),
+                    row.display.as_str(),
+                ]);
+            }
+            builder = builder.add_component(table);
+        }
     }
 
     builder
@@ -2019,6 +2304,98 @@ pub(super) fn render_content_visibility(
         builder = builder
             .add_component(Section::new(title).with_level(3))
             .add_component(ChecklistPanel::new(not_testable_rows).with_title(title));
+    }
+
+    builder
+}
+
+pub(super) fn render_best_practices(
+    mut builder: renderreport::engine::ReportBuilder,
+    bp: &crate::best_practices::BestPracticesAnalysis,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(
+            Section::new(if is_en(i18n) {
+                "Best Practices"
+            } else {
+                "Best Practices"
+            })
+            .with_level(2),
+        )
+        .add_component(
+            ScoreCard::new(
+                if is_en(i18n) {
+                    "Best Practices score"
+                } else {
+                    "Best Practices Score"
+                },
+                bp.score,
+            )
+            .with_thresholds(80, 50),
+        );
+
+    if bp.score >= 90
+        && bp.console_errors.error_count == 0
+        && !bp.vulnerable_libraries.has_vulnerabilities
+    {
+        return builder.add_component(TextBlock::new(if is_en(i18n) {
+            "No console errors and no vulnerable libraries detected."
+        } else {
+            "Keine Konsolfehler und keine anfälligen Bibliotheken erkannt."
+        }));
+    }
+
+    // Console errors
+    if bp.console_errors.error_count > 0 {
+        let title = if is_en(i18n) {
+            "Console Errors"
+        } else {
+            "Konsolenfehler"
+        };
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if is_en(i18n) { "Level" } else { "Level" }).with_width("15%"),
+            TableColumn::new(if is_en(i18n) { "Message" } else { "Meldung" }).with_width("85%"),
+        ])
+        .with_title(title);
+        for error in &bp.console_errors.errors {
+            table = table.add_row(vec![error.level.clone(), error.message.clone()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Vulnerable libraries
+    if bp.vulnerable_libraries.has_vulnerabilities {
+        let title = if is_en(i18n) {
+            "Vulnerable Libraries"
+        } else {
+            "Anfällige Bibliotheken"
+        };
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if is_en(i18n) { "Library" } else { "Bibliothek" }).with_width("20%"),
+            TableColumn::new(if is_en(i18n) { "Version" } else { "Version" }).with_width("15%"),
+            TableColumn::new(if is_en(i18n) { "Severity" } else { "Schwere" }).with_width("15%"),
+            TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("35%"),
+            TableColumn::new(if is_en(i18n) { "Fix" } else { "Lösung" }).with_width("15%"),
+        ])
+        .with_title(title);
+        for lib in &bp.vulnerable_libraries.vulnerable {
+            table = table.add_row(vec![
+                lib.name.clone(),
+                lib.version.clone(),
+                lib.severity.clone(),
+                lib.description.clone(),
+                lib.safe_version.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    } else if !bp.vulnerable_libraries.detected.is_empty() {
+        builder = builder.add_component(TextBlock::new(if is_en(i18n) {
+            "Detected libraries appear to be up to date — no known vulnerabilities found."
+        } else {
+            "Erkannte Bibliotheken scheinen aktuell zu sein — keine bekannten Schwachstellen."
+        }));
     }
 
     builder

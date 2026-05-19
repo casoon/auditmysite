@@ -11,9 +11,9 @@ use renderreport::prelude::*;
 
 use super::appendix::build_cli_snapshot_table;
 use super::detail_modules::{
-    render_ai_visibility, render_budget_violations, render_content_visibility, render_dark_mode,
-    render_journey, render_mobile, render_performance, render_security, render_seo,
-    render_source_quality, render_tech_stack, render_ux,
+    render_ai_visibility, render_best_practices, render_budget_violations,
+    render_content_visibility, render_dark_mode, render_journey, render_mobile, render_performance,
+    render_security, render_seo, render_source_quality, render_tech_stack, render_ux,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::findings::render_finding_technical;
@@ -43,35 +43,6 @@ pub(super) fn render_action_plan(
         })
         .with_level(1),
     );
-
-    // "Jetzt starten" — top 1-3 highest-priority actions
-    let top_actions: Vec<&RoadmapItemData> = vm
-        .actions
-        .roadmap_columns
-        .first()
-        .map(|col| col.items.iter().take(3).collect())
-        .unwrap_or_default();
-
-    if !top_actions.is_empty() {
-        let body = top_actions
-            .iter()
-            .enumerate()
-            .map(|(i, item)| {
-                if item.user_effect.is_empty() {
-                    format!("{}. {}", i + 1, item.action)
-                } else {
-                    format!("{}. {} — {}", i + 1, item.action, item.user_effect)
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        let title = if i18n.locale() == "en" {
-            "Start here — highest leverage"
-        } else {
-            "Jetzt starten — höchste Hebelwirkung"
-        };
-        builder = builder.add_component(Callout::warning(&body).with_title(title));
-    }
 
     // Empfohlene Vorgehensweise
     builder = builder.add_component(
@@ -234,6 +205,9 @@ pub(super) fn render_tech_details(
     }
     if let Some(ref cv) = vm.module_details.content_visibility {
         builder = render_content_visibility(builder, cv, i18n);
+    }
+    if let Some(ref bp) = vm.module_details.best_practices {
+        builder = render_best_practices(builder, bp, i18n);
     }
 
     // Appendix

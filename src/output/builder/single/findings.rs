@@ -367,6 +367,7 @@ mod tests {
                 fix_suggestion: Some("Increase foreground/background contrast.".into()),
                 html_snippet: Some("<h1 class=\"hero-title\">Insights</h1>".into()),
                 suggested_code: None,
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-3".into(),
@@ -377,6 +378,7 @@ mod tests {
                 suggested_code: Some(
                     "<a id=\"cta-primary\" class=\"text-stone-900\">Kontakt</a>".into(),
                 ),
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-4".into(),
@@ -407,6 +409,7 @@ mod tests {
                 fix_suggestion: None,
                 html_snippet: Some("<h1 class=\"hero-title\">One</h1>".into()),
                 suggested_code: None,
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-2".into(),
@@ -415,6 +418,7 @@ mod tests {
                 fix_suggestion: Some("Adjust markup.".into()),
                 html_snippet: Some("<h1 class=\"hero-title\">Two</h1>".into()),
                 suggested_code: Some("<h1 lang=\"de\">Two</h1>".into()),
+                tags: vec![],
             },
             OccurrenceDetail {
                 node_id: "node-3".into(),

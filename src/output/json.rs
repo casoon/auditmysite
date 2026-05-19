@@ -79,6 +79,10 @@ pub struct UnifiedSummary {
     pub failed_url_count: usize,
 }
 
+fn is_zero(n: &usize) -> bool {
+    *n == 0
+}
+
 /// One audited page. `detail` is present for single reports, omitted for batch.
 #[derive(Debug, Serialize)]
 pub struct PageEntry {
@@ -88,6 +92,9 @@ pub struct PageEntry {
     pub grade: String,
     pub certificate: String,
     pub violation_count: usize,
+    /// Number of distinct WCAG rules that fired — `findings[].length` for wcag-category entries.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub violated_rule_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
     pub nodes_analyzed: usize,
     pub duration_ms: u64,
@@ -152,6 +159,8 @@ pub struct ModuleBlob {
     pub tech_stack: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patterns: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub best_practices: Option<serde_json::Value>,
 }
 
 /// AI-oriented fix guidance for a single finding group.
@@ -357,6 +366,11 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         grade: normalized.grade.clone(),
         certificate: normalized.certificate.clone(),
         violation_count: normalized.severity_counts.total,
+        violated_rule_count: normalized
+            .findings
+            .iter()
+            .filter(|f| f.category == "wcag")
+            .count(),
         severity_counts: normalized.severity_counts.clone(),
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
@@ -419,6 +433,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .raw_patterns
             .as_ref()
             .and_then(|m| serde_json::to_value(m).ok()),
+        best_practices: normalized.raw_best_practices.as_ref().map(|m| m.to_json()),
     };
 
     PageDetail {
@@ -788,6 +803,11 @@ mod tests {
             },
             render_blocking: None,
             content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
         })
         .with_seo(crate::seo::SeoAnalysis::default())
         .with_security(crate::security::SecurityAnalysis {

@@ -253,6 +253,27 @@ pub(super) fn build_vitals_list(
             tbt.rating.clone(),
         ));
     }
+    if let Some(ref tti) = p.vitals.tti {
+        vitals.push((
+            "TTI (geschätzt)".to_string(),
+            format!("{:.0}ms", tti.value),
+            tti.rating.clone(),
+        ));
+    }
+    if let Some(ref inp) = p.vitals.inp {
+        vitals.push((
+            "INP (geschätzt)".to_string(),
+            format!("{:.0}ms", inp.value),
+            inp.rating.clone(),
+        ));
+    }
+    if let Some(ref si) = p.vitals.speed_index {
+        vitals.push((
+            "Speed Index (geschätzt)".to_string(),
+            format!("{:.0}ms", si.value),
+            si.rating.clone(),
+        ));
+    }
     vitals
 }
 

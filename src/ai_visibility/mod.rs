@@ -744,6 +744,7 @@ mod tests {
             throttled_performance: vec![],
             patterns: None,
             screenshot_status: Default::default(),
+            best_practices: None,
         }
     }
 

@@ -113,9 +113,18 @@ impl AccessibilityScorer {
             .collect();
         total_penalty *= diversity_factor(unique_criteria.len());
 
+        // Logarithmic compression for extreme penalties: leaves scores with
+        // total_penalty ≤ 85 unchanged, but compresses runaway penalties so
+        // that sites with 100 violations differ meaningfully from 1 379.
+        let effective_penalty = if total_penalty > 85.0 {
+            let excess = total_penalty - 85.0;
+            85.0 + excess.ln_1p() * 2.0
+        } else {
+            total_penalty
+        };
         // Soft floor instead of a hard clamp(0): keeps the 1–15 band usable
         // for distinguishing degrees of catastrophic failure.
-        let raw_score = apply_soft_floor(100.0 - total_penalty).min(100.0);
+        let raw_score = apply_soft_floor(100.0 - effective_penalty).min(100.0);
 
         // Semantic score cap: a site with open critical/high issues cannot be
         // reported as near-perfect even if penalties are individually small.
@@ -195,7 +204,8 @@ impl AccessibilityScorer {
                 ratio: if total == 0 {
                     1.0
                 } else {
-                    passed as f32 / total as f32
+                    let r = passed as f32 / total as f32;
+                    (r * 10000.0).round() / 10000.0
                 },
             }
         };
@@ -391,9 +401,8 @@ mod tests {
         }
 
         let score = AccessibilityScorer::calculate_score(&violations);
-        // Soft floor: catastrophic failure approaches 0 asymptotically rather
-        // than hard-clamping, but stays well below 2.0.
-        assert!(score < 2.0, "score was {}", score);
+        // With log compression, catastrophic failure scores 3–5 (not ~1).
+        assert!(score < 10.0, "score was {}", score);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "F");
         assert_eq!(
             AccessibilityScorer::calculate_certificate(score),

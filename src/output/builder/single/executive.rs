@@ -379,6 +379,14 @@ fn build_single_key_points_text(
         );
     }
 
+    if let Some(flag) = normalized
+        .audit_flags
+        .iter()
+        .find(|f| f.kind == "viewport_gap")
+    {
+        points.push(flag.message.clone());
+    }
+
     points
 }
 

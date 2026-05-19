@@ -1466,6 +1466,7 @@ mod tests {
             robots: None,
             page_health: None,
             serp: None,
+            image_efficiency: None,
         }
     }
 

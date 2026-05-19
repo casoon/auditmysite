@@ -3,6 +3,7 @@
 //! Provides meta tags validation, heading structure, social tags, and technical SEO checks.
 
 mod headings;
+pub mod image_efficiency;
 mod meta;
 pub mod page_health;
 pub mod profile;
@@ -13,6 +14,7 @@ mod social;
 pub mod technical;
 
 pub use headings::{analyze_heading_structure, HeadingIssue, HeadingStructure};
+pub use image_efficiency::{analyze_image_efficiency, ImageEfficiencyAnalysis, OversizedImage};
 pub use meta::{extract_meta_tags, MetaTags, MetaValidation};
 pub use page_health::{
     analyze_page_health, HtmlValidationIssue, PageHealthAnalysis, PageHealthIssue, WwwConsolidation,
@@ -58,6 +60,9 @@ pub struct SeoAnalysis {
     /// SERP pass — aggregated search-result-page readiness signals
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub serp: Option<SerpAnalysis>,
+    /// Image efficiency analysis (format + oversizing)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_efficiency: Option<ImageEfficiencyAnalysis>,
 }
 
 /// Run complete SEO analysis
@@ -82,8 +87,24 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         }
     };
 
+    // Image efficiency analysis
+    let image_efficiency = match analyze_image_efficiency(page).await {
+        Ok(ie) => Some(ie),
+        Err(e) => {
+            warn!("Image efficiency analysis failed: {}", e);
+            None
+        }
+    };
+
     // Calculate score
-    let score = calculate_seo_score(&meta, &meta_issues, &headings, &social, &technical);
+    let score = calculate_seo_score(
+        &meta,
+        &meta_issues,
+        &headings,
+        &social,
+        &technical,
+        image_efficiency.as_ref(),
+    );
 
     let mut analysis = SeoAnalysis {
         meta,
@@ -97,6 +118,7 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         robots,
         page_health,
         serp: None,
+        image_efficiency,
     };
 
     // Build content profile from collected data
@@ -114,6 +136,7 @@ fn calculate_seo_score(
     headings: &HeadingStructure,
     social: &SocialTags,
     technical: &TechnicalSeo,
+    image_efficiency: Option<&ImageEfficiencyAnalysis>,
 ) -> u32 {
     let mut score = 100u32;
 
@@ -159,6 +182,12 @@ fn calculate_seo_score(
     }
     if !technical.has_lang {
         score = score.saturating_sub(3);
+    }
+
+    // Image efficiency penalty
+    if let Some(ie) = image_efficiency {
+        let ie_penalty = (100 - ie.score).min(15);
+        score = score.saturating_sub(ie_penalty);
     }
 
     score.min(100)

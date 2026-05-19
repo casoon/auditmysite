@@ -59,6 +59,11 @@ mod tests {
                 },
                 render_blocking: None,
                 content_weight: None,
+                third_party: None,
+                critical_chain: None,
+                minification: None,
+                animations: None,
+                coverage: None,
             })
             .with_seo(SeoAnalysis::default());
 
@@ -245,6 +250,11 @@ mod tests {
                 },
                 render_blocking: None,
                 content_weight: None,
+                third_party: None,
+                critical_chain: None,
+                minification: None,
+                animations: None,
+                coverage: None,
             })
             .with_security(crate::security::SecurityAnalysis {
                 score: security_score,

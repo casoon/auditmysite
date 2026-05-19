@@ -1128,6 +1128,7 @@ mod tests {
             page_health: None,
             serp: None,
             meta_issues: vec![],
+            image_efficiency: None,
         }
     }
 

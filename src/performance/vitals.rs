@@ -9,6 +9,39 @@ use tracing::{debug, info, warn};
 
 use crate::error::{AuditError, Result};
 
+/// Source element attribution for a single CLS layout-shift entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClsSource {
+    /// Simplified node description, e.g. "DIV#banner" or "IMG"
+    pub node: String,
+    /// Bounding rect before the shift (may be absent on first paint)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_rect: Option<ShiftRect>,
+    /// Bounding rect after the shift
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_rect: Option<ShiftRect>,
+}
+
+/// Axis-aligned bounding rect (viewport-relative pixels).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftRect {
+    pub top: f64,
+    pub left: f64,
+    pub bottom: f64,
+    pub right: f64,
+}
+
+/// A single layout-shift entry with per-element attribution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClsShift {
+    /// Score contribution of this individual shift
+    pub value: f64,
+    /// When the shift occurred (ms from navigation start)
+    pub start_time_ms: f64,
+    /// Elements that moved (may be empty when browser does not expose attribution)
+    pub sources: Vec<ClsSource>,
+}
+
 /// Core Web Vitals and performance metrics
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WebVitals {
@@ -18,14 +51,21 @@ pub struct WebVitals {
     pub fcp: Option<VitalMetric>,
     /// Cumulative Layout Shift - target ≤0.1
     pub cls: Option<VitalMetric>,
+    /// Per-shift CLS attribution (#135)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cls_attribution: Vec<ClsShift>,
     /// Time to First Byte (ms)
     pub ttfb: Option<VitalMetric>,
     /// First Input Delay (ms) - deprecated but still tracked
     pub fid: Option<VitalMetric>,
     /// Total Blocking Time (ms)
     pub tbt: Option<VitalMetric>,
-    /// Speed Index
+    /// Speed Index — heuristic proxy: 0.35·FCP + 0.65·LCP (#137)
     pub speed_index: Option<VitalMetric>,
+    /// Time to Interactive — simplified: max(domInteractive, last long-task end) (#137)
+    pub tti: Option<VitalMetric>,
+    /// Interaction to Next Paint — estimated from max long-task or event-timing (#134)
+    pub inp: Option<VitalMetric>,
     /// DOM Content Loaded (ms)
     pub dom_content_loaded: Option<f64>,
     /// Page Load Time (ms)
@@ -108,30 +148,88 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
         window.__ams_lcp_obs = _lcpObs;
     } catch(e) {}
 
-    // TBT via Long Tasks — sum of blocking time (duration > 50ms) per task
+    // TBT + TTI via Long Tasks — sum blocking time; track last task end for TTI
     window.__ams_tbt = 0;
+    window.__ams_last_task_end = 0;
     try {
         new PerformanceObserver(function(list) {
             var entries = list.getEntries();
             for (var i = 0; i < entries.length; i++) {
-                if (entries[i].duration > 50) {
-                    window.__ams_tbt += entries[i].duration - 50;
+                var e = entries[i];
+                if (e.duration > 50) {
+                    window.__ams_tbt += e.duration - 50;
+                }
+                var end = e.startTime + e.duration;
+                if (end > window.__ams_last_task_end) {
+                    window.__ams_last_task_end = end;
                 }
             }
         }).observe({ type: 'longtask', buffered: true });
     } catch(e) {}
 
-    // CLS via layout-shift observer
+    // CLS — accumulate total and capture per-shift attribution (#135)
     window.__ams_cls = 0;
+    window.__ams_cls_shifts = [];
     try {
         new PerformanceObserver(function(list) {
             var entries = list.getEntries();
             for (var i = 0; i < entries.length; i++) {
-                if (!entries[i].hadRecentInput) {
-                    window.__ams_cls += entries[i].value;
+                var e = entries[i];
+                if (!e.hadRecentInput) {
+                    window.__ams_cls += e.value;
+                    var sources = [];
+                    try {
+                        if (e.sources) {
+                            for (var j = 0; j < e.sources.length; j++) {
+                                var s = e.sources[j];
+                                var nodeDesc = 'unknown';
+                                try {
+                                    if (s.node) {
+                                        nodeDesc = s.node.nodeName;
+                                        if (s.node.id) nodeDesc += '#' + s.node.id;
+                                        else if (s.node.className && typeof s.node.className === 'string') {
+                                            var cls = s.node.className.trim().split(/\s+/)[0];
+                                            if (cls) nodeDesc += '.' + cls;
+                                        }
+                                    }
+                                } catch(_) {}
+                                sources.push({
+                                    node: nodeDesc,
+                                    previousRect: s.previousRect ? {top: s.previousRect.top, left: s.previousRect.left, bottom: s.previousRect.bottom, right: s.previousRect.right} : null,
+                                    currentRect: s.currentRect ? {top: s.currentRect.top, left: s.currentRect.left, bottom: s.currentRect.bottom, right: s.currentRect.right} : null
+                                });
+                            }
+                        }
+                    } catch(_) {}
+                    window.__ams_cls_shifts.push({value: e.value, startTime: e.startTime, sources: sources});
                 }
             }
         }).observe({ type: 'layout-shift', buffered: true });
+    } catch(e) {}
+
+    // INP via event-timing (#134) — captures real interaction durations
+    window.__ams_inp = 0;
+    try {
+        new PerformanceObserver(function(list) {
+            var entries = list.getEntries();
+            for (var i = 0; i < entries.length; i++) {
+                var e = entries[i];
+                if (e.duration > window.__ams_inp) {
+                    window.__ams_inp = e.duration;
+                }
+            }
+        }).observe({ type: 'event', durationThreshold: 16, buffered: true });
+    } catch(e) {}
+    // Also observe first-input for environments that don't support event-timing
+    try {
+        new PerformanceObserver(function(list) {
+            var entries = list.getEntries();
+            for (var i = 0; i < entries.length; i++) {
+                var e = entries[i];
+                var delay = e.processingStart - e.startTime;
+                if (delay > window.__ams_inp) window.__ams_inp = delay;
+            }
+        }).observe({ type: 'first-input', buffered: true });
     } catch(e) {}
 })();
 "#;
@@ -143,7 +241,7 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     Ok(())
 }
 
-/// Read the pre-injected globals after navigation to collect LCP, TBT, CLS.
+/// Read the pre-injected globals after navigation to collect LCP, TBT, CLS, TTI, INP.
 ///
 /// Flushes and disconnects the LCP observer to capture any buffered entries.
 async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
@@ -165,7 +263,10 @@ async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
     return JSON.stringify({
         lcp: lcp,
         tbt: window.__ams_tbt || 0,
-        cls: window.__ams_cls || 0
+        cls: window.__ams_cls || 0,
+        lastTaskEnd: window.__ams_last_task_end || 0,
+        clsShifts: window.__ams_cls_shifts || [],
+        inpDuration: window.__ams_inp || 0
     });
 })()
 "#;
@@ -178,10 +279,63 @@ async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
     let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("{}");
     let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
 
+    let cls_shifts = parse_cls_shifts(&parsed["clsShifts"]);
+
     Ok(PreinjectedVitals {
         lcp: parsed["lcp"].as_f64().unwrap_or(0.0),
         tbt: parsed["tbt"].as_f64().unwrap_or(0.0),
         cls: parsed["cls"].as_f64().unwrap_or(0.0),
+        last_task_end: parsed["lastTaskEnd"].as_f64().unwrap_or(0.0),
+        cls_shifts,
+        inp_duration: parsed["inpDuration"].as_f64().unwrap_or(0.0),
+    })
+}
+
+/// Parse CLS shift entries from the JSON value returned by the browser.
+fn parse_cls_shifts(val: &serde_json::Value) -> Vec<ClsShift> {
+    val.as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|entry| {
+                    let value = entry["value"].as_f64()?;
+                    let start_time_ms = entry["startTime"].as_f64().unwrap_or(0.0);
+                    let sources = entry["sources"]
+                        .as_array()
+                        .map(|srcs| {
+                            srcs.iter()
+                                .map(|s| {
+                                    let node = s["node"].as_str().unwrap_or("unknown").to_string();
+                                    let previous_rect = parse_shift_rect(&s["previousRect"]);
+                                    let current_rect = parse_shift_rect(&s["currentRect"]);
+                                    ClsSource {
+                                        node,
+                                        previous_rect,
+                                        current_rect,
+                                    }
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    Some(ClsShift {
+                        value,
+                        start_time_ms,
+                        sources,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_shift_rect(val: &serde_json::Value) -> Option<ShiftRect> {
+    if val.is_null() {
+        return None;
+    }
+    Some(ShiftRect {
+        top: val["top"].as_f64().unwrap_or(0.0),
+        left: val["left"].as_f64().unwrap_or(0.0),
+        bottom: val["bottom"].as_f64().unwrap_or(0.0),
+        right: val["right"].as_f64().unwrap_or(0.0),
     })
 }
 
@@ -190,6 +344,12 @@ struct PreinjectedVitals {
     lcp: f64,
     tbt: f64,
     cls: f64,
+    /// End time of the last long task (ms from navigation start); 0 = no long tasks
+    last_task_end: f64,
+    /// Per-shift CLS entries (#135)
+    cls_shifts: Vec<ClsShift>,
+    /// Max event/interaction duration captured by event-timing or first-input (#134)
+    inp_duration: f64,
 }
 
 /// Read the current LCP value from the pre-injected global.
@@ -284,8 +444,12 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
             lcp: 0.0,
             tbt: 0.0,
             cls: 0.0,
+            last_task_end: 0.0,
+            cls_shifts: vec![],
+            inp_duration: 0.0,
         }
     });
+    let last_task_end = preinjected.last_task_end;
 
     // Apply pre-injected LCP and TBT when non-zero (0 = not captured / not injected)
     if preinjected.lcp > 0.0 && preinjected.lcp < 300_000.0 {
@@ -298,6 +462,17 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     // CLS: 0.0 is a valid perfect score, always apply
     vitals.cls = Some(VitalMetric::new(preinjected.cls, 0.1, 0.25));
     debug!("CLS (preinjected): {:.4}", preinjected.cls);
+
+    // CLS attribution (#135)
+    vitals.cls_attribution = preinjected.cls_shifts;
+
+    // INP (#134): event-timing or first-input duration; 0 = no interaction captured.
+    // In headless audits interactions rarely fire, so 0 means "not measurable" and
+    // we leave the field empty rather than reporting a misleading 0ms.
+    if preinjected.inp_duration > 0.0 {
+        vitals.inp = Some(VitalMetric::new(preinjected.inp_duration, 200.0, 500.0));
+        debug!("INP (event-timing): {:.0}ms", preinjected.inp_duration);
+    }
 
     // Get performance metrics via CDP for FCP, DCL, heap, node count
     let metrics_response = page
@@ -362,11 +537,38 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         }
     }
 
+    // TTI (#137): max(domInteractive, last_long_task_end).
+    // domInteractive = domContentLoadedEventStart (navigation timing).
+    // Thresholds from Lighthouse: good ≤3800ms, poor >7300ms.
+    let dom_interactive_ms: f64 = page
+        .evaluate("(function(){ var n = performance.getEntriesByType('navigation')[0]; return n ? n.domInteractive : 0; })()")
+        .await
+        .ok()
+        .and_then(|r| r.value().and_then(|v| v.as_f64()))
+        .unwrap_or(0.0);
+    let tti_ms = dom_interactive_ms.max(last_task_end);
+    if tti_ms > 0.0 && tti_ms < 300_000.0 {
+        vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0));
+        debug!("TTI (approx): {:.0}ms", tti_ms);
+    }
+
+    // Speed Index (#137): heuristic proxy = 0.35·FCP + 0.65·LCP.
+    // Real Speed Index requires video-frame analysis; this approximation
+    // correlates well for typical content-heavy pages.
+    // Thresholds from Lighthouse: good ≤3400ms, poor >5800ms.
+    if let (Some(fcp), Some(lcp)) = (&vitals.fcp, &vitals.lcp) {
+        let si = 0.35 * fcp.value + 0.65 * lcp.value;
+        vitals.speed_index = Some(VitalMetric::new(si, 3400.0, 5800.0));
+        debug!("Speed Index (heuristic): {:.0}ms", si);
+    }
+
     info!(
-        "Web Vitals extracted: LCP={:?}ms, FCP={:?}ms, CLS={:?}",
+        "Web Vitals extracted: LCP={:?}ms, FCP={:?}ms, CLS={:?}, TTI={:?}ms, INP={:?}ms",
         vitals.lcp.as_ref().map(|v| v.value as i64),
         vitals.fcp.as_ref().map(|v| v.value as i64),
-        vitals.cls.as_ref().map(|v| v.value)
+        vitals.cls.as_ref().map(|v| v.value),
+        vitals.tti.as_ref().map(|v| v.value as i64),
+        vitals.inp.as_ref().map(|v| v.value as i64),
     );
 
     Ok(vitals)

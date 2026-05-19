@@ -10,7 +10,10 @@ use crate::browser::ThrottleProfile;
 use crate::cli::WcagLevel;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::mobile::MobileFriendliness;
-use crate::performance::{ContentWeight, PerformanceScore, RenderBlockingAnalysis, WebVitals};
+use crate::performance::{
+    AnimationAnalysis, ContentWeight, CoverageAnalysis, CriticalChain, MinificationAnalysis,
+    PerformanceScore, RenderBlockingAnalysis, ThirdPartyAttribution, WebVitals,
+};
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
@@ -169,6 +172,9 @@ pub struct AuditReport {
     /// Device preview screenshot capture state (issue #26).
     #[serde(default)]
     pub screenshot_status: ScreenshotStatus,
+    /// Best practices analysis (console errors, vulnerable libraries)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
 }
 
 /// Performance analysis results wrapper
@@ -184,6 +190,21 @@ pub struct PerformanceResults {
     /// Page content weight / resource breakdown
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_weight: Option<ContentWeight>,
+    /// Third-party resource attribution per origin (#138)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub third_party: Option<ThirdPartyAttribution>,
+    /// Critical request chain / network dependency tree (#132)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub critical_chain: Option<CriticalChain>,
+    /// Unminified JS/CSS asset detection (#111)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minification: Option<MinificationAnalysis>,
+    /// Non-composited animation detection (#105)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub animations: Option<AnimationAnalysis>,
+    /// Unused JS (#106) and CSS (#107) via CDP Coverage API
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<CoverageAnalysis>,
 }
 
 impl AuditReport {
@@ -229,6 +250,7 @@ impl AuditReport {
             throttled_performance: Vec::new(),
             patterns: None,
             screenshot_status: ScreenshotStatus::NotRequested,
+            best_practices: None,
         }
     }
 
@@ -282,6 +304,11 @@ impl AuditReport {
 
     pub fn with_tech_stack(mut self, tech_stack: crate::tech_stack::TechStackAnalysis) -> Self {
         self.tech_stack = Some(tech_stack);
+        self
+    }
+
+    pub fn with_best_practices(mut self, bp: crate::best_practices::BestPracticesAnalysis) -> Self {
+        self.best_practices = Some(bp);
         self
     }
 

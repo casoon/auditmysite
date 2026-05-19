@@ -79,6 +79,7 @@ pub mod accessibility;
 pub mod ai_visibility;
 pub mod assessment;
 pub mod audit;
+pub mod best_practices;
 pub mod browser;
 pub mod cli;
 pub mod content_visibility;

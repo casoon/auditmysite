@@ -71,6 +71,7 @@ src/
 │       ├── language.rs            # 3.1.1
 │       └── ... (weitere Regelfiles)
 │
+├── best_practices/            # Console-Errors, verwundbare JS-Bibliotheken
 ├── output/
 │   ├── cli.rs                 # Tabellen-Formatter für Terminal
 │   ├── json.rs                # JSON-Formatter
@@ -95,7 +96,13 @@ src/
 │       └── helpers.rs         # Engine-Setup, i18n, Hilfsfunktionen
 │
 ├── performance/               # Core Web Vitals, Render-Blocking, Content-Weight
+│   ├── animations.rs          # Non-composited animation detection
+│   ├── coverage.rs            # Unused JS/CSS via CDP Coverage API
+│   ├── critical_chain.rs      # Critical request chain / network dependency tree
+│   ├── minification.rs        # Unminified JS/CSS asset detection
+│   └── third_party.rs         # Third-party resource attribution
 ├── seo/                       # Meta, Headings, Schema.org, Social, Technical
+│   └── image_efficiency.rs    # Image format and resolution efficiency
 ├── security/                  # Security-Header-Analyse
 ├── mobile/                    # Mobile-Friendliness, UX-Heuristiken
 ├── dark_mode/                 # Dark-Mode-Support-Analyse, Kontrast-Vergleich
