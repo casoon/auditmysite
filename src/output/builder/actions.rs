@@ -549,6 +549,7 @@ pub(super) fn derive_conversion_effect_from_action(
 
 /// Build a four-stage narrative arc (Diagnose → Ursache → Wirkung → Umsetzung)
 /// for a finding. Called by both single and batch report builders.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn build_narrative_arc(
     locale: &str,
     occurrence_count: usize,

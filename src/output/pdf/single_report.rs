@@ -193,7 +193,7 @@ pub(super) fn render_tech_details(
                 };
                 builder = builder.add_component(
                     SectionHeaderSplit::new(&tier.label, &tier_intro)
-                        .with_eyebrow(&tier.label.to_uppercase())
+                        .with_eyebrow(tier.label.to_uppercase())
                         .with_level(2),
                 );
 
