@@ -144,8 +144,10 @@ pub struct NormalizedFinding {
     /// Schweregrad
     pub severity: Severity,
     /// Auswirkung auf den Nutzer
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub user_impact: String,
     /// Technische Auswirkung
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub technical_impact: String,
     /// Strukturierter Score-Impact
     pub score_impact: ScoreImpactData,
@@ -363,6 +365,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
+    // Maximum selector-deduplicated occurrences stored per finding.
+    // occurrence_count always reflects the true total; this only caps what is
+    // serialized to keep JSON payloads compact.
+    const MAX_OCCURRENCES: usize = 5;
+
     // Group violations by rule ID
     let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
     for v in violations {
@@ -424,14 +431,17 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             // Deduplicate by selector: multiple DOM nodes that share an identical
             // CSS selector string collapse into a single representative occurrence.
             // occurrence_count still reflects the actual number of affected elements.
+            // Capped at MAX_OCCURRENCES to keep JSON output compact; the true total
+            // is always available via occurrence_count.
             let occurrence_count = violations.len();
             let mut seen_selectors = std::collections::HashSet::new();
-            let occurrences: Vec<OccurrenceDetail> = violations
+            let mut occurrences: Vec<OccurrenceDetail> = violations
                 .iter()
                 .filter(|v| {
                     let key = v.selector.as_deref().unwrap_or(&v.node_id);
                     seen_selectors.insert(key.to_string())
                 })
+                .take(MAX_OCCURRENCES)
                 .map(|v| OccurrenceDetail {
                     node_id: v.node_id.clone(),
                     message: v.message.clone(),
@@ -442,6 +452,18 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     tags: v.tags.clone(),
                 })
                 .collect();
+            // Deduplicate fix_suggestion: if all stored occurrences share the same
+            // fix, suppress it from occurrences[1..] — it's readable from [0].
+            if let Some(shared_fix) = occurrences.first().and_then(|o| o.fix_suggestion.clone()) {
+                if occurrences[1..]
+                    .iter()
+                    .all(|o| o.fix_suggestion.as_deref() == Some(shared_fix.as_str()))
+                {
+                    for occ in &mut occurrences[1..] {
+                        occ.fix_suggestion = None;
+                    }
+                }
+            }
             let axe_id = taxonomy_rule.and_then(|r| r.axe_id).map(String::from);
             // Use max severity across all violations; apply taxonomy floor so the
             // reported severity is always at least what the rule definition mandates.
@@ -527,6 +549,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 priority_score,
                 occurrences: issues
                     .iter()
+                    .take(MAX_OCCURRENCES)
                     .map(|i| OccurrenceDetail {
                         node_id: i.issue_type.clone(),
                         message: i.message.clone(),

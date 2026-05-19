@@ -1,5 +1,7 @@
 use crate::audit::normalized::{NormalizedReport, SeverityCounts};
-use crate::output::report_model::{DiagnosisBlock, FindingCluster, FindingGroup, FindingSummary};
+use crate::output::report_model::{
+    DiagnosisBlock, FindingCluster, FindingGroup, FindingSeverityTier, FindingSummary,
+};
 
 pub(super) fn build_finding_summary(
     locale: &str,
@@ -46,6 +48,40 @@ pub(super) fn build_finding_summary(
         cross_impact_notes,
         issue_pattern_label,
     }
+}
+
+pub(super) fn build_severity_tiers(
+    locale: &str,
+    findings: &[FindingGroup],
+) -> Vec<FindingSeverityTier> {
+    use crate::wcag::Severity;
+
+    let en = locale == "en";
+    [
+        (Severity::Critical, if en { "Critical" } else { "Kritisch" }),
+        (Severity::High, if en { "High" } else { "Hoch" }),
+        (Severity::Medium, if en { "Medium" } else { "Mittel" }),
+        (Severity::Low, if en { "Low" } else { "Niedrig" }),
+    ]
+    .iter()
+    .filter_map(|(sev, label)| {
+        let tier_findings: Vec<FindingGroup> = findings
+            .iter()
+            .filter(|f| f.severity == *sev)
+            .cloned()
+            .collect();
+        if tier_findings.is_empty() {
+            return None;
+        }
+        let total_occurrences = tier_findings.iter().map(|f| f.occurrence_count).sum();
+        Some(FindingSeverityTier {
+            severity: *sev,
+            label: (*label).to_string(),
+            findings: tier_findings,
+            total_occurrences,
+        })
+    })
+    .collect()
 }
 
 pub(super) fn build_thematic_clusters(

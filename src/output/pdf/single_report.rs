@@ -100,7 +100,11 @@ pub(super) fn render_tech_entry(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(PageBreak::new()).add_component(
         SectionHeaderSplit::new(&vm.executive.technical_title, &vm.executive.technical_intro)
-            .with_eyebrow("TECHNICAL HANDOFF")
+            .with_eyebrow(if i18n.locale() == "en" {
+                "DEVELOPER"
+            } else {
+                "ENTWICKLER"
+            })
             .with_level(1),
     );
 
@@ -139,22 +143,84 @@ pub(super) fn render_tech_entry(
     builder
 }
 
-/// Sections 5b + 6+ — diagnosis, WCAG details, module metrics, appendix.
+/// Sections 5b + 6+ — diagnosis, findings by severity tier, module metrics, appendix.
 pub(super) fn render_tech_details(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     report: &AuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+
     // Section 5b — System Diagnosis
     if vm.severity.has_issues {
         builder = render_diagnosis_section(builder, &vm.diagnosis, i18n);
     }
 
-    // Section 6+ — Tech Details: WCAG findings
+    // Section 6+ — Findings grouped by severity tier (#201 / #205 / #208)
     if vm.severity.has_issues {
-        for group in &vm.findings.all_findings {
-            builder = render_finding_technical(builder, group, i18n);
+        if !vm.findings.by_severity.is_empty() {
+            let (findings_title, findings_intro) = if en {
+                (
+                    "Findings by Severity",
+                    "All technical findings grouped by severity. Critical and high-severity issues require immediate remediation.",
+                )
+            } else {
+                (
+                    "Befunde nach Schweregrad",
+                    "Alle technischen Befunde gruppiert nach Schweregrad. Kritische und hohe Befunde erfordern sofortige Behebung.",
+                )
+            };
+            builder = builder.add_component(PageBreak::new()).add_component(
+                SectionHeaderSplit::new(findings_title, findings_intro)
+                    .with_eyebrow(if en { "FINDINGS" } else { "BEFUNDE" })
+                    .with_level(1),
+            );
+
+            for tier in &vm.findings.by_severity {
+                let tier_intro = if en {
+                    format!(
+                        "{} finding(s) — {} occurrence(s) total",
+                        tier.findings.len(),
+                        tier.total_occurrences
+                    )
+                } else {
+                    format!(
+                        "{} Befund(e) — {} Vorkommen gesamt",
+                        tier.findings.len(),
+                        tier.total_occurrences
+                    )
+                };
+                builder = builder.add_component(
+                    SectionHeaderSplit::new(&tier.label, &tier_intro)
+                        .with_eyebrow(&tier.label.to_uppercase())
+                        .with_level(2),
+                );
+
+                if tier.severity == crate::wcag::Severity::Critical {
+                    let msg = if en {
+                        format!(
+                            "{} critical issue(s) blocking accessibility — must be resolved before deployment.",
+                            tier.findings.len()
+                        )
+                    } else {
+                        format!(
+                            "{} kritische(r) Befund(e) blockiert/blockieren die Barrierefreiheit — vor dem Deployment zu beheben.",
+                            tier.findings.len()
+                        )
+                    };
+                    builder = builder.add_component(Callout::error(&msg));
+                }
+
+                for group in &tier.findings {
+                    builder = render_finding_technical(builder, group, i18n);
+                }
+            }
+        } else {
+            // Fallback: severity unknown for all findings
+            for group in &vm.findings.all_findings {
+                builder = render_finding_technical(builder, group, i18n);
+            }
         }
     }
 
@@ -165,9 +231,26 @@ pub(super) fn render_tech_details(
 
     // Module Detail Metrics
     if vm.module_details.has_any {
-        builder = builder
-            .add_component(PageBreak::new())
-            .add_component(Section::new(i18n.t("section-tech-detail-metrics")).with_level(1));
+        let (metrics_title, metrics_intro) = if en {
+            (
+                "Module Metrics",
+                "Detailed measurement data for each active quality module.",
+            )
+        } else {
+            (
+                "Modul-Metriken",
+                "Detaillierte Messdaten für jeden aktiven Qualitäts-Modul.",
+            )
+        };
+        builder = builder.add_component(PageBreak::new()).add_component(
+            SectionHeaderSplit::new(metrics_title, metrics_intro)
+                .with_eyebrow(if en {
+                    "MODULE METRICS"
+                } else {
+                    "MODUL-METRIKEN"
+                })
+                .with_level(1),
+        );
     }
 
     if let Some(ref perf) = vm.module_details.performance {
@@ -210,11 +293,24 @@ pub(super) fn render_tech_details(
         builder = render_best_practices(builder, bp, i18n);
     }
 
-    // Appendix
+    // Appendix — Layer C (#201 / #208)
     if vm.appendix.has_violations {
-        builder = builder
-            .add_component(PageBreak::new())
-            .add_component(Section::new(i18n.t("section-appendix")).with_level(1));
+        let (appendix_title, appendix_intro) = if en {
+            (
+                "Appendix",
+                "Complete raw audit data — all violations, selectors and technical references.",
+            )
+        } else {
+            (
+                "Anhang",
+                "Vollständige Rohdaten des Audits — alle Verstöße, Selektoren und technische Referenzen.",
+            )
+        };
+        builder = builder.add_component(PageBreak::new()).add_component(
+            SectionHeaderSplit::new(appendix_title, appendix_intro)
+                .with_eyebrow(if en { "APPENDIX" } else { "ANHANG" })
+                .with_level(1),
+        );
 
         builder = builder.add_component(build_cli_snapshot_table(vm, i18n));
 

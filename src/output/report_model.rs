@@ -372,12 +372,24 @@ pub struct SeverityBlock {
     pub has_issues: bool,
 }
 
+/// Findings grouped into a single severity tier (Critical / High / Medium / Low).
+/// Only non-empty tiers are included in `FindingsBlock.by_severity`.
+pub struct FindingSeverityTier {
+    pub severity: Severity,
+    pub label: String,
+    pub findings: Vec<FindingGroup>,
+    pub total_occurrences: usize,
+}
+
 /// Grouped findings, already sorted by impact
 pub struct FindingsBlock {
     pub summary: FindingSummary,
     pub clusters: Vec<FindingCluster>,
     pub top_findings: Vec<FindingGroup>,
     pub all_findings: Vec<FindingGroup>,
+    /// Findings pre-partitioned into severity tiers (Critical → High → Medium → Low).
+    /// Renderers can use this for structured, tier-first display without re-sorting.
+    pub by_severity: Vec<FindingSeverityTier>,
 }
 
 /// Module detail presentations (unchanged from before)

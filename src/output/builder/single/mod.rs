@@ -11,7 +11,9 @@ mod modules_block;
 mod positive;
 mod serp;
 use self::actions_block::build_actions_block;
-use self::diagnosis::{build_diagnosis_block, build_finding_summary, build_thematic_clusters};
+use self::diagnosis::{
+    build_diagnosis_block, build_finding_summary, build_severity_tiers, build_thematic_clusters,
+};
 use self::executive::{build_executive_narrative, build_positive_signals};
 use self::findings::finding_group_from_normalized;
 use self::history::build_history_trend_block;
@@ -418,10 +420,12 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             let clusters = build_thematic_clusters(&config.locale, &sorted_groups);
             let finding_summary =
                 build_finding_summary(&config.locale, &filtered_counts, &audit_summary);
+            let by_severity = build_severity_tiers(&config.locale, &sorted_groups);
             FindingsBlock {
                 summary: finding_summary,
                 clusters,
                 top_findings,
+                by_severity,
                 all_findings: sorted_groups,
             }
         },
