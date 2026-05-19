@@ -2316,14 +2316,7 @@ pub(super) fn render_best_practices(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(PageBreak::new())
-        .add_component(
-            Section::new(if is_en(i18n) {
-                "Best Practices"
-            } else {
-                "Best Practices"
-            })
-            .with_level(2),
-        )
+        .add_component(Section::new("Best Practices").with_level(2))
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
@@ -2355,7 +2348,7 @@ pub(super) fn render_best_practices(
             "Konsolenfehler"
         };
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Level" } else { "Level" }).with_width("15%"),
+            TableColumn::new("Level").with_width("15%"),
             TableColumn::new(if is_en(i18n) { "Message" } else { "Meldung" }).with_width("85%"),
         ])
         .with_title(title);
@@ -2374,7 +2367,7 @@ pub(super) fn render_best_practices(
         };
         let mut table = AuditTable::new(vec![
             TableColumn::new(if is_en(i18n) { "Library" } else { "Bibliothek" }).with_width("20%"),
-            TableColumn::new(if is_en(i18n) { "Version" } else { "Version" }).with_width("15%"),
+            TableColumn::new("Version").with_width("15%"),
             TableColumn::new(if is_en(i18n) { "Severity" } else { "Schwere" }).with_width("15%"),
             TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("35%"),
             TableColumn::new(if is_en(i18n) { "Fix" } else { "Lösung" }).with_width("15%"),

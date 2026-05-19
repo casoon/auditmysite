@@ -301,10 +301,10 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
     let v = parse_semver(version)?;
 
     match name {
-        "jQuery" => {
+        "jQuery"
             // jQuery < 3.5.0: XSS via HTML processing (CVE-2020-11022, CVE-2020-11023)
             // jQuery < 1.12.0 / 2.x < 2.2.0: multiple XSS issues
-            if v < (3, 5, 0) {
+            if v < (3, 5, 0) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
@@ -318,10 +318,9 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                     safe_version: "3.5.0+".to_string(),
                 });
             }
-        }
-        "Bootstrap" => {
+        "Bootstrap"
             // Bootstrap 3.x < 3.4.1 and 4.x < 4.3.1: XSS via data attributes
-            if (v.0 == 3 && v < (3, 4, 1)) || (v.0 == 4 && v < (4, 3, 1)) {
+            if ((v.0 == 3 && v < (3, 4, 1)) || (v.0 == 4 && v < (4, 3, 1))) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
@@ -330,10 +329,9 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                     safe_version: "3.4.1+ or 4.3.1+".to_string(),
                 });
             }
-        }
-        "AngularJS" => {
+        "AngularJS"
             // AngularJS < 1.8.0: client-side template injection / XSS
-            if v.0 == 1 && v < (1, 8, 0) {
+            if v.0 == 1 && v < (1, 8, 0) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
@@ -344,10 +342,9 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                     safe_version: "1.8.0+".to_string(),
                 });
             }
-        }
-        "Handlebars" => {
+        "Handlebars"
             // Handlebars < 4.5.3: prototype pollution / RCE in template compilation
-            if v < (4, 5, 3) {
+            if v < (4, 5, 3) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
@@ -356,10 +353,9 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                     safe_version: "4.5.3+".to_string(),
                 });
             }
-        }
-        "Lodash" => {
+        "Lodash"
             // Lodash < 4.17.21: prototype pollution (CVE-2021-23337, CVE-2020-8203)
-            if v < (4, 17, 21) {
+            if v < (4, 17, 21) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
@@ -370,10 +366,9 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                     safe_version: "4.17.21+".to_string(),
                 });
             }
-        }
-        "Underscore" => {
+        "Underscore"
             // Underscore < 1.13.0: arbitrary code execution (CVE-2021-23358)
-            if v < (1, 13, 0) {
+            if v < (1, 13, 0) => {
                 return Some(VulnerableLibrary {
                     name: name.to_string(),
                     version: version.to_string(),
@@ -384,7 +379,6 @@ fn check_vulnerability(name: &str, version: &str) -> Option<VulnerableLibrary> {
                     safe_version: "1.13.0+".to_string(),
                 });
             }
-        }
         "Prototype" | "MooTools" => {
             // These libraries are unmaintained and inherently risky
             return Some(VulnerableLibrary {

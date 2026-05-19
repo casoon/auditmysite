@@ -128,8 +128,8 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
     }
 
     // Sort largest savings first
-    unminified_scripts.sort_by(|a, b| b.savings_bytes.cmp(&a.savings_bytes));
-    unminified_styles.sort_by(|a, b| b.savings_bytes.cmp(&a.savings_bytes));
+    unminified_scripts.sort_by_key(|a| std::cmp::Reverse(a.savings_bytes));
+    unminified_styles.sort_by_key(|a| std::cmp::Reverse(a.savings_bytes));
 
     let total_savings_bytes: u64 = unminified_scripts
         .iter()

@@ -129,7 +129,7 @@ pub async fn analyze_third_party_attribution(
         })
         .collect();
 
-    origins.sort_by(|a, b| b.transfer_bytes.cmp(&a.transfer_bytes));
+    origins.sort_by_key(|o| std::cmp::Reverse(o.transfer_bytes));
 
     info!(
         "Third-party attribution: {} origins, {} requests, {:.1} KB",

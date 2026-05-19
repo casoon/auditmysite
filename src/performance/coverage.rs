@@ -191,7 +191,7 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
         }
     }
 
-    scripts.sort_by(|a, b| b.unused_bytes.cmp(&a.unused_bytes));
+    scripts.sort_by_key(|s| std::cmp::Reverse(s.unused_bytes));
 
     let overall_used_pct = if total_bytes > 0 {
         ((total_bytes - total_unused_bytes) as f64 / total_bytes as f64 * 100.0).clamp(0.0, 100.0)

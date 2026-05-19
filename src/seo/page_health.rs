@@ -767,7 +767,7 @@ async fn follow_redirect_chain(url: &str) -> Vec<(u16, String)> {
         };
         let status = resp.status().as_u16();
         chain.push((status, current.clone()));
-        if status < 300 || status >= 400 {
+        if !(300..400).contains(&status) {
             break;
         }
         let Some(location) = resp.headers().get("location").and_then(|v| v.to_str().ok()) else {
