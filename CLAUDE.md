@@ -174,8 +174,8 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack, Best Practices
 - Consent: `--dismiss-consent` Flag; CMP-Cookie-Injection + Banner-Click; `consent_banner` audit_flag im JSON
 - JSON: **Unified Report Envelope v2.0** — einheitliches Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`). Breaking Change ggü. v0.17.
-- Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor + logarithmische Kompression für extreme Penalties (≥85 Punkte), WCAG-Prinzip-Coverage; `score_breakdown` für viewport_weighted-Modus
-- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt nur WCAG-Findings; `violated_rule_count` im JSON-PageEntry; Severity = Maximum über alle Violations
+- Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor + logarithmische Kompression für extreme Penalties (≥85 Punkte), WCAG-Prinzip-Coverage; `score_breakdown` (nur bei `score_calculation_method = "viewport_weighted"`, sonst absent)
+- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt nur WCAG-Findings; `violated_rule_count` im JSON-PageEntry; `risk.severity` = schwerste Violation über alle Findings (kein eigenes `severity_max`-Feld)
 - Risk Level: Score-basierter Fallback (score ≤ 20 → mindestens Medium)
 - History: `schema_version: "1.0"`, `report_type: "history"` in History-JSON-Dateien
 - PDF: Throttled-Performance-Tabelle, Indikator-Kennzeichnung konsistent, leere Seite nach ToC behoben

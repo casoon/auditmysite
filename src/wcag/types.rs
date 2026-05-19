@@ -268,13 +268,13 @@ pub struct WcagResults {
     /// Confirmed violations (kind = Violation).
     pub violations: Vec<Violation>,
     /// Heuristic suspicions that need human confirmation (kind = Warning).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub warnings: Vec<Violation>,
     /// Good accessibility patterns actively detected (kind = Positive).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub positives: Vec<Violation>,
     /// Criteria that cannot be evaluated automatically — require manual testing (kind = NotTestable).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub not_testables: Vec<Violation>,
     /// Number of rules that passed
     pub passes: usize,

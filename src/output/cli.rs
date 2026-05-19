@@ -586,8 +586,14 @@ fn print_content_visibility_section(cv: &crate::content_visibility::ContentVisib
                 crate::assessment::EvidenceConfidence::Medium => Cell::new("◐"),
                 crate::assessment::EvidenceConfidence::Low => Cell::new("○"),
             };
-            let detail_truncated = if signal.detail.len() > 60 {
-                format!("{}…", &signal.detail[..60])
+            let detail_truncated = if signal.detail.chars().count() > 60 {
+                let end = signal
+                    .detail
+                    .char_indices()
+                    .nth(60)
+                    .map(|(i, _)| i)
+                    .unwrap_or(signal.detail.len());
+                format!("{}…", &signal.detail[..end])
             } else {
                 signal.detail.clone()
             };

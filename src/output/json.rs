@@ -100,9 +100,7 @@ pub struct PageEntry {
     pub risk: crate::audit::normalized::RiskAssessment,
     pub principle_coverage: crate::audit::PrincipleCoverage,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
 }
 
@@ -380,7 +378,7 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         overall_score: normalized.overall_score,
         grade: normalized.grade.clone(),
         certificate: normalized.certificate.clone(),
-        violation_count: normalized.severity_counts.total,
+        violation_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
         violated_rule_count: normalized
             .findings
             .iter()
@@ -803,7 +801,13 @@ mod tests {
         let unified = UnifiedReport::single(&normalized, &report);
         let page = first_page(&unified);
 
-        assert_eq!(page.violation_count, page.severity_counts.total);
+        assert_eq!(
+            page.violation_count,
+            page.findings
+                .iter()
+                .map(|f| f.occurrence_count)
+                .sum::<usize>()
+        );
         for finding in &page.findings {
             assert!(!finding.occurrences.is_empty());
         }

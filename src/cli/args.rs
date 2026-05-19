@@ -571,6 +571,7 @@ mod tests {
             no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
+            dismiss_consent: false,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
             logo: None,

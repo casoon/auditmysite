@@ -531,7 +531,8 @@ impl BatchReport {
 
         let total_violations = normalized_reports
             .iter()
-            .map(|r| r.severity_counts.total)
+            .flat_map(|r| r.findings.iter())
+            .map(|f| f.occurrence_count)
             .sum();
 
         let mut result = Self {
