@@ -97,10 +97,13 @@ pub struct PageEntry {
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
     /// How `overall_score` was computed: `"module_weighted"` or `"viewport_weighted"`.
     pub score_calculation_method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score_breakdown: Option<crate::audit::normalized::ScoreBreakdown>,
     pub risk: crate::audit::normalized::RiskAssessment,
     pub principle_coverage: crate::audit::PrincipleCoverage,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
 }
 
@@ -252,20 +255,12 @@ impl UnifiedReport {
         let accessibility_score = batch_report.summary.average_score.round() as u32;
 
         let worst_risk = {
-            use crate::audit::normalized::RiskLevel;
             let page_count = normalized_reports.len().max(1);
             let mut counts = std::collections::HashMap::new();
             for r in normalized_reports.iter() {
                 *counts.entry(r.risk.level).or_insert(0usize) += 1;
             }
-            [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
-                .iter()
-                .copied()
-                .find(|&lvl| {
-                    let n = *counts.get(&lvl).unwrap_or(&0);
-                    lvl == RiskLevel::Critical || n * 5 >= page_count
-                })
-                .unwrap_or(RiskLevel::Low)
+            compute_worst_risk(&counts, page_count)
         };
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
@@ -367,6 +362,21 @@ struct DetailContext {
     screenshot_status: Option<serde_json::Value>,
 }
 
+fn compute_worst_risk(
+    counts: &std::collections::HashMap<crate::audit::normalized::RiskLevel, usize>,
+    page_count: usize,
+) -> crate::audit::normalized::RiskLevel {
+    use crate::audit::normalized::RiskLevel;
+    [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
+        .iter()
+        .copied()
+        .find(|&lvl| {
+            let n = *counts.get(&lvl).unwrap_or(&0);
+            n > 0 && (lvl == RiskLevel::Critical || n * 5 >= page_count)
+        })
+        .unwrap_or(RiskLevel::Low)
+}
+
 /// Build a [`PageEntry`]. `detail` is built when `ctx` is `Some`
 /// (single reports); `None` produces a compact batch page without `detail`.
 fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> PageEntry {
@@ -389,6 +399,7 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         duration_ms: normalized.duration_ms,
         module_scores: normalized.module_scores.clone(),
         score_calculation_method: normalized.score_calculation_method.clone(),
+        score_breakdown: normalized.score_breakdown.clone(),
         risk: normalized.risk.clone(),
         principle_coverage: normalized.principle_coverage.clone(),
         findings: normalized.findings.clone(),
@@ -844,6 +855,22 @@ mod tests {
     }
 
     #[test]
+    fn test_worst_risk_all_low() {
+        use crate::audit::normalized::RiskLevel;
+        use std::collections::HashMap;
+        // No critical/high/medium pages — result must be Low, not Critical
+        let mut counts = HashMap::new();
+        counts.insert(RiskLevel::Low, 3usize);
+        let result = super::compute_worst_risk(&counts, 3);
+        assert_eq!(
+            result,
+            RiskLevel::Low,
+            "all-low batch must report Low risk, got {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_modules_under_page_detail() {
         use crate::output::module::active_modules;
         use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
@@ -904,5 +931,63 @@ mod tests {
                 key
             );
         }
+    }
+
+    #[test]
+    fn test_score_breakdown_present_for_viewport_weighted() {
+        use crate::audit::{ViewportScoreSet, ViewportScores};
+
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 100,
+                performance: None,
+                overall: 100,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 100,
+                performance: None,
+                overall: 100,
+            },
+            weighted_overall: 100,
+        });
+        let normalized = normalize(&report);
+        assert_eq!(normalized.score_calculation_method, "viewport_weighted");
+        assert!(
+            normalized.score_breakdown.is_some(),
+            "NormalizedReport must have score_breakdown for viewport_weighted"
+        );
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        assert!(
+            json_value["pages"][0].get("score_breakdown").is_some()
+                && !json_value["pages"][0]["score_breakdown"].is_null(),
+            "score_breakdown must be present and non-null for viewport_weighted pages"
+        );
+    }
+
+    #[test]
+    fn test_batch_page_detail_omitted_when_none() {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let normalized = normalize(&report);
+        let page = super::build_page(&normalized, None);
+        let json_str = serde_json::to_string(&page).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        assert!(
+            !json_value.as_object().unwrap().contains_key("detail"),
+            "batch page must not emit \"detail\" key when detail is None, got: {}",
+            json_str
+        );
     }
 }

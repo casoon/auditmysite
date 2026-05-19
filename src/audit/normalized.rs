@@ -731,16 +731,6 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
     let (overall_score, score_calculation_method, score_breakdown) =
         if let Some(ref vs) = report.viewport_scores {
-            // In viewport_weighted mode the individual module weight_pct values are
-            // nominal reference only — the actual formula blends viewport passes, not
-            // module weights. Mark non-security modules as not-contributing so consumers
-            // cannot mistakenly reconstruct the score from weight_pct.
-            for m in module_scores.iter_mut() {
-                if m.name != "Security" {
-                    m.contributes_to_overall = false;
-                }
-            }
-
             let security_adjusted = report
                 .security
                 .as_ref()
@@ -1370,5 +1360,43 @@ mod tests {
         assert!(!json.contains("\"coverage\""));
         assert!(!json.contains("\"animations\""));
         assert!(json.contains("\"score\""));
+    }
+
+    #[test]
+    fn test_viewport_weighted_core_modules_contribute() {
+        use crate::audit::{ViewportScoreSet, ViewportScores};
+        use crate::{WcagLevel, WcagResults};
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 100,
+                performance: None,
+                overall: 100,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 100,
+                performance: None,
+                overall: 100,
+            },
+            weighted_overall: 100,
+        });
+        let norm = normalize(&report);
+        assert_eq!(norm.score_calculation_method, "viewport_weighted");
+        let names_contributing: Vec<&str> = norm
+            .module_scores
+            .iter()
+            .filter(|m| m.contributes_to_overall)
+            .map(|m| m.name.as_str())
+            .collect();
+        assert!(
+            names_contributing.contains(&"Accessibility"),
+            "Accessibility must contribute in viewport_weighted mode, got: {:?}",
+            names_contributing
+        );
     }
 }

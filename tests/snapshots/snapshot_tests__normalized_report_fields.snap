@@ -24,9 +24,9 @@ expression: value
   "score": 83,
   "severity_counts": {
     "critical": 5,
-    "high": 0,
+    "high": 3,
     "low": 0,
-    "medium": 3,
+    "medium": 0,
     "total": 8
   },
   "url": "https://example.com"

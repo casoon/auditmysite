@@ -6,7 +6,7 @@ expression: value
   "action_column_count": 2,
   "cover": {
     "certificate": "SOLIDE",
-    "critical_issues": 5,
+    "critical_issues": 8,
     "grade": "B",
     "score": 83,
     "total_issues": 8
@@ -28,9 +28,9 @@ expression: value
   ],
   "severity": {
     "critical": 5,
-    "high": 0,
+    "high": 3,
     "low": 0,
-    "medium": 3,
+    "medium": 0,
     "total": 8
   },
   "summary": {

@@ -36,6 +36,7 @@
 //!         check_stack: false,
 //!         persist_artifacts: true,
 //!         capture_screenshots: false,
+//!         dismiss_consent: false,
 //!     };
 //!
 //!     // Run audit

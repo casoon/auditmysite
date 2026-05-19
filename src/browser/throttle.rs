@@ -1,10 +1,12 @@
-//! Network throttling via CDP `Network.emulateNetworkConditions`.
+//! Network and CPU throttling via CDP.
 //!
-//! EmulateNetworkConditionsParams is deprecated in CDP in favour of emulateNetworkConditionsByRule,
-//! but chromiumoxide 0.8 does not expose the replacement yet.
+//! Network: `Network.emulateNetworkConditions` (deprecated in CDP but still functional).
+//! CPU: `Emulation.setCPUThrottlingRate` — required to simulate realistic mobile LCP/TBT.
 
+use chromiumoxide::cdp::browser_protocol::emulation::SetCpuThrottlingRateParams;
 #[allow(deprecated)]
 use chromiumoxide::cdp::browser_protocol::network::EmulateNetworkConditionsParams;
+use chromiumoxide::cdp::browser_protocol::network::SetCacheDisabledParams;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
@@ -38,6 +40,19 @@ impl ThrottleProfile {
             ThrottleProfile::Slow3G => "slow-3g",
             ThrottleProfile::Fast3G => "fast-3g",
             ThrottleProfile::LhMobile => "lh-mobile",
+        }
+    }
+
+    /// CPU slowdown factor matching Lighthouse's mobile simulation.
+    ///
+    /// Without CPU throttling, LCP/TBT values measured under network throttle are
+    /// unrealistically low because the browser executes JS at full dev-machine speed.
+    pub fn cpu_slowdown(self) -> f64 {
+        match self {
+            ThrottleProfile::Unthrottled => 1.0,
+            ThrottleProfile::Slow3G => 6.0,
+            ThrottleProfile::Fast3G => 4.0,
+            ThrottleProfile::LhMobile => 4.0,
         }
     }
 }
@@ -78,6 +93,55 @@ pub async fn apply_throttling(page: &Page, profile: ThrottleProfile) -> Result<(
     Ok(())
 }
 
+/// Apply CPU throttling for a given profile.
+///
+/// Must be called before navigation; resets to 1x with `disable_cpu_throttling`.
+pub async fn apply_cpu_throttling(page: &Page, profile: ThrottleProfile) -> Result<()> {
+    let rate = profile.cpu_slowdown();
+    debug!("Applying CPU throttle {:?}: {:.0}x slowdown", profile, rate);
+    page.execute(SetCpuThrottlingRateParams::new(rate))
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "cpu-throttle".to_string(),
+            reason: e.to_string(),
+        })?;
+    Ok(())
+}
+
+/// Reset CPU throttling to 1x (no slowdown).
+pub async fn disable_cpu_throttling(page: &Page) -> Result<()> {
+    page.execute(SetCpuThrottlingRateParams::new(1.0_f64))
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "cpu-throttle-disable".to_string(),
+            reason: e.to_string(),
+        })?;
+    Ok(())
+}
+
+/// Disable the browser cache so subsequent navigations fetch all resources
+/// over the (throttled) network rather than serving from cache.
+pub async fn disable_cache(page: &Page) -> Result<()> {
+    page.execute(SetCacheDisabledParams::new(true))
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "cache-disable".to_string(),
+            reason: e.to_string(),
+        })?;
+    Ok(())
+}
+
+/// Re-enable the browser cache after a throttled measurement pass.
+pub async fn enable_cache(page: &Page) -> Result<()> {
+    page.execute(SetCacheDisabledParams::new(false))
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "cache-enable".to_string(),
+            reason: e.to_string(),
+        })?;
+    Ok(())
+}
+
 /// Disable any active network throttling on the page.
 #[allow(deprecated)]
 pub async fn disable_throttling(page: &Page) -> Result<()> {
@@ -97,4 +161,16 @@ pub async fn disable_throttling(page: &Page) -> Result<()> {
     })?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    // Verify the cache control functions are reachable (compile-time check).
+    // Full behaviour requires a live browser; referencing the symbols suffices.
+    #[test]
+    fn cache_fns_exist() {
+        // If these names don't exist the file won't compile.
+        let _disable = super::disable_cache;
+        let _enable = super::enable_cache;
+    }
 }

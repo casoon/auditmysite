@@ -1033,15 +1033,27 @@ async fn collect_throttled_performance(
             continue;
         }
 
+        if let Err(e) = throttle::apply_cpu_throttling(page, profile).await {
+            warn!("CPU throttle apply failed for {:?}: {}", profile, e);
+        }
+
+        if let Err(e) = throttle::disable_cache(page).await {
+            warn!("Cache disable failed for {:?}: {}", profile, e);
+        }
+
         if let Err(e) = prepare_vitals_collection(page).await {
             warn!("Vitals injection failed for {:?}: {}", profile, e);
+            let _ = throttle::enable_cache(page).await;
             let _ = throttle::disable_throttling(page).await;
+            let _ = throttle::disable_cpu_throttling(page).await;
             continue;
         }
 
         if let Err(e) = browser.navigate(page, url).await {
             warn!("Navigation failed for {:?}: {}", profile, e);
+            let _ = throttle::enable_cache(page).await;
             let _ = throttle::disable_throttling(page).await;
+            let _ = throttle::disable_cpu_throttling(page).await;
             continue;
         }
 
@@ -1055,14 +1067,19 @@ async fn collect_throttled_performance(
                     cls: vitals.cls.as_ref().map(|v| v.value),
                     score: score.overall,
                 });
+                let _ = throttle::enable_cache(page).await;
             }
             Err(e) => {
                 warn!("Vitals collection failed for {:?}: {}", profile, e);
+                let _ = throttle::enable_cache(page).await;
             }
         }
 
         if let Err(e) = throttle::disable_throttling(page).await {
             warn!("Throttle disable failed for {:?}: {}", profile, e);
+        }
+        if let Err(e) = throttle::disable_cpu_throttling(page).await {
+            warn!("CPU throttle disable failed for {:?}: {}", profile, e);
         }
 
         // Brief pause between passes to let the browser stabilise.
@@ -1072,9 +1089,10 @@ async fn collect_throttled_performance(
     // Restore mobile viewport for screenshot capture that follows.
     let _ = set_viewport(page, Viewport::Mobile).await;
 
-    // Reload without throttle so the page is in a clean state.
+    // Restore unthrottled state for any subsequent operations.
     if !results.is_empty() {
         let _ = throttle::disable_throttling(page).await;
+        let _ = throttle::disable_cpu_throttling(page).await;
     }
 
     results
