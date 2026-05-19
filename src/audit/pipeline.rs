@@ -22,7 +22,10 @@ use crate::audit::scoring::AccessibilityScorer;
 use crate::best_practices::{
     analyze_best_practices, prepare_console_collection, BestPracticesAnalysis,
 };
-use crate::browser::{throttle, BrowserManager, ThrottleProfile};
+use crate::browser::{
+    consent::{handle_post_navigation, inject_consent_cookies},
+    throttle, BrowserManager, ThrottleProfile,
+};
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::error::Result;
@@ -122,6 +125,8 @@ pub struct PipelineConfig {
     pub persist_artifacts: bool,
     /// Capture desktop + mobile screenshots for PDF cover page
     pub capture_screenshots: bool,
+    /// Attempt to dismiss cookie consent banners before auditing
+    pub dismiss_consent: bool,
 }
 
 impl From<&Args> for PipelineConfig {
@@ -140,6 +145,7 @@ impl From<&Args> for PipelineConfig {
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+            dismiss_consent: args.dismiss_consent,
         }
     }
 }
@@ -214,6 +220,11 @@ pub async fn audit_page(
         None
     };
 
+    // ── Pre-navigation: inject consent cookies ────────────────────────────────
+    if config.dismiss_consent {
+        inject_consent_cookies(page, url).await;
+    }
+
     // ── Desktop pass ──────────────────────────────────────────────────────────
     info!("Desktop pass starting for {}", url);
     set_viewport(page, Viewport::Desktop).await?;
@@ -229,6 +240,9 @@ pub async fn audit_page(
         }
     }
     browser.navigate(page, url).await?;
+
+    // ── Post-navigation: detect and optionally dismiss consent banner ─────────
+    let mut consent_result = handle_post_navigation(page, config.dismiss_consent).await;
 
     let desktop_config = PipelineConfig {
         check_performance: config.check_performance,
@@ -258,6 +272,14 @@ pub async fn audit_page(
     }
     browser.navigate(page, url).await?;
 
+    // ── Post-navigation: consent banner may reappear after mobile reload ──────
+    let mobile_consent = handle_post_navigation(page, config.dismiss_consent).await;
+    consent_result.banner_detected |= mobile_consent.banner_detected;
+    if consent_result.cmp_name.is_none() {
+        consent_result.cmp_name = mobile_consent.cmp_name;
+    }
+    consent_result.dismissed |= mobile_consent.dismissed;
+
     let mobile_config = PipelineConfig {
         check_performance: config.check_performance,
         check_seo: config.check_seo,
@@ -283,7 +305,7 @@ pub async fn audit_page(
     }
 
     // ── Merge ─────────────────────────────────────────────────────────────────
-    let merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
+    let mut merged_wcag = merge_wcag_violations(&desktop_wcag, &mobile_wcag);
 
     let desktop_acc = AccessibilityScorer::calculate_score(&desktop_wcag.violations);
     let mobile_acc = AccessibilityScorer::calculate_score(&mobile_wcag.violations);
@@ -353,13 +375,30 @@ pub async fn audit_page(
         best_practices: mobile_snap.best_practices.clone(),
     };
 
+    // ── Pattern analysis — dedicated enrichment pass ──────────────────────────
+    // Pattern violations come from the AXTree and reference real DOM nodes, so
+    // they can be enriched with selectors just like WCAG violations. Running this
+    // here (rather than inside aggregate_report) gives us access to the live page.
+    let pattern_analysis = crate::patterns::analyze(&primary_snap.ax_tree);
+    let mut pattern_violations = pattern_analysis.violations.clone();
+    enrich_violations_with_page(page, &mut pattern_violations, &primary_snap.ax_tree).await;
+    let (kept_patterns, demoted_patterns): (Vec<_>, Vec<_>) = pattern_violations
+        .into_iter()
+        .partition(|v| v.kind == crate::wcag::types::FindingKind::Violation);
+    merged_wcag.violations.extend(kept_patterns);
+    merged_wcag.warnings.extend(demoted_patterns);
+
     let mut report = aggregate_report(
         url,
         config,
         &primary_snap,
         merged_wcag,
+        pattern_analysis,
         start_time.elapsed().as_millis() as u64,
     );
+    report.consent_banner_detected = consent_result.banner_detected;
+    report.consent_banner_cmp = consent_result.cmp_name;
+    report.consent_banner_dismissed = consent_result.dismissed;
     report.dual_viewport = Some(dual_viewport);
     report.viewport_scores = Some(viewport_scores);
 
@@ -918,17 +957,12 @@ fn aggregate_report(
     url: &str,
     config: &PipelineConfig,
     snapshot: &SnapshotData,
-    mut wcag_results: WcagResults,
+    wcag_results: WcagResults,
+    pattern_analysis: crate::patterns::PatternAnalysis,
     duration_ms: u64,
 ) -> AuditReport {
-    // Run pattern detection against the AXTree. Pattern violations are
-    // merged into wcag_results before the report is built so they contribute
-    // to score/grade/statistics like any other WCAG violation.
-    let pattern_analysis = crate::patterns::analyze(&snapshot.ax_tree);
-    wcag_results
-        .violations
-        .extend(pattern_analysis.violations.clone());
-
+    // Pattern violations were already enriched and merged into wcag_results by
+    // the caller (audit_page), which has access to the live page for CDP lookups.
     let mut report = AuditReport::new(
         url.to_string(),
         config.wcag_level,

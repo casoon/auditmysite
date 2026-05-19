@@ -247,6 +247,9 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         patterns: None,
         screenshot_status: Default::default(),
         best_practices: None,
+        consent_banner_detected: false,
+        consent_banner_cmp: None,
+        consent_banner_dismissed: false,
     };
 
     if report.wcag_level != artifacts.audit.wcag_level {

@@ -98,6 +98,7 @@ pub async fn check_reflow_with_page(page: &Page) -> Vec<Violation> {
         ),
         "document",
     )
+    .with_selector(&overflow_element)
     .with_fix(
         "Use responsive CSS (max-width: 100%, flexbox/grid wrap, relative units). \
          Avoid fixed pixel widths on containers. \

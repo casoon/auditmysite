@@ -56,7 +56,8 @@ pub struct WebVitals {
     pub cls_attribution: Vec<ClsShift>,
     /// Time to First Byte (ms)
     pub ttfb: Option<VitalMetric>,
-    /// First Input Delay (ms) - deprecated but still tracked
+    /// First Input Delay (ms) - deprecated; always null in CDP/headless audits
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fid: Option<VitalMetric>,
     /// Total Blocking Time (ms)
     pub tbt: Option<VitalMetric>,
@@ -64,7 +65,8 @@ pub struct WebVitals {
     pub speed_index: Option<VitalMetric>,
     /// Time to Interactive — simplified: max(domInteractive, last long-task end) (#137)
     pub tti: Option<VitalMetric>,
-    /// Interaction to Next Paint — estimated from max long-task or event-timing (#134)
+    /// Interaction to Next Paint — only populated when interaction events fire during audit
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub inp: Option<VitalMetric>,
     /// DOM Content Loaded (ms)
     pub dom_content_loaded: Option<f64>,

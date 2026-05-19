@@ -175,6 +175,15 @@ pub struct AuditReport {
     /// Best practices analysis (console errors, vulnerable libraries)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
+    /// Whether a consent banner was detected during the audit
+    #[serde(default)]
+    pub consent_banner_detected: bool,
+    /// Which CMP was identified (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consent_banner_cmp: Option<String>,
+    /// Whether the banner was successfully dismissed
+    #[serde(default)]
+    pub consent_banner_dismissed: bool,
 }
 
 /// Performance analysis results wrapper
@@ -251,6 +260,9 @@ impl AuditReport {
             patterns: None,
             screenshot_status: ScreenshotStatus::NotRequested,
             best_practices: None,
+            consent_banner_detected: false,
+            consent_banner_cmp: None,
+            consent_banner_dismissed: false,
         }
     }
 

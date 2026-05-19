@@ -65,6 +65,11 @@ pub struct NormalizedReport {
     /// How `overall_score` was computed: `"module_weighted"` (standard) or
     /// `"viewport_weighted"` (dual-pass: 70 % mobile + 30 % desktop + 10 % security).
     pub score_calculation_method: String,
+    /// Exact inputs used to produce `overall_score`.
+    /// Present only for `viewport_weighted`; absent for `module_weighted` (module
+    /// `weight_pct` values are already exact in that case).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score_breakdown: Option<ScoreBreakdown>,
 
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
@@ -203,7 +208,9 @@ impl Default for ReportVisibilityData {
 pub struct OccurrenceDetail {
     pub node_id: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub selector: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fix_suggestion: Option<String>,
     /// Raw outer HTML of the affected element
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -233,7 +240,7 @@ pub struct ModuleScoreEntry {
 
 /// Risk level — independent from score.
 /// Score = quality level, Risk = operational/legal relevance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
     Low,
@@ -312,6 +319,28 @@ impl RiskAssessment {
             RiskLevel::Low => "Low risk: no critical violations — improvement potential remains.".to_string(),
         }
     }
+}
+
+/// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
+/// Allows consumers to reproduce the exact score from its inputs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScoreBreakdown {
+    /// Blending weights for the two viewport passes
+    pub desktop_weight_pct: u32,
+    pub mobile_weight_pct: u32,
+    /// Raw overall scores from each viewport pass
+    pub desktop_overall: u32,
+    pub mobile_overall: u32,
+    /// Blended result before security is mixed in (mobile*70% + desktop*30%)
+    pub viewport_blended_overall: u32,
+    /// Weight given to the viewport blend in the final formula (always 90 when security present)
+    pub viewport_blend_weight_pct: u32,
+    /// Security score after vulnerable-library penalty
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_score: Option<u32>,
+    /// Weight given to security in the final formula (always 10 when security present)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_weight_pct: Option<u32>,
 }
 
 /// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
@@ -414,8 +443,17 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 })
                 .collect();
             let axe_id = taxonomy_rule.and_then(|r| r.axe_id).map(String::from);
-            let priority_score =
-                calculate_priority_score(first.severity, occurrence_count, &tax_id);
+            // Use max severity across all violations; apply taxonomy floor so the
+            // reported severity is always at least what the rule definition mandates.
+            let max_severity = violations
+                .iter()
+                .map(|v| v.severity)
+                .max()
+                .unwrap_or(first.severity);
+            let severity = taxonomy_rule
+                .map(|r| max_severity.max(r.severity))
+                .unwrap_or(max_severity);
+            let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
 
             NormalizedFinding {
                 category: "wcag".to_string(),
@@ -426,7 +464,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 dimension,
                 subcategory,
                 issue_class,
-                severity: first.severity,
+                severity,
                 user_impact,
                 technical_impact,
                 score_impact,
@@ -691,37 +729,64 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     }
 
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
-    let (overall_score, score_calculation_method) = if let Some(ref vs) = report.viewport_scores {
-        // Blend in security (10 %) on top of the 70/30 viewport base.
-        // weight_pct is kept so consumers can understand intended module weights;
-        // score_calculation_method = "viewport_weighted" signals the actual formula.
-        // UX/Journey/Best Practices retain their pre-set contributes_to_overall=false.
-        let mut weighted = vs.weighted_overall as f64 * 90.0;
-        let mut total = 90.0;
-        if let Some(ref security) = report.security {
-            let adjusted = security.score.saturating_sub(vuln_security_penalty);
-            weighted += adjusted as f64 * 10.0;
-            total += 10.0;
-        }
-        (
-            (weighted / total).round() as u32,
-            "viewport_weighted".to_string(),
-        )
-    } else {
-        let contributing_modules = module_scores.iter().filter(|m| m.contributes_to_overall);
-        let (weighted_sum, total_weight) =
-            contributing_modules.fold((0.0, 0.0), |(sum, total), module| {
-                (
-                    sum + module.score as f64 * module.weight_pct as f64,
-                    total + module.weight_pct as f64,
-                )
-            });
+    let (overall_score, score_calculation_method, score_breakdown) =
+        if let Some(ref vs) = report.viewport_scores {
+            // In viewport_weighted mode the individual module weight_pct values are
+            // nominal reference only — the actual formula blends viewport passes, not
+            // module weights. Mark non-security modules as not-contributing so consumers
+            // cannot mistakenly reconstruct the score from weight_pct.
+            for m in module_scores.iter_mut() {
+                if m.name != "Security" {
+                    m.contributes_to_overall = false;
+                }
+            }
 
-        (
-            (weighted_sum / total_weight).round() as u32,
-            "module_weighted".to_string(),
-        )
-    };
+            let security_adjusted = report
+                .security
+                .as_ref()
+                .map(|s| s.score.saturating_sub(vuln_security_penalty));
+            let blend_weight = if security_adjusted.is_some() {
+                90u32
+            } else {
+                100u32
+            };
+            let mut weighted = vs.weighted_overall as f64 * blend_weight as f64;
+            let mut total = blend_weight as f64;
+            if let Some(sec) = security_adjusted {
+                weighted += sec as f64 * 10.0;
+                total += 10.0;
+            }
+            let breakdown = ScoreBreakdown {
+                desktop_weight_pct: 30,
+                mobile_weight_pct: 70,
+                desktop_overall: vs.desktop.overall,
+                mobile_overall: vs.mobile.overall,
+                viewport_blended_overall: vs.weighted_overall,
+                viewport_blend_weight_pct: blend_weight,
+                security_score: security_adjusted,
+                security_weight_pct: security_adjusted.map(|_| 10u32),
+            };
+            (
+                (weighted / total).round() as u32,
+                "viewport_weighted".to_string(),
+                Some(breakdown),
+            )
+        } else {
+            let contributing_modules = module_scores.iter().filter(|m| m.contributes_to_overall);
+            let (weighted_sum, total_weight) =
+                contributing_modules.fold((0.0, 0.0), |(sum, total), module| {
+                    (
+                        sum + module.score as f64 * module.weight_pct as f64,
+                        total + module.weight_pct as f64,
+                    )
+                });
+
+            (
+                (weighted_sum / total_weight).round() as u32,
+                "module_weighted".to_string(),
+                None,
+            )
+        };
 
     let grade = AccessibilityScorer::calculate_grade(overall_score as f32).to_string();
 
@@ -755,19 +820,61 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         }
     }
 
+    // Consent banner flag
+    if report.consent_banner_detected {
+        let msg = if report.consent_banner_dismissed {
+            format!(
+                "Consent-Banner erkannt und automatisch geschlossen{}. Audit-Ergebnisse spiegeln den Seiteninhalt nach Zustimmung wider.",
+                report.consent_banner_cmp.as_ref().map(|c| format!(" ({})", c)).unwrap_or_default()
+            )
+        } else {
+            format!(
+                "Consent-Banner erkannt{} — Audit ohne Zustimmung durchgeführt. Barrierefreiheits- und SEO-Ergebnisse können unvollständig sein. Empfehlung: --dismiss-consent nutzen.",
+                report.consent_banner_cmp.as_ref().map(|c| format!(" ({})", c)).unwrap_or_default()
+            )
+        };
+        audit_flags.push(AuditFlag {
+            kind: "consent_banner".to_string(),
+            related_rule: None,
+            source: "browser.consent".to_string(),
+            message: msg,
+        });
+
+        // Consent-wall artifact heuristic: more violations than analyzed nodes is a
+        // strong signal that the AXTree captured the consent dialog DOM rather than
+        // actual page content.
+        if !report.consent_banner_dismissed {
+            let violation_count: usize = report.wcag_results.violations.len();
+            if report.nodes_analyzed > 0 && violation_count > report.nodes_analyzed {
+                audit_flags.push(AuditFlag {
+                    kind: "consent_wall_artifact".to_string(),
+                    related_rule: None,
+                    source: "browser.consent".to_string(),
+                    message: format!(
+                        "Mögliches Consent-Wall-Artefakt: {} Violations bei nur {} analysierten Nodes. \
+                         Scores könnten den Consent-Dialog statt den eigentlichen Seiteninhalt messen. \
+                         Empfehlung: Audit mit --dismiss-consent wiederholen.",
+                        violation_count, report.nodes_analyzed
+                    ),
+                });
+            }
+        }
+    }
+
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = {
         let critical_issues = severity_counts.critical;
         let high_issues = severity_counts.high;
 
-        // Legal flags: WCAG Level A violations are legally relevant (BFSG/EAA)
+        // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
+        // Per-occurrence counting would inflate the number (e.g. 1000 images without
+        // alt text is one rule violation, not 1000 legal flags).
         let legal_flags = findings
             .iter()
             .filter(|f| {
                 f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
             })
-            .map(|f| f.occurrence_count)
-            .sum::<usize>();
+            .count();
 
         // Blocking issues: interactive elements without accessible names (4.1.2)
         let blocking_issues = findings
@@ -786,7 +893,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             RiskLevel::Critical
         } else if critical_issues >= 3 || blocking_issues >= 5 || risk_score >= 80 {
             RiskLevel::High
-        } else if high_issues >= 3 || critical_issues >= 1 || score <= 20 {
+        } else if (high_issues >= 3 && score < 80) || critical_issues >= 1 || score <= 20 {
             RiskLevel::Medium
         } else {
             RiskLevel::Low
@@ -862,6 +969,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         has_screenshots: report.page_screenshots.is_some(),
         viewport_scores: report.viewport_scores.clone(),
         score_calculation_method,
+        score_breakdown,
         raw_performance: report.performance.clone(),
         raw_performance_desktop: report
             .dual_viewport

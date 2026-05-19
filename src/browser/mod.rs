@@ -11,6 +11,7 @@
 //! - manager: Browser launch and CDP connection
 //! - pool: Concurrent page management
 
+pub mod consent;
 mod detection;
 pub mod installer;
 mod manager;
@@ -23,6 +24,7 @@ pub mod throttle;
 pub mod types;
 
 // New API
+pub use consent::{handle_post_navigation, inject_consent_cookies, ConsentResult};
 pub use detection::detect_all_browsers;
 pub use installer::BrowserInstaller;
 pub use resolver::{resolve_browser, BrowserResolveOptions};

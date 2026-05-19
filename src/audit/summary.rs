@@ -639,6 +639,7 @@ mod tests {
             has_screenshots: false,
             viewport_scores: None,
             score_calculation_method: "module_weighted".to_string(),
+            score_breakdown: None,
             raw_performance: None,
             raw_performance_desktop: None,
             raw_seo: None,

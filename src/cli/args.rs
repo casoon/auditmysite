@@ -175,6 +175,14 @@ pub struct Args {
     #[arg(long)]
     pub skip_mobile: bool,
 
+    /// Attempt to dismiss cookie consent banners before auditing.
+    ///
+    /// Injects known CMP consent cookies before navigation and clicks
+    /// accept buttons if a banner is still detected after load.
+    /// Without this flag, detected banners are reported as audit_flags.
+    #[arg(long)]
+    pub dismiss_consent: bool,
+
     /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
     #[arg(long)]
     pub stack: bool,

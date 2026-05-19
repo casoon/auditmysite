@@ -253,11 +253,22 @@ impl UnifiedReport {
         let severity_counts = aggregate_severity(&pages);
         let accessibility_score = batch_report.summary.average_score.round() as u32;
 
-        let worst_risk = normalized_reports
-            .iter()
-            .map(|r| r.risk.level)
-            .max()
-            .unwrap_or(crate::audit::normalized::RiskLevel::Low);
+        let worst_risk = {
+            use crate::audit::normalized::RiskLevel;
+            let page_count = normalized_reports.len().max(1);
+            let mut counts = std::collections::HashMap::new();
+            for r in normalized_reports.iter() {
+                *counts.entry(r.risk.level).or_insert(0usize) += 1;
+            }
+            [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
+                .iter()
+                .copied()
+                .find(|&lvl| {
+                    let n = *counts.get(&lvl).unwrap_or(&0);
+                    lvl == RiskLevel::Critical || n * 5 >= page_count
+                })
+                .unwrap_or(RiskLevel::Low)
+        };
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score,

@@ -490,14 +490,26 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         (dist, without)
     };
 
-    // Worst-case risk level across all URLs
+    // Batch risk level: escalate only when ≥20% of pages share that level.
+    // This prevents a single outlier page from setting the domain-wide headline risk.
+    // Critical is always surfaced regardless of page share.
     let (risk_level, risk_summary) = {
         use crate::audit::normalized::RiskLevel;
-        let worst = normalized_reports
-            .iter()
-            .map(|n| n.risk.level)
-            .max()
-            .unwrap_or(RiskLevel::Low);
+        let page_count = normalized_reports.len().max(1);
+        let worst = {
+            let mut counts = std::collections::HashMap::new();
+            for r in normalized_reports.iter() {
+                *counts.entry(r.risk.level).or_insert(0usize) += 1;
+            }
+            [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
+                .iter()
+                .copied()
+                .find(|&lvl| {
+                    let n = *counts.get(&lvl).unwrap_or(&0);
+                    lvl == RiskLevel::Critical || n * 5 >= page_count
+                })
+                .unwrap_or(RiskLevel::Low)
+        };
         let level_str = worst.label_localized(i18n);
         let en = i18n.locale() == "en";
         let summary = match (worst, en) {

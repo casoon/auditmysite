@@ -1028,8 +1028,26 @@ fn build_meta_signals(seo: &SeoAnalysis) -> SignalCategory {
                 .as_ref()
                 .map(|d| format!("{} Zeichen", d.len())),
         ),
-        check("Viewport konfiguriert", seo.meta.viewport.is_some(), None),
-        check("Charset definiert", seo.meta.charset.is_some(), None),
+        check(
+            "Viewport konfiguriert",
+            seo.meta.viewport.is_some(),
+            Some(
+                seo.meta
+                    .viewport
+                    .clone()
+                    .unwrap_or_else(|| "fehlt".to_string()),
+            ),
+        ),
+        check(
+            "Charset definiert",
+            seo.meta.charset.is_some(),
+            Some(
+                seo.meta
+                    .charset
+                    .clone()
+                    .unwrap_or_else(|| "fehlt".to_string()),
+            ),
+        ),
         check(
             "Sprache (lang) gesetzt",
             seo.meta.lang.is_some(),
@@ -1069,17 +1087,33 @@ fn build_heading_signals(seo: &SeoAnalysis) -> SignalCategory {
         check(
             "H1-Text vorhanden",
             h1_not_empty,
-            seo.headings.h1_text.clone(),
+            Some(
+                seo.headings
+                    .h1_text
+                    .clone()
+                    .unwrap_or_else(|| "kein H1-Text".to_string()),
+            ),
         ),
-        check("Keine übersprungenen Ebenen", no_skipped, None),
+        check(
+            "Keine übersprungenen Ebenen",
+            no_skipped,
+            Some(
+                if no_skipped {
+                    "keine Lücken"
+                } else {
+                    "Ebenen übersprungen"
+                }
+                .to_string(),
+            ),
+        ),
         check(
             "Logische Hierarchie",
             no_issues,
-            if no_issues {
-                None
+            Some(if no_issues {
+                "keine Probleme".to_string()
             } else {
-                Some(format!("{} Probleme", seo.headings.issues.len()))
-            },
+                format!("{} Probleme", seo.headings.issues.len())
+            }),
         ),
     ];
     let score_pct = category_score(&checks);
@@ -1107,7 +1141,11 @@ fn build_social_signals(seo: &SeoAnalysis) -> SignalCategory {
         .unwrap_or(false);
 
     let checks = vec![
-        check("OpenGraph-Tags vorhanden", og_present, None),
+        check(
+            "OpenGraph-Tags vorhanden",
+            og_present,
+            Some(if og_present { "vorhanden" } else { "fehlt" }.to_string()),
+        ),
         check(
             "OpenGraph ≥ 80% vollständig",
             og_complete,
@@ -1116,7 +1154,11 @@ fn build_social_signals(seo: &SeoAnalysis) -> SignalCategory {
                 .as_ref()
                 .map(|og| format!("{}%", og.completeness())),
         ),
-        check("Twitter Card vorhanden", tw_present, None),
+        check(
+            "Twitter Card vorhanden",
+            tw_present,
+            Some(if tw_present { "vorhanden" } else { "fehlt" }.to_string()),
+        ),
         check(
             "Twitter Card ≥ 75% vollständig",
             tw_complete,
@@ -1143,25 +1185,46 @@ fn build_technical_signals(seo: &SeoAnalysis) -> SignalCategory {
         .unwrap_or(true); // No robots meta = ok (default is index)
 
     let checks = vec![
-        check("HTTPS", seo.technical.https, None),
+        check(
+            "HTTPS",
+            seo.technical.https,
+            Some(
+                if seo.technical.https {
+                    "aktiv"
+                } else {
+                    "fehlt"
+                }
+                .to_string(),
+            ),
+        ),
         check(
             "Canonical URL",
             seo.technical.has_canonical,
-            seo.technical.canonical_url.clone(),
+            Some(
+                seo.technical
+                    .canonical_url
+                    .clone()
+                    .unwrap_or_else(|| "fehlt".to_string()),
+            ),
         ),
         check(
             "Sprache (lang)",
             seo.technical.has_lang,
-            seo.technical.lang.clone(),
+            Some(
+                seo.technical
+                    .lang
+                    .clone()
+                    .unwrap_or_else(|| "fehlt".to_string()),
+            ),
         ),
         check(
             "Hreflang (Mehrsprachigkeit)",
             true,
-            if seo.technical.has_hreflang {
-                Some(format!("{} Sprachen", seo.technical.hreflang.len()))
+            Some(if seo.technical.has_hreflang {
+                format!("{} Sprachen", seo.technical.hreflang.len())
             } else {
-                None
-            },
+                "keine Hreflang-Tags".to_string()
+            }),
         ),
         check(
             "Robots erlaubt Indexierung",
@@ -1191,22 +1254,26 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         check(
             "Strukturierte Daten vorhanden",
             has_any,
-            if has_any {
-                Some(format!("{} Schema(s)", seo.structured_data.json_ld.len()))
+            Some(if has_any {
+                format!("{} Schema(s)", seo.structured_data.json_ld.len())
             } else {
-                None
-            },
+                "keine strukturierten Daten".to_string()
+            }),
         ),
         check(
             "Rich-Snippet-fähig",
             has_rich,
-            if has_rich {
-                Some(seo.structured_data.rich_snippets_potential.join(", "))
+            Some(if has_rich {
+                seo.structured_data.rich_snippets_potential.join(", ")
             } else {
-                None
-            },
+                "keine Rich-Snippet-Typen erkannt".to_string()
+            }),
         ),
-        check("Organization/WebSite Schema", has_org, None),
+        check(
+            "Organization/WebSite Schema",
+            has_org,
+            Some(if has_org { "vorhanden" } else { "fehlt" }.to_string()),
+        ),
     ];
 
     // LocalBusiness-specific quality checks
