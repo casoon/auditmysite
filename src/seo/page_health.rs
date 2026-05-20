@@ -317,7 +317,8 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         while (domQueue.length && domQueue.length < 50000) {
             const [el, d] = domQueue.shift();
             if (d > domMaxDepth) domMaxDepth = d;
-            for (const child of el.children) domQueue.push([child, d + 1]);
+            const kids = el && el.children ? Array.from(el.children) : [];
+            for (const child of kids) domQueue.push([child, d + 1]);
         }
         r.domMaxDepth = domMaxDepth;
 

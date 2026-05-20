@@ -101,6 +101,12 @@ fn suggest_contrast(fix_suggestion: Option<&str>) -> Option<String> {
 fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Option<String> {
     let html = html_snippet?;
 
+    // Decorative <hr> — separator role does not need an accessible name.
+    // Hide it from assistive tech instead.
+    if html.trim_start().starts_with("<hr") {
+        return Some(inject_attribute(html, "aria-hidden", "true"));
+    }
+
     // Button without accessible name
     if html.contains("<button") || role == Some("button") {
         return Some(inject_attribute(

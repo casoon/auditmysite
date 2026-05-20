@@ -1060,12 +1060,22 @@ async fn collect_throttled_performance(
         match crate::performance::extract_web_vitals(page).await {
             Ok(vitals) => {
                 let score = calculate_performance_score(&vitals);
+                // If LCP could not be measured under throttling (timeout or
+                // navigation pre-completion), the most important navigation
+                // metric is missing — do not let CLS/TBT alone push the score
+                // to 100. Cap to "AUSBAUFÄHIG" tier so the profile reflects
+                // that the measurement was incomplete.
+                let final_score = if vitals.lcp.is_none() {
+                    score.overall.min(50)
+                } else {
+                    score.overall
+                };
                 results.push(ThrottledPerfResult {
                     profile,
                     lcp_ms: vitals.lcp.as_ref().map(|v| v.value),
                     tbt_ms: vitals.tbt.as_ref().map(|v| v.value),
                     cls: vitals.cls.as_ref().map(|v| v.value),
-                    score: score.overall,
+                    score: final_score,
                 });
                 let _ = throttle::enable_cache(page).await;
             }
@@ -1178,6 +1188,7 @@ mod tests {
             dismiss_consent: false,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
+            also_json: false,
             logo: None,
             compare: vec![],
         };

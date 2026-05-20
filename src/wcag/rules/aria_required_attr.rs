@@ -55,6 +55,12 @@ pub fn check_aria_required_attr(tree: &AXTree) -> WcagResults {
         // Collect property names on this node
         let prop_names: Vec<&str> = node.properties.iter().map(|p| p.name.as_str()).collect();
 
+        // Non-focusable separators (decorative <hr>) do not require aria-valuenow.
+        // Per ARIA spec, only focusable splitter-style separators have value requirements.
+        if role == "separator" && !node.is_focusable() {
+            continue;
+        }
+
         for &req_attr in *required {
             // Native headings (h1-h6) have implicit aria-level via the "level" property
             if req_attr == "aria-level" && role == "heading" && prop_names.contains(&"level") {
