@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Performance-Score-Kalibrierung (#236)**: Der gemeldete Performance-Score basiert jetzt auf dem `LhMobile`-Profil (Lighthouse Mobile Preset mit Netzwerk- und CPU-Throttling) statt auf der unthrottled Desktop/Mobile-Pass-Messung. Damit produziert die Bewertung kontinuierliche Verteilungen statt pauschal 100 für schnelle Dev-Netz-Messungen. Strukturelle Performance-Daten (render_blocking, content_weight, third_party, …) bleiben aus dem unthrottled Pass. Fällt die LhMobile-LCP-Messung aus, bleibt der unthrottled Score erhalten.
+
 ## [0.21.0] - 2026-05-18
 
 ### Removed

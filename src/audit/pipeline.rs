@@ -167,8 +167,12 @@ pub async fn run_single_audit(
     let mut report = audit_page(&page, url, config, browser).await?;
 
     if config.check_performance {
-        report.throttled_performance =
+        let (throttled, canonical) =
             collect_throttled_performance(&page, url, browser, config).await;
+        report.throttled_performance = throttled;
+        if let Some((vitals, score)) = canonical {
+            apply_canonical_perf(&mut report, vitals, score);
+        }
     }
 
     if config.capture_screenshots {
@@ -1014,16 +1018,31 @@ fn aggregate_report(
 ///
 /// Uses the mobile viewport (most relevant for throttling scenarios).
 /// Runs sequentially; errors in individual profiles are logged and skipped.
+///
+/// Returns the per-profile summary plus the LhMobile vitals/score as the canonical
+/// throttled measurement (issue #236). LhMobile matches Lighthouse's mobile preset
+/// and is used as the reported Performance score; the unthrottled desktop/mobile
+/// passes remain available via `dual_viewport` for diagnostics.
 async fn collect_throttled_performance(
     page: &Page,
     url: &str,
     browser: &BrowserManager,
     _config: &PipelineConfig,
-) -> Vec<crate::audit::report::ThrottledPerfResult> {
+) -> (
+    Vec<crate::audit::report::ThrottledPerfResult>,
+    Option<(
+        crate::performance::WebVitals,
+        crate::performance::PerformanceScore,
+    )>,
+) {
     use crate::audit::report::ThrottledPerfResult;
     use crate::performance::calculate_performance_score;
 
     let mut results = Vec::new();
+    let mut canonical: Option<(
+        crate::performance::WebVitals,
+        crate::performance::PerformanceScore,
+    )> = None;
 
     for &profile in ThrottleProfile::AUTO_PROFILES {
         info!("Throttled perf pass: {:?}", profile);
@@ -1077,6 +1096,17 @@ async fn collect_throttled_performance(
                     cls: vitals.cls.as_ref().map(|v| v.value),
                     score: final_score,
                 });
+                // LhMobile = Lighthouse mobile preset → canonical perf measurement.
+                // Only adopt when LCP could actually be measured; otherwise fall
+                // back to the unthrottled mobile pass so we don't report a
+                // capped-to-50 score that reflects measurement failure.
+                if profile == ThrottleProfile::LhMobile && vitals.lcp.is_some() {
+                    let mut adopted_score = score.clone();
+                    adopted_score.overall = final_score;
+                    adopted_score.grade =
+                        crate::performance::PerformanceGrade::from_score(final_score);
+                    canonical = Some((vitals.clone(), adopted_score));
+                }
                 let _ = throttle::enable_cache(page).await;
             }
             Err(e) => {
@@ -1105,7 +1135,53 @@ async fn collect_throttled_performance(
         let _ = throttle::disable_cpu_throttling(page).await;
     }
 
-    results
+    (results, canonical)
+}
+
+/// Replace the report's Performance vitals/score with the LhMobile (throttled)
+/// measurement and recompute viewport scores accordingly (issue #236).
+///
+/// Auxiliary structural data (render_blocking, content_weight, third_party,
+/// critical_chain, minification, animations, coverage) stays from the unthrottled
+/// pass since these describe page composition rather than timing.
+fn apply_canonical_perf(
+    report: &mut AuditReport,
+    vitals: crate::performance::WebVitals,
+    score: crate::performance::PerformanceScore,
+) {
+    if let Some(ref mut perf) = report.performance {
+        perf.vitals = vitals;
+        perf.score = score;
+    } else {
+        report.performance = Some(PerformanceResults {
+            vitals,
+            score,
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+        });
+    }
+
+    let new_perf = report.performance.as_ref().map(|p| p.score.overall);
+    let mobile_seo = report.seo.as_ref().map(|s| s.score);
+    let mobile_mf = report.mobile.as_ref().map(|m| m.score);
+    if let Some(ref mut vps) = report.viewport_scores {
+        vps.mobile.performance = new_perf;
+        let mobile_overall = compute_viewport_overall(
+            vps.mobile.accessibility as f32,
+            vps.mobile.performance,
+            mobile_seo,
+            mobile_mf,
+        );
+        let desktop_overall = vps.desktop.overall;
+        vps.mobile.overall = mobile_overall;
+        vps.weighted_overall =
+            (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32;
+    }
 }
 
 fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
