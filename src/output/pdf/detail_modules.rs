@@ -1995,9 +1995,9 @@ pub(super) fn render_ai_visibility(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let indicator_note_ai = if is_en(i18n) {
-        "Indicators are heuristic estimates based on measurable signals — not direct ranking signals, but pointers to optimization potential."
+        "Experimental heuristics — not a standardised metric. Indicators are heuristic estimates based on measurable signals, not direct ranking signals. Use them as pointers to optimisation potential, not as evidence of LLM behaviour."
     } else {
-        "Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale — kein direktes Ranking-Signal, sondern Hinweis auf Optimierungspotenzial."
+        "Experimentelle Heuristiken — keine standardisierte Metrik. Die Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale, kein direktes Ranking-Signal. Sie zeigen Optimierungspotenzial, beweisen aber kein konkretes LLM-Verhalten."
     };
     builder = builder
         .add_component(PageBreak::new())

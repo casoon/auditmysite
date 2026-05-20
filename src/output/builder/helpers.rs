@@ -90,12 +90,12 @@ pub(super) fn build_technical_overview(locale: &str, normalized: &NormalizedRepo
             }
         } else if en {
             format!(
-                "SEO level: {} pts — structural base missing, ranking effectively impossible",
+                "SEO level: {} pts — structural base missing, ranking potential is severely limited",
                 s.score
             )
         } else {
             format!(
-                "SEO-Level: {} Pkt — strukturelle Basis fehlt, Ranking praktisch ausgeschlossen",
+                "SEO-Level: {} Pkt — strukturelle Basis fehlt, Ranking-Potenzial deutlich eingeschränkt",
                 s.score
             )
         }

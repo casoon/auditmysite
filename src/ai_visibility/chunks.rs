@@ -124,11 +124,12 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
         0.0
     };
     signals.push(AiSignal {
-        name: "Optimale Chunk-Größe".into(),
+        name: "Heuristik: Abschnittslänge".into(),
         present: optimal_ratio >= 0.5,
         weight: 0.20,
         detail: format!(
-            "{}/{} Abschnitte haben optimale Länge (100–800 Wörter) — {:.0}%",
+            "Heuristik: {} von {} Abschnitten liegen im Bereich 100–800 Wörter ({:.0}%). \
+             Richtwert, keine standardisierte Metrik.",
             optimal_count,
             section_count,
             optimal_ratio * 100.0

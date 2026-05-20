@@ -28,14 +28,14 @@ pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalys
         }
     } else if seo.score >= 35 {
         if en {
-            "SEO insufficient — essential foundations missing. Ranking in competitive areas is almost impossible."
+            "SEO insufficient — essential foundations are missing. Technical deficits noticeably limit the ranking potential."
         } else {
-            "SEO unzureichend — wesentliche Grundlagen fehlen. Ranking in kompetitiven Bereichen quasi unmöglich."
+            "SEO unzureichend — wesentliche Grundlagen fehlen. Technische Defizite begrenzen das Ranking-Potenzial deutlich."
         }
     } else if en {
-        "SEO critical — the site is barely indexable for search engines. Not competitive."
+        "SEO critical — fundamental signals are missing. Indexing and ranking are at risk of being impaired."
     } else {
-        "SEO kritisch — Seite ist für Suchmaschinen kaum indexierbar. Nicht wettbewerbsfähig."
+        "SEO kritisch — grundlegende Signale fehlen. Indexierung und Ranking können beeinträchtigt werden."
     };
 
     if let Some(profile) = &seo.content_profile {
