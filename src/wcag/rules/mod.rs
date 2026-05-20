@@ -34,7 +34,6 @@ mod keyboard;
 mod label_in_name;
 mod label_title_only;
 mod labels;
-mod landmark_extended;
 mod landmark_granular;
 mod landmarks;
 mod language;
@@ -110,12 +109,11 @@ pub use keyboard::check_keyboard;
 pub use label_in_name::{check_label_in_name, check_label_in_name_with_page};
 pub use label_title_only::check_label_title_only;
 pub use labels::check_labels;
-pub use landmark_extended::check_landmark_extended;
 pub use landmark_granular::{
     check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique,
+    check_landmark_unique, check_skip_link,
 };
 pub use landmarks::check_landmarks;
 pub use language::check_language;

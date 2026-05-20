@@ -24,16 +24,16 @@ use super::rules::{
     check_headings, check_help, check_image_input_rules, check_info_relationships,
     check_input_purpose, check_instructions, check_keyboard, check_label_in_name,
     check_label_title_only, check_labels, check_landmark_banner_is_top_level,
-    check_landmark_contentinfo_is_top_level, check_landmark_extended,
-    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks, check_language, check_language_extended,
-    check_link_purpose, check_link_purpose_link_only, check_list_structure,
-    check_media_alternative, check_media_rules, check_meta_viewport_large, check_non_text_contrast,
-    check_on_focus, check_on_input, check_page_titled, check_parsing, check_region,
-    check_resize_text, check_section_headings, check_server_side_image_map, check_status_messages,
-    check_summary_name, check_svg_rules, check_table_extended, check_table_rules,
-    check_text_alternatives, check_unusual_words, check_wcag22_rules, check_widget_rules,
+    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
+    check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
+    check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_language,
+    check_language_extended, check_link_purpose, check_link_purpose_link_only,
+    check_list_structure, check_media_alternative, check_media_rules, check_meta_viewport_large,
+    check_non_text_contrast, check_on_focus, check_on_input, check_page_titled, check_parsing,
+    check_region, check_resize_text, check_section_headings, check_server_side_image_map,
+    check_skip_link, check_status_messages, check_summary_name, check_svg_rules,
+    check_table_extended, check_table_rules, check_text_alternatives, check_unusual_words,
+    check_wcag22_rules, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -318,14 +318,8 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 1.1.1 SVG Rules (Level A) - P2
     run_if_allowed!(filter, "svg-img-alt", check_svg_rules, results, tree);
 
-    // 2.4.1 Extended Landmark Rules (Level A) - P1
-    run_if_allowed!(
-        filter,
-        "landmark-no-duplicate-banner",
-        check_landmark_extended,
-        results,
-        tree
-    );
+    // 2.4.1 Skip Link (Level A)
+    run_if_allowed!(filter, "skip-link", check_skip_link, results, tree);
 
     // 1.3.1 Granular Landmark Rules (Level A)
     run_if_allowed!(

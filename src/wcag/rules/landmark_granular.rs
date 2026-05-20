@@ -96,6 +96,17 @@ pub const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
+pub const RULE_SKIP_LINK: RuleMetadata = RuleMetadata {
+    id: "2.4.1",
+    name: "Skip Link",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "The page should provide a mechanism to skip repeated navigation blocks",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/bypass-blocks.html",
+    axe_id: "skip-link",
+    tags: &["wcag2a", "wcag241", "cat.keyboard"],
+};
+
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 const LANDMARK_ROLES: &[&str] = &[
@@ -369,6 +380,70 @@ pub fn check_landmark_no_duplicate_main(tree: &AXTree) -> WcagResults {
         &RULE_NO_DUPLICATE_MAIN,
         "Ensure the page has exactly one <main> / role=\"main\"",
     )
+}
+
+/// **skip-link** — page with a navigation landmark must have a skip-navigation link.
+pub fn check_skip_link(tree: &AXTree) -> WcagResults {
+    let mut results = WcagResults::new();
+
+    let has_nav = !tree.nodes_with_role("navigation").is_empty();
+    if !has_nav {
+        return results;
+    }
+
+    let has_skip_link = tree.iter().any(|n| {
+        if n.ignored || !matches!(n.role.as_deref(), Some("link")) {
+            return false;
+        }
+        let name = n.name.as_deref().unwrap_or("").to_lowercase();
+        let href = n
+            .get_property_str("url")
+            .or_else(|| n.get_property_str("href"))
+            .unwrap_or("")
+            .to_lowercase();
+
+        let name_hints = [
+            "skip",
+            "überspringen",
+            "zum inhalt",
+            "zum hauptinhalt",
+            "direkt zum",
+            "navigation überspringen",
+        ];
+        let href_hints = [
+            "#main",
+            "#content",
+            "#inhalt",
+            "#skip",
+            "#maincontent",
+            "#hauptinhalt",
+        ];
+
+        name_hints.iter().any(|h| name.contains(h)) || href_hints.iter().any(|h| href.contains(h))
+    });
+
+    if has_skip_link {
+        results.passes += 1;
+    } else {
+        results.add_violation(
+            Violation::new(
+                RULE_SKIP_LINK.id,
+                RULE_SKIP_LINK.name,
+                RULE_SKIP_LINK.level,
+                RULE_SKIP_LINK.severity,
+                "Page has navigation landmark(s) but no skip-navigation link was found",
+                "root",
+            )
+            .with_fix(
+                "Add a visually hidden or visible link at the top of the page pointing to \
+                 the main content anchor (e.g. <a href=\"#main\">Skip to main content</a>)",
+            )
+            .with_rule_id(RULE_SKIP_LINK.axe_id)
+            .with_help_url(RULE_SKIP_LINK.help_url),
+        );
+    }
+
+    results
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -647,5 +722,110 @@ mod tests {
         let r = check_landmark_no_duplicate_main(&tree);
         assert!(r.violations.is_empty());
         assert!(r.passes > 0);
+    }
+
+    // ── skip-link ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn skip_link_missing_with_nav_violation() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("nav", "navigation", Some("Main"), Some("root")),
+            node("main", "main", Some("Content"), Some("root")),
+        ]);
+        let r = check_skip_link(&tree);
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("skip-link")));
+    }
+
+    #[test]
+    fn skip_link_no_nav_no_violation() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("main", "main", Some("Content"), Some("root")),
+        ]);
+        let r = check_skip_link(&tree);
+        assert!(r.violations.is_empty());
+    }
+
+    // ── Regression: WCAG criterion-id taxonomy (issue #242) ────────────────
+    //
+    // Landmark-structure findings (duplicate/nested landmarks, unique names)
+    // MUST be filed under WCAG 1.3.1, never under 2.4.1. Only `skip-link`
+    // belongs under 2.4.1, so the "Fehlende Sprungnavigation" group in the
+    // report no longer mixes unrelated landmark findings.
+
+    fn dup_nav_tree() -> AXTree {
+        AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("n1", "navigation", Some("Nav"), Some("root")),
+            node("n2", "navigation", Some("Nav"), Some("root")),
+        ])
+    }
+
+    fn nested_banner_tree() -> AXTree {
+        AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("m", "main", Some("Content"), Some("root")),
+            node("b", "banner", Some("Header"), Some("m")),
+        ])
+    }
+
+    #[test]
+    fn landmark_structure_findings_are_filed_under_131_not_241() {
+        let checks: Vec<(&str, WcagResults)> = vec![
+            ("landmark-unique", check_landmark_unique(&dup_nav_tree())),
+            (
+                "landmark-banner-is-top-level",
+                check_landmark_banner_is_top_level(&nested_banner_tree()),
+            ),
+            (
+                "landmark-no-duplicate-banner",
+                check_landmark_no_duplicate_banner(&AXTree::from_nodes(vec![
+                    node("root", "RootWebArea", Some("Page"), None),
+                    node("b1", "banner", Some("H1"), Some("root")),
+                    node("b2", "banner", Some("H2"), Some("root")),
+                ])),
+            ),
+            (
+                "landmark-no-duplicate-main",
+                check_landmark_no_duplicate_main(&AXTree::from_nodes(vec![
+                    node("root", "RootWebArea", Some("Page"), None),
+                    node("m1", "main", Some("M1"), Some("root")),
+                    node("m2", "main", Some("M2"), Some("root")),
+                ])),
+            ),
+        ];
+
+        for (axe_id, r) in checks {
+            assert!(
+                !r.violations.is_empty(),
+                "{axe_id}: expected at least one violation in the test fixture"
+            );
+            for v in &r.violations {
+                assert_eq!(
+                    v.rule, "1.3.1",
+                    "{axe_id} produced a violation under WCAG '{}', expected '1.3.1' \
+                     (landmark structure must not be aggregated under 2.4.1 — issue #242)",
+                    v.rule
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn skip_link_is_filed_under_241() {
+        let r = check_skip_link(&AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("nav", "navigation", Some("Main"), Some("root")),
+            node("main", "main", Some("Content"), Some("root")),
+        ]));
+        assert!(!r.violations.is_empty());
+        for v in &r.violations {
+            assert_eq!(v.rule, "2.4.1", "skip-link must stay under WCAG 2.4.1");
+            assert_eq!(v.rule_id.as_deref(), Some("skip-link"));
+        }
     }
 }
