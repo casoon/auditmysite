@@ -196,7 +196,7 @@ pub(super) fn render_batch_action_plan_enhanced(
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("column-action")),
             TableColumn::new(effort_col),
-            TableColumn::new("Scope"),
+            TableColumn::new(if en { "Scope" } else { "Reichweite" }),
             TableColumn::new(role_col),
             TableColumn::new(i18n.t("column-priority")),
         ]);
@@ -429,7 +429,7 @@ pub(super) fn render_next_steps_batch(
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("column-priority")),
             TableColumn::new(i18n.t("column-action")),
-            TableColumn::new("Scope"),
+            TableColumn::new(if en { "Scope" } else { "Reichweite" }),
         ]);
         for (i, (action, scope)) in steps.iter().enumerate() {
             table = table.add_row(vec![
@@ -558,18 +558,7 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     {
         // Block 1: Bewertung — klare Einordnung, Risiko primär
         let assessment = build_batch_assessment(&pres.portfolio_summary, dist, &i18n);
-        let en_status = i18n.locale() == "en";
-        let risk_action = match (pres.portfolio_summary.risk_level.as_str(), en_status) {
-            ("Kritisch" | "Critical", true) => "Act immediately",
-            ("Kritisch" | "Critical", false) => "Sofort handeln",
-            ("Hoch" | "High", true) => "Fix soon",
-            ("Hoch" | "High", false) => "Zeitnah beheben",
-            ("Mittel" | "Medium", true) => "Improve deliberately",
-            ("Mittel" | "Medium", false) => "Gezielt verbessern",
-            (_, true) => "Maintain level",
-            (_, false) => "Niveau halten",
-        };
-        let risk_title = format!("{}  —  {}", assessment, risk_action);
+        let risk_title = assessment;
         let callout = match pres.portfolio_summary.risk_level.as_str() {
             "Kritisch" | "Hoch" | "Critical" | "High" => {
                 Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&risk_title)
@@ -780,14 +769,14 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     // Unified problem blocks — 1 Problem = 1 kompakter Block
     // (keine doppelten Cards + Details mehr)
     let scope_global_word = if en_top {
-        "global (all pages)"
+        "Global — affects all pages"
     } else {
-        "global (alle Seiten)"
+        "Global — betrifft alle Seiten"
     };
     let scope_individual = if en_top {
-        "individual pages"
+        "Specific pages — isolated content"
     } else {
-        "einzelne Seiten"
+        "Einzelne Seiten — isolierter Inhalt"
     };
     let occurrences_word_top = if en_top { "occurrences" } else { "Vorkommen" };
     let affected_urls_word = if en_top {
@@ -796,19 +785,19 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         "betroffene URLs"
     };
     let effort_word = if en_top { "Effort" } else { "Aufwand" };
-    let scope_word = "Scope";
+    let scope_word = if en_top { "Scope" } else { "Reichweite" };
     let impact_user_label = if en_top {
         "Impact (user)"
     } else {
-        "Impact (Nutzer)"
+        "Auswirkung (Nutzer)"
     };
     let impact_business_label = if en_top {
         "Impact (business)"
     } else {
-        "Impact (Business)"
+        "Auswirkung (Business)"
     };
-    let fix_label = "Fix";
-    let meta_label = "Meta";
+    let fix_label = if en_top { "Fix" } else { "Empfehlung" };
+    let meta_label = if en_top { "Meta" } else { "Einordnung" };
 
     for group in pres.top_issues.iter().take(5) {
         let scope = if group.affected_urls.len() >= pres.portfolio_summary.total_urls {

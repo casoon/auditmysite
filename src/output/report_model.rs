@@ -516,6 +516,8 @@ pub struct FindingGroup {
     pub effort: Effort,
     pub execution_priority: ExecutionPriority,
     pub examples: Vec<ExampleBlock>,
+    /// Structural cause hint for findings with high occurrence counts (template/component pattern).
+    pub structural_cause: Option<String>,
     /// Precomputed narrative arc for story-flow rendering.
     pub narrative: NarrativeArc,
 }

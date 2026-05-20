@@ -270,6 +270,15 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(table);
     }
 
+    if let Some(ref cause) = group.structural_cause {
+        let label = if i18n.locale() == "en" {
+            "Structural cause"
+        } else {
+            "Strukturelle Ursache"
+        };
+        builder = builder.add_component(Callout::info(cause).with_title(label));
+    }
+
     builder
 }
 

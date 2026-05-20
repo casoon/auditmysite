@@ -41,7 +41,7 @@ pub(super) fn render_action_plan(
         } else {
             "UMSETZUNGSPLAN"
         })
-        .with_level(1),
+        .with_level(2),
     );
 
     // Empfohlene Vorgehensweise
@@ -98,14 +98,31 @@ pub(super) fn render_tech_entry(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // Group 2 — ACCESSIBILITY (Ebene 2 Umsetzung) — #217/#218
     builder = builder.add_component(PageBreak::new()).add_component(
+        SectionHeaderSplit::new(
+            "Accessibility",
+            if i18n.locale() == "en" {
+                "Implementation layer: WCAG compliance, diagnosed findings, and remediation guidance."
+            } else {
+                "Umsetzungsebene: WCAG-Konformität, diagnostizierte Befunde und Behebungshinweise."
+            },
+        )
+        .with_eyebrow(if i18n.locale() == "en" {
+            "IMPLEMENTATION · LEVEL 2"
+        } else {
+            "UMSETZUNG · EBENE 2"
+        })
+        .with_level(1),
+    );
+    builder = builder.add_component(
         SectionHeaderSplit::new(&vm.executive.technical_title, &vm.executive.technical_intro)
             .with_eyebrow(if i18n.locale() == "en" {
                 "DEVELOPER"
             } else {
                 "ENTWICKLER"
             })
-            .with_level(1),
+            .with_level(2),
     );
 
     if !vm.modules.dashboard.is_empty() {
@@ -174,7 +191,7 @@ pub(super) fn render_tech_details(
             builder = builder.add_component(PageBreak::new()).add_component(
                 SectionHeaderSplit::new(findings_title, findings_intro)
                     .with_eyebrow(if en { "FINDINGS" } else { "BEFUNDE" })
-                    .with_level(1),
+                    .with_level(2),
             );
 
             for tier in &vm.findings.by_severity {
@@ -194,7 +211,7 @@ pub(super) fn render_tech_details(
                 builder = builder.add_component(
                     SectionHeaderSplit::new(&tier.label, &tier_intro)
                         .with_eyebrow(tier.label.to_uppercase())
-                        .with_level(2),
+                        .with_level(3),
                 );
 
                 if tier.severity == crate::wcag::Severity::Critical {
@@ -229,38 +246,72 @@ pub(super) fn render_tech_details(
         builder = render_wcag_coverage_section(builder, report, i18n);
     }
 
-    // Module Detail Metrics
-    if vm.module_details.has_any {
-        let (metrics_title, metrics_intro) = if en {
-            (
-                "Module Metrics",
-                "Detailed measurement data for each active quality module.",
-            )
-        } else {
-            (
-                "Modul-Metriken",
-                "Detaillierte Messdaten für jeden aktiven Qualitäts-Modul.",
-            )
-        };
+    // Group 3 — SEO & SICHTBARKEIT (Ebene 3 Analyse) — #217/#218
+    if vm.module_details.seo.is_some()
+        || vm.module_details.ai_visibility.is_some()
+        || vm.module_details.content_visibility.is_some()
+    {
         builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(metrics_title, metrics_intro)
-                .with_eyebrow(if en {
-                    "MODULE METRICS"
+            SectionHeaderSplit::new(
+                if en {
+                    "SEO & Visibility"
                 } else {
-                    "MODUL-METRIKEN"
-                })
-                .with_level(1),
+                    "SEO & Sichtbarkeit"
+                },
+                if en {
+                    "Search engine optimization, AI discoverability, and content authority signals."
+                } else {
+                    "Suchmaschinenoptimierung, KI-Auffindbarkeit und inhaltliche Autoritätssignale."
+                },
+            )
+            .with_eyebrow(if en {
+                "ANALYSIS · LEVEL 3"
+            } else {
+                "ANALYSE · EBENE 3"
+            })
+            .with_level(1),
         );
     }
+    if let Some(ref seo) = vm.module_details.seo {
+        builder = render_seo(builder, seo, i18n);
+    }
+    if let Some(ref av) = vm.module_details.ai_visibility {
+        builder = render_ai_visibility(builder, av, i18n);
+    }
+    if let Some(ref cv) = vm.module_details.content_visibility {
+        builder = render_content_visibility(builder, cv, i18n);
+    }
 
+    // Group 4 — TECHNIK & QUALITÄT (Ebene 3 Analyse) — #217/#218
+    if vm.module_details.performance.is_some()
+        || !report.budget_violations.is_empty()
+        || vm.module_details.security.is_some()
+        || vm.module_details.mobile.is_some()
+        || vm.module_details.ux.is_some()
+        || vm.module_details.journey.is_some()
+        || vm.module_details.dark_mode.is_some()
+        || vm.module_details.source_quality.is_some()
+        || vm.module_details.tech_stack.is_some()
+        || vm.module_details.best_practices.is_some()
+    {
+        builder = builder.add_component(PageBreak::new()).add_component(
+            SectionHeaderSplit::new(
+                if en { "Technology & Quality" } else { "Technik & Qualität" },
+                if en {
+                    "Core technical quality: performance, security, mobile usability, UX, and engineering foundations."
+                } else {
+                    "Technische Kernqualität: Performance, Sicherheit, Mobile-Nutzbarkeit, UX und technische Grundlagen."
+                },
+            )
+            .with_eyebrow(if en { "ANALYSIS" } else { "ANALYSE" })
+            .with_level(1),
+        );
+    }
     if let Some(ref perf) = vm.module_details.performance {
         builder = render_performance(builder, perf, i18n);
     }
     if !report.budget_violations.is_empty() {
         builder = render_budget_violations(builder, &report.budget_violations, i18n);
-    }
-    if let Some(ref seo) = vm.module_details.seo {
-        builder = render_seo(builder, seo, i18n);
     }
     if let Some(ref sec) = vm.module_details.security {
         builder = render_security(builder, sec, i18n);
@@ -280,30 +331,24 @@ pub(super) fn render_tech_details(
     if let Some(ref sq) = vm.module_details.source_quality {
         builder = render_source_quality(builder, sq, i18n);
     }
-    if let Some(ref av) = vm.module_details.ai_visibility {
-        builder = render_ai_visibility(builder, av, i18n);
-    }
     if let Some(ref ts) = vm.module_details.tech_stack {
         builder = render_tech_stack(builder, ts, i18n);
-    }
-    if let Some(ref cv) = vm.module_details.content_visibility {
-        builder = render_content_visibility(builder, cv, i18n);
     }
     if let Some(ref bp) = vm.module_details.best_practices {
         builder = render_best_practices(builder, bp, i18n);
     }
 
-    // Appendix — Layer C (#201 / #208)
-    if vm.appendix.has_violations {
+    // Group 5 — ANHANG (Ebene 3, immer sichtbar) — #217/#218
+    {
         let (appendix_title, appendix_intro) = if en {
             (
                 "Appendix",
-                "Complete raw audit data — all violations, selectors and technical references.",
+                "Raw audit data, methodology, and technical references.",
             )
         } else {
             (
                 "Anhang",
-                "Vollständige Rohdaten des Audits — alle Verstöße, Selektoren und technische Referenzen.",
+                "Rohdaten des Audits, Methodik und technische Referenzen.",
             )
         };
         builder = builder.add_component(PageBreak::new()).add_component(
@@ -311,8 +356,22 @@ pub(super) fn render_tech_details(
                 .with_eyebrow(if en { "APPENDIX" } else { "ANHANG" })
                 .with_level(1),
         );
+    }
 
+    if vm.appendix.has_violations {
         builder = builder.add_component(build_cli_snapshot_table(vm, i18n));
+
+        // JSON hint in appendix (#219)
+        let json_note = if en {
+            "The accompanying JSON report contains the complete machine-readable issue list with selectors, occurrences, and all detail data for automated processing."
+        } else {
+            "Der begleitende JSON-Report enthält die vollständige maschinenlesbare Fehlerliste mit Selektoren, Vorkommen und allen Detaildaten für automatisierte Weiterverarbeitung."
+        };
+        builder = builder.add_component(Callout::info(json_note).with_title(if en {
+            "Raw data & processing"
+        } else {
+            "Rohdaten & Weiterverarbeitung"
+        }));
 
         if vm.meta.report_level == ReportLevel::Technical {
             for v in &vm.appendix.violations {

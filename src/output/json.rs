@@ -81,6 +81,16 @@ pub struct UnifiedSummary {
     pub severity_counts: crate::audit::normalized::SeverityCounts,
     pub passed_url_count: usize,
     pub failed_url_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performance_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seo_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performance_throttled_avg_score: Option<u32>,
 }
 
 /// One audited page. `detail` is present for single reports, omitted for batch.
@@ -95,6 +105,9 @@ pub struct PageEntry {
     /// Number of distinct WCAG rules that fired — `findings[].length` for wcag-category entries.
     pub violated_rule_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
+    /// AX-tree node count (accessibility tree, not DOM). Can exceed `dom_nodes`
+    /// because the browser's accessibility tree includes virtual/internal nodes
+    /// and roles not present in the HTML DOM. This is expected behavior.
     pub nodes_analyzed: usize,
     pub duration_ms: u64,
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
@@ -309,10 +322,15 @@ impl UnifiedReport {
             certificate: AccessibilityScorer::calculate_certificate(accessibility_score as f32)
                 .to_string(),
             risk_level: worst_risk,
-            violation_count: batch_report.summary.total_violations,
+            violation_count: pages.iter().map(|p| p.violation_count).sum(),
             severity_counts,
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
+            performance_score: avg_module_score(&pages, "Performance"),
+            seo_score: avg_module_score(&pages, "SEO"),
+            security_score: avg_module_score(&pages, "Security"),
+            mobile_score: avg_module_score(&pages, "Mobile"),
+            performance_throttled_avg_score: None,
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -398,6 +416,22 @@ impl UnifiedReport {
             severity_counts: page.severity_counts.clone(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
+            performance_score: normalized_module_score(normalized, "Performance"),
+            seo_score: normalized_module_score(normalized, "SEO"),
+            security_score: normalized_module_score(normalized, "Security"),
+            mobile_score: normalized_module_score(normalized, "Mobile"),
+            performance_throttled_avg_score: {
+                let scores: Vec<u32> = normalized
+                    .raw_throttled_performance
+                    .iter()
+                    .map(|t| t.score)
+                    .collect();
+                if scores.is_empty() {
+                    None
+                } else {
+                    Some(scores.iter().sum::<u32>() / scores.len() as u32)
+                }
+            },
         };
 
         UnifiedReport {
@@ -516,6 +550,9 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             Ok(mut v) => {
                 if let Some(obj) = v.as_object_mut() {
                     obj.insert("score".to_string(), serde_json::json!(pattern_score));
+                    obj.insert("grade".to_string(), serde_json::json!(
+                        crate::audit::AccessibilityScorer::calculate_grade(pattern_score as f32)
+                    ));
                 }
                 v
             }
@@ -525,7 +562,10 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
                     error_type: "serialization_failed",
                     reason: e.to_string(),
                 });
-                serde_json::json!({ "score": pattern_score })
+                serde_json::json!({
+                    "score": pattern_score,
+                    "grade": crate::audit::AccessibilityScorer::calculate_grade(pattern_score as f32)
+                })
             }
         }
     });
@@ -572,10 +612,12 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             "principle_coverage": normalized.principle_coverage,
             "findings": wcag_findings,
         })),
-        performance: normalized
-            .raw_performance
-            .as_ref()
-            .map(|m| with_normalized_score(m.to_json(), normalized, "Performance")),
+        performance: normalized.raw_performance.as_ref().map(|m| {
+            inject_unused_js_bytes(
+                with_normalized_score(m.to_json(), normalized, "Performance"),
+                m,
+            )
+        }),
         seo,
         security: normalized
             .raw_security
@@ -593,7 +635,10 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .raw_journey
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Journey")),
-        dark_mode: normalized.raw_dark_mode.as_ref().map(|m| m.to_json()),
+        dark_mode: normalized
+            .raw_dark_mode
+            .as_ref()
+            .map(|m| inject_grade(m.to_json(), m.score)),
         source_quality: normalized
             .raw_source_quality
             .as_ref()
@@ -613,12 +658,21 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             let mut v = with_measurement_type(m.to_json(), "heuristic");
             if let Some(obj) = v.as_object_mut() {
                 obj.insert("score".to_string(), serde_json::json!(cv_score));
+                obj.insert(
+                    "grade".to_string(),
+                    serde_json::json!(crate::audit::AccessibilityScorer::calculate_grade(
+                        cv_score as f32
+                    )),
+                );
             }
             Some(v)
         }),
         tech_stack,
         patterns,
-        best_practices: normalized.raw_best_practices.as_ref().map(|m| m.to_json()),
+        best_practices: normalized
+            .raw_best_practices
+            .as_ref()
+            .map(|m| with_normalized_score(m.to_json(), normalized, "Best Practices")),
     };
 
     PageDetail {
@@ -734,25 +788,71 @@ fn normalized_module_score(normalized: &NormalizedReport, module_name: &str) -> 
         .map(|m| m.score)
 }
 
+fn avg_module_score(pages: &[PageEntry], name: &str) -> Option<u32> {
+    let scores: Vec<u32> = pages
+        .iter()
+        .flat_map(|p| p.module_scores.iter())
+        .filter(|m| m.name == name)
+        .map(|m| m.score)
+        .collect();
+    if scores.is_empty() {
+        None
+    } else {
+        Some(scores.iter().sum::<u32>() / scores.len() as u32)
+    }
+}
+
 fn with_normalized_score(
     mut value: serde_json::Value,
     normalized: &NormalizedReport,
     module_name: &str,
 ) -> serde_json::Value {
-    let Some(score) = normalized_module_score(normalized, module_name) else {
+    let Some(entry) = normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == module_name)
+    else {
         return value;
     };
 
     if let Some(obj) = value.as_object_mut() {
         if module_name == "Performance" {
-            // Move sub-scores to score_details; score itself becomes the scalar overall
             if let Some(existing) = obj.remove("score") {
                 obj.insert("score_details".to_string(), existing);
             }
         }
-        obj.insert("score".to_string(), serde_json::json!(score));
+        obj.insert("score".to_string(), serde_json::json!(entry.score));
+        obj.insert("grade".to_string(), serde_json::json!(entry.grade));
     }
 
+    value
+}
+
+fn inject_grade(mut value: serde_json::Value, score: u32) -> serde_json::Value {
+    let grade = crate::audit::AccessibilityScorer::calculate_grade(score as f32);
+    if let Some(obj) = value.as_object_mut() {
+        obj.insert("grade".to_string(), serde_json::json!(grade));
+    }
+    value
+}
+
+fn inject_unused_js_bytes(
+    mut value: serde_json::Value,
+    raw: &crate::audit::PerformanceResults,
+) -> serde_json::Value {
+    let Some(cov) = &raw.coverage else {
+        return value;
+    };
+    if let Some(obj) = value.as_object_mut() {
+        if let Some(cov_val) = obj.get_mut("coverage") {
+            if let Some(cov_obj) = cov_val.as_object_mut() {
+                cov_obj.insert(
+                    "unused_js_bytes".to_string(),
+                    serde_json::json!(cov.unused_js.unused_bytes),
+                );
+            }
+        }
+    }
     value
 }
 
@@ -1291,6 +1391,11 @@ mod tests {
                 },
                 passed_url_count: 0,
                 failed_url_count: 0,
+                performance_score: None,
+                seo_score: None,
+                security_score: None,
+                mobile_score: None,
+                performance_throttled_avg_score: None,
             },
             pages: vec![],
             url_matrix: vec![],

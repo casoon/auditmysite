@@ -871,6 +871,21 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
         effort,
         execution_priority,
         examples,
+        structural_cause: if acc.count >= 5 {
+            if locale == "en" {
+                Some(format!(
+                    "This issue appears on {} elements — likely caused by a shared component or template pattern site-wide.",
+                    acc.count
+                ))
+            } else {
+                Some(format!(
+                    "Dieses Problem tritt bei {} Elementen auf — wahrscheinlich verursacht durch eine gemeinsam genutzte Komponente oder ein Template-Muster.",
+                    acc.count
+                ))
+            }
+        } else {
+            None
+        },
         narrative,
     }
 }

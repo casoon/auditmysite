@@ -156,6 +156,7 @@ impl Clone for FindingGroup {
             effort: self.effort,
             execution_priority: self.execution_priority,
             examples: self.examples.clone(),
+            structural_cause: self.structural_cause.clone(),
             narrative: NarrativeArc {
                 diagnose: self.narrative.diagnose.clone(),
                 ursache: self.narrative.ursache.clone(),

@@ -40,7 +40,7 @@ pub(super) fn render_history_section(
     builder = builder.add_component(soft_flow_group(
         "240pt",
         vec![
-            component_json(Section::new(history_section_title).with_level(1)),
+            component_json(Section::new(history_section_title).with_level(2)),
             component_json(
                 Label::new(&history.trend_label)
                     .with_size("13pt")
@@ -214,7 +214,7 @@ pub(super) fn render_methodology_section(
     }
 
     builder = builder
-        .add_component(Section::new(method_section_title).with_level(1))
+        .add_component(Section::new(method_section_title).with_level(2))
         .add_component(TextBlock::new(&methodology.scope))
         .add_component(TextBlock::new(&methodology.method))
         .add_component(table)

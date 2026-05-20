@@ -119,7 +119,13 @@ pub(super) fn render_performance(
     builder = builder
         .add_component(Section::new(perf_section_title).with_level(2))
         .add_component(perf_intro)
-        .add_component(TextBlock::new(&perf.interpretation))
+        .add_component(
+            Callout::info(&perf.interpretation).with_title(if is_en(i18n) {
+                "Performance — Overview"
+            } else {
+                "Performance — Überblick"
+            }),
+        )
         .add_component(
             ScoreCard::new(i18n.t("perf-score-card"), perf.score)
                 .with_description(format!("Grade: {}", perf.grade))
@@ -505,10 +511,28 @@ pub(super) fn render_seo(
     seo: &SeoPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let indicator_note_seo = if is_en(i18n) {
+        "Indicators are heuristic estimates based on measurable signals — not direct ranking signals, but pointers to optimization potential."
+    } else {
+        "Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale — kein direktes Ranking-Signal, sondern Hinweis auf Optimierungspotenzial."
+    };
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-seo-analysis")).with_level(2))
-        .add_component(TextBlock::new(&seo.interpretation))
+        .add_component(
+            Callout::info(indicator_note_seo).with_title(if is_en(i18n) {
+                "Indicator-based metrics"
+            } else {
+                "Indikator-basierte Metriken"
+            }),
+        )
+        .add_component(
+            Callout::info(&seo.interpretation).with_title(if is_en(i18n) {
+                "SEO — Overview"
+            } else {
+                "SEO — Überblick"
+            }),
+        )
         .add_component(
             ScoreCard::new(i18n.t("seo-score-card"), seo.score)
                 .with_description(i18n.t("seo-score-card-description"))
@@ -617,10 +641,24 @@ pub(super) fn render_seo(
 
     if !seo.technical_summary.is_empty() {
         let mut kv = KeyValueList::new().with_title(i18n.t("seo-kv-title"));
-        for (k, v) in &seo.technical_summary {
+        for (k, v) in seo.technical_summary.iter().take(5) {
             kv = kv.add(k, v);
         }
         builder = builder.add_component(kv);
+        if seo.technical_summary.len() > 5 {
+            let more_note = if is_en(i18n) {
+                format!(
+                    "{} additional signals in the detailed appendix.",
+                    seo.technical_summary.len() - 5
+                )
+            } else {
+                format!(
+                    "{} weitere Signale im detaillierten Anhang.",
+                    seo.technical_summary.len() - 5
+                )
+            };
+            builder = builder.add_component(Callout::info(&more_note));
+        }
     }
 
     // SEO Content Profile
@@ -1413,7 +1451,13 @@ pub(super) fn render_ux(
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-ux")).with_level(2))
-        .add_component(TextBlock::new(&ux.interpretation))
+        .add_component(
+            Callout::info(&ux.interpretation).with_title(if is_en(i18n) {
+                "UX — Overview"
+            } else {
+                "UX — Überblick"
+            }),
+        )
         .add_component(
             ScoreCard::new(i18n.t("ux-score-card"), ux.score)
                 .with_description(i18n.t("label-heuristic-indicator"))
@@ -1427,8 +1471,8 @@ pub(super) fn render_ux(
     }
     builder = builder.add_component(kv);
 
-    // Issues as findings
-    for issue in &ux.issues {
+    // Issues as findings (top 3 only)
+    for issue in ux.issues.iter().take(3) {
         let sev = map_severity(&match issue.severity.as_str() {
             "high" => crate::taxonomy::Severity::High,
             "medium" => crate::taxonomy::Severity::Medium,
@@ -1437,6 +1481,20 @@ pub(super) fn render_ux(
         });
         let desc = format!("{} — {}", issue.impact, issue.recommendation);
         builder = builder.add_component(Finding::new(&issue.dimension, sev, &desc));
+    }
+    if ux.issues.len() > 3 {
+        let more_note = if is_en(i18n) {
+            format!(
+                "{} additional issues in the detailed appendix.",
+                ux.issues.len() - 3
+            )
+        } else {
+            format!(
+                "{} weitere Befunde im detaillierten Anhang.",
+                ux.issues.len() - 3
+            )
+        };
+        builder = builder.add_component(Callout::info(&more_note));
     }
     builder
 }
@@ -1449,7 +1507,13 @@ pub(super) fn render_journey(
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-journey")).with_level(2))
-        .add_component(TextBlock::new(&journey.interpretation))
+        .add_component(
+            Callout::info(&journey.interpretation).with_title(if is_en(i18n) {
+                "Journey — Overview"
+            } else {
+                "Journey — Überblick"
+            }),
+        )
         .add_component(
             ScoreCard::new(i18n.t("journey-score-card"), journey.score)
                 .with_description(i18n.t("label-heuristic-indicator"))
@@ -1474,8 +1538,8 @@ pub(super) fn render_journey(
     }
     builder = builder.add_component(kv);
 
-    // Friction points as findings
-    for fp in &journey.friction_points {
+    // Friction points as findings (top 3 only)
+    for fp in journey.friction_points.iter().take(3) {
         let sev = map_severity(&match fp.severity.as_str() {
             "high" => crate::taxonomy::Severity::High,
             "medium" => crate::taxonomy::Severity::Medium,
@@ -1484,6 +1548,20 @@ pub(super) fn render_journey(
         });
         let desc = format!("[{}] {} — {}", fp.step, fp.impact, fp.recommendation);
         builder = builder.add_component(Finding::new(&fp.problem, sev, &desc));
+    }
+    if journey.friction_points.len() > 3 {
+        let more_note = if is_en(i18n) {
+            format!(
+                "{} additional issues in the detailed appendix.",
+                journey.friction_points.len() - 3
+            )
+        } else {
+            format!(
+                "{} weitere Befunde im detaillierten Anhang.",
+                journey.friction_points.len() - 3
+            )
+        };
+        builder = builder.add_component(Callout::info(&more_note));
     }
     builder
 }
@@ -1723,7 +1801,11 @@ pub(super) fn render_source_quality(
             })
             .with_level(2),
         )
-        .add_component(TextBlock::new(&sq.disclaimer))
+        .add_component(Callout::info(&sq.disclaimer).with_title(if is_en(i18n) {
+            "Source Quality — Overview"
+        } else {
+            "Quellqualität — Überblick"
+        }))
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
@@ -1912,6 +1994,11 @@ pub(super) fn render_ai_visibility(
     av: &crate::ai_visibility::AiVisibilityAnalysis,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let indicator_note_ai = if is_en(i18n) {
+        "Indicators are heuristic estimates based on measurable signals — not direct ranking signals, but pointers to optimization potential."
+    } else {
+        "Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale — kein direktes Ranking-Signal, sondern Hinweis auf Optimierungspotenzial."
+    };
     builder = builder
         .add_component(PageBreak::new())
         .add_component(
@@ -1922,7 +2009,16 @@ pub(super) fn render_ai_visibility(
             })
             .with_level(2),
         )
-        .add_component(TextBlock::new(&av.disclaimer))
+        .add_component(Callout::info(indicator_note_ai).with_title(if is_en(i18n) {
+            "Indicator-based metrics"
+        } else {
+            "Indikator-basierte Metriken"
+        }))
+        .add_component(Callout::info(&av.disclaimer).with_title(if is_en(i18n) {
+            "AI Visibility — Overview"
+        } else {
+            "KI-Sichtbarkeit — Überblick"
+        }))
         .add_component(
             ScoreCard::new(
                 if is_en(i18n) {
@@ -2016,11 +2112,25 @@ pub(super) fn render_ai_visibility(
                 TableColumn::new("Detail"),
             ]);
 
-            for signal in &dim.signals {
+            for signal in dim.signals.iter().take(5) {
                 let status = if signal.present { "✓" } else { "✗" };
                 table = table.add_row(vec![&signal.name, status, &signal.detail]);
             }
             builder = builder.add_component(table);
+            if dim.signals.len() > 5 {
+                let more_note = if is_en(i18n) {
+                    format!(
+                        "{} additional signals in the detailed appendix.",
+                        dim.signals.len() - 5
+                    )
+                } else {
+                    format!(
+                        "{} weitere Signale im detaillierten Anhang.",
+                        dim.signals.len() - 5
+                    )
+                };
+                builder = builder.add_component(Callout::info(&more_note));
+            }
         }
     }
 
@@ -2183,7 +2293,7 @@ pub(super) fn render_content_visibility(
             })
             .with_level(2),
         )
-        .add_component(TextBlock::new(if is_en(i18n) {
+        .add_component(Callout::info(if is_en(i18n) {
             "Aggregated indicator from SEO, Source Quality, and AI Visibility signals. \
              Covers organic search indexability, E-E-A-T authority markers, local business \
              presence, content depth, and topical authority heuristics. \
@@ -2193,7 +2303,9 @@ pub(super) fn render_content_visibility(
              Umfasst organische Indexierbarkeit, E-E-A-T-Autoritätssignale, lokale Geschäftspräsenz, \
              Inhaltstiefe und topische Relevanz-Heuristiken. \
              Heuristischer Schätzwert — kein direkt gemessener Wert."
-        }))
+        }).with_title(
+            if is_en(i18n) { "Content Visibility — Overview" } else { "Content-Sichtbarkeit — Überblick" }
+        ))
         .add_component(TextBlock::new(&if is_en(i18n) {
             format!(
                 "{} signals analyzed, {} with optimization potential.",

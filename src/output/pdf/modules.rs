@@ -109,7 +109,7 @@ pub(super) fn render_next_steps_single(
             &vm.executive.next_steps_title,
             &vm.executive.next_steps_intro,
         )
-        .with_level(1),
+        .with_level(2),
     );
 
     let mut steps: Vec<String> = Vec::new();

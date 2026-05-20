@@ -119,6 +119,21 @@ pub(super) fn finding_group_from_normalized(
         effort,
         execution_priority,
         examples,
+        structural_cause: if f.occurrence_count >= 5 {
+            if locale == "en" {
+                Some(format!(
+                    "This issue appears on {} elements — likely caused by a shared component or template pattern site-wide.",
+                    f.occurrence_count
+                ))
+            } else {
+                Some(format!(
+                    "Dieses Problem tritt bei {} Elementen auf — wahrscheinlich verursacht durch eine gemeinsam genutzte Komponente oder ein Template-Muster.",
+                    f.occurrence_count
+                ))
+            }
+        } else {
+            None
+        },
         narrative,
     }
 }

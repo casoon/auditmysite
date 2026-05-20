@@ -189,6 +189,19 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
     if vm.meta.report_level != ReportLevel::Executive {
         builder = builder.add_component(TableOfContents::new());
+        // Group 1 — WEBSITE-STATUS (Ebene 1 Management) — #217/#218
+        builder = builder.add_component(PageBreak::new()).add_component(
+            SectionHeaderSplit::new(
+                if i18n.locale() == "en" { "Website Status" } else { "Website-Status" },
+                if i18n.locale() == "en" {
+                    "Management overview: risk classification, priority action areas, and business impact."
+                } else {
+                    "Management-Übersicht: Risikoeinstufung, Handlungsprioritäten und geschäftliche Auswirkungen."
+                },
+            )
+            .with_eyebrow(if i18n.locale() == "en" { "MANAGEMENT · LEVEL 1" } else { "MANAGEMENT · EBENE 1" })
+            .with_level(1),
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -218,7 +231,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                         },
                     )
                     .with_eyebrow("EXECUTIVE SNAPSHOT")
-                    .with_level(1)
+                    .with_level(2)
                 ),
                 component_json(risk_callout),
             ],
@@ -255,6 +268,43 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
         if vm.meta.report_level != ReportLevel::Executive {
             builder = builder.add_component(build_module_strip(&vm, &i18n));
             builder = builder.add_component(build_raw_audit_snapshot(&vm, &i18n));
+            // Three-perspective scope blocks (#231)
+            {
+                let en = i18n.locale() == "en";
+                let user_impact = impact_row(
+                    &vm.executive.impact_rows,
+                    if en { "User" } else { "Nutzer" },
+                );
+                let risk_text = impact_row(
+                    &vm.executive.impact_rows,
+                    if en { "Risk" } else { "Risiko" },
+                );
+                let technical_text = if en {
+                    "Automated static analysis of the accessibility tree, DOM structure, and resource loading. Results reflect detectable patterns; manual verification required for context-dependent issues."
+                } else {
+                    "Automatisierte statische Analyse des Accessibility-Trees, der DOM-Struktur und des Ressourcen-Ladens. Ergebnisse spiegeln erkennbare Muster wider; kontextabhängige Probleme erfordern manuelle Prüfung."
+                };
+                if !user_impact.is_empty() {
+                    builder =
+                        builder.add_component(Callout::warning(user_impact).with_title(if en {
+                            "User impact"
+                        } else {
+                            "Auswirkungen auf Nutzer"
+                        }));
+                }
+                if !risk_text.is_empty() {
+                    builder = builder.add_component(Callout::error(risk_text).with_title(if en {
+                        "Legal risk"
+                    } else {
+                        "Rechtliches Risiko"
+                    }));
+                }
+                builder = builder.add_component(Callout::info(technical_text).with_title(if en {
+                    "Technical basis"
+                } else {
+                    "Technische Grundlage"
+                }));
+            }
         }
 
         {

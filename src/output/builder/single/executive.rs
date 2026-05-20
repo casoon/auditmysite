@@ -69,17 +69,6 @@ pub(super) fn build_executive_narrative(
 ) -> ExecutiveNarrativeBlock {
     let en = i18n.locale() == "en";
     let assessment = build_single_assessment_text(i18n.locale(), score, severity);
-    let risk_action = match (normalized.risk.level, en) {
-        (crate::audit::normalized::RiskLevel::Critical, true) => "Act immediately",
-        (crate::audit::normalized::RiskLevel::Critical, false) => "Sofort handeln",
-        (crate::audit::normalized::RiskLevel::High, true) => "Fix soon",
-        (crate::audit::normalized::RiskLevel::High, false) => "Zeitnah beheben",
-        (crate::audit::normalized::RiskLevel::Medium, true) => "Address with next optimization",
-        (crate::audit::normalized::RiskLevel::Medium, false) => "Bei nächster Optimierung",
-        (crate::audit::normalized::RiskLevel::Low, true) => "Optimization recommended",
-        (crate::audit::normalized::RiskLevel::Low, false) => "Optimierung empfohlen",
-    };
-
     let key_points =
         build_single_key_points_text(i18n.locale(), severity, top_findings, normalized);
     let (user_label, business_label, risk_label) = if en {
@@ -229,7 +218,7 @@ pub(super) fn build_executive_narrative(
         cover_eyebrow: i18n.t("narrative-cover-eyebrow"),
         cover_kicker: i18n.t("narrative-cover-kicker"),
         status_title: i18n.t("narrative-status-title"),
-        risk_title: format!("{assessment}  —  {risk_action}"),
+        risk_title: assessment,
         metrics_title: i18n.t("narrative-metrics-title"),
         key_points_title: i18n.t("narrative-key-points-title"),
         key_points,
@@ -302,15 +291,17 @@ fn build_single_key_points_text(
 ) -> Vec<String> {
     let en = locale == "en";
     let mut points = Vec::with_capacity(3);
-    let ch = severity.critical + severity.high;
-    if ch > 0 {
+    if severity.critical > 0 {
         if en {
-            points.push(format!("{} critical/high WCAG violations on this page", ch));
+            points.push("Multiple critical WCAG barriers block assistive technology users — screen readers and keyboard navigation are affected.".to_string());
         } else {
-            points.push(format!(
-                "{} kritische/hohe WCAG-Verstöße auf dieser Seite",
-                ch
-            ));
+            points.push("Mehrere kritische WCAG-Barrieren blockieren Nutzer von Hilfstechnologien — Screenreader und Tastaturnavigation sind betroffen.".to_string());
+        }
+    } else if severity.high > 0 {
+        if en {
+            points.push("Significant accessibility gaps reduce usability for users with disabilities — no complete access barriers, but relevant friction points.".to_string());
+        } else {
+            points.push("Deutliche Barrierefreiheitslücken erschweren die Nutzung für Menschen mit Behinderungen — keine vollständigen Zugangssperren, aber relevante Reibungspunkte.".to_string());
         }
     }
 

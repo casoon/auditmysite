@@ -35,10 +35,7 @@ pub(super) fn build_cover_score_row(
         }));
     }
 
-    let accessibility_subtitle = match (cover.desktop_score, cover.mobile_score) {
-        (Some(d), Some(m)) => format!("{} • Desktop {} | Mobile {}", cover.maturity_label, d, m),
-        _ => cover.maturity_label.clone(),
-    };
+    let accessibility_subtitle = cover.maturity_label.clone();
 
     grid = grid.add_item(serde_json::json!({
         "type": "metric-card",

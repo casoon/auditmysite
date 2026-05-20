@@ -151,8 +151,6 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
     let report_author = extract_domain(&normalized.url);
-    let has_quality_modules = normalized.module_scores.len() > 1;
-
     let top_findings: Vec<FindingGroup> = {
         let mut urgent: Vec<FindingGroup> = sorted_groups
             .iter()
@@ -296,11 +294,6 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                 } else {
                     "Kritisch".to_string()
                 };
-                let label_overall = if en {
-                    format!("Site{NBSP}overall{NBSP}score")
-                } else {
-                    format!("Gesamtscore{NBSP}Website")
-                };
                 let label_checked_nodes = if en {
                     format!("Checked{NBSP}nodes")
                 } else {
@@ -334,43 +327,19 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                         accent_color: Some("#ef4444".into()),
                     },
                     MetricItem {
-                        title: if has_quality_modules {
-                            label_overall.clone()
-                        } else {
-                            label_checked_nodes.clone()
-                        },
-                        value: if has_quality_modules {
-                            format!("{}/100", normalized.overall_score)
-                        } else {
-                            nodes_analyzed.to_string()
-                        },
-                        accent_color: Some("#22c55e".into()),
-                    },
-                    MetricItem {
-                        title: if has_quality_modules {
-                            label_checked_nodes
-                        } else {
-                            label_quick_wins.clone()
-                        },
-                        value: if has_quality_modules {
-                            nodes_analyzed.to_string()
-                        } else {
-                            quick_win_count.to_string()
-                        },
+                        title: label_checked_nodes,
+                        value: nodes_analyzed.to_string(),
                         accent_color: Some("#2563eb".into()),
                     },
                     MetricItem {
-                        title: if has_quality_modules {
-                            label_quick_wins
-                        } else {
-                            label_wcag_level
-                        },
-                        value: if has_quality_modules {
-                            quick_win_count.to_string()
-                        } else {
-                            normalized.wcag_level.to_string()
-                        },
+                        title: label_quick_wins.clone(),
+                        value: quick_win_count.to_string(),
                         accent_color: Some("#7c3aed".into()),
+                    },
+                    MetricItem {
+                        title: label_wcag_level,
+                        value: normalized.wcag_level.to_string(),
+                        accent_color: Some("#22c55e".into()),
                     },
                 ]
                 .into_iter()
