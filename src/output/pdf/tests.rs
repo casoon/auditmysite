@@ -755,4 +755,85 @@ mod tests {
             pages
         );
     }
+
+    #[test]
+    fn test_pdf_contains_no_raw_typst_syntax() {
+        // Regression test for #239: raw Typst source code must never appear in the
+        // rendered PDF text (e.g. "block( width: 100%, fill: accent, radius: 8pt )").
+        // If renderreport fails to compile a section, it may emit the raw template
+        // string into the output instead of a compiled result.
+        //
+        // Text extraction uses `lopdf` so no external tool (pdftotext) is required.
+        for level in [
+            ReportLevel::Executive,
+            ReportLevel::Standard,
+            ReportLevel::Technical,
+        ] {
+            let report = pdf_fixture_report_rich();
+            let config = ReportConfig {
+                level,
+                ..ReportConfig::default()
+            };
+            let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+            let doc = lopdf::Document::load_mem(&pdf).expect("lopdf parse");
+            let page_ids: Vec<u32> = doc.get_pages().keys().copied().collect();
+            let text = doc.extract_text(&page_ids).unwrap_or_default();
+
+            for (pattern, description) in forbidden_typst_patterns() {
+                assert!(
+                    !text.contains(pattern),
+                    "Raw Typst syntax found in {:?} PDF — {description} ({pattern:?} in extracted text). Issue #239.",
+                    level,
+                );
+            }
+        }
+    }
+
+    /// Fast smoke test for #239 using `Engine::render_typ()` — verifies that the
+    /// intermediate Typst source for every report level assembles without errors
+    /// and that templates we depend on are present in the source. Much faster
+    /// than the full PDF round-trip; runs in <1s.
+    #[test]
+    fn test_typ_source_smoke_for_all_report_levels() {
+        for level in [
+            ReportLevel::Executive,
+            ReportLevel::Standard,
+            ReportLevel::Technical,
+        ] {
+            let report = pdf_fixture_report_rich();
+            let config = ReportConfig {
+                level,
+                ..ReportConfig::default()
+            };
+            let typ =
+                generate_single_typ_source(&report, &config).expect("typ source should assemble");
+
+            assert!(
+                typ.len() > 5_000,
+                "typ source for {:?} suspiciously short ({} bytes)",
+                level,
+                typ.len()
+            );
+
+            // Sanity: source must contain the template token boundary marker.
+            assert!(
+                typ.contains("#let "),
+                "typ source for {:?} must include at least one `#let` (template definitions)",
+                level
+            );
+        }
+    }
+
+    fn forbidden_typst_patterns() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("block( width:", "Typst block() call with params"),
+            ("block(width:", "Typst block() call (no space)"),
+            ("v(spacing-", "Typst v() vertical-space call"),
+            ("box(height:", "Typst box() call with height"),
+            ("fill: accent", "Typst fill: accent token"),
+            ("#pagebreak()", "Typst page-break call"),
+            ("#colbreak()", "Typst column-break call"),
+        ]
+    }
 }

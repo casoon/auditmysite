@@ -62,6 +62,31 @@ const CUSTOM_COVER_LOGO_ASSET: &str = "/cover-logo-custom";
 //   Page 6+ — Tech Details (implement: WCAG details, code examples, modules)
 
 pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
+    let (engine, built_report) = build_single_report(report, config)?;
+    let pdf_bytes = engine.render_pdf(&built_report)?;
+    cleanup_screenshot_temps(report);
+    Ok(pdf_bytes)
+}
+
+/// Render the intermediate Typst source for a single-page report.
+///
+/// Useful for snapshot tests and template-regression checks (issue #239) —
+/// catches raw-Typst leaks without going through the heavy PDF + pdftotext pipeline.
+#[cfg(test)]
+pub(crate) fn generate_single_typ_source(
+    report: &AuditReport,
+    config: &ReportConfig,
+) -> anyhow::Result<String> {
+    let (engine, built_report) = build_single_report(report, config)?;
+    let typ = engine.render_typ(&built_report)?;
+    cleanup_screenshot_temps(report);
+    Ok(typ)
+}
+
+fn build_single_report(
+    report: &AuditReport,
+    config: &ReportConfig,
+) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
     let engine = create_engine()?;
     let normalized = normalize(report);
     let vm = build_view_model(&normalized, config);
@@ -473,9 +498,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
                     .with_title(i18n.t("callout-note-title")),
             );
         let built_report = builder.build();
-        let pdf_bytes = engine.render_pdf(&built_report)?;
-        cleanup_screenshot_temps(report);
-        return Ok(pdf_bytes);
+        return Ok((engine, built_report));
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -489,9 +512,7 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
     builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
     let built_report = builder.build();
-    let pdf_bytes = engine.render_pdf(&built_report)?;
-    cleanup_screenshot_temps(report);
-    Ok(pdf_bytes)
+    Ok((engine, built_report))
 }
 
 fn cleanup_screenshot_temps(report: &AuditReport) {
