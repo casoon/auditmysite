@@ -574,7 +574,6 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
 
     let score = report.score.round().max(1.0) as u32;
     let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
-    let certificate = AccessibilityScorer::calculate_certificate(report.score).to_string();
 
     // Severity counts — only WCAG findings count (not SEO findings)
     let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category == "wcag").collect();
@@ -802,6 +801,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         };
 
     let grade = AccessibilityScorer::calculate_grade(overall_score as f32).to_string();
+    // Certificate is derived from the overall weighted score so it stays
+    // consistent with `grade`. See issue #233 — previously certificate used
+    // `report.score` (accessibility only), which produced contradictory labels
+    // like "Grade A — Cert AUSBAUFÄHIG" when other module scores were high.
+    let certificate = AccessibilityScorer::calculate_certificate(overall_score as f32).to_string();
 
     let mut audit_flags = Vec::new();
     if seo_reports_lang && had_311 {
@@ -912,20 +916,56 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             RiskLevel::Low
         };
 
+        let plural = |n: usize, singular: &str, plural: &str| -> String {
+            if n == 1 {
+                format!("{} {}", n, singular)
+            } else {
+                format!("{} {}", n, plural)
+            }
+        };
         let summary = match level {
-            RiskLevel::Critical => format!(
-                "Kritisches Risiko: {} WCAG-Level-A-Verstöße mit rechtlicher Relevanz (BFSG). {} Blocker bei Bedienelementen.",
-                legal_flags, blocking_issues
-            ),
+            RiskLevel::Critical => {
+                // If the overall score is high (≥ 80, i.e. Grade A or B), the
+                // Critical risk level alongside a strong grade looks
+                // contradictory. Surface the contrast explicitly so the report
+                // explains why both signals can hold at once. See issue #237.
+                let prefix = if overall_score >= 80 {
+                    "Kritisches Risiko trotz gutem Gesamtscore"
+                } else {
+                    "Kritisches Risiko"
+                };
+                format!(
+                    "{}: {} mit rechtlicher Relevanz (BFSG). {}.",
+                    prefix,
+                    plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                    plural(
+                        blocking_issues,
+                        "Blocker bei Bedienelementen",
+                        "Blocker bei Bedienelementen"
+                    )
+                )
+            }
             RiskLevel::High => format!(
-                "Hohes Risiko: {} kritische und {} schwerwiegende Probleme. Nutzer werden aktiv ausgeschlossen.",
-                critical_issues, high_issues
+                "Hohes Risiko: {} und {}. Nutzer werden aktiv ausgeschlossen.",
+                plural(critical_issues, "kritisches Problem", "kritische Probleme"),
+                plural(
+                    high_issues,
+                    "schwerwiegendes Problem",
+                    "schwerwiegende Probleme"
+                )
             ),
             RiskLevel::Medium => format!(
-                "Mittleres Risiko: {} schwerwiegende Probleme erkannt. Einschränkungen für bestimmte Nutzergruppen.",
-                high_issues + critical_issues
+                "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
+                plural(
+                    high_issues + critical_issues,
+                    "schwerwiegendes Problem",
+                    "schwerwiegende Probleme"
+                )
             ),
-            RiskLevel::Low => "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden.".to_string(),
+            RiskLevel::Low => {
+                "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
+                    .to_string()
+            }
         };
         let (threshold, driven_by) = match level {
             RiskLevel::Critical => (
@@ -1237,9 +1277,10 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        // Grade and certificate must match score
-        let expected_grade = AccessibilityScorer::calculate_grade(norm.score as f32);
-        let expected_cert = AccessibilityScorer::calculate_certificate(norm.score as f32);
+        // Grade and certificate are both derived from overall_score so they
+        // remain mutually consistent (see issue #233).
+        let expected_grade = AccessibilityScorer::calculate_grade(norm.overall_score as f32);
+        let expected_cert = AccessibilityScorer::calculate_certificate(norm.overall_score as f32);
         assert_eq!(norm.grade, expected_grade);
         assert_eq!(norm.certificate, expected_cert);
     }
