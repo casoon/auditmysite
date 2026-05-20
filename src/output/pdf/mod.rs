@@ -41,7 +41,9 @@ use self::findings::render_key_finding_block;
 use self::helpers::{component_json, create_engine, extract_domain, soft_flow_group};
 use self::history::{render_history_section, render_methodology_section};
 use self::modules::{build_summary_overview, render_next_steps_single};
-use self::single_report::{render_action_plan, render_tech_details, render_tech_entry};
+use self::single_report::{
+    render_action_plan, render_part_divider, render_tech_details, render_tech_entry,
+};
 use crate::audit::{normalize, AuditReport};
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
@@ -214,18 +216,52 @@ fn build_single_report(
 
     if vm.meta.report_level != ReportLevel::Executive {
         builder = builder.add_component(TableOfContents::new());
-        // Group 1 — WEBSITE-STATUS (Ebene 1 Management) — #217/#218
-        builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(
-                if i18n.locale() == "en" { "Website Status" } else { "Website-Status" },
-                if i18n.locale() == "en" {
-                    "Management overview: risk classification, priority action areas, and business impact."
-                } else {
-                    "Management-Übersicht: Risikoeinstufung, Handlungsprioritäten und geschäftliche Auswirkungen."
-                },
+        // Part 1 — Executive Summary (#246).
+        let en = i18n.locale() == "en";
+        let (title, intro, audience_title, audience_body, contents_title) = if en {
+            (
+                "Executive Summary",
+                "Risk classification, top issues, business impact, and recommended next steps — at a glance.",
+                "Audience",
+                "Decision makers and stakeholders. Read this part to understand the website's accessibility risk and the business consequences without diving into technical detail.",
+                "What's in this part",
             )
-            .with_eyebrow(if i18n.locale() == "en" { "MANAGEMENT · LEVEL 1" } else { "MANAGEMENT · EBENE 1" })
-            .with_level(1),
+        } else {
+            (
+                "Executive Summary",
+                "Risikoeinstufung, Top-Probleme, Geschäftsauswirkungen und empfohlene nächste Schritte — auf einen Blick.",
+                "Zielgruppe",
+                "Entscheider und Stakeholder. Dieser Teil zeigt das Risiko der Website und die geschäftlichen Konsequenzen, ohne in technische Details einzusteigen.",
+                "Inhalt dieses Teils",
+            )
+        };
+        let contents: Vec<&str> = if en {
+            vec![
+                "Risk classification (BFSG relevance)",
+                "Top 5 critical and high-severity issues",
+                "Business impact and consequences",
+                "Effort estimation (quick wins, mid-term, complex)",
+                "Recommended next steps",
+            ]
+        } else {
+            vec![
+                "Risikoeinstufung (BFSG-Relevanz)",
+                "Top 5 kritische und hohe Probleme",
+                "Geschäftliche Auswirkungen und Konsequenzen",
+                "Aufwandsschätzung (Quick Wins, mittelfristig, komplex)",
+                "Empfohlene nächste Schritte",
+            ]
+        };
+        builder = render_part_divider(
+            builder,
+            1,
+            title,
+            intro,
+            audience_title,
+            audience_body,
+            contents_title,
+            &contents,
+            &i18n,
         );
     }
 
@@ -460,6 +496,33 @@ fn build_single_report(
                 )
                 .with_title(&i18n.t("section-issue-overview")),
             );
+
+            if vm.severity.component_issues > 0 {
+                let en = i18n.locale() == "en";
+                let ci = vm.severity.component_issues;
+                let co = vm.severity.component_occurrences;
+                let msg = if en {
+                    format!(
+                        "{} of the {} occurrences above stem from {} component issue(s) \
+                         in shared templates. Each component fix resolves all its occurrences \
+                         at once — prioritize these first.",
+                        co, vm.severity.total, ci,
+                    )
+                } else {
+                    format!(
+                        "{} der {} Vorkommen oben stammen aus {} Komponentenproblem(en) \
+                         in gemeinsamen Templates. Jeder Komponenten-Fix behebt alle \
+                         seine Vorkommen auf einmal — diese zuerst priorisieren.",
+                        co, vm.severity.total, ci,
+                    )
+                };
+                let label = if en {
+                    "Component Issues"
+                } else {
+                    "Komponentenprobleme"
+                };
+                builder = builder.add_component(Callout::warning(&msg).with_title(label));
+            }
         }
 
         if total_ch > 0 {

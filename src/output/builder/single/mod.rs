@@ -12,7 +12,8 @@ mod positive;
 mod serp;
 use self::actions_block::build_actions_block;
 use self::diagnosis::{
-    build_diagnosis_block, build_finding_summary, build_severity_tiers, build_thematic_clusters,
+    build_criticality_groups, build_diagnosis_block, build_finding_summary, build_severity_tiers,
+    build_thematic_clusters,
 };
 use self::executive::{build_executive_narrative, build_positive_signals};
 use self::findings::finding_group_from_normalized;
@@ -152,18 +153,39 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let report_subtitle = localized_report_subtitle(&config.locale);
     let report_author = extract_domain(&normalized.url);
     let top_findings: Vec<FindingGroup> = {
-        let mut urgent: Vec<FindingGroup> = sorted_groups
+        use crate::output::report_model::CriticalityTier;
+        // Prefer Mandatory (BFSG) tier first within the urgent (Critical/High) bucket — #245.
+        let mandatory_urgent: Vec<FindingGroup> = sorted_groups
             .iter()
-            .filter(|f| matches!(f.severity, Severity::Critical | Severity::High))
+            .filter(|f| {
+                f.criticality_tier == CriticalityTier::Mandatory
+                    && matches!(f.severity, Severity::Critical | Severity::High)
+            })
             .take(5)
             .cloned()
             .collect();
+
+        let mut urgent = mandatory_urgent;
         if urgent.len() < 5 {
-            let urgent_ids: std::collections::HashSet<String> =
+            let seen_ids: std::collections::HashSet<String> =
+                urgent.iter().map(|f| f.rule_id.clone()).collect();
+            let other_urgent: Vec<FindingGroup> = sorted_groups
+                .iter()
+                .filter(|f| {
+                    !seen_ids.contains(&f.rule_id)
+                        && matches!(f.severity, Severity::Critical | Severity::High)
+                })
+                .take(5 - urgent.len())
+                .cloned()
+                .collect();
+            urgent.extend(other_urgent);
+        }
+        if urgent.len() < 5 {
+            let seen_ids: std::collections::HashSet<String> =
                 urgent.iter().map(|f| f.rule_id.clone()).collect();
             let remaining: Vec<FindingGroup> = sorted_groups
                 .iter()
-                .filter(|f| !urgent_ids.contains(&f.rule_id))
+                .filter(|f| !seen_ids.contains(&f.rule_id))
                 .take(5 - urgent.len())
                 .cloned()
                 .collect();
@@ -198,6 +220,12 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         module_names.push("Journey".into());
     }
 
+    let (component_issues, component_occurrences) = sorted_groups
+        .iter()
+        .filter(|f| f.is_component_issue)
+        .fold((0u32, 0u32), |(ci, co), f| {
+            (ci + 1, co + f.occurrence_count as u32)
+        });
     let severity = SeverityBlock {
         critical: filtered_counts.critical as u32,
         high: filtered_counts.high as u32,
@@ -205,6 +233,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         low: filtered_counts.low as u32,
         total: filtered_counts.total as u32,
         has_issues: filtered_counts.total > 0,
+        component_issues,
+        component_occurrences,
     };
 
     let modules = build_modules_block_from_normalized(&config.locale, normalized);
@@ -390,11 +420,13 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             let finding_summary =
                 build_finding_summary(&config.locale, &filtered_counts, &audit_summary);
             let by_severity = build_severity_tiers(&config.locale, &sorted_groups);
+            let by_tier = build_criticality_groups(&config.locale, &sorted_groups);
             FindingsBlock {
                 summary: finding_summary,
                 clusters,
                 top_findings,
                 by_severity,
+                by_tier,
                 all_findings: sorted_groups,
             }
         },

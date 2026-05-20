@@ -1,6 +1,7 @@
 use crate::audit::normalized::{NormalizedReport, SeverityCounts};
 use crate::output::report_model::{
-    DiagnosisBlock, FindingCluster, FindingGroup, FindingSeverityTier, FindingSummary,
+    CriticalityTier, DiagnosisBlock, FindingCluster, FindingCriticalityGroup, FindingGroup,
+    FindingSeverityTier, FindingSummary,
 };
 
 pub(super) fn build_finding_summary(
@@ -82,6 +83,71 @@ pub(super) fn build_severity_tiers(
         })
     })
     .collect()
+}
+
+pub(super) fn build_criticality_groups(
+    locale: &str,
+    findings: &[FindingGroup],
+) -> Vec<FindingCriticalityGroup> {
+    let en = locale == "en";
+
+    [CriticalityTier::Mandatory, CriticalityTier::Optimization]
+        .iter()
+        .filter_map(|tier| {
+            let tier_findings: Vec<FindingGroup> = findings
+                .iter()
+                .filter(|f| f.criticality_tier == *tier)
+                .cloned()
+                .collect();
+            if tier_findings.is_empty() {
+                return None;
+            }
+            let by_severity = build_severity_tiers(locale, &tier_findings);
+            let total_findings = tier_findings.len();
+            let total_occurrences = tier_findings.iter().map(|f| f.occurrence_count).sum();
+            let (label, eyebrow, intro) = match tier {
+                CriticalityTier::Mandatory => {
+                    if en {
+                        (
+                            "Mandatory — must be fixed".to_string(),
+                            "LEVEL 1 · MANDATORY".to_string(),
+                            "Accessibility violations under WCAG Level A/AA — legally relevant under the BFSG. These findings carry the highest priority and must be remediated.".to_string(),
+                        )
+                    } else {
+                        (
+                            "Pflicht — muss behoben werden".to_string(),
+                            "EBENE 1 · PFLICHT".to_string(),
+                            "Barrierefreiheits-Verstöße nach WCAG Level A/AA — gesetzlich relevant nach BFSG. Diese Befunde haben höchste Priorität und müssen behoben werden.".to_string(),
+                        )
+                    }
+                }
+                CriticalityTier::Optimization => {
+                    if en {
+                        (
+                            "Optimization — should/can be fixed".to_string(),
+                            "LEVEL 2 · OPTIMIZATION".to_string(),
+                            "SEO, AI visibility, UX heuristics, dark mode and other quality signals. These improve discoverability and experience but do not carry direct legal risk.".to_string(),
+                        )
+                    } else {
+                        (
+                            "Optimierung — sollte / kann behoben werden".to_string(),
+                            "EBENE 2 · OPTIMIERUNG".to_string(),
+                            "SEO, KI-Sichtbarkeit, UX-Heuristiken, Dark Mode und weitere Qualitätssignale. Diese verbessern Auffindbarkeit und Nutzererlebnis, sind aber rechtlich nicht zwingend.".to_string(),
+                        )
+                    }
+                }
+            };
+            Some(FindingCriticalityGroup {
+                tier: *tier,
+                label,
+                eyebrow,
+                intro,
+                by_severity,
+                total_findings,
+                total_occurrences,
+            })
+        })
+        .collect()
 }
 
 pub(super) fn build_thematic_clusters(

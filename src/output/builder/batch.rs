@@ -871,21 +871,42 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
         effort,
         execution_priority,
         examples,
-        structural_cause: if acc.count >= 5 {
+        structural_cause: if acc.count >= 10 {
             if locale == "en" {
                 Some(format!(
-                    "This issue appears on {} elements — likely caused by a shared component or template pattern site-wide.",
+                    "Root cause: 1 component issue producing {} occurrences. \
+                     This is likely a shared template or component — fixing it once \
+                     eliminates all occurrences simultaneously.",
                     acc.count
                 ))
             } else {
                 Some(format!(
-                    "Dieses Problem tritt bei {} Elementen auf — wahrscheinlich verursacht durch eine gemeinsam genutzte Komponente oder ein Template-Muster.",
+                    "Root Cause: 1 Komponentenproblem erzeugt {} Vorkommen. \
+                     Wahrscheinlich ein gemeinsam genutztes Template oder eine Komponente — \
+                     ein einmaliger Fix behebt alle Vorkommen gleichzeitig.",
+                    acc.count
+                ))
+            }
+        } else if acc.count >= 5 {
+            if locale == "en" {
+                Some(format!(
+                    "This issue appears on {} elements — possibly a shared component or template.",
+                    acc.count
+                ))
+            } else {
+                Some(format!(
+                    "Dieses Problem tritt bei {} Elementen auf — möglicherweise eine gemeinsam genutzte Komponente oder ein Template.",
                     acc.count
                 ))
             }
         } else {
             None
         },
+        is_component_issue: acc.count >= 10,
+        criticality_tier: crate::output::report_model::classify_criticality_tier(
+            &finding.category,
+            &finding.wcag_level,
+        ),
         narrative,
     }
 }

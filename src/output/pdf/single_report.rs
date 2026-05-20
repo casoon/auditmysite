@@ -4,7 +4,7 @@
 //! components, and returns the builder for further chaining.
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, PageBreak, PhaseBlock,
+    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, List, PageBreak, PhaseBlock,
     SectionHeaderSplit,
 };
 use renderreport::prelude::*;
@@ -24,6 +24,46 @@ use crate::audit::AuditReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
+
+/// Render a part divider — visually separates the three report parts (#246).
+///
+/// Each divider produces a page break, a strong level=1 section header tagged
+/// with "TEIL N / 3" (or "PART N OF 3"), an audience callout, and a contents list.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn render_part_divider(
+    mut builder: renderreport::engine::ReportBuilder,
+    part_num: u8,
+    title: &str,
+    intro: &str,
+    audience_title: &str,
+    audience_body: &str,
+    contents_title: &str,
+    contents: &[&str],
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let eyebrow = if en {
+        format!("PART {} OF 3", part_num)
+    } else {
+        format!("TEIL {} VON 3", part_num)
+    };
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(
+            SectionHeaderSplit::new(title, intro)
+                .with_eyebrow(eyebrow)
+                .with_level(1),
+        )
+        .add_component(Callout::info(audience_body).with_title(audience_title));
+    if !contents.is_empty() {
+        let mut list = List::new().with_title(contents_title);
+        for item in contents {
+            list = list.add_item(*item);
+        }
+        builder = builder.add_component(list);
+    }
+    builder
+}
 
 /// Section 4 — Action Plan: quick wins, prioritized actions, execution note.
 pub(super) fn render_action_plan(
@@ -98,22 +138,54 @@ pub(super) fn render_tech_entry(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    // Group 2 — ACCESSIBILITY (Ebene 2 Umsetzung) — #217/#218
-    builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(
-            "Accessibility",
-            if i18n.locale() == "en" {
-                "Implementation layer: WCAG compliance, diagnosed findings, and remediation guidance."
-            } else {
-                "Umsetzungsebene: WCAG-Konformität, diagnostizierte Befunde und Behebungshinweise."
-            },
+    // Part 2 — Technical Accessibility Report (#246).
+    let en = i18n.locale() == "en";
+    let (p2_title, p2_intro, p2_audience_title, p2_audience_body, p2_contents_title) = if en {
+        (
+            "Technical Accessibility Report",
+            "WCAG compliance, diagnosed findings with code snippets, and the complete list of detected issues.",
+            "Audience",
+            "Developers and engineering teams. Read this part to understand each finding with its WCAG criterion, HTML evidence, fix guidance, and component attribution.",
+            "What's in this part",
         )
-        .with_eyebrow(if i18n.locale() == "en" {
-            "IMPLEMENTATION · LEVEL 2"
-        } else {
-            "UMSETZUNG · EBENE 2"
-        })
-        .with_level(1),
+    } else {
+        (
+            "Technischer Accessibility-Report",
+            "WCAG-Konformität, diagnostizierte Befunde mit Code-Snippets und die vollständige Liste erkannter Probleme.",
+            "Zielgruppe",
+            "Entwickler und Engineering-Teams. Dieser Teil zeigt jeden Befund mit WCAG-Kriterium, HTML-Evidenz, Fix-Hinweis und Komponentenzuordnung.",
+            "Inhalt dieses Teils",
+        )
+    };
+    let p2_contents: Vec<&str> = if en {
+        vec![
+            "Module health overview",
+            "System diagnosis",
+            "Findings by criticality (mandatory vs. optimization)",
+            "HTML snippets and fix guidance per finding",
+            "WCAG coverage matrix",
+            "Complete list of detected violations",
+        ]
+    } else {
+        vec![
+            "Modul-Übersicht",
+            "Systemdiagnose",
+            "Befunde nach Kritikalität (Pflicht vs. Optimierung)",
+            "HTML-Snippets und Fix-Hinweise pro Befund",
+            "WCAG-Coverage-Matrix",
+            "Vollständige Liste aller erkannten Verstöße",
+        ]
+    };
+    builder = render_part_divider(
+        builder,
+        2,
+        p2_title,
+        p2_intro,
+        p2_audience_title,
+        p2_audience_body,
+        p2_contents_title,
+        &p2_contents,
+        i18n,
     );
     builder = builder.add_component(
         SectionHeaderSplit::new(&vm.executive.technical_title, &vm.executive.technical_intro)
@@ -174,18 +246,18 @@ pub(super) fn render_tech_details(
         builder = render_diagnosis_section(builder, &vm.diagnosis, i18n);
     }
 
-    // Section 6+ — Findings grouped by severity tier (#201 / #205 / #208)
+    // Section 6+ — Findings grouped by criticality tier, then severity (#245).
     if vm.severity.has_issues {
-        if !vm.findings.by_severity.is_empty() {
+        if !vm.findings.by_tier.is_empty() {
             let (findings_title, findings_intro) = if en {
                 (
-                    "Findings by Severity",
-                    "All technical findings grouped by severity. Critical and high-severity issues require immediate remediation.",
+                    "Findings by Criticality",
+                    "All technical findings — clearly separated into mandatory (legally relevant under the BFSG) and optimization. Mandatory findings must be remediated; optimization findings improve quality but are not legally required.",
                 )
             } else {
                 (
-                    "Befunde nach Schweregrad",
-                    "Alle technischen Befunde gruppiert nach Schweregrad. Kritische und hohe Befunde erfordern sofortige Behebung.",
+                    "Befunde nach Kritikalität",
+                    "Alle technischen Befunde — klar getrennt in Pflicht (BFSG-relevant) und Optimierung. Pflicht-Befunde müssen behoben werden; Optimierungs-Befunde verbessern die Qualität, sind aber rechtlich nicht zwingend.",
                 )
             };
             builder = builder.add_component(PageBreak::new()).add_component(
@@ -194,47 +266,90 @@ pub(super) fn render_tech_details(
                     .with_level(2),
             );
 
-            for tier in &vm.findings.by_severity {
-                let tier_intro = if en {
+            for criticality in &vm.findings.by_tier {
+                let tier_summary = if en {
                     format!(
-                        "{} finding(s) — {} occurrence(s) total",
-                        tier.findings.len(),
-                        tier.total_occurrences
+                        "{} finding(s) — {} occurrence(s) total. {}",
+                        criticality.total_findings,
+                        criticality.total_occurrences,
+                        criticality.intro
                     )
                 } else {
                     format!(
-                        "{} Befund(e) — {} Vorkommen gesamt",
-                        tier.findings.len(),
-                        tier.total_occurrences
+                        "{} Befund(e) — {} Vorkommen gesamt. {}",
+                        criticality.total_findings,
+                        criticality.total_occurrences,
+                        criticality.intro
                     )
                 };
-                builder = builder.add_component(
-                    SectionHeaderSplit::new(&tier.label, &tier_intro)
-                        .with_eyebrow(tier.label.to_uppercase())
-                        .with_level(3),
+                builder = builder.add_component(PageBreak::new()).add_component(
+                    SectionHeaderSplit::new(&criticality.label, &tier_summary)
+                        .with_eyebrow(&criticality.eyebrow)
+                        .with_level(2),
                 );
+                let tier_callout = match criticality.tier {
+                    crate::output::report_model::CriticalityTier::Mandatory => {
+                        Callout::error(&criticality.intro).with_title(if en {
+                            "Mandatory — legal risk"
+                        } else {
+                            "Pflicht — rechtliches Risiko"
+                        })
+                    }
+                    crate::output::report_model::CriticalityTier::Optimization => {
+                        Callout::info(&criticality.intro).with_title(if en {
+                            "Optimization — no direct legal risk"
+                        } else {
+                            "Optimierung — kein unmittelbares rechtliches Risiko"
+                        })
+                    }
+                };
+                builder = builder.add_component(tier_callout);
 
-                if tier.severity == crate::wcag::Severity::Critical {
-                    let msg = if en {
+                for tier in &criticality.by_severity {
+                    let tier_intro = if en {
                         format!(
-                            "{} critical issue(s) blocking accessibility — must be resolved before deployment.",
-                            tier.findings.len()
+                            "{} finding(s) — {} occurrence(s) total",
+                            tier.findings.len(),
+                            tier.total_occurrences
                         )
                     } else {
                         format!(
-                            "{} kritische(r) Befund(e) blockiert/blockieren die Barrierefreiheit — vor dem Deployment zu beheben.",
-                            tier.findings.len()
+                            "{} Befund(e) — {} Vorkommen gesamt",
+                            tier.findings.len(),
+                            tier.total_occurrences
                         )
                     };
-                    builder = builder.add_component(Callout::error(&msg));
-                }
+                    builder = builder.add_component(
+                        SectionHeaderSplit::new(&tier.label, &tier_intro)
+                            .with_eyebrow(tier.label.to_uppercase())
+                            .with_level(3),
+                    );
 
-                for group in &tier.findings {
-                    builder = render_finding_technical(builder, group, i18n);
+                    if tier.severity == crate::wcag::Severity::Critical
+                        && criticality.tier
+                            == crate::output::report_model::CriticalityTier::Mandatory
+                    {
+                        let msg = if en {
+                            format!(
+                                "{} critical issue(s) blocking accessibility — must be resolved before deployment.",
+                                tier.findings.len()
+                            )
+                        } else {
+                            format!(
+                                "{} kritische(r) Befund(e) blockiert/blockieren die Barrierefreiheit — vor dem Deployment zu beheben.",
+                                tier.findings.len()
+                            )
+                        };
+                        builder = builder.add_component(Callout::error(&msg));
+                    }
+
+                    for group in &tier.findings {
+                        builder = render_finding_technical(builder, group, i18n);
+                    }
                 }
             }
         } else {
-            // Fallback: severity unknown for all findings
+            // Fallback: tier classification unavailable for all findings
             for group in &vm.findings.all_findings {
                 builder = render_finding_technical(builder, group, i18n);
             }
@@ -246,115 +361,23 @@ pub(super) fn render_tech_details(
         builder = render_wcag_coverage_section(builder, report, i18n);
     }
 
-    // Group 3 — SEO & SICHTBARKEIT (Ebene 3 Analyse) — #217/#218
-    if vm.module_details.seo.is_some()
-        || vm.module_details.ai_visibility.is_some()
-        || vm.module_details.content_visibility.is_some()
-    {
-        builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(
-                if en {
-                    "SEO & Visibility"
-                } else {
-                    "SEO & Sichtbarkeit"
-                },
-                if en {
-                    "Search engine optimization, AI discoverability, and content authority signals."
-                } else {
-                    "Suchmaschinenoptimierung, KI-Auffindbarkeit und inhaltliche Autoritätssignale."
-                },
-            )
-            .with_eyebrow(if en {
-                "ANALYSIS · LEVEL 3"
-            } else {
-                "ANALYSE · EBENE 3"
-            })
-            .with_level(1),
-        );
-    }
-    if let Some(ref seo) = vm.module_details.seo {
-        builder = render_seo(builder, seo, i18n);
-    }
-    if let Some(ref av) = vm.module_details.ai_visibility {
-        builder = render_ai_visibility(builder, av, i18n);
-    }
-    if let Some(ref cv) = vm.module_details.content_visibility {
-        builder = render_content_visibility(builder, cv, i18n);
-    }
-
-    // Group 4 — TECHNIK & QUALITÄT (Ebene 3 Analyse) — #217/#218
-    if vm.module_details.performance.is_some()
-        || !report.budget_violations.is_empty()
-        || vm.module_details.security.is_some()
-        || vm.module_details.mobile.is_some()
-        || vm.module_details.ux.is_some()
-        || vm.module_details.journey.is_some()
-        || vm.module_details.dark_mode.is_some()
-        || vm.module_details.source_quality.is_some()
-        || vm.module_details.tech_stack.is_some()
-        || vm.module_details.best_practices.is_some()
-    {
-        builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(
-                if en { "Technology & Quality" } else { "Technik & Qualität" },
-                if en {
-                    "Core technical quality: performance, security, mobile usability, UX, and engineering foundations."
-                } else {
-                    "Technische Kernqualität: Performance, Sicherheit, Mobile-Nutzbarkeit, UX und technische Grundlagen."
-                },
-            )
-            .with_eyebrow(if en { "ANALYSIS" } else { "ANALYSE" })
-            .with_level(1),
-        );
-    }
-    if let Some(ref perf) = vm.module_details.performance {
-        builder = render_performance(builder, perf, i18n);
-    }
-    if !report.budget_violations.is_empty() {
-        builder = render_budget_violations(builder, &report.budget_violations, i18n);
-    }
-    if let Some(ref sec) = vm.module_details.security {
-        builder = render_security(builder, sec, i18n);
-    }
-    if let Some(ref mobile) = vm.module_details.mobile {
-        builder = render_mobile(builder, mobile, i18n);
-    }
-    if let Some(ref ux) = vm.module_details.ux {
-        builder = render_ux(builder, ux, i18n);
-    }
-    if let Some(ref journey) = vm.module_details.journey {
-        builder = render_journey(builder, journey, i18n);
-    }
-    if let Some(ref dm) = vm.module_details.dark_mode {
-        builder = render_dark_mode(builder, dm, i18n);
-    }
-    if let Some(ref sq) = vm.module_details.source_quality {
-        builder = render_source_quality(builder, sq, i18n);
-    }
-    if let Some(ref ts) = vm.module_details.tech_stack {
-        builder = render_tech_stack(builder, ts, i18n);
-    }
-    if let Some(ref bp) = vm.module_details.best_practices {
-        builder = render_best_practices(builder, bp, i18n);
-    }
-
-    // Group 5 — ANHANG (Ebene 3, immer sichtbar) — #217/#218
+    // Appendix — full violations list, conclusion of Part 2 (#246).
     {
         let (appendix_title, appendix_intro) = if en {
             (
-                "Appendix",
-                "Raw audit data, methodology, and technical references.",
+                "Complete Findings List",
+                "Raw audit data and the full list of detected violations.",
             )
         } else {
             (
-                "Anhang",
-                "Rohdaten des Audits, Methodik und technische Referenzen.",
+                "Vollständige Fundstellen",
+                "Rohdaten des Audits und die vollständige Liste aller erkannten Verstöße.",
             )
         };
         builder = builder.add_component(PageBreak::new()).add_component(
             SectionHeaderSplit::new(appendix_title, appendix_intro)
                 .with_eyebrow(if en { "APPENDIX" } else { "ANHANG" })
-                .with_level(1),
+                .with_level(2),
         );
     }
 
@@ -423,6 +446,196 @@ pub(super) fn render_tech_details(
                 ChecklistPanel::new(rows).with_title(i18n.t("section-all-violations")),
             );
         }
+    }
+
+    // Part 3 — SEO, AI & Quality (optional). Only render if any module is present (#246).
+    let has_part3 = vm.module_details.seo.is_some()
+        || vm.module_details.ai_visibility.is_some()
+        || vm.module_details.content_visibility.is_some()
+        || vm.module_details.performance.is_some()
+        || !report.budget_violations.is_empty()
+        || vm.module_details.security.is_some()
+        || vm.module_details.mobile.is_some()
+        || vm.module_details.ux.is_some()
+        || vm.module_details.journey.is_some()
+        || vm.module_details.dark_mode.is_some()
+        || vm.module_details.source_quality.is_some()
+        || vm.module_details.tech_stack.is_some()
+        || vm.module_details.best_practices.is_some();
+
+    if has_part3 {
+        let (p3_title, p3_intro, p3_audience_title, p3_audience_body, p3_contents_title) = if en {
+            (
+                "SEO, AI & Quality",
+                "Search engine optimization, AI discoverability, and technical quality signals.",
+                "Audience",
+                "Marketing, SEO specialists, and engineering teams. This part is optional and complements the accessibility findings with discoverability and technical quality metrics.",
+                "What's in this part",
+            )
+        } else {
+            (
+                "SEO, KI & Qualität",
+                "Suchmaschinenoptimierung, KI-Auffindbarkeit und technische Qualitätssignale.",
+                "Zielgruppe",
+                "Marketing, SEO-Spezialisten und Engineering-Teams. Dieser Teil ist optional und ergänzt die Accessibility-Befunde um Auffindbarkeits- und Qualitätsmetriken.",
+                "Inhalt dieses Teils",
+            )
+        };
+        let mut p3_contents: Vec<&str> = Vec::new();
+        if vm.module_details.seo.is_some()
+            || vm.module_details.ai_visibility.is_some()
+            || vm.module_details.content_visibility.is_some()
+        {
+            p3_contents.push(if en {
+                "SEO, AI visibility, and content authority signals"
+            } else {
+                "SEO, KI-Sichtbarkeit und inhaltliche Autoritätssignale"
+            });
+        }
+        if vm.module_details.performance.is_some() || !report.budget_violations.is_empty() {
+            p3_contents.push(if en {
+                "Performance details and budget violations"
+            } else {
+                "Performance-Details und Budget-Verstöße"
+            });
+        }
+        if vm.module_details.security.is_some() {
+            p3_contents.push(if en {
+                "Security headers"
+            } else {
+                "Sicherheits-Header"
+            });
+        }
+        if vm.module_details.mobile.is_some() {
+            p3_contents.push(if en {
+                "Mobile usability"
+            } else {
+                "Mobile Nutzbarkeit"
+            });
+        }
+        if vm.module_details.ux.is_some() || vm.module_details.journey.is_some() {
+            p3_contents.push(if en {
+                "UX and user journey"
+            } else {
+                "UX und Nutzerführung"
+            });
+        }
+        if vm.module_details.dark_mode.is_some() {
+            p3_contents.push(if en {
+                "Dark mode support"
+            } else {
+                "Dark-Mode-Unterstützung"
+            });
+        }
+        if vm.module_details.source_quality.is_some()
+            || vm.module_details.tech_stack.is_some()
+            || vm.module_details.best_practices.is_some()
+        {
+            p3_contents.push(if en {
+                "Source quality, tech stack, and best practices"
+            } else {
+                "Quellqualität, Tech-Stack und Best Practices"
+            });
+        }
+        builder = render_part_divider(
+            builder,
+            3,
+            p3_title,
+            p3_intro,
+            p3_audience_title,
+            p3_audience_body,
+            p3_contents_title,
+            &p3_contents,
+            i18n,
+        );
+    }
+
+    // SEO & Visibility sub-section (level=2 inside Part 3).
+    if vm.module_details.seo.is_some()
+        || vm.module_details.ai_visibility.is_some()
+        || vm.module_details.content_visibility.is_some()
+    {
+        builder = builder.add_component(PageBreak::new()).add_component(
+            SectionHeaderSplit::new(
+                if en {
+                    "SEO & Visibility"
+                } else {
+                    "SEO & Sichtbarkeit"
+                },
+                if en {
+                    "Search engine optimization, AI discoverability, and content authority signals."
+                } else {
+                    "Suchmaschinenoptimierung, KI-Auffindbarkeit und inhaltliche Autoritätssignale."
+                },
+            )
+            .with_eyebrow(if en { "ANALYSIS" } else { "ANALYSE" })
+            .with_level(2),
+        );
+    }
+    if let Some(ref seo) = vm.module_details.seo {
+        builder = render_seo(builder, seo, i18n);
+    }
+    if let Some(ref av) = vm.module_details.ai_visibility {
+        builder = render_ai_visibility(builder, av, i18n);
+    }
+    if let Some(ref cv) = vm.module_details.content_visibility {
+        builder = render_content_visibility(builder, cv, i18n);
+    }
+
+    // Technology & Quality sub-section (level=2 inside Part 3).
+    if vm.module_details.performance.is_some()
+        || !report.budget_violations.is_empty()
+        || vm.module_details.security.is_some()
+        || vm.module_details.mobile.is_some()
+        || vm.module_details.ux.is_some()
+        || vm.module_details.journey.is_some()
+        || vm.module_details.dark_mode.is_some()
+        || vm.module_details.source_quality.is_some()
+        || vm.module_details.tech_stack.is_some()
+        || vm.module_details.best_practices.is_some()
+    {
+        builder = builder.add_component(PageBreak::new()).add_component(
+            SectionHeaderSplit::new(
+                if en { "Technology & Quality" } else { "Technik & Qualität" },
+                if en {
+                    "Core technical quality: performance, security, mobile usability, UX, and engineering foundations."
+                } else {
+                    "Technische Kernqualität: Performance, Sicherheit, Mobile-Nutzbarkeit, UX und technische Grundlagen."
+                },
+            )
+            .with_eyebrow(if en { "ANALYSIS" } else { "ANALYSE" })
+            .with_level(2),
+        );
+    }
+    if let Some(ref perf) = vm.module_details.performance {
+        builder = render_performance(builder, perf, i18n);
+    }
+    if !report.budget_violations.is_empty() {
+        builder = render_budget_violations(builder, &report.budget_violations, i18n);
+    }
+    if let Some(ref sec) = vm.module_details.security {
+        builder = render_security(builder, sec, i18n);
+    }
+    if let Some(ref mobile) = vm.module_details.mobile {
+        builder = render_mobile(builder, mobile, i18n);
+    }
+    if let Some(ref ux) = vm.module_details.ux {
+        builder = render_ux(builder, ux, i18n);
+    }
+    if let Some(ref journey) = vm.module_details.journey {
+        builder = render_journey(builder, journey, i18n);
+    }
+    if let Some(ref dm) = vm.module_details.dark_mode {
+        builder = render_dark_mode(builder, dm, i18n);
+    }
+    if let Some(ref sq) = vm.module_details.source_quality {
+        builder = render_source_quality(builder, sq, i18n);
+    }
+    if let Some(ref ts) = vm.module_details.tech_stack {
+        builder = render_tech_stack(builder, ts, i18n);
+    }
+    if let Some(ref bp) = vm.module_details.best_practices {
+        builder = render_best_practices(builder, bp, i18n);
     }
 
     builder

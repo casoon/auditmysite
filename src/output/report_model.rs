@@ -370,6 +370,10 @@ pub struct SeverityBlock {
     pub low: u32,
     pub total: u32,
     pub has_issues: bool,
+    /// Number of findings classified as component/template issues (occurrence_count >= 10).
+    pub component_issues: u32,
+    /// Total occurrences attributed to component issues.
+    pub component_occurrences: u32,
 }
 
 /// Findings grouped into a single severity tier (Critical / High / Medium / Low).
@@ -378,6 +382,43 @@ pub struct FindingSeverityTier {
     pub severity: Severity,
     pub label: String,
     pub findings: Vec<FindingGroup>,
+    pub total_occurrences: usize,
+}
+
+/// Criticality tier — separates mandatory (BFSG-relevant) from optimization findings
+/// so the report can show them in clearly distinct sections (#245).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CriticalityTier {
+    /// Level 1 — must be fixed: WCAG A/AA violations with BFSG relevance.
+    Mandatory,
+    /// Level 2 — should/can be fixed: SEO, AI visibility, dark mode, UX heuristics, WCAG AAA.
+    Optimization,
+}
+
+/// Decide the criticality tier of a finding for the BFSG-vs-Optimierung split (#245).
+///
+/// Mandatory tier covers WCAG Level A/AA violations (legal/BFSG risk). Everything
+/// else (SEO, AI visibility, dark mode, WCAG AAA, …) is classified as Optimization.
+pub fn classify_criticality_tier(category: &str, wcag_level: &str) -> CriticalityTier {
+    if category == "wcag" && matches!(wcag_level, "A" | "AA") {
+        CriticalityTier::Mandatory
+    } else {
+        CriticalityTier::Optimization
+    }
+}
+
+/// Findings grouped by criticality tier (Mandatory / Optimization), each containing
+/// the same findings further sub-grouped by severity for structured rendering.
+pub struct FindingCriticalityGroup {
+    pub tier: CriticalityTier,
+    /// Localized tier label (e.g. "Pflicht — muss behoben werden").
+    pub label: String,
+    /// Short eyebrow label (e.g. "EBENE 1 · PFLICHT").
+    pub eyebrow: String,
+    /// One-sentence explanation of what this tier contains.
+    pub intro: String,
+    pub by_severity: Vec<FindingSeverityTier>,
+    pub total_findings: usize,
     pub total_occurrences: usize,
 }
 
@@ -390,6 +431,10 @@ pub struct FindingsBlock {
     /// Findings pre-partitioned into severity tiers (Critical → High → Medium → Low).
     /// Renderers can use this for structured, tier-first display without re-sorting.
     pub by_severity: Vec<FindingSeverityTier>,
+    /// Findings grouped first by criticality tier (Mandatory / Optimization), then by
+    /// severity. Renderers use this to enforce the visual+structural BFSG-vs-Optimierung
+    /// split required by issue #245.
+    pub by_tier: Vec<FindingCriticalityGroup>,
 }
 
 /// Module detail presentations (unchanged from before)
@@ -518,6 +563,10 @@ pub struct FindingGroup {
     pub examples: Vec<ExampleBlock>,
     /// Structural cause hint for findings with high occurrence counts (template/component pattern).
     pub structural_cause: Option<String>,
+    /// True when this finding is classified as a component/template issue (occurrence_count >= 10).
+    pub is_component_issue: bool,
+    /// Criticality tier — Mandatory (BFSG-relevant) or Optimization (#245).
+    pub criticality_tier: CriticalityTier,
     /// Precomputed narrative arc for story-flow rendering.
     pub narrative: NarrativeArc,
 }

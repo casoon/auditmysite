@@ -1,7 +1,8 @@
 use crate::audit::normalized::OccurrenceDetail;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::{
-    Effort, FindingGroup, FindingPatternCluster, RepresentativeOccurrence, Role,
+    classify_criticality_tier, Effort, FindingGroup, FindingPatternCluster,
+    RepresentativeOccurrence, Role,
 };
 
 use super::super::actions::{
@@ -119,21 +120,39 @@ pub(super) fn finding_group_from_normalized(
         effort,
         execution_priority,
         examples,
-        structural_cause: if f.occurrence_count >= 5 {
+        structural_cause: if f.occurrence_count >= 10 {
             if locale == "en" {
                 Some(format!(
-                    "This issue appears on {} elements — likely caused by a shared component or template pattern site-wide.",
+                    "Root cause: 1 component issue producing {} occurrences. \
+                     This is likely a shared template or component — fixing it once \
+                     eliminates all occurrences simultaneously.",
                     f.occurrence_count
                 ))
             } else {
                 Some(format!(
-                    "Dieses Problem tritt bei {} Elementen auf — wahrscheinlich verursacht durch eine gemeinsam genutzte Komponente oder ein Template-Muster.",
+                    "Root Cause: 1 Komponentenproblem erzeugt {} Vorkommen. \
+                     Wahrscheinlich ein gemeinsam genutztes Template oder eine Komponente — \
+                     ein einmaliger Fix behebt alle Vorkommen gleichzeitig.",
+                    f.occurrence_count
+                ))
+            }
+        } else if f.occurrence_count >= 5 {
+            if locale == "en" {
+                Some(format!(
+                    "This issue appears on {} elements — possibly a shared component or template.",
+                    f.occurrence_count
+                ))
+            } else {
+                Some(format!(
+                    "Dieses Problem tritt bei {} Elementen auf — möglicherweise eine gemeinsam genutzte Komponente oder ein Template.",
                     f.occurrence_count
                 ))
             }
         } else {
             None
         },
+        is_component_issue: f.occurrence_count >= 10,
+        criticality_tier: classify_criticality_tier(&f.category, &f.wcag_level),
         narrative,
     }
 }

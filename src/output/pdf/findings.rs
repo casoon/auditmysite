@@ -40,8 +40,16 @@ pub(super) fn render_key_finding_block(
     let en = i18n.locale() == "en";
     let recommendation_label = if en { "Recommendation" } else { "Empfehlung" };
 
+    builder = builder.add_component(Label::new(&title).bold().with_size("11pt"));
+
+    if let Some(ref cause) = group.structural_cause {
+        if group.is_component_issue {
+            let root_cause_label = if en { "Root Cause" } else { "Root Cause" };
+            builder = builder.add_component(Callout::warning(cause).with_title(root_cause_label));
+        }
+    }
+
     builder = builder
-        .add_component(Label::new(&title).bold().with_size("11pt"))
         .add_component(
             TextBlock::new(first_sentence(&arc.wirkung))
                 .with_size("10.5pt")
@@ -271,12 +279,23 @@ pub(super) fn render_finding_technical(
     }
 
     if let Some(ref cause) = group.structural_cause {
-        let label = if i18n.locale() == "en" {
+        let label = if group.is_component_issue {
+            if i18n.locale() == "en" {
+                "Root Cause"
+            } else {
+                "Root Cause"
+            }
+        } else if i18n.locale() == "en" {
             "Structural cause"
         } else {
             "Strukturelle Ursache"
         };
-        builder = builder.add_component(Callout::info(cause).with_title(label));
+        let callout = if group.is_component_issue {
+            Callout::warning(cause).with_title(label)
+        } else {
+            Callout::info(cause).with_title(label)
+        };
+        builder = builder.add_component(callout);
     }
 
     builder
