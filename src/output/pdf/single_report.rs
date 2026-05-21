@@ -550,28 +550,6 @@ pub(super) fn render_tech_details(
         );
     }
 
-    // SEO & Visibility sub-section (level=2 inside Part 3).
-    if vm.module_details.seo.is_some()
-        || vm.module_details.ai_visibility.is_some()
-        || vm.module_details.content_visibility.is_some()
-    {
-        builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(
-                if en {
-                    "SEO & Visibility"
-                } else {
-                    "SEO & Sichtbarkeit"
-                },
-                if en {
-                    "Search engine optimization, AI discoverability, and content authority signals."
-                } else {
-                    "Suchmaschinenoptimierung, KI-Auffindbarkeit und inhaltliche Autoritätssignale."
-                },
-            )
-            .with_eyebrow(if en { "ANALYSIS" } else { "ANALYSE" })
-            .with_level(2),
-        );
-    }
     if let Some(ref seo) = vm.module_details.seo {
         builder = render_seo(builder, seo, i18n);
     }
