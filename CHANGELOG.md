@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-05-21
+
 ### Added
 - **`tool_version`** als Top-Level-Feld im JSON-Report — parallel zu `schema_version`/`report_type` (#247)
 - **`occurrence_counts`** auf Page- und Summary-Ebene: Element-Occurrences je Severity, getrennt von den Finding-Counts in `severity_counts` (#249)
