@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-05-21
+
+### Added
+- **Lokalisierte Interpretationstexte**: `interpret_score` liefert echte de/en-Sätze über `InterpretArea`/`ScoreBand` mit modul-spezifischen Formulierungen; Wording-Regeln in `CLAUDE.md` ("Report Wording Style"). Review-Export via `cargo test --lib export_all_interpretations -- --ignored` → `reports/interpretations.json`.
+- **`help_url` pro Finding**: offizielle WCAG-Understanding-Referenz jetzt in PDF (Referenz-Zeile, Teil 2) **und** JSON (`finding.help_url`, additiv im Schema).
+- **Hidden `--debug-typ`**: schreibt mit `--format pdf` die intermediäre Typst-Quelle als `.typ`-Sidecar (single + batch) für Wording-/Vollständigkeits-Review; in `--help` versteckt, in README dokumentiert (#257).
+- **Typst↔JSON-Konsistenztest** pro Report-Teil (Werte vorhanden + deckungsgleich mit JSON) sowie `interpret_score`-Contract-Test.
+
+### Changed
+- **Batch-Intros bilingual**: URL-Ranking, Render-Blocking & Assets, Redirect-Ketten nutzen jetzt de/en (vollständige i18n-Migration als #258 erfasst).
+- **Pauschale Erklärungen entfernt**: definitorische Intros (Befunde-nach-Kritikalität, Render-Blocking, Performance-Budgets) auf anlassbezogene Aussagen gekürzt.
+
+### Fixed
+- **Batch-Pages tragen ein kompaktes `detail`** (`fix_guidance`) ohne zusätzliche Datenerhebung — abgeleitet aus den ohnehin normalisierten Findings (#256).
+
 ## [0.25.0] - 2026-05-21
 
 ### Added
