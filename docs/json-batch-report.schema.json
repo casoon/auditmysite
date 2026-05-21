@@ -11,6 +11,7 @@
     "tool_version": { "type": "string" },
     "metadata": { "$ref": "#/$defs/metadata" },
     "summary": { "$ref": "#/$defs/summary" },
+    "sample": { "$ref": "#/$defs/sample" },
     "pages": {
       "type": "array",
       "items": { "$ref": "#/$defs/pageEntry" }
@@ -20,6 +21,19 @@
     "errors": { "type": "array" }
   },
   "$defs": {
+    "sample": {
+      "type": "object",
+      "required": ["source", "total_discovered", "audited", "selection", "is_sample"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "enum": ["sitemap", "crawl", "url_file"] },
+        "total_discovered": { "type": "integer", "minimum": 0 },
+        "audited": { "type": "integer", "minimum": 0 },
+        "sample_limit": { "type": "integer", "minimum": 0 },
+        "selection": { "type": "string", "enum": ["first_n", "all"] },
+        "is_sample": { "type": "boolean" }
+      }
+    },
     "metadata": {
       "type": "object",
       "required": ["tool", "timestamp", "wcag_level", "execution_time_ms"],

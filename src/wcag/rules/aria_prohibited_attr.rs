@@ -6,10 +6,12 @@
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use chromiumoxide::Page;
+use tracing::warn;
 
 /// Rule metadata for ARIA prohibited attributes
 pub const RULE_META: RuleMetadata = RuleMetadata {
-    id: "4.1.2",
+    id: "aria-prohibited-attr",
     name: "ARIA Prohibited Attributes",
     level: WcagLevel::A,
     severity: Severity::High,
@@ -91,6 +93,91 @@ pub fn check_aria_prohibited_attr(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// DOM supplement for generic elements that may be omitted or simplified in
+/// the AX tree. Mirrors axe-core's `aria-prohibited-attr` check for the common
+/// case of naming a generic `div`/`span` without assigning a valid role.
+pub async fn check_aria_prohibited_attr_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        r#"
+        var issues = [];
+        var selector = [
+          'div:not([role])[aria-label]',
+          'div:not([role])[aria-labelledby]',
+          'div:not([role])[aria-roledescription]',
+          'span:not([role])[aria-label]',
+          'span:not([role])[aria-labelledby]',
+          'span:not([role])[aria-roledescription]'
+        ].join(',');
+        var elements = document.querySelectorAll(selector);
+        for (var i = 0; i < elements.length; i++) {
+          var el = elements[i];
+          var s = window.getComputedStyle(el);
+          if (s.display === 'none' || s.visibility === 'hidden') continue;
+          var attrs = [];
+          ['aria-label', 'aria-labelledby', 'aria-roledescription'].forEach(function(attr) {
+            if (el.hasAttribute(attr)) attrs.push(attr);
+          });
+          if (attrs.length === 0) continue;
+          issues.push({
+            selector: __amsCssSelector(el),
+            snippet: el.outerHTML.substring(0, 200),
+            attrs: attrs.join(', ')
+          });
+        }
+        return issues;
+        "#,
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("aria-prohibited-attr DOM JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let Some(value) = result.value() else {
+        return vec![];
+    };
+    let Some(issues) = value.as_array() else {
+        return vec![];
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+            let attrs = issue.get("attrs")?.as_str()?.to_string();
+            let mut violation = Violation::new(
+                RULE_META.id,
+                RULE_META.name,
+                RULE_META.level,
+                RULE_META.severity,
+                format!(
+                    "ARIA attribute(s) '{}' cannot be used on a generic element without a valid role",
+                    attrs
+                ),
+                &selector,
+            )
+            .with_selector(&selector)
+            .with_rule_id(RULE_META.axe_id)
+            .with_tags(RULE_META.tags.iter().map(|s| s.to_string()).collect())
+            .with_fix("Remove the prohibited ARIA attribute or add a valid semantic role.")
+            .with_help_url(RULE_META.help_url);
+
+            if let Some(snippet) = issue.get("snippet").and_then(|v| v.as_str()) {
+                violation = violation.with_html_snippet(snippet);
+            }
+
+            Some(violation)
+        })
+        .collect()
 }
 
 #[cfg(test)]

@@ -7,6 +7,8 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use html5ever::{parse_document, tendril::TendrilSink};
+use markup5ever_rcdom::{Handle, NodeData, RcDom};
 use reqwest::{redirect::Policy, Client};
 use tracing::{debug, info, warn};
 use url::Url;
@@ -388,63 +390,73 @@ async fn fetch_html(url: &str) -> Result<String> {
     Ok(response.text().await?)
 }
 
+/// Extract same-domain and external links from a page.
+///
+/// Parses the HTML into a DOM (html5ever) and walks it for `<a href>` anchors in
+/// document order. A `<base href>` element, if present, redefines the base URL
+/// used to resolve relative links — matching browser behaviour. Parser-based
+/// extraction is robust against attribute-quote variants, casing, whitespace and
+/// slightly malformed markup that a raw byte scan would mishandle.
 fn extract_links(base_url: &str, expected_host: &str, html: &str) -> (Vec<String>, Vec<String>) {
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
+
+    let mut base_href: Option<String> = None;
+    let mut hrefs: Vec<String> = Vec::new();
+    collect_links(&dom.document, &mut base_href, &mut hrefs);
+
+    // The document base URL is the page URL, optionally overridden by <base href>
+    // (resolved against the page URL when the base href is itself relative).
+    let effective_base = base_href
+        .as_deref()
+        .and_then(|b| Url::parse(base_url).ok()?.join(b).ok())
+        .map(|u| u.to_string())
+        .unwrap_or_else(|| base_url.to_string());
+
     let mut internal_links = Vec::new();
     let mut external_links = Vec::new();
-    let bytes = html.as_bytes();
-    let mut idx = 0;
-
-    while let Some(pos) = find_case_insensitive(bytes, idx, b"href") {
-        idx = pos + 4;
-        let mut cursor = idx;
-
-        while cursor < bytes.len() && bytes[cursor].is_ascii_whitespace() {
-            cursor += 1;
-        }
-        if cursor >= bytes.len() || bytes[cursor] != b'=' {
-            continue;
-        }
-        cursor += 1;
-        while cursor < bytes.len() && bytes[cursor].is_ascii_whitespace() {
-            cursor += 1;
-        }
-        if cursor >= bytes.len() {
-            break;
-        }
-
-        let quote = bytes[cursor];
-        let (start, end) = if quote == b'"' || quote == b'\'' {
-            let start = cursor + 1;
-            let mut end = start;
-            while end < bytes.len() && bytes[end] != quote {
-                end += 1;
-            }
-            (start, end)
-        } else {
-            let start = cursor;
-            let mut end = start;
-            while end < bytes.len() && !bytes[end].is_ascii_whitespace() && bytes[end] != b'>' {
-                end += 1;
-            }
-            (start, end)
-        };
-
-        if start >= bytes.len() || end <= start || end > bytes.len() {
-            continue;
-        }
-
-        let href = &html[start..end];
-        if let Some(url) = normalize_link(base_url, expected_host, href) {
+    for href in hrefs {
+        if let Some(url) = normalize_link(&effective_base, expected_host, &href) {
             internal_links.push(url);
-        } else if let Some(url) = normalize_external_link(base_url, expected_host, href) {
+        } else if let Some(url) = normalize_external_link(&effective_base, expected_host, &href) {
             if external_links.len() < 50 {
                 external_links.push(url);
             }
         }
-        idx = end;
     }
 
     (internal_links, external_links)
+}
+
+/// Depth-first DOM walk collecting the first `<base href>` and every `<a href>`.
+fn collect_links(handle: &Handle, base_href: &mut Option<String>, hrefs: &mut Vec<String>) {
+    if let NodeData::Element { name, attrs, .. } = &handle.data {
+        let tag = name.local.as_ref();
+        let attrs = attrs.borrow();
+        let href = || {
+            attrs
+                .iter()
+                .find(|a| a.name.local.as_ref().eq_ignore_ascii_case("href"))
+                .map(|a| a.value.to_string())
+        };
+
+        if tag.eq_ignore_ascii_case("base") {
+            if base_href.is_none() {
+                if let Some(h) = href() {
+                    if !h.trim().is_empty() {
+                        *base_href = Some(h);
+                    }
+                }
+            }
+        } else if tag.eq_ignore_ascii_case("a") {
+            if let Some(h) = href() {
+                hrefs.push(h);
+            }
+        }
+    }
+
+    for child in handle.children.borrow().iter() {
+        collect_links(child, base_href, hrefs);
+    }
 }
 
 fn normalize_link(base_url: &str, expected_host: &str, href: &str) -> Option<String> {
@@ -506,13 +518,6 @@ fn normalize_discovered_url(mut url: Url) -> Result<String> {
     Ok(url.to_string())
 }
 
-fn find_case_insensitive(haystack: &[u8], start: usize, needle: &[u8]) -> Option<usize> {
-    haystack[start..]
-        .windows(needle.len())
-        .position(|window| window.eq_ignore_ascii_case(needle))
-        .map(|offset| start + offset)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -540,6 +545,69 @@ mod tests {
             external_links,
             vec!["https://external.example.org/".to_string()]
         );
+    }
+
+    #[test]
+    fn test_extract_links_handles_quote_case_and_whitespace_variants() {
+        let html = r##"
+            <a href='/single'>single</a>
+            <a HREF="/upper">upper-attr</a>
+            <a   href = "/spaced"  >spaced</a>
+            <a href=/unquoted>unquoted</a>
+        "##;
+
+        let (internal, _) = extract_links("https://www.casoon.de", "www.casoon.de", html);
+        assert_eq!(
+            internal,
+            vec![
+                "https://www.casoon.de/single".to_string(),
+                "https://www.casoon.de/upper".to_string(),
+                "https://www.casoon.de/spaced".to_string(),
+                "https://www.casoon.de/unquoted".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_extract_links_resolves_relative_paths() {
+        let html = r##"<a href="services/web">rel</a><a href="../about">parent</a>"##;
+        let (internal, _) =
+            extract_links("https://www.casoon.de/leistungen/", "www.casoon.de", html);
+        assert_eq!(
+            internal,
+            vec![
+                "https://www.casoon.de/leistungen/services/web".to_string(),
+                "https://www.casoon.de/about".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_extract_links_honors_base_href() {
+        let html = r##"
+            <head><base href="https://www.casoon.de/de/"></head>
+            <body><a href="kontakt">Kontakt</a></body>
+        "##;
+        // The page itself lives elsewhere; <base href> must drive resolution.
+        let (internal, _) = extract_links("https://www.casoon.de/", "www.casoon.de", html);
+        assert_eq!(
+            internal,
+            vec!["https://www.casoon.de/de/kontakt".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_extract_links_ignores_non_anchor_href() {
+        // Stylesheets/scripts must not be crawled as page links.
+        let html = r##"
+            <head>
+                <link rel="stylesheet" href="/styles.css">
+                <link rel="icon" href="/favicon.ico">
+            </head>
+            <body><a href="/real">Real</a></body>
+        "##;
+        let (internal, _) = extract_links("https://www.casoon.de", "www.casoon.de", html);
+        assert_eq!(internal, vec!["https://www.casoon.de/real".to_string()]);
     }
 
     #[test]

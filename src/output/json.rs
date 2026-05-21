@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::audit::normalized::NormalizedReport;
-use crate::audit::{AccessibilityScorer, AuditReport, BatchReport};
+use crate::audit::{AccessibilityScorer, AuditReport, BatchReport, SampleMetadata};
 use crate::error::Result;
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::explanations::get_explanation;
@@ -55,6 +55,10 @@ pub struct UnifiedReport {
     pub tool_version: &'static str,
     pub metadata: ReportMetadata,
     pub summary: UnifiedSummary,
+    /// Batch only — how the audited URLs were discovered and sampled. Lets a
+    /// consumer tell a representative sample apart from full coverage (#261).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample: Option<SampleMetadata>,
     pub pages: Vec<PageEntry>,
     /// Batch only — compact per-URL score matrix.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -416,6 +420,7 @@ impl UnifiedReport {
                 execution_time_ms: batch_report.total_duration_ms,
             },
             summary,
+            sample: batch_report.sample.clone(),
             pages,
             url_matrix: presentation.url_matrix,
             crawl_diagnostics,
@@ -501,6 +506,7 @@ impl UnifiedReport {
                 execution_time_ms: normalized.duration_ms,
             },
             summary,
+            sample: None,
             pages: vec![page],
             url_matrix: Vec::new(),
             crawl_diagnostics: None,
@@ -1247,6 +1253,38 @@ mod tests {
         let output = unified.to_json(true).unwrap();
         assert!(output.contains("\"report_type\": \"batch\""));
         assert!(output.contains("\"schema_version\": \"2.0\""));
+        // No sample metadata attached → the block is omitted.
+        assert!(!output.contains("\"sample\""));
+    }
+
+    #[test]
+    fn test_batch_envelope_includes_sample_metadata() {
+        use crate::audit::{BatchReport, SampleMetadata};
+
+        let reports = vec![AuditReport::new(
+            "https://example.com/a".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        )];
+        let batch = BatchReport::from_reports(reports, vec![], 200).with_sample(SampleMetadata {
+            source: "sitemap".to_string(),
+            total_discovered: 487,
+            audited: 20,
+            sample_limit: Some(20),
+            selection: "first_n".to_string(),
+            is_sample: true,
+        });
+
+        let json: serde_json::Value =
+            serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();
+        let sample = &json["sample"];
+        assert_eq!(sample["source"], "sitemap");
+        assert_eq!(sample["total_discovered"], 487);
+        assert_eq!(sample["audited"], 20);
+        assert_eq!(sample["sample_limit"], 20);
+        assert_eq!(sample["selection"], "first_n");
+        assert_eq!(sample["is_sample"], true);
     }
 
     #[test]
@@ -1581,6 +1619,7 @@ mod tests {
                 mobile_score: None,
                 performance_throttled_avg_score: None,
             },
+            sample: None,
             pages: vec![],
             url_matrix: vec![],
             crawl_diagnostics: None,

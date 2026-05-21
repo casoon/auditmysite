@@ -405,8 +405,36 @@ pub struct BatchReport {
     /// batch contains fewer than 2 pages.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub consistency: Option<crate::audit::batch_consistency::BatchConsistencyAnalysis>,
+    /// How the audited URLs were discovered and sampled. Lets consumers tell a
+    /// representative sample apart from full domain coverage (issue #261).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub sample: Option<SampleMetadata>,
     /// Total execution time
     pub total_duration_ms: u64,
+}
+
+/// Where the audited URL set came from and how it was sampled.
+///
+/// Without this, a 20-of-500 sample is indistinguishable from a complete audit
+/// in the report. Surfacing the population size, the applied limit and the
+/// selection method makes the scope of a batch explicit (issue #261).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SampleMetadata {
+    /// Origin of the candidate URLs: `"sitemap"`, `"crawl"` or `"url_file"`.
+    pub source: String,
+    /// Candidate URLs discovered before any limit/sampling was applied.
+    pub total_discovered: usize,
+    /// URLs actually selected and audited.
+    pub audited: usize,
+    /// The `--max-pages` limit, when one capped the audited set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_limit: Option<usize>,
+    /// How the audited subset was chosen: `"first_n"` (sitemap/discovery order)
+    /// or `"all"` when every discovered URL was audited.
+    pub selection: String,
+    /// True when fewer URLs were audited than discovered — i.e. this is a sample,
+    /// not full coverage.
+    pub is_sample: bool,
 }
 
 /// Severity of a broken or problematic link finding
@@ -559,6 +587,7 @@ impl BatchReport {
             },
             crawl_diagnostics: None,
             consistency: None,
+            sample: None,
             total_duration_ms,
         };
         result.consistency = crate::audit::batch_consistency::analyze(&result);
@@ -567,6 +596,11 @@ impl BatchReport {
 
     pub fn with_crawl_diagnostics(mut self, diagnostics: CrawlDiagnostics) -> Self {
         self.crawl_diagnostics = Some(diagnostics);
+        self
+    }
+
+    pub fn with_sample(mut self, sample: SampleMetadata) -> Self {
+        self.sample = Some(sample);
         self
     }
 }

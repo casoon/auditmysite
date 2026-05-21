@@ -78,6 +78,23 @@ pub struct WebVitals {
     pub js_heap_size: Option<i64>,
 }
 
+/// How a metric value was obtained.
+///
+/// Every auditmysite performance metric is **lab data** captured in a local
+/// headless Chrome — never field/RUM data (e.g. Chrome UX Report / CrUX). This
+/// flag distinguishes a direct headless measurement from a value that was
+/// derived/estimated from other lab signals, so that estimated metrics such as
+/// INP, TTI and Speed Index cannot be mistaken for real field measurements.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MeasurementContext {
+    /// Directly measured in the local headless browser via CDP / PerformanceObserver.
+    #[default]
+    LabHeadless,
+    /// Derived or estimated from other lab signals (heuristic proxy), still local lab.
+    EstimatedLab,
+}
+
 /// Individual vital metric with value and rating
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VitalMetric {
@@ -87,6 +104,10 @@ pub struct VitalMetric {
     pub rating: String,
     /// Target threshold for "good"
     pub target: f64,
+    /// Provenance of the value: direct headless measurement vs. estimated lab.
+    /// Never field data. Defaults to `lab_headless`.
+    #[serde(default)]
+    pub measurement: MeasurementContext,
 }
 
 impl VitalMetric {
@@ -103,11 +124,24 @@ impl VitalMetric {
             value,
             rating: rating.to_string(),
             target: good_threshold,
+            measurement: MeasurementContext::LabHeadless,
         }
+    }
+
+    /// Mark this metric as an estimated/heuristic lab value (e.g. Speed Index,
+    /// TTI, INP proxy) rather than a direct headless measurement.
+    pub fn estimated(mut self) -> Self {
+        self.measurement = MeasurementContext::EstimatedLab;
+        self
     }
 
     pub fn is_good(&self) -> bool {
         self.rating == "good"
+    }
+
+    /// Whether this value was estimated rather than directly measured.
+    pub fn is_estimated(&self) -> bool {
+        self.measurement == MeasurementContext::EstimatedLab
     }
 }
 
@@ -472,7 +506,7 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     // In headless audits interactions rarely fire, so 0 means "not measurable" and
     // we leave the field empty rather than reporting a misleading 0ms.
     if preinjected.inp_duration > 0.0 {
-        vitals.inp = Some(VitalMetric::new(preinjected.inp_duration, 200.0, 500.0));
+        vitals.inp = Some(VitalMetric::new(preinjected.inp_duration, 200.0, 500.0).estimated());
         debug!("INP (event-timing): {:.0}ms", preinjected.inp_duration);
     }
 
@@ -550,7 +584,7 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         .unwrap_or(0.0);
     let tti_ms = dom_interactive_ms.max(last_task_end);
     if tti_ms > 0.0 && tti_ms < 300_000.0 {
-        vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0));
+        vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0).estimated());
         debug!("TTI (approx): {:.0}ms", tti_ms);
     }
 
@@ -560,7 +594,7 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     // Thresholds from Lighthouse: good ≤3400ms, poor >5800ms.
     if let (Some(fcp), Some(lcp)) = (&vitals.fcp, &vitals.lcp) {
         let si = 0.35 * fcp.value + 0.65 * lcp.value;
-        vitals.speed_index = Some(VitalMetric::new(si, 3400.0, 5800.0));
+        vitals.speed_index = Some(VitalMetric::new(si, 3400.0, 5800.0).estimated());
         debug!("Speed Index (heuristic): {:.0}ms", si);
     }
 
@@ -661,6 +695,26 @@ mod tests {
         let metric = VitalMetric::new(5000.0, 2500.0, 4000.0);
         assert!(!metric.is_good());
         assert_eq!(metric.rating, "poor");
+    }
+
+    #[test]
+    fn test_measurement_context_defaults_to_lab_headless() {
+        let metric = VitalMetric::new(1500.0, 2500.0, 4000.0);
+        assert_eq!(metric.measurement, MeasurementContext::LabHeadless);
+        assert!(!metric.is_estimated());
+
+        let json = serde_json::to_string(&metric).unwrap();
+        assert!(json.contains("\"measurement\":\"lab_headless\""));
+    }
+
+    #[test]
+    fn test_estimated_marks_metric_as_estimated_lab() {
+        let metric = VitalMetric::new(3000.0, 3800.0, 7300.0).estimated();
+        assert_eq!(metric.measurement, MeasurementContext::EstimatedLab);
+        assert!(metric.is_estimated());
+
+        let json = serde_json::to_string(&metric).unwrap();
+        assert!(json.contains("\"measurement\":\"estimated_lab\""));
     }
 
     #[test]

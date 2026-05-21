@@ -18,7 +18,10 @@ use auditmysite::wcag::rules::{
     check_bypass_blocks, check_dialog_rules, check_focus_order, check_focus_visible,
     check_form_rules, check_headings, check_image_input_rules, check_info_relationships,
     check_input_purpose, check_instructions, check_keyboard, check_label_in_name, check_labels,
-    check_landmark_extended, check_landmarks, check_language, check_language_extended,
+    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
+    check_landmark_unique, check_landmarks, check_language, check_language_extended,
     check_link_purpose, check_list_structure, check_media_rules, check_non_text_contrast,
     check_on_focus, check_on_input, check_page_titled, check_resize_text, check_section_headings,
     check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
@@ -100,7 +103,31 @@ rule_smoke_test!(smoke_check_dialog_rules, check_dialog_rules);
 rule_smoke_test!(smoke_check_widget_rules, check_widget_rules);
 rule_smoke_test!(smoke_check_media_rules, check_media_rules);
 rule_smoke_test!(smoke_check_svg_rules, check_svg_rules);
-rule_smoke_test!(smoke_check_landmark_extended, check_landmark_extended);
+rule_smoke_test!(smoke_check_landmark_unique, check_landmark_unique);
+rule_smoke_test!(
+    smoke_check_landmark_banner_is_top_level,
+    check_landmark_banner_is_top_level
+);
+rule_smoke_test!(
+    smoke_check_landmark_contentinfo_is_top_level,
+    check_landmark_contentinfo_is_top_level
+);
+rule_smoke_test!(
+    smoke_check_landmark_main_is_top_level,
+    check_landmark_main_is_top_level
+);
+rule_smoke_test!(
+    smoke_check_landmark_no_duplicate_banner,
+    check_landmark_no_duplicate_banner
+);
+rule_smoke_test!(
+    smoke_check_landmark_no_duplicate_contentinfo,
+    check_landmark_no_duplicate_contentinfo
+);
+rule_smoke_test!(
+    smoke_check_landmark_no_duplicate_main,
+    check_landmark_no_duplicate_main
+);
 rule_smoke_test!(smoke_check_table_extended, check_table_extended);
 rule_smoke_test!(smoke_check_wcag22_rules, check_wcag22_rules);
 rule_smoke_test!(smoke_check_input_purpose, check_input_purpose);

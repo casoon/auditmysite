@@ -534,6 +534,28 @@ fn build_batch_report(
                 i18n.t("batch-cover-frame-version"),
                 format!("auditmysite v{}", pres.cover.version),
             );
+        if let Some(sample) = &batch.sample {
+            let source = i18n.t(&format!("batch-source-{}", sample.source));
+            let scope = if sample.is_sample {
+                i18n.t_args(
+                    "batch-scope-sample",
+                    &[
+                        ("audited", sample.audited.to_string()),
+                        ("total", sample.total_discovered.to_string()),
+                        ("source", source),
+                    ],
+                )
+            } else {
+                i18n.t_args(
+                    "batch-scope-full",
+                    &[
+                        ("total", sample.total_discovered.to_string()),
+                        ("source", source),
+                    ],
+                )
+            };
+            cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
+        }
         builder = builder.add_component(cover_meta);
     }
 
@@ -727,20 +749,14 @@ fn build_batch_report(
         })
         .collect();
 
-    let (ranking_title, ranking_intro) = if i18n.locale() == "en" {
-        (
-            "URL ranking",
-            "All audited URLs, sorted by score. Lower-scoring URLs need attention first.",
-        )
-    } else {
-        (
-            "URL-Ranking",
-            "Übersicht aller geprüften URLs, sortiert nach Score. \
-             URLs mit niedrigerem Score haben höheren Handlungsbedarf.",
-        )
-    };
     builder = builder
-        .add_component(SectionHeaderSplit::new(ranking_title, ranking_intro).with_level(1))
+        .add_component(
+            SectionHeaderSplit::new(
+                i18n.t("batch-url-ranking-title"),
+                i18n.t("batch-url-ranking-intro"),
+            )
+            .with_level(1),
+        )
         .add_component(BenchmarkTable::new(rows));
 
     // ── 3. Top-Probleme (vereinheitlicht) ─────────────────────────
@@ -870,27 +886,13 @@ fn build_batch_report(
 
     // ── 5a. Render Blocking (Batch) ─────────────────────────────────
     if !pres.portfolio_summary.render_blocking_summary.is_empty() {
-        let en_rb = i18n.locale() == "en";
-        let (rb_section, rb_kv_title, rb_intro) = if en_rb {
-            (
-                "Render blocking & assets",
-                "Render-blocking overview (domain-wide)",
-                "Render-blocking resources and third-party traffic, aggregated across all audited pages.",
-            )
-        } else {
-            (
-                "Render-Blocking & Assets",
-                "Render-Blocking-Übersicht (domainweit)",
-                "Render-blockierende Ressourcen und Third-Party-Traffic, aggregiert über alle geprüften Seiten.",
-            )
-        };
-        let mut kv = KeyValueList::new().with_title(rb_kv_title);
+        let mut kv = KeyValueList::new().with_title(i18n.t("batch-render-blocking-kv-title"));
         for (label, value) in &pres.portfolio_summary.render_blocking_summary {
             kv = kv.add(label, value);
         }
         builder = builder
-            .add_component(Section::new(rb_section).with_level(1))
-            .add_component(TextBlock::new(rb_intro))
+            .add_component(Section::new(i18n.t("batch-render-blocking-section")).with_level(1))
+            .add_component(TextBlock::new(i18n.t("batch-render-blocking-intro")))
             .add_component(kv);
     }
 
@@ -1085,15 +1087,11 @@ fn build_batch_report(
 
             let mut chain_table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new(if en_pdf { "Target" } else { "Ziel" }),
+                TableColumn::new(i18n.t("batch-col-target")),
                 TableColumn::new("Hops"),
-                TableColumn::new(if en_pdf { "Final URL" } else { "Final-URL" }),
+                TableColumn::new(i18n.t("batch-col-final-url")),
             ])
-            .with_title(if en_pdf {
-                "Redirect chains (> 1 hop)"
-            } else {
-                "Redirect-Ketten (> 1 Hop)"
-            });
+            .with_title(i18n.t("batch-redirect-chains-title"));
 
             for chain in &crawl_links.redirect_chains {
                 chain_table = chain_table.add_row(vec![

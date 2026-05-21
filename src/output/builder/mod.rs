@@ -541,6 +541,7 @@ mod tests {
     ///   * `build_seo_interpretation` — 5 score bands × {de,en}
     ///   * the real `build_view_model` path — dashboard module interpretations +
     ///     the overall-score explanation (de + en)
+    ///
     /// and writes them to `reports/interpretations.json`. The trailing
     /// `source_map` lists the remaining fixture-dependent generators with their
     /// source location so the review surface is complete.

@@ -71,3 +71,62 @@ impl I18n {
         &self.locale
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Collect FTL message identifiers (column-0 `id = ...` lines).
+    fn ftl_keys(ftl: &str) -> std::collections::BTreeSet<String> {
+        ftl.lines()
+            .filter_map(|line| {
+                // Message identifiers start at column 0; continuations are indented
+                // and comments start with '#'.
+                if line.is_empty() || line.starts_with([' ', '\t', '#']) {
+                    return None;
+                }
+                let (id, _) = line.split_once('=')?;
+                let id = id.trim();
+                if id.is_empty() || id.contains(char::is_whitespace) {
+                    return None;
+                }
+                Some(id.to_string())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn de_and_en_locales_have_identical_key_sets() {
+        let de = ftl_keys(include_str!("../../locales/de/report.ftl"));
+        let en = ftl_keys(include_str!("../../locales/en/report.ftl"));
+        let de_only: Vec<_> = de.difference(&en).collect();
+        let en_only: Vec<_> = en.difference(&de).collect();
+        assert!(
+            de_only.is_empty(),
+            "keys only in de/report.ftl: {de_only:?}"
+        );
+        assert!(
+            en_only.is_empty(),
+            "keys only in en/report.ftl: {en_only:?}"
+        );
+    }
+
+    #[test]
+    fn batch_scope_keys_render_with_args_in_both_locales() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).expect("bundle parses");
+            let rendered = i18n.t_args(
+                "batch-scope-sample",
+                &[
+                    ("audited", "20".to_string()),
+                    ("total", "487".to_string()),
+                    ("source", i18n.t("batch-source-sitemap")),
+                ],
+            );
+            // A missing key falls back to the key itself — assert real text + the
+            // interpolated numbers came through.
+            assert_ne!(rendered, "batch-scope-sample", "key must exist in {locale}");
+            assert!(rendered.contains("20") && rendered.contains("487"));
+        }
+    }
+}

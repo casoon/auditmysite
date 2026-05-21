@@ -875,8 +875,10 @@ mod tests {
     #[test]
     fn test_typ_aggregates_consistent_with_json_per_part() {
         // Rich WCAG fixture + one module (SEO = 73) so all three parts render.
-        let mut seo = crate::seo::SeoAnalysis::default();
-        seo.score = 73;
+        let seo = crate::seo::SeoAnalysis {
+            score: 73,
+            ..Default::default()
+        };
         let report = pdf_fixture_report_rich().with_seo(seo);
 
         let config = ReportConfig {

@@ -162,6 +162,12 @@ batch-cover-frame-urls = Geprüfte URLs
 batch-cover-frame-certificate = Auditstatus
 batch-cover-frame-modules = Aktive Module
 batch-cover-frame-version = Tool-Version
+batch-cover-frame-scope = Prüfumfang
+batch-scope-sample = Stichprobe — { $audited } von { $total } URLs ({ $source }, erste { $audited })
+batch-scope-full = Vollständig — alle { $total } URLs ({ $source })
+batch-source-sitemap = Sitemap
+batch-source-crawl = Crawl
+batch-source-url_file = URL-Liste
 panel-modules-overview = Modulübersicht
 section-tech-detail-metrics = Technische Detailmetriken
 column-action = Maßnahme
@@ -210,6 +216,13 @@ batch-section-broken-links-internal = Interne Broken Links
 batch-section-broken-links-external = Externe Broken Links
 batch-section-external-links = Externe Links
 batch-section-redirect-chains = Redirect-Ketten
+batch-redirect-chains-title = Redirect-Ketten (> 1 Hop)
+batch-col-target = Ziel
+batch-url-ranking-title = URL-Ranking
+batch-url-ranking-intro = Übersicht aller geprüften URLs, sortiert nach Score. URLs mit niedrigerem Score haben höheren Handlungsbedarf.
+batch-render-blocking-section = Render-Blocking & Assets
+batch-render-blocking-kv-title = Render-Blocking-Übersicht (domainweit)
+batch-render-blocking-intro = Render-blockierende Ressourcen und Third-Party-Traffic, aggregiert über alle geprüften Seiten.
 batch-section-tech-url-matrix = Technische URL-Matrix
 batch-section-tech-url-matrix-intro = Verdichtete Übersicht aller geprüften URLs mit Fokus auf technische Priorisierung. Jede Zeile zeigt Score, Problemintensität und den größten Hebel für die nächste Optimierungsrunde.
 batch-table-pages-overview = Seiten-Übersicht
@@ -273,6 +286,8 @@ label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Sign
 # Performance section
 perf-score-card = Performance Score
 perf-technical-indicators = Technische Indikatoren
+perf-lab-data-note = Lab-Daten
+perf-lab-data-body = Alle Performance-Werte stammen aus einer lokalen Headless-Messung (Chrome/CDP), nicht aus Felddaten (CrUX/Real-User-Monitoring). Mit „Lab-Schätzung" markierte Kennzahlen (INP, TTI, Speed Index) sind abgeleitete Näherungen, keine direkten Messwerte.
 perf-render-blocking-analysis = Render-Blocking Analyse
 
 # SEO section

@@ -134,6 +134,9 @@ pub(super) fn render_performance(
 
     // ── User-perceived Performance (Core Web Vitals) ─────────────────
     builder = builder.add_component(Section::new(i18n.t("section-user-experience")).with_level(3));
+    builder = builder.add_component(
+        Callout::info(i18n.t("perf-lab-data-body")).with_title(i18n.t("perf-lab-data-note")),
+    );
 
     match (&perf.desktop, &perf.mobile) {
         (Some(desktop), Some(mobile)) => {

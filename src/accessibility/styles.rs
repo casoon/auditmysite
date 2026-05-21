@@ -81,24 +81,70 @@ impl ComputedStyles {
 /// Body of the style-extraction script (wrapped in an IIFE at call time,
 /// after the shared `__amsCssSelector` / `__amsIsVisuallyHidden` helpers).
 const STYLES_EXTRACT_JS: &str = r#"
-    function getEffectiveBackgroundColor(el) {
+    function parseCssColor(color) {
+        if (!color || color === 'transparent') return null;
+        const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (!match) return null;
+        return {
+            r: parseInt(match[1], 10),
+            g: parseInt(match[2], 10),
+            b: parseInt(match[3], 10),
+            a: match[4] !== undefined ? parseFloat(match[4]) : 1
+        };
+    }
+
+    function composite(top, bottom) {
+        const alpha = Math.max(0, Math.min(1, top.a));
+        return {
+            r: Math.round(top.r * alpha + bottom.r * (1 - alpha)),
+            g: Math.round(top.g * alpha + bottom.g * (1 - alpha)),
+            b: Math.round(top.b * alpha + bottom.b * (1 - alpha)),
+            a: 1
+        };
+    }
+
+    function hasPaintedBackgroundImage(styles) {
+        return styles.backgroundImage && styles.backgroundImage !== 'none';
+    }
+
+    function getEffectiveBackground(el) {
         let current = el;
+        const layers = [];
+        let hasUnresolvedImageBackground = false;
+
         while (current && current !== document.documentElement) {
-            const bg = window.getComputedStyle(current).backgroundColor;
-            if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
-                const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-                if (match) {
-                    const alpha = match[4] !== undefined ? parseFloat(match[4]) : 1;
-                    if (alpha > 0) return bg;
-                } else {
-                    return bg;
-                }
+            const styles = window.getComputedStyle(current);
+            if (hasPaintedBackgroundImage(styles)) {
+                hasUnresolvedImageBackground = true;
             }
+
+            const bg = parseCssColor(styles.backgroundColor);
+            if (bg && bg.a > 0) {
+                layers.push(bg);
+                if (bg.a >= 1) break;
+            }
+
             current = current.parentElement;
         }
-        const htmlBg = window.getComputedStyle(document.documentElement).backgroundColor;
-        if (htmlBg && htmlBg !== 'transparent' && htmlBg !== 'rgba(0, 0, 0, 0)') return htmlBg;
-        return 'rgb(255, 255, 255)';
+
+        const htmlStyles = window.getComputedStyle(document.documentElement);
+        if (hasPaintedBackgroundImage(htmlStyles)) {
+            hasUnresolvedImageBackground = true;
+        }
+        const htmlBg = parseCssColor(htmlStyles.backgroundColor);
+        if (htmlBg && htmlBg.a > 0) {
+            layers.push(htmlBg);
+        }
+
+        let color = { r: 255, g: 255, b: 255, a: 1 };
+        for (let i = layers.length - 1; i >= 0; i--) {
+            color = composite(layers[i], color);
+        }
+
+        return {
+            color: `rgb(${color.r}, ${color.g}, ${color.b})`,
+            uncertain: hasUnresolvedImageBackground
+        };
     }
 
     const selectors = ['p', 'span', 'div', 'a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'label', 'strong', 'em'];
@@ -129,12 +175,15 @@ const STYLES_EXTRACT_JS: &str = r#"
             const styles = window.getComputedStyle(el);
             if (styles.display === 'none' || styles.visibility === 'hidden') return;
 
+            const effectiveBackground = getEffectiveBackground(el);
+
             results.push({
                 cssPath: __amsCssSelector(el),
                 snippet: el.outerHTML.substring(0, 200),
                 index: idx,
                 color: styles.color,
-                backgroundColor: getEffectiveBackgroundColor(el),
+                backgroundColor: effectiveBackground.color,
+                backgroundUncertain: effectiveBackground.uncertain,
                 fontSize: styles.fontSize,
                 fontWeight: styles.fontWeight,
                 visibility: styles.visibility,
@@ -187,6 +236,14 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
                                 {
                                     properties
                                         .insert("background-color".to_string(), bg.to_string());
+                                }
+                                if let Some(uncertain) =
+                                    item.get("backgroundUncertain").and_then(|v| v.as_bool())
+                                {
+                                    properties.insert(
+                                        "background-uncertain".to_string(),
+                                        uncertain.to_string(),
+                                    );
                                 }
                                 if let Some(size) = item.get("fontSize").and_then(|v| v.as_str()) {
                                     properties.insert("font-size".to_string(), size.to_string());

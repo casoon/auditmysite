@@ -230,7 +230,7 @@ mod tests {
     fn test_score_lcp_poor() {
         // p50 = 4000 ms → ~50 % of max → ~12-13 out of 25.
         let s_p50 = score_lcp(4000.0);
-        assert!(s_p50 >= 10 && s_p50 <= 14, "p50 score was {}", s_p50);
+        assert!((10..=14).contains(&s_p50), "p50 score was {}", s_p50);
         // Lighthouse-parity expectation: LCP > 6 s yields a tiny score (≤ 5/25).
         assert!(score_lcp(7000.0) <= 5);
         assert!(score_lcp(10000.0) <= 1);
@@ -242,7 +242,7 @@ mod tests {
         assert!(score_cls(0.1) >= 22);
         // p50 = 0.25 → ~50 % → ~12-13 / 25
         let s_p50 = score_cls(0.25);
-        assert!(s_p50 >= 10 && s_p50 <= 14);
+        assert!((10..=14).contains(&s_p50));
         // Extreme CLS (> 0.5) must hard-cap to zero.
         assert_eq!(score_cls(1.7), 0);
     }

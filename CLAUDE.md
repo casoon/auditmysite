@@ -188,8 +188,14 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v0.26.0)
+## Current State (v0.27.0)
 - Branch: `main`
+- Cache: `--reuse-cache` validiert `CacheMeta.audit_signature` (WCAG-Level + aktive Module + Consent) gegen die aktuelle Konfiguration; bei Mismatch Cache-Miss + Warnung, Legacy-Cache ohne Signatur wird nie wiederverwendet (#260)
+- Crawler: parserbasierte Linkextraktion via html5ever inkl. `<base href>` (#263)
+- Batch-JSON: optionaler `sample`-Block (source, total_discovered, audited, sample_limit, selection, is_sample) + PDF-Prüfumfang-Zeile (#261)
+- Performance: `VitalMetric.measurement` (`lab_headless`/`estimated_lab`); INP/TTI/Speed Index als Lab-Schätzung markiert, Lab-Disclaimer im Report (#262)
+- Kontrast: Bild-/Gradient-Hintergründe werden zu Manual-Review-Warnungen demoted statt als bestätigte Verstöße (#264, Pixel-Sampling offen)
+- axe-Parität: `scripts/axe-compare.js` + `docs/AXE_PARITY.md` Kalibrierungs-Workflow (#265)
 - 70+ WCAG rules implemented (Level A, AA, full AAA coverage)
 - 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency

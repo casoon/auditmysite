@@ -13,9 +13,9 @@ use tracing::info;
 
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, crawl_site, load_artifacts, parse_sitemap, read_url_file,
-    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
-    PipelineConfig,
+    analyze_crawl_links, cache_matches_signature, crawl_site, load_artifacts, parse_sitemap,
+    read_url_file, run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig,
+    CrawlResult, PipelineConfig,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::{Args, OutputFormat};
@@ -54,30 +54,43 @@ pub async fn run_single_mode(
     info!("Starting audit for: {}", url);
 
     if args.reuse_cache && !args.force_refresh {
-        if let Some(cached) = load_artifacts(url)? {
-            if !args.quiet {
+        let expected_signature = PipelineConfig::from(args).audit_signature();
+        match load_artifacts(url)? {
+            Some(cached) if cache_matches_signature(&cached.meta, &expected_signature) => {
+                if !args.quiet {
+                    println!(
+                        "{} {}",
+                        "Cache hit:".green().bold(),
+                        "using cached audit artifacts".dimmed()
+                    );
+                }
+
+                match args.effective_format() {
+                    OutputFormat::Json => {
+                        let output = format_json_cached(&cached.audit, true)?;
+                        output_text(&output, &args.output, "JSON", args.quiet)?;
+                        return Ok(cached.audit.score as f64);
+                    }
+                    OutputFormat::Table
+                    | OutputFormat::Pdf
+                    | OutputFormat::Ai
+                    | OutputFormat::Summary => {
+                        let report = to_audit_report(&cached);
+                        output_single_report(&report, args)?;
+                        return Ok(normalize(&report).score as f64);
+                    }
+                }
+            }
+            Some(_) if !args.quiet => {
                 println!(
                     "{} {}",
-                    "Cache hit:".green().bold(),
-                    "using cached audit artifacts".dimmed()
+                    "Cache skipped:".yellow().bold(),
+                    "cached artifacts were produced with a different audit configuration — \
+                     running a fresh audit"
+                        .dimmed()
                 );
             }
-
-            match args.effective_format() {
-                OutputFormat::Json => {
-                    let output = format_json_cached(&cached.audit, true)?;
-                    output_text(&output, &args.output, "JSON", args.quiet)?;
-                    return Ok(cached.audit.score as f64);
-                }
-                OutputFormat::Table
-                | OutputFormat::Pdf
-                | OutputFormat::Ai
-                | OutputFormat::Summary => {
-                    let report = to_audit_report(&cached);
-                    output_single_report(&report, args)?;
-                    return Ok(normalize(&report).score as f64);
-                }
-            }
+            _ => {}
         }
     }
 
@@ -267,12 +280,15 @@ pub fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
 pub async fn run_batch_mode(args: &Args) -> Result<f64> {
     let mut crawl_result: Option<CrawlResult> = None;
 
+    let url_source: &str;
     let urls = if let Some(ref sitemap_url) = args.sitemap {
+        url_source = "sitemap";
         if !args.quiet {
             println!("{} {}", "Fetching sitemap:".cyan().bold(), sitemap_url);
         }
         parse_sitemap(sitemap_url).await?
     } else if args.crawl {
+        url_source = "crawl";
         let seed_url = args
             .url
             .as_deref()
@@ -293,6 +309,7 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
         crawl_result = Some(crawl);
         urls
     } else if let Some(ref url_file) = args.url_file {
+        url_source = "url_file";
         if !args.quiet {
             println!(
                 "{} {}",
@@ -314,13 +331,37 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
         return Ok(0.0);
     }
 
+    let total_discovered = urls.len();
     let total_urls = if args.max_pages > 0 {
-        args.max_pages.min(urls.len())
+        args.max_pages.min(total_discovered)
     } else {
-        urls.len()
+        total_discovered
+    };
+
+    let sample = auditmysite::audit::SampleMetadata {
+        source: url_source.to_string(),
+        total_discovered,
+        audited: total_urls,
+        sample_limit: (args.max_pages > 0).then_some(args.max_pages),
+        selection: if total_urls < total_discovered {
+            "first_n".to_string()
+        } else {
+            "all".to_string()
+        },
+        is_sample: total_urls < total_discovered,
     };
 
     if !args.quiet {
+        if sample.is_sample {
+            println!(
+                "{} auditing {} of {} discovered URLs ({} order, first {})",
+                "Sample:".yellow().bold(),
+                total_urls,
+                total_discovered,
+                url_source,
+                total_urls
+            );
+        }
         println!(
             "{} {} URLs with {} parallel workers\n",
             "Auditing:".cyan().bold(),
@@ -358,6 +399,7 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
         };
 
     let mut batch_report = run_concurrent_batch(urls, &batch_config, progress).await?;
+    batch_report = batch_report.with_sample(sample);
 
     if let Some(ref crawl) = crawl_result {
         let diagnostics = analyze_crawl_links(crawl).await;

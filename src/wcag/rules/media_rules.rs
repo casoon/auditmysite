@@ -3,6 +3,9 @@
 //! Checks that media elements, SVGs, and canvas elements have accessible names
 //! and that decorative elements are not spuriously named.
 
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation, WcagResults};
@@ -42,6 +45,18 @@ pub const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html",
     axe_id: "image-alt",
     tags: &["wcag2a", "wcag111", "cat.images"],
+};
+
+/// Rule metadata for iframe accessible names (axe-core `frame-title`).
+pub const RULE_META_FRAME_TITLE: RuleMetadata = RuleMetadata {
+    id: "frame-title",
+    name: "Frame title",
+    level: WcagLevel::A,
+    severity: Severity::High,
+    description: "Frames and iframes must have an accessible name",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    axe_id: "frame-title",
+    tags: &["wcag2a", "wcag412", "cat.text-alternatives"],
 };
 
 /// Run all media-related WCAG checks
@@ -103,6 +118,89 @@ pub fn check_media_rules(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// DOM check for iframe accessible names. Iframes are not always represented
+/// with enough detail in the AX tree, so inspect the live DOM.
+pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        r#"
+        var issues = [];
+        var frames = document.querySelectorAll('iframe, frame');
+        for (var i = 0; i < frames.length; i++) {
+          var el = frames[i];
+          var role = (el.getAttribute('role') || '').toLowerCase();
+          if (role === 'none' || role === 'presentation') continue;
+          var title = (el.getAttribute('title') || '').trim();
+          var label = (el.getAttribute('aria-label') || '').trim();
+          var labelledBy = (el.getAttribute('aria-labelledby') || '').trim();
+          var labelledByText = '';
+          if (labelledBy) {
+            labelledByText = labelledBy.split(/\s+/).map(function(id) {
+              var ref = document.getElementById(id);
+              return ref ? ref.textContent.trim() : '';
+            }).join(' ').trim();
+          }
+          if (title || label || labelledByText) continue;
+          issues.push({
+            selector: __amsCssSelector(el),
+            snippet: el.outerHTML.substring(0, 200)
+          });
+        }
+        return issues;
+        "#,
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("frame-title DOM JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let Some(value) = result.value() else {
+        return vec![];
+    };
+    let Some(issues) = value.as_array() else {
+        return vec![];
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+            let mut violation = Violation::new(
+                RULE_META_FRAME_TITLE.id,
+                RULE_META_FRAME_TITLE.name,
+                RULE_META_FRAME_TITLE.level,
+                RULE_META_FRAME_TITLE.severity,
+                "Iframe is missing an accessible name",
+                &selector,
+            )
+            .with_selector(&selector)
+            .with_rule_id(RULE_META_FRAME_TITLE.axe_id)
+            .with_tags(
+                RULE_META_FRAME_TITLE
+                    .tags
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+            )
+            .with_fix("Add a non-empty title, aria-label, or aria-labelledby to the iframe.")
+            .with_help_url(RULE_META_FRAME_TITLE.help_url);
+
+            if let Some(snippet) = issue.get("snippet").and_then(|v| v.as_str()) {
+                violation = violation.with_html_snippet(snippet);
+            }
+
+            Some(violation)
+        })
+        .collect()
 }
 
 /// Elements with role="application" (often video/canvas wrappers) need an accessible name

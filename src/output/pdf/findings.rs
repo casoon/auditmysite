@@ -44,8 +44,7 @@ pub(super) fn render_key_finding_block(
 
     if let Some(ref cause) = group.structural_cause {
         if group.is_component_issue {
-            let root_cause_label = if en { "Root Cause" } else { "Root Cause" };
-            builder = builder.add_component(Callout::warning(cause).with_title(root_cause_label));
+            builder = builder.add_component(Callout::warning(cause).with_title("Root Cause"));
         }
     }
 
@@ -288,11 +287,7 @@ pub(super) fn render_finding_technical(
 
     if let Some(ref cause) = group.structural_cause {
         let label = if group.is_component_issue {
-            if i18n.locale() == "en" {
-                "Root Cause"
-            } else {
-                "Root Cause"
-            }
+            "Root Cause"
         } else if i18n.locale() == "en" {
             "Structural cause"
         } else {

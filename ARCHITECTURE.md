@@ -4,7 +4,7 @@ Technische Struktur und Designentscheidungen des Projekts.
 
 **Sprache:** Rust (async, tokio)
 **Größe:** ~45.000 Zeilen Rust, 100+ Module
-**Version:** 0.19.0
+**Version:** 0.27.0
 
 ---
 
@@ -506,7 +506,7 @@ Wichtige Varianten:
 
 **Regelfiles je Datei** — Jede WCAG-Regel lebt in einer eigenen Datei. Ermöglicht unabhängige Weiterentwicklung, einfaches Code-Review und minimale Merge-Konflikte.
 
-**Artefakt-Caching** — AXTree und Metriken werden unter `~/.auditmysite/cache/{domain}/{url_hash}/v{VERSION}/` gespeichert. Die Versions-Unterverzeichnis sorgt für automatische Invalidierung bei Binary-Upgrades. FNV-1a-Hash (deterministisch über Prozesse/Plattformen) dient als Content-Fingerprint für Delta-Erkennung. `--reuse-cache` lädt gespeicherte Artefakte bei erneutem Audit derselben URL. `--force-refresh` umgeht den Cache.
+**Artefakt-Caching** — AXTree und Metriken werden unter `~/.auditmysite/cache/{domain}/{url_hash}/v{VERSION}/` gespeichert. Die Versions-Unterverzeichnis sorgt für automatische Invalidierung bei Binary-Upgrades. FNV-1a-Hash (deterministisch über Prozesse/Plattformen) dient als Content-Fingerprint für Delta-Erkennung. `--reuse-cache` lädt gespeicherte Artefakte bei erneutem Audit derselben URL, aber nur wenn die `audit_signature` (WCAG-Level + aktive Module + Consent) zur aktuellen Konfiguration passt — sonst Cache-Miss mit Warnung und frischem Audit. `--force-refresh` umgeht den Cache.
 
 ---
 

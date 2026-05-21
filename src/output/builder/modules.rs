@@ -214,62 +214,81 @@ pub(super) fn derive_performance_card_context(
 
 /// Build a `(name, formatted_value, rating)` vitals list from a PerformanceResults.
 /// Used for both desktop and mobile viewport presentations.
+///
+/// Estimated lab metrics (INP, TTI, Speed Index) carry a localized "(lab
+/// estimate)" suffix so they cannot be mistaken for directly measured — or, more
+/// importantly, real field/RUM — values (#262). All values are local headless
+/// lab data.
 pub(super) fn build_vitals_list(
     p: &crate::audit::PerformanceResults,
+    locale: &str,
 ) -> Vec<(String, String, String)> {
+    let estimated_suffix = if is_en(locale) {
+        " (lab estimate)"
+    } else {
+        " (Lab-Schätzung)"
+    };
+    let label = |base: &str, m: &crate::performance::VitalMetric| {
+        if m.is_estimated() {
+            format!("{base}{estimated_suffix}")
+        } else {
+            base.to_string()
+        }
+    };
+
     let mut vitals = Vec::new();
     if let Some(ref lcp) = p.vitals.lcp {
         vitals.push((
-            "LCP".to_string(),
+            label("LCP", lcp),
             format!("{:.0}ms", lcp.value),
             lcp.rating.clone(),
         ));
     }
     if let Some(ref fcp) = p.vitals.fcp {
         vitals.push((
-            "FCP".to_string(),
+            label("FCP", fcp),
             format!("{:.0}ms", fcp.value),
             fcp.rating.clone(),
         ));
     }
     if let Some(ref cls) = p.vitals.cls {
         vitals.push((
-            "CLS".to_string(),
+            label("CLS", cls),
             format!("{:.3}", cls.value),
             cls.rating.clone(),
         ));
     }
     if let Some(ref ttfb) = p.vitals.ttfb {
         vitals.push((
-            "TTFB".to_string(),
+            label("TTFB", ttfb),
             format!("{:.0}ms", ttfb.value),
             ttfb.rating.clone(),
         ));
     }
     if let Some(ref tbt) = p.vitals.tbt {
         vitals.push((
-            "TBT".to_string(),
+            label("TBT", tbt),
             format!("{:.0}ms", tbt.value),
             tbt.rating.clone(),
         ));
     }
     if let Some(ref tti) = p.vitals.tti {
         vitals.push((
-            "TTI (geschätzt)".to_string(),
+            label("TTI", tti),
             format!("{:.0}ms", tti.value),
             tti.rating.clone(),
         ));
     }
     if let Some(ref inp) = p.vitals.inp {
         vitals.push((
-            "INP (geschätzt)".to_string(),
+            label("INP", inp),
             format!("{:.0}ms", inp.value),
             inp.rating.clone(),
         ));
     }
     if let Some(ref si) = p.vitals.speed_index {
         vitals.push((
-            "Speed Index (geschätzt)".to_string(),
+            label("Speed Index", si),
             format!("{:.0}ms", si.value),
             si.rating.clone(),
         ));

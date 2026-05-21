@@ -38,7 +38,7 @@ use crate::wcag::{Violation, WcagResults};
 
 // ─── Cache metadata ──────────────────────────────────────────────────────────
 
-/// Persisted alongside each cache entry for diagnostics and future validation.
+/// Persisted alongside each cache entry for diagnostics and validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheMeta {
     /// Binary version that wrote this entry — matches the VERSION directory component.
@@ -49,6 +49,18 @@ pub struct CacheMeta {
     pub cached_at: DateTime<Utc>,
     /// FNV-1a fingerprint of the AXTree at cache time.
     pub content_hash: String,
+    /// Fingerprint of the audit-relevant configuration (WCAG level + active
+    /// modules + consent handling). Used to reject cache reuse when the current
+    /// run requests a different audit scope. Empty for entries written before
+    /// this field existed — such entries are never reused.
+    #[serde(default)]
+    pub audit_signature: String,
+}
+
+/// Whether a cached entry was produced with an audit configuration compatible
+/// with the current run. An empty stored signature (legacy entry) never matches.
+pub fn cache_matches_signature(meta: &CacheMeta, expected: &str) -> bool {
+    !meta.audit_signature.is_empty() && meta.audit_signature == expected
 }
 
 // ─── Artifact types ───────────────────────────────────────────────────────────
@@ -104,6 +116,7 @@ pub fn save_artifacts(url: &str, wcag_level: &str, artifacts: &AuditArtifacts) -
         wcag_level: wcag_level.to_string(),
         cached_at: Utc::now(),
         content_hash: artifacts.content_hash.clone(),
+        audit_signature: artifacts.meta.audit_signature.clone(),
     };
     fs::write(dir.join("meta.json"), serde_json::to_vec_pretty(&meta)?)?;
 
@@ -139,6 +152,7 @@ pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
             wcag_level: "AA".to_string(),
             cached_at: fetch.fetched_at,
             content_hash: content_hash.clone(),
+            audit_signature: String::new(),
         }
     };
 
@@ -298,4 +312,49 @@ fn artifact_dir(url: &str) -> Result<PathBuf> {
         .join(domain)
         .join(url_hash)
         .join(version))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn meta_with_signature(signature: &str) -> CacheMeta {
+        CacheMeta {
+            auditmysite_version: "test".to_string(),
+            wcag_level: "AA".to_string(),
+            cached_at: Utc::now(),
+            content_hash: "deadbeef".to_string(),
+            audit_signature: signature.to_string(),
+        }
+    }
+
+    #[test]
+    fn cache_reused_when_signature_matches() {
+        let meta =
+            meta_with_signature("level=AA;perf=1;seo=1;sec=0;mobile=1;dark=1;stack=0;consent=0");
+        assert!(cache_matches_signature(
+            &meta,
+            "level=AA;perf=1;seo=1;sec=0;mobile=1;dark=1;stack=0;consent=0"
+        ));
+    }
+
+    #[test]
+    fn cache_rejected_on_config_mismatch() {
+        let meta =
+            meta_with_signature("level=AA;perf=0;seo=0;sec=0;mobile=0;dark=1;stack=0;consent=0");
+        // Current run requests a full audit at AAA — must not reuse the lean AA entry.
+        assert!(!cache_matches_signature(
+            &meta,
+            "level=AAA;perf=1;seo=1;sec=1;mobile=1;dark=1;stack=1;consent=0"
+        ));
+    }
+
+    #[test]
+    fn legacy_entry_without_signature_is_never_reused() {
+        let meta = meta_with_signature("");
+        assert!(!cache_matches_signature(
+            &meta,
+            "level=AA;perf=1;seo=1;sec=0;mobile=1;dark=1;stack=0;consent=0"
+        ));
+    }
 }

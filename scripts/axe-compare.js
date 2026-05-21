@@ -9,13 +9,18 @@
  *   node scripts/axe-compare.js <URL> [options]
  *
  * Options:
- *   --output <file>   Write Markdown to file (default: stdout)
- *   --bin <path>      Path to auditmysite binary (default: ./target/release/auditmysite)
- *   --level <A|AA>    WCAG level to pass to auditmysite (default: AA)
+ *   --output <file>      Write Markdown to file (default: stdout)
+ *   --raw-output <file>  Also write the combined raw {auditmysite, axe} JSON
+ *                        for reproducibility / offline re-analysis
+ *   --bin <path>         Path to auditmysite binary (default: ./target/release/auditmysite)
+ *   --level <A|AA>       WCAG level to pass to auditmysite (default: AA)
  *
  * Requirements (run once):
  *   npm install playwright axe-core
  *   npx playwright install chromium
+ *
+ * See docs/AXE_PARITY.md for the calibration workflow, rule categories, and the
+ * policy that separates confirmed axe gaps from auditmysite-only heuristics.
  */
 
 'use strict';
@@ -39,9 +44,11 @@ const targetUrl = args[0];
 let outputFile = null;
 let binPath = './target/release/auditmysite';
 let wcagLevel = 'AA';
+let rawOutputFile = null;
 
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '--output' && args[i + 1]) outputFile = args[++i];
+  else if (args[i] === '--raw-output' && args[i + 1]) rawOutputFile = args[++i];
   else if (args[i] === '--bin' && args[i + 1]) binPath = args[++i];
   else if (args[i] === '--level' && args[i + 1]) wcagLevel = args[++i].toUpperCase();
 }
@@ -53,8 +60,11 @@ function runAuditMySite(targetUrl, binPath, level) {
   try {
     const cmd = `${binPath} "${targetUrl}" --format json --level ${level}`;
     const raw = execSync(cmd, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
-    // Strip any non-JSON prefix (e.g. ASCII banner written to stdout)
-    const jsonStart = raw.indexOf('{');
+    // Strip any non-JSON prefix (e.g. ASCII banner written to stdout).
+    // Prefer the schema marker over the first brace because banners/logs can
+    // contain braces too.
+    const marker = raw.indexOf('{\n  "schema_version"');
+    const jsonStart = marker >= 0 ? marker : raw.indexOf('{');
     if (jsonStart < 0) throw new Error('No JSON found in output: ' + raw.slice(0, 200));
     return JSON.parse(raw.slice(jsonStart));
   } catch (err) {
@@ -67,42 +77,51 @@ function runAuditMySite(targetUrl, binPath, level) {
 // Extract findings from our JSON: violations + warnings
 // Returns Map<axeId, { count, criterion, level, ourOnly: violations[] }>
 function extractOurFindings(json) {
-  // Support both old (report.raw_wcag) and new (report.findings) JSON schema
-  const findings = json?.report?.findings || json?.report?.raw_wcag?.violations || [];
-  const warnings = json?.report?.raw_wcag?.warnings || [];
-  if (!json?.report) {
-    console.error('No report field in auditmysite JSON output. Re-run with a current binary.');
+  // Support current single report schema, older report.findings, and raw WCAG.
+  const currentFindings = Array.isArray(json?.pages)
+    ? json.pages.flatMap((page) => page.findings || [])
+    : [];
+  const legacyFindings = json?.report?.findings || [];
+  const rawViolations = json?.report?.raw_wcag?.violations || [];
+  const rawWarnings = json?.report?.raw_wcag?.warnings || [];
+  const findings = currentFindings.length > 0 ? currentFindings : legacyFindings.length > 0 ? legacyFindings : rawViolations;
+  const warnings = rawWarnings;
+
+  if (findings.length === 0 && warnings.length === 0) {
+    console.error('No findings found in auditmysite JSON output.');
     process.exit(1);
   }
 
-  const map = new Map(); // axeId → { count, criterion, wcagLevel, messages }
+  const map = new Map(); // axeId → { count, criterion, wcagLevel, messages, samples }
 
-  const add = (v) => {
+  const add = (v, isWarning = false) => {
     // Prefer axe_id (mapped from taxonomy), fall back to rule_id, then synthesize
     const axeId = v.axe_id || v.rule_id || `(no-axe-id:${v.wcag_criterion || v.criterion || '?'})`;
     const criterion = v.wcag_criterion || v.criterion || v.rule || '?';
     const wcagLevel = v.wcag_level || v.level || '?';
     if (!map.has(axeId)) {
-      map.set(axeId, { axeId, criterion, wcagLevel, count: 0, messages: [] });
+      map.set(axeId, { axeId, criterion, wcagLevel, count: 0, messages: [], samples: [], isWarning });
     }
     const entry = map.get(axeId);
+    entry.isWarning = entry.isWarning || isWarning;
     entry.count += (v.occurrence_count || 1);
     const msg = v.description || v.message || '';
     if (msg && entry.messages.length < 3) entry.messages.push(msg.slice(0, 80));
+    const occurrences = v.occurrences || [v];
+    for (const occurrence of occurrences) {
+      if (entry.samples.length >= 3) break;
+      const selector = occurrence.selector || occurrence.node_id;
+      if (!selector) continue;
+      entry.samples.push({
+        selector,
+        message: occurrence.message || msg,
+        html: occurrence.html_snippet || null,
+      });
+    }
   };
 
-  findings.forEach(add);
-  warnings.forEach((v) => {
-    const axeId = v.axe_id || v.rule_id || `(warning:${v.wcag_criterion || v.criterion || '?'})`;
-    const criterion = v.wcag_criterion || v.criterion || v.rule || '?';
-    const wcagLevel = v.wcag_level || v.level || '?';
-    if (!map.has(axeId)) {
-      map.set(axeId, { axeId, criterion, wcagLevel, count: 0, messages: [], isWarning: true });
-    }
-    const entry = map.get(axeId);
-    entry.count++;
-    entry.isWarning = true;
-  });
+  findings.forEach((v) => add(v, false));
+  warnings.forEach((v) => add(v, true));
 
   return map;
 }
@@ -150,6 +169,11 @@ function extractAxeFindings(axeResults) {
         description: v.description?.slice(0, 100),
         count: v.nodes?.length ?? 1,
         kind,
+        samples: (v.nodes || []).slice(0, 3).map((n) => ({
+          target: (n.target || []).join(' '),
+          html: n.html || '',
+          failure: n.failureSummary || '',
+        })),
       });
     }
   };
@@ -201,7 +225,7 @@ function buildTable(ourMap, axeMap) {
       note = axe.kind === 'incomplete' ? 'only-axe (incomplete)' : 'gap ← axe only';
     }
 
-    rows.push({ axeId, criterion, wcagLevel, ourResult, axeResult, note });
+    rows.push({ axeId, criterion, wcagLevel, ourResult, axeResult, note, our, axe });
   }
 
   // Sort: gaps first (actionable), then both, then only-us
@@ -219,6 +243,7 @@ function renderMarkdown(rows, targetUrl, ourVersion) {
   const both = rows.filter((r) => r.note === '✓ both').length;
   const onlyUs = rows.filter((r) => r.note.startsWith('only-us')).length;
   const onlyAxeIncomplete = rows.filter((r) => r.note.startsWith('only-axe (incomplete)')).length;
+  const axeOnlyRows = rows.filter((r) => r.note.startsWith('gap') || r.note.startsWith('only-axe'));
 
   const lines = [
     `# axe-core Comparison — ${targetUrl}`,
@@ -244,6 +269,31 @@ function renderMarkdown(rows, targetUrl, ourVersion) {
         `| \`${r.axeId}\` | ${r.criterion} | ${r.ourResult} | ${r.axeResult} | ${r.note} |`
     ),
     ``,
+    `## axe-core only details`,
+    ``,
+    ...(axeOnlyRows.length === 0
+      ? [`No axe-core-only findings.`]
+      : axeOnlyRows.flatMap((r) => [
+          `### ${r.axeId}`,
+          ``,
+          `Criterion: ${r.criterion}  `,
+          `axe-core: ${r.axeResult}  `,
+          `Status: ${r.note}`,
+          ``,
+          ...(r.axe?.samples || []).flatMap((sample, index) => [
+            `Sample ${index + 1}: \`${sample.target || '(no target)'}\``,
+            sample.html ? `` : null,
+            sample.html ? '```html' : null,
+            sample.html ? sample.html.slice(0, 500) : null,
+            sample.html ? '```' : null,
+            sample.failure ? `` : null,
+            sample.failure ? '```text' : null,
+            sample.failure ? sample.failure.slice(0, 800) : null,
+            sample.failure ? '```' : null,
+            ``,
+          ].filter(Boolean)),
+        ])),
+    ``,
     `### Legend`,
     ``,
     `- **✓ both** — both tools flagged this rule on the page`,
@@ -264,6 +314,11 @@ function renderMarkdown(rows, targetUrl, ourVersion) {
   const ourMap = extractOurFindings(ourJson);
 
   const axeResults = await runAxeCore(targetUrl);
+  if (rawOutputFile) {
+    fs.mkdirSync(path.dirname(path.resolve(rawOutputFile)), { recursive: true });
+    fs.writeFileSync(rawOutputFile, JSON.stringify({ auditmysite: ourJson, axe: axeResults }, null, 2), 'utf8');
+    console.error(`Raw data written to ${rawOutputFile}`);
+  }
   const axeMap = extractAxeFindings(axeResults);
 
   console.error(`[3/3] Comparing ${ourMap.size} our rules vs ${axeMap.size} axe rules ...`);

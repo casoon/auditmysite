@@ -162,6 +162,12 @@ batch-cover-frame-urls = Audited URLs
 batch-cover-frame-certificate = Certificate
 batch-cover-frame-modules = Active modules
 batch-cover-frame-version = Tool version
+batch-cover-frame-scope = Coverage
+batch-scope-sample = Sample — { $audited } of { $total } URLs ({ $source }, first { $audited })
+batch-scope-full = Complete — all { $total } URLs ({ $source })
+batch-source-sitemap = sitemap
+batch-source-crawl = crawl
+batch-source-url_file = URL list
 panel-modules-overview = Module overview
 section-tech-detail-metrics = Technical detail metrics
 column-action = Action
@@ -210,6 +216,13 @@ batch-section-broken-links-internal = Internal broken links
 batch-section-broken-links-external = External broken links
 batch-section-external-links = External links
 batch-section-redirect-chains = Redirect chains
+batch-redirect-chains-title = Redirect chains (> 1 hop)
+batch-col-target = Target
+batch-url-ranking-title = URL ranking
+batch-url-ranking-intro = All audited URLs, sorted by score. Lower-scoring URLs need attention first.
+batch-render-blocking-section = Render blocking & assets
+batch-render-blocking-kv-title = Render-blocking overview (domain-wide)
+batch-render-blocking-intro = Render-blocking resources and third-party traffic, aggregated across all audited pages.
 batch-section-tech-url-matrix = Technical URL matrix
 batch-section-tech-url-matrix-intro = Condensed overview of all audited URLs focused on technical prioritization. Each row shows score, issue intensity, and the biggest lever for the next optimization round.
 batch-table-pages-overview = Pages overview
@@ -273,6 +286,8 @@ label-heuristic-indicator = Heuristic estimate based on structural signals
 # Performance section
 perf-score-card = Performance score
 perf-technical-indicators = Technical indicators
+perf-lab-data-note = Lab data
+perf-lab-data-body = All performance values come from a local headless measurement (Chrome/CDP), not from field data (CrUX/real-user monitoring). Metrics marked "lab estimate" (INP, TTI, Speed Index) are derived approximations, not direct measurements.
 perf-render-blocking-analysis = Render-blocking analysis
 
 # SEO section

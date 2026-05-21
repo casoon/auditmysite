@@ -18,8 +18,8 @@ mod scoring;
 pub mod summary;
 
 pub use artifacts::{
-    content_hash, load_artifacts, save_artifacts, to_audit_report, AuditArtifacts, FetchArtifact,
-    SnapshotArtifact,
+    cache_matches_signature, content_hash, load_artifacts, save_artifacts, to_audit_report,
+    AuditArtifacts, FetchArtifact, SnapshotArtifact,
 };
 pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
 pub use batch::{
@@ -34,7 +34,7 @@ pub use normalized::{normalize, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
-    CrawlDiagnostics, PerformanceResults, RedirectChain, ScreenshotStatus, ThrottledPerfResult,
-    ViewportScoreSet, ViewportScores,
+    CrawlDiagnostics, PerformanceResults, RedirectChain, SampleMetadata, ScreenshotStatus,
+    ThrottledPerfResult, ViewportScoreSet, ViewportScores,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

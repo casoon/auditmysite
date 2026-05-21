@@ -24,6 +24,19 @@ pub const CONTRAST_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aa", "wcag143", "cat.color"],
 };
 
+/// Outcome of a single text element's contrast evaluation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContrastVerdict {
+    /// Meets the required contrast ratio.
+    Pass,
+    /// Confidently below the threshold against a known, solid background.
+    Violation,
+    /// Below the threshold, but the effective background is an image or gradient
+    /// that could not be resolved from CSS. Reported as a manual-review warning
+    /// rather than a confirmed failure, to avoid false positives (#264).
+    NeedsReview,
+}
+
 /// WCAG 1.4.3: Contrast (Minimum)
 pub struct ContrastRule;
 
@@ -66,9 +79,13 @@ impl ContrastRule {
                 None => continue, // No color specified
             };
 
-            // JS getEffectiveBackgroundColor already traverses up the DOM to
-            // resolve transparent backgrounds; this value is never transparent.
+            // JS background extraction traverses the DOM, composites alpha
+            // colors, and marks image/gradient backgrounds as uncertain.
             let bg_color_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
+            let background_uncertain = style
+                .get("background-uncertain")
+                .map(|value| value == "true")
+                .unwrap_or(false);
 
             let fg_color = match Color::from_css(fg_color_str) {
                 Some(c) => c,
@@ -90,30 +107,48 @@ impl ContrastRule {
             let ratio = Self::calculate_contrast_ratio(&fg_color, &bg_color);
             let is_large = style.is_large_text();
 
-            // Check if it meets requirements
-            if !Self::meets_requirement(ratio, is_large, level) {
+            // Pass / confirmed violation / needs-review (uncertain background).
+            let verdict = Self::verdict(ratio, is_large, level, background_uncertain);
+            if verdict != ContrastVerdict::Pass {
                 let selector = style.selector.as_deref().unwrap_or("unknown");
-                let message = format!(
-                    "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1)",
-                    ratio,
-                    if is_large { "large " } else { "" },
-                    if is_large {
-                        if level == WcagLevel::AAA {
-                            "4.5"
-                        } else {
-                            "3.0"
-                        }
-                    } else if level == WcagLevel::AAA {
-                        "7.0"
-                    } else {
+                let threshold = if is_large {
+                    if level == WcagLevel::AAA {
                         "4.5"
+                    } else {
+                        "3.0"
                     }
-                );
+                } else if level == WcagLevel::AAA {
+                    "7.0"
+                } else {
+                    "4.5"
+                };
+                let message = if background_uncertain {
+                    format!(
+                        "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). Background includes an image or gradient and needs manual review.",
+                        ratio,
+                        if is_large { "large " } else { "" },
+                        threshold
+                    )
+                } else {
+                    format!(
+                        "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1)",
+                        ratio,
+                        if is_large { "large " } else { "" },
+                        threshold
+                    )
+                };
 
-                let fix = format!(
-                    "Adjust colors to improve contrast. Current: foreground={}, background={}",
-                    fg_color_str, bg_color_str
-                );
+                let fix = if background_uncertain {
+                    format!(
+                        "Verify contrast against the rendered image/gradient background. Estimated from CSS colors: foreground={}, background={}",
+                        fg_color_str, bg_color_str
+                    )
+                } else {
+                    format!(
+                        "Adjust colors to improve contrast. Current: foreground={}, background={}",
+                        fg_color_str, bg_color_str
+                    )
+                };
 
                 let mut violation = Violation::new(
                     CONTRAST_RULE.id,
@@ -128,6 +163,9 @@ impl ContrastRule {
                 .with_help_url(CONTRAST_RULE.help_url);
                 if let Some(snippet) = &style.html_snippet {
                     violation = violation.with_html_snippet(snippet);
+                }
+                if background_uncertain {
+                    violation = violation.as_warning();
                 }
 
                 violations.push(violation);
@@ -151,6 +189,28 @@ impl ContrastRule {
         let darker = lum1.min(lum2);
 
         (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /// Decide whether a measured ratio is a pass, a confirmed violation, or a
+    /// manual-review case.
+    ///
+    /// When the effective background is uncertain (text over an image/gradient
+    /// that CSS could not resolve), a sub-threshold ratio is demoted to
+    /// `NeedsReview` instead of a confirmed `Violation`, because the CSS-derived
+    /// background is only an estimate of what is actually rendered (#264).
+    pub fn verdict(
+        contrast_ratio: f64,
+        is_large_text: bool,
+        level: WcagLevel,
+        background_uncertain: bool,
+    ) -> ContrastVerdict {
+        if Self::meets_requirement(contrast_ratio, is_large_text, level) {
+            ContrastVerdict::Pass
+        } else if background_uncertain {
+            ContrastVerdict::NeedsReview
+        } else {
+            ContrastVerdict::Violation
+        }
     }
 
     /// Check if contrast ratio meets WCAG requirements
@@ -398,5 +458,42 @@ mod tests {
         assert!(!Color::is_transparent("rgba(0, 0, 0, 1)"));
         assert!(!Color::is_transparent("rgb(255, 255, 255)"));
         assert!(!Color::is_transparent("#FFFFFF"));
+    }
+
+    #[test]
+    fn verdict_passes_when_ratio_meets_threshold() {
+        // Above threshold is a pass regardless of background certainty.
+        assert_eq!(
+            ContrastRule::verdict(5.0, false, WcagLevel::AA, false),
+            ContrastVerdict::Pass
+        );
+        assert_eq!(
+            ContrastRule::verdict(5.0, false, WcagLevel::AA, true),
+            ContrastVerdict::Pass
+        );
+    }
+
+    #[test]
+    fn verdict_confirms_violation_on_solid_background() {
+        // Sub-threshold over a known/solid background → confirmed violation.
+        assert_eq!(
+            ContrastRule::verdict(3.0, false, WcagLevel::AA, false),
+            ContrastVerdict::Violation
+        );
+    }
+
+    #[test]
+    fn verdict_demotes_image_background_to_review() {
+        // Sub-threshold over an uncertain image/gradient background → manual
+        // review, NOT a confirmed failure (avoids the old white-bg false positive).
+        assert_eq!(
+            ContrastRule::verdict(3.0, false, WcagLevel::AA, true),
+            ContrastVerdict::NeedsReview
+        );
+        // Large-text threshold (3:1) — a 3.0 ratio passes, so even uncertain bg is a pass.
+        assert_eq!(
+            ContrastRule::verdict(3.0, true, WcagLevel::AA, true),
+            ContrastVerdict::Pass
+        );
     }
 }

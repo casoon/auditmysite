@@ -31,7 +31,7 @@ pub(super) fn build_module_details_from_normalized(
             normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
         let performance_grade = normalized_module_grade(normalized, "Performance")
             .unwrap_or_else(|| p.score.grade.label().to_string());
-        let vitals = build_vitals_list(p);
+        let vitals = build_vitals_list(p, locale);
         let desktop_viewport =
             normalized
                 .raw_performance_desktop
@@ -39,7 +39,7 @@ pub(super) fn build_module_details_from_normalized(
                 .map(|d| PerformanceViewport {
                     score: d.score.overall,
                     grade: d.score.grade.label().to_string(),
-                    vitals: build_vitals_list(d),
+                    vitals: build_vitals_list(d, locale),
                 });
         let mobile_viewport = Some(PerformanceViewport {
             score: p.score.overall,

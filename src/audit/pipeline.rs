@@ -129,6 +129,28 @@ pub struct PipelineConfig {
     pub dismiss_consent: bool,
 }
 
+impl PipelineConfig {
+    /// Deterministic fingerprint of the audit-relevant configuration.
+    ///
+    /// Captures every option that changes the audit's findings, scores, or which
+    /// modules run, so a cached result can be rejected when the current run
+    /// requests a different scope. Excludes options that do not affect content
+    /// (timeout, verbosity, persistence, screenshot capture).
+    pub fn audit_signature(&self) -> String {
+        format!(
+            "level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={}",
+            self.wcag_level,
+            self.check_performance as u8,
+            self.check_seo as u8,
+            self.check_security as u8,
+            self.check_mobile as u8,
+            self.check_dark_mode as u8,
+            self.check_stack as u8,
+            self.dismiss_consent as u8,
+        )
+    }
+}
+
 impl From<&Args> for PipelineConfig {
     fn from(args: &Args) -> Self {
         let full_audit = args.full_audit_enabled();
@@ -407,7 +429,7 @@ pub async fn audit_page(
     report.viewport_scores = Some(viewport_scores);
 
     if config.persist_artifacts {
-        persist_artifacts(url, &primary_snap, &report);
+        persist_artifacts(url, config, &primary_snap, &report);
     }
 
     Ok(report)
@@ -806,6 +828,27 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
     }
     wcag_results.extend_findings(aria_hidden_focus_violations);
 
+    // 4.1.2 aria-prohibited-attr — DOM supplement for generic elements
+    let aria_prohibited_attr_violations =
+        wcag::rules::check_aria_prohibited_attr_with_page(page).await;
+    if !aria_prohibited_attr_violations.is_empty() {
+        info!(
+            "Found {} aria-prohibited-attr violations",
+            aria_prohibited_attr_violations.len()
+        );
+    }
+    wcag_results.extend_findings(aria_prohibited_attr_violations);
+
+    // 4.1.2 frame-title — iframe/frame accessible names
+    let frame_title_violations = wcag::rules::check_frame_title_with_page(page).await;
+    if !frame_title_violations.is_empty() {
+        info!(
+            "Found {} frame-title violations",
+            frame_title_violations.len()
+        );
+    }
+    wcag_results.extend_findings(frame_title_violations);
+
     // 2.1.1 Keyboard — onclick on non-interactive tags without keyboard equivalent (Level A)
     let click_handler_violations = wcag::check_click_handlers_with_page(page).await;
     if !click_handler_violations.is_empty() {
@@ -1184,7 +1227,12 @@ fn apply_canonical_perf(
     }
 }
 
-fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
+fn persist_artifacts(
+    url: &str,
+    config: &PipelineConfig,
+    snapshot: &SnapshotData,
+    report: &AuditReport,
+) {
     let snapshot_artifact = SnapshotArtifact {
         ax_tree: snapshot.ax_tree.clone(),
         performance: snapshot.performance.clone(),
@@ -1200,6 +1248,7 @@ fn persist_artifacts(url: &str, snapshot: &SnapshotData, report: &AuditReport) {
         wcag_level: wcag_level.clone(),
         cached_at: report.timestamp,
         content_hash: hash.clone(),
+        audit_signature: config.audit_signature(),
     };
     let artifacts = AuditArtifacts {
         fetch: FetchArtifact {
@@ -1279,6 +1328,58 @@ mod tests {
         assert!(config.check_seo);
         assert!(config.check_security);
         assert!(config.check_dark_mode);
+    }
+
+    fn test_pipeline_config() -> PipelineConfig {
+        PipelineConfig {
+            wcag_level: WcagLevel::AA,
+            timeout_secs: 30,
+            verbose: false,
+            check_performance: true,
+            check_seo: true,
+            check_security: false,
+            check_mobile: true,
+            check_dark_mode: true,
+            check_stack: false,
+            persist_artifacts: true,
+            capture_screenshots: false,
+            dismiss_consent: false,
+        }
+    }
+
+    #[test]
+    fn audit_signature_changes_with_audit_relevant_options() {
+        let base = test_pipeline_config();
+        let base_sig = base.audit_signature();
+
+        // WCAG level changes the signature.
+        let mut other = test_pipeline_config();
+        other.wcag_level = WcagLevel::AAA;
+        assert_ne!(base_sig, other.audit_signature());
+
+        // Toggling a module changes the signature.
+        let mut other = test_pipeline_config();
+        other.check_security = true;
+        assert_ne!(base_sig, other.audit_signature());
+
+        // Consent handling changes the signature.
+        let mut other = test_pipeline_config();
+        other.dismiss_consent = true;
+        assert_ne!(base_sig, other.audit_signature());
+    }
+
+    #[test]
+    fn audit_signature_ignores_non_content_options() {
+        let base = test_pipeline_config();
+        let base_sig = base.audit_signature();
+
+        // Timeout, verbosity, persistence and screenshots do not affect findings.
+        let mut other = test_pipeline_config();
+        other.timeout_secs = 120;
+        other.verbose = true;
+        other.persist_artifacts = false;
+        other.capture_screenshots = true;
+        assert_eq!(base_sig, other.audit_signature());
     }
 
     #[test]
