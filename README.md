@@ -5,7 +5,7 @@
 [![CI](https://github.com/casoon/auditmysite/actions/workflows/ci.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/ci.yml)
 [![Release](https://github.com/casoon/auditmysite/actions/workflows/release.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/release.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSL--1.1-blue.svg)](LICENSE)
 
 ## Overview
 
@@ -564,7 +564,19 @@ cargo test
 
 ## License
 
-AGPL-3.0-or-later. See [LICENSE](LICENSE).
+`auditmysite` is source available under the Business Source License 1.1
+(`BUSL-1.1`). You may view, copy, modify, redistribute, and make non-production
+use of the source code. Limited internal production use is permitted under the
+Additional Use Grant in [LICENSE](LICENSE).
+
+Commercial SaaS rehosting, paid third-party audit services based on the
+Licensed Work, and use for AI training, embeddings, dataset generation,
+automated code ingestion, or other machine learning usage require a separate
+commercial license from Casoon.
+
+Each version automatically converts to the Apache License, Version 2.0 on its
+Change Date. For version 0.26.0, the Change Date is 2030-05-21. Older versions
+released under AGPL-3.0-or-later remain under their original license terms.
 
 ## Credits
 

@@ -125,6 +125,16 @@ cargo test my_new_rule
 7. Commit with a descriptive message
 8. Push and create a Pull Request
 
+## Contributor License
+
+By submitting a contribution, you agree that your contribution may be licensed
+under the project's then-current license and any future license chosen by
+Casoon for the project, including commercial, source-available, or open source
+licenses. This keeps future relicensing possible.
+
+For larger contributions, Casoon may require a signed Contributor License
+Agreement before merging.
+
 ## Commit Message Format
 
 ```
