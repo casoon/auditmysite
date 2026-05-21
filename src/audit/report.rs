@@ -513,9 +513,21 @@ impl BatchReport {
             .iter()
             .map(crate::audit::normalized::normalize)
             .collect();
+        // Pass criterion: accessibility score ≥ 80, no critical findings, and
+        // no WCAG-Level-A high/critical findings (i.e. no legal exposure).
+        // See issue #253.
         let passed = normalized_reports
             .iter()
-            .filter(|r| r.score >= 70 && r.severity_counts.critical == 0)
+            .filter(|r| {
+                let no_legal_flags = !r.findings.iter().any(|f| {
+                    f.wcag_level == "A"
+                        && matches!(
+                            f.severity,
+                            crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
+                        )
+                });
+                r.score >= 80 && r.severity_counts.critical == 0 && no_legal_flags
+            })
             .count();
         let failed = total_urls - passed;
 

@@ -304,8 +304,11 @@ fn build_single_report(
                 component_json(build_summary_overview(&vm.summary)),
                 component_json(
                     MetricStrip::new(vec![
-                        MetricStripItem::new(i18n.t("metric-score"), vm.summary.score.to_string())
-                            .with_accent("#0f766e"),
+                        MetricStripItem::new(
+                            i18n.t("metric-score"),
+                            vm.summary.overall_score.to_string(),
+                        )
+                        .with_accent("#0f766e"),
                         MetricStripItem::new(
                             i18n.t("metric-issues-detected"),
                             vm.severity.total.to_string(),

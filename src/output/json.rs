@@ -51,6 +51,8 @@ pub struct UnifiedReport {
     pub schema_version: &'static str,
     /// `"single"` or `"batch"`.
     pub report_type: &'static str,
+    /// Top-level tool version — duplicated from `metadata.tool` for ease of consumption.
+    pub tool_version: &'static str,
     pub metadata: ReportMetadata,
     pub summary: UnifiedSummary,
     pub pages: Vec<PageEntry>,
@@ -68,6 +70,20 @@ pub struct UnifiedReport {
     pub collection_errors: Vec<ReportError>,
 }
 
+/// Aggregate stats for a recurring WCAG rule across a batch's pages.
+#[derive(Debug, Serialize)]
+pub struct RecurringRule {
+    pub rule_id: String,
+    pub title: String,
+    pub wcag_criterion: String,
+    pub wcag_level: String,
+    pub severity: crate::taxonomy::Severity,
+    /// Number of pages where this rule fired.
+    pub affected_pages: usize,
+    /// Sum of `occurrence_count` over all affected pages.
+    pub total_occurrences: usize,
+}
+
 /// Uniform summary — identical field names for single and batch.
 #[derive(Debug, Serialize)]
 pub struct UnifiedSummary {
@@ -78,9 +94,20 @@ pub struct UnifiedSummary {
     pub certificate: String,
     pub risk_level: crate::audit::normalized::RiskLevel,
     pub violation_count: usize,
+    /// Anzahl unterschiedlicher Findings (eine Zeile pro Regel/Severity).
     pub severity_counts: crate::audit::normalized::SeverityCounts,
+    /// Element-Occurrences je Severity (Summe über alle Findings).
+    pub occurrence_counts: crate::audit::normalized::SeverityCounts,
     pub passed_url_count: usize,
     pub failed_url_count: usize,
+    /// Anzahl unterschiedlicher WCAG-Regeln, die irgendwo geprüfte URLs verletzt haben
+    /// (über alle Pages dedupliziert).
+    #[serde(default)]
+    pub violated_rule_count: usize,
+    /// Häufigste WCAG-Regelverstöße im Batch (über Pages aggregiert, max. 10 Einträge).
+    /// Bei Single-Reports leer.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub top_recurring_rules: Vec<RecurringRule>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -105,6 +132,8 @@ pub struct PageEntry {
     /// Number of distinct WCAG rules that fired — `findings[].length` for wcag-category entries.
     pub violated_rule_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
+    /// Element-Occurrences je Severity (Summe `occurrence_count` über alle WCAG-Findings).
+    pub occurrence_counts: crate::audit::normalized::SeverityCounts,
     /// AX-tree node count (accessibility tree, not DOM). Can exceed `dom_nodes`
     /// because the browser's accessibility tree includes virtual/internal nodes
     /// and roles not present in the HTML DOM. This is expected behavior.
@@ -126,7 +155,8 @@ pub struct PageEntry {
 /// Per-page module detail blob — single reports only.
 #[derive(Debug, Serialize)]
 pub struct PageDetail {
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    /// Fix guidance entries — always present (may be an empty array when there
+    /// are no findings). See issue #253.
     pub fix_guidance: Vec<FixGuidance>,
     pub modules: ModuleBlob,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -304,7 +334,9 @@ impl UnifiedReport {
             .collect();
 
         let severity_counts = aggregate_severity(&pages);
+        let occurrence_counts = aggregate_occurrences(&pages);
         let accessibility_score = batch_report.summary.average_score.round() as u32;
+        let (violated_rule_count, top_recurring_rules) = aggregate_recurring_rules(&pages);
 
         let worst_risk = {
             let page_count = normalized_reports.len().max(1);
@@ -324,8 +356,11 @@ impl UnifiedReport {
             risk_level: worst_risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
             severity_counts,
+            occurrence_counts,
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
+            violated_rule_count,
+            top_recurring_rules,
             performance_score: avg_module_score(&pages, "Performance"),
             seo_score: avg_module_score(&pages, "SEO"),
             security_score: avg_module_score(&pages, "Security"),
@@ -366,6 +401,7 @@ impl UnifiedReport {
         UnifiedReport {
             schema_version: SCHEMA_VERSION,
             report_type: "batch",
+            tool_version: env!("CARGO_PKG_VERSION"),
             metadata: ReportMetadata {
                 tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
                 timestamp: batch_report_timestamp(batch_report),
@@ -404,7 +440,20 @@ impl UnifiedReport {
     }
 
     fn wrap_single(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        let passed = usize::from(page.overall_score >= 80 && page.severity_counts.critical == 0);
+        // Single-report pass criterion mirrors the batch criterion (issue #253):
+        // accessibility score ≥ 80, no critical findings, no WCAG-Level-A
+        // high/critical findings (no legal exposure).
+        let no_legal_flags = !page.findings.iter().any(|f| {
+            f.wcag_level == "A"
+                && matches!(
+                    f.severity,
+                    crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
+                )
+        });
+        let passed = usize::from(
+            page.overall_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+        );
+        let violated_rule_count = page.violated_rule_count;
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -414,8 +463,11 @@ impl UnifiedReport {
             risk_level: page.risk.level,
             violation_count: page.violation_count,
             severity_counts: page.severity_counts.clone(),
+            occurrence_counts: page.occurrence_counts.clone(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
+            violated_rule_count,
+            top_recurring_rules: Vec::new(),
             performance_score: normalized_module_score(normalized, "Performance"),
             seo_score: normalized_module_score(normalized, "SEO"),
             security_score: normalized_module_score(normalized, "Security"),
@@ -437,6 +489,7 @@ impl UnifiedReport {
         UnifiedReport {
             schema_version: SCHEMA_VERSION,
             report_type: "single",
+            tool_version: env!("CARGO_PKG_VERSION"),
             metadata: ReportMetadata {
                 tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
                 timestamp: normalized.timestamp,
@@ -499,6 +552,7 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
             .filter(|f| f.category == "wcag")
             .count(),
         severity_counts: normalized.severity_counts.clone(),
+        occurrence_counts: normalized.occurrence_counts.clone(),
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
         module_scores: normalized.module_scores.clone(),
@@ -777,6 +831,70 @@ fn aggregate_severity(pages: &[PageEntry]) -> crate::audit::normalized::Severity
         medium: pages.iter().map(|p| p.severity_counts.medium).sum(),
         low: pages.iter().map(|p| p.severity_counts.low).sum(),
         total: pages.iter().map(|p| p.severity_counts.total).sum(),
+    }
+}
+
+/// Aggregate WCAG findings across pages to surface recurring rule violations.
+/// Returns `(violated_rule_count, top_recurring_rules)` where:
+/// - `violated_rule_count` is the number of distinct rule IDs fired anywhere.
+/// - `top_recurring_rules` lists the top 10 rules sorted by affected_pages
+///   (descending), then by total_occurrences.
+fn aggregate_recurring_rules(pages: &[PageEntry]) -> (usize, Vec<RecurringRule>) {
+    use std::collections::HashMap;
+    struct Acc {
+        title: String,
+        wcag_criterion: String,
+        wcag_level: String,
+        severity: crate::taxonomy::Severity,
+        affected_pages: usize,
+        total_occurrences: usize,
+    }
+    let mut by_rule: HashMap<String, Acc> = HashMap::new();
+    for page in pages {
+        for f in page.findings.iter().filter(|f| f.category == "wcag") {
+            let entry = by_rule.entry(f.rule_id.clone()).or_insert(Acc {
+                title: f.title.clone(),
+                wcag_criterion: f.wcag_criterion.clone(),
+                wcag_level: f.wcag_level.clone(),
+                severity: f.severity,
+                affected_pages: 0,
+                total_occurrences: 0,
+            });
+            entry.affected_pages += 1;
+            entry.total_occurrences += f.occurrence_count;
+            entry.severity = entry.severity.max(f.severity);
+        }
+    }
+    let violated_rule_count = by_rule.len();
+    let mut rules: Vec<RecurringRule> = by_rule
+        .into_iter()
+        .map(|(rule_id, a)| RecurringRule {
+            rule_id,
+            title: a.title,
+            wcag_criterion: a.wcag_criterion,
+            wcag_level: a.wcag_level,
+            severity: a.severity,
+            affected_pages: a.affected_pages,
+            total_occurrences: a.total_occurrences,
+        })
+        .collect();
+    rules.sort_by(|a, b| {
+        b.affected_pages
+            .cmp(&a.affected_pages)
+            .then_with(|| b.total_occurrences.cmp(&a.total_occurrences))
+            .then_with(|| b.severity.cmp(&a.severity))
+    });
+    rules.truncate(10);
+    (violated_rule_count, rules)
+}
+
+fn aggregate_occurrences(pages: &[PageEntry]) -> crate::audit::normalized::SeverityCounts {
+    crate::audit::normalized::SeverityCounts {
+        critical: pages.iter().map(|p| p.occurrence_counts.critical).sum(),
+        high: pages.iter().map(|p| p.occurrence_counts.high).sum(),
+        medium: pages.iter().map(|p| p.occurrence_counts.medium).sum(),
+        low: pages.iter().map(|p| p.occurrence_counts.low).sum(),
+        total: pages.iter().map(|p| p.occurrence_counts.total).sum(),
     }
 }
 
@@ -1368,6 +1486,7 @@ mod tests {
         let mut unified = UnifiedReport {
             schema_version: "2.0",
             report_type: "batch",
+            tool_version: env!("CARGO_PKG_VERSION"),
             metadata: ReportMetadata {
                 tool: "test".to_string(),
                 timestamp: chrono::DateTime::<chrono::Utc>::UNIX_EPOCH,
@@ -1389,8 +1508,11 @@ mod tests {
                     low: 0,
                     total: 0,
                 },
+                occurrence_counts: crate::audit::normalized::SeverityCounts::default(),
                 passed_url_count: 0,
                 failed_url_count: 0,
+                violated_rule_count: 0,
+                top_recurring_rules: vec![],
                 performance_score: None,
                 seo_score: None,
                 security_score: None,

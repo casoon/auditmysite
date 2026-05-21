@@ -175,7 +175,12 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Consent: `--dismiss-consent` Flag; CMP-Cookie-Injection + Banner-Click; `consent_banner` audit_flag im JSON
 - JSON: **Unified Report Envelope v2.0** — einheitliches Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`). Breaking Change ggü. v0.17.
 - Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor + logarithmische Kompression für extreme Penalties (≥85 Punkte), WCAG-Prinzip-Coverage; `score_breakdown` (nur bei `score_calculation_method = "viewport_weighted"`, sonst absent)
-- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt nur WCAG-Findings; `violated_rule_count` im JSON-PageEntry; `risk.severity` = schwerste Violation über alle Findings (kein eigenes `severity_max`-Feld)
-- Risk Level: Score-basierter Fallback (score ≤ 20 → mindestens Medium)
+- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt **Findings** (eine Zeile pro Regel/Severity, nur WCAG-Kategorie), `occurrence_counts` summiert Element-Occurrences derselben Findings; `violated_rule_count` im JSON-PageEntry; `risk.severity` = schwerste Violation über alle Findings (kein eigenes `severity_max`-Feld)
+- Risk Level: Score-basierter Fallback (score ≤ 20 → mindestens Medium); `legal_flags > 0` oder `blocking_issues ≥ 1` heben das Level mindestens auf Medium. `legal_flags` zählt **distinct WCAG-Level-A-Regeln** mit High/Critical-Severity (nicht Occurrences).
 - History: `schema_version: "1.0"`, `report_type: "history"` in History-JSON-Dateien
 - PDF: Throttled-Performance-Tabelle, Indikator-Kennzeichnung konsistent, leere Seite nach ToC behoben
+- Performance-Score: Lighthouse-v10/v11-Gewichtung (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %), log-normale Score-Kurven mit p10/p50-Kalibrierung; CLS > 0.5 hart auf 0 gecappt
+- `tool_version` als Top-Level-Feld im JSON-Report (parallel zu `schema_version`/`report_type`)
+- Sitemap-Summary enthält `violated_rule_count` (dedupliziert über alle Pages) und `top_recurring_rules` (max. 10 häufigste WCAG-Verstöße)
+- Pass-Kriterium (`passed_url_count`): accessibility_score ≥ 80, keine Critical-Findings und keine WCAG-Level-A High/Critical-Findings (also `legal_flags == 0`)
+- `detail.fix_guidance` ist immer im JSON präsent (leeres Array bei 0 Findings)

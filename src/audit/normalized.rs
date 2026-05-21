@@ -39,8 +39,11 @@ pub struct NormalizedReport {
 
     /// Normalisierte, gruppierte Findings mit Taxonomie-Feldern
     pub findings: Vec<NormalizedFinding>,
-    /// Severity-Zähler (einheitliche Terminologie)
+    /// Severity-Zähler — zählt **Findings** (eine Zeile pro Regel + Severity).
     pub severity_counts: SeverityCounts,
+    /// Severity-Zähler — zählt **Element-Occurrences** (alle betroffenen Elemente).
+    #[serde(default)]
+    pub occurrence_counts: SeverityCounts,
 
     /// Modul-Scores
     pub module_scores: Vec<ModuleScoreEntry>,
@@ -107,7 +110,7 @@ pub struct NormalizedReport {
 }
 
 /// Einheitliche Severity-Zähler
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SeverityCounts {
     pub critical: usize,
     pub high: usize,
@@ -477,6 +480,13 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 .unwrap_or(max_severity);
             let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
 
+            // Prefer the taxonomy title (customer-facing, localized) over the
+            // raw rule_name from the WCAG engine — ensures JSON `title` and PDF
+            // narrative refer to the same name (see issue #252).
+            let display_title = taxonomy_rule
+                .map(|r| r.title.to_string())
+                .unwrap_or_else(|| first.rule_name.clone());
+
             NormalizedFinding {
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
@@ -492,7 +502,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 score_impact,
                 report_visibility: visibility,
                 aggregation_key: tax_id,
-                title: first.rule_name.clone(),
+                title: display_title,
                 description: first.message.clone(),
                 occurrence_count,
                 priority_score,
@@ -575,9 +585,30 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     let score = report.score.round().max(1.0) as u32;
     let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
 
-    // Severity counts — only WCAG findings count (not SEO findings)
+    // Severity counts — only WCAG findings count (not SEO findings).
+    // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
+    // `occurrence_counts` zählt Element-Occurrences (Summe aller betroffenen Elemente).
     let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category == "wcag").collect();
     let severity_counts = SeverityCounts {
+        critical: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .count(),
+        high: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .count(),
+        medium: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .count(),
+        low: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .count(),
+        total: wcag_findings.len(),
+    };
+    let occurrence_counts = SeverityCounts {
         critical: wcag_findings
             .iter()
             .filter(|f| f.severity == Severity::Critical)
@@ -675,10 +706,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     }
     if let Some(ref ux) = report.ux {
         // Accessibility flows into UX: critical a11y issues penalize UX score
-        // Rationale: for users with disabilities, Accessibility IS the UX
+        // Rationale: for users with disabilities, Accessibility IS the UX.
+        // Penalty thresholds reflect total affected elements, not distinct rules.
         let a11y_penalty = {
-            let critical = severity_counts.critical;
-            let high = severity_counts.high;
+            let critical = occurrence_counts.critical;
+            let high = occurrence_counts.high;
             if critical >= 10 {
                 25 // severe: many critical barriers
             } else if critical >= 5 {
@@ -709,9 +741,10 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         });
     }
     if let Some(ref journey) = report.journey {
-        // Journey also gets a11y penalty — inaccessible journeys are broken journeys
+        // Journey also gets a11y penalty — inaccessible journeys are broken journeys.
+        // Threshold uses occurrence-level severity, not finding count.
         let a11y_penalty = {
-            let critical = severity_counts.critical;
+            let critical = occurrence_counts.critical;
             if critical >= 10 {
                 20
             } else if critical >= 5 {
@@ -880,8 +913,10 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
 
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = {
-        let critical_issues = severity_counts.critical;
-        let high_issues = severity_counts.high;
+        // Risk thresholds reflect total affected elements (occurrence_counts),
+        // not the number of distinct rules (severity_counts).
+        let critical_issues = occurrence_counts.critical;
+        let high_issues = occurrence_counts.high;
 
         // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
         // Per-occurrence counting would inflate the number (e.g. 1000 images without
@@ -906,11 +941,18 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             + blocking_issues as u32 * 2)
             .min(100);
 
+        // Risk level — explicit precedence; legal_flags and blocking_issues both
+        // raise the floor even when critical_issues is zero (see issue #250).
         let level = if legal_flags > 0 && critical_issues > 0 {
             RiskLevel::Critical
         } else if critical_issues >= 3 || blocking_issues >= 5 || risk_score >= 80 {
             RiskLevel::High
-        } else if (high_issues >= 3 && score < 80) || critical_issues >= 1 || score <= 20 {
+        } else if (high_issues >= 3 && score < 80)
+            || critical_issues >= 1
+            || legal_flags > 0
+            || blocking_issues >= 1
+            || score <= 20
+        {
             RiskLevel::Medium
         } else {
             RiskLevel::Low
@@ -954,14 +996,37 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                     "schwerwiegende Probleme"
                 )
             ),
-            RiskLevel::Medium => format!(
-                "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
-                plural(
-                    high_issues + critical_issues,
-                    "schwerwiegendes Problem",
-                    "schwerwiegende Probleme"
-                )
-            ),
+            RiskLevel::Medium => {
+                if legal_flags > 0 {
+                    format!(
+                        "Mittleres Risiko: {} mit rechtlicher Relevanz (BFSG){}.",
+                        plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                        if blocking_issues > 0 {
+                            format!(
+                                ", {} bei Bedienelementen",
+                                plural(blocking_issues, "Blocker", "Blocker")
+                            )
+                        } else {
+                            String::new()
+                        }
+                    )
+                } else if blocking_issues > 0 {
+                    format!(
+                        "Mittleres Risiko: {} bei Bedienelementen erkannt. \
+                         Einschränkungen für bestimmte Nutzergruppen.",
+                        plural(blocking_issues, "Blocker", "Blocker")
+                    )
+                } else {
+                    format!(
+                        "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
+                        plural(
+                            high_issues + critical_issues,
+                            "schwerwiegendes Problem",
+                            "schwerwiegende Probleme"
+                        )
+                    )
+                }
+            }
             RiskLevel::Low => {
                 "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
                     .to_string()
@@ -1014,6 +1079,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         certificate,
         findings,
         severity_counts,
+        occurrence_counts,
         module_scores,
         overall_score,
         risk,
@@ -1211,9 +1277,15 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        assert_eq!(norm.severity_counts.high, 2);
+        // severity_counts: 2 distinct findings (one per rule + severity).
+        assert_eq!(norm.severity_counts.high, 1);
         assert_eq!(norm.severity_counts.medium, 1);
-        assert_eq!(norm.severity_counts.total, 3);
+        assert_eq!(norm.severity_counts.total, 2);
+
+        // occurrence_counts: 3 element occurrences (2 for 1.1.1 + 1 for 2.4.4).
+        assert_eq!(norm.occurrence_counts.high, 2);
+        assert_eq!(norm.occurrence_counts.medium, 1);
+        assert_eq!(norm.occurrence_counts.total, 3);
     }
 
     #[test]

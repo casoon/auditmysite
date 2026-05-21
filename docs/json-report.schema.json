@@ -8,6 +8,7 @@
   "properties": {
     "schema_version": { "type": "string", "const": "2.0" },
     "report_type": { "type": "string", "const": "single" },
+    "tool_version": { "type": "string" },
     "metadata": { "$ref": "#/$defs/metadata" },
     "summary": { "$ref": "#/$defs/summary" },
     "pages": {
@@ -53,8 +54,16 @@
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "violation_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
+        "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
         "passed_url_count": { "type": "integer", "minimum": 0 },
-        "failed_url_count": { "type": "integer", "minimum": 0 }
+        "failed_url_count": { "type": "integer", "minimum": 0 },
+        "violated_rule_count": { "type": "integer", "minimum": 0 },
+        "top_recurring_rules": { "type": "array" },
+        "performance_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "seo_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "security_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "mobile_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "performance_throttled_avg_score": { "type": "integer", "minimum": 0, "maximum": 100 }
       }
     },
     "pageEntry": {

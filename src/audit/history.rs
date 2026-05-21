@@ -540,6 +540,7 @@ mod tests {
                 low: 0,
                 total: 1,
             },
+            occurrence_counts: SeverityCounts::default(),
             module_scores: vec![],
             overall_score: 86,
             audit_flags: vec![],

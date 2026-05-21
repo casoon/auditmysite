@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`tool_version`** als Top-Level-Feld im JSON-Report — parallel zu `schema_version`/`report_type` (#247)
+- **`occurrence_counts`** auf Page- und Summary-Ebene: Element-Occurrences je Severity, getrennt von den Finding-Counts in `severity_counts` (#249)
+- **Sitemap-Aggregat**: `violated_rule_count` (dedupliziert über alle Pages) und `top_recurring_rules` (max. 10 häufigste WCAG-Verstöße) im Batch-Summary (#253)
+- **`Gesamtscore Website` / `Overall score`** als eigener Metrik-Eintrag im Single-Report-Summary (#251)
+
 ### Changed
 - **Performance-Score-Kalibrierung (#236)**: Der gemeldete Performance-Score basiert jetzt auf dem `LhMobile`-Profil (Lighthouse Mobile Preset mit Netzwerk- und CPU-Throttling) statt auf der unthrottled Desktop/Mobile-Pass-Messung. Damit produziert die Bewertung kontinuierliche Verteilungen statt pauschal 100 für schnelle Dev-Netz-Messungen. Strukturelle Performance-Daten (render_blocking, content_weight, third_party, …) bleiben aus dem unthrottled Pass. Fällt die LhMobile-LCP-Messung aus, bleibt der unthrottled Score erhalten.
+- **Performance-Score-Gewichtung (#248)**: Lighthouse-v10/v11-Gewichte (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %) mit log-normalen Score-Kurven (p10/p50-Kalibrierung); CLS > 0.5 wird hart auf 0 gecappt. Profile mit LCP > 6–7 s landen jetzt korrekt unter 50 statt in den 70ern.
+- **`severity_counts` zählt Findings** (eine Zeile pro Regel/Severity) statt Element-Occurrences; die alte Occurrence-Summierung steht weiterhin in `occurrence_counts` (#249). SiteState-, Risk- und UX/Journey-Schwellen nutzen weiterhin Occurrence-Mengen.
+- **Finding-`title`** nutzt den kundenorientierten Taxonomie-Titel statt des rohen WCAG-Engine-Namens — JSON und PDF nennen dasselbe Label (#252)
+- **PDF-„Gesamtscore"** zeigt `overall_score` (modulgewichtet) statt `accessibility_score` (#251)
+- **Risk-Level**: `legal_flags > 0` oder `blocking_issues ≥ 1` heben das Level mindestens auf Medium; Medium-Summary nennt BFSG-Relevanz und Blocker-Anzahl konsistent (#250)
+- **Pass-Kriterium** (`passed_url_count`): accessibility_score ≥ 80, keine Critical-Findings und keine WCAG-Level-A High/Critical-Findings (#253)
+
+### Fixed
+- **`detail.fix_guidance`** ist jetzt immer im JSON präsent (leeres Array bei 0 Findings) statt zu fehlen (#253)
 
 ## [0.21.0] - 2026-05-18
 

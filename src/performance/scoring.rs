@@ -59,6 +59,14 @@ impl std::fmt::Display for PerformanceGrade {
     }
 }
 
+// Lighthouse v10/v11 weights — SI (Speed Index) is not measured here, so the
+// remaining metrics are renormalized over their combined 90-point budget
+// (10 + 25 + 30 + 25). When all four are present, `overall = sum * 100 / 90`.
+const W_FCP: u32 = 10;
+const W_LCP: u32 = 25;
+const W_TBT: u32 = 30;
+const W_CLS: u32 = 25;
+
 /// Performance score with breakdown
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceScore {
@@ -68,11 +76,11 @@ pub struct PerformanceScore {
     pub grade: PerformanceGrade,
     /// LCP score contribution (0-25); None = metric not measured
     pub lcp_score: Option<u32>,
-    /// FCP score contribution (0-25); None = metric not measured
+    /// FCP score contribution (0-10); None = metric not measured
     pub fcp_score: Option<u32>,
     /// CLS score contribution (0-25); None = metric not measured
     pub cls_score: Option<u32>,
-    /// TBT score contribution (0-25); None = metric not measured
+    /// TBT score contribution (0-30); None = metric not measured
     pub interactivity_score: Option<u32>,
     /// Number of metrics that were actually measured (0-4)
     pub metrics_available: u32,
@@ -80,14 +88,8 @@ pub struct PerformanceScore {
 
 /// Calculate performance score from Web Vitals.
 ///
-/// Scoring weights:
-/// - LCP: 25%
-/// - FCP: 25%
-/// - CLS: 25%
-/// - TBT: 25%
-///
-/// The overall score is normalized to the metrics that were actually measured,
-/// so a page with only LCP + FCP available scores out of 50 (not 100).
+/// Weights follow Lighthouse v10/v11 (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %).
+/// The overall score is normalized to the metrics that were actually measured.
 pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
     let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value));
     let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value));
@@ -96,19 +98,32 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
 
     let mut total = 0u32;
     let mut max_possible = 0u32;
-    for s in [lcp_score, fcp_score, cls_score, interactivity_score]
-        .into_iter()
-        .flatten()
-    {
+    let mut metrics_available = 0u32;
+    if let Some(s) = lcp_score {
         total += s;
-        max_possible += 25;
+        max_possible += W_LCP;
+        metrics_available += 1;
+    }
+    if let Some(s) = fcp_score {
+        total += s;
+        max_possible += W_FCP;
+        metrics_available += 1;
+    }
+    if let Some(s) = cls_score {
+        total += s;
+        max_possible += W_CLS;
+        metrics_available += 1;
+    }
+    if let Some(s) = interactivity_score {
+        total += s;
+        max_possible += W_TBT;
+        metrics_available += 1;
     }
 
     let overall = (total * 100)
         .checked_div(max_possible)
         .map(|n| n.min(100))
         .unwrap_or(0);
-    let metrics_available = max_possible / 25;
     let grade = PerformanceGrade::from_score(overall);
 
     PerformanceScore {
@@ -122,71 +137,69 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
     }
 }
 
-/// Score LCP (0-25)
-/// Good: ≤2500ms, Poor: >4000ms
+/// Lighthouse-style log-normal score in [0, max_points].
+///
+/// Matches the Lighthouse v10/v11 formulation: the cumulative log-normal
+/// distribution with median = p50 and a sigma calibrated so that the score
+/// at p10 is exactly 0.9. score = 1 − Φ((ln(value) − ln(p50)) / σ).
+fn log_normal_score(value: f64, p10: f64, p50: f64, max_points: u32) -> u32 {
+    if value <= 0.0 {
+        return max_points;
+    }
+    // Z-score for the 90th percentile of the standard normal (≈ 1.2816).
+    const Z90: f64 = 1.2815515655446004;
+    let p10_log = p10.ln();
+    let p50_log = p50.ln();
+    let value_log = value.ln();
+    let sigma = (p50_log - p10_log).abs() / Z90;
+    let z = (value_log - p50_log) / sigma;
+    let s = (1.0 - standard_normal_cdf(z)).clamp(0.0, 1.0);
+    (s * max_points as f64).round() as u32
+}
+
+/// Standard normal CDF Φ(x) = ½·(1 + erf(x/√2)).
+fn standard_normal_cdf(x: f64) -> f64 {
+    0.5 * (1.0 + erf(x / std::f64::consts::SQRT_2))
+}
+
+/// Abramowitz & Stegun 7.1.26 approximation of erf — accurate enough for
+/// Lighthouse-style scoring, no external dependency required.
+fn erf(x: f64) -> f64 {
+    let sign = if x < 0.0 { -1.0 } else { 1.0 };
+    let x = x.abs();
+    let a1 = 0.254829592;
+    let a2 = -0.284496736;
+    let a3 = 1.421413741;
+    let a4 = -1.453152027;
+    let a5 = 1.061405429;
+    let p = 0.3275911;
+    let t = 1.0 / (1.0 + p * x);
+    let y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * (-x * x).exp();
+    sign * y
+}
+
+/// Score LCP (0-25). Lighthouse curve: p10=2500 ms, p50=4000 ms.
 fn score_lcp(ms: f64) -> u32 {
-    if ms <= 1200.0 {
-        25
-    } else if ms <= 2500.0 {
-        // Linear interpolation 25->20
-        25 - ((ms - 1200.0) / 260.0) as u32
-    } else if ms <= 4000.0 {
-        // Linear interpolation 20->10
-        20 - ((ms - 2500.0) / 150.0) as u32
-    } else if ms <= 6000.0 {
-        // Linear interpolation 10->0
-        10 - ((ms - 4000.0) / 200.0) as u32
-    } else {
-        0
-    }
+    log_normal_score(ms, 2500.0, 4000.0, W_LCP)
 }
 
-/// Score FCP (0-25)
-/// Good: ≤1800ms, Poor: >3000ms
+/// Score FCP (0-10). Lighthouse curve: p10=1800 ms, p50=3000 ms.
 fn score_fcp(ms: f64) -> u32 {
-    if ms <= 1000.0 {
-        25
-    } else if ms <= 1800.0 {
-        25 - ((ms - 1000.0) / 160.0) as u32
-    } else if ms <= 3000.0 {
-        20 - ((ms - 1800.0) / 120.0) as u32
-    } else if ms <= 5000.0 {
-        10 - ((ms - 3000.0) / 200.0) as u32
-    } else {
-        0
-    }
+    log_normal_score(ms, 1800.0, 3000.0, W_FCP)
 }
 
-/// Score CLS (0-25)
-/// Good: ≤0.1, Poor: >0.25
+/// Score CLS (0-25). Lighthouse curve: p10=0.1, p50=0.25.
+/// CLS above 0.5 is capped to zero independent of the curve.
 fn score_cls(value: f64) -> u32 {
-    if value <= 0.05 {
-        25
-    } else if value <= 0.1 {
-        25 - ((value - 0.05) * 100.0) as u32
-    } else if value <= 0.25 {
-        20 - ((value - 0.1) * 66.0) as u32
-    } else if value <= 0.5 {
-        10 - ((value - 0.25) * 40.0) as u32
-    } else {
-        0
+    if value > 0.5 {
+        return 0;
     }
+    log_normal_score(value.max(0.0001), 0.1, 0.25, W_CLS)
 }
 
-/// Score TBT (0-25)
-/// Good: ≤200ms, Poor: >500ms
+/// Score TBT (0-30). Lighthouse curve: p10=200 ms, p50=600 ms.
 fn score_interactivity(ms: f64) -> u32 {
-    if ms <= 100.0 {
-        25
-    } else if ms <= 200.0 {
-        25 - ((ms - 100.0) / 20.0) as u32
-    } else if ms <= 500.0 {
-        20 - ((ms - 200.0) / 30.0) as u32
-    } else if ms <= 1000.0 {
-        10 - ((ms - 500.0) / 50.0) as u32
-    } else {
-        0
-    }
+    log_normal_score(ms.max(1.0), 200.0, 600.0, W_TBT)
 }
 
 #[cfg(test)]
@@ -208,14 +221,46 @@ mod tests {
 
     #[test]
     fn test_score_lcp_good() {
+        // p10 = 2500 ms → ~90 % of max → ~22-23 out of 25.
+        assert!(score_lcp(2500.0) >= 22);
         assert_eq!(score_lcp(1000.0), 25);
-        assert!(score_lcp(2000.0) >= 20);
     }
 
     #[test]
     fn test_score_lcp_poor() {
-        assert!(score_lcp(5000.0) < 10);
-        assert_eq!(score_lcp(10000.0), 0);
+        // p50 = 4000 ms → ~50 % of max → ~12-13 out of 25.
+        let s_p50 = score_lcp(4000.0);
+        assert!(s_p50 >= 10 && s_p50 <= 14, "p50 score was {}", s_p50);
+        // Lighthouse-parity expectation: LCP > 6 s yields a tiny score (≤ 5/25).
+        assert!(score_lcp(7000.0) <= 5);
+        assert!(score_lcp(10000.0) <= 1);
+    }
+
+    #[test]
+    fn test_score_cls_lighthouse_parity() {
+        // p10 = 0.1 → ~90 % → ~22-23 / 25
+        assert!(score_cls(0.1) >= 22);
+        // p50 = 0.25 → ~50 % → ~12-13 / 25
+        let s_p50 = score_cls(0.25);
+        assert!(s_p50 >= 10 && s_p50 <= 14);
+        // Extreme CLS (> 0.5) must hard-cap to zero.
+        assert_eq!(score_cls(1.7), 0);
+    }
+
+    #[test]
+    fn test_overall_caps_when_lcp_is_extreme() {
+        // amazon.de-like profile: LCP = 7432, CLS = 0.04, FCP ≈ 2400, TBT ≈ 800.
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(7432.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(2400.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.04, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(800.0, 200.0, 600.0)),
+            ..Default::default()
+        };
+        let s = calculate_performance_score(&vitals);
+        // Issue #248: a profile with LCP > 7 s should land well below 50,
+        // not in the 70s as the old weighting allowed.
+        assert!(s.overall < 50, "overall was {}", s.overall);
     }
 
     #[test]

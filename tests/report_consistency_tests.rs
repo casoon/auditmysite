@@ -297,42 +297,54 @@ fn test_severity_counts_match_findings() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
-    let mut critical_from_findings = 0usize;
-    let mut high_from_findings = 0usize;
-    let mut medium_from_findings = 0usize;
-    let mut low_from_findings = 0usize;
+    // severity_counts: zählt Findings (eine Zeile pro Regel/Severity).
+    // occurrence_counts: summiert occurrence_count über alle Findings.
+    let mut findings_critical = 0usize;
+    let mut findings_high = 0usize;
+    let mut findings_medium = 0usize;
+    let mut findings_low = 0usize;
+    let mut occ_critical = 0usize;
+    let mut occ_high = 0usize;
+    let mut occ_medium = 0usize;
+    let mut occ_low = 0usize;
 
-    for f in &normalized.findings {
+    for f in normalized.findings.iter().filter(|f| f.category == "wcag") {
         match f.severity {
-            Severity::Critical => critical_from_findings += f.occurrence_count,
-            Severity::High => high_from_findings += f.occurrence_count,
-            Severity::Medium => medium_from_findings += f.occurrence_count,
-            Severity::Low => low_from_findings += f.occurrence_count,
+            Severity::Critical => {
+                findings_critical += 1;
+                occ_critical += f.occurrence_count;
+            }
+            Severity::High => {
+                findings_high += 1;
+                occ_high += f.occurrence_count;
+            }
+            Severity::Medium => {
+                findings_medium += 1;
+                occ_medium += f.occurrence_count;
+            }
+            Severity::Low => {
+                findings_low += 1;
+                occ_low += f.occurrence_count;
+            }
         }
     }
 
+    assert_eq!(normalized.severity_counts.critical, findings_critical);
+    assert_eq!(normalized.severity_counts.high, findings_high);
+    assert_eq!(normalized.severity_counts.medium, findings_medium);
+    assert_eq!(normalized.severity_counts.low, findings_low);
     assert_eq!(
-        normalized.severity_counts.critical, critical_from_findings,
-        "Critical count mismatch"
-    );
-    assert_eq!(
-        normalized.severity_counts.high, high_from_findings,
-        "High count mismatch"
-    );
-    assert_eq!(
-        normalized.severity_counts.medium, medium_from_findings,
-        "Medium count mismatch"
-    );
-    assert_eq!(
-        normalized.severity_counts.low, low_from_findings,
-        "Low count mismatch"
+        normalized.severity_counts.total,
+        findings_critical + findings_high + findings_medium + findings_low
     );
 
-    let expected_total =
-        critical_from_findings + high_from_findings + medium_from_findings + low_from_findings;
+    assert_eq!(normalized.occurrence_counts.critical, occ_critical);
+    assert_eq!(normalized.occurrence_counts.high, occ_high);
+    assert_eq!(normalized.occurrence_counts.medium, occ_medium);
+    assert_eq!(normalized.occurrence_counts.low, occ_low);
     assert_eq!(
-        normalized.severity_counts.total, expected_total,
-        "Total count mismatch"
+        normalized.occurrence_counts.total,
+        occ_critical + occ_high + occ_medium + occ_low
     );
 }
 
@@ -818,13 +830,15 @@ fn test_batch_summary_uses_normalized_primary_score() {
         WcagResults::new(),
         100,
     );
-    report.score = 69.6;
+    // Score rounds to 80 — meets the new pass criterion (≥ 80, no criticals,
+    // no WCAG-A high/critical findings). See issue #253.
+    report.score = 79.6;
 
     let normalized = normalize(&report);
     let batch = BatchReport::from_reports(vec![report], vec![], 100);
 
-    assert_eq!(normalized.score, 70);
-    assert_eq!(batch.summary.average_score, 70.0);
+    assert_eq!(normalized.score, 80);
+    assert_eq!(batch.summary.average_score, 80.0);
     assert_eq!(batch.summary.passed, 1);
     assert_eq!(batch.summary.failed, 0);
 }

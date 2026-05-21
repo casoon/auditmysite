@@ -232,7 +232,10 @@ pub struct CoverBlock {
 
 /// Hero summary / Kurzfazit data
 pub struct SummaryBlock {
+    /// Accessibility-only score (corrected after suppressions).
     pub score: u32,
+    /// Module-weighted overall score across all active modules.
+    pub overall_score: u32,
     pub grade: String,
     pub certificate: String,
     /// 4-level maturity classification: "Kritisch" / "Instabil" / "Solide Basis" / "Stark"

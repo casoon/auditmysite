@@ -302,6 +302,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         },
         summary: SummaryBlock {
             score,
+            overall_score: normalized.overall_score,
             grade: grade.clone(),
             certificate: certificate.clone(),
             maturity_label: maturity_label.clone(),
@@ -345,7 +346,17 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                 } else {
                     format!("Manuell{NBSP}zu{NBSP}prüfen")
                 };
+                let label_overall_score = if en {
+                    format!("Overall{NBSP}score")
+                } else {
+                    format!("Gesamtscore{NBSP}Website")
+                };
                 vec![
+                    MetricItem {
+                        title: label_overall_score,
+                        value: normalized.overall_score.to_string(),
+                        accent_color: Some("#0f766e".into()),
+                    },
                     MetricItem {
                         title: label_violations_total,
                         value: total_violations.to_string(),

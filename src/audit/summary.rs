@@ -28,8 +28,10 @@ pub enum SiteState {
 impl SiteState {
     pub fn from_normalized(normalized: &NormalizedReport) -> Self {
         let score = normalized.score;
-        let critical = normalized.severity_counts.critical;
-        let high = normalized.severity_counts.high;
+        // Use occurrence-level counts so thresholds reflect the total mass of
+        // affected elements, not just the number of distinct rules fired.
+        let critical = normalized.occurrence_counts.critical;
+        let high = normalized.occurrence_counts.high;
         let urgent = critical + high;
 
         if score < 50 || critical >= 3 {
@@ -481,9 +483,11 @@ fn build_problem_type_label(
     dominant_issue: &Option<DominantIssue>,
     normalized: &NormalizedReport,
 ) -> String {
-    let total = normalized.severity_counts.total;
-    let critical = normalized.severity_counts.critical;
-    let high = normalized.severity_counts.high;
+    // Structural thresholds reflect element-level mass, not the number of
+    // distinct rules — keep using occurrence_counts here.
+    let total = normalized.occurrence_counts.total;
+    let critical = normalized.occurrence_counts.critical;
+    let high = normalized.occurrence_counts.high;
     let rule_count = normalized
         .findings
         .iter()
@@ -615,6 +619,27 @@ mod tests {
             .filter(|f| f.severity == Severity::Low)
             .count();
         let total = findings.len();
+        let crit_occ: usize = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let high_occ: usize = findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let medium_occ: usize = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let low_occ: usize = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .map(|f| f.occurrence_count)
+            .sum();
+        let total_occ: usize = findings.iter().map(|f| f.occurrence_count).sum();
 
         NormalizedReport {
             url: "https://example.com".into(),
@@ -633,6 +658,13 @@ mod tests {
                 medium,
                 low,
                 total,
+            },
+            occurrence_counts: SeverityCounts {
+                critical: crit_occ,
+                high: high_occ,
+                medium: medium_occ,
+                low: low_occ,
+                total: total_occ,
             },
             module_scores: vec![],
             audit_flags: vec![],
