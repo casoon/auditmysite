@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -eu
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+if [ "${SKIP_RUST_CHECKS:-0}" = "1" ]; then
+  echo "pre-push: skipping Rust checks because SKIP_RUST_CHECKS=1"
+  exit 0
+fi
+
+"$REPO_ROOT/scripts/pre-push-check.sh"

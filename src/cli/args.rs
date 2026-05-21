@@ -1,0 +1,683 @@
+//! CLI argument parsing using clap
+//!
+//! Defines all command-line arguments and their validation.
+
+use clap::{Parser, Subcommand, ValueEnum};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+/// AuditMySite - Resource-efficient WCAG 2.1 Accessibility Checker
+///
+/// Analyzes web pages for WCAG accessibility violations using
+/// Chrome DevTools Protocol and the Accessibility Tree.
+#[derive(Parser, Debug, Clone)]
+#[command(
+    name = "auditmysite",
+    version,
+    author,
+    about = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust",
+    long_about = "AuditMySite analyzes web pages for WCAG 2.1 accessibility violations.\n\n\
+It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
+- Missing alt text on images (1.1.1)\n\
+- Heading hierarchy issues (2.4.6)\n\
+- Unlabeled form controls (4.1.2)\n\
+- Insufficient color contrast (1.4.3)\n\n\
+Supported output formats: json, table, pdf, ai.\n\
+Supported inputs: a single URL, --sitemap, or --url-file.\n\n\
+Default single-URL behavior: generate a PDF report in the current directory."
+)]
+pub struct Args {
+    /// Subcommand
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
+    /// URL to audit (single page)
+    ///
+    /// Example: https://example.com
+    #[arg(value_name = "URL")]
+    pub url: Option<String>,
+
+    /// Sitemap URL to audit all pages
+    ///
+    /// Example: --sitemap https://example.com/sitemap.xml
+    #[arg(short = 's', long, value_name = "SITEMAP_URL", global = true)]
+    pub sitemap: Option<String>,
+
+    /// File containing URLs to audit (one per line)
+    ///
+    /// Example: --url-file urls.txt
+    #[arg(short = 'u', long, value_name = "FILE", global = true)]
+    pub url_file: Option<PathBuf>,
+
+    /// Crawl a site from the given base URL and discover same-domain pages automatically.
+    ///
+    /// NOTE: Crawl mode sends additional HTTP requests beyond the browser-based audit —
+    /// one HEAD/GET per discovered link (including external links up to a cap of 100 unique targets).
+    /// This generates observable traffic to third-party domains and increases audit time.
+    /// Use --crawl deliberately, not in every CI run, to avoid repeated external traffic.
+    #[arg(long, global = true)]
+    pub crawl: bool,
+
+    /// WCAG conformance level to check.
+    ///
+    /// `A` checks only level A.
+    /// `AA` checks level A and AA.
+    /// `AAA` checks levels A, AA, and AAA.
+    #[arg(short = 'l', long, default_value = "aa", value_enum)]
+    pub level: WcagLevel,
+
+    /// Output format: `json`, `table`, `pdf`, or `ai`.
+    ///
+    /// Default for a single URL without `-f`: `pdf`.
+    /// Default for batch inputs without `-f`: `table`.
+    #[arg(short = 'f', long, value_enum, global = true)]
+    pub format: Option<OutputFormat>,
+
+    /// Output file path.
+    ///
+    /// Single URL + default PDF mode writes to `./<domain>-<date>-<report-level>.pdf`.
+    /// JSON without `-o` prints to stdout.
+    /// With `--per-page-reports`, `-o` is treated as the target directory.
+    #[arg(short = 'o', long, value_name = "FILE", global = true)]
+    pub output: Option<PathBuf>,
+
+    /// Custom browser binary path (overrides auto-detection)
+    ///
+    /// Can also be set via AUDITMYSITE_BROWSER or CHROME_PATH env var.
+    #[arg(
+        long = "browser-path",
+        alias = "chrome-path",
+        value_name = "PATH",
+        env = "AUDITMYSITE_BROWSER"
+    )]
+    pub chrome_path: Option<String>,
+
+    /// Remote debugging port for existing Chrome instance
+    ///
+    /// Connect to Chrome started with: --remote-debugging-port=9222
+    #[arg(long, value_name = "PORT")]
+    pub remote_debugging_port: Option<u16>,
+
+    /// Maximum number of pages to audit (0 = unlimited)
+    #[arg(
+        short = 'm',
+        long,
+        default_value = "0",
+        value_name = "NUM",
+        global = true
+    )]
+    pub max_pages: usize,
+
+    /// Maximum crawl depth for `--crawl` (BFS levels from seed URL).
+    ///
+    /// Depth 1 = only links on the seed page. Depth 2 = seed + one level deeper.
+    /// Higher values multiply the number of HTTP link-check requests.
+    #[arg(long, default_value = "2", value_name = "NUM")]
+    pub crawl_depth: usize,
+
+    /// Number of concurrent browser tabs [default: 3]
+    #[arg(short = 'c', long, value_name = "NUM")]
+    pub concurrency: Option<usize>,
+
+    /// Page load timeout in seconds [default: 30]
+    #[arg(short = 't', long, value_name = "SECS")]
+    pub timeout: Option<u64>,
+
+    /// Disable sandbox mode (required for Docker/root)
+    ///
+    /// WARNING: Reduces security. Only use in containerized environments.
+    #[arg(long)]
+    pub no_sandbox: bool,
+
+    /// Disable loading images (faster but no contrast check)
+    #[arg(long)]
+    pub disable_images: bool,
+
+    /// Verbose output (show progress and debug info)
+    #[arg(short = 'v', long)]
+    pub verbose: bool,
+
+    /// Quiet mode (only show errors)
+    #[arg(short = 'q', long, global = true)]
+    pub quiet: bool,
+
+    /// Detect Chrome and print path (then exit)
+    #[arg(long)]
+    pub detect_chrome: bool,
+
+    /// Run all checks (Performance + SEO + Security + Mobile)
+    ///
+    /// This is already the default for standard single-page audits.
+    #[arg(long, global = true)]
+    pub full: bool,
+
+    /// Enable performance analysis (Core Web Vitals)
+    #[arg(long)]
+    pub performance: bool,
+
+    /// Skip performance analysis even when --full is used
+    #[arg(long)]
+    pub skip_performance: bool,
+
+    /// Enable SEO analysis (meta tags, headings, schema.org)
+    #[arg(long)]
+    pub seo: bool,
+
+    /// Enable security header analysis
+    #[arg(long)]
+    pub security: bool,
+
+    /// Enable mobile friendliness check
+    #[arg(long)]
+    pub mobile: bool,
+
+    /// Skip mobile analysis even when --full is used
+    #[arg(long)]
+    pub skip_mobile: bool,
+
+    /// Attempt to dismiss cookie consent banners before auditing.
+    ///
+    /// Injects known CMP consent cookies before navigation and clicks
+    /// accept buttons if a banner is still detected after load.
+    /// Without this flag, detected banners are reported as audit_flags.
+    #[arg(long)]
+    pub dismiss_consent: bool,
+
+    /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
+    #[arg(long)]
+    pub stack: bool,
+
+    /// Reuse cached artifacts from previous runs when available
+    #[arg(long)]
+    pub reuse_cache: bool,
+
+    /// Ignore cache and force a fresh crawl
+    #[arg(long)]
+    pub force_refresh: bool,
+
+    /// Do not suggest scanning a discovered sitemap for base URLs
+    #[arg(long)]
+    pub no_sitemap_suggest: bool,
+
+    /// If a populated sitemap is discovered for a base URL, scan it directly
+    #[arg(long)]
+    pub prefer_sitemap: bool,
+
+    /// For sitemap or URL-file inputs, generate one single-page report per URL
+    ///
+    /// Batch inputs normally create one aggregated domain report. With this flag,
+    /// auditmysite still scans all URLs but writes individual reports per page.
+    #[arg(long)]
+    pub per_page_reports: bool,
+
+    /// PDF detail level: `executive`, `standard`, or `technical`.
+    #[arg(long, default_value = "standard", value_enum, global = true)]
+    pub report_level: ReportLevel,
+
+    /// Report language (PDF text i18n)
+    #[arg(long, default_value = "de", value_parser = ["de", "en"], global = true)]
+    pub lang: String,
+
+    /// Also write a JSON report alongside the primary output format.
+    ///
+    /// When combined with `--format pdf`, writes a `.json` file next to the PDF
+    /// without running a second audit. Useful for both single and batch modes.
+    #[arg(long, global = true)]
+    pub also_json: bool,
+
+    /// Logo image path for PDF cover page
+    #[arg(long, value_name = "PATH")]
+    pub logo: Option<PathBuf>,
+
+    /// Audit multiple domains and compare them side-by-side
+    ///
+    /// Example: --compare https://a.com https://b.com https://c.com
+    #[arg(long, value_name = "URL", num_args = 2..=10)]
+    pub compare: Vec<String>,
+
+    /// Hidden: with `--format pdf`, also write the intermediate Typst source as a
+    /// `.typ` sidecar next to the PDF (single + batch). For template/wording review.
+    #[arg(long, hide = true, global = true)]
+    pub debug_typ: bool,
+}
+
+/// Subcommands
+#[derive(Subcommand, Debug, Clone)]
+pub enum Command {
+    /// Manage browser detection and installation
+    Browser {
+        #[command(subcommand)]
+        action: BrowserAction,
+    },
+    /// Run diagnostics and check system health
+    Doctor,
+    /// Show what an audit would do (mode, scope, modules, output paths) without
+    /// running it.
+    Plan {
+        /// URL to plan an audit for (required unless --sitemap or --url-file is set)
+        url: Option<String>,
+    },
+}
+
+/// Browser management actions
+#[derive(Subcommand, Debug, Clone)]
+pub enum BrowserAction {
+    /// Detect all installed browsers
+    Detect,
+    /// Install Chrome for Testing
+    Install {
+        /// Install headless-shell instead (smaller, faster)
+        #[arg(long)]
+        headless_shell: bool,
+        /// Install specific version (default: latest stable)
+        #[arg(long)]
+        version: Option<String>,
+        /// Force reinstall even if already present
+        #[arg(long)]
+        force: bool,
+    },
+    /// Remove managed browser installation
+    Remove {
+        /// Remove all managed browsers
+        #[arg(long)]
+        all: bool,
+    },
+    /// Print path of the active browser
+    Path,
+}
+
+/// WCAG conformance levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum WcagLevel {
+    /// Level A - Minimum conformance
+    #[value(name = "a", alias = "A")]
+    A,
+    /// Level AA - Recommended conformance (default)
+    #[value(name = "aa", alias = "AA")]
+    AA,
+    /// Level AAA - Maximum conformance
+    #[value(name = "aaa", alias = "AAA")]
+    AAA,
+}
+
+impl std::fmt::Display for WcagLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WcagLevel::A => write!(f, "A"),
+            WcagLevel::AA => write!(f, "AA"),
+            WcagLevel::AAA => write!(f, "AAA"),
+        }
+    }
+}
+
+/// Output format options
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OutputFormat {
+    /// JSON output (machine-readable)
+    #[value(name = "json")]
+    Json,
+    /// CLI table output (human-readable)
+    #[value(name = "table")]
+    Table,
+    /// PDF report output (via Typst)
+    #[value(name = "pdf")]
+    Pdf,
+    /// AI/LLM-optimised JSON output (task-oriented, impact-sorted)
+    #[value(name = "ai")]
+    Ai,
+    /// Compact summary JSON for ranking dashboards (lastAudit-compatible)
+    #[value(name = "summary")]
+    Summary,
+}
+
+/// Report detail level for PDF reports
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+pub enum ReportLevel {
+    /// Executive summary — compact overview for management
+    #[value(name = "executive")]
+    Executive,
+    /// Standard report — all chapters (default)
+    #[default]
+    #[value(name = "standard")]
+    Standard,
+    /// Technical report — extended appendix with full details
+    #[value(name = "technical")]
+    Technical,
+}
+
+impl std::fmt::Display for ReportLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReportLevel::Executive => write!(f, "executive"),
+            ReportLevel::Standard => write!(f, "standard"),
+            ReportLevel::Technical => write!(f, "technical"),
+        }
+    }
+}
+
+impl std::fmt::Display for OutputFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OutputFormat::Json => write!(f, "json"),
+            OutputFormat::Table => write!(f, "table"),
+            OutputFormat::Pdf => write!(f, "pdf"),
+            OutputFormat::Ai => write!(f, "ai"),
+            OutputFormat::Summary => write!(f, "summary"),
+        }
+    }
+}
+
+impl Args {
+    /// Returns the effective timeout in seconds (CLI value or default 30).
+    pub fn effective_timeout(&self) -> u64 {
+        self.timeout.unwrap_or(30)
+    }
+
+    /// Returns the effective concurrency (CLI value or default 3).
+    pub fn effective_concurrency(&self) -> usize {
+        self.concurrency.unwrap_or(3)
+    }
+
+    pub fn effective_format(&self) -> OutputFormat {
+        match self.format {
+            Some(format) => format,
+            None if !self.compare.is_empty() => OutputFormat::Pdf,
+            None if self.per_page_reports => OutputFormat::Pdf,
+            None if self.url.is_some() => OutputFormat::Pdf,
+            None => OutputFormat::Table,
+        }
+    }
+
+    pub fn full_audit_enabled(&self) -> bool {
+        self.full
+            || (!self.performance
+                && !self.seo
+                && !self.security
+                && !self.mobile
+                && !self.skip_performance
+                && !self.skip_mobile)
+    }
+
+    /// Validate arguments
+    pub fn validate(&self) -> Result<(), String> {
+        // Subcommands don't need URL validation
+        if self.command.is_some() {
+            return Ok(());
+        }
+
+        // --compare mode: validate compare URLs and no other input source
+        if !self.compare.is_empty() {
+            let other_inputs = self.url.is_some()
+                || self.sitemap.is_some()
+                || self.url_file.is_some()
+                || self.crawl;
+            if other_inputs {
+                return Err(
+                    "--compare cannot be combined with URL, --sitemap, --url-file, or --crawl."
+                        .to_string(),
+                );
+            }
+            for url in &self.compare {
+                url::Url::parse(url)
+                    .map_err(|e| format!("Invalid compare URL '{}': {}", url, e))?;
+            }
+            // Skip remaining validation for compare mode
+            if self.verbose && self.quiet {
+                return Err("Cannot use --verbose and --quiet together".to_string());
+            }
+            return Ok(());
+        }
+
+        // At least one input source required (unless --detect-chrome)
+        if !self.detect_chrome
+            && self.url.is_none()
+            && self.sitemap.is_none()
+            && self.url_file.is_none()
+        {
+            return Err("No input specified. Provide a URL, --sitemap, or --url-file.".to_string());
+        }
+
+        // Cannot specify multiple input sources
+        let input_count = [
+            self.url.is_some(),
+            self.sitemap.is_some(),
+            self.url_file.is_some(),
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count();
+
+        if input_count > 1 {
+            return Err(
+                "Only one input source allowed. Use URL, --sitemap, OR --url-file.".to_string(),
+            );
+        }
+
+        if self.crawl && self.url.is_none() {
+            return Err("--crawl requires a base URL input".to_string());
+        }
+
+        if self.crawl && (self.sitemap.is_some() || self.url_file.is_some()) {
+            return Err("--crawl can only be combined with a single base URL".to_string());
+        }
+
+        // Validate URL format if provided
+        if let Some(ref url) = self.url {
+            url::Url::parse(url).map_err(|e| format!("Invalid URL '{}': {}", url, e))?;
+        }
+
+        // Validate sitemap URL format if provided
+        if let Some(ref sitemap) = self.sitemap {
+            url::Url::parse(sitemap)
+                .map_err(|e| format!("Invalid sitemap URL '{}': {}", sitemap, e))?;
+        }
+
+        // Validate URL file exists
+        if let Some(ref file) = self.url_file {
+            if !file.exists() {
+                return Err(format!("URL file not found: {:?}", file));
+            }
+        }
+
+        // Validate concurrency
+        let concurrency = self.effective_concurrency();
+        if concurrency == 0 {
+            return Err("Concurrency must be at least 1".to_string());
+        }
+        if concurrency > 10 {
+            return Err("Concurrency cannot exceed 10".to_string());
+        }
+
+        if self.crawl_depth == 0 {
+            return Err("Crawl depth must be at least 1".to_string());
+        }
+
+        // Cannot be both verbose and quiet
+        if self.verbose && self.quiet {
+            return Err("Cannot use --verbose and --quiet together".to_string());
+        }
+
+        if self.reuse_cache && self.force_refresh {
+            return Err("Cannot use --reuse-cache and --force-refresh together".to_string());
+        }
+
+        if self.no_sitemap_suggest && self.prefer_sitemap {
+            return Err(
+                "Cannot use --no-sitemap-suggest and --prefer-sitemap together".to_string(),
+            );
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_wcag_level_display() {
+        assert_eq!(WcagLevel::A.to_string(), "A");
+        assert_eq!(WcagLevel::AA.to_string(), "AA");
+        assert_eq!(WcagLevel::AAA.to_string(), "AAA");
+    }
+
+    #[test]
+    fn test_output_format_display() {
+        assert_eq!(OutputFormat::Json.to_string(), "json");
+        assert_eq!(OutputFormat::Table.to_string(), "table");
+        assert_eq!(OutputFormat::Pdf.to_string(), "pdf");
+    }
+
+    #[test]
+    fn test_help_does_not_reference_removed_formats_or_flags() {
+        let mut command = Args::command();
+        let help = command.render_long_help().to_string();
+
+        assert!(help.contains("--browser-path"));
+        assert!(help.contains("--url-file"));
+        assert!(help.contains("json"));
+        assert!(help.contains("table"));
+        assert!(help.contains("pdf"));
+        assert!(help.contains(
+            "Default single-URL behavior: generate a PDF report in the current directory."
+        ));
+        assert!(!help.contains("html"));
+        assert!(!help.contains("markdown"));
+        assert!(!help.contains("--urls"));
+    }
+
+    fn test_args(url: Option<&str>) -> Args {
+        Args {
+            command: None,
+            url: url.map(|s| s.to_string()),
+            sitemap: None,
+            url_file: None,
+            crawl: false,
+            level: WcagLevel::AA,
+            format: None,
+            output: None,
+            chrome_path: None,
+            remote_debugging_port: None,
+            max_pages: 0,
+            crawl_depth: 2,
+            concurrency: None,
+            timeout: None,
+            no_sandbox: false,
+            disable_images: false,
+            verbose: false,
+            quiet: false,
+            detect_chrome: false,
+            full: false,
+            performance: false,
+            skip_performance: false,
+            seo: false,
+            security: false,
+            mobile: false,
+            skip_mobile: false,
+            stack: false,
+            reuse_cache: false,
+            force_refresh: false,
+            no_sitemap_suggest: false,
+            prefer_sitemap: false,
+            per_page_reports: false,
+            dismiss_consent: false,
+            report_level: ReportLevel::Standard,
+            lang: "de".to_string(),
+            also_json: false,
+            logo: None,
+            compare: vec![],
+            debug_typ: false,
+        }
+    }
+
+    #[test]
+    fn test_validate_no_input() {
+        assert!(test_args(None).validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_with_url() {
+        assert!(test_args(Some("https://example.com")).validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_invalid_url() {
+        assert!(test_args(Some("not-a-valid-url")).validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_verbose_and_quiet() {
+        let mut args = test_args(Some("https://example.com"));
+        args.verbose = true;
+        args.quiet = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_reuse_and_force_refresh_conflict() {
+        let mut args = test_args(Some("https://example.com"));
+        args.reuse_cache = true;
+        args.force_refresh = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_sitemap_suggest_flags_conflict() {
+        let mut args = test_args(Some("https://example.com"));
+        args.no_sitemap_suggest = true;
+        args.prefer_sitemap = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_requires_url() {
+        let mut args = test_args(None);
+        args.crawl = true;
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_crawl_conflicts_with_sitemap() {
+        let mut args = test_args(Some("https://example.com"));
+        args.crawl = true;
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        assert!(args.validate().is_err());
+    }
+
+    #[test]
+    fn test_effective_format_defaults_to_pdf_for_single_url() {
+        let args = test_args(Some("https://example.com"));
+        assert_eq!(args.effective_format(), OutputFormat::Pdf);
+    }
+
+    #[test]
+    fn test_effective_format_defaults_to_table_for_batch() {
+        let mut args = test_args(None);
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        assert_eq!(args.effective_format(), OutputFormat::Table);
+    }
+
+    #[test]
+    fn test_effective_format_defaults_to_pdf_for_per_page_batch_reports() {
+        let mut args = test_args(None);
+        args.sitemap = Some("https://example.com/sitemap.xml".to_string());
+        args.per_page_reports = true;
+        assert_eq!(args.effective_format(), OutputFormat::Pdf);
+    }
+
+    #[test]
+    fn test_full_audit_enabled_by_default() {
+        let args = test_args(Some("https://example.com"));
+        assert!(args.full_audit_enabled());
+    }
+
+    #[test]
+    fn test_full_audit_disabled_when_only_skip_flags_are_used() {
+        let mut args = test_args(Some("https://example.com"));
+        args.skip_mobile = true;
+        assert!(!args.full_audit_enabled());
+    }
+}

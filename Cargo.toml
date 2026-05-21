@@ -1,0 +1,96 @@
+[package]
+name = "auditmysite"
+version = "0.27.0"
+edition = "2021"
+authors = ["Casoon"]
+description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
+license = "BUSL-1.1"
+repository = "https://github.com/casoon/auditmysite"
+homepage = "https://www.casoon.de"
+documentation = "https://auditmysite.casoon.dev/"
+keywords = ["accessibility", "wcag", "a11y", "audit", "chrome"]
+categories = ["command-line-utilities", "web-programming"]
+readme = "README.md"
+
+[dependencies]
+# Browser automation via Chrome DevTools Protocol
+chromiumoxide = { version = "0.8", default-features = false, features = ["tokio-runtime"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "process", "io-util", "fs"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Output formatting
+colored = "2.0"
+comfy-table = "7"
+indicatif = "0.17"
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
+
+# URL handling
+url = "2.5"
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# HTTP client (for sitemap fetching and Chromium download)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream", "gzip"] }
+
+# Zip extraction for Chromium installer
+zip = "2.2"
+
+# Home directory detection
+dirs = "5.0"
+
+# Config file parsing
+toml = "0.8"
+
+# Local HTML5 validation (replaces remote W3C/Nu validator)
+html5ever = "0.27"
+markup5ever_rcdom = "0.3"
+
+# i18n (Project Fluent)
+fluent-bundle = "0.15"
+fluent-syntax = "0.11"
+unic-langid = "0.9"
+
+# PDF report generation via Typst.
+renderreport = { version = "0.2.17", optional = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"
+jsonschema = "0.18"
+lopdf = "0.34"
+insta = { version = "1", features = ["json"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[[bin]]
+name = "auditmysite"
+path = "src/main.rs"
+
+[features]
+default = ["pdf"]
+pdf = ["dep:renderreport"]
+# Enables the heavy PDF smoke tests (Typst rendering). Run separately:
+#   cargo test --features pdf_test -- --test-threads=1
+pdf_test = ["pdf"]

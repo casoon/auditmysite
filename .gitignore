@@ -1,0 +1,57 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.claude/worktrees/
+
+# Testing
+*.profraw
+*.profdata
+
+# Output
+/reports/
+!reports/README.md
+*.json
+*.html
+!tests/fixtures/*.html
+!scripts/package-lock.json
+
+# Logs
+*.log
+
+# Build artifacts
+auditmysit
+*.exe
+
+# Distribution
+/dist/
+
+# Coverage
+/coverage/
+tarpaulin-report.html
+
+# Local cargo config (patch overrides for development)
+/.cargo/config.toml
+
+# Temporary
+/tmp/
+*.tmp
+plans/
+todo.md
+
+# Node (scripts/ and root)
+/node_modules/
+/package-lock.json
+scripts/node_modules/
+!scripts/package.json

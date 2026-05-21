@@ -1,0 +1,130 @@
+Business Source License 1.1
+
+License text copyright (c) 2024 MariaDB plc, All Rights Reserved.
+"Business Source License" is a trademark of MariaDB plc.
+
+Licensor: Casoon
+
+Licensed Work: auditmysite. The Licensed Work includes the source code,
+documentation, examples, build scripts, release artifacts, and other materials
+made available in this repository, except where a file or directory states a
+different license.
+
+Additional Use Grant:
+
+You may make production use of the Licensed Work only for Permitted Internal
+Use.
+
+"Permitted Internal Use" means use of the Licensed Work by you, your employees,
+contractors, and agents for your own internal development, testing, security,
+accessibility, compliance, quality assurance, continuous integration, reporting,
+and operational workflows, provided that you do not:
+
+1. offer, sell, resell, host, provide, or make available the Licensed Work, or
+   substantially similar functionality based on the Licensed Work, to third
+   parties as a managed service, hosted service, software-as-a-service,
+   platform-as-a-service, product, commercial API, or other commercial offering;
+2. use the Licensed Work to provide website, application, accessibility, audit,
+   compliance, monitoring, reporting, or analysis services to third parties as a
+   paid or commercial service, unless you have a separate commercial license
+   from the Licensor;
+3. remove, obscure, or alter copyright, license, attribution, or source-available
+   notices in the Licensed Work;
+4. use the Licensed Work, or any source code, documentation, examples, generated
+   source representations, parse trees, code tokens, metadata, outputs derived
+   from source inspection, or other materials from the Licensed Work, for AI
+   training, machine learning training, fine-tuning, embedding generation,
+   vector database ingestion, dataset generation, automated code ingestion,
+   model evaluation, model benchmarking, retrieval-augmented generation
+   corpora, or any other machine learning or artificial intelligence usage,
+   unless you have a separate written license from the Licensor.
+
+For clarity, the restrictions in item 4 apply to automated systems and pipelines
+that collect, copy, index, tokenize, embed, summarize, transform, classify, or
+otherwise ingest the Licensed Work for the purpose of developing, training,
+improving, evaluating, or operating machine learning or artificial intelligence
+systems.
+
+The Additional Use Grant does not restrict uses that are already permitted by
+applicable law and cannot be restricted by contract or copyright license in the
+relevant jurisdiction.
+
+Change Date: For each version of the Licensed Work, the date that is four years
+after the first publicly available distribution of that version under this
+License. For version 0.26.0, the Change Date is 2030-05-21.
+
+Change License: Apache License, Version 2.0
+
+Terms
+
+The Licensor hereby grants you the right to copy, modify, create derivative
+works, redistribute, and make non-production use of the Licensed Work. The
+Licensor may make an Additional Use Grant, above, permitting limited production
+use.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly
+available distribution of a specific version of the Licensed Work under this
+License, whichever comes first, the Licensor hereby grants you rights under the
+terms of the Change License, and the rights granted in the paragraph above
+terminate.
+
+If your use of the Licensed Work does not comply with the requirements currently
+in effect as described in this License, you must purchase a commercial license
+from the Licensor, its affiliated entities, or authorized resellers, or you must
+refrain from using the Licensed Work.
+
+All copies of the original and modified Licensed Work, and derivative works of
+the Licensed Work, are subject to this License. This License applies separately
+for each version of the Licensed Work and the Change Date may vary for each
+version of the Licensed Work released by Licensor.
+
+You must conspicuously display this License on each original or modified copy of
+the Licensed Work. If you receive the Licensed Work in original or modified form
+from a third party, the terms and conditions set forth in this License apply to
+your use of that work.
+
+Any use of the Licensed Work in violation of this License will automatically
+terminate your rights under this License for the current and all other versions
+of the Licensed Work.
+
+This License does not grant you any right in any trademark or logo of Licensor or
+its affiliates (provided that you may use a trademark or logo of Licensor as
+expressly required by this License).
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON AN
+"AS IS" BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS, EXPRESS
+OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND TITLE.
+
+MariaDB hereby grants you permission to use this License's text to license your
+works, and to refer to it using the trademark "Business Source License", as long
+as you comply with the Covenants of Licensor below.
+
+Covenants of Licensor
+
+In consideration of the right to use this License's text and the "Business
+Source License" name and trademark, Licensor covenants to MariaDB, and to all
+other recipients of the licensed work to be provided by Licensor:
+
+To specify as the Change License the GPL Version 2.0 or any later version, or a
+license that is compatible with GPL Version 2.0 or a later version, where
+"compatible" means that software provided under the Change License can be
+included in a program with software provided under GPL Version 2.0 or a later
+version. Licensor may specify additional Change Licenses without limitation.
+
+To either: (a) specify an additional grant of rights to use that does not impose
+any additional restriction on the right granted in this License, as the
+Additional Use Grant; or (b) insert the text "None".
+
+To specify a Change Date.
+
+Not to modify this License in any other way.
+
+Notice
+
+The Business Source License (this document, or the "License") is not an Open
+Source license. However, the Licensed Work will eventually be made available
+under an Open Source License, as stated in this License.
+
+For more information on the Business Source License, please visit:
+https://mariadb.com/bsl11/

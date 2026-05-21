@@ -1,0 +1,235 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly E2E run against live Chrome (21:00 UTC = 23:00 CET)
+    - cron: '0 21 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RUST_BACKTRACE: 1
+
+jobs:
+  check:
+    name: Check & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build (without PDF)
+        run: cargo build --no-default-features
+
+      - name: Run clippy
+        run: cargo clippy --no-default-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --no-default-features -- --nocapture --test-threads=1
+
+  check-all-features:
+    name: Check & Test (all features)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-all-features-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build (all features)
+        run: cargo build --all-features
+
+      - name: Run clippy (all features)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests (all features, PDF smoke excluded)
+        run: cargo test --features pdf -- --nocapture --test-threads=1
+
+  pdf-smoke:
+    name: PDF Smoke Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-pdf-smoke-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run PDF smoke tests
+        run: cargo test --features pdf_test -- --nocapture --test-threads=1
+
+  format:
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  integration-mocked:
+    name: Mocked Integration Tests (no Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-mocked-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run mocked integration tests
+        run: cargo test --test integration_mocked --no-default-features -- --nocapture
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Measure coverage (unit tests + mocked integration)
+        run: >
+          cargo tarpaulin
+          --no-default-features
+          --tests
+          --exclude-files 'src/output/*' 'src/i18n/*'
+          --out xml
+          --output-dir coverage/
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/cobertura.xml
+          fail_ci_if_error: false
+
+  browser-smoke:
+    name: Browser Integration Tests (E2E)
+    runs-on: ubuntu-latest
+    # Run on push/PR events and on the nightly schedule
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-browser-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Run browser integration tests
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
+
+  release-build:
+    name: Release Build
+    needs: [check, check-all-features, pdf-smoke, format, integration-mocked, browser-smoke]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            cross: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (for cross-compilation)
+        if: matrix.cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build release binary (native)
+        if: "!matrix.cross"
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build release binary (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }}

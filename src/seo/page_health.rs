@@ -1,0 +1,1363 @@
+//! Page health analysis
+//!
+//! HTTP probes and DOM inspections that don't belong in the technical SEO
+//! module: soft-404 detection, meta-refresh, frames, URL structure,
+//! redirect detection, www/non-www consolidation, and basic HTML validation.
+
+use chromiumoxide::Page;
+use html5ever::{parse_document, tendril::TendrilSink};
+use markup5ever_rcdom::RcDom;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
+
+use crate::error::{AuditError, Result};
+
+/// Complete page health analysis
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PageHealthAnalysis {
+    /// HTTP status returned for a probe URL (soft-404 detection)
+    pub soft_404_status: Option<u16>,
+    /// True when the server returns 200 for non-existent URLs
+    pub is_soft_404: bool,
+
+    /// Page uses <meta http-equiv="refresh">
+    pub has_meta_refresh: bool,
+    /// Content attribute of the meta-refresh tag
+    pub meta_refresh_content: Option<String>,
+
+    /// Number of <frame> / <frameset> elements (deprecated HTML4)
+    pub frame_count: u32,
+    /// Number of <iframe> elements
+    pub iframe_count: u32,
+    /// Number of <iframe> elements pointing to a different host
+    pub cross_origin_iframe_count: u32,
+
+    /// Length of the page URL in characters
+    pub url_length: usize,
+    /// True when URL contains query parameters
+    pub url_has_query_params: bool,
+    /// True when URL has query parameters (dynamic URL)
+    pub url_is_dynamic: bool,
+    /// Number of non-empty path segments
+    pub url_path_depth: usize,
+    /// True when URL length > 115 characters
+    pub url_is_too_long: bool,
+    /// True when path depth > 5
+    pub url_is_too_deep: bool,
+
+    /// True when the browser navigated to a different URL than requested
+    pub own_redirect_detected: bool,
+    /// Final URL after navigation (when different from requested URL)
+    pub own_final_url: Option<String>,
+    /// Number of HTTP redirect hops before the final response
+    pub redirect_count: u32,
+    /// Full redirect chain (status + URL per hop, up to 10)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub redirect_chain: Vec<RedirectHop>,
+
+    /// www ↔ non-www redirect configuration
+    pub www_consolidation: Option<WwwConsolidation>,
+
+    /// Duplicate ID count across the DOM
+    pub duplicate_id_count: u32,
+    /// <img> elements missing the alt attribute
+    pub images_without_alt: u32,
+    /// <table> elements without <th> or <caption>
+    pub tables_without_headers: u32,
+    /// Empty heading elements (h1–h6)
+    pub empty_headings: u32,
+    /// Nested interactive elements (button inside button, a inside a)
+    pub nested_interactive_count: u32,
+    /// Structured list of HTML validation findings
+    pub html_issues: Vec<HtmlValidationIssue>,
+    /// Status of W3C / Nu HTML validation: "executed", "skipped", or "failed"
+    pub html_validator_status: String,
+    /// Additional detail about validator execution or skip reason
+    pub html_validator_detail: Option<String>,
+
+    /// True when a valid HTML5 `<!DOCTYPE html>` declaration is present
+    pub has_doctype: bool,
+    /// Number of inline `<script>` elements that call `document.write()`
+    pub document_write_count: u32,
+    /// Total DOM element count (`document.querySelectorAll('*').length`)
+    pub dom_node_count: u32,
+    /// Maximum nesting depth of the DOM tree
+    pub dom_max_depth: u32,
+    /// `<img>` elements without explicit `width` + `height` attributes (CLS risk)
+    pub images_without_dimensions: u32,
+    /// `<input type="password">` fields with an inline `onpaste` handler that blocks paste
+    pub paste_blocking_password_fields: u32,
+    /// `<img>` elements below the initial viewport without `loading="lazy"`
+    pub offscreen_images_without_lazy: u32,
+    /// Third-party origins without a matching `<link rel="preconnect">` hint
+    pub missing_preconnect_count: u32,
+    /// Sample of origins missing preconnect (up to 5)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_preconnect_origins: Vec<String>,
+
+    /// `<a>` elements with non-crawlable hrefs (javascript:, empty, missing)
+    pub non_crawlable_links: u32,
+    /// `<img>` elements served as JPEG/PNG without a WebP/AVIF alternative
+    pub images_without_modern_format: u32,
+    /// `<img>` elements whose natural size significantly exceeds their display size
+    pub oversized_images: u32,
+    /// `<img src="*.gif">` elements (potential animated GIFs to convert to video)
+    pub gif_images: u32,
+    /// Count of `@font-face` rules with missing or blocking `font-display`
+    pub font_display_issues: u32,
+    /// Number of `<link rel="preload">` hints
+    pub preload_hints: u32,
+    /// Number of `<link rel="prefetch">` hints
+    pub prefetch_hints: u32,
+    /// Number of `<link rel="dns-prefetch">` hints
+    pub dns_prefetch_hints: u32,
+    /// Preload hints that don't match any loaded resource (orphaned)
+    pub orphaned_preload_count: u32,
+    /// True when the main page is served over HTTP/2 or HTTP/3
+    pub uses_http2: bool,
+    /// True when the main page response is compressed (gzip/br/zstd)
+    pub has_compression: bool,
+    /// Raw Cache-Control header value from the main page response
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<String>,
+    /// True when Cache-Control includes a positive max-age or s-maxage
+    pub has_efficient_cache: bool,
+    /// Number of Server-Timing header entries on the main page response
+    pub server_timing_count: u32,
+    /// hreflang link elements present (count of rel="alternate" hreflang)
+    pub hreflang_count: u32,
+    /// hreflang entries with invalid language codes
+    pub hreflang_invalid_count: u32,
+    /// JSON-LD blocks found on the page
+    pub jsonld_count: u32,
+    /// JSON-LD blocks that are missing @context or @type (invalid)
+    pub jsonld_invalid_count: u32,
+    /// LCP image candidate (largest visible img) lacks a preload hint
+    pub lcp_image_without_preload: bool,
+    /// LCP image candidate is missing fetchpriority="high"
+    pub lcp_image_without_fetchpriority: bool,
+    /// LCP image candidate has loading="lazy" (incorrect — delays LCP)
+    pub lcp_image_lazy_loaded: bool,
+    /// URL of the heuristic LCP image candidate
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lcp_image_url: Option<String>,
+    /// Number of deprecated browser API patterns detected in inline scripts
+    pub deprecated_api_count: u32,
+
+    /// Aggregated issue list for report rendering
+    pub issues: Vec<PageHealthIssue>,
+}
+
+/// A single hop in the HTTP redirect chain
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedirectHop {
+    pub status: u16,
+    pub url: String,
+}
+
+/// www ↔ non-www redirect configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WwwConsolidation {
+    /// HTTP status of the www variant
+    pub www_status: Option<u16>,
+    /// HTTP status of the non-www variant
+    pub non_www_status: Option<u16>,
+    /// www redirects to non-www
+    pub www_redirects_to_non_www: bool,
+    /// non-www redirects to www
+    pub non_www_redirects_to_www: bool,
+    /// Canonical variant: "www", "non-www", or "inconsistent"
+    pub canonical_variant: String,
+    /// True when one variant properly redirects to the other
+    pub is_consolidated: bool,
+}
+
+/// A single HTML validation finding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HtmlValidationIssue {
+    pub check: String,
+    pub count: u32,
+    pub severity: String,
+    pub detail: String,
+}
+
+/// A resolved page health issue
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PageHealthIssue {
+    pub issue_type: String,
+    pub message: String,
+    pub severity: String,
+}
+
+/// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.
+pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAnalysis> {
+    let mut analysis = PageHealthAnalysis {
+        html_validator_status: "skipped".to_string(),
+        ..Default::default()
+    };
+
+    // URL analysis (pure Rust, no CDP)
+    analyze_url(url, &mut analysis);
+
+    // DOM inspection via single JS evaluate
+    if let Err(e) = run_dom_inspection(page, url, &mut analysis).await {
+        warn!("Page health DOM inspection failed: {}", e);
+    }
+
+    // HTTP probes (reqwest, concurrent)
+    run_http_probes(url, &mut analysis).await;
+
+    // W3C / Nu HTML validation (best effort)
+    if let Err(e) = run_w3c_html_validation(page, url, &mut analysis).await {
+        analysis.html_validator_status = "failed".to_string();
+        analysis.html_validator_detail = Some(e.to_string());
+        warn!("W3C HTML validation failed: {}", e);
+    }
+
+    // Aggregate issues
+    analysis.issues = collect_issues(&analysis);
+
+    Ok(analysis)
+}
+
+// ─── URL analysis ────────────────────────────────────────────────────────────
+
+fn analyze_url(url: &str, a: &mut PageHealthAnalysis) {
+    a.url_length = url.len();
+    a.url_is_too_long = url.len() > 115;
+
+    if let Ok(parsed) = url::Url::parse(url) {
+        a.url_has_query_params = parsed.query().is_some();
+        a.url_is_dynamic = a.url_has_query_params;
+        let depth = parsed
+            .path_segments()
+            .map(|segs| segs.filter(|s| !s.is_empty()).count())
+            .unwrap_or(0);
+        a.url_path_depth = depth;
+        a.url_is_too_deep = depth > 5;
+    }
+}
+
+// ─── DOM inspection ──────────────────────────────────────────────────────────
+
+async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) -> Result<()> {
+    let js = r#"
+    (() => {
+        const r = {};
+        const host = window.location.host;
+
+        // Final URL (redirect detection)
+        r.finalUrl = window.location.href;
+
+        // Meta-refresh
+        const mr = document.querySelector('meta[http-equiv="refresh"]');
+        r.hasMetaRefresh = !!mr;
+        r.metaRefreshContent = mr ? mr.getAttribute('content') : null;
+
+        // Frames
+        r.frameCount = document.querySelectorAll('frame, frameset').length;
+        r.iframeCount = document.querySelectorAll('iframe').length;
+        r.crossOriginIframeCount = Array.from(document.querySelectorAll('iframe[src]'))
+            .filter(f => {
+                try { return new URL(f.src).host !== host; } catch(e) { return false; }
+            }).length;
+
+        // Duplicate IDs
+        const allIds = Array.from(document.querySelectorAll('[id]')).map(el => el.id);
+        const idCounts = {};
+        allIds.forEach(id => { idCounts[id] = (idCounts[id] || 0) + 1; });
+        const dupIds = Object.entries(idCounts).filter(([_, c]) => c > 1);
+        r.duplicateIdCount = dupIds.length;
+        r.duplicateIdSamples = dupIds.slice(0, 5).map(([id]) => id);
+
+        // Images without alt
+        r.imagesWithoutAlt = document.querySelectorAll('img:not([alt])').length;
+
+        // Tables without headers
+        r.tablesWithoutHeaders = Array.from(document.querySelectorAll('table'))
+            .filter(t => !t.querySelector('th') && !t.querySelector('caption')).length;
+
+        // Empty headings
+        r.emptyHeadings = document.querySelectorAll(
+            'h1:empty,h2:empty,h3:empty,h4:empty,h5:empty,h6:empty'
+        ).length;
+
+        // Nested interactive elements
+        r.nestedInteractive = document.querySelectorAll('button button, a a').length;
+
+        // Doctype detection
+        r.hasDoctype = !!(document.doctype && document.doctype.name === 'html');
+
+        // document.write() usage in inline scripts
+        const inlineScripts = Array.from(document.querySelectorAll('script:not([src])'));
+        r.documentWriteCount = inlineScripts.filter(s => s.textContent.includes('document.write(')).length;
+
+        // Images without explicit width+height (CLS risk)
+        r.imagesWithoutDimensions = Array.from(document.querySelectorAll('img'))
+            .filter(img => {
+                const style = window.getComputedStyle(img);
+                const pos = style.position;
+                if (pos === 'absolute' || pos === 'fixed') return false;
+                const hasAttrs = img.hasAttribute('width') && img.hasAttribute('height');
+                const hasAspectRatio = style.aspectRatio && style.aspectRatio !== 'auto';
+                return !hasAttrs && !hasAspectRatio;
+            }).length;
+
+        // Paste-blocking password fields (inline handler only)
+        r.pasteBlockingPasswords = Array.from(document.querySelectorAll('input[type="password"]'))
+            .filter(inp => {
+                const attr = inp.getAttribute('onpaste') || '';
+                return attr.includes('return false') || attr.includes('preventDefault');
+            }).length;
+
+        // DOM size
+        r.domNodeCount = document.querySelectorAll('*').length;
+        let domMaxDepth = 0;
+        const domQueue = [[document.documentElement, 0]];
+        while (domQueue.length && domQueue.length < 50000) {
+            const [el, d] = domQueue.shift();
+            if (d > domMaxDepth) domMaxDepth = d;
+            const kids = el && el.children ? Array.from(el.children) : [];
+            for (const child of kids) domQueue.push([child, d + 1]);
+        }
+        r.domMaxDepth = domMaxDepth;
+
+        // Offscreen images without lazy loading
+        const vh = window.innerHeight;
+        r.offscreenWithoutLazy = Array.from(document.querySelectorAll('img'))
+            .filter(img => {
+                const rect = img.getBoundingClientRect();
+                return rect.top > vh && img.getAttribute('loading') !== 'lazy';
+            }).length;
+
+        // Missing preconnect hints for third-party origins
+        const preconnected = new Set(
+            Array.from(document.querySelectorAll('link[rel="preconnect"]'))
+                .map(l => { try { return new URL(l.href).origin; } catch(e) { return null; } })
+                .filter(Boolean)
+        );
+        const extOrigins = new Set();
+        document.querySelectorAll('script[src],link[rel="stylesheet"][href],img[src],iframe[src]')
+            .forEach(el => {
+                const src = el.src || el.href;
+                try {
+                    const o = new URL(src).origin;
+                    if (o !== window.location.origin) extOrigins.add(o);
+                } catch(e) {}
+            });
+        const missingPreconnect = [...extOrigins].filter(o => !preconnected.has(o));
+        r.missingPreconnectCount = missingPreconnect.length;
+        r.missingPreconnectOrigins = missingPreconnect.slice(0, 5);
+
+        // Non-crawlable links
+        r.nonCrawlableLinks = Array.from(document.querySelectorAll('a')).filter(a => {
+            const href = a.getAttribute('href');
+            if (href === null) return a.hasAttribute('onclick');
+            return href === '' || href === '#' || href.startsWith('javascript:');
+        }).length;
+
+        // Images without modern format (no WebP/AVIF in picture or srcset type)
+        r.imagesWithoutModernFormat = Array.from(document.querySelectorAll('img')).filter(img => {
+            const src = img.getAttribute('src') || '';
+            if (!src.match(/\.(jpe?g|png)(\?|$)/i)) return false;
+            const picture = img.closest('picture');
+            if (picture && picture.querySelector('source[type="image/webp"], source[type="image/avif"]')) return false;
+            const srcset = img.getAttribute('srcset') || '';
+            if (srcset.match(/\.(webp|avif)/i)) return false;
+            return true;
+        }).length;
+
+        // Oversized images (natural > 4x display area)
+        r.oversizedImages = Array.from(document.querySelectorAll('img')).filter(img => {
+            if (!img.naturalWidth || !img.clientWidth) return false;
+            const naturalPixels = img.naturalWidth * img.naturalHeight;
+            const displayPixels = img.clientWidth * img.clientHeight;
+            return displayPixels > 0 && naturalPixels > displayPixels * 4;
+        }).length;
+
+        // GIF images
+        r.gifImages = Array.from(document.querySelectorAll('img[src]'))
+            .filter(img => (img.getAttribute('src') || '').match(/\.gif(\?|$)/i)).length;
+
+        // Font-display issues in @font-face rules
+        let fontDisplayIssues = 0;
+        for (const sheet of document.styleSheets) {
+            try {
+                for (const rule of sheet.cssRules) {
+                    if (rule.type === CSSRule.FONT_FACE_RULE) {
+                        const display = rule.style.getPropertyValue('font-display');
+                        if (!display || display === 'block' || display === 'auto') fontDisplayIssues++;
+                    }
+                }
+            } catch(e) {}
+        }
+        r.fontDisplayIssues = fontDisplayIssues;
+
+        // Resource hints inventory
+        let preloadCount = 0, prefetchCount = 0, dnsPrefetchCount = 0;
+        const preloadHrefs = new Set();
+        document.querySelectorAll('link[rel]').forEach(link => {
+            const rel = link.getAttribute('rel');
+            if (rel === 'preload') { preloadCount++; preloadHrefs.add(link.href); }
+            else if (rel === 'prefetch') prefetchCount++;
+            else if (rel === 'dns-prefetch') dnsPrefetchCount++;
+        });
+        r.preloadHints = preloadCount;
+        r.prefetchHints = prefetchCount;
+        r.dnsPrefetchHints = dnsPrefetchCount;
+        // Orphaned preloads: preloaded but not in Resource Timing
+        const loadedResources = new Set(performance.getEntriesByType('resource').map(e => e.name));
+        r.orphanedPreloadCount = [...preloadHrefs].filter(href => href && !loadedResources.has(href)).length;
+
+        // LCP image candidate: largest visible img by display area
+        let lcpImg = null, lcpArea = 0;
+        document.querySelectorAll('img[src]').forEach(img => {
+            const rect = img.getBoundingClientRect();
+            if (rect.top < 0 || rect.top > window.innerHeight) return;
+            const area = rect.width * rect.height;
+            if (area > lcpArea) { lcpArea = area; lcpImg = img; }
+        });
+        if (lcpImg) {
+            const lcpSrc = lcpImg.src;
+            const hasPreload = [...preloadHrefs].some(h => h === lcpSrc);
+            r.lcpImageWithoutPreload = !hasPreload;
+            r.lcpImageUrl = lcpSrc;
+            r.lcpImageWithoutFetchpriority = lcpImg.getAttribute('fetchpriority') !== 'high';
+            r.lcpImageLazyLoaded = lcpImg.getAttribute('loading') === 'lazy';
+        } else {
+            r.lcpImageWithoutPreload = false;
+            r.lcpImageWithoutFetchpriority = false;
+            r.lcpImageLazyLoaded = false;
+        }
+
+        // Deprecated API detection in inline scripts
+        const DEPRECATED = ['AppCache', 'document.domain =', 'webkitStorageInfo',
+            'webkitIndexedDB', 'navigator.userAgentData', 'importScripts'];
+        const inlineText = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent).join('\n');
+        r.deprecatedApiCount = DEPRECATED.filter(p => inlineText.includes(p)).length;
+
+        // Hreflang validation
+        const hreflangLinks = Array.from(document.querySelectorAll('link[rel="alternate"][hreflang]'));
+        r.hreflangCount = hreflangLinks.length;
+        const langPattern = /^[a-z]{2,3}(-[A-Z]{2})?$|^x-default$/;
+        r.hreflangInvalidCount = hreflangLinks.filter(l => !langPattern.test(l.getAttribute('hreflang') || '')).length;
+
+        // JSON-LD validation
+        const jsonldBlocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+        r.jsonldCount = jsonldBlocks.length;
+        r.jsonldInvalidCount = jsonldBlocks.filter(s => {
+            try {
+                const data = JSON.parse(s.textContent);
+                return !data['@context'] || !data['@type'];
+            } catch(e) { return true; }
+        }).length;
+
+        return JSON.stringify(r);
+    })()
+    "#;
+
+    let result = page
+        .evaluate(js)
+        .await
+        .map_err(|e| AuditError::CdpError(format!("Page health JS failed: {}", e)))?;
+
+    let json_str = result.value().and_then(|v| v.as_str()).unwrap_or("{}");
+    let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
+
+    // Final URL / redirect detection
+    if let Some(final_url) = parsed["finalUrl"].as_str() {
+        // Compare canonicalized URLs (ignore trailing slash differences)
+        let canonical = |s: &str| s.trim_end_matches('/').to_string();
+        if canonical(final_url) != canonical(url) {
+            a.own_redirect_detected = true;
+            a.own_final_url = Some(final_url.to_string());
+        }
+    }
+
+    // Meta-refresh
+    a.has_meta_refresh = parsed["hasMetaRefresh"].as_bool().unwrap_or(false);
+    a.meta_refresh_content = parsed["metaRefreshContent"].as_str().map(String::from);
+
+    // Frames
+    a.frame_count = parsed["frameCount"].as_u64().unwrap_or(0) as u32;
+    a.iframe_count = parsed["iframeCount"].as_u64().unwrap_or(0) as u32;
+    a.cross_origin_iframe_count = parsed["crossOriginIframeCount"].as_u64().unwrap_or(0) as u32;
+
+    // HTML validation
+    a.duplicate_id_count = parsed["duplicateIdCount"].as_u64().unwrap_or(0) as u32;
+    a.images_without_alt = parsed["imagesWithoutAlt"].as_u64().unwrap_or(0) as u32;
+    a.tables_without_headers = parsed["tablesWithoutHeaders"].as_u64().unwrap_or(0) as u32;
+    a.empty_headings = parsed["emptyHeadings"].as_u64().unwrap_or(0) as u32;
+    a.nested_interactive_count = parsed["nestedInteractive"].as_u64().unwrap_or(0) as u32;
+    a.has_doctype = parsed["hasDoctype"].as_bool().unwrap_or(false);
+    a.document_write_count = parsed["documentWriteCount"].as_u64().unwrap_or(0) as u32;
+    a.dom_node_count = parsed["domNodeCount"].as_u64().unwrap_or(0) as u32;
+    a.dom_max_depth = parsed["domMaxDepth"].as_u64().unwrap_or(0) as u32;
+    a.images_without_dimensions = parsed["imagesWithoutDimensions"].as_u64().unwrap_or(0) as u32;
+    a.paste_blocking_password_fields =
+        parsed["pasteBlockingPasswords"].as_u64().unwrap_or(0) as u32;
+    a.offscreen_images_without_lazy = parsed["offscreenWithoutLazy"].as_u64().unwrap_or(0) as u32;
+    a.missing_preconnect_count = parsed["missingPreconnectCount"].as_u64().unwrap_or(0) as u32;
+    a.missing_preconnect_origins = parsed["missingPreconnectOrigins"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    a.non_crawlable_links = parsed["nonCrawlableLinks"].as_u64().unwrap_or(0) as u32;
+    a.images_without_modern_format =
+        parsed["imagesWithoutModernFormat"].as_u64().unwrap_or(0) as u32;
+    a.oversized_images = parsed["oversizedImages"].as_u64().unwrap_or(0) as u32;
+    a.gif_images = parsed["gifImages"].as_u64().unwrap_or(0) as u32;
+    a.font_display_issues = parsed["fontDisplayIssues"].as_u64().unwrap_or(0) as u32;
+    a.preload_hints = parsed["preloadHints"].as_u64().unwrap_or(0) as u32;
+    a.prefetch_hints = parsed["prefetchHints"].as_u64().unwrap_or(0) as u32;
+    a.dns_prefetch_hints = parsed["dnsPrefetchHints"].as_u64().unwrap_or(0) as u32;
+    a.orphaned_preload_count = parsed["orphanedPreloadCount"].as_u64().unwrap_or(0) as u32;
+    a.lcp_image_without_preload = parsed["lcpImageWithoutPreload"].as_bool().unwrap_or(false);
+    a.lcp_image_without_fetchpriority = parsed["lcpImageWithoutFetchpriority"]
+        .as_bool()
+        .unwrap_or(false);
+    a.lcp_image_lazy_loaded = parsed["lcpImageLazyLoaded"].as_bool().unwrap_or(false);
+    a.lcp_image_url = parsed["lcpImageUrl"].as_str().map(String::from);
+    a.deprecated_api_count = parsed["deprecatedApiCount"].as_u64().unwrap_or(0) as u32;
+    a.hreflang_count = parsed["hreflangCount"].as_u64().unwrap_or(0) as u32;
+    a.hreflang_invalid_count = parsed["hreflangInvalidCount"].as_u64().unwrap_or(0) as u32;
+    a.jsonld_count = parsed["jsonldCount"].as_u64().unwrap_or(0) as u32;
+    a.jsonld_invalid_count = parsed["jsonldInvalidCount"].as_u64().unwrap_or(0) as u32;
+    a.html_issues = build_html_issues(a, &parsed);
+
+    Ok(())
+}
+
+fn build_html_issues(
+    a: &PageHealthAnalysis,
+    parsed: &serde_json::Value,
+) -> Vec<HtmlValidationIssue> {
+    let mut html_issues = Vec::new();
+
+    if a.duplicate_id_count > 0 {
+        let samples = parsed["duplicateIdSamples"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
+        html_issues.push(HtmlValidationIssue {
+            check: "Doppelte IDs".to_string(),
+            count: a.duplicate_id_count,
+            severity: "medium".to_string(),
+            detail: if samples.is_empty() {
+                format!("{} gefunden", a.duplicate_id_count)
+            } else {
+                format!("{} (z.B. {})", a.duplicate_id_count, samples)
+            },
+        });
+    }
+
+    if a.images_without_alt > 0 {
+        html_issues.push(HtmlValidationIssue {
+            check: "Bilder ohne alt-Attribut".to_string(),
+            count: a.images_without_alt,
+            severity: "high".to_string(),
+            detail: format!("{} <img> ohne alt", a.images_without_alt),
+        });
+    }
+    if a.tables_without_headers > 0 {
+        html_issues.push(HtmlValidationIssue {
+            check: "Tabellen ohne Kopfzeile".to_string(),
+            count: a.tables_without_headers,
+            severity: "medium".to_string(),
+            detail: format!(
+                "{} <table> ohne <th> oder <caption>",
+                a.tables_without_headers
+            ),
+        });
+    }
+    if a.empty_headings > 0 {
+        html_issues.push(HtmlValidationIssue {
+            check: "Leere Überschriften".to_string(),
+            count: a.empty_headings,
+            severity: "medium".to_string(),
+            detail: format!("{} leere h1–h6 Elemente", a.empty_headings),
+        });
+    }
+    if a.nested_interactive_count > 0 {
+        html_issues.push(HtmlValidationIssue {
+            check: "Verschachtelte interaktive Elemente".to_string(),
+            count: a.nested_interactive_count,
+            severity: "high".to_string(),
+            detail: format!("{} button/a in button/a", a.nested_interactive_count),
+        });
+    }
+
+    html_issues
+}
+
+async fn run_w3c_html_validation(
+    page: &Page,
+    _url: &str,
+    a: &mut PageHealthAnalysis,
+) -> Result<()> {
+    let html = extract_document_html(page).await?;
+    let issues = validate_html_locally(&html);
+    a.html_issues.extend(issues);
+    a.html_validator_status = "executed".to_string();
+    a.html_validator_detail = Some("HTML5-Validierung lokal via html5ever".to_string());
+    Ok(())
+}
+
+fn validate_html_locally(html: &str) -> Vec<HtmlValidationIssue> {
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
+
+    let errors = dom.errors;
+    if errors.is_empty() {
+        return Vec::new();
+    }
+
+    let parts: Vec<String> = errors.iter().take(3).map(|e| e.to_string()).collect();
+    let detail = if errors.len() <= 3 {
+        parts.join(" | ")
+    } else {
+        format!("{} | +{} weitere", parts.join(" | "), errors.len() - 3)
+    };
+
+    vec![HtmlValidationIssue {
+        check: "HTML5-Parsing-Fehler".to_string(),
+        count: errors.len() as u32,
+        severity: "high".to_string(),
+        detail,
+    }]
+}
+
+async fn extract_document_html(page: &Page) -> Result<String> {
+    let js = r#"
+    (() => {
+        const d = document.doctype;
+        const doctype = d
+            ? `<!DOCTYPE ${d.name}${d.publicId ? ` PUBLIC "${d.publicId}"` : ''}${d.systemId ? ` "${d.systemId}"` : ''}>`
+            : '<!DOCTYPE html>';
+        return doctype + '\n' + document.documentElement.outerHTML;
+    })()
+    "#;
+
+    let result = page.evaluate(js).await.map_err(|e| {
+        AuditError::CdpError(format!("HTML extraction for validator failed: {}", e))
+    })?;
+
+    result
+        .value()
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| {
+            AuditError::CdpError("Validator HTML extraction returned no string".to_string())
+        })
+}
+
+// ─── HTTP probes ─────────────────────────────────────────────────────────────
+
+async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
+    let Ok(parsed) = url::Url::parse(url) else {
+        return;
+    };
+    let origin = format!("{}://{}", parsed.scheme(), parsed.host_str().unwrap_or(""));
+
+    // Run all probes concurrently
+    let probe_url = format!("{}/auditmysite-404-probe-xyz123", origin);
+    let (soft_404_result, www_result, header_result, redirect_chain) = tokio::join!(
+        probe_status(&probe_url),
+        check_www_consolidation(url),
+        probe_headers(url),
+        follow_redirect_chain(url)
+    );
+
+    // Soft 404
+    if let Some(status) = soft_404_result {
+        a.soft_404_status = Some(status);
+        a.is_soft_404 = status == 200;
+        debug!("Soft-404 probe: {} → {}", probe_url, status);
+    }
+
+    // www consolidation
+    a.www_consolidation = www_result;
+
+    // Redirect chain
+    let hops: Vec<RedirectHop> = redirect_chain
+        .into_iter()
+        .filter(|(status, _)| *status >= 300 && *status < 400)
+        .map(|(status, url)| RedirectHop { status, url })
+        .collect();
+    a.redirect_count = hops.len() as u32;
+    a.redirect_chain = hops;
+
+    // HTTP headers
+    if let Some((uses_http2, compression, cache_control, server_timing_count)) = header_result {
+        a.uses_http2 = uses_http2;
+        a.has_compression = compression;
+        a.has_efficient_cache = cache_control
+            .as_deref()
+            .map(|cc| {
+                cc.contains("max-age=") && !cc.contains("max-age=0")
+                    || cc.contains("s-maxage=") && !cc.contains("s-maxage=0")
+                    || cc.contains("immutable")
+            })
+            .unwrap_or(false);
+        a.cache_control = cache_control;
+        a.server_timing_count = server_timing_count;
+    }
+}
+
+/// Probe main page headers: HTTP version, compression, Cache-Control, Server-Timing.
+async fn probe_headers(url: &str) -> Option<(bool, bool, Option<String>, u32)> {
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("auditmysite-probe/1.0")
+        .build()
+        .ok()?;
+
+    let resp = client.get(url).send().await.ok()?;
+    let uses_http2 = matches!(
+        resp.version(),
+        reqwest::Version::HTTP_2 | reqwest::Version::HTTP_3
+    );
+    let headers = resp.headers();
+
+    let compression = headers
+        .get("content-encoding")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.contains("gzip") || v.contains("br") || v.contains("zstd"))
+        .unwrap_or(false);
+
+    let cache_control = headers
+        .get("cache-control")
+        .and_then(|v| v.to_str().ok())
+        .map(String::from);
+
+    let server_timing_count = headers
+        .get("server-timing")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.split(',').count() as u32)
+        .unwrap_or(0);
+
+    Some((uses_http2, compression, cache_control, server_timing_count))
+}
+
+/// Follow redirect chain manually, returning (status, url) pairs for each hop.
+async fn follow_redirect_chain(url: &str) -> Vec<(u16, String)> {
+    let Ok(client) = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(5))
+        .user_agent("auditmysite-probe/1.0")
+        .build()
+    else {
+        return Vec::new();
+    };
+
+    let mut chain = Vec::new();
+    let mut current = url.to_string();
+
+    for _ in 0..10 {
+        let Ok(resp) = client.head(&current).send().await else {
+            break;
+        };
+        let status = resp.status().as_u16();
+        chain.push((status, current.clone()));
+        if !(300..400).contains(&status) {
+            break;
+        }
+        let Some(location) = resp.headers().get("location").and_then(|v| v.to_str().ok()) else {
+            break;
+        };
+        current = if location.starts_with("http") {
+            location.to_string()
+        } else if let Ok(base) = url::Url::parse(&current) {
+            match base.join(location) {
+                Ok(u) => u.to_string(),
+                Err(_) => break,
+            }
+        } else {
+            break;
+        };
+    }
+    chain
+}
+
+/// Probe a URL and return its HTTP status (no redirect following).
+async fn probe_status(url: &str) -> Option<u16> {
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(8))
+        .user_agent("auditmysite-probe/1.0")
+        .build()
+        .ok()?;
+
+    client
+        .get(url)
+        .send()
+        .await
+        .ok()
+        .map(|r| r.status().as_u16())
+}
+
+/// Check www ↔ non-www redirect configuration.
+async fn check_www_consolidation(url: &str) -> Option<WwwConsolidation> {
+    let parsed = url::Url::parse(url).ok()?;
+    let host = parsed.host_str()?;
+
+    // Skip IPs, localhost, and subdomains that aren't www
+    if host == "localhost" || host.parse::<std::net::IpAddr>().is_ok() {
+        return None;
+    }
+
+    let (www_url, non_www_url) = if host.starts_with("www.") {
+        let non_www_host = host.strip_prefix("www.")?;
+        let non_www = url.replacen(host, non_www_host, 1);
+        (url.to_string(), non_www)
+    } else {
+        // Only handle apex domains (e.g. example.com), skip subdomains like api.example.com
+        let parts: Vec<&str> = host.split('.').collect();
+        if parts.len() != 2 {
+            return None;
+        }
+        let www_host = format!("www.{}", host);
+        let www = url.replacen(host, &www_host, 1);
+        (www, url.to_string())
+    };
+
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(8))
+        .user_agent("auditmysite-probe/1.0")
+        .build()
+        .ok()?;
+
+    let (www_resp, non_www_resp) = tokio::join!(
+        client.head(&www_url).send(),
+        client.head(&non_www_url).send()
+    );
+
+    let www_status = www_resp.as_ref().ok().map(|r| r.status().as_u16());
+    let non_www_status = non_www_resp.as_ref().ok().map(|r| r.status().as_u16());
+
+    let www_location = www_resp
+        .ok()
+        .and_then(|r| r.headers().get("location").cloned())
+        .and_then(|v| v.to_str().ok().map(String::from))
+        .unwrap_or_default();
+    let non_www_location = non_www_resp
+        .ok()
+        .and_then(|r| r.headers().get("location").cloned())
+        .and_then(|v| v.to_str().ok().map(String::from))
+        .unwrap_or_default();
+
+    let www_redirects = matches!(www_status, Some(301) | Some(302) | Some(307) | Some(308))
+        && !www_location.contains("www.");
+    let non_www_redirects = matches!(
+        non_www_status,
+        Some(301) | Some(302) | Some(307) | Some(308)
+    ) && non_www_location.contains("www.");
+
+    let is_consolidated = www_redirects || non_www_redirects;
+    let canonical_variant = if www_redirects {
+        "non-www".to_string()
+    } else if non_www_redirects {
+        "www".to_string()
+    } else if is_consolidated {
+        "consistent".to_string()
+    } else {
+        "inconsistent".to_string()
+    };
+
+    Some(WwwConsolidation {
+        www_status,
+        non_www_status,
+        www_redirects_to_non_www: www_redirects,
+        non_www_redirects_to_www: non_www_redirects,
+        canonical_variant,
+        is_consolidated,
+    })
+}
+
+// ─── Issue aggregation ───────────────────────────────────────────────────────
+
+fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
+    let mut issues = Vec::new();
+
+    if !a.has_doctype && a.dom_node_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "missing_doctype".to_string(),
+            message: "Fehlende HTML5-Doctype-Deklaration — Browser rendert im Quirks-Mode"
+                .to_string(),
+            severity: "high".to_string(),
+        });
+    }
+
+    if a.document_write_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "document_write".to_string(),
+            message: format!(
+                "{} Inline-Script(s) verwenden document.write() — blockiert HTML-Parsing",
+                a.document_write_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.dom_node_count >= 1500 {
+        issues.push(PageHealthIssue {
+            issue_type: "excessive_dom".to_string(),
+            message: format!(
+                "DOM-Größe kritisch: {} Elemente (Empfehlung: <1500, max Tiefe: {})",
+                a.dom_node_count, a.dom_max_depth
+            ),
+            severity: "high".to_string(),
+        });
+    } else if a.dom_node_count >= 800 {
+        issues.push(PageHealthIssue {
+            issue_type: "large_dom".to_string(),
+            message: format!(
+                "DOM-Größe erhöht: {} Elemente (Empfehlung: <800, max Tiefe: {})",
+                a.dom_node_count, a.dom_max_depth
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.images_without_dimensions > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "images_without_dimensions".to_string(),
+            message: format!(
+                "{} <img>-Elemente ohne explizite width/height — CLS-Risiko",
+                a.images_without_dimensions
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.paste_blocking_password_fields > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "paste_blocked_password".to_string(),
+            message: format!(
+                "{} Passwortfeld(er) blockieren Einfügen (onpaste-Handler) — beeinträchtigt Passwort-Manager",
+                a.paste_blocking_password_fields
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.offscreen_images_without_lazy > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "offscreen_images_without_lazy".to_string(),
+            message: format!(
+                "{} Bilder unterhalb des Viewports ohne loading=\"lazy\" — verzögern ersten Seitenaufbau",
+                a.offscreen_images_without_lazy
+            ),
+            severity: if a.offscreen_images_without_lazy >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.missing_preconnect_count > 0 {
+        let sample = if a.missing_preconnect_origins.is_empty() {
+            String::new()
+        } else {
+            format!(" (z.B. {})", a.missing_preconnect_origins.join(", "))
+        };
+        issues.push(PageHealthIssue {
+            issue_type: "missing_preconnect".to_string(),
+            message: format!(
+                "{} externe Origins ohne <link rel=\"preconnect\">{}",
+                a.missing_preconnect_count, sample
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.non_crawlable_links > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "non_crawlable_links".to_string(),
+            message: format!(
+                "{} Links nicht crawlbar (javascript:, leer, kein href) — PageRank-Verlust",
+                a.non_crawlable_links
+            ),
+            severity: if a.non_crawlable_links >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.images_without_modern_format > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "images_without_modern_format".to_string(),
+            message: format!(
+                "{} Bilder als JPEG/PNG ohne WebP/AVIF-Alternative — erhöhte Ladezeit",
+                a.images_without_modern_format
+            ),
+            severity: if a.images_without_modern_format >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.oversized_images > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "oversized_images".to_string(),
+            message: format!(
+                "{} Bilder werden deutlich kleiner dargestellt als ihre natürliche Auflösung",
+                a.oversized_images
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.gif_images > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "gif_images".to_string(),
+            message: format!(
+                "{} GIF-Bild(er) gefunden — ggf. als MP4/WebM ersetzen (80–95 % kleiner)",
+                a.gif_images
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.font_display_issues > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "font_display_missing".to_string(),
+            message: format!(
+                "{} @font-face-Regeln ohne font-display: swap/fallback/optional — FOIT-Risiko",
+                a.font_display_issues
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.orphaned_preload_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "orphaned_preload".to_string(),
+            message: format!(
+                "{} <link rel=\"preload\">-Hinweise auf nicht geladene Ressourcen (orphaned)",
+                a.orphaned_preload_count
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.lcp_image_lazy_loaded {
+        issues.push(PageHealthIssue {
+            issue_type: "lcp_image_lazy_loaded".to_string(),
+            message:
+                "LCP-Bildkandidat hat loading=\"lazy\" — verzögert den Largest Contentful Paint"
+                    .to_string(),
+            severity: "high".to_string(),
+        });
+    }
+
+    if a.lcp_image_without_preload {
+        let url_hint = a
+            .lcp_image_url
+            .as_deref()
+            .map(|u| format!(" ({})", u))
+            .unwrap_or_default();
+        issues.push(PageHealthIssue {
+            issue_type: "lcp_image_without_preload".to_string(),
+            message: format!(
+                "Größtes sichtbares Bild{} hat keinen <link rel=\"preload\" as=\"image\">-Hint",
+                url_hint
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.lcp_image_without_fetchpriority && !a.lcp_image_lazy_loaded {
+        issues.push(PageHealthIssue {
+            issue_type: "lcp_image_without_fetchpriority".to_string(),
+            message:
+                "LCP-Bildkandidat fehlt fetchpriority=\"high\" — Ladepriorität nicht signalisiert"
+                    .to_string(),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.deprecated_api_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "deprecated_apis".to_string(),
+            message: format!(
+                "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
+                a.deprecated_api_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if !a.uses_http2 {
+        issues.push(PageHealthIssue {
+            issue_type: "http1_only".to_string(),
+            message: "Seite wird über HTTP/1.1 ausgeliefert — HTTP/2 ermöglicht Multiplexing und Header-Komprimierung".to_string(),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if !a.has_compression {
+        issues.push(PageHealthIssue {
+            issue_type: "missing_compression".to_string(),
+            message: "Seiteninhalt wird ohne Komprimierung übertragen (kein gzip/brotli)"
+                .to_string(),
+            severity: "high".to_string(),
+        });
+    }
+
+    if !a.has_efficient_cache && a.cache_control.is_some() {
+        issues.push(PageHealthIssue {
+            issue_type: "inefficient_cache".to_string(),
+            message: format!(
+                "Cache-Control ohne effektive Caching-Dauer: {}",
+                a.cache_control.as_deref().unwrap_or("")
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.hreflang_invalid_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "hreflang_invalid".to_string(),
+            message: format!(
+                "{} hreflang-Einträge mit ungültigem Sprachcode",
+                a.hreflang_invalid_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.jsonld_invalid_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "jsonld_invalid".to_string(),
+            message: format!(
+                "{} JSON-LD-Blöcke ohne @context oder @type",
+                a.jsonld_invalid_count
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.is_soft_404 {
+        issues.push(PageHealthIssue {
+            issue_type: "soft_404".to_string(),
+            message: format!(
+                "Server gibt HTTP {} für nicht-existierende URLs zurück (Soft 404)",
+                a.soft_404_status.unwrap_or(200)
+            ),
+            severity: "high".to_string(),
+        });
+    }
+
+    if a.has_meta_refresh {
+        let delay = a
+            .meta_refresh_content
+            .as_deref()
+            .and_then(|c| c.split(';').next())
+            .and_then(|s| s.trim().parse::<u32>().ok())
+            .unwrap_or(0);
+        issues.push(PageHealthIssue {
+            issue_type: "meta_refresh".to_string(),
+            message: if delay == 0 {
+                "Sofort-Weiterleitung via meta-refresh (SEO-schädlich, nutze 301-Redirect)"
+                    .to_string()
+            } else {
+                format!("meta-refresh mit {}s Verzögerung gefunden", delay)
+            },
+            severity: if delay == 0 { "high" } else { "medium" }.to_string(),
+        });
+    }
+
+    if a.frame_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "frames".to_string(),
+            message: format!("{} veraltete <frame>-Elemente gefunden", a.frame_count),
+            severity: "high".to_string(),
+        });
+    }
+
+    if a.url_is_too_long {
+        issues.push(PageHealthIssue {
+            issue_type: "url_too_long".to_string(),
+            message: format!(
+                "URL mit {} Zeichen überschreitet Empfehlung (>115)",
+                a.url_length
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.url_is_too_deep {
+        issues.push(PageHealthIssue {
+            issue_type: "url_too_deep".to_string(),
+            message: format!(
+                "URL-Pfadtiefe {} überschreitet Empfehlung (>5 Ebenen)",
+                a.url_path_depth
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.url_has_query_params {
+        issues.push(PageHealthIssue {
+            issue_type: "dynamic_url".to_string(),
+            message: "URL enthält Query-Parameter (dynamische URL)".to_string(),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.redirect_count >= 2 {
+        issues.push(PageHealthIssue {
+            issue_type: "multiple_redirects".to_string(),
+            message: format!(
+                "{} HTTP-Weiterleitungen vor der finalen Seite — jeder Hop kostet ~100–300 ms",
+                a.redirect_count
+            ),
+            severity: if a.redirect_count >= 3 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
+        });
+    } else if a.own_redirect_detected {
+        issues.push(PageHealthIssue {
+            issue_type: "redirect".to_string(),
+            message: format!(
+                "Seite leitet weiter zu: {}",
+                a.own_final_url.as_deref().unwrap_or("(unbekannt)")
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if let Some(ref www) = a.www_consolidation {
+        if !www.is_consolidated {
+            issues.push(PageHealthIssue {
+                issue_type: "www_not_consolidated".to_string(),
+                message: "www und non-www Version sind nicht konsolidiert (kein 301-Redirect)"
+                    .to_string(),
+                severity: "medium".to_string(),
+            });
+        }
+    }
+
+    issues
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_analyze_url_basic() {
+        let mut a = PageHealthAnalysis::default();
+        analyze_url("https://example.com/foo/bar?q=1", &mut a);
+        assert_eq!(a.url_length, 31);
+        assert!(a.url_has_query_params);
+        assert!(a.url_is_dynamic);
+        assert_eq!(a.url_path_depth, 2);
+        assert!(!a.url_is_too_long);
+        assert!(!a.url_is_too_deep);
+    }
+
+    #[test]
+    fn test_analyze_url_long() {
+        let long_url = format!("https://example.com/{}", "a".repeat(100));
+        let mut a = PageHealthAnalysis::default();
+        analyze_url(&long_url, &mut a);
+        assert!(a.url_is_too_long);
+    }
+
+    #[test]
+    fn test_analyze_url_deep() {
+        let mut a = PageHealthAnalysis::default();
+        analyze_url("https://example.com/a/b/c/d/e/f", &mut a);
+        assert_eq!(a.url_path_depth, 6);
+        assert!(a.url_is_too_deep);
+    }
+
+    #[test]
+    fn test_collect_issues_soft_404() {
+        let a = PageHealthAnalysis {
+            is_soft_404: true,
+            soft_404_status: Some(200),
+            ..Default::default()
+        };
+        let issues = collect_issues(&a);
+        assert!(issues.iter().any(|i| i.issue_type == "soft_404"));
+    }
+
+    #[test]
+    fn test_collect_issues_meta_refresh() {
+        let a = PageHealthAnalysis {
+            has_meta_refresh: true,
+            meta_refresh_content: Some("0; url=https://example.com".to_string()),
+            ..Default::default()
+        };
+        let issues = collect_issues(&a);
+        assert!(issues.iter().any(|i| i.issue_type == "meta_refresh"));
+        assert_eq!(
+            issues
+                .iter()
+                .find(|i| i.issue_type == "meta_refresh")
+                .map(|i| i.severity.as_str()),
+            Some("high")
+        );
+    }
+
+    #[test]
+    fn test_build_html_issues_for_classic_validation_findings() {
+        let analysis = PageHealthAnalysis {
+            duplicate_id_count: 2,
+            images_without_alt: 3,
+            tables_without_headers: 1,
+            empty_headings: 2,
+            nested_interactive_count: 1,
+            ..Default::default()
+        };
+        let parsed = json!({
+            "duplicateIdSamples": ["hero", "cta-button"]
+        });
+
+        let issues = build_html_issues(&analysis, &parsed);
+
+        assert!(issues.iter().any(|i| {
+            i.check == "Doppelte IDs"
+                && i.count == 2
+                && i.detail.contains("hero")
+                && i.detail.contains("cta-button")
+        }));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Bilder ohne alt-Attribut" && i.count == 3));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Tabellen ohne Kopfzeile" && i.count == 1));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Leere Überschriften" && i.count == 2));
+        assert!(issues
+            .iter()
+            .any(|i| i.check == "Verschachtelte interaktive Elemente" && i.count == 1));
+    }
+}
