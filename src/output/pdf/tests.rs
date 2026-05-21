@@ -806,8 +806,7 @@ mod tests {
                 level,
                 ..ReportConfig::default()
             };
-            let typ =
-                generate_single_typ_source(&report, &config).expect("typ source should assemble");
+            let typ = generate_typ(&report, &config).expect("typ source should assemble");
 
             assert!(
                 typ.len() > 5_000,
@@ -821,6 +820,127 @@ mod tests {
                 typ.contains("#let "),
                 "typ source for {:?} must include at least one `#let` (template definitions)",
                 level
+            );
+        }
+    }
+
+    // ── Typst ⇄ JSON consistency per report part (3 internal areas) ─────────
+    //
+    // The single report is split into three parts (TEIL 1/2/3). For each part we
+    // decide which aggregated audit value belongs there and assert that the value
+    // is (a) present in that part of the Typst source and (b) identical to the
+    // value the JSON report exposes. We deliberately test the *number as a value*
+    // (the way the figure is represented, e.g. `73` / `73/100`), NOT the visual
+    // formatting (fonts, colors, spacing) — those are not part of the contract.
+    //
+    //   Teil 1 (Executive)      → overall score (headline aggregate)
+    //   Teil 2 (Accessibility)  → accessibility score + every module score
+    //                             (the aggregated module overview lives here)
+    //   Teil 3 (Tech & Quality) → every non-accessibility module score (detail)
+
+    /// Unescape the embedded component JSON so values read as plain `"value":"73"`.
+    fn unescape_typ(typ: &str) -> String {
+        typ.replace("\\\"", "\"")
+    }
+
+    /// True if `n` appears as a *value* (not a color/spacing/font literal).
+    /// Matches the value representations the renderer emits:
+    ///   `"value":"73"`  `"value":"73/100"`  `"score":73`  `"diagnosis":"73/100"`
+    fn part_has_value(part: &str, n: u32) -> bool {
+        let s = n.to_string();
+        [
+            format!(":\"{s}\""),
+            format!(":\"{s}/100\""),
+            format!(":\"{s}/"),
+            format!(":{s},"),
+            format!(":{s}}}"),
+        ]
+        .iter()
+        .any(|needle| part.contains(needle))
+    }
+
+    /// Split the (unescaped) Typst source into the 3 report parts on the
+    /// "TEIL 2 / TEIL 3" dividers. Part 1 covers the cover + executive front matter.
+    fn split_parts(typ: &str) -> (String, String, String) {
+        let i2 = typ.find("TEIL 2 VON 3").expect("Teil 2 divider present");
+        let i3 = typ.find("TEIL 3 VON 3").expect("Teil 3 divider present");
+        assert!(i2 < i3, "part dividers must appear in order");
+        (
+            typ[..i2].to_string(),
+            typ[i2..i3].to_string(),
+            typ[i3..].to_string(),
+        )
+    }
+
+    #[test]
+    fn test_typ_aggregates_consistent_with_json_per_part() {
+        // Rich WCAG fixture + one module (SEO = 73) so all three parts render.
+        let mut seo = crate::seo::SeoAnalysis::default();
+        seo.score = 73;
+        let report = pdf_fixture_report_rich().with_seo(seo);
+
+        let config = ReportConfig {
+            level: ReportLevel::Technical,
+            locale: "de".to_string(),
+            ..ReportConfig::default()
+        };
+
+        // JSON holds the aggregated values that MUST also appear in the PDF.
+        let normalized = crate::audit::normalize(&report);
+        let unified = crate::output::UnifiedReport::single(&normalized, &report);
+        let json: serde_json::Value =
+            serde_json::from_str(&unified.to_json(true).expect("json")).expect("parse json");
+        let page = &json["pages"][0];
+
+        let overall = page["overall_score"].as_u64().expect("overall_score") as u32;
+        let a11y = page["accessibility_score"]
+            .as_u64()
+            .expect("accessibility_score") as u32;
+        let module_scores: Vec<(String, u32)> = page["module_scores"]
+            .as_array()
+            .expect("module_scores")
+            .iter()
+            .map(|m| {
+                (
+                    m["name"].as_str().unwrap_or_default().to_string(),
+                    m["score"].as_u64().unwrap_or_default() as u32,
+                )
+            })
+            .collect();
+        assert!(
+            module_scores.iter().any(|(n, _)| n == "SEO"),
+            "fixture must expose an SEO module score"
+        );
+
+        let typ = unescape_typ(&generate_typ(&report, &config).expect("typ"));
+        let (p1, p2, p3) = split_parts(&typ);
+
+        // Teil 1 — Executive: the overall score is the headline aggregate.
+        assert!(
+            part_has_value(&p1, overall),
+            "overall score {overall} (JSON) must appear in Teil 1"
+        );
+
+        // Teil 2 — Accessibility: a11y score + every module score (overview).
+        assert!(
+            part_has_value(&p2, a11y),
+            "accessibility score {a11y} (JSON) must appear in Teil 2"
+        );
+        for (name, score) in &module_scores {
+            assert!(
+                part_has_value(&p2, *score),
+                "module '{name}' score {score} (JSON) must appear in the Teil 2 overview"
+            );
+        }
+
+        // Teil 3 — Tech & Quality: non-accessibility module scores (detail).
+        for (name, score) in &module_scores {
+            if name == "Accessibility" {
+                continue;
+            }
+            assert!(
+                part_has_value(&p3, *score),
+                "module '{name}' score {score} (JSON) must appear in the Teil 3 detail"
             );
         }
     }

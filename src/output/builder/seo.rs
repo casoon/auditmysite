@@ -10,32 +10,32 @@ pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalys
     let en = locale == "en";
     let lead = if seo.score >= 90 {
         if en {
-            "Technical SEO foundations largely met — relevant ranking signals are in place."
+            "The technical SEO foundations are largely in place and support visibility in search engines."
         } else {
-            "Technische SEO-Grundlagen weitgehend erfüllt — relevante Ranking-Signale vorhanden."
+            "Die technischen SEO-Grundlagen sind weitgehend erfüllt und unterstützen die Sichtbarkeit in Suchmaschinen."
         }
     } else if seo.score >= 70 {
         if en {
-            "Solid SEO base with targeted optimization potential."
+            "Solid SEO base with targeted potential to improve visibility."
         } else {
-            "Solide SEO-Basis mit gezieltem Optimierungspotenzial."
+            "Solide SEO-Basis mit gezieltem Optimierungspotenzial für mehr Sichtbarkeit."
         }
     } else if seo.score >= 55 {
         if en {
-            "SEO base patchy — relevant ranking signals missing, visibility clearly limited."
+            "Some important SEO foundations are missing, which can limit visibility in search engines."
         } else {
-            "SEO-Basis lückenhaft — relevante Ranking-Signale fehlen, Sichtbarkeit deutlich eingeschränkt."
+            "Wichtige SEO-Grundlagen fehlen teilweise, wodurch die Sichtbarkeit in Suchmaschinen eingeschränkt sein kann."
         }
     } else if seo.score >= 35 {
         if en {
-            "SEO insufficient — essential foundations are missing. Technical deficits noticeably limit the ranking potential."
+            "SEO insufficient — essential foundations are missing and noticeably limit discoverability."
         } else {
-            "SEO unzureichend — wesentliche Grundlagen fehlen. Technische Defizite begrenzen das Ranking-Potenzial deutlich."
+            "SEO unzureichend — wesentliche Grundlagen fehlen und begrenzen die Auffindbarkeit deutlich."
         }
     } else if en {
-        "SEO critical — fundamental signals are missing. Indexing and ranking are at risk of being impaired."
+        "SEO critical — fundamental prerequisites are missing; indexing and discoverability are at risk."
     } else {
-        "SEO kritisch — grundlegende Signale fehlen. Indexierung und Ranking können beeinträchtigt werden."
+        "SEO kritisch — grundlegende Voraussetzungen fehlen; Indexierung und Auffindbarkeit sind gefährdet."
     };
 
     if let Some(profile) = &seo.content_profile {

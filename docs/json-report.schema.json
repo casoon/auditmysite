@@ -256,6 +256,7 @@
         "aggregation_key": { "type": "string" },
         "title": { "type": "string" },
         "description": { "type": "string" },
+        "help_url": { "type": "string", "description": "Official reference URL for the criterion (e.g. WCAG Understanding page). Present only for WCAG findings that carry one." },
         "occurrence_count": { "type": "integer", "minimum": 0 },
         "priority_score": { "type": "number" },
         "occurrences": {

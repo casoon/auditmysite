@@ -155,6 +155,29 @@ renderreport = { git = "https://github.com/casoon/renderreport.git", tag = "v0.2
 - Never use HTML export for reports
 - PDF reports use the `renderreport` Typst engine with full module detail sections
 
+## Report Wording Style
+Gilt für alle Interpretations-/Erklärungstexte (`interpret_score`, `build_seo_interpretation`,
+Overall-Erklärung, Modul-Dashboard). Quelle: `src/output/builder/helpers.rs` (`interpret_score`),
+`src/output/builder/seo.rs`. Review-Surface: `reports/interpretations.json` (regenerieren mit
+`cargo test --lib export_all_interpretations -- --ignored --nocapture`).
+
+- **Lokalisierung ist Pflicht.** Bei `locale = "en"` echte englische Sätze ausgeben — nie deutschen
+  Satzbau mit eingesetztem englischem Nomen ("die accessibility ist…"). Jeder Text existiert in `de` **und** `en`.
+- **Module unterscheiden sich.** Keine geteilte Satzschablone über alle Module. Pro Modul eigene
+  Betonung: Accessibility = rechtlich/Zugänglichkeit, Performance/UX/Journey = Nutzerwirkung,
+  Security = vorsichtig/juristisch ("im geprüften Umfang", keine Sicherheitsgarantie),
+  Mobile = "Nutzung auf Mobilgeräten" (nicht "mobile Nutzbarkeit").
+- **Beschreibe Wirkung, nicht nur Zustand.** Gute Audit-Sätze decken Zustand + Auswirkung (+ ggf.
+  Risiko/Priorität) ab — nicht nur "ist solide".
+- **Notenbänder (Label-Präfix):** `Sehr gut` (≥90) · `Gut` (≥75) · `Verbesserungswürdig` (≥60) ·
+  `Ausbaufähig` (≥40) · `Kritisch` (<40). EN: `Excellent` · `Good` · `Needs improvement` ·
+  `Inadequate` · `Critical`. **"Befriedigend" ist verboten** (klingt nach Schulnote).
+- **Verbotene Füllphrasen:** "auf einem hohen Niveau", "einzelne Verbesserungen sind möglich",
+  "weist (relevante/einzelne) Schwächen auf", "solide" als Allzweckwort. Bei SEO Endkunden-Jargon
+  vermeiden ("Ranking-Signale" → "Sichtbarkeit in Suchmaschinen").
+- **Bevorzugtes Vokabular:** beeinträchtigt, erschwert, stabil, konsistent, technisch sauber,
+  zuverlässig, robust, eingeschränkt, fehlend, unvollständig, nachvollziehbar.
+
 ## Architecture Documentation
 Whenever a new module is added, renamed, or removed, update the Module Structure section above **and** `ARCHITECTURE.md` in the same commit. Also update the `Current State` version and module list when bumping the version.
 
@@ -175,7 +198,7 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Consent: `--dismiss-consent` Flag; CMP-Cookie-Injection + Banner-Click; `consent_banner` audit_flag im JSON
 - JSON: **Unified Report Envelope v2.0** — einheitliches Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`). Breaking Change ggü. v0.17.
 - Scoring: Depth-Saturation (Zwei-Phasen), Diversity-Faktor, Soft Floor + logarithmische Kompression für extreme Penalties (≥85 Punkte), WCAG-Prinzip-Coverage; `score_breakdown` (nur bei `score_calculation_method = "viewport_weighted"`, sonst absent)
-- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt **Findings** (eine Zeile pro Regel/Severity, nur WCAG-Kategorie), `occurrence_counts` summiert Element-Occurrences derselben Findings; `violated_rule_count` im JSON-PageEntry; `risk.severity` = schwerste Violation über alle Findings (kein eigenes `severity_max`-Feld)
+- Findings: `category`-Feld auf `NormalizedFinding` (`"wcag"` / `"seo"`); `severity_counts` zählt **Findings** (eine Zeile pro Regel/Severity, **nur WCAG-Kategorie** — bleibt risiko-/rechts-relevant). Im JSON-Report decken `occurrence_counts`, `violation_count` und `violated_rule_count` **alle Kategorien (WCAG + SEO)** ab — konsistent mit `findings[]` und `detail.fix_guidance` (#254/#255). `top_recurring_rules` bleibt WCAG-only. Achtung: `NormalizedReport.occurrence_counts` ist weiterhin WCAG-only (speist `SiteState`/Risk), der JSON-PageEntry berechnet die All-Category-Variante separat. `risk.severity` = schwerste Violation über alle Findings (kein eigenes `severity_max`-Feld)
 - Risk Level: Score-basierter Fallback (score ≤ 20 → mindestens Medium); `legal_flags > 0` oder `blocking_issues ≥ 1` heben das Level mindestens auf Medium. `legal_flags` zählt **distinct WCAG-Level-A-Regeln** mit High/Critical-Severity (nicht Occurrences).
 - History: `schema_version: "1.0"`, `report_type: "history"` in History-JSON-Dateien
 - PDF: Throttled-Performance-Tabelle, Indikator-Kennzeichnung konsistent, leere Seite nach ToC behoben
@@ -183,4 +206,4 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - `tool_version` als Top-Level-Feld im JSON-Report (parallel zu `schema_version`/`report_type`)
 - Sitemap-Summary enthält `violated_rule_count` (dedupliziert über alle Pages) und `top_recurring_rules` (max. 10 häufigste WCAG-Verstöße)
 - Pass-Kriterium (`passed_url_count`): accessibility_score ≥ 80, keine Critical-Findings und keine WCAG-Level-A High/Critical-Findings (also `legal_flags == 0`)
-- `detail.fix_guidance` ist immer im JSON präsent (leeres Array bei 0 Findings)
+- `detail.fix_guidance` ist immer im JSON präsent (leeres Array bei 0 Findings) — auch in Batch-/Sitemap-Reports; dort trägt jede Page ein kompaktes `detail` (nur `fix_guidance`, ohne Modul-Blob), siehe #256

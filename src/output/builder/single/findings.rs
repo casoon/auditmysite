@@ -98,6 +98,7 @@ pub(super) fn finding_group_from_normalized(
         rule_id: f.rule_id.clone(),
         wcag_criterion: f.wcag_criterion.clone(),
         wcag_level: f.wcag_level.clone(),
+        help_url: f.help_url.clone(),
         dimension: Some(f.dimension.clone()),
         subcategory: Some(f.subcategory.clone()),
         issue_class: Some(f.issue_class.clone()),

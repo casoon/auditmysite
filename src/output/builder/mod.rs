@@ -474,7 +474,203 @@ mod tests {
         let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 1500)
             .with_seo(seo);
         report.score = score;
-        report.grade = helpers::grade_label(score.round() as u32).to_string();
         report
+    }
+
+    /// Invariants for `interpret_score` wording (CLAUDE.md "Report Wording Style"):
+    ///   1. Localization actually happens — `en` must never fall back to the `de`
+    ///      sentence (the bug that produced "die accessibility ist …").
+    ///   2. Each module/band carries the controlled band label in the right
+    ///      locale — locks the vocabulary and keeps the school grade
+    ///      "Befriedigend" from creeping back. Asserts the label as a categorical
+    ///      *value*, not the free-form prose (mirrors `test_grade_matches_score`).
+    #[test]
+    fn test_interpret_score_localized_and_label_contract() {
+        use helpers::InterpretArea;
+
+        let areas = [
+            InterpretArea::Accessibility,
+            InterpretArea::Performance,
+            InterpretArea::Security,
+            InterpretArea::Mobile,
+            InterpretArea::Ux,
+            InterpretArea::Journey,
+        ];
+        // (representative score, de label, en label) — one per grade band.
+        let bands = [
+            (95.0_f32, "Sehr gut", "Excellent"),
+            (80.0, "Gut", "Good"),
+            (65.0, "Verbesserungswürdig", "Needs improvement"),
+            (50.0, "Ausbaufähig", "Inadequate"),
+            (20.0, "Kritisch", "Critical"),
+        ];
+
+        for area in areas {
+            for (score, de_label, en_label) in bands {
+                let de = helpers::interpret_score(area, score, "de");
+                let en = helpers::interpret_score(area, score, "en");
+
+                assert_ne!(
+                    de, en,
+                    "de/en interpretation identical at score {score} — en fell back to de"
+                );
+                assert!(
+                    de.starts_with(&format!("{de_label} \u{2014}")),
+                    "DE band label wrong at score {score}: {de:?}"
+                );
+                assert!(
+                    en.starts_with(&format!("{en_label} \u{2014}")),
+                    "EN band label wrong at score {score}: {en:?}"
+                );
+                assert!(
+                    !de.contains("Befriedigend"),
+                    "banned school grade reappeared: {de:?}"
+                );
+            }
+        }
+    }
+
+    /// Export every computed module *interpretation* / explanation text into a
+    /// single data file for review (issue: report wording quality).
+    ///
+    /// Ignored by default — run on demand to (re)generate the file:
+    ///   cargo test -p auditmysite export_all_interpretations -- --ignored --nocapture
+    ///
+    /// It exercises the interpretation generators across their full input space:
+    ///   * `interpret_score` — every module area × all 5 grade bands × {de,en}
+    ///   * `build_seo_interpretation` — 5 score bands × {de,en}
+    ///   * the real `build_view_model` path — dashboard module interpretations +
+    ///     the overall-score explanation (de + en)
+    /// and writes them to `reports/interpretations.json`. The trailing
+    /// `source_map` lists the remaining fixture-dependent generators with their
+    /// source location so the review surface is complete.
+    #[test]
+    #[ignore = "run on demand to regenerate reports/interpretations.json"]
+    fn export_all_interpretations() {
+        let bands = [95.0_f32, 80.0, 65.0, 50.0, 20.0];
+        let mut records: Vec<serde_json::Value> = Vec::new();
+
+        // 1. Per-module, locale-aware interpret_score — the dominant interpreter.
+        let areas = [
+            ("accessibility", helpers::InterpretArea::Accessibility),
+            ("performance", helpers::InterpretArea::Performance),
+            ("security", helpers::InterpretArea::Security),
+            ("mobile", helpers::InterpretArea::Mobile),
+            ("ux", helpers::InterpretArea::Ux),
+            ("journey", helpers::InterpretArea::Journey),
+        ];
+        for (module, area) in areas {
+            for locale in ["de", "en"] {
+                for score in bands {
+                    records.push(serde_json::json!({
+                        "source": "interpret_score",
+                        "module": module,
+                        "area_locale": locale,
+                        "score": score as u32,
+                        "text": super::helpers::interpret_score(area, score, locale),
+                    }));
+                }
+            }
+        }
+
+        // 2. SEO interpretation lead sentences (no content profile).
+        for locale in ["de", "en"] {
+            for score in [95_u32, 80, 62, 45, 20] {
+                let mut seo = crate::seo::SeoAnalysis::default();
+                seo.score = score;
+                records.push(serde_json::json!({
+                    "source": "build_seo_interpretation",
+                    "module": "SEO",
+                    "area_locale": locale,
+                    "score": score,
+                    "text": super::seo::build_seo_interpretation(locale, &seo),
+                }));
+            }
+        }
+
+        // 3. Real builder path — overall-score explanation + dashboard module
+        //    interpretations exactly as rendered (Performance + SEO present so
+        //    the overall explanation and >1 module are produced).
+        for locale in ["de", "en"] {
+            let mut wcag = WcagResults::new();
+            wcag.add_violation(Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                crate::taxonomy::Severity::High,
+                "Missing alt text",
+                "n1",
+            ));
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, wcag, 1500)
+                .with_performance(crate::audit::PerformanceResults {
+                    vitals: WebVitals::default(),
+                    score: PerformanceScore {
+                        overall: 60,
+                        grade: PerformanceGrade::NeedsImprovement,
+                        lcp_score: Some(15),
+                        fcp_score: Some(15),
+                        cls_score: Some(15),
+                        interactivity_score: Some(15),
+                        metrics_available: 4,
+                    },
+                    render_blocking: None,
+                    content_weight: None,
+                    third_party: None,
+                    critical_chain: None,
+                    minification: None,
+                    animations: None,
+                    coverage: None,
+                })
+                .with_seo(SeoAnalysis::default());
+            let normalized = normalize(&report);
+            let config = ReportConfig {
+                locale: locale.to_string(),
+                ..ReportConfig::default()
+            };
+            let vm = build_view_model(&normalized, &config);
+            if let Some(text) = &vm.modules.overall_interpretation {
+                records.push(serde_json::json!({
+                    "source": "overall_interpretation",
+                    "module": "overall",
+                    "area_locale": locale,
+                    "text": text,
+                }));
+            }
+            for m in &vm.modules.dashboard {
+                records.push(serde_json::json!({
+                    "source": "module_dashboard",
+                    "module": m.name,
+                    "area_locale": locale,
+                    "score": m.score,
+                    "text": m.interpretation,
+                }));
+            }
+        }
+
+        // Source map for the fixture-dependent generators not exhaustively
+        // enumerated above (each combines profile/threshold inputs).
+        let source_map = serde_json::json!([
+            {"generator": "build_seo_interpretation (page-type appendix)", "file": "src/output/builder/seo.rs:41"},
+            {"generator": "summarize_page_profile", "file": "src/output/builder/seo.rs:194"},
+            {"generator": "page_profile_optimization_note", "file": "src/output/builder/seo.rs:246"},
+            {"generator": "perf_interpretation (CWV-green special case)", "file": "src/output/builder/single/module_details.rs:123"},
+            {"generator": "mobile_interpretation (small-target special case)", "file": "src/output/builder/single/module_details.rs:812"},
+            {"generator": "journey_interpretation (page-type prefix)", "file": "src/output/builder/single/module_details.rs:1001"},
+        ]);
+
+        let doc = serde_json::json!({
+            "description": "All computed report interpretation / explanation texts, for wording review.",
+            "count": records.len(),
+            "interpretations": records,
+            "source_map_fixture_dependent": source_map,
+        });
+
+        let out = serde_json::to_string_pretty(&doc).expect("serialize interpretations");
+        std::fs::write("reports/interpretations.json", out)
+            .expect("write reports/interpretations.json");
+        eprintln!(
+            "Wrote {} interpretation records to reports/interpretations.json",
+            records.len()
+        );
     }
 }

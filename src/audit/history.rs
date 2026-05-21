@@ -529,6 +529,7 @@ mod tests {
                 aggregation_key: "a11y.alt_text.missing".to_string(),
                 title: "Non-text Content".to_string(),
                 description: "Missing alt".to_string(),
+                help_url: None,
                 occurrence_count: 1,
                 priority_score: 1.0,
                 occurrences: vec![],

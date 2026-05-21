@@ -849,6 +849,7 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
         rule_id: finding.rule_id.clone(),
         wcag_criterion: finding.wcag_criterion.clone(),
         wcag_level: finding.wcag_level.clone(),
+        help_url: finding.help_url.clone(),
         dimension: Some(finding.dimension.clone()),
         subcategory: Some(finding.subcategory.clone()),
         issue_class: Some(finding.issue_class.clone()),

@@ -252,12 +252,12 @@ pub(super) fn render_tech_details(
             let (findings_title, findings_intro) = if en {
                 (
                     "Findings by Criticality",
-                    "All technical findings — clearly separated into mandatory (legally relevant under the BFSG) and optimization. Mandatory findings must be remediated; optimization findings improve quality but are not legally required.",
+                    "All technical findings, separated into mandatory (BFSG-relevant) and optimization.",
                 )
             } else {
                 (
                     "Befunde nach Kritikalität",
-                    "Alle technischen Befunde — klar getrennt in Pflicht (BFSG-relevant) und Optimierung. Pflicht-Befunde müssen behoben werden; Optimierungs-Befunde verbessern die Qualität, sind aber rechtlich nicht zwingend.",
+                    "Alle technischen Befunde, getrennt in Pflicht (BFSG-relevant) und Optimierung.",
                 )
             };
             builder = builder.add_component(PageBreak::new()).add_component(

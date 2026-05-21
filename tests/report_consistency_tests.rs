@@ -348,6 +348,100 @@ fn test_severity_counts_match_findings() {
     );
 }
 
+// ─── SEO-inclusive count tests (#254, #255) ───────────────────────
+
+fn make_report_with_seo_finding() -> AuditReport {
+    use auditmysite::seo::{HeadingIssue, HeadingStructure};
+    let mut seo = make_seo();
+    seo.headings = HeadingStructure {
+        issues: vec![
+            HeadingIssue {
+                issue_type: "long_heading".to_string(),
+                message: "Heading too long".to_string(),
+                severity: Severity::Medium,
+            },
+            HeadingIssue {
+                issue_type: "long_heading".to_string(),
+                message: "Another long heading".to_string(),
+                severity: Severity::Medium,
+            },
+        ],
+        ..Default::default()
+    };
+    AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        make_violations(),
+        1000,
+    )
+    .with_seo(seo)
+}
+
+#[test]
+fn test_json_counts_include_seo_findings() {
+    let report = make_report_with_seo_finding();
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let page = &unified.pages[0];
+
+    let total_rules = normalized
+        .findings
+        .iter()
+        .map(|f| f.rule_id.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+    let total_occurrences: usize = normalized.findings.iter().map(|f| f.occurrence_count).sum();
+    let seo_rules = normalized
+        .findings
+        .iter()
+        .filter(|f| f.category == "seo")
+        .count();
+    assert!(seo_rules > 0, "test report must contain SEO findings");
+
+    // violated_rule_count + violation_count + occurrence_counts span all categories (#254/#255)
+    assert_eq!(page.violated_rule_count, total_rules);
+    assert_eq!(page.violation_count, total_occurrences);
+    assert_eq!(page.occurrence_counts.total, total_occurrences);
+
+    // severity_counts stays WCAG-only (legal/risk semantics)
+    let wcag_rules = normalized
+        .findings
+        .iter()
+        .filter(|f| f.category == "wcag")
+        .count();
+    assert_eq!(page.severity_counts.total, wcag_rules);
+    assert!(
+        page.violated_rule_count > page.severity_counts.total,
+        "SEO findings must lift violated_rule_count above WCAG-only severity_counts"
+    );
+}
+
+#[test]
+fn test_batch_pages_carry_fix_guidance_detail() {
+    let batch = BatchReport::from_reports(vec![make_report_with_seo_finding()], vec![], 100);
+    let parsed: serde_json::Value =
+        serde_json::from_str(&format_json_batch(&batch, true).expect("batch JSON must render"))
+            .expect("batch JSON must parse");
+
+    let detail = &parsed["pages"][0]["detail"];
+    assert!(
+        detail["fix_guidance"].is_array(),
+        "batch page must carry detail.fix_guidance (#256)"
+    );
+    assert!(
+        !detail["fix_guidance"].as_array().unwrap().is_empty(),
+        "fix_guidance should list the page's findings"
+    );
+    // Batch detail stays compact: no heavy module blob.
+    assert!(
+        detail["modules"]
+            .as_object()
+            .map(|m| m.is_empty())
+            .unwrap_or(true),
+        "batch detail.modules should be empty to keep batch reports compact"
+    );
+}
+
 // ─── Fix Guidance Tests ────────────────────────────────────────────
 
 #[test]

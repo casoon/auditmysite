@@ -164,6 +164,9 @@ pub struct NormalizedFinding {
     pub title: String,
     /// Beschreibung
     pub description: String,
+    /// Offizielle Referenz zum Kriterium (z.B. WCAG-Understanding-Seite)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub help_url: Option<String>,
     /// Anzahl Vorkommen
     pub occurrence_count: usize,
     /// Prioritätswert für Maßnahmenplanung (impact × reach / effort)
@@ -504,6 +507,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 aggregation_key: tax_id,
                 title: display_title,
                 description: first.message.clone(),
+                help_url: first.help_url.clone(),
                 occurrence_count,
                 priority_score,
                 occurrences,
@@ -555,6 +559,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 aggregation_key: rule_id,
                 title,
                 description: first.message.clone(),
+                help_url: None,
                 occurrence_count,
                 priority_score,
                 occurrences: issues

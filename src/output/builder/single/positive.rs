@@ -117,6 +117,7 @@ impl Clone for FindingGroup {
             rule_id: self.rule_id.clone(),
             wcag_criterion: self.wcag_criterion.clone(),
             wcag_level: self.wcag_level.clone(),
+            help_url: self.help_url.clone(),
             dimension: self.dimension.clone(),
             subcategory: self.subcategory.clone(),
             issue_class: self.issue_class.clone(),

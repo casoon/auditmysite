@@ -577,30 +577,191 @@ pub(crate) fn extract_domain(url: &str) -> String {
     host.trim_start_matches("www.").to_string()
 }
 
-pub(super) fn grade_label(score: u32) -> &'static str {
-    match score {
-        90..=100 => "Sehr gut",
-        75..=89 => "Gut",
-        60..=74 => "Befriedigend",
-        40..=59 => "Ausbaufähig",
-        _ => "Kritisch",
+/// German display name for a module identifier used in prose (overall-score
+/// weights, indicator notes). English keeps the canonical identifier.
+pub(super) fn localized_module_name(name: &str, en: bool) -> String {
+    if en {
+        return name.to_string();
+    }
+    match name {
+        "Accessibility" => "Barrierefreiheit",
+        "Security" => "Sicherheit",
+        other => other,
+    }
+    .to_string()
+}
+
+/// Module identity for `interpret_score`. Each variant carries its own,
+/// per-module wording so the dashboard does not read as one shared template.
+#[derive(Clone, Copy)]
+pub(super) enum InterpretArea {
+    Accessibility,
+    Performance,
+    Security,
+    Mobile,
+    Ux,
+    Journey,
+}
+
+#[derive(Clone, Copy)]
+enum ScoreBand {
+    Excellent,
+    Good,
+    NeedsImprovement,
+    Weak,
+    Critical,
+}
+
+fn score_band(score: f32) -> ScoreBand {
+    match score.round() as i64 {
+        s if s >= 90 => ScoreBand::Excellent,
+        s if s >= 75 => ScoreBand::Good,
+        s if s >= 60 => ScoreBand::NeedsImprovement,
+        s if s >= 40 => ScoreBand::Weak,
+        _ => ScoreBand::Critical,
     }
 }
 
-pub(super) fn interpret_score(score: f32, area: &str) -> String {
-    let grade = grade_label(score.round() as u32);
-    match grade {
-        "Sehr gut" => format!("{} — die {} ist auf einem hohen Niveau.", grade, area),
-        "Gut" => format!(
-            "{} — die {} ist solide, einzelne Verbesserungen sind möglich.",
-            grade, area
+/// Localized, module-specific score interpretation. Wording follows the
+/// "Report Wording Style" rules in CLAUDE.md: describe Zustand + Auswirkung,
+/// no filler phrases ("auf einem hohen Niveau"), no school grades
+/// ("Befriedigend"), and real English in the `en` locale.
+pub(super) fn interpret_score(area: InterpretArea, score: f32, locale: &str) -> String {
+    use InterpretArea::*;
+    use ScoreBand::*;
+
+    let (de, en): (&str, &str) = match (area, score_band(score)) {
+        (Accessibility, Excellent) => (
+            "Sehr gut — die Barrierefreiheit ist technisch sauber umgesetzt und weist nur geringe Einschränkungen auf.",
+            "Excellent — accessibility is implemented cleanly, with only minor limitations.",
         ),
-        "Befriedigend" => format!("{} — die {} weist einzelne Schwächen auf.", grade, area),
-        "Ausbaufähig" => format!("{} — die {} weist relevante Schwächen auf.", grade, area),
-        _ => format!(
-            "{} — die {} hat erhebliche Mängel, die behoben werden sollten.",
-            grade, area
+        (Accessibility, Good) => (
+            "Gut — die Barrierefreiheit ist insgesamt solide, kleinere Optimierungen sind sinnvoll.",
+            "Good — accessibility is sound overall; minor improvements are worthwhile.",
         ),
+        (Accessibility, NeedsImprovement) => (
+            "Verbesserungswürdig — einzelne Barrieren können die Nutzung einschränken.",
+            "Needs improvement — individual barriers can restrict use.",
+        ),
+        (Accessibility, Weak) => (
+            "Ausbaufähig — relevante Barrieren beeinträchtigen Nutzbarkeit und Zugänglichkeit.",
+            "Inadequate — significant barriers impair usability and accessibility.",
+        ),
+        (Accessibility, Critical) => (
+            "Kritisch — wesentliche Anforderungen an die Barrierefreiheit werden nicht erfüllt.",
+            "Critical — essential accessibility requirements are not met.",
+        ),
+
+        (Performance, Excellent) => (
+            "Sehr gut — die Seite reagiert schnell und bietet eine flüssige Nutzererfahrung.",
+            "Excellent — the page responds quickly and feels smooth to use.",
+        ),
+        (Performance, Good) => (
+            "Gut — die Performance ist stabil, vereinzelt bestehen Optimierungsmöglichkeiten.",
+            "Good — performance is stable, with occasional room for optimization.",
+        ),
+        (Performance, NeedsImprovement) => (
+            "Verbesserungswürdig — Ladezeiten und Reaktionsverhalten sind stellenweise uneinheitlich.",
+            "Needs improvement — load times and responsiveness are inconsistent in places.",
+        ),
+        (Performance, Weak) => (
+            "Ausbaufähig — Performance-Probleme können Nutzung und Conversion beeinträchtigen.",
+            "Inadequate — performance issues can impair use and conversion.",
+        ),
+        (Performance, Critical) => (
+            "Kritisch — deutliche Performance-Probleme beeinträchtigen die Nutzererfahrung erheblich.",
+            "Critical — significant performance problems severely impair the user experience.",
+        ),
+
+        (Security, Excellent) => (
+            "Sehr gut — keine wesentlichen Sicherheitsauffälligkeiten im geprüften Umfang erkannt.",
+            "Excellent — no significant security issues found within the scope checked.",
+        ),
+        (Security, Good) => (
+            "Gut — grundlegende Sicherheitsmechanismen sind vorhanden, kleinere Schwächen wurden erkannt.",
+            "Good — basic security mechanisms are in place; minor weaknesses were identified.",
+        ),
+        (Security, NeedsImprovement) => (
+            "Verbesserungswürdig — einzelne Sicherheitsaspekte sollten überprüft und abgesichert werden.",
+            "Needs improvement — individual security aspects should be reviewed and hardened.",
+        ),
+        (Security, Weak) => (
+            "Ausbaufähig — relevante Sicherheitsauffälligkeiten oder Fehlkonfigurationen wurden erkannt.",
+            "Inadequate — relevant security issues or misconfigurations were found.",
+        ),
+        (Security, Critical) => (
+            "Kritisch — es bestehen erhebliche Sicherheitsrisiken mit unmittelbarem Handlungsbedarf.",
+            "Critical — significant security risks exist that require immediate action.",
+        ),
+
+        (Mobile, Excellent) => (
+            "Sehr gut — die Nutzung auf Mobilgeräten funktioniert zuverlässig und ohne erkennbare Einschränkungen.",
+            "Excellent — the site works reliably on mobile devices, with no noticeable limitations.",
+        ),
+        (Mobile, Good) => (
+            "Gut — die Nutzung auf Mobilgeräten funktioniert insgesamt zuverlässig.",
+            "Good — the site works reliably on mobile devices overall.",
+        ),
+        (Mobile, NeedsImprovement) => (
+            "Verbesserungswürdig — auf Mobilgeräten treten stellenweise Bedien- und Darstellungsprobleme auf.",
+            "Needs improvement — layout and usability issues appear in places on mobile devices.",
+        ),
+        (Mobile, Weak) => (
+            "Ausbaufähig — Darstellung und Bedienung auf Mobilgeräten sind spürbar eingeschränkt.",
+            "Inadequate — layout and usability on mobile devices are noticeably impaired.",
+        ),
+        (Mobile, Critical) => (
+            "Kritisch — die Seite ist auf Mobilgeräten kaum zuverlässig nutzbar.",
+            "Critical — the site is barely usable on mobile devices.",
+        ),
+
+        (Ux, Excellent) => (
+            "Sehr gut — die Bedienung ist klar und führt Nutzer sicher durch die Seite.",
+            "Excellent — the interface is clear and guides users confidently through the page.",
+        ),
+        (Ux, Good) => (
+            "Gut — die Nutzerführung ist verständlich, einzelne Abläufe lassen sich straffen.",
+            "Good — user guidance is clear; individual flows can be tightened.",
+        ),
+        (Ux, NeedsImprovement) => (
+            "Verbesserungswürdig — Nutzerführung und Interaktion wirken stellenweise unnötig komplex.",
+            "Needs improvement — user guidance and interaction feel needlessly complex in places.",
+        ),
+        (Ux, Weak) => (
+            "Ausbaufähig — Reibungspunkte erschweren eine klare Nutzerführung.",
+            "Inadequate — friction points get in the way of clear user guidance.",
+        ),
+        (Ux, Critical) => (
+            "Kritisch — die Bedienung ist unübersichtlich und behindert die Zielerreichung.",
+            "Critical — the interface is confusing and prevents users from reaching their goal.",
+        ),
+
+        (Journey, Excellent) => (
+            "Sehr gut — die wichtigsten Nutzerpfade sind durchgängig und nachvollziehbar.",
+            "Excellent — the key user paths are consistent and easy to follow.",
+        ),
+        (Journey, Good) => (
+            "Gut — die zentralen Nutzerpfade funktionieren, einzelne Schritte lassen sich verbessern.",
+            "Good — the core user paths work; individual steps can be improved.",
+        ),
+        (Journey, NeedsImprovement) => (
+            "Verbesserungswürdig — einzelne Schritte der Nutzerführung sind umständlich oder unklar.",
+            "Needs improvement — individual steps in the user flow are cumbersome or unclear.",
+        ),
+        (Journey, Weak) => (
+            "Ausbaufähig — Brüche in der Nutzerführung erschweren das Erreichen zentraler Ziele.",
+            "Inadequate — breaks in the user flow make it harder to reach key goals.",
+        ),
+        (Journey, Critical) => (
+            "Kritisch — wichtige Schritte der Nutzerführung sind unnötig kompliziert oder unterbrochen.",
+            "Critical — important steps in the user flow are needlessly complicated or broken.",
+        ),
+    };
+
+    if locale == "en" {
+        en.to_string()
+    } else {
+        de.to_string()
     }
 }
 

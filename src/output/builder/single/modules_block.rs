@@ -1,7 +1,7 @@
 use crate::audit::normalized::NormalizedReport;
 use crate::output::report_model::{ModuleScore, ModulesBlock};
 
-use super::super::helpers::interpret_score;
+use super::super::helpers::{interpret_score, localized_module_name, InterpretArea};
 use super::super::modules::{
     derive_accessibility_card_context, derive_accessibility_context, derive_accessibility_lever,
     derive_mobile_card_context, derive_mobile_context, derive_mobile_lever,
@@ -26,14 +26,7 @@ pub(super) fn build_modules_block_from_normalized(
         },
         score: a11y_score.round() as u32,
         measurement_type: "measured".into(),
-        interpretation: interpret_score(
-            a11y_score,
-            if en {
-                "accessibility"
-            } else {
-                "Barrierefreiheit"
-            },
-        ),
+        interpretation: interpret_score(InterpretArea::Accessibility, a11y_score, locale),
         card_context: derive_accessibility_card_context(locale, normalized),
         score_context: derive_accessibility_context(locale, normalized),
         key_lever: derive_accessibility_lever(locale, normalized),
@@ -47,10 +40,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Performance".into(),
             score,
             measurement_type: "measured".into(),
-            interpretation: interpret_score(
-                score as f32,
-                if en { "performance" } else { "Performance" },
-            ),
+            interpretation: interpret_score(InterpretArea::Performance, score as f32, locale),
             card_context: derive_performance_card_context(locale, p),
             score_context: derive_performance_context(locale, p),
             key_lever: derive_performance_lever(locale, p),
@@ -82,10 +72,7 @@ pub(super) fn build_modules_block_from_normalized(
             },
             score,
             measurement_type: "measured".into(),
-            interpretation: interpret_score(
-                score as f32,
-                if en { "security" } else { "Sicherheit" },
-            ),
+            interpretation: interpret_score(InterpretArea::Security, score as f32, locale),
             card_context: derive_security_card_context(locale, s),
             score_context: derive_security_context(locale, s),
             key_lever: derive_security_lever(locale, s),
@@ -99,14 +86,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Mobile".into(),
             score,
             measurement_type: "measured".into(),
-            interpretation: interpret_score(
-                score as f32,
-                if en {
-                    "mobile usability"
-                } else {
-                    "mobile Nutzbarkeit"
-                },
-            ),
+            interpretation: interpret_score(InterpretArea::Mobile, score as f32, locale),
             card_context: derive_mobile_card_context(locale, m),
             score_context: derive_mobile_context(locale, m),
             key_lever: derive_mobile_lever(locale, m),
@@ -148,7 +128,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "UX".into(),
             score: ux_score,
             measurement_type: "heuristic".into(),
-            interpretation: interpret_score(ux_score as f32, "User Experience"),
+            interpretation: interpret_score(InterpretArea::Ux, ux_score as f32, locale),
             card_context: ux_context.clone(),
             score_context: ux_context,
             key_lever: ux_lever,
@@ -183,7 +163,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Journey".into(),
             score: journey_score,
             measurement_type: "heuristic".into(),
-            interpretation: interpret_score(journey_score as f32, "User Journey"),
+            interpretation: interpret_score(InterpretArea::Journey, journey_score as f32, locale),
             card_context: journey_context.clone(),
             score_context: journey_context,
             key_lever: journey_lever,
@@ -214,7 +194,7 @@ fn build_overall_score_explanation(locale: &str, normalized: &NormalizedReport) 
         .module_scores
         .iter()
         .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
-        .map(|m| m.name.clone())
+        .map(|m| localized_module_name(&m.name, en))
         .collect();
     let indicator_note = if indicator_names.is_empty() {
         String::new()
@@ -247,17 +227,28 @@ fn build_overall_score_explanation(locale: &str, normalized: &NormalizedReport) 
             .module_scores
             .iter()
             .filter(|m| m.contributes_to_overall)
-            .map(|m| format!("{} {}%", m.name, m.weight_pct))
+            .map(|m| {
+                let name = localized_module_name(&m.name, en);
+                if en {
+                    format!("{name} {}%", m.weight_pct)
+                } else {
+                    format!("{name} {} %", m.weight_pct)
+                }
+            })
             .collect();
         let weights = if contributing.is_empty() {
-            "Accessibility 100%".to_string()
+            if en {
+                "Accessibility 100%".to_string()
+            } else {
+                "Barrierefreiheit 100 %".to_string()
+            }
         } else {
             contributing.join(", ")
         };
         if en {
-            format!("Weighted average of contributing modules: {weights}.{indicator_note}")
+            format!("The overall rating is the weighted result of the assessed areas: {weights}.{indicator_note}")
         } else {
-            format!("Gewichteter Durchschnitt der beitragenden Module: {weights}.{indicator_note}")
+            format!("Die Gesamtbewertung ergibt sich aus den gewichteten Einzelmodulen: {weights}.{indicator_note}")
         }
     }
 }

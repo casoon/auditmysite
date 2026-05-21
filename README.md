@@ -493,6 +493,27 @@ SKIP_RUST_CHECKS=1 git commit -m "..."
 
 The hook expects `nosecrets` to be available in `PATH`.
 
+### Debugging report content (hidden `--debug-typ`)
+
+PDF reports are rendered through the `renderreport`/Typst engine. To review report
+**completeness and wording** without opening the binary PDF, use the hidden
+`--debug-typ` flag together with `--format pdf`. It writes the intermediate Typst
+source as a `.typ` sidecar next to the PDF, for both single and batch reports:
+
+```bash
+# Single report → reports/example-audit.pdf + reports/example-audit.typ
+./target/release/auditmysite https://example.com --full --format pdf \
+  --output reports/example-audit.pdf --debug-typ
+
+# Batch report → reports/example-batch.pdf + reports/example-batch.typ
+./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full \
+  --format pdf --output reports/example-batch.pdf --debug-typ
+```
+
+The `.typ` file is plain text and diff-friendly — useful for checking which audits
+land in the report and reviewing the exact wording of every section. The flag is
+intentionally hidden from `--help` (developer/debug use only).
+
 ### Release checks
 
 Run the local release gate with:

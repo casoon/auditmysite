@@ -130,7 +130,7 @@ pub(super) fn render_finding_technical(
     };
     builder = builder.add_component(Label::new(&header).bold().with_size("14pt"));
 
-    let meta_kv = KeyValueList::new()
+    let mut meta_kv = KeyValueList::new()
         .add(
             i18n.t("label-priority"),
             priority_label_i18n(group.priority, i18n),
@@ -151,6 +151,14 @@ pub(super) fn render_finding_technical(
             i18n.t("finding-occurrences"),
             group.occurrence_count.to_string(),
         );
+    if let Some(url) = group
+        .help_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|u| !u.is_empty())
+    {
+        meta_kv = meta_kv.add(i18n.t("finding-reference"), url);
+    }
     builder = builder.add_component(meta_kv);
 
     // AffectedElements: element-type summary + deduplicated selector list

@@ -18,7 +18,7 @@ mod modules;
 mod single_report;
 mod wcag_coverage;
 
-pub use self::batch_report::generate_batch_pdf;
+pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
 pub use self::comparison_report::generate_comparison_pdf;
 
 use renderreport::components::advanced::{
@@ -72,13 +72,10 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 
 /// Render the intermediate Typst source for a single-page report.
 ///
-/// Useful for snapshot tests and template-regression checks (issue #239) —
-/// catches raw-Typst leaks without going through the heavy PDF + pdftotext pipeline.
-#[cfg(test)]
-pub(crate) fn generate_single_typ_source(
-    report: &AuditReport,
-    config: &ReportConfig,
-) -> anyhow::Result<String> {
+/// Useful for the hidden `--debug-typ` mode and for snapshot/template-regression
+/// checks (issue #239) — lets reviewers inspect completeness and wording without
+/// going through the heavy PDF + pdftotext pipeline.
+pub fn generate_typ(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<String> {
     let (engine, built_report) = build_single_report(report, config)?;
     let typ = engine.render_typ(&built_report)?;
     cleanup_screenshot_temps(report);

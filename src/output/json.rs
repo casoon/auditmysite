@@ -179,7 +179,7 @@ pub struct PageDetail {
 }
 
 /// Module detail data, grouped under `detail.modules`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct ModuleBlob {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessibility: Option<serde_json::Value>,
@@ -330,7 +330,11 @@ impl UnifiedReport {
 
         let pages: Vec<PageEntry> = normalized_reports
             .iter()
-            .map(|n| build_page(n, None))
+            .map(|n| {
+                let mut page = build_page(n, None);
+                page.detail = Some(build_batch_detail(n));
+                page
+            })
             .collect();
 
         let severity_counts = aggregate_severity(&pages);
@@ -529,8 +533,9 @@ fn compute_worst_risk(
         .unwrap_or(RiskLevel::Low)
 }
 
-/// Build a [`PageEntry`]. `detail` is built when `ctx` is `Some`
-/// (single reports); `None` produces a compact batch page without `detail`.
+/// Build a [`PageEntry`]. `ctx` `Some` builds the full single-report `detail`;
+/// `None` leaves `detail` unset (batch callers attach a compact detail via
+/// [`build_batch_detail`]).
 fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> PageEntry {
     let detail = ctx.map(|ctx| build_detail(normalized, ctx));
 
@@ -540,19 +545,13 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         overall_score: normalized.overall_score,
         grade: normalized.grade.clone(),
         certificate: normalized.certificate.clone(),
-        violation_count: normalized
-            .findings
-            .iter()
-            .filter(|f| f.category == "wcag")
-            .map(|f| f.occurrence_count)
-            .sum(),
-        violated_rule_count: normalized
-            .findings
-            .iter()
-            .filter(|f| f.category == "wcag")
-            .count(),
+        // Counts cover all finding categories (WCAG + SEO), matching the
+        // contents of `findings` and `detail.fix_guidance` (issues #254, #255).
+        // `severity_counts` stays WCAG-only (legal/risk semantics, see spec).
+        violation_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
+        violated_rule_count: distinct_rule_count(&normalized.findings),
         severity_counts: normalized.severity_counts.clone(),
-        occurrence_counts: normalized.occurrence_counts.clone(),
+        occurrence_counts: all_category_occurrence_counts(&normalized.findings),
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
         module_scores: normalized.module_scores.clone(),
@@ -563,6 +562,25 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         findings: normalized.findings.clone(),
         audit_flags: normalized.audit_flags.clone(),
         detail,
+    }
+}
+
+/// Compact per-page detail for batch reports: actionable `fix_guidance` only,
+/// without the heavy module blob. Keeps batch reports from devolving into a
+/// stack of single-page reports (see CLAUDE.md "Report Intent") while honouring
+/// the contract that `detail.fix_guidance` is always present (issue #256).
+fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
+    PageDetail {
+        fix_guidance: build_fix_guidance(normalized),
+        modules: ModuleBlob::default(),
+        confidence_summary: Vec::new(),
+        capabilities: Vec::new(),
+        viewport_scores: None,
+        budget_violations: Vec::new(),
+        throttled_performance: Vec::new(),
+        screenshot_status: None,
+        history: None,
+        collection_errors: Vec::new(),
     }
 }
 
@@ -824,6 +842,38 @@ fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidance> {
         .collect()
 }
 
+/// Number of distinct violated rules across all finding categories (issue #254).
+fn distinct_rule_count(findings: &[crate::audit::normalized::NormalizedFinding]) -> usize {
+    findings
+        .iter()
+        .map(|f| f.rule_id.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+}
+
+/// Occurrence counts across ALL finding categories (WCAG + SEO), by severity
+/// (issue #255). Distinct from `NormalizedReport.occurrence_counts`, which stays
+/// WCAG-only because it drives risk classification (`SiteState`).
+fn all_category_occurrence_counts(
+    findings: &[crate::audit::normalized::NormalizedFinding],
+) -> crate::audit::normalized::SeverityCounts {
+    use crate::taxonomy::Severity;
+    let occ = |sev: Severity| -> usize {
+        findings
+            .iter()
+            .filter(|f| f.severity == sev)
+            .map(|f| f.occurrence_count)
+            .sum()
+    };
+    crate::audit::normalized::SeverityCounts {
+        critical: occ(Severity::Critical),
+        high: occ(Severity::High),
+        medium: occ(Severity::Medium),
+        low: occ(Severity::Low),
+        total: findings.iter().map(|f| f.occurrence_count).sum(),
+    }
+}
+
 fn aggregate_severity(pages: &[PageEntry]) -> crate::audit::normalized::SeverityCounts {
     crate::audit::normalized::SeverityCounts {
         critical: pages.iter().map(|p| p.severity_counts.critical).sum(),
@@ -834,13 +884,19 @@ fn aggregate_severity(pages: &[PageEntry]) -> crate::audit::normalized::Severity
     }
 }
 
-/// Aggregate WCAG findings across pages to surface recurring rule violations.
+/// Aggregate findings across pages to surface recurring rule violations.
 /// Returns `(violated_rule_count, top_recurring_rules)` where:
-/// - `violated_rule_count` is the number of distinct rule IDs fired anywhere.
-/// - `top_recurring_rules` lists the top 10 rules sorted by affected_pages
-///   (descending), then by total_occurrences.
+/// - `violated_rule_count` is the number of distinct rule IDs fired anywhere,
+///   across all categories (WCAG + SEO) — issue #254.
+/// - `top_recurring_rules` lists the top 10 *WCAG* rules sorted by affected_pages
+///   (descending), then by total_occurrences (spec: häufigste WCAG-Verstöße).
 fn aggregate_recurring_rules(pages: &[PageEntry]) -> (usize, Vec<RecurringRule>) {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
+    let violated_rule_count = pages
+        .iter()
+        .flat_map(|p| p.findings.iter().map(|f| f.rule_id.as_str()))
+        .collect::<HashSet<_>>()
+        .len();
     struct Acc {
         title: String,
         wcag_criterion: String,
@@ -865,7 +921,6 @@ fn aggregate_recurring_rules(pages: &[PageEntry]) -> (usize, Vec<RecurringRule>)
             entry.severity = entry.severity.max(f.severity);
         }
     }
-    let violated_rule_count = by_rule.len();
     let mut rules: Vec<RecurringRule> = by_rule
         .into_iter()
         .map(|(rule_id, a)| RecurringRule {
@@ -1180,7 +1235,14 @@ mod tests {
 
         assert_eq!(unified.report_type, "batch");
         assert_eq!(unified.pages.len(), 2);
-        assert!(unified.pages.iter().all(|p| p.detail.is_none()));
+        // Batch pages carry a compact detail with fix_guidance only (#256).
+        // No new data is collected — it is derived from the findings already
+        // normalized for each page; with no violations fix_guidance is empty.
+        assert!(unified.pages.iter().all(|p| p.detail.is_some()));
+        for page in &unified.pages {
+            let detail = page.detail.as_ref().expect("batch page detail present");
+            assert!(detail.fix_guidance.is_empty());
+        }
 
         let output = unified.to_json(true).unwrap();
         assert!(output.contains("\"report_type\": \"batch\""));

@@ -16,7 +16,7 @@ use auditmysite::output::{
     print_report, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
-use auditmysite::output::{generate_batch_pdf, generate_pdf};
+use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
 
 #[cfg(feature = "pdf")]
 use crate::output_paths::output_bytes;
@@ -116,6 +116,15 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
+                if args.debug_typ {
+                    let typ = generate_typ(report, &config).map_err(|e| {
+                        AuditError::ReportGenerationFailed {
+                            reason: e.to_string(),
+                        }
+                    })?;
+                    let typ_path = path.with_extension("typ");
+                    output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
+                }
             }
             #[cfg(not(feature = "pdf"))]
             {
@@ -180,6 +189,16 @@ pub fn output_batch_report(
                 let json_path = path.with_extension("json");
                 let json_output = format_json_batch(batch_report, true)?;
                 output_text(&json_output, &Some(json_path), "JSON batch", args.quiet)?;
+
+                if args.debug_typ {
+                    let typ = generate_batch_typ(batch_report, &config).map_err(|e| {
+                        AuditError::ReportGenerationFailed {
+                            reason: e.to_string(),
+                        }
+                    })?;
+                    let typ_path = path.with_extension("typ");
+                    output_text(&typ, &Some(typ_path), "Typst source batch", args.quiet)?;
+                }
             }
             #[cfg(not(feature = "pdf"))]
             {

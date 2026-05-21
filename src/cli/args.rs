@@ -234,6 +234,11 @@ pub struct Args {
     /// Example: --compare https://a.com https://b.com https://c.com
     #[arg(long, value_name = "URL", num_args = 2..=10)]
     pub compare: Vec<String>,
+
+    /// Hidden: with `--format pdf`, also write the intermediate Typst source as a
+    /// `.typ` sidecar next to the PDF (single + batch). For template/wording review.
+    #[arg(long, hide = true, global = true)]
+    pub debug_typ: bool,
 }
 
 /// Subcommands
@@ -584,6 +589,7 @@ mod tests {
             also_json: false,
             logo: None,
             compare: vec![],
+            debug_typ: false,
         }
     }
 

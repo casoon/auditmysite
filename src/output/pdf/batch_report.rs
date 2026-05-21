@@ -455,6 +455,20 @@ pub(super) fn render_next_steps_batch(
 // ─── Batch Report ───────────────────────────────────────────────────────────
 
 pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
+    let (engine, built_report) = build_batch_report(batch, config)?;
+    Ok(engine.render_pdf(&built_report)?)
+}
+
+/// Render the intermediate Typst source for a batch report (hidden `--debug-typ`).
+pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<String> {
+    let (engine, built_report) = build_batch_report(batch, config)?;
+    Ok(engine.render_typ(&built_report)?)
+}
+
+fn build_batch_report(
+    batch: &BatchReport,
+    config: &ReportConfig,
+) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
     let engine = super::helpers::create_engine()?;
     let i18n = I18n::new(&config.locale)?;
     let pres = build_batch_presentation(batch);
@@ -713,15 +727,20 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
         })
         .collect();
 
-    builder = builder
-        .add_component(
-            SectionHeaderSplit::new(
-                "URL-Ranking",
-                "Übersicht aller geprüften URLs, sortiert nach Score. \
-             URLs mit niedrigerem Score haben höheren Handlungsbedarf.",
-            )
-            .with_level(1),
+    let (ranking_title, ranking_intro) = if i18n.locale() == "en" {
+        (
+            "URL ranking",
+            "All audited URLs, sorted by score. Lower-scoring URLs need attention first.",
         )
+    } else {
+        (
+            "URL-Ranking",
+            "Übersicht aller geprüften URLs, sortiert nach Score. \
+             URLs mit niedrigerem Score haben höheren Handlungsbedarf.",
+        )
+    };
+    builder = builder
+        .add_component(SectionHeaderSplit::new(ranking_title, ranking_intro).with_level(1))
         .add_component(BenchmarkTable::new(rows));
 
     // ── 3. Top-Probleme (vereinheitlicht) ─────────────────────────
@@ -851,17 +870,27 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
     // ── 5a. Render Blocking (Batch) ─────────────────────────────────
     if !pres.portfolio_summary.render_blocking_summary.is_empty() {
-        let mut kv = KeyValueList::new().with_title("Render-Blocking-Übersicht (domainweit)");
+        let en_rb = i18n.locale() == "en";
+        let (rb_section, rb_kv_title, rb_intro) = if en_rb {
+            (
+                "Render blocking & assets",
+                "Render-blocking overview (domain-wide)",
+                "Render-blocking resources and third-party traffic, aggregated across all audited pages.",
+            )
+        } else {
+            (
+                "Render-Blocking & Assets",
+                "Render-Blocking-Übersicht (domainweit)",
+                "Render-blockierende Ressourcen und Third-Party-Traffic, aggregiert über alle geprüften Seiten.",
+            )
+        };
+        let mut kv = KeyValueList::new().with_title(rb_kv_title);
         for (label, value) in &pres.portfolio_summary.render_blocking_summary {
             kv = kv.add(label, value);
         }
         builder = builder
-            .add_component(Section::new("Render-Blocking & Assets").with_level(1))
-            .add_component(TextBlock::new(
-                "Aggregierte Auswertung render-blockierender Ressourcen über alle geprüften Seiten. \
-                 Blocking-Scripts und -CSS verzögern den First Contentful Paint. \
-                 Third-Party-Traffic entsteht durch externe Fonts, Analytics und Widgets.",
-            ))
+            .add_component(Section::new(rb_section).with_level(1))
+            .add_component(TextBlock::new(rb_intro))
             .add_component(kv);
     }
 
@@ -894,12 +923,9 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
             ]);
         }
         let budgets_intro = if en_pdf {
-            "Performance budgets define limits for load times, asset sizes and third-party \
-             traffic. The following table shows on how many pages each budget was exceeded."
+            "On how many pages each performance budget was exceeded."
         } else {
-            "Performance-Budgets definieren Obergrenzen für Ladezeiten, Asset-Größen und \
-             Drittanbieter-Traffic. Die folgende Tabelle zeigt, auf wie vielen Seiten welche \
-             Budgets überschritten wurden."
+            "Auf wie vielen Seiten welche Performance-Budgets überschritten wurden."
         };
         builder = builder
             .add_component(Section::new(i18n.t("batch-section-performance-budgets")).with_level(1))
@@ -1059,11 +1085,15 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 
             let mut chain_table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new("Ziel"),
+                TableColumn::new(if en_pdf { "Target" } else { "Ziel" }),
                 TableColumn::new("Hops"),
-                TableColumn::new("Final-URL"),
+                TableColumn::new(if en_pdf { "Final URL" } else { "Final-URL" }),
             ])
-            .with_title("Redirect-Ketten (> 1 Hop)");
+            .with_title(if en_pdf {
+                "Redirect chains (> 1 hop)"
+            } else {
+                "Redirect-Ketten (> 1 Hop)"
+            });
 
             for chain in &crawl_links.redirect_chains {
                 chain_table = chain_table.add_row(vec![
@@ -1446,5 +1476,5 @@ pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow:
     }
 
     let built_report = builder.build();
-    Ok(engine.render_pdf(&built_report)?)
+    Ok((engine, built_report))
 }

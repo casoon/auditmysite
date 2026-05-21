@@ -1267,6 +1267,7 @@ mod tests {
             also_json: false,
             logo: None,
             compare: vec![],
+            debug_typ: false,
         };
 
         let config = PipelineConfig::from(&args);

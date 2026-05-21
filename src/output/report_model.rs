@@ -542,6 +542,8 @@ pub struct FindingGroup {
     pub rule_id: String,
     pub wcag_criterion: String,
     pub wcag_level: String,
+    /// Official reference URL for the criterion (e.g. WCAG Understanding page).
+    pub help_url: Option<String>,
     pub dimension: Option<String>,
     pub subcategory: Option<String>,
     pub issue_class: Option<String>,

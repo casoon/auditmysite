@@ -329,6 +329,7 @@ finding-occurrence = Occurrence
 finding-suggested-fix = Suggested code fix
 finding-pattern = Pattern
 finding-frequent-patterns = Frequent patterns
+finding-reference = Reference
 
 # SEO / Tracking section
 seo-tracking-services = Tracking and external services

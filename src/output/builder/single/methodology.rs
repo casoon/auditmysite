@@ -1,3 +1,4 @@
+use super::super::helpers::localized_module_name;
 use crate::audit::normalized::NormalizedReport;
 use crate::output::report_model::{
     AffectedElement, AppendixBlock, AppendixViolation, CapabilitySignal, MethodologyBlock,
@@ -129,11 +130,20 @@ pub(super) fn build_methodology(locale: &str, normalized: &NormalizedReport) -> 
                 let pct = (m.weight_pct * 100 + total_raw / 2)
                     .checked_div(total_raw)
                     .unwrap_or(0);
-                format!("{} {}%", m.name, pct)
+                let name = localized_module_name(&m.name, en);
+                if en {
+                    format!("{name} {pct}%")
+                } else {
+                    format!("{name} {pct} %")
+                }
             })
             .collect();
         let weights_label = if weights.is_empty() {
-            "Accessibility 100%".to_string()
+            if en {
+                "Accessibility 100%".to_string()
+            } else {
+                "Barrierefreiheit 100 %".to_string()
+            }
         } else {
             weights.join(", ")
         };
@@ -141,7 +151,7 @@ pub(super) fn build_methodology(locale: &str, normalized: &NormalizedReport) -> 
             .module_scores
             .iter()
             .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
-            .map(|m| m.name.clone())
+            .map(|m| localized_module_name(&m.name, en))
             .collect();
         let indicator_note = if indicator_names.is_empty() {
             String::new()
