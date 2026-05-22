@@ -732,6 +732,16 @@ mod tests {
                 has_vulnerabilities: false,
             },
             score: 100,
+        })
+        .with_tech_stack(crate::tech_stack::TechStackAnalysis {
+            detected: vec![],
+            findings: vec![],
+            score: 100,
+            grade: "A".into(),
+        })
+        .with_patterns(crate::patterns::PatternAnalysis {
+            recognized: vec![],
+            violations: vec![],
         });
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
@@ -825,17 +835,11 @@ mod tests {
     /// path. Un-ignore once the gap is resolved (add tech_stack to active_modules
     /// or remove it from ModuleDetailsBlock).
     #[test]
-    #[ignore = "tech_stack is in ModuleDetailsBlock but absent from active_modules() — un-ignore once gap is closed"]
     fn test_module_parity_json_vs_pdf_viewmodel() {
         use crate::output::module::active_modules;
         use std::collections::BTreeSet;
 
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagLevel::AA,
-            WcagResults::new(),
-            0,
-        );
+        let report = all_active_modules_report();
 
         let json_keys: BTreeSet<&str> = active_modules(&report)
             .into_iter()
@@ -860,7 +864,6 @@ mod tests {
     /// Un-ignore once patterns is added to both `active_modules()` (with a
     /// `ReportModule` impl) and `ModuleDetailsBlock` / `pdf_rendered_modules()`.
     #[test]
-    #[ignore = "patterns is in AuditReport and JSON/PDF output but absent from active_modules() and ModuleDetailsBlock — un-ignore once gap is closed"]
     fn test_patterns_parity_with_active_modules() {
         use crate::output::module::active_modules;
 

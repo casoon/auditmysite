@@ -19,9 +19,11 @@ use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::dark_mode::DarkModeAnalysis;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
+use crate::patterns::PatternAnalysis;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::source_quality::SourceQualityAnalysis;
+use crate::tech_stack::TechStackAnalysis;
 use crate::ux::UxAnalysis;
 
 /// Interface contract for optional audit modules.
@@ -132,6 +134,24 @@ impl ReportModule for BestPracticesAnalysis {
     }
 }
 
+impl ReportModule for TechStackAnalysis {
+    fn module_key(&self) -> &'static str {
+        "tech_stack"
+    }
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+}
+
+impl ReportModule for PatternAnalysis {
+    fn module_key(&self) -> &'static str {
+        "patterns"
+    }
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+}
+
 /// Returns all active (Some) modules for a report as (key, value) pairs.
 ///
 /// This is the canonical module registry. Both JSON and PDF output must cover
@@ -174,6 +194,12 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
         push(m);
     }
     if let Some(ref m) = report.best_practices {
+        push(m);
+    }
+    if let Some(ref m) = report.tech_stack {
+        push(m);
+    }
+    if let Some(ref m) = report.patterns {
         push(m);
     }
 

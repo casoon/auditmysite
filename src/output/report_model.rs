@@ -454,6 +454,7 @@ pub struct ModuleDetailsBlock {
     pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
     pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
+    pub patterns: Option<crate::patterns::PatternAnalysis>,
     pub has_any: bool,
 }
 

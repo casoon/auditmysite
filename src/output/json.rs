@@ -1448,6 +1448,16 @@ mod tests {
                 has_vulnerabilities: false,
             },
             score: 100,
+        })
+        .with_tech_stack(crate::tech_stack::TechStackAnalysis {
+            detected: vec![],
+            findings: vec![],
+            score: 100,
+            grade: "A".into(),
+        })
+        .with_patterns(crate::patterns::PatternAnalysis {
+            recognized: vec![],
+            violations: vec![],
         });
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);

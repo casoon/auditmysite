@@ -88,7 +88,10 @@ impl ContrastRule {
                         Some(c) => c,
                         None => continue,
                     };
-                    let ratio = Self::calculate_contrast_ratio(&fg_color, &bg_color);
+                    let white_color = Color::new(255, 255, 255);
+                    let bg_effective = bg_color.composite_over(&white_color);
+                    let fg_effective = fg_color.composite_over(&bg_effective);
+                    let ratio = Self::calculate_contrast_ratio(&fg_effective, &bg_effective);
                     let is_large = style.is_large_text();
 
                     if !Self::meets_requirement(ratio, is_large, level) {
@@ -334,8 +337,12 @@ impl ContrastRule {
                 }
             };
 
+            let white_color = Color::new(255, 255, 255);
+            let bg_effective = bg_color.composite_over(&white_color);
+            let fg_effective = fg_color.composite_over(&bg_effective);
+
             // Calculate contrast ratio
-            let ratio = Self::calculate_contrast_ratio(&fg_color, &bg_color);
+            let ratio = Self::calculate_contrast_ratio(&fg_effective, &bg_effective);
             let is_large = style.is_large_text();
 
             // Pass / confirmed violation / needs-review (uncertain background).
@@ -484,17 +491,48 @@ impl ContrastRule {
 }
 
 /// RGB Color representation
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+    pub a: f64,
 }
 
 impl Color {
     /// Create a new color from RGB values
     pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b }
+        Self { r, g, b, a: 1.0 }
+    }
+
+    /// Composite this color (as foreground) over another color (as background)
+    pub fn composite_over(&self, background: &Color) -> Self {
+        let a_fg = self.a;
+        let a_bg = background.a;
+
+        let a_out = a_fg + a_bg * (1.0 - a_fg);
+        if a_out == 0.0 {
+            return Self {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0.0,
+            };
+        }
+
+        let r_out = ((self.r as f64 * a_fg + background.r as f64 * a_bg * (1.0 - a_fg)) / a_out)
+            .round() as u8;
+        let g_out = ((self.g as f64 * a_fg + background.g as f64 * a_bg * (1.0 - a_fg)) / a_out)
+            .round() as u8;
+        let b_out = ((self.b as f64 * a_fg + background.b as f64 * a_bg * (1.0 - a_fg)) / a_out)
+            .round() as u8;
+
+        Self {
+            r: r_out,
+            g: g_out,
+            b: b_out,
+            a: a_out,
+        }
     }
 
     /// Check if a CSS color string represents a fully transparent color
@@ -510,7 +548,7 @@ impl Color {
                         css[start + 1..end].split(',').map(|s| s.trim()).collect();
                     if parts.len() == 4 {
                         if let Ok(alpha) = parts[3].parse::<f64>() {
-                            return alpha == 0.0;
+                            return alpha <= 0.001; // Epsilon-friendly transparency check
                         }
                     }
                 }
@@ -526,6 +564,8 @@ impl Color {
     /// - rgba(r, g, b, a)
     /// - #RRGGBB
     /// - #RGB
+    /// - #RRGGBBAA
+    /// - #RGBA
     pub fn from_css(css: &str) -> Option<Self> {
         let css = css.trim();
 
@@ -534,7 +574,7 @@ impl Color {
             return Self::parse_rgb(css);
         }
 
-        // Hex colors #RRGGBB or #RGB
+        // Hex colors #RRGGBB, #RGB, #RRGGBBAA, or #RGBA
         if css.starts_with('#') {
             return Self::parse_hex(css);
         }
@@ -556,11 +596,16 @@ impl Color {
         let r = parts[0].parse::<u8>().ok()?;
         let g = parts[1].parse::<u8>().ok()?;
         let b = parts[2].parse::<u8>().ok()?;
+        let a = if parts.len() >= 4 {
+            parts[3].parse::<f64>().unwrap_or(1.0)
+        } else {
+            1.0
+        };
 
-        Some(Self::new(r, g, b))
+        Some(Self { r, g, b, a })
     }
 
-    /// Parse hex color #RRGGBB or #RGB
+    /// Parse hex color #RRGGBB, #RGB, #RRGGBBAA or #RGBA
     fn parse_hex(css: &str) -> Option<Self> {
         let hex = css.trim_start_matches('#');
 
@@ -570,14 +615,32 @@ impl Color {
                 let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
                 let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
                 let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
-                Some(Self::new(r, g, b))
+                Some(Self { r, g, b, a: 1.0 })
+            }
+            4 => {
+                // #RGBA -> #RRGGBBAA
+                let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
+                let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
+                let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
+                let a_val = u8::from_str_radix(&hex[3..4].repeat(2), 16).ok()?;
+                let a = a_val as f64 / 255.0;
+                Some(Self { r, g, b, a })
             }
             6 => {
                 // #RRGGBB
                 let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
                 let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
                 let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-                Some(Self::new(r, g, b))
+                Some(Self { r, g, b, a: 1.0 })
+            }
+            8 => {
+                // #RRGGBBAA
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                let a_val = u8::from_str_radix(&hex[6..8], 16).ok()?;
+                let a = a_val as f64 / 255.0;
+                Some(Self { r, g, b, a })
             }
             _ => None,
         }
@@ -658,6 +721,36 @@ mod tests {
         assert_eq!(color.r, 0);
         assert_eq!(color.g, 128);
         assert_eq!(color.b, 255);
+        assert!((color.a - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_color_parsing_hex8() {
+        let color = Color::from_css("#0080FF7F").unwrap();
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 128);
+        assert_eq!(color.b, 255);
+        assert!((color.a - 127.0 / 255.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_color_parsing_hex4() {
+        let color = Color::from_css("#08F7").unwrap();
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 136);
+        assert_eq!(color.b, 255);
+        assert!((color.a - 119.0 / 255.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_alpha_compositing_and_blending() {
+        let fg = Color::from_css("rgba(0, 0, 0, 0.1)").unwrap(); // 10% black
+        let bg = Color::new(255, 255, 255); // opaque white
+        let effective = fg.composite_over(&bg);
+        assert_eq!(effective.r, 230); // 255 * 0.9 = 229.5 -> 230
+        assert_eq!(effective.g, 230);
+        assert_eq!(effective.b, 230);
+        assert_eq!(effective.a, 1.0);
     }
 
     #[test]

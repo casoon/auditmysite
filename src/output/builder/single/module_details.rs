@@ -1103,13 +1103,15 @@ pub(super) fn build_module_details_from_normalized(
     let content_visibility = normalized.raw_content_visibility.clone();
 
     let best_practices = normalized.raw_best_practices.clone();
+    let patterns = normalized.raw_patterns.clone();
 
     let has_any = has_any
         || source_quality.is_some()
         || ai_visibility.is_some()
         || tech_stack.is_some()
         || content_visibility.is_some()
-        || best_practices.is_some();
+        || best_practices.is_some()
+        || patterns.is_some();
 
     ModuleDetailsBlock {
         performance,
@@ -1124,6 +1126,7 @@ pub(super) fn build_module_details_from_normalized(
         tech_stack,
         content_visibility,
         best_practices,
+        patterns,
         has_any,
     }
 }
@@ -1148,6 +1151,7 @@ pub(super) fn pdf_rendered_modules() -> std::collections::BTreeSet<&'static str>
         "tech_stack",
         "content_visibility",
         "best_practices",
+        "patterns",
     ]
     .into_iter()
     .collect()
