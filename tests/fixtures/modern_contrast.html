@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A test page for modern CSS colors (space-separated and OKLCH) and transparency contrast testing.">
+    <meta name="robots" content="index, follow">
+    <title>Modern Contrast Test Page</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #ffffff;
+            color: #111111;
+        }
+
+        /* 1. Space-separated syntax background and foreground: passes contrast test */
+        .tailwind-space-separated-pass {
+            background-color: rgb(15 23 42 / 0.9); /* Dark slate */
+            color: rgb(248 250 252);               /* Light gray */
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+        }
+
+        /* 2. OKLCH syntax background and foreground: passes contrast test */
+        .oklch-pass {
+            background-color: oklch(0.25 0.05 250); /* Dark blue oklch */
+            color: oklch(0.9 0.02 200);             /* Light cyan/gray oklch */
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+        }
+
+        /* 3. Semi-transparent text on solid background: passes contrast test */
+        .transparent-text-pass {
+            background-color: rgb(255 255 255);   /* Solid white background */
+            color: rgba(0, 0, 0, 0.8);             /* High-opacity black text (composited) */
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        /* 4. VIOLATION: deliberate low-contrast using space-separated colors: fails contrast test */
+        .modern-low-contrast-fail {
+            background-color: rgb(15 23 42);       /* Dark slate background */
+            color: rgb(30 41 59);                  /* Dark gray text (insufficient contrast) */
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="/" id="home-link">Home</a>
+        </nav>
+    </header>
+    <main>
+        <h1>Modern CSS Color Contrast Audit Test</h1>
+        <p>This test page evaluates computed style extraction for modern CSS formats.</p>
+
+        <section aria-labelledby="tailwind-heading">
+            <h2 id="tailwind-heading">Tailwind Space-Separated Syntax</h2>
+            <div class="tailwind-space-separated-pass" id="tailwind-pass-box">
+                <p>This text has high contrast and uses space-separated rgb syntax. It should pass.</p>
+            </div>
+        </section>
+
+        <section aria-labelledby="oklch-heading">
+            <h2 id="oklch-heading">OKLCH Syntax</h2>
+            <div class="oklch-pass" id="oklch-pass-box">
+                <p>This text has high contrast and uses OKLCH color space syntax. It should pass.</p>
+            </div>
+        </section>
+
+        <section aria-labelledby="transparency-heading">
+            <h2 id="transparency-heading">Transparency Compositing</h2>
+            <div class="transparent-text-pass" id="transparency-pass-box">
+                <p>This text has transparency and is composited over white. It should pass.</p>
+            </div>
+        </section>
+
+        <section aria-labelledby="violation-heading">
+            <h2 id="violation-heading">Contrast Violation</h2>
+            <div class="modern-low-contrast-fail" id="violation-fail-box">
+                <p class="low-contrast-text">This text has very low contrast (dark on dark) using space-separated values. It must fail!</p>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Modern Contrast Test Page</p>
+    </footer>
+</body>
+</html>

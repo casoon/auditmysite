@@ -56,6 +56,17 @@ pub enum ScreenshotStatus {
     NotRequested,
 }
 
+/// Viewport screenshot with layout metadata
+#[derive(Debug, Clone)]
+pub struct ViewportScreenshot {
+    pub bytes: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub device_scale_factor: f64,
+    pub scroll_x: f64,
+    pub scroll_y: f64,
+}
+
 /// Raw audit data for a single viewport pass.
 /// Not serialized — kept in-memory for output builders.
 #[derive(Debug, Clone)]
@@ -67,6 +78,7 @@ pub struct ViewportAuditData {
     pub mobile: Option<MobileFriendliness>,
     pub ux: Option<crate::ux::UxAnalysis>,
     pub journey: Option<crate::journey::JourneyAnalysis>,
+    pub screenshot: Option<ViewportScreenshot>,
 }
 
 /// Dual-viewport raw results — desktop and mobile passes.

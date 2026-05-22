@@ -470,7 +470,8 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
 /// Returns `(light_violations, dark_violations)` as full Violation objects.
 async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec<Violation>) {
     let light_violations =
-        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level).await;
+        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level, None)
+            .await;
 
     let dark_feature = MediaFeature {
         name: "prefers-color-scheme".to_string(),
@@ -484,7 +485,8 @@ async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
     let dark_violations =
-        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level).await;
+        ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level, None)
+            .await;
 
     let light_feature = MediaFeature {
         name: "prefers-color-scheme".to_string(),

@@ -1,4 +1,5 @@
 use crate::audit::normalized::OccurrenceDetail;
+use crate::i18n::I18n;
 use crate::output::explanations::get_explanation;
 use crate::output::report_model::{
     classify_criticality_tier, Effort, FindingGroup, FindingPatternCluster,
@@ -10,9 +11,10 @@ use super::super::actions::{
 };
 
 pub(super) fn finding_group_from_normalized(
-    locale: &str,
+    i18n: &I18n,
     f: &crate::audit::normalized::NormalizedFinding,
 ) -> FindingGroup {
+    let locale = i18n.locale();
     let explanation = get_explanation(&f.wcag_criterion);
 
     let (
@@ -32,7 +34,7 @@ pub(super) fn finding_group_from_normalized(
             expl.customer_description_for(locale).to_string(),
             expl.user_impact_for(locale).to_string(),
             derive_business_impact(
-                locale,
+                i18n,
                 expl.user_impact_for(locale),
                 f.dimension.as_str(),
                 f.severity,
@@ -52,7 +54,7 @@ pub(super) fn finding_group_from_normalized(
             f.description.clone(),
             f.user_impact.clone(),
             derive_business_impact(
-                locale,
+                i18n,
                 &f.user_impact,
                 f.dimension.as_str(),
                 f.severity,
@@ -80,7 +82,7 @@ pub(super) fn finding_group_from_normalized(
         .saturating_sub(representative_occurrences.len());
 
     let narrative = build_narrative_arc(
-        locale,
+        i18n,
         f.occurrence_count,
         f.severity,
         f.dimension.as_str(),

@@ -1,3 +1,4 @@
+use crate::i18n::I18n;
 use crate::output::report_model::{
     ActionItem, ActionPlan, ActionsBlock, PhasePreview, Priority, RoadmapColumnData,
     RoadmapItemData, TaskSummary,
@@ -6,11 +7,12 @@ use crate::output::report_model::{
 use super::super::actions::{derive_conversion_effect_from_action, derive_user_effect_from_action};
 
 pub(super) fn build_actions_block(
-    locale: &str,
+    i18n: &I18n,
     plan: &ActionPlan,
     score: f32,
     _site_state: &crate::audit::summary::SiteState,
 ) -> ActionsBlock {
+    let locale = i18n.locale();
     let is_good_site = score >= 85.0
         || (plan.quick_wins.is_empty() && plan.medium_term.len() + plan.structural.len() <= 3);
     let item_cap: usize = if is_good_site { 2 } else { usize::MAX };
@@ -55,7 +57,7 @@ pub(super) fn build_actions_block(
             .iter()
             .take(item_cap)
             .map(|i| {
-                let user_effect = derive_user_effect_from_action(locale, &i.action, i.effort);
+                let user_effect = derive_user_effect_from_action(i18n, &i.action, i.effort);
                 let risk_effect = match (i.priority, en) {
                     (Priority::Critical, true) => {
                         "Directly reduces critical WCAG violation risk".to_string()
@@ -75,7 +77,7 @@ pub(super) fn build_actions_block(
                     (Priority::Low, false) => "Verbessert WCAG-Konformität im Detail".to_string(),
                 };
                 let conversion_effect =
-                    derive_conversion_effect_from_action(locale, &i.action, i.effort);
+                    derive_conversion_effect_from_action(i18n, &i.action, i.effort);
                 RoadmapItemData {
                     action: i.action.clone(),
                     role: i.role.label().to_string(),

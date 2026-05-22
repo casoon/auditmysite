@@ -31,7 +31,7 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
     // Normalize all reports early — needed for overall scores, risk, module averages
     let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
-    let collected = collect_batch_finding_groups(&normalized_reports, i18n.locale());
+    let collected = collect_batch_finding_groups(&normalized_reports, i18n);
     // Deduplicate findings with the same title across rule sources; prefer
     // non-"unknown." rule_ids, merge occurrence counts.
     let mut seen_titles: std::collections::HashMap<String, usize> =
@@ -67,7 +67,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         })
         .collect();
 
-    let action_plan = derive_action_plan(i18n.locale(), &top_issues);
+    let action_plan = derive_action_plan(i18n, &top_issues);
 
     let mut url_ranking: Vec<UrlSummary> = batch
         .reports
@@ -98,7 +98,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         .iter()
         .zip(normalized_reports.iter())
         .map(|(r, nr)| {
-            let per_url_groups = normalized_finding_groups(i18n.locale(), nr);
+            let per_url_groups = normalized_finding_groups(i18n, nr);
             let mut sorted = per_url_groups;
             sorted.sort_by_key(|b| std::cmp::Reverse(impact_score(b)));
             let top_issue_titles: Vec<String> =
@@ -704,7 +704,7 @@ struct NormalizedFindingAccumulator {
 
 fn collect_batch_finding_groups(
     normalized_reports: &[NormalizedReport],
-    locale: &str,
+    i18n: &I18n,
 ) -> Vec<FindingGroup> {
     let mut groups: HashMap<String, NormalizedFindingAccumulator> = HashMap::new();
     for report in normalized_reports {
@@ -729,17 +729,17 @@ fn collect_batch_finding_groups(
 
     groups
         .values()
-        .map(|acc| finding_group_from_normalized(locale, acc))
+        .map(|acc| finding_group_from_normalized(i18n, acc))
         .collect()
 }
 
-fn normalized_finding_groups(locale: &str, normalized: &NormalizedReport) -> Vec<FindingGroup> {
+fn normalized_finding_groups(i18n: &I18n, normalized: &NormalizedReport) -> Vec<FindingGroup> {
     normalized
         .findings
         .iter()
         .map(|finding| {
             finding_group_from_normalized(
-                locale,
+                i18n,
                 &NormalizedFindingAccumulator {
                     finding: finding.clone(),
                     severity: finding.severity,
@@ -751,7 +751,8 @@ fn normalized_finding_groups(locale: &str, normalized: &NormalizedReport) -> Vec
         .collect()
 }
 
-fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulator) -> FindingGroup {
+fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator) -> FindingGroup {
+    let locale = i18n.locale();
     let finding = &acc.finding;
     let explanation =
         get_explanation(&finding.rule_id).or_else(|| get_explanation(&finding.wcag_criterion));
@@ -773,7 +774,7 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
             expl.customer_description_for(locale).to_string(),
             expl.user_impact_for(locale).to_string(),
             derive_business_impact(
-                locale,
+                i18n,
                 expl.user_impact_for(locale),
                 dimension_label,
                 acc.severity,
@@ -793,7 +794,7 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
             finding.description.clone(),
             finding.user_impact.clone(),
             derive_business_impact(
-                locale,
+                i18n,
                 &finding.user_impact,
                 dimension_label,
                 acc.severity,
@@ -831,7 +832,7 @@ fn finding_group_from_normalized(locale: &str, acc: &NormalizedFindingAccumulato
         .collect();
 
     let narrative = build_narrative_arc(
-        locale,
+        i18n,
         acc.count,
         acc.severity,
         dimension_label,

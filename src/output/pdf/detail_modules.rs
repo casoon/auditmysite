@@ -12,11 +12,6 @@ use crate::output::report_model::*;
 
 use super::helpers::{map_severity, score_quality_color, score_quality_label};
 
-#[inline]
-fn is_en(i18n: &I18n) -> bool {
-    i18n.locale() == "en"
-}
-
 pub(super) fn render_budget_violations(
     mut builder: renderreport::engine::ReportBuilder,
     violations: &[crate::audit::BudgetViolation],
@@ -35,26 +30,14 @@ pub(super) fn render_budget_violations(
         .iter()
         .filter(|v| v.severity == BudgetSeverity::Warning)
         .count();
-
-    let summary_text = if is_en(i18n) {
-        format!(
-            "{} budget violation{} detected: {} critical (>50% exceeded), {} warning{}.",
-            violations.len(),
-            if violations.len() == 1 { "" } else { "s" },
-            error_count,
-            warning_count,
-            if warning_count == 1 { "" } else { "s" },
-        )
-    } else {
-        format!(
-            "{} Budget-Verletzung{} erkannt: {} kritisch (>50% überschritten), {} Warnung{}.",
-            violations.len(),
-            if violations.len() == 1 { "" } else { "en" },
-            error_count,
-            warning_count,
-            if warning_count == 1 { "" } else { "en" },
-        )
-    };
+    let summary_text = i18n.t_args(
+        "pdf-budget-violations-summary",
+        &[
+            ("total", violations.len().to_string()),
+            ("error_count", error_count.to_string()),
+            ("warning_count", warning_count.to_string()),
+        ],
+    );
 
     builder = if error_count > 0 {
         builder.add_component(
@@ -94,37 +77,21 @@ pub(super) fn render_performance(
     perf: &PerformancePresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let perf_section_title = if is_en(i18n) {
-        "Performance — User Experience & Technical Complexity"
-    } else {
-        "Performance — Nutzererlebnis & Technische Metriken"
-    };
+    let perf_section_title = i18n.t("pdf-perf-section-title");
     let perf_intro = KeyValueList::new()
         .add(
             i18n.t("section-user-experience"),
-            if is_en(i18n) {
-                "Core Web Vitals, render blocking — how fast the page feels to users"
-            } else {
-                "Core Web Vitals, Render-Blocking — wie schnell die Seite für Nutzer wirkt"
-            },
+            i18n.t("pdf-perf-intro-user-experience"),
         )
         .add(
             i18n.t("section-technical-complexity"),
-            if is_en(i18n) {
-                "DOM size, resource loading, blocking budget"
-            } else {
-                "DOM-Größe, Ressourcen-Loading, Blocking-Budget"
-            },
+            i18n.t("pdf-perf-intro-technical-complexity"),
         );
     builder = builder
-        .add_component(Section::new(perf_section_title).with_level(2))
+        .add_component(Section::new(&perf_section_title).with_level(2))
         .add_component(perf_intro)
         .add_component(
-            Callout::info(&perf.interpretation).with_title(if is_en(i18n) {
-                "Performance — Overview"
-            } else {
-                "Performance — Überblick"
-            }),
+            Callout::info(&perf.interpretation).with_title(i18n.t("pdf-perf-overview-title")),
         )
         .add_component(
             ScoreCard::new(i18n.t("perf-score-card"), perf.score)
@@ -261,20 +228,16 @@ pub(super) fn render_performance(
 
     // ── Throttled Network Performance ────────────────────────────────
     if !perf.throttled_profiles.is_empty() {
-        let title = if is_en(i18n) {
-            "Performance under throttled conditions"
-        } else {
-            "Performance unter gedrosselten Bedingungen"
-        };
-        let col_profile = if is_en(i18n) { "Profile" } else { "Profil" };
+        let title = i18n.t("pdf-perf-throttled-title");
+        let col_profile = i18n.t("pdf-perf-throttled-profile");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(col_profile).with_width("28%"),
+            TableColumn::new(&col_profile).with_width("28%"),
             TableColumn::new("LCP").with_width("18%"),
             TableColumn::new("TBT").with_width("18%"),
             TableColumn::new("CLS").with_width("18%"),
             TableColumn::new("Score").with_width("18%"),
         ])
-        .with_title(title);
+        .with_title(&title);
         for entry in &perf.throttled_profiles {
             table = table.add_row(vec![
                 entry.profile_name.clone(),
@@ -289,20 +252,16 @@ pub(super) fn render_performance(
 
     // ── CLS Attribution ──────────────────────────────────────────────
     if !perf.cls_attribution.is_empty() {
-        let title = if is_en(i18n) {
-            "CLS — Layout Shifts"
-        } else {
-            "CLS — Layout-Verschiebungen"
-        };
-        let col_val = if is_en(i18n) { "Shift" } else { "Wert" };
-        let col_time = if is_en(i18n) { "Time" } else { "Zeitpunkt" };
+        let title = i18n.t("pdf-perf-cls-title");
+        let col_val = i18n.t("pdf-perf-cls-value");
+        let col_time = i18n.t("pdf-perf-cls-time");
         let col_elem = "Element";
         let mut table = AuditTable::new(vec![
-            TableColumn::new(col_val).with_width("15%"),
-            TableColumn::new(col_time).with_width("20%"),
+            TableColumn::new(&col_val).with_width("15%"),
+            TableColumn::new(&col_time).with_width("20%"),
             TableColumn::new(col_elem).with_width("65%"),
         ])
-        .with_title(title);
+        .with_title(&title);
         for (val, time, node) in &perf.cls_attribution {
             let display_node = if node.is_empty() {
                 "—"
@@ -317,47 +276,36 @@ pub(super) fn render_performance(
     // ── Third-Party Attribution ───────────────────────────────────────
     if let Some(ref tp) = perf.third_party {
         if !tp.origins.is_empty() {
-            let title = if is_en(i18n) {
-                "Third-Party Resources"
-            } else {
-                "Drittanbieter-Ressourcen"
-            };
+            let title = i18n.t("pdf-perf-tp-title");
             let col_origin = "Origin";
-            let col_req = if is_en(i18n) { "Requests" } else { "Anfragen" };
-            let mut kv = KeyValueList::new().with_title(title);
+            let col_req = i18n.t("pdf-perf-tp-requests");
+            let mut kv = KeyValueList::new().with_title(&title);
             kv = kv.add(
-                if is_en(i18n) {
-                    "Total origins"
-                } else {
-                    "Drittanbieter gesamt"
-                },
+                i18n.t("pdf-perf-tp-total-origins"),
                 tp.total_origins.to_string(),
             );
             kv = kv.add(
-                if is_en(i18n) {
-                    "Total transfer"
-                } else {
-                    "Übertragung gesamt"
-                },
-                format!("{:.1} KB / {} Anfragen", tp.total_kb, tp.total_requests),
+                i18n.t("pdf-perf-tp-total-transfer"),
+                format!(
+                    "{:.1} KB / {} {}",
+                    tp.total_kb,
+                    tp.total_requests,
+                    i18n.t("pdf-perf-tp-requests")
+                ),
             );
             if tp.is_significant {
                 kv = kv.add(
-                    if is_en(i18n) { "Impact" } else { "Einfluss" },
-                    if is_en(i18n) {
-                        "Significant (>20% of page bytes)"
-                    } else {
-                        "Signifikant (>20% der Seitengröße)"
-                    },
+                    i18n.t("pdf-perf-tp-impact"),
+                    i18n.t("pdf-perf-tp-significant"),
                 );
             }
             builder = builder.add_component(kv);
 
             let mut table = AuditTable::new(vec![
                 TableColumn::new(col_origin).with_width("48%"),
-                TableColumn::new(col_req).with_width("16%"),
+                TableColumn::new(&col_req).with_width("16%"),
                 TableColumn::new("KB").with_width("18%"),
-                TableColumn::new(if is_en(i18n) { "Types" } else { "Typen" }).with_width("18%"),
+                TableColumn::new(i18n.t("pdf-perf-tp-types")).with_width("18%"),
             ]);
             for row in &tp.origins {
                 table = table.add_row(vec![
@@ -373,34 +321,15 @@ pub(super) fn render_performance(
 
     // ── Critical Request Chain ────────────────────────────────────────
     if let Some(ref cc) = perf.critical_chain {
-        let title = if is_en(i18n) {
-            "Critical Request Chain"
-        } else {
-            "Kritische Request-Kette"
-        };
-        let mut kv = KeyValueList::new().with_title(title);
+        let title = i18n.t("pdf-perf-cc-title");
+        let mut kv = KeyValueList::new().with_title(&title);
+        kv = kv.add(i18n.t("pdf-perf-cc-max-depth"), cc.max_depth.to_string());
         kv = kv.add(
-            if is_en(i18n) {
-                "Max depth"
-            } else {
-                "Max. Tiefe"
-            },
-            cc.max_depth.to_string(),
-        );
-        kv = kv.add(
-            if is_en(i18n) {
-                "Critical path"
-            } else {
-                "Kritischer Pfad"
-            },
+            i18n.t("pdf-perf-cc-path"),
             format!("{} / {}", cc.critical_path_ms, cc.critical_path_kb),
         );
         kv = kv.add(
-            if is_en(i18n) {
-                "Total requests"
-            } else {
-                "Anfragen gesamt"
-            },
+            i18n.t("pdf-perf-cc-total-requests"),
             cc.total_requests.to_string(),
         );
         builder = builder.add_component(kv);
@@ -408,38 +337,23 @@ pub(super) fn render_performance(
 
     // ── Minification ─────────────────────────────────────────────────
     if let Some(ref min) = perf.minification {
-        let title = if is_en(i18n) {
-            "Unminified Assets"
-        } else {
-            "Unminifizierte Assets"
-        };
-        let mut kv = KeyValueList::new().with_title(title);
+        let title = i18n.t("pdf-perf-min-title");
+        let mut kv = KeyValueList::new().with_title(&title);
+        kv = kv.add(i18n.t("pdf-perf-min-files"), min.total_count.to_string());
         kv = kv.add(
-            if is_en(i18n) {
-                "Unminified files"
-            } else {
-                "Unminifizierte Dateien"
-            },
-            min.total_count.to_string(),
-        );
-        kv = kv.add(
-            if is_en(i18n) {
-                "Est. savings"
-            } else {
-                "Geschätzte Einsparung"
-            },
+            i18n.t("pdf-perf-min-savings"),
             format!("{:.1} KB", min.total_savings_kb),
         );
         builder = builder.add_component(kv);
 
         if !min.top_assets.is_empty() {
             let col_url = "URL";
-            let col_kind = if is_en(i18n) { "Type" } else { "Typ" };
-            let col_save = if is_en(i18n) { "Savings" } else { "Einsparung" };
+            let col_kind = i18n.t("pdf-perf-min-type");
+            let col_save = i18n.t("pdf-perf-min-saving-col");
             let mut table = AuditTable::new(vec![
                 TableColumn::new(col_url).with_width("62%"),
-                TableColumn::new(col_kind).with_width("16%"),
-                TableColumn::new(col_save).with_width("22%"),
+                TableColumn::new(&col_kind).with_width("16%"),
+                TableColumn::new(&col_save).with_width("22%"),
             ]);
             for (url, kind, savings) in &min.top_assets {
                 table = table.add_row(vec![url.as_str(), kind.as_str(), savings.as_str()]);
@@ -450,56 +364,43 @@ pub(super) fn render_performance(
 
     // ── Coverage (unused JS/CSS) ──────────────────────────────────────
     if let Some(ref cov) = perf.coverage {
-        let title = if is_en(i18n) {
-            "Code Coverage"
-        } else {
-            "Code-Abdeckung"
-        };
-        let mut kv = KeyValueList::new().with_title(title);
+        let title = i18n.t("pdf-perf-cov-title");
+        let mut kv = KeyValueList::new().with_title(&title);
         if let (Some(used_pct), Some(unused_kb)) = (cov.js_used_pct, cov.js_unused_kb) {
-            kv = kv.add(
-                if is_en(i18n) { "JS used" } else { "JS genutzt" },
-                format!("{:.1}% ({:.1} KB ungenutzt)", used_pct, unused_kb),
+            let val = i18n.t_args(
+                "pdf-perf-cov-js-val",
+                &[
+                    ("pct", format!("{:.1}", used_pct)),
+                    ("unused", format!("{:.1}", unused_kb)),
+                ],
             );
+            kv = kv.add(i18n.t("pdf-perf-cov-js-used"), val);
         }
         if let Some(used_pct) = cov.css_used_pct {
             let rules_str = match (cov.css_used_rules, cov.css_total_rules) {
-                (Some(used), Some(total)) => {
-                    format!("{:.1}% ({}/{} Regeln genutzt)", used_pct, used, total)
-                }
+                (Some(used), Some(total)) => i18n.t_args(
+                    "pdf-perf-cov-css-val",
+                    &[
+                        ("pct", format!("{:.1}", used_pct)),
+                        ("used", used.to_string()),
+                        ("total", total.to_string()),
+                    ],
+                ),
                 _ => format!("{:.1}%", used_pct),
             };
-            kv = kv.add(
-                if is_en(i18n) {
-                    "CSS used"
-                } else {
-                    "CSS genutzt"
-                },
-                rules_str,
-            );
+            kv = kv.add(i18n.t("pdf-perf-cov-css-used"), rules_str);
         }
         builder = builder.add_component(kv);
     }
 
     // ── Non-composited Animations ─────────────────────────────────────
     if let Some(ref anim) = perf.animations {
-        let title = if is_en(i18n) {
-            "Non-composited Animations"
-        } else {
-            "Nicht-composited Animationen"
-        };
-        let mut kv = KeyValueList::new().with_title(title);
-        kv = kv.add(
-            if is_en(i18n) { "Total" } else { "Gesamt" },
-            anim.total_count.to_string(),
-        );
+        let title = i18n.t("pdf-perf-anim-title");
+        let mut kv = KeyValueList::new().with_title(&title);
+        kv = kv.add(i18n.t("pdf-perf-anim-total"), anim.total_count.to_string());
         if !anim.affected_properties.is_empty() {
             kv = kv.add(
-                if is_en(i18n) {
-                    "Properties"
-                } else {
-                    "Eigenschaften"
-                },
+                i18n.t("pdf-perf-anim-properties"),
                 anim.affected_properties.join(", "),
             );
         }
@@ -514,27 +415,15 @@ pub(super) fn render_seo(
     seo: &SeoPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let indicator_note_seo = if is_en(i18n) {
-        "Indicators are heuristic estimates based on measurable signals — not direct ranking signals, but pointers to optimization potential."
-    } else {
-        "Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale — kein direktes Ranking-Signal, sondern Hinweis auf Optimierungspotenzial."
-    };
+    let indicator_note_seo = i18n.t("pdf-seo-indicator-note");
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-seo-analysis")).with_level(2))
         .add_component(
-            Callout::info(indicator_note_seo).with_title(if is_en(i18n) {
-                "Indicator-based metrics"
-            } else {
-                "Indikator-basierte Metriken"
-            }),
+            Callout::info(&indicator_note_seo).with_title(i18n.t("pdf-seo-indicator-title")),
         )
         .add_component(
-            Callout::info(&seo.interpretation).with_title(if is_en(i18n) {
-                "SEO — Overview"
-            } else {
-                "SEO — Überblick"
-            }),
+            Callout::info(&seo.interpretation).with_title(i18n.t("pdf-seo-overview-title")),
         )
         .add_component(
             ScoreCard::new(i18n.t("seo-score-card"), seo.score)
@@ -552,11 +441,8 @@ pub(super) fn render_seo(
                 .with_accent("#2563eb"),
         );
         seo_strip.push(
-            MetricStripItem::new(
-                if is_en(i18n) { "Maturity" } else { "Reifegrad" },
-                &profile.maturity_level,
-            )
-            .with_accent("#7c3aed"),
+            MetricStripItem::new(i18n.t("pdf-seo-maturity"), &profile.maturity_level)
+                .with_accent("#7c3aed"),
         );
     }
     if !seo_strip.is_empty() {
@@ -564,15 +450,13 @@ pub(super) fn render_seo(
     }
 
     if !seo.meta_tags.is_empty() {
+        let col_field = i18n.t("pdf-seo-field");
+        let col_value = i18n.t("pdf-seo-value");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Field" } else { "Feld" }).with_width("24%"),
-            TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }).with_width("76%"),
+            TableColumn::new(&col_field).with_width("24%"),
+            TableColumn::new(&col_value).with_width("76%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Meta tags"
-        } else {
-            "Meta-Tags"
-        });
+        .with_title(i18n.t("pdf-seo-meta-tags-title"));
         for (k, v) in &seo.meta_tags {
             table = table.add_row(vec![k.clone(), v.clone()]);
         }
@@ -580,20 +464,14 @@ pub(super) fn render_seo(
     }
 
     if !seo.meta_issues.is_empty() {
+        let col_field = i18n.t("pdf-seo-field");
+        let col_desc = i18n.t("pdf-seo-meta-description");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Field" } else { "Feld" }),
+            TableColumn::new(&col_field),
             TableColumn::new(i18n.t("label-severity")),
-            TableColumn::new(if is_en(i18n) {
-                "Description"
-            } else {
-                "Beschreibung"
-            }),
+            TableColumn::new(&col_desc),
         ])
-        .with_title(if is_en(i18n) {
-            "Meta tag issues"
-        } else {
-            "Meta-Tag Probleme"
-        });
+        .with_title(i18n.t("pdf-seo-meta-issues-title"));
         for (field, sev, msg) in &seo.meta_issues {
             table = table.add_row(vec![field.as_str(), sev.label(), msg.as_str()]);
         }
@@ -603,24 +481,10 @@ pub(super) fn render_seo(
     if !seo.heading_summary.is_empty() || !seo.social_summary.is_empty() {
         let mut kv = KeyValueList::new();
         if !seo.heading_summary.is_empty() {
-            kv = kv.add(
-                if is_en(i18n) {
-                    "Headings"
-                } else {
-                    "Überschriften"
-                },
-                &seo.heading_summary,
-            );
+            kv = kv.add(i18n.t("pdf-seo-headings"), &seo.heading_summary);
         }
         if !seo.social_summary.is_empty() {
-            kv = kv.add(
-                if is_en(i18n) {
-                    "Social tags"
-                } else {
-                    "Social Tags"
-                },
-                &seo.social_summary,
-            );
+            kv = kv.add(i18n.t("pdf-seo-social-tags"), &seo.social_summary);
         }
         builder = builder.add_component(kv);
     }
@@ -649,17 +513,10 @@ pub(super) fn render_seo(
         }
         builder = builder.add_component(kv);
         if seo.technical_summary.len() > 5 {
-            let more_note = if is_en(i18n) {
-                format!(
-                    "{} additional signals in the detailed appendix.",
-                    seo.technical_summary.len() - 5
-                )
-            } else {
-                format!(
-                    "{} weitere Signale im detaillierten Anhang.",
-                    seo.technical_summary.len() - 5
-                )
-            };
+            let more_note = i18n.t_args(
+                "pdf-seo-more-signals",
+                &[("count", (seo.technical_summary.len() - 5).to_string())],
+            );
             builder = builder.add_component(Callout::info(&more_note));
         }
     }
@@ -686,59 +543,32 @@ pub(super) fn render_seo(
 
     // ── Image Efficiency ──────────────────────────────────────────────
     if let Some(ref ie) = seo.image_efficiency {
-        let title = if is_en(i18n) {
-            "Image Efficiency"
-        } else {
-            "Bild-Effizienz"
-        };
-        let mut kv = KeyValueList::new().with_title(title);
+        let title = i18n.t("pdf-seo-ie-title");
+        let mut kv = KeyValueList::new().with_title(&title);
+        kv = kv.add(i18n.t("pdf-seo-ie-total"), ie.total_images.to_string());
         kv = kv.add(
-            if is_en(i18n) {
-                "Total images"
-            } else {
-                "Bilder gesamt"
-            },
-            ie.total_images.to_string(),
-        );
-        kv = kv.add(
-            if is_en(i18n) {
-                "Modern formats"
-            } else {
-                "Moderne Formate"
-            },
+            i18n.t("pdf-seo-ie-modern"),
             format!("{:.1}% (WebP/AVIF/SVG)", ie.modern_format_pct),
         );
         if ie.legacy_count > 0 {
             kv = kv.add(
-                if is_en(i18n) {
-                    "Legacy formats"
-                } else {
-                    "Legacy-Formate"
-                },
+                i18n.t("pdf-seo-ie-legacy"),
                 format!("{} (JPG/PNG/GIF)", ie.legacy_count),
             );
         }
         builder = builder.add_component(kv);
 
         if !ie.oversized.is_empty() {
-            let title_tbl = if is_en(i18n) {
-                "Oversized images (top 5)"
-            } else {
-                "Übergroße Bilder (Top 5)"
-            };
-            let col_src = if is_en(i18n) { "Source" } else { "Quelle" };
-            let col_nat = if is_en(i18n) { "Natural" } else { "Nativ" };
-            let col_dis = if is_en(i18n) {
-                "Displayed"
-            } else {
-                "Angezeigt"
-            };
+            let title_tbl = i18n.t("pdf-seo-ie-oversized-title");
+            let col_src = i18n.t("pdf-seo-ie-source");
+            let col_nat = i18n.t("pdf-seo-ie-natural");
+            let col_dis = i18n.t("pdf-seo-ie-displayed");
             let mut table = AuditTable::new(vec![
-                TableColumn::new(col_src).with_width("56%"),
-                TableColumn::new(col_nat).with_width("22%"),
-                TableColumn::new(col_dis).with_width("22%"),
+                TableColumn::new(&col_src).with_width("56%"),
+                TableColumn::new(&col_nat).with_width("22%"),
+                TableColumn::new(&col_dis).with_width("22%"),
             ])
-            .with_title(title_tbl);
+            .with_title(&title_tbl);
             for row in &ie.oversized {
                 table = table.add_row(vec![
                     row.src.as_str(),
@@ -760,23 +590,15 @@ pub(super) fn render_serp(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(Section::new(i18n.t("section-serp-analysis")).with_level(3));
 
-    let summary = if is_en(i18n) {
-        format!(
-            "{} signals checked — {} OK, {} warnings, {} failures.",
-            serp.signals.len(),
-            serp.pass_count,
-            serp.warning_count,
-            serp.fail_count,
-        )
-    } else {
-        format!(
-            "{} Signale geprüft — {} OK, {} Warnungen, {} Fehler.",
-            serp.signals.len(),
-            serp.pass_count,
-            serp.warning_count,
-            serp.fail_count,
-        )
-    };
+    let summary = i18n.t_args(
+        "pdf-serp-summary",
+        &[
+            ("total", serp.signals.len().to_string()),
+            ("pass", serp.pass_count.to_string()),
+            ("warning", serp.warning_count.to_string()),
+            ("fail", serp.fail_count.to_string()),
+        ],
+    );
     let serp_readiness_title = i18n.t("seo-serp-readiness");
     builder = if serp.fail_count > 0 {
         builder.add_component(Callout::warning(&summary).with_title(&serp_readiness_title))
@@ -787,8 +609,9 @@ pub(super) fn render_serp(
     };
 
     if !serp.signals.is_empty() {
+        let col_category = i18n.t("pdf-serp-category");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("22%"),
+            TableColumn::new(&col_category).with_width("22%"),
             TableColumn::new("Signal").with_width("28%"),
             TableColumn::new("Status").with_width("14%"),
             TableColumn::new("Detail").with_width("36%"),
@@ -806,17 +629,10 @@ pub(super) fn render_serp(
     }
 
     if !serp.rich_result_types.is_empty() {
-        let text = if is_en(i18n) {
-            format!(
-                "Rich result types possible: {}",
-                serp.rich_result_types.join(", ")
-            )
-        } else {
-            format!(
-                "Rich-Result-Typen möglich: {}",
-                serp.rich_result_types.join(", ")
-            )
-        };
+        let text = i18n.t_args(
+            "pdf-serp-rich-results-text",
+            &[("types", serp.rich_result_types.join(", "))],
+        );
         builder = builder.add_component(Callout::info(&text).with_title("Rich Results"));
     }
 
@@ -832,8 +648,9 @@ pub(super) fn render_page_health(
 
     // Issues table (if any)
     if !ph.issues.is_empty() {
+        let col_issue = i18n.t("pdf-ph-issue");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("55%"),
+            TableColumn::new(&col_issue).with_width("55%"),
             TableColumn::new(i18n.t("label-severity")).with_width("25%"),
         ])
         .with_title(i18n.t("seo-page-health-issues"));
@@ -853,15 +670,11 @@ pub(super) fn render_page_health(
     }
 
     if let Some((status, detail)) = &ph.html_validator {
-        let validator_title = if is_en(i18n) {
-            "W3C HTML validator"
-        } else {
-            "W3C HTML Validator"
-        };
+        let validator_title = i18n.t("pdf-ph-w3c-title");
         let callout = match status.as_str() {
-            "Ausgeführt" => Callout::info(detail).with_title(validator_title),
-            "Fehlgeschlagen" => Callout::warning(detail).with_title(validator_title),
-            _ => Callout::info(detail).with_title(validator_title),
+            "Ausgeführt" => Callout::info(detail).with_title(&validator_title),
+            "Fehlgeschlagen" => Callout::warning(detail).with_title(&validator_title),
+            _ => Callout::info(detail).with_title(&validator_title),
         };
         builder = builder.add_component(callout);
     }
@@ -874,19 +687,17 @@ pub(super) fn render_page_health(
                 "www: {} | non-www: {} {}",
                 www_label, non_www_label, icon
             ))
-            .with_title(if is_en(i18n) {
-                "www consolidation"
-            } else {
-                "www-Konsolidierung"
-            }),
+            .with_title(i18n.t("pdf-ph-www-title")),
         );
     }
 
     // HTML validation table
     if !ph.html_issues.is_empty() {
+        let col_check = i18n.t("pdf-ph-check");
+        let col_count = i18n.t("pdf-ph-count");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Check" } else { "Prüfung" }).with_width("40%"),
-            TableColumn::new(if is_en(i18n) { "Count" } else { "Anzahl" }).with_width("15%"),
+            TableColumn::new(&col_check).with_width("40%"),
+            TableColumn::new(&col_count).with_width("15%"),
             TableColumn::new(i18n.t("label-severity")).with_width("20%"),
             TableColumn::new("Detail").with_width("25%"),
         ])
@@ -913,110 +724,65 @@ fn render_robots(
     builder = builder.add_component(Section::new(i18n.t("section-robots-audit")).with_level(3));
 
     if let Some(ref err) = robots.error {
-        return builder.add_component(if is_en(i18n) {
-            Callout::warning(format!("robots.txt could not be loaded: {err}"))
-                .with_title("No access")
-        } else {
-            Callout::warning(format!("robots.txt konnte nicht geladen werden: {err}"))
-                .with_title("Kein Zugriff")
-        });
+        return builder.add_component(
+            Callout::warning(i18n.t_args("pdf-robots-error", &[("err", err.to_string())]))
+                .with_title(i18n.t("pdf-robots-no-access")),
+        );
     }
 
     // Summary callout — only warn for genuinely problematic configurations
     if robots.has_wildcard_disallow_all {
-        builder = builder.add_component(if is_en(i18n) {
-            Callout::warning(
-                "All crawlers fully blocked (User-agent: * / Disallow: /). \
-                 On staging domains this is correct — on production it would \
-                 prevent search engines from crawling the site entirely.",
-            )
-            .with_title("All crawlers blocked")
-        } else {
-            Callout::warning(
-                "Alle Crawler vollständig gesperrt (User-agent: * / Disallow: /). \
-                 Auf Staging-Domains ist das korrekt — auf der Produktiv-Domain würde dies \
-                 das vollständige Crawling durch Suchmaschinen verhindern.",
-            )
-            .with_title("Alle Crawler gesperrt")
-        });
+        builder = builder.add_component(
+            Callout::warning(i18n.t("pdf-robots-block-all-body"))
+                .with_title(i18n.t("pdf-robots-block-all-title")),
+        );
     } else if robots.blocks_ai_citation {
-        builder = builder.add_component(if is_en(i18n) {
-            Callout::info(
-                "AI search bots (e.g. PerplexityBot, Amazonbot) are blocked. \
-                 This is a deliberate choice — content will not appear in \
-                 AI-generated answers. Blocking AI training bots (GPTBot etc.) \
-                 is common practice and not a problem.",
-            )
-            .with_title("Limited AI visibility")
-        } else {
-            Callout::info(
-                "KI-Suchbots (z. B. PerplexityBot, Amazonbot) sind blockiert. \
-                 Das ist eine bewusste Entscheidung — Inhalte erscheinen nicht in \
-                 KI-generierten Antworten. Das Sperren von KI-Trainingsbots (GPTBot etc.) \
-                 ist dagegen übliche Praxis und kein Problem.",
-            )
-            .with_title("Eingeschränkte KI-Sichtbarkeit")
-        });
+        builder = builder.add_component(
+            Callout::info(i18n.t("pdf-robots-limit-ai-body"))
+                .with_title(i18n.t("pdf-robots-limit-ai-title")),
+        );
     } else if !robots.blocked_ai_bots.is_empty() {
         // Training bots blocked, citation bots allowed — this is the citationFriendly default
-        builder = builder.add_component(if is_en(i18n) {
-            Callout::info(format!(
-                "Policy: {} — AI training bots ({}) are blocked, \
-                 AI search bots have access. This matches the recommended default configuration.",
-                robots.inferred_policy,
-                robots.blocked_ai_bots.join(", ")
+        builder = builder.add_component(
+            Callout::info(i18n.t_args(
+                "pdf-robots-training-blocked-body",
+                &[
+                    ("policy", robots.inferred_policy.clone()),
+                    ("bots", robots.blocked_ai_bots.join(", ")),
+                ],
             ))
-            .with_title("AI training blocked (default)")
-        } else {
-            Callout::info(format!(
-                "Policy: {} — KI-Trainingsbots ({}) sind gesperrt, \
-                 KI-Suchbots haben Zugang. Das entspricht der empfohlenen Standardkonfiguration.",
-                robots.inferred_policy,
-                robots.blocked_ai_bots.join(", ")
-            ))
-            .with_title("KI-Training blockiert (Standard)")
-        });
+            .with_title(i18n.t("pdf-robots-training-blocked-title")),
+        );
     }
 
     // Bot overview table
     if !robots.bot_rows.is_empty() {
+        let col_category = i18n.t("pdf-serp-category");
+        let col_allowed = i18n.t("pdf-robots-allowed");
+        let col_blocked = i18n.t("pdf-robots-blocked");
         let mut table = AuditTable::new(vec![
             TableColumn::new("User-agent").with_width("28%"),
-            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("26%"),
-            TableColumn::new(if is_en(i18n) { "Allowed" } else { "Erlaubt" }).with_width("13%"),
-            TableColumn::new(if is_en(i18n) { "Blocked" } else { "Gesperrt" }).with_width("13%"),
+            TableColumn::new(&col_category).with_width("26%"),
+            TableColumn::new(&col_allowed).with_width("13%"),
+            TableColumn::new(&col_blocked).with_width("13%"),
             TableColumn::new("Status").with_width("20%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Crawler rules"
-        } else {
-            "Crawler-Regeln"
-        });
+        .with_title(i18n.t("pdf-robots-crawler-rules"));
 
         for (ua, class, allows, disallows, fully_blocked) in &robots.bot_rows {
             let status = if *fully_blocked {
-                if is_en(i18n) {
-                    "Fully blocked"
-                } else {
-                    "Vollständig gesperrt"
-                }
+                i18n.t("pdf-robots-status-fully-blocked")
             } else if *disallows > 0 {
-                if is_en(i18n) {
-                    "Partially blocked"
-                } else {
-                    "Teilweise gesperrt"
-                }
-            } else if is_en(i18n) {
-                "Allowed"
+                i18n.t("pdf-robots-status-partially-blocked")
             } else {
-                "Erlaubt"
+                i18n.t("pdf-robots-allowed")
             };
             table = table.add_row(vec![
                 ua.clone(),
                 class.clone(),
                 allows.to_string(),
                 disallows.to_string(),
-                status.to_string(),
+                status,
             ]);
         }
 
@@ -1025,11 +791,7 @@ fn render_robots(
 
     // Sitemaps
     if !robots.sitemaps.is_empty() {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "Sitemap entries"
-        } else {
-            "Sitemap-Einträge"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("pdf-robots-sitemap-entries"));
         for (i, sitemap) in robots.sitemaps.iter().enumerate() {
             kv = kv.add(format!("Sitemap {}", i + 1), sitemap);
         }
@@ -1038,19 +800,14 @@ fn render_robots(
 
     // Crawl delays
     if !robots.crawl_delays.is_empty() {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "Crawl-delay values"
-        } else {
-            "Crawl-Delay-Werte"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("pdf-robots-crawl-delay-title"));
         for (ua, delay) in &robots.crawl_delays {
             kv = kv.add(
                 ua,
-                if is_en(i18n) {
-                    format!("{delay} seconds")
-                } else {
-                    format!("{delay} Sekunden")
-                },
+                i18n.t_args(
+                    "pdf-robots-crawl-delay-value",
+                    &[("delay", delay.to_string())],
+                ),
             );
         }
         builder = builder.add_component(kv);
@@ -1068,27 +825,19 @@ pub(super) fn render_seo_profile(
         builder.add_component(Section::new(i18n.t("section-seo-content-profile")).with_level(3));
 
     let mut identity_table = AuditTable::new(vec![
-        TableColumn::new(if is_en(i18n) { "Aspect" } else { "Aspekt" }).with_width("24%"),
-        TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }).with_width("76%"),
+        TableColumn::new(i18n.t("pdf-seo-profile-aspect")).with_width("24%"),
+        TableColumn::new(i18n.t("pdf-seo-value")).with_width("76%"),
     ])
-    .with_title(if is_en(i18n) {
-        "Content profile"
-    } else {
-        "Inhaltsprofil"
-    });
+    .with_title(i18n.t("pdf-seo-profile-content-profile"));
     for (key, value) in &profile.identity_facts {
         identity_table = identity_table.add_row(vec![key.clone(), value.clone()]);
     }
 
     let mut page_profile_table = AuditTable::new(vec![
-        TableColumn::new(if is_en(i18n) { "Aspect" } else { "Aspekt" }).with_width("24%"),
-        TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }).with_width("76%"),
+        TableColumn::new(i18n.t("pdf-seo-profile-aspect")).with_width("24%"),
+        TableColumn::new(i18n.t("pdf-seo-value")).with_width("76%"),
     ])
-    .with_title(if is_en(i18n) {
-        "Page profile"
-    } else {
-        "Seitenprofil"
-    });
+    .with_title(i18n.t("pdf-seo-profile-page-profile"));
     for (key, value) in &profile.page_profile_facts {
         page_profile_table = page_profile_table.add_row(vec![key.clone(), value.clone()]);
     }
@@ -1103,37 +852,25 @@ pub(super) fn render_seo_profile(
     let mut score_grid = renderreport::components::advanced::Grid::new(2);
     for (title, score, subtitle, accent) in [
         (
-            if is_en(i18n) {
-                "Content depth"
-            } else {
-                "Content-Tiefe"
-            },
+            i18n.t("pdf-seo-profile-content-depth"),
             profile.content_depth_score,
             score_quality_label(profile.content_depth_score),
             score_quality_color(profile.content_depth_score),
         ),
         (
-            if is_en(i18n) {
-                "Structural quality"
-            } else {
-                "Strukturqualität"
-            },
+            i18n.t("pdf-seo-profile-structure-quality"),
             profile.structural_richness_score,
             score_quality_label(profile.structural_richness_score),
             score_quality_color(profile.structural_richness_score),
         ),
         (
-            if is_en(i18n) {
-                "Media balance"
-            } else {
-                "Medienbalance"
-            },
+            i18n.t("pdf-seo-profile-media-balance"),
             profile.media_text_balance_score,
             score_quality_label(profile.media_text_balance_score),
             score_quality_color(profile.media_text_balance_score),
         ),
         (
-            "Intent-Fit",
+            "Intent-Fit".to_string(),
             profile.intent_fit_score,
             score_quality_label(profile.intent_fit_score),
             score_quality_color(profile.intent_fit_score),
@@ -1150,31 +887,16 @@ pub(super) fn render_seo_profile(
     builder = builder.add_component(score_grid);
 
     // Content Identity
-    let mut identity = KeyValueList::new().with_title(if is_en(i18n) {
-        "Website identity"
-    } else {
-        "Website-Identität"
-    });
+    let mut identity = KeyValueList::new().with_title(i18n.t("pdf-seo-profile-website-identity"));
     identity = identity.add("Website", &profile.site_name);
     identity = identity.add(
-        if is_en(i18n) {
-            "Content type"
-        } else {
-            "Inhaltstyp"
-        },
+        i18n.t("pdf-seo-profile-content-type"),
         &profile.content_type,
     );
-    identity = identity.add(
-        if is_en(i18n) { "Language" } else { "Sprache" },
-        &profile.language,
-    );
+    identity = identity.add(i18n.t("pdf-seo-profile-language"), &profile.language);
     if !profile.category_hints.is_empty() {
         identity = identity.add(
-            if is_en(i18n) {
-                "Schema types"
-            } else {
-                "Schema-Typen"
-            },
+            i18n.t("pdf-seo-profile-schema-types"),
             profile.category_hints.join(", "),
         );
     }
@@ -1183,23 +905,14 @@ pub(super) fn render_seo_profile(
     // Schema Inventory
     if !profile.schema_rows.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) {
-                "Schema type"
-            } else {
-                "Schema-Typ"
-            }),
-            TableColumn::new(if is_en(i18n) {
-                "Completeness"
-            } else {
-                "Vollständigkeit"
-            }),
+            TableColumn::new(i18n.t("pdf-seo-profile-schema-type-col")),
+            TableColumn::new(i18n.t("pdf-seo-profile-completeness")),
             TableColumn::new("Details"),
         ])
-        .with_title(if is_en(i18n) {
-            format!("Structured data ({} schemas)", profile.schema_count)
-        } else {
-            format!("Strukturierte Daten ({} Schemas)", profile.schema_count)
-        });
+        .with_title(i18n.t_args(
+            "pdf-seo-profile-structured-data-title",
+            &[("count", profile.schema_count.to_string())],
+        ));
         for (typ, completeness, details) in &profile.schema_rows {
             table = table.add_row(vec![typ.as_str(), completeness.as_str(), details.as_str()]);
         }
@@ -1209,22 +922,14 @@ pub(super) fn render_seo_profile(
     // Signal Strength Overview
     if !profile.signal_rows.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }),
-            TableColumn::new(if is_en(i18n) { "Rating" } else { "Bewertung" }),
-            TableColumn::new(if is_en(i18n) {
-                "Classification"
-            } else {
-                "Einstufung"
-            }),
+            TableColumn::new(i18n.t("pdf-serp-category")),
+            TableColumn::new(i18n.t("pdf-seo-profile-rating")),
+            TableColumn::new(i18n.t("pdf-seo-profile-classification")),
         ])
-        .with_title(if is_en(i18n) {
-            format!(
-                "SEO signal strength (overall: {}%)",
-                profile.signal_overall_pct
-            )
-        } else {
-            format!("SEO-Signalstärke (Gesamt: {}%)", profile.signal_overall_pct)
-        });
+        .with_title(i18n.t_args(
+            "pdf-seo-profile-strength-title",
+            &[("pct", profile.signal_overall_pct.to_string())],
+        ));
         for (cat, score, rating) in &profile.signal_rows {
             table = table.add_row(vec![cat.as_str(), score.as_str(), rating.as_str()]);
         }
@@ -1234,7 +939,7 @@ pub(super) fn render_seo_profile(
     // Signal Details per category
     for (cat_name, checks) in &profile.signal_details {
         let mut detail_table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Check" } else { "Prüfung" }),
+            TableColumn::new(i18n.t("pdf-ph-check")),
             TableColumn::new("Status"),
             TableColumn::new("Detail"),
         ])
@@ -1247,33 +952,21 @@ pub(super) fn render_seo_profile(
     }
 
     // Maturity Rating
-    let mut maturity = KeyValueList::new().with_title(if is_en(i18n) {
-        "SEO maturity"
-    } else {
-        "SEO-Reifegrad"
-    });
+    let mut maturity = KeyValueList::new().with_title(i18n.t("pdf-seo-profile-maturity-title"));
     maturity = maturity.add("Level", &profile.maturity_level);
     maturity = maturity.add(
-        if is_en(i18n) { "Rating" } else { "Bewertung" },
+        i18n.t("pdf-seo-profile-rating"),
         &profile.maturity_description,
     );
     maturity = maturity.add(
-        if is_en(i18n) {
-            "Techniques"
-        } else {
-            "Techniken"
-        },
-        if is_en(i18n) {
-            format!(
-                "{} of {} detected",
-                profile.maturity_techniques_used, profile.maturity_techniques_total
-            )
-        } else {
-            format!(
-                "{} von {} erkannt",
-                profile.maturity_techniques_used, profile.maturity_techniques_total
-            )
-        },
+        i18n.t("pdf-seo-profile-techniques"),
+        i18n.t_args(
+            "pdf-seo-profile-techniques-value",
+            &[
+                ("used", profile.maturity_techniques_used.to_string()),
+                ("total", profile.maturity_techniques_total.to_string()),
+            ],
+        ),
     );
     builder = builder.add_component(maturity);
 
@@ -1310,15 +1003,9 @@ pub(super) fn render_security(
                     .iter()
                     .any(|(k, v)| k.contains("HTTPS") && v == "Ja")
                 {
-                    if is_en(i18n) {
-                        "Yes"
-                    } else {
-                        "Ja"
-                    }
-                } else if is_en(i18n) {
-                    "Unclear"
+                    i18n.t("pdf-sec-https-yes")
                 } else {
-                    "Unklar"
+                    i18n.t("pdf-sec-https-unclear")
                 },
             )
             .with_accent("#2563eb"),
@@ -1331,7 +1018,7 @@ pub(super) fn render_security(
         let mut table = AuditTable::new(vec![
             TableColumn::new("Header"),
             TableColumn::new("Status"),
-            TableColumn::new(if is_en(i18n) { "Value" } else { "Wert" }),
+            TableColumn::new(i18n.t("pdf-seo-value")),
         ])
         .with_title("Security Headers");
         for (name, status, val) in &sec.headers {
@@ -1349,12 +1036,8 @@ pub(super) fn render_security(
     }
 
     if !sec.protection.is_empty() {
-        let title = if is_en(i18n) {
-            "Protection Infrastructure"
-        } else {
-            "Schutzinfrastruktur"
-        };
-        let mut kv = KeyValueList::new().with_title(title);
+        let title = i18n.t("pdf-sec-protection-title");
+        let mut kv = KeyValueList::new().with_title(&title);
         for (name, kind) in &sec.protection {
             kv = kv.add(name, kind);
         }
@@ -1455,11 +1138,7 @@ pub(super) fn render_ux(
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-ux")).with_level(2))
         .add_component(
-            Callout::info(&ux.interpretation).with_title(if is_en(i18n) {
-                "UX — Overview"
-            } else {
-                "UX — Überblick"
-            }),
+            Callout::info(&ux.interpretation).with_title(i18n.t("pdf-ux-overview-title")),
         )
         .add_component(
             ScoreCard::new(i18n.t("ux-score-card"), ux.score)
@@ -1486,17 +1165,10 @@ pub(super) fn render_ux(
         builder = builder.add_component(Finding::new(&issue.dimension, sev, &desc));
     }
     if ux.issues.len() > 3 {
-        let more_note = if is_en(i18n) {
-            format!(
-                "{} additional issues in the detailed appendix.",
-                ux.issues.len() - 3
-            )
-        } else {
-            format!(
-                "{} weitere Befunde im detaillierten Anhang.",
-                ux.issues.len() - 3
-            )
-        };
+        let more_note = i18n.t_args(
+            "pdf-ux-more-issues",
+            &[("count", (ux.issues.len() - 3).to_string())],
+        );
         builder = builder.add_component(Callout::info(&more_note));
     }
     builder
@@ -1511,11 +1183,7 @@ pub(super) fn render_journey(
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-journey")).with_level(2))
         .add_component(
-            Callout::info(&journey.interpretation).with_title(if is_en(i18n) {
-                "Journey — Overview"
-            } else {
-                "Journey — Überblick"
-            }),
+            Callout::info(&journey.interpretation).with_title(i18n.t("pdf-journey-overview-title")),
         )
         .add_component(
             ScoreCard::new(i18n.t("journey-score-card"), journey.score)
@@ -1526,11 +1194,7 @@ pub(super) fn render_journey(
     // Page intent
     let mut kv = KeyValueList::new().with_title(i18n.t("journey-page-type-dimensions"));
     kv = kv.add(
-        if is_en(i18n) {
-            "Detected page type"
-        } else {
-            "Erkannter Seitentyp"
-        },
+        i18n.t("pdf-journey-detected-page-type"),
         &journey.page_intent,
     );
     for dim in &journey.dimensions {
@@ -1553,17 +1217,10 @@ pub(super) fn render_journey(
         builder = builder.add_component(Finding::new(&fp.problem, sev, &desc));
     }
     if journey.friction_points.len() > 3 {
-        let more_note = if is_en(i18n) {
-            format!(
-                "{} additional issues in the detailed appendix.",
-                journey.friction_points.len() - 3
-            )
-        } else {
-            format!(
-                "{} weitere Befunde im detaillierten Anhang.",
-                journey.friction_points.len() - 3
-            )
-        };
+        let more_note = i18n.t_args(
+            "pdf-journey-more-issues",
+            &[("count", (journey.friction_points.len() - 3).to_string())],
+        );
         builder = builder.add_component(Callout::info(&more_note));
     }
     builder
@@ -1575,47 +1232,29 @@ pub(super) fn render_dark_mode(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let support_label = if dm.supported {
-        if is_en(i18n) {
-            "Supported"
-        } else {
-            "Unterstützt"
-        }
-    } else if is_en(i18n) {
-        "Not supported"
+        i18n.t("pdf-dm-status-supported")
     } else {
-        "Nicht unterstützt"
+        i18n.t("pdf-dm-status-not-supported")
     };
     builder = builder
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-dark-mode")).with_level(2))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Dark mode score"
-                } else {
-                    "Dark Mode Score"
-                },
-                dm.score,
-            )
-            .with_thresholds(80, 50),
+            ScoreCard::new(i18n.t("pdf-dm-score-title"), dm.score).with_thresholds(80, 50),
         );
 
     builder = builder.add_component(
         MetricStrip::new(vec![
-            MetricStripItem::new("Status", support_label)
+            MetricStripItem::new("Status", &support_label)
                 .with_status(if dm.supported { "good" } else { "warn" })
                 .with_accent(if dm.supported { "#0f766e" } else { "#d97706" }),
             MetricStripItem::new(
-                if is_en(i18n) { "Methods" } else { "Methoden" },
+                i18n.t("pdf-dm-methods"),
                 dm.detection_methods.len().to_string(),
             )
             .with_accent("#2563eb"),
             MetricStripItem::new(
-                if is_en(i18n) {
-                    "CSS variables"
-                } else {
-                    "CSS Variablen"
-                },
+                i18n.t("pdf-dm-css-variables"),
                 dm.css_custom_properties.to_string(),
             )
             .with_accent("#7c3aed"),
@@ -1623,41 +1262,20 @@ pub(super) fn render_dark_mode(
         .compact(),
     );
 
-    let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-        "Dark mode overview"
-    } else {
-        "Dark Mode Übersicht"
-    });
-    kv = kv.add(
-        if is_en(i18n) {
-            "Support"
-        } else {
-            "Unterstützung"
-        },
-        support_label,
-    );
+    let mut kv = KeyValueList::new().with_title(i18n.t("pdf-dm-overview-title"));
+    kv = kv.add(i18n.t("pdf-dm-support"), &support_label);
     if !dm.detection_methods.is_empty() {
         kv = kv.add(
-            if is_en(i18n) {
-                "Implementation methods"
-            } else {
-                "Implementierungsmethoden"
-            },
+            i18n.t("pdf-dm-methods-impl"),
             dm.detection_methods.join(", "),
         );
     }
     kv = kv.add(
         "color-scheme CSS",
         if dm.color_scheme_css {
-            if is_en(i18n) {
-                "Yes"
-            } else {
-                "Ja"
-            }
-        } else if is_en(i18n) {
-            "No"
+            i18n.t("pdf-dm-yes")
         } else {
-            "Nein"
+            i18n.t("pdf-dm-no")
         },
     );
     if let Some(ref meta) = dm.meta_color_scheme {
@@ -1665,55 +1283,31 @@ pub(super) fn render_dark_mode(
     }
     if dm.css_custom_properties > 0 {
         kv = kv.add(
-            if is_en(i18n) {
-                "CSS custom properties (colors)"
-            } else {
-                "CSS Custom Properties (Farben)"
-            },
+            i18n.t("pdf-dm-css-custom-props"),
             dm.css_custom_properties.to_string(),
         );
     }
     if dm.supported {
         kv = kv.add(
-            if is_en(i18n) {
-                "Contrast violations in dark mode"
-            } else {
-                "Kontrast-Violations im Dark Mode"
-            },
+            i18n.t("pdf-dm-contrast-violations"),
             dm.dark_contrast_violations.to_string(),
         );
         if dm.dark_only_violations > 0 {
             kv = kv.add(
-                if is_en(i18n) {
-                    "Dark-mode-only issues"
-                } else {
-                    "Nur-Dark-Mode-Probleme"
-                },
-                if is_en(i18n) {
-                    format!("{} (not in light mode)", dm.dark_only_violations)
-                } else {
-                    format!("{} (nicht im Light Mode)", dm.dark_only_violations)
-                },
+                i18n.t("pdf-dm-only-issues"),
+                i18n.t_args(
+                    "pdf-dm-only-issues-val",
+                    &[("count", dm.dark_only_violations.to_string())],
+                ),
             );
         }
         if dm.light_only_violations > 0 {
             kv = kv.add(
-                if is_en(i18n) {
-                    "Resolved in dark mode"
-                } else {
-                    "Im Dark Mode behoben"
-                },
-                if is_en(i18n) {
-                    format!(
-                        "{} light-mode issues disappear in dark mode",
-                        dm.light_only_violations
-                    )
-                } else {
-                    format!(
-                        "{} Light-Mode-Probleme verschwinden im Dark Mode",
-                        dm.light_only_violations
-                    )
-                },
+                i18n.t("pdf-dm-resolved-issues"),
+                i18n.t_args(
+                    "pdf-dm-resolved-issues-val",
+                    &[("count", dm.light_only_violations.to_string())],
+                ),
             );
         }
     }
@@ -1722,16 +1316,8 @@ pub(super) fn render_dark_mode(
     if !dm.issues.is_empty() {
         for (severity, description) in &dm.issues {
             builder = builder.add_component(match severity.as_str() {
-                "high" => Callout::warning(description).with_title(if is_en(i18n) {
-                    "Dark mode issue"
-                } else {
-                    "Dark Mode Problem"
-                }),
-                _ => Callout::info(description).with_title(if is_en(i18n) {
-                    "Dark mode note"
-                } else {
-                    "Dark Mode Hinweis"
-                }),
+                "high" => Callout::warning(description).with_title(i18n.t("pdf-dm-issue-title")),
+                _ => Callout::info(description).with_title(i18n.t("pdf-dm-note-title")),
             });
         }
     }
@@ -1796,50 +1382,22 @@ pub(super) fn render_source_quality(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder
         .add_component(PageBreak::new())
+        .add_component(Section::new(i18n.t("pdf-sq-section-title")).with_level(2))
+        .add_component(Callout::info(&sq.disclaimer).with_title(i18n.t("pdf-sq-overview-title")))
         .add_component(
-            Section::new(if is_en(i18n) {
-                "Source quality"
-            } else {
-                "Quellenqualität"
-            })
-            .with_level(2),
-        )
-        .add_component(Callout::info(&sq.disclaimer).with_title(if is_en(i18n) {
-            "Source Quality — Overview"
-        } else {
-            "Quellqualität — Überblick"
-        }))
-        .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Source quality (indicator)"
-                } else {
-                    "Quellenqualität (Indikator)"
-                },
-                sq.score,
-            )
-            .with_description(if is_en(i18n) {
-                format!(
-                    "Grade: {} — {} · Heuristic estimate, not a measured value",
-                    sq.grade,
-                    score_quality_label(sq.score)
-                )
-            } else {
-                format!(
-                    "Grade: {} — {} · Heuristische Schätzung, kein Messwert",
-                    sq.grade,
-                    score_quality_label(sq.score)
-                )
-            })
-            .with_thresholds(70, 50),
+            ScoreCard::new(i18n.t("pdf-sq-score-title"), sq.score)
+                .with_description(i18n.t_args(
+                    "pdf-sq-score-desc-format",
+                    &[
+                        ("grade", sq.grade.as_str()),
+                        ("quality", score_quality_label(sq.score)),
+                    ],
+                ))
+                .with_thresholds(70, 50),
         );
 
     if sq.score >= 80 {
-        return builder.add_component(Callout::success(if is_en(i18n) {
-            "All source quality signals look good. No critical issues detected."
-        } else {
-            "Alle Quellenqualitäts-Signale sind in Ordnung. Keine kritischen Probleme erkannt."
-        }));
+        return builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
     }
 
     for dim in [&sq.substance, &sq.consistency, &sq.authority] {
@@ -1880,74 +1438,28 @@ pub(super) fn render_tech_stack(
 
     builder = builder
         .add_component(PageBreak::new())
+        .add_component(Section::new(i18n.t("pdf-ts-section-title")).with_level(2))
         .add_component(
-            Section::new(if is_en(i18n) {
-                "Tech Stack"
-            } else {
-                "Tech-Stack"
-            })
-            .with_level(2),
-        )
-        .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Stack security score"
-                } else {
-                    "Stack-Sicherheitsscore"
-                },
-                ts.score,
-            )
-            .with_description(format!("Grade: {}", ts.grade))
-            .with_thresholds(80, 50),
+            ScoreCard::new(i18n.t("pdf-ts-score-title"), ts.score)
+                .with_description(format!("Grade: {}", ts.grade))
+                .with_thresholds(80, 50),
         );
 
     if !ts.detected.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) {
-                "Technology"
-            } else {
-                "Technologie"
-            })
-            .with_width("28%"),
-            TableColumn::new(if is_en(i18n) { "Category" } else { "Kategorie" }).with_width("22%"),
+            TableColumn::new(i18n.t("pdf-ts-technology")).with_width("28%"),
+            TableColumn::new(i18n.t("pdf-serp-category")).with_width("22%"),
             TableColumn::new("Version").with_width("18%"),
-            TableColumn::new(if is_en(i18n) {
-                "Confidence"
-            } else {
-                "Konfidenz"
-            })
-            .with_width("14%"),
+            TableColumn::new(i18n.t("pdf-ts-confidence")).with_width("14%"),
             TableColumn::new("Detail").with_width("18%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Detected technologies"
-        } else {
-            "Erkannte Technologien"
-        });
+        .with_title(i18n.t("pdf-ts-detected-title"));
 
         for tech in &ts.detected {
             let confidence = match tech.confidence {
-                Confidence::High => {
-                    if is_en(i18n) {
-                        "High"
-                    } else {
-                        "Hoch"
-                    }
-                }
-                Confidence::Medium => {
-                    if is_en(i18n) {
-                        "Medium"
-                    } else {
-                        "Mittel"
-                    }
-                }
-                Confidence::Low => {
-                    if is_en(i18n) {
-                        "Low"
-                    } else {
-                        "Niedrig"
-                    }
-                }
+                Confidence::High => i18n.t("pdf-ts-confidence-high"),
+                Confidence::Medium => i18n.t("pdf-ts-confidence-medium"),
+                Confidence::Low => i18n.t("pdf-ts-confidence-low"),
             };
             table = table.add_row(vec![
                 tech.name.clone(),
@@ -1962,20 +1474,11 @@ pub(super) fn render_tech_stack(
 
     if !ts.findings.is_empty() {
         let mut findings_table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Finding" } else { "Befund" }).with_width("35%"),
-            TableColumn::new(if is_en(i18n) {
-                "Severity"
-            } else {
-                "Schweregrad"
-            })
-            .with_width("15%"),
+            TableColumn::new(i18n.t("pdf-ts-finding")).with_width("35%"),
+            TableColumn::new(i18n.t("pdf-ts-severity")).with_width("15%"),
             TableColumn::new("Detail").with_width("50%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Stack security findings"
-        } else {
-            "Stack-Sicherheitsbefunde"
-        });
+        .with_title(i18n.t("pdf-ts-findings-title"));
 
         for finding in &ts.findings {
             findings_table = findings_table.add_row(vec![
@@ -1997,106 +1500,40 @@ pub(super) fn render_ai_visibility(
     av: &crate::ai_visibility::AiVisibilityAnalysis,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let indicator_note_ai = if is_en(i18n) {
-        "Experimental heuristics — not a standardised metric. Indicators are heuristic estimates based on measurable signals, not direct ranking signals. Use them as pointers to optimisation potential, not as evidence of LLM behaviour."
-    } else {
-        "Experimentelle Heuristiken — keine standardisierte Metrik. Die Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale, kein direktes Ranking-Signal. Sie zeigen Optimierungspotenzial, beweisen aber kein konkretes LLM-Verhalten."
-    };
+    let indicator_note_ai = i18n.t("pdf-ai-indicator-note");
     builder = builder
         .add_component(PageBreak::new())
+        .add_component(Section::new(i18n.t("pdf-ai-section-title")).with_level(2))
         .add_component(
-            Section::new(if is_en(i18n) {
-                "AI Visibility (indicator)"
-            } else {
-                "AI-Sichtbarkeit (Indikator)"
-            })
-            .with_level(2),
+            Callout::info(&indicator_note_ai).with_title(i18n.t("pdf-seo-indicator-title")),
         )
-        .add_component(Callout::info(indicator_note_ai).with_title(if is_en(i18n) {
-            "Indicator-based metrics"
-        } else {
-            "Indikator-basierte Metriken"
-        }))
-        .add_component(Callout::info(&av.disclaimer).with_title(if is_en(i18n) {
-            "AI Visibility — Overview"
-        } else {
-            "KI-Sichtbarkeit — Überblick"
-        }))
+        .add_component(Callout::info(&av.disclaimer).with_title(i18n.t("pdf-ai-overview-title")))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "AI visibility (indicator)"
-                } else {
-                    "AI-Sichtbarkeit (Indikator)"
-                },
-                av.score,
-            )
-            .with_description(if is_en(i18n) {
-                format!(
-                    "Grade: {} — {} · Heuristic estimate, not a measured value",
-                    av.grade,
-                    score_quality_label(av.score)
-                )
-            } else {
-                format!(
-                    "Grade: {} — {} · Heuristische Schätzung, kein Messwert",
-                    av.grade,
-                    score_quality_label(av.score)
-                )
-            })
-            .with_thresholds(70, 50),
+            ScoreCard::new(i18n.t("pdf-ai-score-title"), av.score)
+                .with_description(i18n.t_args(
+                    "pdf-ai-score-desc-format",
+                    &[
+                        ("grade", av.grade.as_str()),
+                        ("quality", score_quality_label(av.score)),
+                    ],
+                ))
+                .with_thresholds(70, 50),
         );
 
     if av.score >= 80 {
-        return builder.add_component(Callout::success(if is_en(i18n) {
-            "All AI visibility signals look good. No optimization required."
-        } else {
-            "Alle KI-Sichtbarkeits-Signale sind in Ordnung. Kein Optimierungsbedarf."
-        }));
+        return builder.add_component(Callout::success(i18n.t("pdf-ai-success")));
     }
 
     // Render each dimension
     for (dim, title) in [
-        (
-            &av.readability.dimension,
-            if is_en(i18n) {
-                "AI readability"
-            } else {
-                "KI-Lesbarkeit"
-            },
-        ),
-        (
-            &av.citation.dimension,
-            if is_en(i18n) {
-                "Citability"
-            } else {
-                "Zitierbarkeit"
-            },
-        ),
-        (
-            &av.chunks.dimension,
-            if is_en(i18n) {
-                "AI readability"
-            } else {
-                "Technische KI-Lesbarkeit"
-            },
-        ),
+        (&av.readability.dimension, i18n.t("pdf-ai-readability")),
+        (&av.citation.dimension, i18n.t("pdf-ai-citability")),
+        (&av.chunks.dimension, i18n.t("pdf-ai-tech-readability")),
         (
             &av.knowledge_graph.dimension,
-            if is_en(i18n) {
-                "Structured data"
-            } else {
-                "Strukturierte Daten"
-            },
+            i18n.t("pdf-seo-profile-structured-data"),
         ),
-        (
-            &av.policy.dimension,
-            if is_en(i18n) {
-                "AI policy"
-            } else {
-                "AI-Policy"
-            },
-        ),
+        (&av.policy.dimension, i18n.t("pdf-ai-policy")),
     ] {
         builder = builder.add_component(Section::new(title).with_level(3));
         let mut dim_kv = KeyValueList::new().add(
@@ -2121,17 +1558,10 @@ pub(super) fn render_ai_visibility(
             }
             builder = builder.add_component(table);
             if dim.signals.len() > 5 {
-                let more_note = if is_en(i18n) {
-                    format!(
-                        "{} additional signals in the detailed appendix.",
-                        dim.signals.len() - 5
-                    )
-                } else {
-                    format!(
-                        "{} weitere Signale im detaillierten Anhang.",
-                        dim.signals.len() - 5
-                    )
-                };
+                let more_note = i18n.t_args(
+                    "pdf-ai-more-signals",
+                    &[("count", (dim.signals.len() - 5).to_string())],
+                );
                 builder = builder.add_component(Callout::info(&more_note));
             }
         }
@@ -2143,15 +1573,11 @@ pub(super) fn render_ai_visibility(
             builder.add_component(Section::new(i18n.t("section-content-sections")).with_level(3));
 
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Section" } else { "Abschnitt" }).with_width("70%"),
+            TableColumn::new(i18n.t("pdf-ai-section-col")).with_width("70%"),
             TableColumn::new("Level").with_width("15%"),
-            TableColumn::new(if is_en(i18n) { "Words" } else { "Wörter" }).with_width("15%"),
+            TableColumn::new(i18n.t("pdf-ai-words-col")).with_width("15%"),
         ])
-        .with_title(if is_en(i18n) {
-            "Sections"
-        } else {
-            "Abschnitte"
-        });
+        .with_title(i18n.t("pdf-ai-sections-title"));
 
         for section in &av.chunks.sections {
             table = table.add_row(vec![
@@ -2161,13 +1587,9 @@ pub(super) fn render_ai_visibility(
             ]);
         }
         builder = builder.add_component(table);
-        builder = builder.add_component(Callout::info(&av.chunks.recommendation).with_title(
-            if is_en(i18n) {
-                "Recommendation"
-            } else {
-                "Empfehlung"
-            },
-        ));
+        builder = builder.add_component(
+            Callout::info(&av.chunks.recommendation).with_title(i18n.t("pdf-ai-rec-title")),
+        );
     }
 
     // Knowledge graph entities
@@ -2176,15 +1598,11 @@ pub(super) fn render_ai_visibility(
             builder.add_component(Section::new(i18n.t("section-detected-entities")).with_level(3));
 
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Entity" } else { "Entität" }),
-            TableColumn::new(if is_en(i18n) { "Type" } else { "Typ" }),
-            TableColumn::new(if is_en(i18n) { "Source" } else { "Quelle" }),
+            TableColumn::new(i18n.t("pdf-ai-entity-col")),
+            TableColumn::new(i18n.t("pdf-perf-min-type")),
+            TableColumn::new(i18n.t("pdf-seo-ie-source")),
         ])
-        .with_title(if is_en(i18n) {
-            "Entities"
-        } else {
-            "Entitäten"
-        });
+        .with_title(i18n.t("pdf-ai-entities-title"));
 
         for entity in &av.knowledge_graph.entities {
             table = table.add_row(vec![
@@ -2199,15 +1617,11 @@ pub(super) fn render_ai_visibility(
     // Knowledge graph relationships
     if !av.knowledge_graph.relationships.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Subject" } else { "Subjekt" }),
-            TableColumn::new(if is_en(i18n) { "Relation" } else { "Beziehung" }),
-            TableColumn::new(if is_en(i18n) { "Object" } else { "Objekt" }),
+            TableColumn::new(i18n.t("pdf-ai-subject-col")),
+            TableColumn::new(i18n.t("pdf-ai-relation-col")),
+            TableColumn::new(i18n.t("pdf-ai-object-col")),
         ])
-        .with_title(if is_en(i18n) {
-            "Relationships"
-        } else {
-            "Beziehungen"
-        });
+        .with_title(i18n.t("pdf-ai-relations-title"));
 
         for rel in &av.knowledge_graph.relationships {
             table = table.add_row(vec![&rel.subject, &rel.predicate, &rel.object]);
@@ -2229,48 +1643,19 @@ pub(super) fn render_ai_visibility(
 
     // AI Policy details
     if av.policy.blocks_all {
-        builder = builder.add_component(if is_en(i18n) {
-            Callout::warning(
-                "All crawlers blocked (Disallow: *) — AI search bots have no access either.",
-            )
-            .with_title("No AI access")
-        } else {
-            Callout::warning(
-                "Alle Crawler gesperrt (Disallow: *) — auch KI-Suchbots haben keinen Zugang.",
-            )
-            .with_title("Kein KI-Zugang")
-        });
-    } else if av.policy.blocks_ai_citation {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "AI visibility limited"
-        } else {
-            "KI-Sichtbarkeit eingeschränkt"
-        });
-        kv = kv.add("Policy", &av.policy.inferred_policy);
-        kv = kv.add(
-            "Status",
-            if is_en(i18n) {
-                "AI search bots blocked — content will not appear in AI-generated answers"
-            } else {
-                "KI-Suchbots blockiert — Inhalte erscheinen nicht in KI-generierten Antworten"
-            },
+        builder = builder.add_component(
+            Callout::warning(i18n.t("pdf-ai-policy-blocks-all-body"))
+                .with_title(i18n.t("pdf-ai-policy-blocks-all-title")),
         );
+    } else if av.policy.blocks_ai_citation {
+        let mut kv = KeyValueList::new().with_title(i18n.t("pdf-ai-policy-limited-title"));
+        kv = kv.add("Policy", &av.policy.inferred_policy);
+        kv = kv.add("Status", &i18n.t("pdf-ai-policy-limited-body"));
         builder = builder.add_component(kv);
     } else if av.policy.blocks_ai_training {
-        let mut kv = KeyValueList::new().with_title(if is_en(i18n) {
-            "AI policy"
-        } else {
-            "KI-Policy"
-        });
+        let mut kv = KeyValueList::new().with_title(i18n.t("pdf-ai-policy"));
         kv = kv.add("Policy", &av.policy.inferred_policy);
-        kv = kv.add(
-            "Status",
-            if is_en(i18n) {
-                "AI training bots blocked, AI search bots have access — recommended default"
-            } else {
-                "KI-Trainingsbots blockiert, KI-Suchbots haben Zugang — empfohlener Standard"
-            },
-        );
+        kv = kv.add("Status", &i18n.t("pdf-ai-policy-training-body"));
         builder = builder.add_component(kv);
     }
 
@@ -2288,67 +1673,36 @@ pub(super) fn render_content_visibility(
 
     builder = builder
         .add_component(PageBreak::new())
+        .add_component(Section::new(i18n.t("pdf-cv-section-title")).with_level(2))
         .add_component(
-            Section::new(if is_en(i18n) {
-                "Content Visibility & Trust (indicator)"
-            } else {
-                "Content Visibility & Trust (Indikator)"
-            })
-            .with_level(2),
+            Callout::info(i18n.t("pdf-cv-overview-body"))
+                .with_title(i18n.t("pdf-cv-overview-title")),
         )
-        .add_component(Callout::info(if is_en(i18n) {
-            "Aggregated indicator from SEO, Source Quality, and AI Visibility signals. \
-             Covers organic search indexability, E-E-A-T authority markers, local business \
-             presence, content depth, and topical authority heuristics. \
-             Heuristic estimate — not a directly measured value."
-        } else {
-            "Aggregierter Indikator aus SEO-, Quellenqualitäts- und KI-Sichtbarkeitssignalen. \
-             Umfasst organische Indexierbarkeit, E-E-A-T-Autoritätssignale, lokale Geschäftspräsenz, \
-             Inhaltstiefe und topische Relevanz-Heuristiken. \
-             Heuristischer Schätzwert — kein direkt gemessener Wert."
-        }).with_title(
-            if is_en(i18n) { "Content Visibility — Overview" } else { "Content-Sichtbarkeit — Überblick" }
-        ))
-        .add_component(TextBlock::new(&if is_en(i18n) {
-            format!(
-                "{} signals analyzed, {} with optimization potential.",
-                cv.signal_count, cv.problem_count
-            )
-        } else {
-            format!(
-                "{} Signale analysiert, {} Hinweise auf Optimierungsbedarf.",
-                cv.signal_count, cv.problem_count
-            )
-        }));
+        .add_component(TextBlock::new(&i18n.t_args(
+            "pdf-cv-signals-analyzed",
+            &[
+                ("signals", cv.signal_count.to_string()),
+                ("problems", cv.problem_count.to_string()),
+            ],
+        )));
 
-    let areas: &[(&str, &str, &[crate::assessment::ContentSignal])] = &[
+    let areas: Vec<(String, &[crate::assessment::ContentSignal])> = vec![
         (
-            "Organische Sichtbarkeit",
-            "Organic Visibility",
+            i18n.t("pdf-cv-area-organic-visibility"),
             &cv.organic_visibility,
         ),
+        (i18n.t("pdf-cv-area-local-business"), &cv.local_business),
+        (i18n.t("pdf-cv-area-eeat"), &cv.eeat),
+        (i18n.t("pdf-cv-area-content-depth"), &cv.content_depth),
         (
-            "Local Business & Vertrauensdaten",
-            "Local Business & Trust Data",
-            &cv.local_business,
-        ),
-        ("E-E-A-T-Indizien", "E-E-A-T Indicators", &cv.eeat),
-        (
-            "Inhaltstiefe & Lokalisierung",
-            "Content Depth & Localization",
-            &cv.content_depth,
-        ),
-        (
-            "Topical Authority (Heuristik)",
-            "Topical Authority (heuristic)",
+            i18n.t("pdf-cv-area-topical-authority"),
             &cv.topical_authority,
         ),
     ];
 
     let mut not_testable_rows: Vec<ChecklistRow> = Vec::new();
 
-    for (de_name, en_name, signals) in areas {
-        let area_name = if is_en(i18n) { en_name } else { de_name };
+    for (area_name, signals) in &areas {
         let visible: Vec<_> = signals
             .iter()
             .filter(|s| s.level != AssessmentLevel::NotTestable)
@@ -2366,7 +1720,7 @@ pub(super) fn render_content_visibility(
             continue;
         }
 
-        builder = builder.add_component(Section::new(*area_name).with_level(3));
+        builder = builder.add_component(Section::new(area_name.clone()).with_level(3));
 
         for signal in visible {
             let conf_prefix = match signal.confidence {
@@ -2411,14 +1765,10 @@ pub(super) fn render_content_visibility(
     }
 
     if !not_testable_rows.is_empty() {
-        let title = if is_en(i18n) {
-            "Manual review required"
-        } else {
-            "Manuell prüfen"
-        };
+        let title = i18n.t("pdf-cv-manual-review-title");
         builder = builder
-            .add_component(Section::new(title).with_level(3))
-            .add_component(ChecklistPanel::new(not_testable_rows).with_title(title));
+            .add_component(Section::new(&title).with_level(3))
+            .add_component(ChecklistPanel::new(not_testable_rows).with_title(&title));
     }
 
     builder
@@ -2433,40 +1783,24 @@ pub(super) fn render_best_practices(
         .add_component(PageBreak::new())
         .add_component(Section::new("Best Practices").with_level(2))
         .add_component(
-            ScoreCard::new(
-                if is_en(i18n) {
-                    "Best Practices score"
-                } else {
-                    "Best Practices Score"
-                },
-                bp.score,
-            )
-            .with_thresholds(80, 50),
+            ScoreCard::new(i18n.t("pdf-bp-score-title"), bp.score).with_thresholds(80, 50),
         );
 
     if bp.score >= 90
         && bp.console_errors.error_count == 0
         && !bp.vulnerable_libraries.has_vulnerabilities
     {
-        return builder.add_component(TextBlock::new(if is_en(i18n) {
-            "No console errors and no vulnerable libraries detected."
-        } else {
-            "Keine Konsolfehler und keine anfälligen Bibliotheken erkannt."
-        }));
+        return builder.add_component(TextBlock::new(i18n.t("pdf-bp-success")));
     }
 
     // Console errors
     if bp.console_errors.error_count > 0 {
-        let title = if is_en(i18n) {
-            "Console Errors"
-        } else {
-            "Konsolenfehler"
-        };
+        let title = i18n.t("pdf-bp-console-errors-title");
         let mut table = AuditTable::new(vec![
             TableColumn::new("Level").with_width("15%"),
-            TableColumn::new(if is_en(i18n) { "Message" } else { "Meldung" }).with_width("85%"),
+            TableColumn::new(i18n.t("pdf-bp-message-col")).with_width("85%"),
         ])
-        .with_title(title);
+        .with_title(&title);
         for error in &bp.console_errors.errors {
             table = table.add_row(vec![error.level.clone(), error.message.clone()]);
         }
@@ -2475,19 +1809,15 @@ pub(super) fn render_best_practices(
 
     // Vulnerable libraries
     if bp.vulnerable_libraries.has_vulnerabilities {
-        let title = if is_en(i18n) {
-            "Vulnerable Libraries"
-        } else {
-            "Anfällige Bibliotheken"
-        };
+        let title = i18n.t("pdf-bp-vuln-libs-title");
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if is_en(i18n) { "Library" } else { "Bibliothek" }).with_width("20%"),
+            TableColumn::new(i18n.t("pdf-bp-lib-col")).with_width("20%"),
             TableColumn::new("Version").with_width("15%"),
-            TableColumn::new(if is_en(i18n) { "Severity" } else { "Schwere" }).with_width("15%"),
-            TableColumn::new(if is_en(i18n) { "Issue" } else { "Problem" }).with_width("35%"),
-            TableColumn::new(if is_en(i18n) { "Fix" } else { "Lösung" }).with_width("15%"),
+            TableColumn::new(i18n.t("pdf-bp-severity-col")).with_width("15%"),
+            TableColumn::new(i18n.t("pdf-ph-issue")).with_width("35%"),
+            TableColumn::new(i18n.t("pdf-bp-fix-col")).with_width("15%"),
         ])
-        .with_title(title);
+        .with_title(&title);
         for lib in &bp.vulnerable_libraries.vulnerable {
             table = table.add_row(vec![
                 lib.name.clone(),
@@ -2499,11 +1829,7 @@ pub(super) fn render_best_practices(
         }
         builder = builder.add_component(table);
     } else if !bp.vulnerable_libraries.detected.is_empty() {
-        builder = builder.add_component(TextBlock::new(if is_en(i18n) {
-            "Detected libraries appear to be up to date — no known vulnerabilities found."
-        } else {
-            "Erkannte Bibliotheken scheinen aktuell zu sein — keine bekannten Schwachstellen."
-        }));
+        builder = builder.add_component(TextBlock::new(i18n.t("pdf-bp-libs-up-to-date")));
     }
 
     builder

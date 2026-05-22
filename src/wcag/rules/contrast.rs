@@ -9,6 +9,7 @@ use chromiumoxide::Page;
 use tracing::{debug, warn};
 
 use crate::accessibility::{extract_text_styles, AXTree};
+use crate::audit::ViewportScreenshot;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
@@ -42,7 +43,13 @@ pub struct ContrastRule;
 
 impl ContrastRule {
     /// Check contrast ratios for text elements (with CDP access)
-    pub async fn check_with_page(page: &Page, _tree: &AXTree, level: WcagLevel) -> Vec<Violation> {
+    /// Check contrast ratios for text elements (with CDP access)
+    pub async fn check_with_page(
+        page: &Page,
+        _tree: &AXTree,
+        level: WcagLevel,
+        screenshot: Option<&ViewportScreenshot>,
+    ) -> Vec<Violation> {
         debug!("Running contrast check with CDP integration...");
 
         let mut violations = Vec::new();
@@ -58,6 +65,230 @@ impl ContrastRule {
         };
 
         debug!("Checking contrast for {} elements", styles.len());
+
+        let mut sample_tasks = Vec::new();
+        if screenshot.is_some() {
+            for style in &styles {
+                let fg_color_str = match style.color() {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let background_uncertain = style
+                    .get("background-uncertain")
+                    .map(|value| value == "true")
+                    .unwrap_or(false);
+
+                if background_uncertain {
+                    let fg_color = match Color::from_css(fg_color_str) {
+                        Some(c) => c,
+                        None => continue,
+                    };
+                    let bg_color_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
+                    let bg_color = match Color::from_css(bg_color_str) {
+                        Some(c) => c,
+                        None => continue,
+                    };
+                    let ratio = Self::calculate_contrast_ratio(&fg_color, &bg_color);
+                    let is_large = style.is_large_text();
+
+                    if !Self::meets_requirement(ratio, is_large, level) {
+                        if let Some(ref sel) = style.selector {
+                            let threshold = if is_large {
+                                if level == WcagLevel::AAA {
+                                    4.5
+                                } else {
+                                    3.0
+                                }
+                            } else if level == WcagLevel::AAA {
+                                7.0
+                            } else {
+                                4.5
+                            };
+
+                            sample_tasks.push(serde_json::json!({
+                                "selector": sel,
+                                "fgColor": fg_color_str,
+                                "threshold": threshold,
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut sampled_verdicts = std::collections::HashMap::new();
+        if !sample_tasks.is_empty() {
+            if let Some(shot) = screenshot {
+                let base64_data = to_base64(&shot.bytes);
+                let tasks_json = serde_json::to_string(&sample_tasks).unwrap();
+                let js_script = format!(
+                    r#"(async () => {{
+  const tasks = {};
+  const screenshotBase64 = "{}";
+  
+  const img = new Image();
+  const loaded = new Promise((resolve, reject) => {{
+    img.onload = () => resolve(true);
+    img.onerror = (e) => reject(new Error("Failed to load screenshot image"));
+  }});
+  img.src = "data:image/png;base64," + screenshotBase64;
+  try {{
+    await loaded;
+  }} catch (err) {{
+    return {{ error: err.message, results: [] }};
+  }}
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {{
+    return {{ error: "Failed to get 2d canvas context", results: [] }};
+  }}
+  ctx.drawImage(img, 0, 0);
+
+  const dpr = {};
+  const scrollX = {};
+  const scrollY = {};
+
+  function parseColor(cStr) {{
+    const m = cStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!m) return {{ r: 0, g: 0, b: 0 }};
+    return {{
+      r: parseInt(m[1], 10),
+      g: parseInt(m[2], 10),
+      b: parseInt(m[3], 10)
+    }};
+  }}
+
+  function relativeLuminance(c) {{
+    const srgb = [c.r / 255, c.g / 255, c.b / 255];
+    const linear = srgb.map(v => {{
+      return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }});
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  }}
+
+  function contrastRatio(l1, l2) {{
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+  }}
+
+  const results = [];
+
+  for (const task of tasks) {{
+    try {{
+      const el = document.querySelector(task.selector);
+      if (!el) {{
+        results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Element not found" }});
+        continue;
+      }}
+      
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {{
+        results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Zero area rect" }});
+        continue;
+      }}
+
+      const left = Math.round(rect.left * dpr);
+      const top = Math.round(rect.top * dpr);
+      const width = Math.round(rect.width * dpr);
+      const height = Math.round(rect.height * dpr);
+
+      if (left < 0 || top < 0 || left + width > img.width || top + height > img.height) {{
+        results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Element outside screenshot bounds" }});
+        continue;
+      }}
+
+      const imgData = ctx.getImageData(left, top, width, height);
+      const pixels = imgData.data;
+
+      const fg = parseColor(task.fgColor);
+      const fgLum = relativeLuminance(fg);
+
+      const ratios = [];
+      for (let i = 0; i < pixels.length; i += 4) {{
+        const a = pixels[i + 3] / 255;
+        const r = Math.round(pixels[i] * a + 255 * (1 - a));
+        const g = Math.round(pixels[i + 1] * a + 255 * (1 - a));
+        const b = Math.round(pixels[i + 2] * a + 255 * (1 - a));
+
+        const bgLum = relativeLuminance({{ r, g, b }});
+        ratios.push(contrastRatio(fgLum, bgLum));
+      }}
+
+      if (ratios.length === 0) {{
+        results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "No pixels sampled" }});
+        continue;
+      }}
+
+      ratios.sort((x, y) => x - y);
+
+      const worstIdx = Math.floor(ratios.length * 0.40);
+      const worstCaseRatio = ratios[worstIdx];
+
+      const medianIdx = Math.floor(ratios.length * 0.50);
+      const medianRatio = ratios[medianIdx];
+
+      let verdict = "NeedsReview";
+      if (medianRatio >= task.threshold && worstCaseRatio >= task.threshold) {{
+        verdict = "Pass";
+      }} else if (medianRatio < task.threshold) {{
+        verdict = "Violation";
+      }}
+
+      results.push({{
+        selector: task.selector,
+        verdict,
+        medianRatio,
+        worstCaseRatio,
+        threshold: task.threshold
+      }});
+    }} catch (e) {{
+      results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Error: " + e.message }});
+    }}
+  }}
+
+  return {{ results }};
+}})();"#,
+                    tasks_json, base64_data, shot.device_scale_factor, shot.scroll_x, shot.scroll_y
+                );
+
+                match page.evaluate(js_script.as_str()).await {
+                    Ok(res) => {
+                        if let Some(val) = res.value() {
+                            if let Some(arr) = val.get("results").and_then(|v| v.as_array()) {
+                                for item in arr {
+                                    if let Some(sel) = item.get("selector").and_then(|v| v.as_str())
+                                    {
+                                        if let Some(verdict) =
+                                            item.get("verdict").and_then(|v| v.as_str())
+                                        {
+                                            let median_ratio =
+                                                item.get("medianRatio").and_then(|v| v.as_f64());
+                                            let worst_case_ratio =
+                                                item.get("worstCaseRatio").and_then(|v| v.as_f64());
+                                            sampled_verdicts.insert(
+                                                sel.to_string(),
+                                                (
+                                                    verdict.to_string(),
+                                                    median_ratio,
+                                                    worst_case_ratio,
+                                                ),
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        warn!("Pixel sampling script execution failed: {}", e);
+                    }
+                }
+            }
+        }
 
         // Check each element's contrast
         for style in &styles {
@@ -108,7 +339,32 @@ impl ContrastRule {
             let is_large = style.is_large_text();
 
             // Pass / confirmed violation / needs-review (uncertain background).
-            let verdict = Self::verdict(ratio, is_large, level, background_uncertain);
+            let mut verdict = Self::verdict(ratio, is_large, level, background_uncertain);
+            let mut final_ratio = ratio;
+            let mut is_warning = background_uncertain;
+
+            if background_uncertain && verdict == ContrastVerdict::NeedsReview {
+                if let Some(ref sel) = style.selector {
+                    if let Some((sampled_verdict, median, _worst)) = sampled_verdicts.get(sel) {
+                        if sampled_verdict == "Pass" {
+                            verdict = ContrastVerdict::Pass;
+                        } else if sampled_verdict == "Violation" {
+                            verdict = ContrastVerdict::Violation;
+                            is_warning = false;
+                            if let Some(m) = median {
+                                final_ratio = *m;
+                            }
+                        } else {
+                            verdict = ContrastVerdict::NeedsReview;
+                            is_warning = true;
+                            if let Some(m) = median {
+                                final_ratio = *m;
+                            }
+                        }
+                    }
+                }
+            }
+
             if verdict != ContrastVerdict::Pass {
                 let selector = style.selector.as_deref().unwrap_or("unknown");
                 let threshold = if is_large {
@@ -122,23 +378,23 @@ impl ContrastRule {
                 } else {
                     "4.5"
                 };
-                let message = if background_uncertain {
+                let message = if is_warning {
                     format!(
                         "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). Background includes an image or gradient and needs manual review.",
-                        ratio,
+                        final_ratio,
                         if is_large { "large " } else { "" },
                         threshold
                     )
                 } else {
                     format!(
                         "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1)",
-                        ratio,
+                        final_ratio,
                         if is_large { "large " } else { "" },
                         threshold
                     )
                 };
 
-                let fix = if background_uncertain {
+                let fix = if is_warning {
                     format!(
                         "Verify contrast against the rendered image/gradient background. Estimated from CSS colors: foreground={}, background={}",
                         fg_color_str, bg_color_str
@@ -164,7 +420,7 @@ impl ContrastRule {
                 if let Some(snippet) = &style.html_snippet {
                     violation = violation.with_html_snippet(snippet);
                 }
-                if background_uncertain {
+                if is_warning {
                     violation = violation.as_warning();
                 }
 
@@ -350,6 +606,38 @@ impl Color {
             ((v + 0.055) / 1.055).powf(2.4)
         }
     }
+}
+
+fn to_base64(bytes: &[u8]) -> String {
+    const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((bytes.len() + 2) / 3 * 4);
+    for chunk in bytes.chunks(3) {
+        match chunk.len() {
+            3 => {
+                let n = ((chunk[0] as u32) << 16) | ((chunk[1] as u32) << 8) | (chunk[2] as u32);
+                result.push(CHARS[((n >> 18) & 63) as usize] as char);
+                result.push(CHARS[((n >> 12) & 63) as usize] as char);
+                result.push(CHARS[((n >> 6) & 63) as usize] as char);
+                result.push(CHARS[(n & 63) as usize] as char);
+            }
+            2 => {
+                let n = ((chunk[0] as u32) << 8) | (chunk[1] as u32);
+                result.push(CHARS[((n >> 10) & 63) as usize] as char);
+                result.push(CHARS[((n >> 4) & 63) as usize] as char);
+                result.push(CHARS[((n << 2) & 63) as usize] as char);
+                result.push('=');
+            }
+            1 => {
+                let n = chunk[0] as u32;
+                result.push(CHARS[((n >> 2) & 63) as usize] as char);
+                result.push(CHARS[((n << 4) & 63) as usize] as char);
+                result.push('=');
+                result.push('=');
+            }
+            _ => unreachable!(),
+        }
+    }
+    result
 }
 
 #[cfg(test)]

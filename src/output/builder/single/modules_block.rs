@@ -1,4 +1,5 @@
 use crate::audit::normalized::NormalizedReport;
+use crate::i18n::I18n;
 use crate::output::report_model::{ModuleScore, ModulesBlock};
 
 use super::super::helpers::{interpret_score, localized_module_name, InterpretArea};
@@ -13,9 +14,10 @@ use super::super::seo::build_seo_interpretation;
 use super::module_details::normalized_module_score;
 
 pub(super) fn build_modules_block_from_normalized(
-    locale: &str,
+    i18n: &I18n,
     normalized: &NormalizedReport,
 ) -> ModulesBlock {
+    let locale = i18n.locale();
     let en = locale == "en";
     let a11y_score = normalized.score as f32;
     let mut dashboard = vec![ModuleScore {
@@ -27,9 +29,9 @@ pub(super) fn build_modules_block_from_normalized(
         score: a11y_score.round() as u32,
         measurement_type: "measured".into(),
         interpretation: interpret_score(InterpretArea::Accessibility, a11y_score, locale),
-        card_context: derive_accessibility_card_context(locale, normalized),
-        score_context: derive_accessibility_context(locale, normalized),
-        key_lever: derive_accessibility_lever(locale, normalized),
+        card_context: derive_accessibility_card_context(i18n, normalized),
+        score_context: derive_accessibility_context(i18n, normalized),
+        key_lever: derive_accessibility_lever(i18n, normalized),
         good_threshold: 75,
         warn_threshold: 50,
     }];
@@ -41,9 +43,9 @@ pub(super) fn build_modules_block_from_normalized(
             score,
             measurement_type: "measured".into(),
             interpretation: interpret_score(InterpretArea::Performance, score as f32, locale),
-            card_context: derive_performance_card_context(locale, p),
-            score_context: derive_performance_context(locale, p),
-            key_lever: derive_performance_lever(locale, p),
+            card_context: derive_performance_card_context(i18n, p),
+            score_context: derive_performance_context(i18n, p),
+            key_lever: derive_performance_lever(i18n, p),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -55,9 +57,9 @@ pub(super) fn build_modules_block_from_normalized(
             score,
             measurement_type: "measured".into(),
             interpretation: build_seo_interpretation(locale, s),
-            card_context: derive_seo_card_context(locale, s),
-            score_context: derive_seo_context(locale, s),
-            key_lever: derive_seo_lever(locale, s),
+            card_context: derive_seo_card_context(i18n, s),
+            score_context: derive_seo_context(i18n, s),
+            key_lever: derive_seo_lever(i18n, s),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -73,9 +75,9 @@ pub(super) fn build_modules_block_from_normalized(
             score,
             measurement_type: "measured".into(),
             interpretation: interpret_score(InterpretArea::Security, score as f32, locale),
-            card_context: derive_security_card_context(locale, s),
-            score_context: derive_security_context(locale, s),
-            key_lever: derive_security_lever(locale, s),
+            card_context: derive_security_card_context(i18n, s),
+            score_context: derive_security_context(i18n, s),
+            key_lever: derive_security_lever(i18n, s),
             good_threshold: 75,
             warn_threshold: 50,
         });
@@ -87,9 +89,9 @@ pub(super) fn build_modules_block_from_normalized(
             score,
             measurement_type: "measured".into(),
             interpretation: interpret_score(InterpretArea::Mobile, score as f32, locale),
-            card_context: derive_mobile_card_context(locale, m),
-            score_context: derive_mobile_context(locale, m),
-            key_lever: derive_mobile_lever(locale, m),
+            card_context: derive_mobile_card_context(i18n, m),
+            score_context: derive_mobile_context(i18n, m),
+            key_lever: derive_mobile_lever(i18n, m),
             good_threshold: 75,
             warn_threshold: 50,
         });

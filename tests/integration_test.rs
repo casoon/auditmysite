@@ -295,3 +295,192 @@ async fn test_mobile_issues_detected() {
         mobile.score
     );
 }
+
+#[tokio::test]
+#[ignore]
+async fn test_modern_contrast_resolution() {
+    let (url, shutdown) = serve_fixture("modern_contrast.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let report = audit_page(&page, &url, &default_config(), &manager)
+        .await
+        .expect("Audit failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    // Let's debug print violations to see what we found
+    for violation in &report.wcag_results.violations {
+        println!(
+            "Violation: rule={}, selector={:?}, message={}",
+            violation.rule, violation.selector, violation.message
+        );
+    }
+
+    // Filter violations by contrast rule "1.4.3"
+    let contrast_violations: Vec<_> = report
+        .wcag_results
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.4.3")
+        .collect();
+
+    // We expect exactly one contrast violation (the deliberate failure box)
+    assert!(
+        !contrast_violations.is_empty(),
+        "Should have detected the deliberate contrast violation"
+    );
+
+    // The deliberate violation is inside the container with class modern-low-contrast-fail, or element with class low-contrast-text
+    let has_deliberate_violation = contrast_violations.iter().any(|v| {
+        v.selector
+            .as_deref()
+            .map(|s| {
+                s.contains("low-contrast-text")
+                    || s.contains("violation-fail-box")
+                    || s.contains("modern-low-contrast-fail")
+            })
+            .unwrap_or(false)
+    });
+    assert!(
+        has_deliberate_violation,
+        "Deliberate contrast violation was not identified correctly"
+    );
+
+    // Ensure that none of the passing boxes (tailwind, oklch, transparency) were flagged as contrast violations.
+    let has_false_positives = contrast_violations.iter().any(|v| {
+        if let Some(ref s) = v.selector {
+            s.contains("tailwind-pass-box")
+                || s.contains("oklch-pass-box")
+                || s.contains("transparency-pass-box")
+                || s.contains("tailwind-space-separated-pass")
+                || s.contains("oklch-pass")
+                || s.contains("transparent-text-pass")
+        } else {
+            false
+        }
+    });
+    assert!(
+        !has_false_positives,
+        "Detected false positives in modern contrast color checks"
+    );
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_image_contrast_pixel_sampling() {
+    let (url, shutdown) = serve_fixture("image_contrast.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let report = audit_page(&page, &url, &default_config(), &manager)
+        .await
+        .expect("Audit failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    // Filter contrast rule "1.4.3" violations and warnings
+    let contrast_violations: Vec<_> = report
+        .wcag_results
+        .violations
+        .iter()
+        .filter(|v| v.rule == "1.4.3")
+        .collect();
+
+    let contrast_warnings: Vec<_> = report
+        .wcag_results
+        .warnings
+        .iter()
+        .filter(|v| v.rule == "1.4.3")
+        .collect();
+
+    // Debug output
+    for v in &contrast_violations {
+        println!(
+            "Confirmed Violation: selector={:?}, message={}",
+            v.selector, v.message
+        );
+    }
+    for w in &contrast_warnings {
+        println!(
+            "NeedsReview Warning: selector={:?}, message={}",
+            w.selector, w.message
+        );
+    }
+
+    // Assertions for pass-text: should be absent from both violations and warnings
+    let has_pass_violation = contrast_violations.iter().any(|v| {
+        v.selector
+            .as_deref()
+            .map(|s| s.contains("pass-text") || s.contains("gradient-pass-box"))
+            .unwrap_or(false)
+    });
+    let has_pass_warning = contrast_warnings.iter().any(|w| {
+        w.selector
+            .as_deref()
+            .map(|s| s.contains("pass-text") || s.contains("gradient-pass-box"))
+            .unwrap_or(false)
+    });
+    assert!(
+        !has_pass_violation,
+        "The dark-gradient text should not be a confirmed violation"
+    );
+    assert!(
+        !has_pass_warning,
+        "The dark-gradient text should not be a manual review warning (should pass completely)"
+    );
+
+    // Assertions for fail-text: should be present in violations, but absent from warnings
+    let has_fail_violation = contrast_violations.iter().any(|v| {
+        v.selector
+            .as_deref()
+            .map(|s| s.contains("fail-text") || s.contains("gradient-fail-box"))
+            .unwrap_or(false)
+    });
+    let has_fail_warning = contrast_warnings.iter().any(|w| {
+        w.selector
+            .as_deref()
+            .map(|s| s.contains("fail-text") || s.contains("gradient-fail-box"))
+            .unwrap_or(false)
+    });
+    assert!(
+        has_fail_violation,
+        "The light-gradient text should be a confirmed violation"
+    );
+    assert!(
+        !has_fail_warning,
+        "The light-gradient text should not be a manual review warning (it should fail)"
+    );
+
+    // Assertions for warn-text: should be present in warnings, but absent from violations
+    let has_warn_violation = contrast_violations.iter().any(|v| {
+        v.selector
+            .as_deref()
+            .map(|s| s.contains("warn-text") || s.contains("gradient-warn-box"))
+            .unwrap_or(false)
+    });
+    let has_warn_warning = contrast_warnings.iter().any(|w| {
+        w.selector
+            .as_deref()
+            .map(|s| s.contains("warn-text") || s.contains("gradient-warn-box"))
+            .unwrap_or(false)
+    });
+    assert!(
+        !has_warn_violation,
+        "The split-gradient text should not be a confirmed violation"
+    );
+    assert!(
+        has_warn_warning,
+        "The split-gradient text should be a manual review warning"
+    );
+}

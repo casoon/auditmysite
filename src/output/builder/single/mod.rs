@@ -58,7 +58,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             ReportLevel::Standard => f.report_visibility.standard,
             ReportLevel::Technical => f.report_visibility.technical,
         })
-        .map(|f| finding_group_from_normalized(&config.locale, f))
+        .map(|f| finding_group_from_normalized(&i18n, f))
         .collect();
     let filtered_counts = {
         let critical = sorted_groups
@@ -194,7 +194,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         urgent
     };
     let positive_aspects = derive_positive_aspects_from_normalized(&config.locale, normalized);
-    let action_plan = derive_action_plan(&config.locale, &sorted_groups);
+    let action_plan = derive_action_plan(&i18n, &sorted_groups);
 
     let mut module_names: Vec<String> = vec!["Accessibility".into()];
     if normalized.raw_performance.is_some() {
@@ -237,7 +237,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         component_occurrences,
     };
 
-    let modules = build_modules_block_from_normalized(&config.locale, normalized);
+    let modules = build_modules_block_from_normalized(&i18n, normalized);
 
     let quick_win_count = action_plan.quick_wins.len();
     let critical_count = (filtered_counts.critical + filtered_counts.high) as u32;
@@ -246,14 +246,9 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let warning_count = normalized.raw_wcag.warnings.len() as u32;
     let not_testable_count = normalized.raw_wcag.not_testables.len() as u32;
 
-    let actions = build_actions_block(
-        &config.locale,
-        &action_plan,
-        score as f32,
-        &audit_summary.site_state,
-    );
+    let actions = build_actions_block(&i18n, &action_plan, score as f32, &audit_summary.site_state);
 
-    let module_details = build_module_details_from_normalized(&config.locale, normalized);
+    let module_details = build_module_details_from_normalized(&i18n, normalized);
     let history = config
         .history_preview
         .as_ref()
@@ -407,7 +402,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             top_actions: top_findings
                 .iter()
                 .take(3)
-                .map(|f| humanize_action_text(&config.locale, &f.recommendation))
+                .map(|f| humanize_action_text(&i18n, &f.recommendation))
                 .collect(),
             positive_aspects: positive_aspects
                 .iter()

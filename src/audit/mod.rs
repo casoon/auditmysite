@@ -35,6 +35,6 @@ pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
     CrawlDiagnostics, PerformanceResults, RedirectChain, SampleMetadata, ScreenshotStatus,
-    ThrottledPerfResult, ViewportScoreSet, ViewportScores,
+    ThrottledPerfResult, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

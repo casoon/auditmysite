@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Test page for screenshot-based pixel contrast sampling on gradient background images.">
+    <meta name="robots" content="index, follow">
+    <title>Image Contrast Test Page</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #ffffff;
+            color: #111111;
+        }
+
+        /* 1. Dark gradient: passes pixel contrast sampling */
+        .dark-gradient-pass {
+            background-image: linear-gradient(to right, rgb(15, 23, 42), rgb(30, 41, 59));
+            color: rgb(255, 255, 255);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+        }
+
+        /* 2. Light gradient: fails pixel contrast sampling */
+        .light-gradient-fail {
+            background-image: linear-gradient(to right, rgb(240, 240, 240), rgb(255, 255, 255));
+            color: rgb(255, 255, 255);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+        }
+
+        /* 3. Split gradient: median passes, worst-case fails -> NeedsReview warning */
+        .split-gradient-warn {
+            /* 65% dark slate (passes), 35% white (fails) */
+            background-image: linear-gradient(to right, rgb(15, 23, 42) 65%, rgb(255, 255, 255) 65%);
+            color: rgb(255, 255, 255);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Gradient Background Contrast Test</h1>
+        
+        <section aria-labelledby="pass-heading">
+            <h2 id="pass-heading">Dark Gradient Box (Pass)</h2>
+            <div class="dark-gradient-pass" id="gradient-pass-box">
+                <p class="pass-text">This text is white over a dark gradient background. It must pass.</p>
+            </div>
+        </section>
+
+        <section aria-labelledby="fail-heading">
+            <h2 id="fail-heading">Light Gradient Box (Fail)</h2>
+            <div class="light-gradient-fail" id="gradient-fail-box">
+                <p class="fail-text">This text is white over a light gradient background. It must fail.</p>
+            </div>
+        </section>
+
+        <section aria-labelledby="warn-heading">
+            <h2 id="warn-heading">Split Gradient Box (Needs Review Warning)</h2>
+            <div class="split-gradient-warn" id="gradient-warn-box">
+                <p class="warn-text">This text is white over a split dark/light gradient background. It must warn.</p>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

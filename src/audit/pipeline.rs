@@ -6,6 +6,7 @@
 
 use std::time::{Duration, Instant};
 
+use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
 use chromiumoxide::Page;
 use tracing::{debug, info, warn};
 
@@ -15,7 +16,7 @@ use super::artifacts::{
 use super::normalize;
 use super::report::{
     AuditReport, DualViewportResults, PerformanceResults, ViewportAuditData, ViewportScoreSet,
-    ViewportScores,
+    ViewportScores, ViewportScreenshot,
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
@@ -197,21 +198,6 @@ pub async fn run_single_audit(
         }
     }
 
-    if config.capture_screenshots {
-        match capture_page_screenshots(&page).await {
-            Ok(shots) => {
-                report.page_screenshots = Some(shots);
-                report.screenshot_status = crate::audit::ScreenshotStatus::Captured;
-            }
-            Err(e) => {
-                warn!("Screenshot capture failed (continuing without): {}", e);
-                report.screenshot_status = crate::audit::ScreenshotStatus::Failed(e.to_string());
-            }
-        }
-    } else {
-        report.screenshot_status = crate::audit::ScreenshotStatus::NotRequested;
-    }
-
     let duration = start_time.elapsed();
     info!(
         "Audit completed for {} in {:?} (score: {})",
@@ -232,6 +218,9 @@ pub async fn audit_page(
     browser: &BrowserManager,
 ) -> Result<AuditReport> {
     let start_time = Instant::now();
+
+    // Enable bypassing CSP on the page
+    let _ = page.execute(SetBypassCspParams::new(true)).await;
 
     // ── Security: viewport-independent, fetch once ────────────────────────────
     let security: Option<SecurityAnalysis> = if config.check_security {
@@ -270,6 +259,15 @@ pub async fn audit_page(
     // ── Post-navigation: detect and optionally dismiss consent banner ─────────
     let mut consent_result = handle_post_navigation(page, config.dismiss_consent).await;
 
+    // Capture desktop screenshot
+    let desktop_screenshot = match capture_screenshot_with_metadata(page).await {
+        Ok(s) => Some(s),
+        Err(e) => {
+            warn!("Desktop screenshot capture failed: {}", e);
+            None
+        }
+    };
+
     let desktop_config = PipelineConfig {
         check_performance: config.check_performance,
         check_seo: false,
@@ -280,7 +278,7 @@ pub async fn audit_page(
         ..config.clone()
     };
     let desktop_snap = extract_snapshot(page, url, &desktop_config).await?;
-    let desktop_wcag = run_rules(page, &desktop_snap, config).await;
+    let desktop_wcag = run_rules(page, &desktop_snap, config, desktop_screenshot.as_ref()).await;
 
     // ── Mobile pass ───────────────────────────────────────────────────────────
     info!("Mobile pass starting for {}", url);
@@ -306,6 +304,15 @@ pub async fn audit_page(
     }
     consent_result.dismissed |= mobile_consent.dismissed;
 
+    // Capture mobile screenshot
+    let mobile_screenshot = match capture_screenshot_with_metadata(page).await {
+        Ok(s) => Some(s),
+        Err(e) => {
+            warn!("Mobile screenshot capture failed: {}", e);
+            None
+        }
+    };
+
     let mobile_config = PipelineConfig {
         check_performance: config.check_performance,
         check_seo: config.check_seo,
@@ -316,7 +323,7 @@ pub async fn audit_page(
         ..config.clone()
     };
     let mobile_snap = extract_snapshot(page, url, &mobile_config).await?;
-    let mut mobile_wcag = run_rules(page, &mobile_snap, config).await;
+    let mut mobile_wcag = run_rules(page, &mobile_snap, config, mobile_screenshot.as_ref()).await;
 
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
@@ -374,6 +381,7 @@ pub async fn audit_page(
             mobile: None,
             ux: None,
             journey: None,
+            screenshot: desktop_screenshot.clone(),
         },
         mobile: ViewportAuditData {
             wcag_results: mobile_wcag,
@@ -383,6 +391,7 @@ pub async fn audit_page(
             mobile: mobile_snap.mobile.clone(),
             ux: mobile_snap.ux.clone(),
             journey: mobile_snap.journey.clone(),
+            screenshot: mobile_screenshot.clone(),
         },
     };
 
@@ -427,6 +436,22 @@ pub async fn audit_page(
     report.consent_banner_dismissed = consent_result.dismissed;
     report.dual_viewport = Some(dual_viewport);
     report.viewport_scores = Some(viewport_scores);
+
+    if config.capture_screenshots {
+        if let (Some(desktop), Some(mobile)) = (&desktop_screenshot, &mobile_screenshot) {
+            report.page_screenshots = Some(crate::audit::report::PageScreenshots {
+                desktop: desktop.bytes.clone(),
+                mobile: mobile.bytes.clone(),
+            });
+            report.screenshot_status = crate::audit::ScreenshotStatus::Captured;
+        } else {
+            report.screenshot_status = crate::audit::ScreenshotStatus::Failed(
+                "Failed to capture pass screenshots".to_string(),
+            );
+        }
+    } else {
+        report.screenshot_status = crate::audit::ScreenshotStatus::NotRequested;
+    }
 
     if config.persist_artifacts {
         persist_artifacts(url, config, &primary_snap, &report);
@@ -539,31 +564,11 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
 
 // ── Screenshot capture ────────────────────────────────────────────────────────
 
-/// Capture desktop and mobile viewport screenshots of the current page.
-async fn capture_page_screenshots(
-    page: &Page,
-) -> crate::error::Result<crate::audit::report::PageScreenshots> {
-    use chromiumoxide::cdp::browser_protocol::emulation::{
-        ClearDeviceMetricsOverrideParams, SetDeviceMetricsOverrideParams,
-    };
+/// Capture viewport screenshot with layout metadata.
+async fn capture_screenshot_with_metadata(page: &Page) -> crate::error::Result<ViewportScreenshot> {
     use chromiumoxide::page::ScreenshotParams;
 
-    // Desktop at 1280×960 (4:3 ratio — fills more vertical space in the PDF box)
-    page.execute(
-        SetDeviceMetricsOverrideParams::builder()
-            .mobile(false)
-            .width(1280_i64)
-            .height(960_i64)
-            .device_scale_factor(1.0_f64)
-            .build()
-            .unwrap(),
-    )
-    .await
-    .map_err(|e| crate::error::AuditError::NavigationFailed {
-        url: "viewport-desktop".to_string(),
-        reason: e.to_string(),
-    })?;
-    tokio::time::sleep(Duration::from_millis(350)).await;
+    // Reset scroll to (0, 0)
     let _ = page
         .evaluate(
             "window.scrollTo(0,0);\
@@ -572,53 +577,58 @@ async fn capture_page_screenshots(
              if(document.scrollingElement)document.scrollingElement.scrollTop=0;",
         )
         .await;
+
+    // Give a short moment for scroll/layout to settle
     tokio::time::sleep(Duration::from_millis(150)).await;
 
-    let desktop = page
-        .screenshot(ScreenshotParams::default())
-        .await
-        .map_err(|e| crate::error::AuditError::NavigationFailed {
-            url: "screenshot-desktop".to_string(),
-            reason: e.to_string(),
-        })?;
-
-    // Mobile at 390×844 (iPhone 14)
-    page.execute(
-        SetDeviceMetricsOverrideParams::builder()
-            .mobile(true)
-            .width(390_i64)
-            .height(844_i64)
-            .device_scale_factor(2.0_f64)
-            .build()
-            .unwrap(),
-    )
-    .await
-    .map_err(|e| crate::error::AuditError::NavigationFailed {
-        url: "viewport-mobile".to_string(),
-        reason: e.to_string(),
-    })?;
-    tokio::time::sleep(Duration::from_millis(450)).await;
-    let _ = page
+    // Query viewport metadata
+    let eval_res = page
         .evaluate(
-            "window.scrollTo(0,0);\
-             document.documentElement.scrollTop=0;\
-             document.body.scrollTop=0;\
-             if(document.scrollingElement)document.scrollingElement.scrollTop=0;",
+            "(() => {
+                return {
+                    dpr: window.devicePixelRatio || 1.0,
+                    width: window.innerWidth || 1280,
+                    height: window.innerHeight || 800,
+                    scrollX: window.scrollX || window.pageXOffset || 0,
+                    scrollY: window.scrollY || window.pageYOffset || 0
+                };
+             })()",
         )
-        .await;
-    tokio::time::sleep(Duration::from_millis(200)).await;
-
-    let mobile = page
-        .screenshot(ScreenshotParams::default())
         .await
         .map_err(|e| crate::error::AuditError::NavigationFailed {
-            url: "screenshot-mobile".to_string(),
+            url: "viewport-metadata".to_string(),
             reason: e.to_string(),
         })?;
 
-    let _ = page.execute(ClearDeviceMetricsOverrideParams {}).await;
+    let val = eval_res
+        .value()
+        .ok_or_else(|| crate::error::AuditError::NavigationFailed {
+            url: "viewport-metadata".to_string(),
+            reason: "No value returned from metadata evaluation".to_string(),
+        })?;
 
-    Ok(crate::audit::report::PageScreenshots { desktop, mobile })
+    let dpr = val.get("dpr").and_then(|v| v.as_f64()).unwrap_or(1.0);
+    let width = val.get("width").and_then(|v| v.as_u64()).unwrap_or(1280) as u32;
+    let height = val.get("height").and_then(|v| v.as_u64()).unwrap_or(800) as u32;
+    let scroll_x = val.get("scrollX").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let scroll_y = val.get("scrollY").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+    let bytes = page
+        .screenshot(ScreenshotParams::default())
+        .await
+        .map_err(|e| crate::error::AuditError::NavigationFailed {
+            url: "screenshot-capture".to_string(),
+            reason: e.to_string(),
+        })?;
+
+    Ok(ViewportScreenshot {
+        bytes,
+        width,
+        height,
+        device_scale_factor: dpr,
+        scroll_x,
+        scroll_y,
+    })
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -792,7 +802,12 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
     })
 }
 
-async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig) -> WcagResults {
+async fn run_rules(
+    page: &Page,
+    snapshot: &SnapshotData,
+    config: &PipelineConfig,
+    screenshot: Option<&ViewportScreenshot>,
+) -> WcagResults {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
 
@@ -875,9 +890,13 @@ async fn run_rules(page: &Page, snapshot: &SnapshotData, config: &PipelineConfig
 
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running contrast check with CDP...");
-        let contrast_violations =
-            wcag::rules::ContrastRule::check_with_page(page, &snapshot.ax_tree, config.wcag_level)
-                .await;
+        let contrast_violations = wcag::rules::ContrastRule::check_with_page(
+            page,
+            &snapshot.ax_tree,
+            config.wcag_level,
+            screenshot,
+        )
+        .await;
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.extend_findings(contrast_violations);
 

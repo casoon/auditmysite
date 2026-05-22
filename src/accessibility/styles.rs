@@ -81,8 +81,28 @@ impl ComputedStyles {
 /// Body of the style-extraction script (wrapped in an IIFE at call time,
 /// after the shared `__amsCssSelector` / `__amsIsVisuallyHidden` helpers).
 const STYLES_EXTRACT_JS: &str = r#"
+    const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    if (canvas) {
+        canvas.width = 1;
+        canvas.height = 1;
+    }
+    const ctx = canvas ? canvas.getContext('2d') : null;
+
     function parseCssColor(color) {
         if (!color || color === 'transparent') return null;
+        if (ctx) {
+            ctx.globalCompositeOperation = 'copy';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 1, 1);
+            const data = ctx.getImageData(0, 0, 1, 1).data;
+            return {
+                r: data[0],
+                g: data[1],
+                b: data[2],
+                a: data[3] / 255
+            };
+        }
         const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
         if (!match) return null;
         return {
@@ -176,13 +196,21 @@ const STYLES_EXTRACT_JS: &str = r#"
             if (styles.display === 'none' || styles.visibility === 'hidden') return;
 
             const effectiveBackground = getEffectiveBackground(el);
+            const fg = parseCssColor(styles.color);
+            const bg = effectiveBackground.color;
+            const bgParsed = parseCssColor(bg) || { r: 255, g: 255, b: 255, a: 1 };
+
+            let finalFg = fg || { r: 0, g: 0, b: 0, a: 1 };
+            if (fg && fg.a < 1) {
+                finalFg = composite(fg, bgParsed);
+            }
 
             results.push({
                 cssPath: __amsCssSelector(el),
                 snippet: el.outerHTML.substring(0, 200),
                 index: idx,
-                color: styles.color,
-                backgroundColor: effectiveBackground.color,
+                color: `rgb(${finalFg.r}, ${finalFg.g}, ${finalFg.b})`,
+                backgroundColor: bg,
                 backgroundUncertain: effectiveBackground.uncertain,
                 fontSize: styles.fontSize,
                 fontWeight: styles.fontWeight,

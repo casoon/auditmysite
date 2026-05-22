@@ -1,4 +1,5 @@
 use crate::audit::normalized::NormalizedReport;
+use crate::i18n::I18n;
 use crate::output::report_model::{
     AnimationPresentation, CoveragePresentation, CriticalChainPresentation, DarkModePresentation,
     FrictionPointPresentation, ImageEfficiencyPresentation, JourneyDimensionPresentation,
@@ -23,15 +24,16 @@ use super::serp::{build_page_health_presentation, build_serp_presentation};
 use crate::util::truncate_url;
 
 pub(super) fn build_module_details_from_normalized(
-    locale: &str,
+    i18n: &I18n,
     normalized: &NormalizedReport,
 ) -> ModuleDetailsBlock {
+    let locale = i18n.locale();
     let performance = normalized.raw_performance.as_ref().map(|p| {
         let performance_score =
             normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
         let performance_grade = normalized_module_grade(normalized, "Performance")
             .unwrap_or_else(|| p.score.grade.label().to_string());
-        let vitals = build_vitals_list(p, locale);
+        let vitals = build_vitals_list(p, i18n);
         let desktop_viewport =
             normalized
                 .raw_performance_desktop
@@ -39,7 +41,7 @@ pub(super) fn build_module_details_from_normalized(
                 .map(|d| PerformanceViewport {
                     score: d.score.overall,
                     grade: d.score.grade.label().to_string(),
-                    vitals: build_vitals_list(d, locale),
+                    vitals: build_vitals_list(d, i18n),
                 });
         let mobile_viewport = Some(PerformanceViewport {
             score: p.score.overall,
@@ -64,7 +66,7 @@ pub(super) fn build_module_details_from_normalized(
             additional.push(("DOM Content Loaded".to_string(), format!("{:.0}ms", dcl)));
         }
 
-        let recommendations = derive_performance_recommendations(locale, p);
+        let recommendations = derive_performance_recommendations(i18n, p);
 
         let mut render_blocking_metrics = Vec::new();
         let mut render_blocking_suggestions = Vec::new();
@@ -654,7 +656,7 @@ pub(super) fn build_module_details_from_normalized(
                     },
                 ),
             ],
-            tracking_summary_text: build_tracking_summary_text(locale, &s.technical),
+            tracking_summary_text: build_tracking_summary_text(i18n, &s.technical),
             profile,
             page_health: s
                 .page_health
@@ -795,7 +797,7 @@ pub(super) fn build_module_details_from_normalized(
                 .iter()
                 .map(|i| (i.header.clone(), i.severity, i.message.clone()))
                 .collect(),
-            recommendations: derive_security_recommendations(locale, sec),
+            recommendations: derive_security_recommendations(i18n, sec),
             protection: sec
                 .protection
                 .services
