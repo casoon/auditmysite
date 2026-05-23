@@ -1650,12 +1650,12 @@ pub(super) fn render_ai_visibility(
     } else if av.policy.blocks_ai_citation {
         let mut kv = KeyValueList::new().with_title(i18n.t("pdf-ai-policy-limited-title"));
         kv = kv.add("Policy", &av.policy.inferred_policy);
-        kv = kv.add("Status", &i18n.t("pdf-ai-policy-limited-body"));
+        kv = kv.add("Status", i18n.t("pdf-ai-policy-limited-body"));
         builder = builder.add_component(kv);
     } else if av.policy.blocks_ai_training {
         let mut kv = KeyValueList::new().with_title(i18n.t("pdf-ai-policy"));
         kv = kv.add("Policy", &av.policy.inferred_policy);
-        kv = kv.add("Status", &i18n.t("pdf-ai-policy-training-body"));
+        kv = kv.add("Status", i18n.t("pdf-ai-policy-training-body"));
         builder = builder.add_component(kv);
     }
 
@@ -1678,7 +1678,7 @@ pub(super) fn render_content_visibility(
             Callout::info(i18n.t("pdf-cv-overview-body"))
                 .with_title(i18n.t("pdf-cv-overview-title")),
         )
-        .add_component(TextBlock::new(&i18n.t_args(
+        .add_component(TextBlock::new(i18n.t_args(
             "pdf-cv-signals-analyzed",
             &[
                 ("signals", cv.signal_count.to_string()),
