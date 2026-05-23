@@ -18,14 +18,9 @@ pub(super) fn build_modules_block_from_normalized(
     normalized: &NormalizedReport,
 ) -> ModulesBlock {
     let locale = i18n.locale();
-    let en = locale == "en";
     let a11y_score = normalized.score as f32;
     let mut dashboard = vec![ModuleScore {
-        name: if en {
-            "Accessibility".into()
-        } else {
-            "Barrierefreiheit".into()
-        },
+        name: localized_module_name("Accessibility", i18n),
         score: a11y_score.round() as u32,
         measurement_type: "measured".into(),
         interpretation: interpret_score(InterpretArea::Accessibility, a11y_score, locale),
@@ -67,11 +62,7 @@ pub(super) fn build_modules_block_from_normalized(
     if let Some(ref s) = normalized.raw_security {
         let score = normalized_module_score(normalized, "Security").unwrap_or(s.score);
         dashboard.push(ModuleScore {
-            name: if en {
-                "Security".into()
-            } else {
-                "Sicherheit".into()
-            },
+            name: localized_module_name("Security", i18n),
             score,
             measurement_type: "measured".into(),
             interpretation: interpret_score(InterpretArea::Security, score as f32, locale),
@@ -103,29 +94,14 @@ pub(super) fn build_modules_block_from_normalized(
             u.cta_clarity.score, u.visual_hierarchy.score, u.content_clarity.score, u.trust_signals.score, u.cognitive_load.score
         );
         let ux_lever: String = if u.cta_clarity.score < 60 {
-            if en {
-                "Phrase CTA texts more clearly and specifically"
-            } else {
-                "CTA-Texte klarer und spezifischer formulieren"
-            }
+            i18n.t("ux-lever-cta")
         } else if u.trust_signals.score < 60 {
-            if en {
-                "Add trust signals (contact, imprint)"
-            } else {
-                "Vertrauenssignale (Kontakt, Impressum) ergänzen"
-            }
+            i18n.t("ux-lever-trust")
         } else if u.visual_hierarchy.score < 60 {
-            if en {
-                "Clean up heading structure (H1 → H2 → H3)"
-            } else {
-                "Heading-Struktur bereinigen (H1 → H2 → H3)"
-            }
-        } else if en {
-            "Maintain UX quality at the current good level"
+            i18n.t("ux-lever-hierarchy")
         } else {
-            "UX-Qualität auf gutem Niveau halten"
-        }
-        .into();
+            i18n.t("ux-lever-default")
+        };
         dashboard.push(ModuleScore {
             name: "UX".into(),
             score: ux_score,
@@ -142,7 +118,7 @@ pub(super) fn build_modules_block_from_normalized(
         let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
         let journey_context = format!(
             "{}: {} · Entry {}/100, Orientation {}/100, Navigation {}/100, Interaction {}/100, Conversion {}/100",
-            if en { "Intent" } else { "Seitenabsicht" },
+            i18n.t("journey-intent-label"),
             j.page_intent.label(),
             j.entry_clarity.score,
             j.orientation.score,
@@ -154,13 +130,7 @@ pub(super) fn build_modules_block_from_normalized(
             .friction_points
             .first()
             .map(|fp| fp.recommendation.clone())
-            .unwrap_or_else(|| {
-                if en {
-                    "Maintain journey clarity at the current level".to_string()
-                } else {
-                    "Journey-Klarheit auf aktuellem Niveau halten".to_string()
-                }
-            });
+            .unwrap_or_else(|| i18n.t("journey-lever-default"));
         dashboard.push(ModuleScore {
             name: "Journey".into(),
             score: journey_score,
@@ -181,7 +151,7 @@ pub(super) fn build_modules_block_from_normalized(
         None
     };
     let overall_interpretation =
-        overall_score.map(|_| build_overall_score_explanation(locale, normalized));
+        overall_score.map(|_| build_overall_score_explanation(i18n, normalized));
 
     ModulesBlock {
         dashboard,
@@ -190,13 +160,14 @@ pub(super) fn build_modules_block_from_normalized(
     }
 }
 
-fn build_overall_score_explanation(locale: &str, normalized: &NormalizedReport) -> String {
+fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -> String {
+    let locale = i18n.locale();
     let en = locale == "en";
     let indicator_names: Vec<String> = normalized
         .module_scores
         .iter()
         .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
-        .map(|m| localized_module_name(&m.name, en))
+        .map(|m| localized_module_name(&m.name, i18n))
         .collect();
     let indicator_note = if indicator_names.is_empty() {
         String::new()
@@ -230,7 +201,7 @@ fn build_overall_score_explanation(locale: &str, normalized: &NormalizedReport) 
             .iter()
             .filter(|m| m.contributes_to_overall)
             .map(|m| {
-                let name = localized_module_name(&m.name, en);
+                let name = localized_module_name(&m.name, i18n);
                 if en {
                     format!("{name} {}%", m.weight_pct)
                 } else {

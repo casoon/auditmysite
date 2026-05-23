@@ -86,6 +86,10 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 
     let headings: Vec<HeadingInfo> = serde_json::from_str(json_str).unwrap_or_default();
 
+    Ok(check_headings_structure(headings))
+}
+
+fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
     // Analyze structure
     let h1_headings: Vec<_> = headings.iter().filter(|h| h.level == 1).collect();
     let h1_count = h1_headings.len();
@@ -142,10 +146,10 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 
     // Check for very long headings
     for heading in &headings {
-        let max_len = if heading.level <= 2 {
-            70
-        } else if heading.is_question || heading.in_faq_context {
+        let max_len = if heading.is_question || heading.in_faq_context {
             100
+        } else if heading.level <= 2 {
+            70
         } else {
             90
         };
@@ -171,13 +175,13 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
         issues.len()
     );
 
-    Ok(HeadingStructure {
+    HeadingStructure {
         h1_count,
         h1_text,
         total_count: headings.len(),
         headings,
         issues,
-    })
+    }
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -210,5 +214,33 @@ mod tests {
 
         assert_eq!(heading.level, 1);
         assert_eq!(heading.length, 12);
+    }
+
+    #[test]
+    fn test_faq_question_heading_length() {
+        let headings = vec![
+            HeadingInfo {
+                level: 2,
+                text: "Wie läuft eine hyperbare Sauerstofftherapie in unserer Praxis in München ab?".to_string(),
+                length: 76,
+                is_question: true,
+                in_faq_context: false,
+            },
+            HeadingInfo {
+                level: 2,
+                text: "Normaler Heading mit mehr als 70 Zeichen der eigentlich einen Fehler werfen sollte".to_string(),
+                length: 82,
+                is_question: false,
+                in_faq_context: false,
+            }
+        ];
+        let res = check_headings_structure(headings);
+        let long_heading_issues: Vec<_> = res
+            .issues
+            .iter()
+            .filter(|i| i.issue_type == "long_heading")
+            .collect();
+        assert_eq!(long_heading_issues.len(), 1);
+        assert!(long_heading_issues[0].message.contains("H2 is too long"));
     }
 }

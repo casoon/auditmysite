@@ -41,7 +41,11 @@ pub(super) fn build_appendix_block_from_normalized(normalized: &NormalizedReport
     }
 }
 
-pub(super) fn build_methodology(locale: &str, normalized: &NormalizedReport) -> MethodologyBlock {
+pub(super) fn build_methodology(
+    i18n: &crate::i18n::I18n,
+    normalized: &NormalizedReport,
+) -> MethodologyBlock {
+    let locale = i18n.locale();
     let en = locale == "en";
     let active_modules = normalized
         .module_scores
@@ -130,7 +134,7 @@ pub(super) fn build_methodology(locale: &str, normalized: &NormalizedReport) -> 
                 let pct = (m.weight_pct * 100 + total_raw / 2)
                     .checked_div(total_raw)
                     .unwrap_or(0);
-                let name = localized_module_name(&m.name, en);
+                let name = localized_module_name(&m.name, i18n);
                 if en {
                     format!("{name} {pct}%")
                 } else {
@@ -151,7 +155,7 @@ pub(super) fn build_methodology(locale: &str, normalized: &NormalizedReport) -> 
             .module_scores
             .iter()
             .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
-            .map(|m| localized_module_name(&m.name, en))
+            .map(|m| localized_module_name(&m.name, i18n))
             .collect();
         let indicator_note = if indicator_names.is_empty() {
             String::new()

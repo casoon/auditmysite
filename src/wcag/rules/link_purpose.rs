@@ -66,7 +66,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
             .with_help_url(LINK_PURPOSE_RULE.help_url);
 
             results.add_violation(violation);
-        } else if looks_like_url(link_text) {
+        } else if looks_like_url(link_text) && !has_link_context(node, tree) {
             // Check for URL-only link text
             let violation = Violation::new(
                 LINK_PURPOSE_RULE.id,
@@ -128,6 +128,40 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// Check if the link has a descriptive context
+fn has_link_context(node: &AXNode, tree: &AXTree) -> bool {
+    if let Some(desc) = &node.description {
+        if !desc.trim().is_empty() {
+            return true;
+        }
+    }
+
+    if let Some(parent_id) = &node.parent_id {
+        if let Some(parent) = tree.get_node(parent_id) {
+            for child_id in &parent.child_ids {
+                if child_id == &node.node_id {
+                    continue;
+                }
+                if let Some(sibling) = tree.get_node(child_id) {
+                    if !sibling.ignored {
+                        let text = sibling.name.as_deref().unwrap_or("").trim();
+                        if !text.is_empty()
+                            && matches!(
+                                sibling.role.as_deref(),
+                                Some("StaticText" | "text" | "paragraph")
+                            )
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    false
 }
 
 /// Check if link text is generic/ambiguous
@@ -418,5 +452,55 @@ mod tests {
             .warnings
             .iter()
             .any(|v| v.message.contains("raw URL")));
+    }
+
+    #[test]
+    fn test_url_as_link_text_with_context() {
+        let parent = AXNode {
+            node_id: "parent".to_string(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("paragraph".to_string()),
+            name: None,
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: vec!["text1".to_string(), "link1".to_string()],
+            parent_id: None,
+            backend_dom_node_id: None,
+        };
+        let text_node = AXNode {
+            node_id: "text1".to_string(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("StaticText".to_string()),
+            name: Some("Go to ".to_string()),
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: vec![],
+            parent_id: Some("parent".to_string()),
+            backend_dom_node_id: None,
+        };
+        let link_node = AXNode {
+            node_id: "link1".to_string(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some("link".to_string()),
+            name: Some("https://example.com".to_string()),
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: vec![],
+            parent_id: Some("parent".to_string()),
+            backend_dom_node_id: None,
+        };
+        let tree = AXTree::from_nodes(vec![parent, text_node, link_node]);
+        let results = check_link_purpose(&tree);
+        assert!(results.warnings.is_empty());
+        assert!(results.violations.is_empty());
     }
 }

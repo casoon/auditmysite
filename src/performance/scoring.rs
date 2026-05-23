@@ -66,6 +66,7 @@ const W_FCP: u32 = 10;
 const W_LCP: u32 = 25;
 const W_TBT: u32 = 30;
 const W_CLS: u32 = 25;
+const W_SI: u32 = 10;
 
 /// Performance score with breakdown
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,19 +83,23 @@ pub struct PerformanceScore {
     pub cls_score: Option<u32>,
     /// TBT score contribution (0-30); None = metric not measured
     pub interactivity_score: Option<u32>,
-    /// Number of metrics that were actually measured (0-4)
+    /// Speed Index score contribution (0-10); None = metric not measured
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub si_score: Option<u32>,
+    /// Number of metrics that were actually measured (0-5)
     pub metrics_available: u32,
 }
 
 /// Calculate performance score from Web Vitals.
 ///
-/// Weights follow Lighthouse v10/v11 (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %).
+/// Weights follow Lighthouse v10/v11 (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %, SI 10 %).
 /// The overall score is normalized to the metrics that were actually measured.
 pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
     let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value));
     let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value));
     let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value));
     let interactivity_score = vitals.tbt.as_ref().map(|v| score_interactivity(v.value));
+    let si_score = vitals.speed_index.as_ref().map(|v| score_si(v.value));
 
     let mut total = 0u32;
     let mut max_possible = 0u32;
@@ -119,6 +124,11 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
         max_possible += W_TBT;
         metrics_available += 1;
     }
+    if let Some(s) = si_score {
+        total += s;
+        max_possible += W_SI;
+        metrics_available += 1;
+    }
 
     let overall = (total * 100)
         .checked_div(max_possible)
@@ -133,6 +143,7 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
         fcp_score,
         cls_score,
         interactivity_score,
+        si_score,
         metrics_available,
     }
 }
@@ -200,6 +211,11 @@ fn score_cls(value: f64) -> u32 {
 /// Score TBT (0-30). Lighthouse curve: p10=200 ms, p50=600 ms.
 fn score_interactivity(ms: f64) -> u32 {
     log_normal_score(ms.max(1.0), 200.0, 600.0, W_TBT)
+}
+
+/// Score Speed Index (0-10). Lighthouse curve: p10=3400 ms, p50=5800 ms.
+fn score_si(ms: f64) -> u32 {
+    log_normal_score(ms, 3400.0, 5800.0, W_SI)
 }
 
 #[cfg(test)]

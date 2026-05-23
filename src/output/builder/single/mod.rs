@@ -22,6 +22,7 @@ use self::methodology::{build_appendix_block_from_normalized, build_methodology}
 use self::module_details::build_module_details_from_normalized;
 use self::modules_block::build_modules_block_from_normalized;
 use self::positive::derive_positive_aspects_from_normalized;
+use super::helpers::localized_module_name;
 
 use crate::audit::normalized::{NormalizedReport, SeverityCounts};
 use crate::audit::summary::analyze_with_locale;
@@ -36,8 +37,6 @@ use super::helpers::{
     build_overall_impact, build_score_note, build_technical_overview, build_verdict_text,
     extract_domain, localized_report_subtitle, localized_report_title,
 };
-
-const NBSP: &str = "\u{00A0}";
 
 /// Build a complete ViewModel from a normalized report (single source of truth for score/grade/certificate)
 pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) -> ReportViewModel {
@@ -144,11 +143,8 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         ));
     }
     let overall_impact = build_overall_impact(&config.locale, normalized);
-    let date = if config.locale == "en" {
-        normalized.timestamp.format("%Y-%m-%d").to_string()
-    } else {
-        normalized.timestamp.format("%d.%m.%Y").to_string()
-    };
+    let date_fmt = i18n.t("date-format-str");
+    let date = normalized.timestamp.format(&date_fmt).to_string();
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
     let report_author = extract_domain(&normalized.url);
@@ -196,28 +192,24 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let positive_aspects = derive_positive_aspects_from_normalized(&config.locale, normalized);
     let action_plan = derive_action_plan(&i18n, &sorted_groups);
 
-    let mut module_names: Vec<String> = vec!["Accessibility".into()];
+    let mut module_names: Vec<String> = vec![localized_module_name("Accessibility", &i18n)];
     if normalized.raw_performance.is_some() {
-        module_names.push("Performance".into());
+        module_names.push(localized_module_name("Performance", &i18n));
     }
     if normalized.raw_seo.is_some() {
-        module_names.push("SEO".into());
+        module_names.push(localized_module_name("SEO", &i18n));
     }
     if normalized.raw_security.is_some() {
-        module_names.push(if config.locale == "en" {
-            "Security".into()
-        } else {
-            "Sicherheit".into()
-        });
+        module_names.push(localized_module_name("Security", &i18n));
     }
     if normalized.raw_mobile.is_some() {
-        module_names.push("Mobile".into());
+        module_names.push(localized_module_name("Mobile", &i18n));
     }
     if normalized.raw_ux.is_some() {
-        module_names.push("UX".into());
+        module_names.push(localized_module_name("UX", &i18n));
     }
     if normalized.raw_journey.is_some() {
-        module_names.push("Journey".into());
+        module_names.push(localized_module_name("Journey", &i18n));
     }
 
     let (component_issues, component_occurrences) = sorted_groups
@@ -252,7 +244,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let history = config
         .history_preview
         .as_ref()
-        .map(|preview| build_history_trend_block(&config.locale, preview));
+        .map(|preview| build_history_trend_block(&i18n, preview));
     let executive = build_executive_narrative(
         &i18n,
         normalized,
@@ -309,43 +301,14 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             verdict: build_verdict_text(&i18n, &normalized.url, score as f32),
             score_note: build_score_note(&i18n, normalized),
             metrics: {
-                let en = config.locale == "en";
-                let label_violations_total = if en {
-                    format!("Total{NBSP}violations")
-                } else {
-                    format!("Verstöße{NBSP}gesamt")
-                };
-                let label_critical = if en {
-                    "Critical".to_string()
-                } else {
-                    "Kritisch".to_string()
-                };
-                let label_checked_nodes = if en {
-                    format!("Checked{NBSP}nodes")
-                } else {
-                    format!("Geprüfte{NBSP}Knoten")
-                };
+                let label_violations_total = i18n.t("metric-violations-total");
+                let label_critical = i18n.t("metric-critical");
+                let label_checked_nodes = i18n.t("metric-checked-nodes");
                 let label_quick_wins: String = "Quick Wins".into();
-                let label_wcag_level = if en {
-                    "WCAG level".to_string()
-                } else {
-                    "WCAG-Level".to_string()
-                };
-                let label_warnings = if en {
-                    format!("Heuristic{NBSP}warnings")
-                } else {
-                    format!("Heuristische{NBSP}Warnungen")
-                };
-                let label_not_testable = if en {
-                    format!("Manual{NBSP}testing{NBSP}required")
-                } else {
-                    format!("Manuell{NBSP}zu{NBSP}prüfen")
-                };
-                let label_overall_score = if en {
-                    format!("Overall{NBSP}score")
-                } else {
-                    format!("Gesamtscore{NBSP}Website")
-                };
+                let label_wcag_level = i18n.t("metric-wcag-level");
+                let label_warnings = i18n.t("metric-warnings");
+                let label_not_testable = i18n.t("metric-not-testable");
+                let label_overall_score = i18n.t("metric-overall-score");
                 vec![
                     MetricItem {
                         title: label_overall_score,
@@ -418,7 +381,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         },
         executive,
         history,
-        methodology: build_methodology(&config.locale, normalized),
+        methodology: build_methodology(&i18n, normalized),
         modules,
         severity,
         findings: {
@@ -675,6 +638,7 @@ mod tests {
                 fcp_score: None,
                 cls_score: None,
                 interactivity_score: None,
+                si_score: None,
                 metrics_available: 0,
             },
             render_blocking: None,

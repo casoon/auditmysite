@@ -172,7 +172,7 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     let script = r#"
 (function() {
     // LCP observer — captures the largest contentful paint before load
-    window.__ams_lcp = 0;
+    window.__ams_lcp = window.__ams_lcp || 0;
     try {
         var _lcpObs = new PerformanceObserver(function(list) {
             var entries = list.getEntries();
@@ -185,13 +185,16 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     } catch(e) {}
 
     // TBT + TTI via Long Tasks — sum blocking time; track last task end for TTI
-    window.__ams_tbt = 0;
-    window.__ams_last_task_end = 0;
+    window.__ams_tbt = window.__ams_tbt || 0;
+    window.__ams_last_task_end = window.__ams_last_task_end || 0;
+    window.__ams_tbt_seen = window.__ams_tbt_seen || new Set();
     try {
         new PerformanceObserver(function(list) {
             var entries = list.getEntries();
             for (var i = 0; i < entries.length; i++) {
                 var e = entries[i];
+                if (window.__ams_tbt_seen.has(e.startTime)) continue;
+                window.__ams_tbt_seen.add(e.startTime);
                 if (e.duration > 50) {
                     window.__ams_tbt += e.duration - 50;
                 }
@@ -204,13 +207,16 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     } catch(e) {}
 
     // CLS — accumulate total and capture per-shift attribution (#135)
-    window.__ams_cls = 0;
-    window.__ams_cls_shifts = [];
+    window.__ams_cls = window.__ams_cls || 0;
+    window.__ams_cls_shifts = window.__ams_cls_shifts || [];
+    window.__ams_cls_seen = window.__ams_cls_seen || new Set();
     try {
         new PerformanceObserver(function(list) {
             var entries = list.getEntries();
             for (var i = 0; i < entries.length; i++) {
                 var e = entries[i];
+                if (window.__ams_cls_seen.has(e.startTime)) continue;
+                window.__ams_cls_seen.add(e.startTime);
                 if (!e.hadRecentInput) {
                     window.__ams_cls += e.value;
                     var sources = [];
@@ -244,7 +250,7 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     } catch(e) {}
 
     // INP via event-timing (#134) — captures real interaction durations
-    window.__ams_inp = 0;
+    window.__ams_inp = window.__ams_inp || 0;
     try {
         new PerformanceObserver(function(list) {
             var entries = list.getEntries();
@@ -582,7 +588,10 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
         .ok()
         .and_then(|r| r.value().and_then(|v| v.as_f64()))
         .unwrap_or(0.0);
-    let tti_ms = dom_interactive_ms.max(last_task_end);
+    let mut tti_ms = dom_interactive_ms.max(last_task_end);
+    if let Some(ref lcp_metric) = vitals.lcp {
+        tti_ms = tti_ms.max(lcp_metric.value);
+    }
     if tti_ms > 0.0 && tti_ms < 300_000.0 {
         vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0).estimated());
         debug!("TTI (approx): {:.0}ms", tti_ms);
@@ -620,8 +629,12 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
         const nav = performance.getEntriesByType('navigation')[0];
         if (nav) {
             result.ttfb = nav.responseStart - nav.requestStart;
-            result.loadTime = nav.loadEventEnd - nav.startTime;
-            result.domContentLoaded = nav.domContentLoadedEventEnd - nav.startTime;
+            if (nav.loadEventEnd > 0) {
+                result.loadTime = nav.loadEventEnd - nav.startTime;
+            }
+            if (nav.domContentLoadedEventEnd > 0) {
+                result.domContentLoaded = nav.domContentLoadedEventEnd - nav.startTime;
+            }
         }
 
         // Paint Timing

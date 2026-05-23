@@ -126,6 +126,7 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
     let js = [
         "(function() {",
         crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        crate::accessibility::js_helpers::IS_VISUALLY_HIDDEN_JS,
         r#"
         var issues = [];
         var frames = document.querySelectorAll('iframe, frame');
@@ -136,6 +137,7 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
 
           // Skip non-perceivable / hidden elements
           if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;
+          if (typeof __amsIsVisuallyHidden === 'function' && __amsIsVisuallyHidden(el)) continue;
           
           var parent = el.parentElement;
           var isAriaHiddenAncestor = false;
@@ -164,7 +166,7 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
           if (isHiddenAncestor) continue;
 
           var rect = el.getBoundingClientRect();
-          if (rect.width <= 1 && rect.height <= 1) continue;
+          if (rect.width <= 1 || rect.height <= 1) continue;
 
           var wAttr = el.getAttribute('width');
           var hAttr = el.getAttribute('height');

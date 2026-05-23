@@ -124,33 +124,15 @@ pub(super) fn finding_group_from_normalized(
         execution_priority,
         examples,
         structural_cause: if f.occurrence_count >= 10 {
-            if locale == "en" {
-                Some(format!(
-                    "Root cause: 1 component issue producing {} occurrences. \
-                     This is likely a shared template or component — fixing it once \
-                     eliminates all occurrences simultaneously.",
-                    f.occurrence_count
-                ))
-            } else {
-                Some(format!(
-                    "Root Cause: 1 Komponentenproblem erzeugt {} Vorkommen. \
-                     Wahrscheinlich ein gemeinsam genutztes Template oder eine Komponente — \
-                     ein einmaliger Fix behebt alle Vorkommen gleichzeitig.",
-                    f.occurrence_count
-                ))
-            }
+            Some(i18n.t_args(
+                "finding-structural-cause-component",
+                &[("count", f.occurrence_count.to_string())],
+            ))
         } else if f.occurrence_count >= 5 {
-            if locale == "en" {
-                Some(format!(
-                    "This issue appears on {} elements — possibly a shared component or template.",
-                    f.occurrence_count
-                ))
-            } else {
-                Some(format!(
-                    "Dieses Problem tritt bei {} Elementen auf — möglicherweise eine gemeinsam genutzte Komponente oder ein Template.",
-                    f.occurrence_count
-                ))
-            }
+            Some(i18n.t_args(
+                "finding-structural-cause-shared",
+                &[("count", f.occurrence_count.to_string())],
+            ))
         } else {
             None
         },

@@ -100,6 +100,7 @@ pub struct UnifiedSummary {
     pub violation_count: usize,
     /// Anzahl unterschiedlicher Findings (eine Zeile pro Regel/Severity).
     pub severity_counts: crate::audit::normalized::SeverityCounts,
+    pub severity_counts_scope: String,
     /// Element-Occurrences je Severity (Summe über alle Findings).
     pub occurrence_counts: crate::audit::normalized::SeverityCounts,
     pub passed_url_count: usize,
@@ -136,6 +137,7 @@ pub struct PageEntry {
     /// Number of distinct WCAG rules that fired — `findings[].length` for wcag-category entries.
     pub violated_rule_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
+    pub severity_counts_scope: String,
     /// Element-Occurrences je Severity (Summe `occurrence_count` über alle WCAG-Findings).
     pub occurrence_counts: crate::audit::normalized::SeverityCounts,
     /// AX-tree node count (accessibility tree, not DOM). Can exceed `dom_nodes`
@@ -368,6 +370,7 @@ impl UnifiedReport {
             risk_level: worst_risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
             severity_counts,
+            severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts,
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
@@ -476,6 +479,7 @@ impl UnifiedReport {
             risk_level: page.risk.level,
             violation_count: page.violation_count,
             severity_counts: page.severity_counts.clone(),
+            severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts: page.occurrence_counts.clone(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
@@ -561,6 +565,7 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         violation_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
         violated_rule_count: distinct_rule_count(&normalized.findings),
         severity_counts: normalized.severity_counts.clone(),
+        severity_counts_scope: "wcag_only".to_string(),
         occurrence_counts: all_category_occurrence_counts(&normalized.findings),
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
@@ -1335,7 +1340,8 @@ mod tests {
                 fcp_score: Some(20),
                 cls_score: Some(20),
                 interactivity_score: Some(20),
-                metrics_available: 4,
+                si_score: Some(20),
+                metrics_available: 5,
             },
             render_blocking: None,
             content_weight: None,
@@ -1403,6 +1409,7 @@ mod tests {
                 fcp_score: None,
                 cls_score: None,
                 interactivity_score: None,
+                si_score: None,
                 metrics_available: 0,
             },
             render_blocking: None,
@@ -1630,6 +1637,7 @@ mod tests {
                     low: 0,
                     total: 0,
                 },
+                severity_counts_scope: "wcag_only".to_string(),
                 occurrence_counts: crate::audit::normalized::SeverityCounts::default(),
                 passed_url_count: 0,
                 failed_url_count: 0,

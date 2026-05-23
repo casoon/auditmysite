@@ -41,6 +41,7 @@
         "risk_level",
         "violation_count",
         "severity_counts",
+        "severity_counts_scope",
         "passed_url_count",
         "failed_url_count"
       ],
@@ -54,6 +55,7 @@
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "violation_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
+        "severity_counts_scope": { "type": "string", "const": "wcag_only" },
         "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
         "passed_url_count": { "type": "integer", "minimum": 0 },
         "failed_url_count": { "type": "integer", "minimum": 0 },
@@ -76,6 +78,7 @@
         "certificate",
         "violation_count",
         "severity_counts",
+        "severity_counts_scope",
         "nodes_analyzed",
         "duration_ms",
         "module_scores",
@@ -92,6 +95,7 @@
         "certificate": { "type": "string" },
         "violation_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
+        "severity_counts_scope": { "type": "string", "const": "wcag_only" },
         "nodes_analyzed": { "type": "integer", "minimum": 0 },
         "duration_ms": { "type": "integer", "minimum": 0 },
         "module_scores": {

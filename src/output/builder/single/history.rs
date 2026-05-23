@@ -1,105 +1,67 @@
 use crate::output::report_model::{HistoryTrendBlock, ReportHistoryPreview};
 
-use super::super::helpers::build_trend_label;
-
 pub(super) fn build_history_trend_block(
-    locale: &str,
+    i18n: &crate::i18n::I18n,
     preview: &ReportHistoryPreview,
 ) -> HistoryTrendBlock {
-    let trend_label = build_trend_label(
-        locale,
-        preview.delta_accessibility,
-        preview.delta_total_issues,
+    let (trend_key, trend_label_key) = if preview.delta_accessibility >= 10
+        || (preview.delta_accessibility >= 5 && preview.delta_total_issues <= -5)
+    {
+        (
+            "history-trend-significantly-improved",
+            "trend-significantly-improved",
+        )
+    } else if preview.delta_accessibility > 0 || preview.delta_total_issues < 0 {
+        ("history-trend-improved", "trend-improved")
+    } else if preview.delta_accessibility == 0 && preview.delta_total_issues == 0 {
+        ("history-trend-stable", "trend-stable")
+    } else if preview.delta_accessibility >= -5 && preview.delta_total_issues <= 5 {
+        (
+            "history-trend-slightly-regressed",
+            "trend-slightly-regressed",
+        )
+    } else {
+        (
+            "history-trend-significantly-regressed",
+            "trend-significantly-regressed",
+        )
+    };
+
+    let trend_label = i18n.t(trend_label_key);
+
+    let trend_interpretation = i18n.t_args(
+        trend_key,
+        &[
+            ("previous_date", preview.previous_date.as_str()),
+            (
+                "delta_accessibility",
+                &preview.delta_accessibility.to_string(),
+            ),
+            (
+                "delta_total_issues",
+                &preview.delta_total_issues.to_string(),
+            ),
+            (
+                "delta_issues_abs",
+                &(-preview.delta_total_issues).to_string(),
+            ),
+        ],
     );
-    let en = locale == "en";
 
-    let trend_interpretation = if en {
-        match trend_label.as_str() {
-            "Significantly improved" => format!(
-                "Accessibility has improved significantly versus the run on {} (+{} points, {} fewer issues).",
-                preview.previous_date,
-                preview.delta_accessibility,
-                -preview.delta_total_issues
-            ),
-            "Improved" => format!(
-                "Accessibility has improved versus the run on {}.",
-                preview.previous_date
-            ),
-            "Stable" => format!(
-                "Accessibility is unchanged compared with the run on {}.",
-                preview.previous_date
-            ),
-            "Significantly regressed" => format!(
-                "Accessibility has regressed significantly versus the run on {} ({} points, +{} issues). Action needed.",
-                preview.previous_date,
-                preview.delta_accessibility,
-                preview.delta_total_issues
-            ),
-            _ => format!(
-                "Accessibility has slightly regressed versus the run on {}.",
-                preview.previous_date
-            ),
-        }
-    } else {
-        match trend_label.as_str() {
-            "Deutlich verbessert" => format!(
-                "Die Barrierefreiheit hat sich gegenüber dem letzten Lauf vom {} deutlich verbessert (+{} Punkte, {} Issues weniger).",
-                preview.previous_date,
-                preview.delta_accessibility,
-                -preview.delta_total_issues
-            ),
-            "Verbessert" => format!(
-                "Die Barrierefreiheit hat sich gegenüber dem letzten Lauf vom {} verbessert.",
-                preview.previous_date
-            ),
-            "Stabil" => format!(
-                "Die Barrierefreiheit ist gegenüber dem letzten Lauf vom {} unverändert stabil.",
-                preview.previous_date
-            ),
-            "Deutlich verschlechtert" => format!(
-                "Die Barrierefreiheit ist gegenüber dem letzten Lauf vom {} deutlich zurückgegangen ({} Punkte, +{} Issues). Handlungsbedarf.",
-                preview.previous_date,
-                preview.delta_accessibility,
-                preview.delta_total_issues
-            ),
-            _ => format!(
-                "Die Barrierefreiheit ist gegenüber dem letzten Lauf vom {} leicht zurückgegangen.",
-                preview.previous_date
-            ),
-        }
-    };
+    let summary = i18n.t_args(
+        "history-summary",
+        &[
+            ("trend_interpretation", trend_interpretation.as_str()),
+            ("timeline_entries", &preview.timeline_entries.to_string()),
+        ],
+    );
 
-    let summary = if en {
-        format!(
-            "{} The history covers {} usable snapshots.",
-            trend_interpretation, preview.timeline_entries
-        )
-    } else {
-        format!(
-            "{} Die Historie umfasst {} verwertbare Snapshots.",
-            trend_interpretation, preview.timeline_entries
-        )
-    };
-
-    let (acc_delta, total_delta, issue_delta, crit_delta, prev_acc, prev_total) = if en {
-        (
-            "Accessibility delta",
-            "Overall delta",
-            "Issue delta",
-            "Critical+High delta",
-            "Previous accessibility",
-            "Previous overall",
-        )
-    } else {
-        (
-            "Accessibility-Delta",
-            "Gesamt-Delta",
-            "Issue-Delta",
-            "Kritisch+Hoch-Delta",
-            "Vorher Accessibility",
-            "Vorher Gesamt",
-        )
-    };
+    let acc_delta = i18n.t("history-metric-acc-delta");
+    let total_delta = i18n.t("history-metric-total-delta");
+    let issue_delta = i18n.t("history-metric-issue-delta");
+    let crit_delta = i18n.t("history-metric-crit-delta");
+    let prev_acc = i18n.t("history-metric-prev-acc");
+    let prev_total = i18n.t("history-metric-prev-total");
 
     HistoryTrendBlock {
         previous_date: preview.previous_date.clone(),

@@ -289,43 +289,6 @@ pub(super) fn build_overall_impact(
     ]
 }
 
-pub(super) fn build_trend_label(
-    locale: &str,
-    delta_accessibility: i32,
-    delta_issues: i32,
-) -> String {
-    let en = locale == "en";
-    if delta_accessibility >= 10 || (delta_accessibility >= 5 && delta_issues <= -5) {
-        if en {
-            "Significantly improved".to_string()
-        } else {
-            "Deutlich verbessert".to_string()
-        }
-    } else if delta_accessibility > 0 || delta_issues < 0 {
-        if en {
-            "Improved".to_string()
-        } else {
-            "Verbessert".to_string()
-        }
-    } else if delta_accessibility == 0 && delta_issues == 0 {
-        if en {
-            "Stable".to_string()
-        } else {
-            "Stabil".to_string()
-        }
-    } else if delta_accessibility >= -5 && delta_issues <= 5 {
-        if en {
-            "Slightly regressed".to_string()
-        } else {
-            "Leicht zurückgegangen".to_string()
-        }
-    } else if en {
-        "Significantly regressed".to_string()
-    } else {
-        "Deutlich verschlechtert".to_string()
-    }
-}
-
 pub(super) fn build_benchmark_context(locale: &str, score: f32) -> String {
     let en = locale == "en";
     if score >= 95.0 {
@@ -579,16 +542,15 @@ pub(crate) fn extract_domain(url: &str) -> String {
 
 /// German display name for a module identifier used in prose (overall-score
 /// weights, indicator notes). English keeps the canonical identifier.
-pub(super) fn localized_module_name(name: &str, en: bool) -> String {
-    if en {
-        return name.to_string();
+pub(super) fn localized_module_name(name: &str, i18n: &I18n) -> String {
+    let key = format!("module-{}", name.to_lowercase());
+    let translated = i18n.t(&key);
+    if translated == key {
+        // Fallback to name if not found in Fluent
+        name.to_string()
+    } else {
+        translated
     }
-    match name {
-        "Accessibility" => "Barrierefreiheit",
-        "Security" => "Sicherheit",
-        other => other,
-    }
-    .to_string()
 }
 
 /// Module identity for `interpret_score`. Each variant carries its own,
