@@ -760,26 +760,14 @@ fn build_batch_report(
         .add_component(BenchmarkTable::new(rows));
 
     // ── 3. Top-Probleme (vereinheitlicht) ─────────────────────────
-    let en_top = i18n.locale() == "en";
-    let top_intro = if en_top {
-        "The following problem groups occur across multiple URLs. \
-         Fixing them yields the largest improvement because they affect many pages simultaneously."
-    } else {
-        "Die folgenden Problemgruppen treten über mehrere URLs hinweg auf. \
-         Durch Behebung dieser Probleme wird die größte Verbesserung erzielt, \
-         da sie viele Seiten gleichzeitig betreffen."
-    };
+    let top_intro = i18n.t("batch-top-issues-intro");
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-section-most-frequent"), top_intro).with_level(1),
     );
 
     // Übersichtstabelle mit Aufwand
     if !pres.issue_frequency.is_empty() {
-        let affected_col = if en_top {
-            "Affected URLs"
-        } else {
-            "Betr. URLs"
-        };
+        let affected_col = i18n.t("batch-col-affected-urls");
         let mut freq_table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-problem")),
             TableColumn::new("WCAG"),
@@ -803,42 +791,22 @@ fn build_batch_report(
 
     // Unified problem blocks — 1 Problem = 1 kompakter Block
     // (keine doppelten Cards + Details mehr)
-    let scope_global_word = if en_top {
-        "Global — affects all pages"
-    } else {
-        "Global — betrifft alle Seiten"
-    };
-    let scope_individual = if en_top {
-        "Specific pages — isolated content"
-    } else {
-        "Einzelne Seiten — isolierter Inhalt"
-    };
-    let occurrences_word_top = if en_top { "occurrences" } else { "Vorkommen" };
-    let affected_urls_word = if en_top {
-        "affected URLs"
-    } else {
-        "betroffene URLs"
-    };
-    let effort_word = if en_top { "Effort" } else { "Aufwand" };
-    let scope_word = if en_top { "Scope" } else { "Reichweite" };
-    let impact_user_label = if en_top {
-        "Impact (user)"
-    } else {
-        "Auswirkung (Nutzer)"
-    };
-    let impact_business_label = if en_top {
-        "Impact (business)"
-    } else {
-        "Auswirkung (Business)"
-    };
-    let fix_label = if en_top { "Fix" } else { "Empfehlung" };
-    let meta_label = if en_top { "Meta" } else { "Einordnung" };
+    let scope_global_word = i18n.t("batch-meta-global");
+    let scope_individual = i18n.t("batch-meta-individual");
+    let occurrences_word_top = i18n.t("batch-meta-occurrences");
+    let affected_urls_word = i18n.t("batch-meta-affected-urls");
+    let effort_word = i18n.t("batch-meta-effort");
+    let scope_word = i18n.t("batch-meta-scope");
+    let impact_user_label = i18n.t("batch-meta-impact-user");
+    let impact_business_label = i18n.t("batch-meta-impact-business");
+    let fix_label = i18n.t("batch-meta-fix");
+    let meta_label = i18n.t("batch-meta-classification");
 
     for group in pres.top_issues.iter().take(5) {
         let scope = if group.affected_urls.len() >= pres.portfolio_summary.total_urls {
-            scope_global_word
+            &scope_global_word
         } else {
-            scope_individual
+            &scope_individual
         };
         let effort_label = group.effort.label();
         let meta_line = format!(
@@ -859,26 +827,20 @@ fn build_batch_report(
                 i18n.t("findings-card-key-problem"),
                 &group.customer_description,
             )
-            .add(impact_user_label, &group.user_impact)
-            .add(impact_business_label, &group.business_impact);
+            .add(&impact_user_label, &group.user_impact)
+            .add(&impact_business_label, &group.business_impact);
         if !group.typical_cause.is_empty() {
             kv = kv.add(i18n.t("findings-card-key-cause"), &group.typical_cause);
         }
         if !group.recommendation.is_empty() {
-            kv = kv.add(fix_label, &group.recommendation);
+            kv = kv.add(&fix_label, &group.recommendation);
         }
-        kv = kv.add(meta_label, meta_line);
+        kv = kv.add(&meta_label, meta_line);
         builder = builder.add_component(kv);
     }
 
     // ── 4. Maßnahmenplan (mit Aufwand + Scope) ─────────────────────
-    let action_intro = if en_top {
-        "The following actions are prioritized by effort and impact. \
-         Actions that improve many pages simultaneously take precedence."
-    } else {
-        "Die folgenden Maßnahmen sind nach Aufwand und Wirkung priorisiert. \
-         Maßnahmen, die viele Seiten gleichzeitig verbessern, haben Vorrang."
-    };
+    let action_intro = i18n.t("batch-action-plan-intro");
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-action-plan-title"), action_intro).with_level(1),
     );
@@ -897,18 +859,9 @@ fn build_batch_report(
     }
 
     // ── 5b. Performance Budgets (Batch) ─────────────────────────────
-    let en_pdf = i18n.locale() == "en";
     if !pres.portfolio_summary.budget_summary.is_empty() {
-        let pages_col = if en_pdf {
-            "Affected pages"
-        } else {
-            "Betr. Seiten"
-        };
-        let budget_table_title = if en_pdf {
-            "Performance budget violations (domain-wide)"
-        } else {
-            "Performance-Budget-Verstöße (domainweit)"
-        };
+        let pages_col = i18n.t("batch-budget-pages-col");
+        let budget_table_title = i18n.t("batch-budget-table-title");
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-metric")),
             TableColumn::new(i18n.t("batch-col-budget")),
@@ -924,11 +877,7 @@ fn build_batch_report(
                 sev.clone(),
             ]);
         }
-        let budgets_intro = if en_pdf {
-            "On how many pages each performance budget was exceeded."
-        } else {
-            "Auf wie vielen Seiten welche Performance-Budgets überschritten wurden."
-        };
+        let budgets_intro = i18n.t("batch-budget-intro");
         builder = builder
             .add_component(Section::new(i18n.t("batch-section-performance-budgets")).with_level(1))
             .add_component(TextBlock::new(budgets_intro))
@@ -945,25 +894,21 @@ fn build_batch_report(
     );
 
     if let Some(ref crawl_links) = pres.portfolio_summary.crawl_links {
-        let target_col = if en_pdf { "Target" } else { "Ziel" };
-        let type_col = if en_pdf { "Type" } else { "Typ" };
-        let direct_label = if en_pdf { "direct" } else { "direkt" };
-        let hops_label = if en_pdf { "hops" } else { "Hops" };
-        let internal_intro = if en_pdf {
-            format!(
-                "For the crawl starting at {} we checked {} internal link targets. {} broken internal links detected.",
-                crawl_links.seed_url,
-                crawl_links.checked_internal_links,
-                crawl_links.broken_internal_links.len()
-            )
-        } else {
-            format!(
-                "Für den Crawl ab {} wurden {} interne Linkziele geprüft. {} kaputte interne Verlinkungen wurden erkannt.",
-                crawl_links.seed_url,
-                crawl_links.checked_internal_links,
-                crawl_links.broken_internal_links.len()
-            )
-        };
+        let target_col = i18n.t("batch-crawl-col-target");
+        let type_col = i18n.t("batch-crawl-col-type");
+        let direct_label = i18n.t("batch-crawl-label-direct");
+        let hops_label = i18n.t("batch-crawl-label-hops");
+        let internal_intro = i18n.t_args(
+            "batch-crawl-internal-intro",
+            &[
+                ("seed", crawl_links.seed_url.clone()),
+                ("checked", crawl_links.checked_internal_links.to_string()),
+                (
+                    "broken",
+                    crawl_links.broken_internal_links.len().to_string(),
+                ),
+            ],
+        );
         builder = builder
             .add_component(
                 Section::new(i18n.t("batch-section-broken-links-internal")).with_level(1),
@@ -971,17 +916,14 @@ fn build_batch_report(
             .add_component(TextBlock::new(internal_intro));
 
         if crawl_links.broken_internal_links.is_empty() {
-            builder = builder.add_component(Callout::info(if en_pdf {
-                "No broken internal links detected in the audited crawl set."
-            } else {
-                "Keine kaputten internen Links im geprüften Crawl-Set erkannt."
-            }));
+            builder =
+                builder.add_component(Callout::info(i18n.t("batch-crawl-no-broken-internal")));
         } else {
             let mut table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new(target_col),
+                TableColumn::new(target_col.clone()),
                 TableColumn::new(i18n.t("batch-col-status-code")),
-                TableColumn::new(type_col),
+                TableColumn::new(type_col.clone()),
             ])
             .with_title(i18n.t("batch-table-broken-internal"));
 
@@ -1009,19 +951,16 @@ fn build_batch_report(
 
         // External broken links
         if !crawl_links.broken_external_links.is_empty() {
-            let ext_intro = if en_pdf {
-                format!(
-                    "{} external link targets checked. {} broken external links detected.",
-                    crawl_links.checked_external_links,
-                    crawl_links.broken_external_links.len()
-                )
-            } else {
-                format!(
-                    "{} externe Linkziele geprüft. {} kaputte externe Verlinkungen erkannt.",
-                    crawl_links.checked_external_links,
-                    crawl_links.broken_external_links.len()
-                )
-            };
+            let ext_intro = i18n.t_args(
+                "batch-crawl-external-intro",
+                &[
+                    ("checked", crawl_links.checked_external_links.to_string()),
+                    (
+                        "broken",
+                        crawl_links.broken_external_links.len().to_string(),
+                    ),
+                ],
+            );
             builder = builder
                 .add_component(
                     Section::new(i18n.t("batch-section-broken-links-external")).with_level(2),
@@ -1030,9 +969,9 @@ fn build_batch_report(
 
             let mut ext_table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new(target_col),
+                TableColumn::new(target_col.clone()),
                 TableColumn::new(i18n.t("batch-col-status-code")),
-                TableColumn::new(type_col),
+                TableColumn::new(type_col.clone()),
             ])
             .with_title(i18n.t("batch-table-broken-external"));
 
@@ -1052,17 +991,10 @@ fn build_batch_report(
 
             builder = builder.add_component(ext_table);
         } else if crawl_links.checked_external_links > 0 {
-            let ext_clean_msg = if en_pdf {
-                format!(
-                    "{} external link targets checked — no broken external links detected.",
-                    crawl_links.checked_external_links
-                )
-            } else {
-                format!(
-                    "{} externe Linkziele geprüft — keine kaputten externen Links erkannt.",
-                    crawl_links.checked_external_links
-                )
-            };
+            let ext_clean_msg = i18n.t_args(
+                "batch-crawl-external-clean",
+                &[("checked", crawl_links.checked_external_links.to_string())],
+            );
             builder = builder
                 .add_component(Section::new(i18n.t("batch-section-external-links")).with_level(2))
                 .add_component(Callout::info(ext_clean_msg));
@@ -1070,17 +1002,10 @@ fn build_batch_report(
 
         // Redirect chains
         if !crawl_links.redirect_chains.is_empty() {
-            let chain_intro = if en_pdf {
-                format!(
-                    "{} links with more than one redirect hop detected.",
-                    crawl_links.redirect_chains.len()
-                )
-            } else {
-                format!(
-                    "{} Links mit mehr als einem Redirect-Hop erkannt.",
-                    crawl_links.redirect_chains.len()
-                )
-            };
+            let chain_intro = i18n.t_args(
+                "batch-crawl-redirect-chains-intro",
+                &[("count", crawl_links.redirect_chains.len().to_string())],
+            );
             builder = builder
                 .add_component(Section::new(i18n.t("batch-section-redirect-chains")).with_level(2))
                 .add_component(TextBlock::new(chain_intro));
@@ -1106,8 +1031,8 @@ fn build_batch_report(
         }
     }
 
-    let page_col = if en_pdf { "Page" } else { "Seite" };
-    let title_col = if en_pdf { "Title" } else { "Titel" };
+    let page_col = i18n.t("batch-matrix-col-page");
+    let title_col = i18n.t("batch-matrix-col-title");
     let mut matrix = AuditTable::new(vec![
         TableColumn::new("#").with_width("4%"),
         TableColumn::new(page_col).with_width("26%"),
@@ -1170,67 +1095,43 @@ fn build_batch_report(
     }
 
     // ── 6. Content & SEO — integriert mit Business-Impact ─────────
-    let en_batch = i18n.locale() == "en";
-    let (content_seo_title, content_seo_intro) = if en_batch {
-        (
-            "Content & SEO potential",
-            "Content strengths and weaknesses with direct relevance to rankings, visibility and conversion. \
-             Each finding is tied to a concrete action.",
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-seo-potential-title"),
+            i18n.t("batch-seo-potential-intro"),
         )
-    } else {
-        (
-            "Content & SEO-Potenzial",
-            "Content-Stärken und -Schwächen mit direktem Bezug zu Rankings, Sichtbarkeit und Conversion. \
-             Jede Auffälligkeit ist an eine konkrete Handlung geknüpft.",
-        )
-    };
-    builder = builder
-        .add_component(SectionHeaderSplit::new(content_seo_title, content_seo_intro).with_level(1));
+        .with_level(1),
+    );
 
     // Schwache Seiten zuerst — mit Business-Impact
     if !pres.portfolio_summary.weakest_content_pages.is_empty() {
-        let issues_title = if en_batch {
-            "Content issues needing action"
-        } else {
-            "Content-Probleme mit Handlungsbedarf"
-        };
-        let high_marker = if en_batch { "high" } else { "hoch" };
+        let issues_title = i18n.t("batch-seo-issues-title");
         let mut issues_kv = KeyValueList::new().with_title(issues_title);
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
             let relevance = super::business_relevance(Some(page_type.as_str()), url, i18n.locale());
+            let high_marker = if i18n.locale() == "en" {
+                "high"
+            } else {
+                "hoch"
+            };
             let impact = if relevance == high_marker {
-                if en_batch {
-                    "Likely ranking loss + lower conversion"
-                } else {
-                    "Rankingverlust + geringere Conversion wahrscheinlich"
-                }
+                i18n.t("batch-seo-impact-ranking-loss")
             } else if *score < 30 {
-                if en_batch {
-                    "Weak organic visibility"
-                } else {
-                    "Schwache organische Sichtbarkeit"
-                }
-            } else if en_batch {
-                "Optimization potential for SEO"
+                i18n.t("batch-seo-impact-weak-visibility")
             } else {
-                "Optimierungspotenzial für SEO"
+                i18n.t("batch-seo-impact-opt-potential")
             };
-            let value = if en_batch {
-                format!(
-                    "{} — {} → +300–800 words of structured content recommended",
-                    page_type, impact
-                )
-            } else {
-                format!(
-                    "{} — {} → +300–800 Wörter strukturierter Inhalt empfohlen",
-                    page_type, impact
-                )
-            };
-            let key_str = if en_batch {
-                format!("{} (profile: {}/100)", truncate_url(url, 35), score)
-            } else {
-                format!("{} (Profil: {}/100)", truncate_url(url, 35), score)
-            };
+            let value = i18n.t_args(
+                "batch-seo-recommendation-words",
+                &[("page_type", page_type.clone()), ("impact", impact)],
+            );
+            let key_str = i18n.t_args(
+                "batch-seo-profile-label",
+                &[
+                    ("url", truncate_url(url, 35)),
+                    ("score", format!("{score}")),
+                ],
+            );
             issues_kv = issues_kv.add(key_str, value);
         }
         builder = builder.add_component(issues_kv);
@@ -1238,43 +1139,24 @@ fn build_batch_report(
 
     // Content-Auffälligkeiten als Business-Relevanz
     if !pres.portfolio_summary.distribution_insights.is_empty() {
-        let action_label = if en_batch {
-            "Action needed"
-        } else {
-            "Handlungsbedarf"
-        };
-        let panel_title = if en_batch {
-            "Content patterns → business impact"
-        } else {
-            "Content-Auffälligkeiten → Business-Impact"
-        };
+        let action_label = i18n.t("batch-seo-action-needed");
+        let panel_title = i18n.t("batch-seo-patterns-impact-title");
         let rows: Vec<ChecklistRow> = pres
             .portfolio_summary
             .distribution_insights
             .iter()
             .map(|insight| {
                 let impact = if insight.contains("Thin") || insight.contains("dünn") {
-                    if en_batch {
-                        format!("{} → weaker rankings, lower dwell time", insight)
-                    } else {
-                        format!("{} → schwächere Rankings, geringere Verweildauer", insight)
-                    }
+                    i18n.t_args("batch-seo-impact-thin", &[("insight", insight.clone())])
                 } else if insight.contains("Duplikat") || insight.contains("duplicate") {
-                    if en_batch {
-                        format!(
-                            "{} → keyword cannibalization, split ranking signals",
-                            insight
-                        )
-                    } else {
-                        format!(
-                            "{} → Keyword-Kannibalisierung, Split der Ranking-Signale",
-                            insight
-                        )
-                    }
+                    i18n.t_args(
+                        "batch-seo-impact-duplicate",
+                        &[("insight", insight.clone())],
+                    )
                 } else {
                     insight.clone()
                 };
-                ChecklistRow::new(action_label, &impact).with_status("warn")
+                ChecklistRow::new(action_label.clone(), &impact).with_status("warn")
             })
             .collect();
         builder = builder.add_component(ChecklistPanel::new(rows).with_title(panel_title));
@@ -1282,11 +1164,7 @@ fn build_batch_report(
 
     // Near-duplicates mit Business-Kontext
     if !pres.portfolio_summary.near_duplicates.is_empty() {
-        let near_dup_title = if en_batch {
-            "Near-duplicate content → keyword cannibalization"
-        } else {
-            "Near-Duplicate-Content → Keyword-Kannibalisierung"
-        };
+        let near_dup_title = i18n.t("batch-seo-near-dup-title");
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-page-a")),
             TableColumn::new(i18n.t("batch-col-page-b")),
@@ -1297,15 +1175,9 @@ fn build_batch_report(
 
         for (url_a, url_b, sim) in &pres.portfolio_summary.near_duplicates {
             let risk = if *sim >= 95 {
-                if en_batch {
-                    "High — consolidate"
-                } else {
-                    "Hoch — konsolidieren"
-                }
-            } else if en_batch {
-                "Medium — differentiate"
+                i18n.t("batch-seo-risk-high")
             } else {
-                "Mittel — differenzieren"
+                i18n.t("batch-seo-risk-medium")
             };
             table = table.add_row(vec![
                 truncate_url(url_a, 35),
@@ -1319,9 +1191,9 @@ fn build_batch_report(
 
     // Seitentyp-Verteilung (kompakt)
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
-        let high_label = if en_batch { "high" } else { "hoch" };
-        let medium_label = if en_batch { "medium" } else { "mittel" };
-        let low_label = if en_batch { "low" } else { "niedrig" };
+        let high_label = i18n.t("batch-relevance-high");
+        let medium_label = i18n.t("batch-relevance-medium");
+        let low_label = i18n.t("batch-relevance-low");
         let mut type_table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-page-type")),
             TableColumn::new(i18n.t("batch-col-pages-list")),
@@ -1334,13 +1206,13 @@ fn build_batch_report(
             let relevance = match label.as_str() {
                 "Marketing / Landing Page"
                 | "Transaktional / Utility"
-                | "Transactional / Utility" => high_label,
+                | "Transactional / Utility" => &high_label,
                 "Editorial / Artikel"
                 | "Editorial / Article"
                 | "Strukturierter Wissensinhalt"
-                | "Structured knowledge content" => medium_label,
-                "Thin / Minimal Content" => low_label,
-                _ => medium_label,
+                | "Structured knowledge content" => &medium_label,
+                "Thin / Minimal Content" => &low_label,
+                _ => &medium_label,
             };
             type_table = type_table.add_row(vec![
                 label.clone(),
@@ -1357,21 +1229,17 @@ fn build_batch_report(
         let total = pres.portfolio_summary.total_urls;
         let without = pres.portfolio_summary.pages_without_schema;
         let summary = if without == 0 {
-            if en_batch {
-                format!("All {} pages have structured data.", total)
-            } else {
-                format!("Alle {} Seiten haben strukturierte Daten.", total)
-            }
-        } else if en_batch {
-            format!("{} of {} pages without structured data.", without, total)
+            i18n.t_args("batch-schema-summary-all", &[("total", total.to_string())])
         } else {
-            format!("{} von {} Seiten ohne strukturierte Daten.", without, total)
+            i18n.t_args(
+                "batch-schema-summary-some",
+                &[
+                    ("without", without.to_string()),
+                    ("total", total.to_string()),
+                ],
+            )
         };
-        let schema_callout_title = if en_batch {
-            "Structured data (Schema.org)"
-        } else {
-            "Strukturierte Daten (Schema.org)"
-        };
+        let schema_callout_title = i18n.t("batch-schema-callout-title");
         builder = builder.add_component(Callout::info(&summary).with_title(schema_callout_title));
         let mut schema_table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-schema-type")).with_width("55%"),
@@ -1419,22 +1287,13 @@ fn build_batch_report(
 
     // ── 7. Anhang ───────────────────────────────────────────────────
     if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
-        let appendix_intro = if en_pdf {
-            "Complete listing of all detected violations per URL with technical details for implementation."
-        } else {
-            "Vollständige Auflistung aller erkannten Verstöße pro URL \
-             mit technischen Details für die Umsetzung."
-        };
+        let appendix_intro = i18n.t("batch-appendix-intro");
         builder = builder.add_component(
             SectionHeaderSplit::new(i18n.t("section-appendix"), appendix_intro).with_level(1),
         );
 
-        let rule_col = if en_pdf { "Rule" } else { "Regel" };
-        let elements_col = if en_pdf {
-            "Affected elements"
-        } else {
-            "Betr. Elemente"
-        };
+        let rule_col = i18n.t("batch-appendix-col-rule");
+        let elements_col = i18n.t("batch-appendix-col-elements");
         for url_appendix in &pres.appendix.per_url {
             if url_appendix.violations.is_empty() {
                 continue;
@@ -1444,10 +1303,10 @@ fn build_batch_report(
                 .add_component(Section::new(truncate_url(&url_appendix.url, 70)).with_level(2));
 
             let mut table = AuditTable::new(vec![
-                TableColumn::new(rule_col),
+                TableColumn::new(rule_col.clone()),
                 TableColumn::new(i18n.t("batch-col-severity")),
                 TableColumn::new(i18n.t("batch-col-description")),
-                TableColumn::new(elements_col),
+                TableColumn::new(elements_col.clone()),
             ]);
 
             for v in &url_appendix.violations {

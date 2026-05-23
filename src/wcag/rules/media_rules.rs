@@ -133,6 +133,47 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
           var el = frames[i];
           var role = (el.getAttribute('role') || '').toLowerCase();
           if (role === 'none' || role === 'presentation') continue;
+
+          // Skip non-perceivable / hidden elements
+          if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;
+          
+          var parent = el.parentElement;
+          var isAriaHiddenAncestor = false;
+          while (parent) {
+            if (parent.getAttribute('aria-hidden') === 'true') {
+              isAriaHiddenAncestor = true;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+          if (isAriaHiddenAncestor) continue;
+
+          var style = window.getComputedStyle(el);
+          if (style && (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse')) continue;
+
+          parent = el.parentElement;
+          var isHiddenAncestor = false;
+          while (parent) {
+            var parentStyle = window.getComputedStyle(parent);
+            if (parentStyle && (parentStyle.display === 'none' || parentStyle.visibility === 'hidden')) {
+              isHiddenAncestor = true;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+          if (isHiddenAncestor) continue;
+
+          var rect = el.getBoundingClientRect();
+          if (rect.width <= 1 && rect.height <= 1) continue;
+
+          var wAttr = el.getAttribute('width');
+          var hAttr = el.getAttribute('height');
+          if (wAttr !== null && hAttr !== null) {
+            var wVal = parseInt(wAttr, 10);
+            var hVal = parseInt(hAttr, 10);
+            if ((wVal === 0 || wVal === 1) && (hVal === 0 || hVal === 1)) continue;
+          }
+
           var title = (el.getAttribute('title') || '').trim();
           var label = (el.getAttribute('aria-label') || '').trim();
           var labelledBy = (el.getAttribute('aria-labelledby') || '').trim();

@@ -33,6 +33,12 @@ pub struct HeadingInfo {
     pub text: String,
     /// Character count
     pub length: usize,
+    /// Whether heading text ends with a question mark
+    #[serde(default)]
+    pub is_question: bool,
+    /// Whether heading sits inside an FAQ context (e.g. details/summary or class/id containing faq)
+    #[serde(default)]
+    pub in_faq_context: bool,
 }
 
 /// Heading-related SEO issue
@@ -56,7 +62,16 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
         document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
             const level = parseInt(h.tagName.charAt(1));
             const text = h.textContent.trim();
-            headings.push({ level, text, length: text.length });
+            const is_question = text.endsWith('?');
+            const in_faq_context = !!(
+                h.closest('[itemtype*="Question"]') ||
+                h.closest('[itemtype*="FAQPage"]') ||
+                h.closest('details') ||
+                h.closest('.faq') ||
+                h.closest('[class*="faq"]') ||
+                h.closest('[id*="faq"]')
+            );
+            headings.push({ level, text, length: text.length, is_question, in_faq_context });
         });
         return JSON.stringify(headings);
     })()
@@ -127,7 +142,15 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 
     // Check for very long headings
     for heading in &headings {
-        if heading.length > 70 {
+        let max_len = if heading.level <= 2 {
+            70
+        } else if heading.is_question || heading.in_faq_context {
+            100
+        } else {
+            90
+        };
+
+        if heading.length > max_len {
             issues.push(HeadingIssue {
                 issue_type: "long_heading".to_string(),
                 message: format!(
@@ -181,6 +204,8 @@ mod tests {
             level: 1,
             text: "Test Heading".to_string(),
             length: 12,
+            is_question: false,
+            in_faq_context: false,
         };
 
         assert_eq!(heading.level, 1);

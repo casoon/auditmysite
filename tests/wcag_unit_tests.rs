@@ -220,9 +220,9 @@ fn test_244_url_as_link_text_flagged() {
         Some("https://example.com/long/path"),
     )]);
     let results = check_link_purpose(&tree);
-    assert!(!results.violations.is_empty());
+    assert!(!results.warnings.is_empty());
     assert!(results
-        .violations
+        .warnings
         .iter()
         .any(|v| v.message.contains("raw URL")));
 }

@@ -81,7 +81,7 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
             .with_fix("Replace URL with descriptive text")
             .with_help_url(LINK_PURPOSE_RULE.help_url);
 
-            results.add_violation(violation);
+            results.add_violation(violation.as_warning());
         } else if link_text.len() == 1
             && !link_text
                 .chars()
@@ -415,7 +415,7 @@ mod tests {
         let tree = AXTree::from_nodes(vec![create_link("1", Some("https://example.com/page"))]);
         let results = check_link_purpose(&tree);
         assert!(results
-            .violations
+            .warnings
             .iter()
             .any(|v| v.message.contains("raw URL")));
     }
