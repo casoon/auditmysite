@@ -422,6 +422,48 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
+        "1.4.10",
+        RuleExplanation {
+            customer_title: "Kein automatischer Textumbruch (Reflow)",
+            customer_title_en: "No automatic text wrapping (Reflow)",
+            customer_description:
+                "Die Website passt sich bei starker Vergrößerung oder schmalen Bildschirmen \
+                 (320 CSS-Pixeln) nicht flexibel an. Nutzer müssen horizontal scrollen, um Text zu lesen.",
+            customer_description_en:
+                "The website does not adapt flexibly to high zoom levels or small screens \
+                 (320 CSS pixels). Users have to scroll horizontally to read the text.",
+            user_impact:
+                "Menschen mit Sehbehinderungen, die stark zoomen (bis 400%), müssen \
+                 in zwei Dimensionen scrollen. Das Lesen langer Texte wird extrem mühsam oder unmöglich.",
+            user_impact_en:
+                "People with visual impairments who zoom in heavily (up to 400%) must scroll \
+                 in two directions. Reading text becomes extremely tedious or impossible.",
+            typical_cause:
+                "Verwendung von festen Pixelbreiten (width: 960px) oder overflow: hidden, \
+                 was den Umbruch von Texten verhindert.",
+            typical_cause_en:
+                "Using fixed pixel widths (width: 960px) or overflow: hidden, which \
+                 prevents text from wrapping properly.",
+            recommendation:
+                "Nutze responsives Design mit relativen Einheiten (%, vw, rem). Vermeide feste \
+                 Breiten auf Containern, die Text enthalten. Teste Zoom auf 400%.",
+            recommendation_en:
+                "Use responsive design with relative units (%, vw, rem). Avoid fixed widths \
+                 on containers holding text. Test zooming up to 400%.",
+            technical_note:
+                "WCAG 2.1 Level AA: No loss of content or function at width 320px (horizontal scroll \
+                 must be avoided for text-flow containers). Use max-width: 100% and flexbox/grid.",
+            technical_note_en:
+                "WCAG 2.1 Level AA: No loss of content or function at width 320px (horizontal scroll \
+                 must be avoided for text-flow containers). Use max-width: 100% and flexbox/grid.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("div.container { width: 960px; }"),
+            example_good: Some("div.container { max-width: 100%; width: 100%; }"),
+            example_decorative: None,
+        },
+    ),
+    (
         "1.4.11",
         RuleExplanation {
             customer_title: "Unzureichender Kontrast bei UI-Elementen",
@@ -467,52 +509,43 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     (
         "1.4.13",
         RuleExplanation {
-            customer_title: "Inhalte bei Hover/Fokus nicht steuerbar",
-            customer_title_en: "Content on hover or focus not controllable",
+            customer_title: "Fehlende Barrierefreiheit bei Zusatzinhalten (Tooltips)",
+            customer_title_en: "Suboptimal or inaccessible hover/focus content (tooltips)",
             customer_description:
-                "Inhalte, die bei Hover oder Fokus eingeblendet werden (z. B. Tooltips, \
-                 Dropdowns), verschwinden sofort, wenn die Maus bewegt wird, oder können \
-                 nicht per Tastatur geschlossen werden.",
+                "Zusatzinhalte, die erst bei Hover (Mauszeiger) oder Fokus (Tastatur) erscheinen \
+                 (wie Tooltips oder native title-Attribute), sind nicht barrierefrei zugänglich oder unvollständig verknüpft.",
             customer_description_en:
-                "Content that appears on hover or focus (e.g. tooltips, dropdowns) \
-                 disappears immediately when the mouse is moved, or cannot be dismissed \
-                 with the keyboard.",
+                "Additional content appearing on hover or focus (such as tooltips or native title attributes) \
+                 is not accessible or not properly linked in the HTML code.",
             user_impact:
-                "Nutzer mit motorischen Einschränkungen können Tooltip-Inhalte nicht \
-                 vollständig lesen, bevor sie verschwinden. Screenreader-Nutzer können \
-                 eingeblendete Inhalte möglicherweise nicht erreichen.",
+                "Nutzer von Screenreadern hören diese Inhalte gar nicht, Tastaturnutzer können sie oft nicht schließen, \
+                 und auf Touchgeräten (Mobilgeräten) sind sie in der Regel unbrauchbar.",
             user_impact_en:
-                "Users with motor impairments cannot fully read tooltip content before it \
-                 disappears. Screen reader users may not be able to reach the revealed content.",
+                "Screen reader users do not hear tooltips, keyboard users cannot dismiss them, \
+                 and they are often completely unusable on touch devices.",
             typical_cause:
-                "Tooltips oder Overlays, die `onmouseleave` sofort schließen, ohne \
-                 dem Nutzer Zeit zu lassen, den Zeiger in den Tooltip zu bewegen. \
-                 Fehlende Escape-Taste-Unterstützung.",
+                "Verwendung des nativen HTML title-Attributs als einzige Beschriftung, unvollständige \
+                 Zuweisung per aria-describedby oder fehlende Tastaturbedienbarkeit bei Custom-Tooltips.",
             typical_cause_en:
-                "Tooltips or overlays that close on `onmouseleave` immediately, without \
-                 giving the user time to move the pointer into the tooltip. \
-                 Missing Escape-key support.",
+                "Using the native HTML title attribute for important information, missing aria-describedby \
+                 associations, or lack of keyboard control on custom tooltips.",
             recommendation:
-                "Hover-Inhalte so implementieren, dass sie bestehen bleiben, wenn der \
-                 Zeiger in den Inhalt bewegt wird, per Escape-Taste schließbar sind und \
-                 ausreichend lange sichtbar bleiben.",
+                "Verwende eine sichtbare Beschriftung oder moderne, barrierefreie Tooltips (schließbar mit Escape, \
+                 verknüpft über aria-describedby und hoverbar).",
             recommendation_en:
-                "Implement hover content so it persists when the pointer moves into it, \
-                 is dismissible with the Escape key, and remains visible long enough to read.",
+                "Use visible labels or modern, accessible tooltips (dismissible with Escape, linked via \
+                 aria-describedby, and hoverable).",
             technical_note:
-                "WCAG 2.1 Level AA: Hover-Inhalt muss (1) hoverbar sein, (2) dismissible \
-                 (Escape), (3) persistent bleiben bis der Nutzer es schließt oder den \
-                 Trigger verlässt. CSS-only-Tooltips via :hover reichen nicht.",
+                "Zusatzinhalte müssen (1) hoverbar sein (Maus kann in den Tooltip bewegt werden), (2) dismissible \
+                 sein (Esc-Taste blendet ihn aus), (3) persistent sein. Tooltips mit role=\"tooltip\" per aria-describedby verknüpfen.",
             technical_note_en:
-                "WCAG 2.1 Level AA: Hover content must be (1) hoverable, (2) dismissible \
-                 (Escape), (3) persistent until the user closes it or leaves the trigger. \
-                 CSS-only tooltips via :hover are insufficient.",
+                "Additional content must be (1) hoverable, (2) dismissible (Esc), and (3) persistent. \
+                 Associate tooltips carrying role=\"tooltip\" with their trigger via aria-describedby.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Medium,
-            example_bad: Some("<div onmouseleave=\"hide()\">Tooltip</div>"),
+            example_bad: Some("<button title=\"Mehr Info\">...</button>\n<div role=\"tooltip\">Hilfetext</div>"),
             example_good: Some(
-                "<div onmouseleave=\"scheduleHide()\" onmouseenter=\"cancelHide()\">\
-                 Tooltip — schließbar mit Escape</div>",
+                "<button aria-describedby=\"tip1\">Mehr Info</button>\n<div id=\"tip1\" role=\"tooltip\">Hilfetext</div>"
             ),
             example_decorative: None,
         },
@@ -1192,6 +1225,90 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<button><svg>...</svg></button>"),
             example_good: Some("<button aria-label=\"Menü öffnen\"><svg aria-hidden=\"true\">...</svg></button>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "a11y.aria_hidden_focus.invalid",
+        RuleExplanation {
+            customer_title: "Tastaturfokus auf unsichtbaren Elementen",
+            customer_title_en: "Keyboard focus on hidden elements",
+            customer_description:
+                "Ein interaktives Element ist über aria-hidden=\"true\" vor Screenreadern versteckt, \
+                 kann aber dennoch mit der Tastatur (Tabulator) fokussiert werden.",
+            customer_description_en:
+                "An interactive element is hidden from screen readers via aria-hidden=\"true\", \
+                 but can still be focused using the keyboard (tab key).",
+            user_impact:
+                "Tastaturnutzer steuern auf unsichtbare Elemente (Fokus-Stolperfallen), \
+                 während Screenreader-Nutzer keinerlei Rückmeldung über dieses Element erhalten.",
+            user_impact_en:
+                "Keyboard users navigate to hidden elements (focus traps), \
+                 while screen reader users receive no feedback about the element.",
+            typical_cause:
+                "Es wurde aria-hidden=\"true\" verwendet, um ein Element visuell auszublenden, \
+                 ohne tabindex=\"-1\" zu setzen oder das Element per display:none zu verstecken.",
+            typical_cause_en:
+                "Using aria-hidden=\"true\" to hide an element visually without setting \
+                 tabindex=\"-1\" or hiding the element via display:none.",
+            recommendation:
+                "Wenn ein Element vollständig versteckt sein soll, display:none oder visibility:hidden verwenden. \
+                 Soll es nur vor Screenreadern versteckt sein, muss es unfokussierbar sein (tabindex=\"-1\").",
+            recommendation_en:
+                "To hide an element completely, use display:none or visibility:hidden. \
+                 If it should only be hidden from screen readers, make it unfocusable (tabindex=\"-1\").",
+            technical_note:
+                "Focusable elements (a, button, input) inside an aria-hidden=\"true\" tree must \
+                 either be removed from tab order or hidden completely.",
+            technical_note_en:
+                "Focusable elements (a, button, input) inside an aria-hidden=\"true\" tree must \
+                 either be removed from tab order or hidden completely.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button aria-hidden=\"true\">Menü</button>"),
+            example_good: Some("<button aria-hidden=\"true\" tabindex=\"-1\">Menü</button>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "a11y.aria_prohibited_attr.invalid",
+        RuleExplanation {
+            customer_title: "Ungültige oder verbotene ARIA-Attribute",
+            customer_title_en: "Prohibited ARIA attributes",
+            customer_description:
+                "Für bestimmte HTML-Elemente oder ARIA-Rollen werden Attribute verwendet, die für \
+                 diese Rolle nicht zulässig oder sinnvoll sind.",
+            customer_description_en:
+                "Attributes are used on HTML elements or ARIA roles that are not permitted or \
+                 meaningful for that specific role.",
+            user_impact:
+                "Screenreader erhalten widersprüchliche oder fehlerhafte Signale, was die \
+                 Bedienbarkeit der Website beeinträchtigen kann.",
+            user_impact_en:
+                "Screen readers receive conflicting or incorrect markup signals, which can \
+                 impair accessibility.",
+            typical_cause:
+                "Verwendung von ARIA-Attributen (wie aria-label oder aria-expanded) auf Elementen, \
+                 die keine interaktive Rolle haben (z. B. span oder div ohne role).",
+            typical_cause_en:
+                "Using ARIA attributes (like aria-label or aria-expanded) on elements that \
+                 do not have an interactive role (e.g. span or div without role).",
+            recommendation:
+                "Prüfe die ARIA-Spezifikation für die jeweilige Rolle. Verwende ARIA-Attribute \
+                 nur auf passenden Elementen und Rollen.",
+            recommendation_en:
+                "Check the ARIA specification for the respective role. Only use ARIA attributes \
+                 on appropriate elements and roles.",
+            technical_note:
+                "Prohibited attributes on generic elements: <span aria-label=\"text\"> is invalid. \
+                 Use native elements or valid roles (e.g. role=\"button\").",
+            technical_note_en:
+                "Prohibited attributes on generic elements: <span aria-label=\"text\"> is invalid. \
+                 Use native elements or valid roles (e.g. role=\"button\").",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<span aria-label=\"Menü\">...</span>"),
+            example_good: Some("<button aria-label=\"Menü\">...</button>"),
             example_decorative: None,
         },
     ),

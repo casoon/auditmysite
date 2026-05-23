@@ -224,10 +224,14 @@ pub struct FixGuidance {
     pub severity: String,
     pub occurrence_count: usize,
     pub problem: String,
-    pub user_impact: String,
-    pub typical_cause: String,
-    pub recommendation: String,
-    pub technical_note: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_impact: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typical_cause: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recommendation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub technical_note: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code_example: Option<CodeExample>,
     pub affected_selectors: Vec<String>,
@@ -829,18 +833,22 @@ fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidance> {
                 problem: expl
                     .map(|e| e.customer_description.to_string())
                     .unwrap_or_else(|| finding.description.clone()),
-                user_impact: expl
-                    .map(|e| e.user_impact.to_string())
-                    .unwrap_or_else(|| finding.user_impact.clone()),
+                user_impact: expl.map(|e| e.user_impact.to_string()).or_else(|| {
+                    if finding.user_impact.is_empty() {
+                        None
+                    } else {
+                        Some(finding.user_impact.clone())
+                    }
+                }),
                 typical_cause: expl
                     .map(|e| e.typical_cause.to_string())
-                    .unwrap_or_default(),
+                    .filter(|s| !s.is_empty()),
                 recommendation: expl
                     .map(|e| e.recommendation.to_string())
-                    .unwrap_or_default(),
+                    .filter(|s| !s.is_empty()),
                 technical_note: expl
                     .map(|e| e.technical_note.to_string())
-                    .unwrap_or_default(),
+                    .filter(|s| !s.is_empty()),
                 code_example,
                 affected_selectors,
             }
@@ -914,17 +922,21 @@ fn aggregate_recurring_rules(pages: &[PageEntry]) -> (usize, Vec<RecurringRule>)
     let mut by_rule: HashMap<String, Acc> = HashMap::new();
     for page in pages {
         for f in page.findings.iter().filter(|f| f.category == "wcag") {
+            let base_severity = crate::taxonomy::rules::RULES
+                .iter()
+                .find(|r| r.id == f.rule_id)
+                .map(|r| r.severity)
+                .unwrap_or(f.severity);
             let entry = by_rule.entry(f.rule_id.clone()).or_insert(Acc {
                 title: f.title.clone(),
                 wcag_criterion: f.wcag_criterion.clone(),
                 wcag_level: f.wcag_level.clone(),
-                severity: f.severity,
+                severity: base_severity,
                 affected_pages: 0,
                 total_occurrences: 0,
             });
             entry.affected_pages += 1;
             entry.total_occurrences += f.occurrence_count;
-            entry.severity = entry.severity.max(f.severity);
         }
     }
     let mut rules: Vec<RecurringRule> = by_rule

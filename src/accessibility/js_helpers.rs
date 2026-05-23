@@ -73,13 +73,36 @@ function __amsIsVisuallyHidden(el) {
     var h = parseFloat(s.height);
     var hiddenOverflow = s.overflow === 'hidden' || s.overflowX === 'hidden' || s.overflowY === 'hidden';
     if (hiddenOverflow && ((!isNaN(w) && w <= 1) || (!isNaN(h) && h <= 1))) return true;
+    if (w === 0 || h === 0) return true;
+
+    try {
+      var rect = cur.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return true;
+    } catch (e) {}
+
     if (s.position === 'absolute' || s.position === 'fixed') {
       var left = parseFloat(s.left);
       var top = parseFloat(s.top);
-      if ((!isNaN(left) && left <= -9999) || (!isNaN(top) && top <= -9999)) return true;
+      if ((!isNaN(left) && (left <= -999 || left >= 9999)) || (!isNaN(top) && (top <= -999 || top >= 9999))) return true;
     }
     var ti = parseFloat(s.textIndent);
-    if (!isNaN(ti) && ti <= -9999) return true;
+    if (!isNaN(ti) && (ti <= -999 || ti >= 999)) return true;
+
+    var className = cur.className;
+    var classStr = '';
+    if (typeof className === 'string') {
+      classStr = className;
+    } else if (className && typeof className.baseVal === 'string') {
+      classStr = className.baseVal;
+    }
+    if (classStr && (
+      classStr.indexOf('sr-only') !== -1 ||
+      classStr.indexOf('visually-hidden') !== -1 ||
+      classStr.indexOf('text-hide') !== -1 ||
+      classStr.indexOf('hide-text') !== -1 ||
+      classStr.indexOf('hidden') !== -1
+    )) return true;
+
     cur = cur.parentElement;
   }
   return false;

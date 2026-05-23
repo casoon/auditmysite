@@ -709,18 +709,20 @@ fn collect_batch_finding_groups(
     let mut groups: HashMap<String, NormalizedFindingAccumulator> = HashMap::new();
     for report in normalized_reports {
         for finding in &report.findings {
+            let base_severity = crate::taxonomy::rules::RULES
+                .iter()
+                .find(|r| r.id == finding.rule_id)
+                .map(|r| r.severity)
+                .unwrap_or(finding.severity);
             let entry = groups
                 .entry(finding.aggregation_key.clone())
                 .or_insert_with(|| NormalizedFindingAccumulator {
                     finding: finding.clone(),
-                    severity: finding.severity,
+                    severity: base_severity,
                     count: 0,
                     urls: Vec::new(),
                 });
             entry.count += finding.occurrence_count;
-            if finding.severity > entry.severity {
-                entry.severity = finding.severity;
-            }
             if !entry.urls.contains(&report.url) {
                 entry.urls.push(report.url.clone());
             }

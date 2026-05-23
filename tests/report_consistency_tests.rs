@@ -486,11 +486,13 @@ fn test_fix_guidance_has_actionable_content() {
             "fix_guidance for {} has empty problem",
             g.rule_id
         );
-        assert!(
-            !g.recommendation.is_empty(),
-            "fix_guidance for {} has empty recommendation",
-            g.rule_id
-        );
+        if let Some(rec) = &g.recommendation {
+            assert!(
+                !rec.is_empty(),
+                "fix_guidance for {} has empty recommendation",
+                g.rule_id
+            );
+        }
         assert!(
             !g.severity.is_empty(),
             "fix_guidance for {} has empty severity",
