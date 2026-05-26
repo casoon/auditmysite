@@ -1379,6 +1379,26 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         }
     }
 
+    // Required-property validation issues from schema.rs
+    if !seo.structured_data.schema_issues.is_empty() {
+        // Group missing fields by schema type for a compact summary
+        let mut by_type: std::collections::BTreeMap<&str, Vec<&str>> =
+            std::collections::BTreeMap::new();
+        for issue in &seo.structured_data.schema_issues {
+            by_type
+                .entry(issue.schema_type.as_str())
+                .or_default()
+                .push(issue.message.split('"').nth(1).unwrap_or("?"));
+        }
+        for (type_name, fields) in &by_type {
+            checks.push(check(
+                &format!("{} Pflichtfelder vollständig", type_name),
+                false,
+                Some(format!("Fehlt: {}", fields.join(", "))),
+            ));
+        }
+    }
+
     let score_pct = category_score(&checks);
     SignalCategory {
         name: "Strukturierte Daten".to_string(),

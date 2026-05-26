@@ -19,6 +19,20 @@ pub struct StructuredData {
     pub has_structured_data: bool,
     /// Rich snippets potential
     pub rich_snippets_potential: Vec<String>,
+    /// Validation issues: missing required properties per schema block
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schema_issues: Vec<SchemaIssue>,
+}
+
+/// A required-property validation issue for a JSON-LD block
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaIssue {
+    /// The @type of the affected schema block
+    pub schema_type: String,
+    /// Machine-readable issue key
+    pub issue_type: String,
+    /// Human-readable description
+    pub message: String,
 }
 
 /// JSON-LD schema data
@@ -178,6 +192,34 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
                 content: schema.clone(),
                 is_valid,
             });
+
+            // Expand @graph items into separate entries so property validation
+            // can check each typed item individually
+            if is_valid {
+                if let Some(graph) = schema["@graph"].as_array() {
+                    for graph_item in graph {
+                        let item_types: Vec<String> = if let Some(s) = graph_item["@type"].as_str()
+                        {
+                            vec![s.to_string()]
+                        } else if let Some(arr) = graph_item["@type"].as_array() {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect()
+                        } else {
+                            vec![]
+                        };
+                        if item_types.is_empty() {
+                            continue;
+                        }
+                        json_ld.push(JsonLdSchema {
+                            schema_type: item_types.first().cloned().unwrap_or_default(),
+                            schema_types: item_types,
+                            content: graph_item.clone(),
+                            is_valid: true,
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -192,12 +234,80 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
         rich_snippets_potential.len()
     );
 
+    let schema_issues = json_ld
+        .iter()
+        .flat_map(|s| validate_schema_properties(s))
+        .collect();
+
     Ok(StructuredData {
         json_ld,
         types,
         has_structured_data,
         rich_snippets_potential,
+        schema_issues,
     })
+}
+
+fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
+    if !schema.is_valid {
+        return vec![];
+    }
+
+    // Required properties per schema type (Google rich-result spec)
+    let required: &[(&str, &[&str])] = &[
+        ("Article", &["headline", "image", "author", "datePublished"]),
+        (
+            "BlogPosting",
+            &["headline", "image", "author", "datePublished"],
+        ),
+        (
+            "NewsArticle",
+            &["headline", "image", "author", "datePublished"],
+        ),
+        ("Product", &["name", "image"]),
+        ("Event", &["name", "startDate"]),
+        (
+            "VideoObject",
+            &["name", "description", "thumbnailUrl", "uploadDate"],
+        ),
+        ("Recipe", &["name", "image"]),
+        ("HowTo", &["name"]),
+        ("Review", &["author"]),
+    ];
+
+    let types_to_check: Vec<String> = if schema.schema_types.is_empty() {
+        schema
+            .schema_type
+            .split('/')
+            .last()
+            .map(|s| vec![s.to_string()])
+            .unwrap_or_default()
+    } else {
+        schema
+            .schema_types
+            .iter()
+            .map(|t| t.split('/').last().unwrap_or(t).to_string())
+            .collect()
+    };
+
+    let mut issues = Vec::new();
+    for (type_name, props) in required {
+        if types_to_check.iter().any(|t| t == type_name) {
+            for prop in *props {
+                if schema.content[prop].is_null() {
+                    issues.push(SchemaIssue {
+                        schema_type: type_name.to_string(),
+                        issue_type: format!("schema_missing_{}", prop),
+                        message: format!(
+                            "{}: Pflichtfeld \"{}\" fehlt im JSON-LD",
+                            type_name, prop
+                        ),
+                    });
+                }
+            }
+        }
+    }
+    issues
 }
 
 fn extract_types(schema: &serde_json::Value) -> Vec<String> {

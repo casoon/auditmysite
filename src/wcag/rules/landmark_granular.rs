@@ -10,6 +10,8 @@
 //! 5. `landmark-no-duplicate-banner`        — at most one banner
 //! 6. `landmark-no-duplicate-contentinfo`   — at most one contentinfo
 //! 7. `landmark-no-duplicate-main`          — at most one main
+//! 8. `landmark-banner-present`             — page must have a banner landmark
+//! 9. `landmark-main-present`               — page must have a main landmark
 
 use std::collections::HashMap;
 
@@ -93,6 +95,28 @@ pub const RULE_NO_DUPLICATE_MAIN: RuleMetadata = RuleMetadata {
     description: "The page must not have more than one main landmark",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
     axe_id: "landmark-no-duplicate-main",
+    tags: &["wcag2a", "wcag131", "cat.semantics"],
+};
+
+pub const RULE_LANDMARK_BANNER_PRESENT: RuleMetadata = RuleMetadata {
+    id: "1.3.1",
+    name: "Landmark Banner Present",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "The page must have a banner landmark (<header> or role=\"banner\")",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    axe_id: "landmark-banner-present",
+    tags: &["wcag2a", "wcag131", "cat.semantics"],
+};
+
+pub const RULE_LANDMARK_MAIN_PRESENT: RuleMetadata = RuleMetadata {
+    id: "1.3.1",
+    name: "Landmark Main Present",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "The page must have a main landmark (<main> or role=\"main\")",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/info-and-relationships.html",
+    axe_id: "landmark-main-present",
     tags: &["wcag2a", "wcag131", "cat.semantics"],
 };
 
@@ -380,6 +404,71 @@ pub fn check_landmark_no_duplicate_main(tree: &AXTree) -> WcagResults {
         &RULE_NO_DUPLICATE_MAIN,
         "Ensure the page has exactly one <main> / role=\"main\"",
     )
+}
+
+/// **landmark-banner-present** — page must have at least one banner landmark.
+///
+/// Only fires when the tree has enough nodes to represent a real page (> 2 nodes),
+/// avoiding false positives on error pages or minimal shells.
+pub fn check_landmark_banner_present(tree: &AXTree) -> WcagResults {
+    let mut results = WcagResults::new();
+    let node_count = tree.nodes.len();
+    if node_count <= 2 {
+        return results;
+    }
+    let banners = tree.nodes_with_role("banner");
+    if banners.is_empty() {
+        results.add_violation(
+            Violation::new(
+                RULE_LANDMARK_BANNER_PRESENT.id,
+                RULE_LANDMARK_BANNER_PRESENT.name,
+                RULE_LANDMARK_BANNER_PRESENT.level,
+                RULE_LANDMARK_BANNER_PRESENT.severity,
+                "Page has no banner landmark — assistive technologies cannot identify the site header",
+                "root",
+            )
+            .with_fix(
+                "Add a top-level <header> element (or an element with role=\"banner\") \
+                 that is not nested inside <main>, <article>, <aside>, <nav>, or <section>",
+            )
+            .with_rule_id(RULE_LANDMARK_BANNER_PRESENT.axe_id)
+            .with_help_url(RULE_LANDMARK_BANNER_PRESENT.help_url),
+        );
+    } else {
+        results.passes += 1;
+    }
+    results
+}
+
+/// **landmark-main-present** — page must have at least one main landmark.
+pub fn check_landmark_main_present(tree: &AXTree) -> WcagResults {
+    let mut results = WcagResults::new();
+    let node_count = tree.nodes.len();
+    if node_count <= 2 {
+        return results;
+    }
+    let mains = tree.nodes_with_role("main");
+    if mains.is_empty() {
+        results.add_violation(
+            Violation::new(
+                RULE_LANDMARK_MAIN_PRESENT.id,
+                RULE_LANDMARK_MAIN_PRESENT.name,
+                RULE_LANDMARK_MAIN_PRESENT.level,
+                RULE_LANDMARK_MAIN_PRESENT.severity,
+                "Page has no main landmark — assistive technologies cannot skip to the primary content",
+                "root",
+            )
+            .with_fix(
+                "Wrap the page's primary content in a <main> element \
+                 (or add role=\"main\" to the container)",
+            )
+            .with_rule_id(RULE_LANDMARK_MAIN_PRESENT.axe_id)
+            .with_help_url(RULE_LANDMARK_MAIN_PRESENT.help_url),
+        );
+    } else {
+        results.passes += 1;
+    }
+    results
 }
 
 /// **skip-link** — page with a navigation landmark must have a skip-navigation link.
@@ -827,5 +916,76 @@ mod tests {
             assert_eq!(v.rule, "2.4.1", "skip-link must stay under WCAG 2.4.1");
             assert_eq!(v.rule_id.as_deref(), Some("skip-link"));
         }
+    }
+
+    // ── landmark-banner-present ────────────────────────────────────────────
+
+    #[test]
+    fn banner_absent_violation() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("nav", "navigation", Some("Main"), Some("root")),
+            node("main", "main", Some("Content"), Some("root")),
+        ]);
+        let r = check_landmark_banner_present(&tree);
+        assert!(
+            r.violations
+                .iter()
+                .any(|v| v.rule_id.as_deref() == Some("landmark-banner-present")),
+            "No banner landmark should trigger a violation"
+        );
+    }
+
+    #[test]
+    fn banner_present_pass() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("b", "banner", Some("Header"), Some("root")),
+            node("main", "main", Some("Content"), Some("root")),
+        ]);
+        let r = check_landmark_banner_present(&tree);
+        assert!(r.violations.is_empty());
+        assert!(r.passes > 0);
+    }
+
+    #[test]
+    fn banner_absent_tiny_tree_no_violation() {
+        // Two-node trees (root + one node) must not fire
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("div", "generic", None, Some("root")),
+        ]);
+        let r = check_landmark_banner_present(&tree);
+        assert!(r.violations.is_empty());
+    }
+
+    // ── landmark-main-present ──────────────────────────────────────────────
+
+    #[test]
+    fn main_absent_violation() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("b", "banner", Some("Header"), Some("root")),
+            node("nav", "navigation", Some("Nav"), Some("root")),
+        ]);
+        let r = check_landmark_main_present(&tree);
+        assert!(
+            r.violations
+                .iter()
+                .any(|v| v.rule_id.as_deref() == Some("landmark-main-present")),
+            "No main landmark should trigger a violation"
+        );
+    }
+
+    #[test]
+    fn main_present_pass() {
+        let tree = AXTree::from_nodes(vec![
+            node("root", "RootWebArea", Some("Page"), None),
+            node("b", "banner", Some("Header"), Some("root")),
+            node("m", "main", Some("Content"), Some("root")),
+        ]);
+        let r = check_landmark_main_present(&tree);
+        assert!(r.violations.is_empty());
+        assert!(r.passes > 0);
     }
 }

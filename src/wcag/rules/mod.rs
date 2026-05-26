@@ -110,8 +110,9 @@ pub use label_in_name::{check_label_in_name, check_label_in_name_with_page};
 pub use label_title_only::check_label_title_only;
 pub use labels::check_labels;
 pub use landmark_granular::{
-    check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
-    check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
+    check_landmark_banner_is_top_level, check_landmark_banner_present,
+    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
+    check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
     check_landmark_unique, check_skip_link,
 };

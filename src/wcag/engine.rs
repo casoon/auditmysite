@@ -24,7 +24,8 @@ use super::rules::{
     check_headings, check_help, check_image_input_rules, check_info_relationships,
     check_input_purpose, check_instructions, check_keyboard, check_label_in_name,
     check_label_title_only, check_labels, check_landmark_banner_is_top_level,
-    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
+    check_landmark_banner_present, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_main_present,
     check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
     check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_language,
     check_language_extended, check_link_purpose, check_link_purpose_link_only,
@@ -368,6 +369,20 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
         filter,
         "landmark-no-duplicate-main",
         check_landmark_no_duplicate_main,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-banner-present",
+        check_landmark_banner_present,
+        results,
+        tree
+    );
+    run_if_allowed!(
+        filter,
+        "landmark-main-present",
+        check_landmark_main_present,
         results,
         tree
     );

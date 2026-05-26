@@ -89,6 +89,8 @@ pub struct PageHealthAnalysis {
     pub paste_blocking_password_fields: u32,
     /// `<img>` elements below the initial viewport without `loading="lazy"`
     pub offscreen_images_without_lazy: u32,
+    /// `<img>` elements outside `<picture>` without a `srcset` attribute (no responsive variants)
+    pub images_without_srcset: u32,
     /// Third-party origins without a matching `<link rel="preconnect">` hint
     pub missing_preconnect_count: u32,
     /// Sample of origins missing preconnect (up to 5)
@@ -330,6 +332,16 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
                 return rect.top > vh && img.getAttribute('loading') !== 'lazy';
             }).length;
 
+        // Images without srcset (no responsive variants)
+        r.imagesWithoutSrcset = Array.from(document.querySelectorAll('img'))
+            .filter(img => {
+                if (img.closest('picture')) return false;
+                const src = img.getAttribute('src') || '';
+                if (src.endsWith('.svg') || src.startsWith('data:image/svg')) return false;
+                if (img.naturalWidth > 0 && img.naturalWidth < 80) return false;
+                return !img.hasAttribute('srcset');
+            }).length;
+
         // Missing preconnect hints for third-party origins
         const preconnected = new Set(
             Array.from(document.querySelectorAll('link[rel="preconnect"]'))
@@ -497,6 +509,7 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.paste_blocking_password_fields =
         parsed["pasteBlockingPasswords"].as_u64().unwrap_or(0) as u32;
     a.offscreen_images_without_lazy = parsed["offscreenWithoutLazy"].as_u64().unwrap_or(0) as u32;
+    a.images_without_srcset = parsed["imagesWithoutSrcset"].as_u64().unwrap_or(0) as u32;
     a.missing_preconnect_count = parsed["missingPreconnectCount"].as_u64().unwrap_or(0) as u32;
     a.missing_preconnect_origins = parsed["missingPreconnectOrigins"]
         .as_array()
@@ -959,6 +972,22 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
                 a.offscreen_images_without_lazy
             ),
             severity: if a.offscreen_images_without_lazy >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+        });
+    }
+
+    if a.images_without_srcset > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "images_without_srcset".to_string(),
+            message: format!(
+                "{} <img>-Elemente ohne srcset — keine responsiven Bildvarianten für verschiedene Auflösungen",
+                a.images_without_srcset
+            ),
+            severity: if a.images_without_srcset >= 5 {
                 "medium"
             } else {
                 "low"
