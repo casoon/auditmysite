@@ -746,6 +746,8 @@ pub struct SeoPresentation {
     pub serp: Option<SerpPresentation>,
     /// Image efficiency analysis
     pub image_efficiency: Option<ImageEfficiencyPresentation>,
+    /// TechnicalSeo issues (noindex, hreflang gaps, crawl budget) — (issue_type, message, severity_label)
+    pub technical_issues: Vec<(String, String, String)>,
 }
 
 /// SERP pass presentation
@@ -790,6 +792,8 @@ pub struct RobotsPresentation {
     pub bot_rows: Vec<(String, String, usize, usize, bool)>,
     /// AI crawlers that are explicitly blocked
     pub blocked_ai_bots: Vec<String>,
+    /// Page has noindex and appears in sitemap.xml (true = problem found)
+    pub noindex_in_sitemap: Option<bool>,
 }
 
 /// SEO Content Profile presentation data

@@ -7,6 +7,8 @@
 //! These checks complement WCAG 3.2.3 (Consistent Navigation) and 3.2.4
 //! (Consistent Identification) without requiring runtime interaction.
 
+use std::collections::{HashMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 
 use crate::audit::report::{AuditReport, BatchReport};
@@ -17,6 +19,29 @@ pub struct BatchConsistencyAnalysis {
     pub navigation: NavigationConsistency,
     pub headings: HeadingConsistency,
     pub canonical: CanonicalConsistency,
+    pub orphan_pages: OrphanPageAnalysis,
+    pub schema_graph: SchemaGraphAnalysis,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct OrphanPageAnalysis {
+    /// Pages not linked from any other audited page.
+    pub orphan_urls: Vec<String>,
+    pub total_pages: usize,
+    pub findings: Vec<String>,
+}
+
+/// A conflict between two pages for the same schema `@id` entity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaEntityConflict {
+    pub entity_id: String,
+    pub conflicts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SchemaGraphAnalysis {
+    pub conflicts: Vec<SchemaEntityConflict>,
+    pub findings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -65,6 +90,8 @@ pub fn analyze(batch: &BatchReport) -> Option<BatchConsistencyAnalysis> {
         navigation: analyze_navigation(&batch.reports),
         headings: analyze_headings(&batch.reports),
         canonical: analyze_canonical(&batch.reports),
+        orphan_pages: analyze_orphan_pages(&batch.reports),
+        schema_graph: analyze_schema_graph(&batch.reports),
     })
 }
 
@@ -195,6 +222,146 @@ fn analyze_canonical(reports: &[AuditReport]) -> CanonicalConsistency {
     }
 }
 
+fn analyze_orphan_pages(reports: &[AuditReport]) -> OrphanPageAnalysis {
+    let total_pages = reports.len();
+
+    // Collect all internal link targets from every page, normalised.
+    let mut all_targets: HashSet<String> = HashSet::new();
+    for r in reports {
+        if let Some(seo) = r.seo.as_ref() {
+            for target in &seo.technical.internal_link_targets {
+                all_targets.insert(normalise_url(target));
+            }
+        }
+    }
+
+    // A page is an orphan if its own URL is not referenced by any other page.
+    let orphan_urls: Vec<String> = reports
+        .iter()
+        .filter(|r| !all_targets.contains(&normalise_url(&r.url)))
+        .map(|r| r.url.clone())
+        .collect();
+
+    let mut findings = Vec::new();
+    if !orphan_urls.is_empty() {
+        findings.push(format!(
+            "{} of {total_pages} page(s) are not linked from any other audited page: {}",
+            orphan_urls.len(),
+            orphan_urls.join(", ")
+        ));
+    }
+
+    OrphanPageAnalysis {
+        orphan_urls,
+        total_pages,
+        findings,
+    }
+}
+
+fn analyze_schema_graph(reports: &[AuditReport]) -> SchemaGraphAnalysis {
+    // entity_id → Vec<(page_url, schema_type, name)>
+    let mut entities: HashMap<String, Vec<(String, String, String)>> = HashMap::new();
+
+    for r in reports {
+        let json_ld = match r.seo.as_ref().map(|s| &s.structured_data.json_ld) {
+            Some(v) => v,
+            None => continue,
+        };
+        for schema in json_ld {
+            collect_schema_entities(&schema.content, &r.url, &mut entities);
+        }
+    }
+
+    let mut conflicts = Vec::new();
+    for (entity_id, occurrences) in &entities {
+        if occurrences.len() < 2 {
+            continue;
+        }
+        let first_type = &occurrences[0].1;
+        let first_name = &occurrences[0].2;
+        let type_conflict = occurrences.iter().any(|(_, t, _)| t != first_type);
+        let name_conflict = occurrences
+            .iter()
+            .any(|(_, _, n)| !n.is_empty() && !first_name.is_empty() && n != first_name);
+
+        if type_conflict || name_conflict {
+            let mut msgs = Vec::new();
+            if type_conflict {
+                let types: Vec<&str> = occurrences.iter().map(|(_, t, _)| t.as_str()).collect();
+                msgs.push(format!("@type conflict: {}", types.join(" vs ")));
+            }
+            if name_conflict {
+                let names: Vec<&str> = occurrences
+                    .iter()
+                    .filter(|(_, _, n)| !n.is_empty())
+                    .map(|(_, _, n)| n.as_str())
+                    .collect();
+                msgs.push(format!("name conflict: {}", names.join(" vs ")));
+            }
+            conflicts.push(SchemaEntityConflict {
+                entity_id: entity_id.clone(),
+                conflicts: msgs,
+            });
+        }
+    }
+
+    let mut findings = Vec::new();
+    if !conflicts.is_empty() {
+        findings.push(format!(
+            "{} schema entity/entities have conflicting @type or name across pages — review structured data consistency.",
+            conflicts.len()
+        ));
+    }
+
+    SchemaGraphAnalysis {
+        conflicts,
+        findings,
+    }
+}
+
+/// Recursively collect entities with `@id` from a JSON-LD value.
+fn collect_schema_entities(
+    value: &serde_json::Value,
+    page_url: &str,
+    out: &mut HashMap<String, Vec<(String, String, String)>>,
+) {
+    match value {
+        serde_json::Value::Object(obj) => {
+            if let Some(id) = obj.get("@id").and_then(|v| v.as_str()) {
+                let schema_type = obj
+                    .get("@type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let name = obj
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                out.entry(id.to_string()).or_default().push((
+                    page_url.to_string(),
+                    schema_type,
+                    name,
+                ));
+            }
+            // Recurse into nested objects (e.g. @graph array items)
+            for v in obj.values() {
+                collect_schema_entities(v, page_url, out);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr {
+                collect_schema_entities(v, page_url, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn normalise_url(url: &str) -> String {
+    url.trim_end_matches('/').to_lowercase()
+}
+
 fn canonical_host(url: &str) -> Option<String> {
     url::Url::parse(url)
         .ok()
@@ -317,5 +484,129 @@ mod tests {
         let reports = vec![make_report("https://a.com/", 1, None, vec![])];
         let batch = BatchReport::from_reports(reports, vec![], 100);
         assert!(analyze(&batch).is_none());
+    }
+
+    fn make_report_with_links(url: &str, link_targets: Vec<&str>) -> AuditReport {
+        let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
+        report.seo = Some(SeoAnalysis {
+            technical: TechnicalSeo {
+                internal_link_targets: link_targets.into_iter().map(String::from).collect(),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        report
+    }
+
+    #[test]
+    fn test_orphan_page_detected() {
+        // page-a links to page-b but not page-c; page-b links to nothing
+        let reports = vec![
+            make_report_with_links("https://a.com/a", vec!["https://a.com/b"]),
+            make_report_with_links("https://a.com/b", vec![]),
+            make_report_with_links("https://a.com/c", vec![]),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        // page-a and page-c are not linked from anyone
+        assert!(a
+            .orphan_pages
+            .orphan_urls
+            .contains(&"https://a.com/a".to_string()));
+        assert!(a
+            .orphan_pages
+            .orphan_urls
+            .contains(&"https://a.com/c".to_string()));
+        assert!(!a
+            .orphan_pages
+            .orphan_urls
+            .contains(&"https://a.com/b".to_string()));
+    }
+
+    #[test]
+    fn test_no_orphans_when_all_linked() {
+        let reports = vec![
+            make_report_with_links("https://a.com/a", vec!["https://a.com/b"]),
+            make_report_with_links("https://a.com/b", vec!["https://a.com/a"]),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        assert!(a.orphan_pages.orphan_urls.is_empty());
+        assert!(a.orphan_pages.findings.is_empty());
+    }
+
+    #[test]
+    fn test_schema_graph_conflict_detected() {
+        use crate::seo::schema::{JsonLdSchema, StructuredData};
+        use serde_json::json;
+
+        let make_schema_report = |url: &str, schema_type: &str| {
+            let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
+            report.seo = Some(SeoAnalysis {
+                structured_data: StructuredData {
+                    json_ld: vec![JsonLdSchema {
+                        schema_type: schema_type.to_string(),
+                        schema_types: vec![schema_type.to_string()],
+                        content: json!({
+                            "@id": "https://a.com/#org",
+                            "@type": schema_type,
+                            "name": "Acme"
+                        }),
+                        is_valid: true,
+                    }],
+                    has_structured_data: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            report
+        };
+
+        let reports = vec![
+            make_schema_report("https://a.com/", "Organization"),
+            make_schema_report("https://a.com/about", "LocalBusiness"),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        assert!(!a.schema_graph.conflicts.is_empty());
+        assert!(a.schema_graph.conflicts[0].entity_id == "https://a.com/#org");
+        assert!(!a.schema_graph.findings.is_empty());
+    }
+
+    #[test]
+    fn test_schema_graph_no_conflict_same_type() {
+        use crate::seo::schema::{JsonLdSchema, StructuredData};
+        use serde_json::json;
+
+        let make_schema_report = |url: &str| {
+            let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
+            report.seo = Some(SeoAnalysis {
+                structured_data: StructuredData {
+                    json_ld: vec![JsonLdSchema {
+                        schema_type: "Organization".to_string(),
+                        schema_types: vec!["Organization".to_string()],
+                        content: json!({
+                            "@id": "https://a.com/#org",
+                            "@type": "Organization",
+                            "name": "Acme"
+                        }),
+                        is_valid: true,
+                    }],
+                    has_structured_data: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            report
+        };
+
+        let reports = vec![
+            make_schema_report("https://a.com/"),
+            make_schema_report("https://a.com/about"),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        assert!(a.schema_graph.conflicts.is_empty());
+        assert!(a.schema_graph.findings.is_empty());
     }
 }

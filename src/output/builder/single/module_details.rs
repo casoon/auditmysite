@@ -705,6 +705,7 @@ pub(super) fn build_module_details_from_normalized(
                     crawl_delays: r.crawl_delays.clone(),
                     bot_rows,
                     blocked_ai_bots,
+                    noindex_in_sitemap: r.noindex_in_sitemap,
                 }
             }),
             image_efficiency: s
@@ -726,6 +727,18 @@ pub(super) fn build_module_details_from_normalized(
                         })
                         .collect(),
                 }),
+            technical_issues: s
+                .technical
+                .issues
+                .iter()
+                .map(|i| {
+                    (
+                        i.issue_type.clone(),
+                        i.message.clone(),
+                        i.severity.label().to_string(),
+                    )
+                })
+                .collect(),
         }
     });
 

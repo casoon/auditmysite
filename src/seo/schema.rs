@@ -236,7 +236,7 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
 
     let schema_issues = json_ld
         .iter()
-        .flat_map(|s| validate_schema_properties(s))
+        .flat_map(validate_schema_properties)
         .collect();
 
     Ok(StructuredData {
@@ -279,14 +279,14 @@ fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
         schema
             .schema_type
             .split('/')
-            .last()
+            .next_back()
             .map(|s| vec![s.to_string()])
             .unwrap_or_default()
     } else {
         schema
             .schema_types
             .iter()
-            .map(|t| t.split('/').last().unwrap_or(t).to_string())
+            .map(|t| t.split('/').next_back().unwrap_or(t).to_string())
             .collect()
     };
 

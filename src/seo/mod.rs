@@ -76,7 +76,12 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     let structured_data = detect_structured_data(page).await?;
 
     // robots.txt — HTTP fetch, independent of browser
-    let robots = Some(audit_robots_txt(url).await);
+    let is_noindex = technical
+        .robots_meta
+        .as_deref()
+        .map(|r| r.to_lowercase().contains("noindex"))
+        .unwrap_or(false);
+    let robots = Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex).await);
 
     // Page health analysis — HTTP probes + DOM inspection
     let page_health = match analyze_page_health(page, url).await {

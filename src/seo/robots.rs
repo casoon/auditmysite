@@ -21,6 +21,9 @@ pub struct RobotsAudit {
     pub sitemaps: Vec<String>,
     /// (user-agent, delay-seconds) pairs
     pub crawl_delays: Vec<(String, u32)>,
+    /// True when the audited page has noindex AND appears in the sitemap.xml
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub noindex_in_sitemap: Option<bool>,
     /// True when `User-agent: *` has `Disallow: /` — blocks everything
     pub has_wildcard_disallow_all: bool,
     /// True when any AI crawler (any sub-type) is blocked — legacy alias
@@ -173,8 +176,14 @@ fn classify_bot(ua: &str) -> BotClass {
 // ─── Fetch ───────────────────────────────────────────────────────────────────
 
 /// Fetch and parse the robots.txt for the given URL's domain.
+/// If `canonical_url` is provided and `is_noindex` is true, also checks
+/// whether the page appears in any declared sitemap.xml.
 /// Never returns an error — failures are recorded in `RobotsAudit.error`.
-pub async fn audit_robots_txt(url: &str) -> RobotsAudit {
+pub async fn audit_robots_txt(
+    url: &str,
+    canonical_url: Option<&str>,
+    is_noindex: bool,
+) -> RobotsAudit {
     let base = extract_base(url);
     let robots_url = format!("{}/robots.txt", base.trim_end_matches('/'));
 
@@ -218,7 +227,62 @@ pub async fn audit_robots_txt(url: &str) -> RobotsAudit {
 
     let mut audit = parse_robots_txt(&text);
     audit.fetched = true;
+
+    // noindex-in-sitemap check: only run when page is noindex and we have a canonical URL
+    if is_noindex {
+        if let Some(canon) = canonical_url {
+            audit.noindex_in_sitemap =
+                Some(check_noindex_in_sitemap(&audit.sitemaps, canon, &client).await);
+        }
+    }
+
     audit
+}
+
+/// Fetch the first declared sitemap and check whether `canonical_url` appears as a `<loc>` entry.
+async fn check_noindex_in_sitemap(
+    sitemaps: &[String],
+    canonical_url: &str,
+    client: &Client,
+) -> bool {
+    let Some(sitemap_url) = sitemaps.first() else {
+        return false;
+    };
+
+    let Ok(resp) = client
+        .get(sitemap_url)
+        .timeout(Duration::from_secs(8))
+        .send()
+        .await
+    else {
+        return false;
+    };
+    if !resp.status().is_success() {
+        return false;
+    }
+    let Ok(body) = resp.text().await else {
+        return false;
+    };
+
+    // Normalise URL for comparison: strip trailing slash
+    let norm = |s: &str| s.trim_end_matches('/').to_lowercase();
+    let target = norm(canonical_url);
+
+    // Simple <loc>…</loc> scan — avoids an XML parser dependency
+    let mut pos = 0;
+    while let Some(start) = body[pos..].find("<loc>") {
+        let abs = pos + start + 5;
+        if let Some(end) = body[abs..].find("</loc>") {
+            let loc = norm(&body[abs..abs + end]);
+            if loc == target {
+                return true;
+            }
+            pos = abs + end + 6;
+        } else {
+            break;
+        }
+    }
+    false
 }
 
 fn extract_base(url: &str) -> String {
@@ -365,6 +429,7 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
         blocks_ai_training,
         blocks_ai_citation,
         inferred_policy,
+        noindex_in_sitemap: None,
     }
 }
 

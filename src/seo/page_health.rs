@@ -146,6 +146,23 @@ pub struct PageHealthAnalysis {
     /// Number of deprecated browser API patterns detected in inline scripts
     pub deprecated_api_count: u32,
 
+    /// Synchronous `<script src>` in `<head>` without defer/async/type=module (render-blocking)
+    pub sync_head_scripts: u32,
+    /// External `<script src>` without Subresource Integrity `integrity` attribute
+    pub external_scripts_without_sri: u32,
+    /// External `<link rel="stylesheet">` without Subresource Integrity `integrity` attribute
+    pub external_styles_without_sri: u32,
+    /// `<a href="#fragment">` links where the target ID does not exist on this page
+    pub broken_fragment_links: u32,
+    /// Sample of broken fragment hrefs (up to 5)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub broken_fragment_samples: Vec<String>,
+    /// Links with generic, non-descriptive text ("hier", "mehr", "click here", etc.)
+    pub generic_link_text_count: u32,
+    /// Sample hrefs of generic-text links (up to 5)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub generic_link_text_samples: Vec<String>,
+
     /// Aggregated issue list for report rendering
     pub issues: Vec<PageHealthIssue>,
 }
@@ -464,6 +481,49 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
             } catch(e) { return true; }
         }).length;
 
+        // Render-blocking: sync <script src> in <head> without defer/async/type=module
+        r.syncHeadScripts = Array.from(document.querySelectorAll('head script[src]'))
+            .filter(s => {
+                const t = (s.getAttribute('type') || '').toLowerCase();
+                return !s.hasAttribute('async') && !s.hasAttribute('defer') && t !== 'module';
+            }).length;
+
+        // SRI: external scripts and stylesheets without integrity attribute
+        const pageOrigin = window.location.origin;
+        r.externalScriptsWithoutSri = Array.from(document.querySelectorAll('script[src]'))
+            .filter(s => {
+                try { return new URL(s.src).origin !== pageOrigin && !s.hasAttribute('integrity'); }
+                catch(e) { return false; }
+            }).length;
+        r.externalStylesWithoutSri = Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'))
+            .filter(l => {
+                try { return new URL(l.href).origin !== pageOrigin && !l.hasAttribute('integrity'); }
+                catch(e) { return false; }
+            }).length;
+
+        // Fragment anchor validation: #anchor links where target ID does not exist on this page
+        const pageIds = new Set(Array.from(document.querySelectorAll('[id]')).map(el => el.id));
+        const brokenFragmentEls = Array.from(document.querySelectorAll('a')).filter(a => {
+            const href = a.getAttribute('href') || '';
+            if (href.charAt(0) !== '#') return false;
+            const frag = href.slice(1);
+            if (!frag) return false;
+            try { return !pageIds.has(frag) && !pageIds.has(decodeURIComponent(frag)); }
+            catch(e) { return !pageIds.has(frag); }
+        });
+        r.brokenFragmentLinks = brokenFragmentEls.length;
+        r.brokenFragmentSamples = brokenFragmentEls.slice(0, 5).map(a => a.getAttribute('href'));
+
+        // Generic link text: links with non-descriptive anchor text
+        const GENERIC_TEXTS = new Set(['hier', 'mehr', 'weiter', 'klick', 'link', 'details', 'ansehen',
+            'click here', 'read more', 'learn more', 'more', 'here']);
+        const genericLinkEls = Array.from(document.querySelectorAll('a')).filter(a => {
+            const text = (a.textContent || '').trim().toLowerCase();
+            return text && GENERIC_TEXTS.has(text);
+        });
+        r.genericLinkTextCount = genericLinkEls.length;
+        r.genericLinkTextSamples = genericLinkEls.slice(0, 5).map(a => a.getAttribute('href') || '(no href)');
+
         return JSON.stringify(r);
     })()
     "#;
@@ -540,6 +600,28 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.hreflang_invalid_count = parsed["hreflangInvalidCount"].as_u64().unwrap_or(0) as u32;
     a.jsonld_count = parsed["jsonldCount"].as_u64().unwrap_or(0) as u32;
     a.jsonld_invalid_count = parsed["jsonldInvalidCount"].as_u64().unwrap_or(0) as u32;
+    a.sync_head_scripts = parsed["syncHeadScripts"].as_u64().unwrap_or(0) as u32;
+    a.external_scripts_without_sri =
+        parsed["externalScriptsWithoutSri"].as_u64().unwrap_or(0) as u32;
+    a.external_styles_without_sri = parsed["externalStylesWithoutSri"].as_u64().unwrap_or(0) as u32;
+    a.broken_fragment_links = parsed["brokenFragmentLinks"].as_u64().unwrap_or(0) as u32;
+    a.broken_fragment_samples = parsed["brokenFragmentSamples"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    a.generic_link_text_count = parsed["genericLinkTextCount"].as_u64().unwrap_or(0) as u32;
+    a.generic_link_text_samples = parsed["genericLinkTextSamples"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     a.html_issues = build_html_issues(a, &parsed);
 
     Ok(())
@@ -1182,6 +1264,56 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
                 a.jsonld_invalid_count
             ),
             severity: "medium".to_string(),
+        });
+    }
+
+    if a.sync_head_scripts > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "sync_head_scripts".to_string(),
+            message: format!(
+                "{} Script(s) im <head> ohne defer/async/module blockieren das Rendering",
+                a.sync_head_scripts
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    let sri_total = a.external_scripts_without_sri + a.external_styles_without_sri;
+    if sri_total > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "missing_sri".to_string(),
+            message: format!(
+                "{} externe Ressource(n) ohne Subresource Integrity (integrity-Attribut fehlt)",
+                sri_total
+            ),
+            severity: "medium".to_string(),
+        });
+    }
+
+    if a.broken_fragment_links > 0 {
+        let sample = if a.broken_fragment_samples.is_empty() {
+            String::new()
+        } else {
+            format!(" (z.B. {})", a.broken_fragment_samples.join(", "))
+        };
+        issues.push(PageHealthIssue {
+            issue_type: "broken_fragment_links".to_string(),
+            message: format!(
+                "{} Anker-Link(s) verweisen auf nicht existierende IDs{}",
+                a.broken_fragment_links, sample
+            ),
+            severity: "low".to_string(),
+        });
+    }
+
+    if a.generic_link_text_count > 0 {
+        issues.push(PageHealthIssue {
+            issue_type: "generic_link_text".to_string(),
+            message: format!(
+                "{} Link(s) mit nicht-beschreibendem Text (\"hier\", \"mehr\", \"click here\" u.ä.)",
+                a.generic_link_text_count
+            ),
+            severity: "low".to_string(),
         });
     }
 

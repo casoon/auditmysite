@@ -521,6 +521,19 @@ pub(super) fn render_seo(
         }
     }
 
+    if !seo.technical_issues.is_empty() {
+        let col_issue = i18n.t("label-issue");
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(&col_issue).with_width("75%"),
+            TableColumn::new(i18n.t("label-severity")).with_width("25%"),
+        ])
+        .with_title(i18n.t("seo-technical-issues-title"));
+        for (_, msg, sev) in &seo.technical_issues {
+            table = table.add_row(vec![msg.as_str(), sev.as_str()]);
+        }
+        builder = builder.add_component(table);
+    }
+
     // SEO Content Profile
     if let Some(profile) = &seo.profile {
         builder = render_seo_profile(builder, profile, i18n);

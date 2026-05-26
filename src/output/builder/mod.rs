@@ -329,6 +329,9 @@ mod tests {
                     has_favicon: true,
                     www_redirect: None,
                     issues: vec![],
+                    hreflang_has_x_default: false,
+                    hreflang_missing_self_reference: false,
+                    internal_links_with_query_params: 0,
                 };
                 seo.content_profile = Some(crate::seo::build_content_profile(&seo));
                 seo.score = seo_score;
@@ -469,6 +472,9 @@ mod tests {
             has_favicon: true,
             www_redirect: None,
             issues: vec![],
+            hreflang_has_x_default: false,
+            hreflang_missing_self_reference: false,
+            internal_links_with_query_params: 0,
         };
         seo.content_profile = Some(crate::seo::build_content_profile(&seo));
         seo.score = 92;

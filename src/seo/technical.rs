@@ -31,6 +31,12 @@ pub struct TechnicalSeo {
     pub has_hreflang: bool,
     /// Hreflang values
     pub hreflang: Vec<HreflangTag>,
+    /// x-default hreflang entry is present (only meaningful when has_hreflang is true)
+    pub hreflang_has_x_default: bool,
+    /// Page URL is not listed in its own hreflang set (only meaningful when has_hreflang is true)
+    pub hreflang_missing_self_reference: bool,
+    /// Internal links that contain query parameters (crawl budget dilution risk)
+    pub internal_links_with_query_params: u32,
     /// Word count on page
     pub word_count: u32,
     /// Internal links count
@@ -141,6 +147,13 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
                 url: el.getAttribute('href')
             });
         });
+        result.hreflangHasXDefault = result.hreflang.some(h => h.lang === 'x-default');
+        result.hreflangHasSelfReference = result.hreflang.some(h => {
+            try {
+                const norm = u => new URL(u, window.location.href).href.replace(/\/$/, '');
+                return norm(h.url) === norm(window.location.href);
+            } catch(e) { return false; }
+        });
 
         // Word count (approximate)
         const text = document.body ? document.body.innerText : '';
@@ -183,6 +196,19 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         result.dofollowLinks = dofollow;
         result.nofollowLinks = nofollow;
         result.internalLinkTargets = internalTargets.slice(0, 500);
+
+        // Crawl budget: internal links with query parameters
+        let internalWithQP = 0;
+        links.forEach(a => {
+            try {
+                const href = a.getAttribute('href');
+                if (!href || !href.includes('?')) return;
+                if (href.startsWith('/')) { internalWithQP++; return; }
+                if (href.startsWith('http') && new URL(href).host === currentHost) internalWithQP++;
+            } catch(e) {}
+        });
+        result.internalLinksWithQueryParams = internalWithQP;
+
         result.stylesheetUrls = Array.from(
             document.querySelectorAll('link[rel=\"stylesheet\"][href]'),
             el => el.href
@@ -234,6 +260,14 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
                 .collect()
         })
         .unwrap_or_default();
+
+    let hreflang_has_x_default = parsed["hreflangHasXDefault"].as_bool().unwrap_or(false);
+    let hreflang_missing_self_reference = !hreflang.is_empty()
+        && !parsed["hreflangHasSelfReference"]
+            .as_bool()
+            .unwrap_or(false);
+    let internal_links_with_query_params =
+        parsed["internalLinksWithQueryParams"].as_u64().unwrap_or(0) as u32;
 
     let word_count = parsed["wordCount"].as_u64().unwrap_or(0) as u32;
     let internal_links = parsed["internalLinks"].as_u64().unwrap_or(0) as u32;
@@ -318,6 +352,44 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         });
     }
 
+    if let Some(ref robots) = robots_meta {
+        if robots.to_lowercase().contains("noindex") {
+            issues.push(TechnicalIssue {
+                issue_type: "noindex".to_string(),
+                message: "Seite hat noindex-Direktive — wird von Suchmaschinen nicht indexiert"
+                    .to_string(),
+                severity: Severity::High,
+            });
+        }
+    }
+
+    if !hreflang.is_empty() && !hreflang_has_x_default {
+        issues.push(TechnicalIssue {
+            issue_type: "hreflang_no_x_default".to_string(),
+            message: "hreflang-Annotierungen ohne x-default-Eintrag".to_string(),
+            severity: Severity::Low,
+        });
+    }
+
+    if hreflang_missing_self_reference {
+        issues.push(TechnicalIssue {
+            issue_type: "hreflang_no_self_reference".to_string(),
+            message: "hreflang-Set enthält keine Self-Reference für die aktuelle Seite".to_string(),
+            severity: Severity::Low,
+        });
+    }
+
+    if internal_links_with_query_params > 0 {
+        issues.push(TechnicalIssue {
+            issue_type: "internal_links_with_query_params".to_string(),
+            message: format!(
+                "{} interne Link(s) mit Query-Parametern — können Crawl-Budget verwässern",
+                internal_links_with_query_params
+            ),
+            severity: Severity::Low,
+        });
+    }
+
     info!(
         "Technical SEO: HTTPS={}, canonical={}, lang={}, words={}, favicon={}, google_fonts={}, tracking_cookies={}, zaraz={}",
         https,
@@ -372,6 +444,9 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         robots_meta,
         has_hreflang: !hreflang.is_empty(),
         hreflang,
+        hreflang_has_x_default,
+        hreflang_missing_self_reference,
+        internal_links_with_query_params,
         word_count,
         internal_links,
         external_links,

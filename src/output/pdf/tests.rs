@@ -350,6 +350,7 @@ mod tests {
                     fcp_score: None,
                     cls_score: None,
                     interactivity_score: None,
+                    si_score: None,
                     metrics_available: 0,
                 },
                 render_blocking: None,
