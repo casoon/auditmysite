@@ -85,6 +85,7 @@ fn default_config() -> PipelineConfig {
         persist_artifacts: true,
         capture_screenshots: false,
         dismiss_consent: false,
+        interactive: auditmysite::cli::InteractiveMode::Off,
     }
 }
 

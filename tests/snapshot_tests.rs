@@ -80,6 +80,7 @@ fn make_performance() -> PerformanceResults {
         minification: None,
         animations: None,
         coverage: None,
+        measurement_warnings: Vec::new(),
     }
 }
 

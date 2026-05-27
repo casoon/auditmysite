@@ -1,15 +1,16 @@
 ---
 source: tests/snapshot_tests.rs
+assertion_line: 165
 expression: value
 ---
 {
-  "certificate": "SOLIDE",
+  "certificate": "AUSBAUFÄHIG",
   "finding_count": 2,
   "finding_rule_ids": [
     "a11y.name_role.missing",
     "a11y.structure.missing"
   ],
-  "grade": "B",
+  "grade": "D",
   "module_count": 7,
   "module_names": [
     "Accessibility",
@@ -20,13 +21,13 @@ expression: value
     "Security",
     "UX"
   ],
-  "overall_score": 83,
-  "score": 83,
+  "overall_score": 69,
+  "score": 49,
   "severity_counts": {
     "critical": 1,
-    "high": 1,
+    "high": 0,
     "low": 0,
-    "medium": 0,
+    "medium": 1,
     "total": 2
   },
   "url": "https://example.com"
