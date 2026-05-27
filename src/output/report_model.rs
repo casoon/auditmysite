@@ -725,6 +725,8 @@ pub struct PerformancePresentation {
     pub coverage: Option<CoveragePresentation>,
     /// Non-composited animations
     pub animations: Option<AnimationPresentation>,
+    /// Implausible or unmeasurable metrics detected during headless measurement (#291).
+    pub measurement_warnings: Vec<String>,
 }
 
 pub struct SeoPresentation {

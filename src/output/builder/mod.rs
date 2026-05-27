@@ -65,6 +65,7 @@ mod tests {
                 minification: None,
                 animations: None,
                 coverage: None,
+                measurement_warnings: vec![],
             })
             .with_seo(SeoAnalysis::default());
 
@@ -257,6 +258,7 @@ mod tests {
                 minification: None,
                 animations: None,
                 coverage: None,
+                measurement_warnings: vec![],
             })
             .with_security(crate::security::SecurityAnalysis {
                 score: security_score,
@@ -630,6 +632,7 @@ mod tests {
                     minification: None,
                     animations: None,
                     coverage: None,
+                    measurement_warnings: vec![],
                 })
                 .with_seo(SeoAnalysis::default());
             let normalized = normalize(&report);

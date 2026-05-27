@@ -138,10 +138,8 @@ impl AccessibilityScorer {
                 .filter(|v| matches!(v.severity, Severity::High))
                 .count();
 
-        let score_cap: f32 = if critical_count >= 3 {
-            94.0
-        } else if critical_count >= 1 {
-            96.0
+        let score_cap: f32 = if critical_count >= 1 {
+            49.0
         } else if urgent_count >= 5 {
             92.0
         } else {

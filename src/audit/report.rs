@@ -226,6 +226,11 @@ pub struct PerformanceResults {
     /// Unused JS (#106) and CSS (#107) via CDP Coverage API
     #[serde(skip_serializing_if = "Option::is_none")]
     pub coverage: Option<CoverageAnalysis>,
+    /// Implausible or unmeasurable metrics detected during analysis (#291).
+    /// Keys: "tbt_zero_heavy_page", "speed_index_fallback_to_lcp",
+    /// "tti_fallback_to_lcp", "inp_not_measured".
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measurement_warnings: Vec<String>,
 }
 
 impl AuditReport {

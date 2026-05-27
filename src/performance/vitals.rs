@@ -685,6 +685,49 @@ async fn extract_js_metrics(page: &Page) -> Result<WebVitals> {
     Ok(vitals)
 }
 
+/// Detect implausible or structurally unmeasurable metrics in a headless CDP audit.
+///
+/// Returns a list of warning keys that document known limitations so consumers
+/// can adjust score interpretation or surface the caveats in reports.
+///
+/// Warning keys (issue #291):
+/// - `"lcp_not_measured"` — LCP absent (observer missed it, e.g. under LhMobile throttle)
+/// - `"tbt_zero_heavy_page"` — TBT=0 while LCP>3000ms (physically impossible)
+/// - `"speed_index_fallback_to_lcp"` — Speed Index equals LCP (no independent value)
+/// - `"tti_fallback_to_lcp"` — TTI equals LCP (no independent value)
+/// - `"inp_not_measured"` — INP absent (headless has no user interaction)
+pub fn validate_metrics(vitals: &WebVitals) -> Vec<String> {
+    let mut warnings = Vec::new();
+
+    if vitals.lcp.is_none() {
+        warnings.push("lcp_not_measured".to_string());
+    }
+
+    if let (Some(tbt), Some(lcp)) = (&vitals.tbt, &vitals.lcp) {
+        if tbt.value == 0.0 && lcp.value > 3000.0 {
+            warnings.push("tbt_zero_heavy_page".to_string());
+        }
+    }
+
+    if let (Some(si), Some(lcp)) = (&vitals.speed_index, &vitals.lcp) {
+        if (si.value - lcp.value).abs() < f64::EPSILON {
+            warnings.push("speed_index_fallback_to_lcp".to_string());
+        }
+    }
+
+    if let (Some(tti), Some(lcp)) = (&vitals.tti, &vitals.lcp) {
+        if (tti.value - lcp.value).abs() < f64::EPSILON {
+            warnings.push("tti_fallback_to_lcp".to_string());
+        }
+    }
+
+    if vitals.inp.is_none() {
+        warnings.push("inp_not_measured".to_string());
+    }
+
+    warnings
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -741,5 +784,96 @@ mod tests {
 
         assert_eq!(vitals.good_count(), 3);
         assert_eq!(vitals.available_count(), 3);
+    }
+
+    #[test]
+    fn validate_metrics_tbt_zero_heavy_page() {
+        let vitals = WebVitals {
+            tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
+            lcp: Some(VitalMetric::new(4500.0, 2500.0, 4000.0)),
+            ..Default::default()
+        };
+        let warnings = validate_metrics(&vitals);
+        assert!(
+            warnings.contains(&"tbt_zero_heavy_page".to_string()),
+            "must warn when TBT=0 and LCP>3000ms"
+        );
+        assert!(
+            warnings.contains(&"inp_not_measured".to_string()),
+            "inp_not_measured always present in headless"
+        );
+    }
+
+    #[test]
+    fn validate_metrics_speed_index_fallback() {
+        let lcp_val = 3200.0;
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(lcp_val, 2500.0, 4000.0)),
+            speed_index: Some(VitalMetric::new(lcp_val, 3800.0, 5800.0).estimated()),
+            ..Default::default()
+        };
+        let warnings = validate_metrics(&vitals);
+        assert!(
+            warnings.contains(&"speed_index_fallback_to_lcp".to_string()),
+            "must warn when SpeedIndex == LCP"
+        );
+    }
+
+    #[test]
+    fn validate_metrics_no_warnings_on_good_data() {
+        let vitals = WebVitals {
+            tbt: Some(VitalMetric::new(120.0, 200.0, 600.0)),
+            lcp: Some(VitalMetric::new(2000.0, 2500.0, 4000.0)),
+            speed_index: Some(VitalMetric::new(1800.0, 3800.0, 5800.0).estimated()),
+            tti: Some(VitalMetric::new(3500.0, 3800.0, 7300.0).estimated()),
+            inp: Some(VitalMetric::new(150.0, 200.0, 500.0).estimated()),
+            ..Default::default()
+        };
+        let warnings = validate_metrics(&vitals);
+        assert!(
+            !warnings.contains(&"tbt_zero_heavy_page".to_string()),
+            "no tbt_zero_heavy_page when TBT>0"
+        );
+        assert!(
+            !warnings.contains(&"speed_index_fallback_to_lcp".to_string()),
+            "no speed_index_fallback when SI != LCP"
+        );
+        assert!(
+            !warnings.contains(&"inp_not_measured".to_string()),
+            "no inp_not_measured when INP is present"
+        );
+    }
+
+    #[test]
+    fn validate_metrics_inp_always_warned_in_headless() {
+        let vitals = WebVitals::default(); // no INP
+        let warnings = validate_metrics(&vitals);
+        assert!(
+            warnings.contains(&"inp_not_measured".to_string()),
+            "inp_not_measured must be present when inp is None"
+        );
+    }
+
+    #[test]
+    fn validate_metrics_lcp_not_measured_when_absent() {
+        let vitals = WebVitals::default(); // no LCP
+        let warnings = validate_metrics(&vitals);
+        assert!(
+            warnings.contains(&"lcp_not_measured".to_string()),
+            "lcp_not_measured must be present when lcp is None (#285)"
+        );
+    }
+
+    #[test]
+    fn validate_metrics_no_lcp_warning_when_lcp_present() {
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(2000.0, 2500.0, 4000.0)),
+            ..Default::default()
+        };
+        let warnings = validate_metrics(&vitals);
+        assert!(
+            !warnings.contains(&"lcp_not_measured".to_string()),
+            "no lcp_not_measured when lcp is present"
+        );
     }
 }

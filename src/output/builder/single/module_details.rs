@@ -308,6 +308,7 @@ pub(super) fn build_module_details_from_normalized(
             minification,
             coverage,
             animations,
+            measurement_warnings: p.measurement_warnings.clone(),
         }
     });
 

@@ -691,6 +691,7 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
                         None
                     }
                 };
+                let measurement_warnings = crate::performance::validate_metrics(&vitals);
                 Some(PerformanceResults {
                     vitals,
                     score,
@@ -701,6 +702,7 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
                     minification,
                     animations,
                     coverage,
+                    measurement_warnings,
                 })
             }
             Err(e) => {
@@ -1211,7 +1213,9 @@ fn apply_canonical_perf(
     vitals: crate::performance::WebVitals,
     score: crate::performance::PerformanceScore,
 ) {
+    let measurement_warnings = crate::performance::validate_metrics(&vitals);
     if let Some(ref mut perf) = report.performance {
+        perf.measurement_warnings = measurement_warnings;
         perf.vitals = vitals;
         perf.score = score;
     } else {
@@ -1225,6 +1229,7 @@ fn apply_canonical_perf(
             minification: None,
             animations: None,
             coverage: None,
+            measurement_warnings,
         });
     }
 

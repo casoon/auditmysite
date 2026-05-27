@@ -122,7 +122,15 @@ pub struct UnifiedSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub ux_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub journey_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub performance_throttled_avg_score: Option<u32>,
+    /// LhMobile throttled score (Lighthouse mobile preset). Present only on
+    /// single-page reports when the throttled pass ran (#289).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lh_mobile_score: Option<u32>,
 }
 
 /// One audited page. `detail` is present for single reports, omitted for batch.
@@ -380,7 +388,10 @@ impl UnifiedReport {
             seo_score: avg_module_score(&pages, "SEO"),
             security_score: avg_module_score(&pages, "Security"),
             mobile_score: avg_module_score(&pages, "Mobile"),
+            ux_score: avg_module_score(&pages, "UX"),
+            journey_score: avg_module_score(&pages, "Journey"),
             performance_throttled_avg_score: None,
+            lh_mobile_score: None,
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -489,6 +500,8 @@ impl UnifiedReport {
             seo_score: normalized_module_score(normalized, "SEO"),
             security_score: normalized_module_score(normalized, "Security"),
             mobile_score: normalized_module_score(normalized, "Mobile"),
+            ux_score: normalized_module_score(normalized, "UX"),
+            journey_score: normalized_module_score(normalized, "Journey"),
             performance_throttled_avg_score: {
                 let scores: Vec<u32> = normalized
                     .raw_throttled_performance
@@ -501,6 +514,11 @@ impl UnifiedReport {
                     Some(scores.iter().sum::<u32>() / scores.len() as u32)
                 }
             },
+            lh_mobile_score: normalized
+                .raw_throttled_performance
+                .iter()
+                .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
+                .map(|t| t.score),
         };
 
         UnifiedReport {
@@ -1350,6 +1368,7 @@ mod tests {
             minification: None,
             animations: None,
             coverage: None,
+            measurement_warnings: vec![],
         })
         .with_seo(crate::seo::SeoAnalysis::default())
         .with_security(crate::security::SecurityAnalysis {
@@ -1419,6 +1438,7 @@ mod tests {
             minification: None,
             animations: None,
             coverage: None,
+            measurement_warnings: vec![],
         })
         .with_seo(crate::seo::SeoAnalysis::default())
         .with_security(crate::security::SecurityAnalysis {
@@ -1647,7 +1667,10 @@ mod tests {
                 seo_score: None,
                 security_score: None,
                 mobile_score: None,
+                ux_score: None,
+                journey_score: None,
                 performance_throttled_avg_score: None,
+                lh_mobile_score: None,
             },
             sample: None,
             pages: vec![],

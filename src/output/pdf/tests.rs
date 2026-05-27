@@ -360,6 +360,7 @@ mod tests {
                 minification: None,
                 animations: None,
                 coverage: None,
+                measurement_warnings: vec![],
             });
         report.throttled_performance = vec![crate::audit::ThrottledPerfResult {
             profile: crate::browser::ThrottleProfile::Slow3G,

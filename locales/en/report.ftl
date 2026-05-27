@@ -289,6 +289,13 @@ perf-technical-indicators = Technical indicators
 perf-lab-data-note = Lab data
 perf-lab-data-body = All performance values come from a local headless measurement (Chrome/CDP), not from field data (CrUX/real-user monitoring). Metrics marked "lab estimate" (INP, TTI, Speed Index) are derived approximations, not direct measurements.
 perf-render-blocking-analysis = Render-blocking analysis
+perf-measurement-warnings-title = Measurement limitations
+perf-warning-lcp-missing = LCP not captured: the PerformanceObserver returned no LCP entry (typical under heavy network throttling) — LCP score is absent from the rating.
+perf-warning-tbt-zero = TBT = 0 ms on a heavy page (LCP > 3 s): headless Chrome does not register long tasks — TBT is likely underestimated.
+perf-warning-si-fallback = Speed Index equals LCP: formula estimate without an independent measurement (0.35 × FCP + 0.65 × LCP).
+perf-warning-tti-fallback = TTI equals LCP: formula estimate without a direct interactivity value.
+perf-warning-inp-missing = INP not measurable: headless browsers generate no user input — interaction latency could not be captured.
+perf-warning-lh-mobile-gap = Desktop score: { $desktop } · LhMobile score: { $mobile } — gap { $gap } points. The primary score is based on the unthrottled measurement.
 
 # SEO section
 seo-score-card = Technical SEO

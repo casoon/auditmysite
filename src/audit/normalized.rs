@@ -471,16 +471,14 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 }
             }
             let axe_id = taxonomy_rule.and_then(|r| r.axe_id).map(String::from);
-            // Use max severity across all violations; apply taxonomy floor so the
-            // reported severity is always at least what the rule definition mandates.
-            let max_severity = violations
+            // Use the max severity across all violation instances for this rule.
+            // Rules deliberately use Low for minor sub-cases (e.g. empty lists, multiple h1);
+            // the taxonomy severity is a classification label, not a floor override (#288).
+            let severity = violations
                 .iter()
                 .map(|v| v.severity)
                 .max()
                 .unwrap_or(first.severity);
-            let severity = taxonomy_rule
-                .map(|r| max_severity.max(r.severity))
-                .unwrap_or(max_severity);
             let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
 
             // Prefer the taxonomy title (customer-facing, localized) over the
@@ -1493,6 +1491,7 @@ mod tests {
             minification: None,
             animations: None,
             coverage: None,
+            measurement_warnings: vec![],
         };
 
         let json = serde_json::to_string(&perf).expect("PerformanceResults must serialize");
@@ -1501,6 +1500,7 @@ mod tests {
         assert!(!json.contains("\"minification\""));
         assert!(!json.contains("\"coverage\""));
         assert!(!json.contains("\"animations\""));
+        assert!(!json.contains("\"measurement_warnings\""));
         assert!(json.contains("\"score\""));
     }
 

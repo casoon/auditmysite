@@ -184,6 +184,51 @@ pub(super) fn render_performance(
         _ => {}
     }
 
+    // ── Measurement Warnings (#291) ──────────────────────────────────
+    if !perf.measurement_warnings.is_empty() {
+        let title = i18n.t("perf-measurement-warnings-title");
+        let mut warning_items: Vec<String> = perf
+            .measurement_warnings
+            .iter()
+            .map(|key| match key.as_str() {
+                "lcp_not_measured" => i18n.t("perf-warning-lcp-missing"),
+                "tbt_zero_heavy_page" => i18n.t("perf-warning-tbt-zero"),
+                "speed_index_fallback_to_lcp" => i18n.t("perf-warning-si-fallback"),
+                "tti_fallback_to_lcp" => i18n.t("perf-warning-tti-fallback"),
+                "inp_not_measured" => i18n.t("perf-warning-inp-missing"),
+                _ => key.clone(),
+            })
+            .collect();
+        // When primary score is the unthrottled desktop measurement (LhMobile LCP
+        // could not be captured), surface the gap explicitly so the discrepancy
+        // is visible without having to cross-reference the throttled table (#289).
+        if perf
+            .measurement_warnings
+            .iter()
+            .any(|w| w == "lcp_not_measured")
+        {
+            if let Some(lh) = perf
+                .throttled_profiles
+                .iter()
+                .find(|p| p.profile_name == "LhMobile")
+            {
+                let gap = perf.score.saturating_sub(lh.score);
+                if gap >= 15 {
+                    warning_items.push(i18n.t_args(
+                        "perf-warning-lh-mobile-gap",
+                        &[
+                            ("desktop", perf.score.to_string()),
+                            ("mobile", lh.score.to_string()),
+                            ("gap", gap.to_string()),
+                        ],
+                    ));
+                }
+            }
+        }
+        let body = warning_items.join(" · ");
+        builder = builder.add_component(Callout::warning(&body).with_title(&title));
+    }
+
     // ── Technical Complexity ─────────────────────────────────────────
     if !perf.additional_metrics.is_empty() || perf.has_render_blocking {
         builder = builder

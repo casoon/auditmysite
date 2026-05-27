@@ -648,6 +648,7 @@ mod tests {
             minification: None,
             animations: None,
             coverage: None,
+            measurement_warnings: vec![],
         })
         .with_seo(crate::seo::SeoAnalysis::default())
         .with_security(crate::security::SecurityAnalysis {

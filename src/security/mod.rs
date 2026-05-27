@@ -317,7 +317,10 @@ fn analyze_ssl(https: bool, headers: &SecurityHeaders) -> SslInfo {
     }
 }
 
-fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<SecurityIssue> {
+pub(crate) fn generate_security_issues(
+    headers: &SecurityHeaders,
+    https: bool,
+) -> Vec<SecurityIssue> {
     let mut issues = Vec::new();
 
     if !https {
@@ -370,6 +373,33 @@ fn generate_security_issues(headers: &SecurityHeaders, https: bool) -> Vec<Secur
             header: "Referrer-Policy".to_string(),
             issue_type: "missing_header".to_string(),
             message: "Missing Referrer-Policy header".to_string(),
+            severity: Severity::Low,
+        });
+    }
+
+    if headers.permissions_policy.is_none() {
+        issues.push(SecurityIssue {
+            header: "Permissions-Policy".to_string(),
+            issue_type: "missing_header".to_string(),
+            message: "Missing Permissions-Policy header".to_string(),
+            severity: Severity::Low,
+        });
+    }
+
+    if headers.cross_origin_opener_policy.is_none() {
+        issues.push(SecurityIssue {
+            header: "Cross-Origin-Opener-Policy".to_string(),
+            issue_type: "missing_header".to_string(),
+            message: "Missing Cross-Origin-Opener-Policy header".to_string(),
+            severity: Severity::Low,
+        });
+    }
+
+    if headers.cross_origin_resource_policy.is_none() {
+        issues.push(SecurityIssue {
+            header: "Cross-Origin-Resource-Policy".to_string(),
+            issue_type: "missing_header".to_string(),
+            message: "Missing Cross-Origin-Resource-Policy header".to_string(),
             severity: Severity::Low,
         });
     }
@@ -430,7 +460,7 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
     recommendations
 }
 
-fn calculate_security_score(
+pub(crate) fn calculate_security_score(
     _headers: &SecurityHeaders,
     ssl: &SslInfo,
     issues: &[SecurityIssue],
@@ -489,7 +519,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_recommendations_coop_corp_are_informational() {
+    fn test_generate_recommendations_coop_corp_generate_low_issues() {
         let headers = SecurityHeaders {
             content_security_policy: Some("default-src 'self'".to_string()),
             x_content_type_options: Some("nosniff".to_string()),
@@ -500,16 +530,18 @@ mod tests {
             ..Default::default()
         };
         let recs = generate_recommendations(&headers, true);
-        // COOP and CORP absent → informational recommendations, not score-affecting issues
+        // COOP and CORP absent → informational recommendations are still generated
         assert!(recs
             .iter()
             .any(|r| r.contains("Cross-Origin-Opener-Policy")));
         assert!(recs
             .iter()
             .any(|r| r.contains("Cross-Origin-Resource-Policy")));
-        // No issues generated for them
+        // COOP and CORP now generate Low-severity issues
         let issues = generate_security_issues(&headers, true);
-        assert!(issues.is_empty());
+        assert!(issues
+            .iter()
+            .any(|i| i.header.contains("Cross-Origin") && i.severity == Severity::Low));
     }
 
     #[test]
@@ -583,7 +615,9 @@ mod tests {
             x_frame_options: Some("DENY".to_string()),
             strict_transport_security: Some("max-age=31536000".to_string()),
             referrer_policy: Some("strict-origin".to_string()),
-            ..Default::default()
+            permissions_policy: Some("camera=()".to_string()),
+            cross_origin_opener_policy: Some("same-origin".to_string()),
+            cross_origin_resource_policy: Some("same-origin".to_string()),
         };
         let issues = generate_security_issues(&headers, true);
         assert!(issues.is_empty());

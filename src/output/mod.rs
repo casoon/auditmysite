@@ -21,3 +21,6 @@ pub use pdf::{
     generate_batch_pdf, generate_batch_typ, generate_comparison_pdf, generate_pdf, generate_typ,
 };
 pub use summary::format_summary;
+
+#[cfg(test)]
+mod tests;
