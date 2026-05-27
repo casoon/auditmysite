@@ -250,7 +250,7 @@ fn test_244_multiple_links_mixed() {
     let results = check_link_purpose(&tree);
     // "here" violates; descriptive passes; empty is handled by
     // name_role.missing (skipped here to avoid double-reporting).
-    assert!(results.violations.len() >= 1);
+    assert!(!results.violations.is_empty());
     assert!(results
         .violations
         .iter()
