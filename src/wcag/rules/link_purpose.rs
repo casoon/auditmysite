@@ -32,21 +32,11 @@ pub fn check_link_purpose(tree: &AXTree) -> WcagResults {
         results.nodes_checked += 1;
         let link_text = node.name.as_deref().unwrap_or("").trim();
 
-        // Check for empty link text
+        // Empty links (no accessible text at all) are already covered by
+        // a11y.name_role.missing (WCAG 4.1.2). Reporting them here too would
+        // cause the same element to appear in two separate findings and inflate
+        // severity_counts. Skip empty links in this rule.
         if link_text.is_empty() {
-            let violation = Violation::new(
-                LINK_PURPOSE_RULE.id,
-                LINK_PURPOSE_RULE.name,
-                LINK_PURPOSE_RULE.level,
-                Severity::Critical,
-                "Link has no accessible text",
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_fix("Add meaningful link text, aria-label, or aria-labelledby")
-            .with_help_url(LINK_PURPOSE_RULE.help_url);
-
-            results.add_violation(violation);
             continue;
         }
 
@@ -416,12 +406,14 @@ mod tests {
 
     #[test]
     fn test_empty_link() {
+        // Empty links are handled by a11y.name_role.missing (4.1.2).
+        // This rule (2.4.4) skips them to avoid double-reporting.
         let tree = AXTree::from_nodes(vec![create_link("1", None)]);
         let results = check_link_purpose(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("no accessible text")));
+        assert!(
+            results.violations.is_empty(),
+            "Empty links must not be reported by link_purpose — covered by name_role.missing"
+        );
     }
 
     #[test]

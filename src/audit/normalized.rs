@@ -534,6 +534,34 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 "empty_heading" => "Leere Überschrift".to_string(),
                 other => other.replace('_', " "),
             };
+            let technical_impact = match issue_type {
+                "skipped_level" => {
+                    "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader \
+                     und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten."
+                        .to_string()
+                }
+                "missing_h1" => {
+                    "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader \
+                     nicht erkennbar."
+                        .to_string()
+                }
+                "multiple_h1" => {
+                    "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; \
+                     Suchmaschinen können keinen eindeutigen Hauptfokus ableiten."
+                        .to_string()
+                }
+                "long_heading" => {
+                    "Überlange Überschriften werden in SERPs abgeschnitten und erschweren \
+                     das schnelle Scannen für Nutzer."
+                        .to_string()
+                }
+                "empty_heading" => {
+                    "Leere Überschriften erzeugen Navigationsprobleme für Screenreader \
+                     und werden von SEO-Crawlern als schlechtes Signal gewertet."
+                        .to_string()
+                }
+                _ => first.message.clone(),
+            };
             let priority_score =
                 calculate_priority_score(first.severity, occurrence_count, &rule_id);
             findings.push(NormalizedFinding {
@@ -547,7 +575,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 issue_class: "issue".to_string(),
                 severity: first.severity,
                 user_impact: String::new(),
-                technical_impact: first.message.clone(),
+                technical_impact,
                 score_impact: ScoreImpactData {
                     base_penalty: 0.0,
                     max_penalty: 0.0,

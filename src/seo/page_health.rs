@@ -771,10 +771,15 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
         follow_redirect_chain(url)
     );
 
-    // Soft 404
+    // Soft 404: only record the probe status when the server actually returns
+    // 200 for a non-existent URL (= soft 404 confirmed). A proper 404/301/etc.
+    // response means everything is fine — leave soft_404_status as None so the
+    // JSON field stays absent rather than showing a confusing non-200 code.
     if let Some(status) = soft_404_result {
-        a.soft_404_status = Some(status);
         a.is_soft_404 = status == 200;
+        if a.is_soft_404 {
+            a.soft_404_status = Some(status);
+        }
         debug!("Soft-404 probe: {} → {}", probe_url, status);
     }
 

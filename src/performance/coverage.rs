@@ -220,7 +220,10 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
     let css_used_pct = if total_rules > 0 {
         (used_rules as f64 / total_rules as f64 * 100.0).clamp(0.0, 100.0)
     } else {
-        100.0
+        // 0 rules means coverage data was not captured (CDP call failed or
+        // returned empty). Report 0 rather than 100 to avoid a misleading
+        // "all CSS is used" claim when nothing was actually measured.
+        0.0
     };
 
     let unused_css = UnusedCssAnalysis {

@@ -385,7 +385,33 @@ const CORPORATE_KEYWORDS: &[&str] = &[
     "leadership",
     "press",
     "investor",
-    // German
+    // German — public sector / government
+    "rathaus",
+    "gemeinde",
+    "verwaltung",
+    "bürgermeister",
+    "bürgermeisterin",
+    "stadtrat",
+    "stadtvertretung",
+    "stadtgebiet",
+    "bürgeramt",
+    "einwohnermeldeamt",
+    "standesamt",
+    "bauamt",
+    "hauptamt",
+    "finanzamt",
+    "landratsamt",
+    "kreistag",
+    "behörde",
+    "behörden",
+    "amt",
+    "ämter",
+    "amtsblatt",
+    "bekanntmachung",
+    "bürgerinformation",
+    "bürgerservice",
+    "ostseebad",
+    // German — corporate
     "über uns",
     "karriere",
     "unternehmen",
@@ -552,9 +578,11 @@ pub fn detect_page_intent(tree: &AXTree) -> PageIntent {
         leadgen_score += 3;
     }
 
-    // Many links = hub
+    // Many links = hub. Threshold of 40 catches portal/navigation-heavy pages
+    // where the AX tree may suppress some links (collapsed nav, hidden elements),
+    // causing the raw link_count to be lower than the actual DOM link count.
     let link_count = links.len();
-    if link_count > 80 {
+    if link_count > 40 {
         return PageIntent::Hub;
     }
 

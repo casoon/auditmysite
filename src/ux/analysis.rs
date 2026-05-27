@@ -487,6 +487,24 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
         }
     }
 
+    // Contact information may appear in headings or static text (not only as a
+    // link). Check non-link nodes too so that pages with a visible "Kontakt"
+    // heading or inline address block are not falsely flagged.
+    if !contact_found {
+        for node in tree.iter() {
+            if matches!(
+                node.role.as_deref(),
+                Some("heading" | "StaticText" | "paragraph")
+            ) {
+                let name = node.name.as_deref().unwrap_or("").to_lowercase();
+                if name.contains("kontakt") || name.contains("contact") {
+                    contact_found = true;
+                    break;
+                }
+            }
+        }
+    }
+
     if !contact_found {
         penalties.push(30.0);
         issues.push(UxIssue {
