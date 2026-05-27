@@ -309,6 +309,7 @@ mod tests {
                 confidence: crate::patterns::PatternConfidence::Strong,
             }],
             violations: vec![],
+            journey_candidates: vec![],
         });
 
         let config = ReportConfig {

@@ -264,6 +264,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         consent_banner_detected: false,
         consent_banner_cmp: None,
         consent_banner_dismissed: false,
+        accessibility_journey: None,
     };
 
     if report.wcag_level != artifacts.audit.wcag_level {

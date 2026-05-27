@@ -28,6 +28,53 @@ pub struct PatternAnalysis {
     pub recognized: Vec<RecognizedPattern>,
     /// Violations emitted when a pattern was found but broken.
     pub violations: Vec<Violation>,
+    /// Candidates handed to the Accessibility-Journey-Layer for interactive
+    /// testing. Empty in Phase 1 — detectors stub `Vec::new()`. Phase 2
+    /// populates real triggers (modal openers, disclosure buttons, tablists,
+    /// menu burgers, accordion headers).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub journey_candidates: Vec<JourneyCandidate>,
+}
+
+/// A pattern candidate the journey layer can drive interactively.
+///
+/// Detectors emit these when they find a *probable* trigger and the
+/// controlled region. Confidence is used by the journey layer to decide
+/// whether to attempt the interaction at all — threshold ≈ 0.7 by default.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JourneyCandidate {
+    pub pattern_kind: PatternKind,
+    /// CDP backend-node id of the trigger element.
+    pub trigger_backend_id: Option<i64>,
+    /// CDP backend-node id of the controlled region (via `aria-controls`).
+    pub controlled_backend_id: Option<i64>,
+    /// 0.0..1.0 — detector's confidence that this is the real pattern.
+    pub confidence: f32,
+    pub required_journey: JourneyKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PatternKind {
+    Modal,
+    Disclosure,
+    Tabs,
+    Menu,
+    Accordion,
+    Form,
+    SkipLink,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JourneyKind {
+    ModalOpen,
+    DisclosureToggle,
+    TabsNavigate,
+    MenuOpen,
+    AccordionToggle,
+    FormErrorSubmit,
+    SkipLinkActivate,
 }
 
 /// A pattern that was recognized in the page.

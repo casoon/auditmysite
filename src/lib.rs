@@ -37,6 +37,7 @@
 //!         persist_artifacts: true,
 //!         capture_screenshots: false,
 //!         dismiss_consent: false,
+//!         interactive: auditmysite::cli::InteractiveMode::Off,
 //!     };
 //!
 //!     // Run audit
@@ -76,6 +77,7 @@
 //! | 3.3.2 | Labels or Instructions | A |
 //! | 4.1.2 | Name, Role, Value | A |
 
+pub mod a11y_journey;
 pub mod accessibility;
 pub mod ai_visibility;
 pub mod assessment;
@@ -87,6 +89,7 @@ pub mod content_visibility;
 pub mod dark_mode;
 pub mod error;
 pub mod i18n;
+pub mod interaction;
 pub mod journey;
 pub mod mobile;
 pub mod output;

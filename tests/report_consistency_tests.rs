@@ -84,6 +84,7 @@ fn make_performance() -> PerformanceResults {
         minification: None,
         animations: None,
         coverage: None,
+        measurement_warnings: Vec::new(),
     }
 }
 
@@ -780,16 +781,24 @@ fn test_risk_independent_from_score() {
     );
     let normalized = normalize(&report);
 
-    // Score should be decent (many passes)
+    // Score is capped at 49 when any Critical violation is present (semantic
+    // score cap in AccessibilityScorer::calculate_score). The point of this
+    // test is that Risk is Critical even though Score is not 0 — they are
+    // independent signals.
     assert!(
-        normalized.score >= 50,
-        "Score should be decent with many passes"
+        normalized.score > 0,
+        "Score should be > 0 even with critical violations (got {})",
+        normalized.score
     );
-    // But risk should be critical
+    assert!(
+        normalized.score <= 49,
+        "Critical violations cap the score at 49 (got {})",
+        normalized.score
+    );
     assert_eq!(
         normalized.risk.level,
         auditmysite::audit::normalized::RiskLevel::Critical,
-        "Risk should be Critical despite decent score — score != risk"
+        "Risk should be Critical — score != risk"
     );
 }
 
@@ -1163,6 +1172,7 @@ fn test_json_report_includes_report_artifact_fields() {
             confidence: auditmysite::patterns::PatternConfidence::Strong,
         }],
         violations: vec![],
+        journey_candidates: vec![],
     });
     report.screenshot_status = auditmysite::audit::ScreenshotStatus::Failed("test".to_string());
 

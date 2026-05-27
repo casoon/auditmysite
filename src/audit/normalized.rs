@@ -74,6 +74,20 @@ pub struct NormalizedReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_breakdown: Option<ScoreBreakdown>,
 
+    /// Findings produced by the Accessibility-Journey-Layer (Phase 1+).
+    /// Kept separate from `findings[]` so WCAG severity counts remain
+    /// rechtsrelevant.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interactive_findings: Vec<InteractiveFinding>,
+    /// Reproducible journey traces (tab walks, modal opens, …) produced by
+    /// the Accessibility-Journey-Layer. `None` when `--interactive=off`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility_journey: Option<AccessibilityJourney>,
+    /// Optional semantic / LLM advisory findings. Never influence score or
+    /// risk — explicitly advisory.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub advisory_findings: Vec<AdvisoryFinding>,
+
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
     pub raw_performance: Option<PerformanceResults>,
@@ -351,6 +365,89 @@ pub struct ScoreBreakdown {
     pub security_weight_pct: Option<u32>,
 }
 
+// ---------------------------------------------------------------------------
+// Accessibility-Journey-Layer (Phase 1: Foundation only — types live here so
+// `NormalizedReport` is schema-stable for all future phases.)
+// ---------------------------------------------------------------------------
+
+/// Bundle of accessibility-journey results for one page.
+/// Populated only when `--interactive != off`; otherwise the report's
+/// `accessibility_journey` field stays `None`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AccessibilityJourney {
+    /// Reproducible step sequences (one per journey: tab walk, modal open, …).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub traces: Vec<JourneyTrace>,
+}
+
+/// One reproducible journey — an ordered list of interaction steps and the
+/// snapshots captured along the way. The trace is the *evidence* attached to
+/// every interactive finding.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JourneyTrace {
+    /// Journey identifier: "tab_walk", "skip_link", "modal_contact", ...
+    pub journey: String,
+    /// Ordered steps that compose the journey.
+    pub steps: Vec<JourneyStep>,
+}
+
+/// A single step in a journey. Designed to read naturally as JSON so a
+/// developer can reproduce the journey by replaying the actions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JourneyStep {
+    /// "tab" | "shift_tab" | "enter" | "escape" | "arrow_down" | "click"
+    /// | "synthetic_click" (fallback) | "type" | "wait"
+    pub action: String,
+    /// Selector or descriptive label of the target, if applicable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<String>,
+    /// Selector of `document.activeElement` after the action.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus: Option<String>,
+    /// Human-readable outcome marker, e.g. "modal_opened",
+    /// "focus_lost_to_body", "no_change".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<String>,
+    /// Label of the AXSnapshot captured after this step (matches
+    /// `AXSnapshot.label`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_label: Option<String>,
+}
+
+/// Finding produced by an interactive (journey) test. Distinct from WCAG
+/// `findings[]` — does not feed `severity_counts` or `legal_flags`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InteractiveFinding {
+    /// "TabOrder" | "FocusTrap" | "StateTransition" | "FocusRestoration"
+    /// | "FormError" | "SpaNavigation" | "HiddenFocusable" | "SkipLink"
+    /// | "FocusIndicator" | "MenuJourney" | "TabsJourney"
+    pub category: String,
+    pub severity: Severity,
+    /// Which journey produced this finding (matches `JourneyTrace.journey`).
+    pub journey: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before_snapshot_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_snapshot_label: Option<String>,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fix_suggestion: Option<String>,
+}
+
+/// Advisory finding from semantic / LLM evaluation. Explicitly advisory —
+/// never influences score or risk level. Off unless `--semantic-eval` is set.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdvisoryFinding {
+    /// "link_text" | "heading_outline" | "form_label_coherence"
+    /// | "blind_user_perspective"
+    pub category: String,
+    pub message: String,
+    /// "llm" | "static_heuristic"
+    pub source: String,
+    /// 0.0..1.0 — model confidence or heuristic strength.
+    pub confidence: f32,
+}
+
 /// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditFlag {
@@ -534,6 +631,34 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 "empty_heading" => "Leere Überschrift".to_string(),
                 other => other.replace('_', " "),
             };
+            let technical_impact = match issue_type {
+                "skipped_level" => {
+                    "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader \
+                     und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten."
+                        .to_string()
+                }
+                "missing_h1" => {
+                    "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader \
+                     nicht erkennbar."
+                        .to_string()
+                }
+                "multiple_h1" => {
+                    "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; \
+                     Suchmaschinen können keinen eindeutigen Hauptfokus ableiten."
+                        .to_string()
+                }
+                "long_heading" => {
+                    "Überlange Überschriften werden in SERPs abgeschnitten und erschweren \
+                     das schnelle Scannen für Nutzer."
+                        .to_string()
+                }
+                "empty_heading" => {
+                    "Leere Überschriften erzeugen Navigationsprobleme für Screenreader \
+                     und werden von SEO-Crawlern als schlechtes Signal gewertet."
+                        .to_string()
+                }
+                _ => first.message.clone(),
+            };
             let priority_score =
                 calculate_priority_score(first.severity, occurrence_count, &rule_id);
             findings.push(NormalizedFinding {
@@ -547,7 +672,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 issue_class: "issue".to_string(),
                 severity: first.severity,
                 user_impact: String::new(),
-                technical_impact: first.message.clone(),
+                technical_impact,
                 score_impact: ScoreImpactData {
                     base_penalty: 0.0,
                     max_penalty: 0.0,
@@ -1092,6 +1217,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         viewport_scores: report.viewport_scores.clone(),
         score_calculation_method,
         score_breakdown,
+        // Accessibility-Journey-Layer — Phase 1 carries the trace through;
+        // findings/advisories are populated starting with Phase 2.
+        interactive_findings: Vec::new(),
+        accessibility_journey: report.accessibility_journey.clone(),
+        advisory_findings: Vec::new(),
         raw_performance: report.performance.clone(),
         raw_performance_desktop: report
             .dual_viewport

@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::info;
 
-use super::args::{Args, OutputFormat, WcagLevel};
+use super::args::{Args, InteractiveMode, OutputFormat, WcagLevel};
 
 const CONFIG_FILENAME: &str = "auditmysite.toml";
 
@@ -25,6 +25,18 @@ pub struct Config {
     pub thresholds: ThresholdsConfig,
     #[serde(default)]
     pub budgets: BudgetConfig,
+    #[serde(default)]
+    pub interactive: InteractiveConfig,
+}
+
+/// Accessibility-Journey-Layer configuration.
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct InteractiveConfig {
+    /// `"off"`, `"basic"`, or `"full"`. Default `"off"`.
+    pub mode: Option<String>,
+    /// Wall-clock budget for the interactive phase per URL (milliseconds).
+    /// Phase 1 stores the value; enforcement is wired up from Phase 2.
+    pub journey_budget_ms: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -173,6 +185,18 @@ impl Config {
         if let Some(ref path) = self.output.path {
             if args.output.is_none() {
                 args.output = Some(PathBuf::from(path));
+            }
+        }
+
+        // Accessibility-Journey-Layer
+        if matches!(args.interactive, InteractiveMode::Off) {
+            if let Some(ref mode_str) = self.interactive.mode {
+                match mode_str.to_lowercase().as_str() {
+                    "off" => args.interactive = InteractiveMode::Off,
+                    "basic" => args.interactive = InteractiveMode::Basic,
+                    "full" => args.interactive = InteractiveMode::Full,
+                    other => tracing::warn!("Invalid interactive mode in config: {}", other),
+                }
             }
         }
 

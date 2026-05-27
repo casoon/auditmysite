@@ -167,6 +167,16 @@ struct RawEntry {
 
 fn classify_kind(url: &str, initiator_type: &str) -> String {
     let url_lower = url.to_lowercase();
+    // Font files loaded via CSS @font-face carry initiatorType="css" in
+    // PerformanceResourceTiming, but they are not CSS — exclude them first.
+    if url_lower.ends_with(".woff2")
+        || url_lower.ends_with(".woff")
+        || url_lower.ends_with(".ttf")
+        || url_lower.ends_with(".eot")
+        || url_lower.ends_with(".otf")
+    {
+        return "other".to_string();
+    }
     if initiator_type == "script" || url_lower.ends_with(".js") || url_lower.contains(".js?") {
         "script"
     } else if initiator_type == "css" || url_lower.ends_with(".css") || url_lower.contains(".css?")

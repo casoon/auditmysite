@@ -183,6 +183,18 @@ pub struct Args {
     #[arg(long)]
     pub dismiss_consent: bool,
 
+    /// Run the Accessibility-Journey-Layer for interactive checks
+    /// (tab walk, modal focus trap, skip-link verification, …).
+    ///
+    /// `off`   (default) — no interactive phase, fastest.
+    /// `basic` — tab walk + skip link + obvious pattern journeys.
+    /// `full`  — adds SPA navigation, form-error announcement,
+    ///           link-text inventory and outline export.
+    ///
+    /// Adds a few seconds per URL; recommended for single-URL audits.
+    #[arg(long, value_enum, default_value = "off")]
+    pub interactive: InteractiveMode,
+
     /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
     #[arg(long)]
     pub stack: bool,
@@ -299,6 +311,28 @@ pub enum WcagLevel {
     /// Level AAA - Maximum conformance
     #[value(name = "aaa", alias = "AAA")]
     AAA,
+}
+
+/// Depth of the Accessibility-Journey-Layer.
+#[derive(ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum InteractiveMode {
+    /// No interactive phase (default).
+    #[default]
+    #[value(name = "off")]
+    Off,
+    /// Tab walk, skip link, obvious pattern journeys.
+    #[value(name = "basic")]
+    Basic,
+    /// Adds SPA navigation, form-error announcement, link/outline export.
+    #[value(name = "full")]
+    Full,
+}
+
+impl InteractiveMode {
+    pub fn is_enabled(self) -> bool {
+        !matches!(self, InteractiveMode::Off)
+    }
 }
 
 impl std::fmt::Display for WcagLevel {
@@ -584,6 +618,7 @@ mod tests {
             prefer_sitemap: false,
             per_page_reports: false,
             dismiss_consent: false,
+            interactive: InteractiveMode::Off,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
             also_json: false,

@@ -185,13 +185,14 @@ fn test_242_meaningful_title_passes() {
 
 #[test]
 fn test_244_empty_link_flagged() {
+    // Empty links are handled by a11y.name_role.missing (4.1.2).
+    // This rule (2.4.4) skips them to avoid double-reporting.
     let tree = AXTree::from_nodes(vec![node("1", "link", None)]);
     let results = check_link_purpose(&tree);
-    assert!(!results.violations.is_empty());
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("no accessible text")));
+    assert!(
+        results.violations.is_empty(),
+        "Empty links must not be reported by link_purpose — covered by name_role.missing"
+    );
 }
 
 #[test]
@@ -247,8 +248,13 @@ fn test_244_multiple_links_mixed() {
         node("3", "link", Some("here")),
     ]);
     let results = check_link_purpose(&tree);
-    // "here" and empty both violate; descriptive passes
-    assert!(results.violations.len() >= 2);
+    // "here" violates; descriptive passes; empty is handled by
+    // name_role.missing (skipped here to avoid double-reporting).
+    assert!(!results.violations.is_empty());
+    assert!(results
+        .violations
+        .iter()
+        .any(|v| v.message.to_lowercase().contains("generic")));
 }
 
 // ---------------------------------------------------------------------------

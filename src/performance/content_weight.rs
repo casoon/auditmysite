@@ -218,7 +218,17 @@ enum ResourceCategory {
 fn categorize_resource(url: &str, initiator_type: &str) -> ResourceCategory {
     let url_lower = url.to_lowercase();
 
-    // Check by extension first
+    // Font files loaded via CSS @font-face carry initiatorType="css" in
+    // PerformanceResourceTiming. Check font extensions before the CSS branch
+    // so they are counted in the correct category.
+    if url_lower.contains(".woff")
+        || url_lower.contains(".ttf")
+        || url_lower.contains(".otf")
+        || url_lower.contains(".eot")
+    {
+        return ResourceCategory::Font;
+    }
+
     if initiator_type == "navigation" {
         ResourceCategory::Html
     } else if url_lower.ends_with(".css") || initiator_type == "css" {
@@ -227,12 +237,6 @@ fn categorize_resource(url: &str, initiator_type: &str) -> ResourceCategory {
         ResourceCategory::JavaScript
     } else if url_lower.ends_with(".html") || url_lower.ends_with(".htm") {
         ResourceCategory::Html
-    } else if url_lower.contains(".woff")
-        || url_lower.contains(".ttf")
-        || url_lower.contains(".otf")
-        || url_lower.contains(".eot")
-    {
-        ResourceCategory::Font
     } else if url_lower.ends_with(".png")
         || url_lower.ends_with(".jpg")
         || url_lower.ends_with(".jpeg")
