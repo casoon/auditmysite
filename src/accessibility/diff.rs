@@ -92,12 +92,8 @@ impl AXTreeDiff {
                         diff.property_changes.push(PropertyChange {
                             node_id: node_id.clone(),
                             property: prop_name.to_string(),
-                            before: before_val
-                                .map(|b| b.to_string())
-                                .unwrap_or_default(),
-                            after: after_val
-                                .map(|b| b.to_string())
-                                .unwrap_or_default(),
+                            before: before_val.map(|b| b.to_string()).unwrap_or_default(),
+                            after: after_val.map(|b| b.to_string()).unwrap_or_default(),
                         });
                     }
                 }

@@ -84,9 +84,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
 
         for candidate in &patterns.journey_candidates {
             if Instant::now() >= deadline {
-                tracing::info!(
-                    "Journey budget exhausted, stopping pattern journeys early."
-                );
+                tracing::info!("Journey budget exhausted, stopping pattern journeys early.");
                 break;
             }
             if candidate.confidence < 0.7 {
@@ -131,11 +129,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     out.findings.extend(findings);
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        "Journey {:?} failed: {}",
-                        candidate.required_journey,
-                        e
-                    );
+                    tracing::warn!("Journey {:?} failed: {}", candidate.required_journey, e);
                 }
             }
         }

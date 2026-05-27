@@ -148,8 +148,7 @@ pub async fn test(
                 Keyboard users may not know the menu opened."
                 .to_string(),
             fix_suggestion: Some(
-                "Move focus to the first menu item after the menu opens."
-                    .to_string(),
+                "Move focus to the first menu item after the menu opens.".to_string(),
             ),
         });
     }

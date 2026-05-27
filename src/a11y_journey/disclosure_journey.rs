@@ -158,8 +158,7 @@ pub async fn test(
             journey: journey_name,
             before_snapshot_label: Some("after_open_click".to_string()),
             after_snapshot_label: Some("after_close_click".to_string()),
-            message: "Disclosure does not toggle closed on second activation."
-                .to_string(),
+            message: "Disclosure does not toggle closed on second activation.".to_string(),
             fix_suggestion: Some(
                 "Ensure the click handler toggles aria-expanded between true and false."
                     .to_string(),
@@ -169,4 +168,3 @@ pub async fn test(
 
     Ok((trace, findings))
 }
-

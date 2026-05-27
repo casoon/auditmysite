@@ -109,8 +109,9 @@ pub async fn test(
             journey: journey_name.clone(),
             before_snapshot_label: None,
             after_snapshot_label: Some("after_open_click".to_string()),
-            message: "Background content is not hidden from assistive technology when modal is open."
-                .to_string(),
+            message:
+                "Background content is not hidden from assistive technology when modal is open."
+                    .to_string(),
             fix_suggestion: Some(
                 "Set aria-hidden=\"true\" on the application root when a modal is open, \
                 or use the inert attribute."
@@ -266,4 +267,3 @@ pub async fn test(
 
     Ok((trace, findings))
 }
-
