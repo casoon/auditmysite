@@ -128,6 +128,8 @@ pub struct PipelineConfig {
     pub capture_screenshots: bool,
     /// Attempt to dismiss cookie consent banners before auditing
     pub dismiss_consent: bool,
+    /// Accessibility-Journey-Layer mode (off/basic/full).
+    pub interactive: crate::cli::InteractiveMode,
 }
 
 impl PipelineConfig {
@@ -139,7 +141,7 @@ impl PipelineConfig {
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
         format!(
-            "level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={}",
+            "level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?}",
             self.wcag_level,
             self.check_performance as u8,
             self.check_seo as u8,
@@ -148,6 +150,7 @@ impl PipelineConfig {
             self.check_dark_mode as u8,
             self.check_stack as u8,
             self.dismiss_consent as u8,
+            self.interactive,
         )
     }
 }
@@ -169,6 +172,7 @@ impl From<&Args> for PipelineConfig {
             capture_screenshots: args.url.is_some()
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
             dismiss_consent: args.dismiss_consent,
+            interactive: args.interactive,
         }
     }
 }
@@ -451,6 +455,20 @@ pub async fn audit_page(
         }
     } else {
         report.screenshot_status = crate::audit::ScreenshotStatus::NotRequested;
+    }
+
+    // ── Accessibility-Journey-Layer (Phase 1 hook — no-op when `off`) ─────────
+    // Single call site. Phases 2–5 extend the run() body, not this hook.
+    let journey_ctx = crate::a11y_journey::RunContext {
+        page,
+        mode: config.interactive,
+        patterns: report.patterns.as_ref(),
+        initial_url: url,
+        budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
+    };
+    match crate::a11y_journey::run(journey_ctx).await {
+        Ok(journey) => report.accessibility_journey = journey,
+        Err(e) => warn!("Accessibility-Journey-Layer failed: {}", e),
     }
 
     if config.persist_artifacts {
@@ -1335,6 +1353,7 @@ mod tests {
             prefer_sitemap: false,
             per_page_reports: false,
             dismiss_consent: false,
+            interactive: crate::cli::InteractiveMode::Off,
             report_level: crate::cli::ReportLevel::Standard,
             lang: "de".to_string(),
             also_json: false,
@@ -1368,6 +1387,7 @@ mod tests {
             persist_artifacts: true,
             capture_screenshots: false,
             dismiss_consent: false,
+            interactive: crate::cli::InteractiveMode::Off,
         }
     }
 

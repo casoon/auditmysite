@@ -196,6 +196,9 @@ pub struct AuditReport {
     /// Whether the banner was successfully dismissed
     #[serde(default)]
     pub consent_banner_dismissed: bool,
+    /// Accessibility-Journey-Layer result (populated when `--interactive != off`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessibility_journey: Option<crate::audit::normalized::AccessibilityJourney>,
 }
 
 /// Performance analysis results wrapper
@@ -280,6 +283,7 @@ impl AuditReport {
             consent_banner_detected: false,
             consent_banner_cmp: None,
             consent_banner_dismissed: false,
+            accessibility_journey: None,
         }
     }
 

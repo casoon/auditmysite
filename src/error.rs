@@ -92,6 +92,10 @@ pub enum AuditError {
     /// Browser pool exhausted
     #[error("Browser pool exhausted: all pages are in use")]
     PoolExhausted,
+
+    /// Accessibility-Journey-Layer interaction failed (keyboard/pointer dispatch).
+    #[error("Interaction failed: {reason}")]
+    InteractionFailed { reason: String },
 }
 
 /// Result type alias for AuditError

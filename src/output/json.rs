@@ -1497,6 +1497,7 @@ mod tests {
         .with_patterns(crate::patterns::PatternAnalysis {
             recognized: vec![],
             violations: vec![],
+            journey_candidates: vec![],
         });
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);

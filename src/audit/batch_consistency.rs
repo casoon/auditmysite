@@ -406,6 +406,7 @@ mod tests {
                 })
                 .collect(),
             violations: vec![],
+            journey_candidates: vec![],
         });
         report
     }
