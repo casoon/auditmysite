@@ -8,7 +8,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Severity, Violation};
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let mut triggers = 0usize;
@@ -102,6 +102,37 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ),
         confidence,
     );
+
+    // Emit journey candidates for interactive accordion verification.
+    // Only button-role triggers, skip nav/banner contexts (handled by DisclosureMenu).
+    for node in tree.iter() {
+        if node.get_property_bool("expanded").is_none() {
+            continue;
+        }
+        let role = node.role.as_deref().unwrap_or("");
+        if matches!(
+            role,
+            "dialog" | "alertdialog" | "menu" | "combobox" | "listbox"
+        ) {
+            continue;
+        }
+        if role != "button" {
+            continue;
+        }
+        if in_nav_or_banner(node, tree) {
+            continue;
+        }
+        let has_controls = node.has_property("controls");
+        if let Some(bid) = node.backend_dom_node_id {
+            out.journey_candidates.push(JourneyCandidate {
+                pattern_kind: PatternKind::Accordion,
+                trigger_backend_id: Some(bid),
+                controlled_backend_id: None,
+                confidence: if has_controls { 0.85 } else { 0.7 },
+                required_journey: JourneyKind::AccordionToggle,
+            });
+        }
+    }
 }
 
 fn in_nav_or_banner(node: &crate::accessibility::AXNode, tree: &AXTree) -> bool {

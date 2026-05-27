@@ -8,7 +8,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Severity, Violation};
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let dialogs: Vec<_> = tree
@@ -85,6 +85,26 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ),
         confidence,
     );
+
+    // Emit journey candidates for buttons/links that declare aria-haspopup="dialog".
+    for node in tree.iter() {
+        if !matches!(node.role.as_deref(), Some("button") | Some("link")) {
+            continue;
+        }
+        let haspopup = node.get_property_str("haspopup");
+        if !matches!(haspopup, Some("dialog")) {
+            continue;
+        }
+        if let Some(bid) = node.backend_dom_node_id {
+            out.journey_candidates.push(JourneyCandidate {
+                pattern_kind: PatternKind::Modal,
+                trigger_backend_id: Some(bid),
+                controlled_backend_id: None,
+                confidence: 0.85,
+                required_journey: JourneyKind::ModalOpen,
+            });
+        }
+    }
 }
 
 #[cfg(test)]

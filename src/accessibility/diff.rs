@@ -46,9 +46,12 @@ pub struct FocusMove {
     pub after: Option<i64>,
 }
 
+/// ARIA state properties tracked for property-level diffs.
+const TRACKED_PROPERTIES: &[&str] = &["expanded", "hidden", "selected", "invalid", "modal"];
+
 impl AXTreeDiff {
     /// Compute the structural diff between two snapshots.
-    /// Phase 1: identity, focus, title, URL. Property-level diffing is Phase 2.
+    /// Phase 2: adds property-level diffing for key ARIA state properties.
     pub fn between(before: &AXSnapshot, after: &AXSnapshot) -> Self {
         let mut diff = AXTreeDiff::default();
 
@@ -78,6 +81,28 @@ impl AXTreeDiff {
         }
         diff.added.sort();
         diff.removed.sort();
+
+        // Property-level diffing: track meaningful ARIA state changes.
+        for (node_id, after_node) in &after.tree.nodes {
+            if let Some(before_node) = before.tree.nodes.get(node_id) {
+                for prop_name in TRACKED_PROPERTIES {
+                    let before_val = before_node.get_property_bool(prop_name);
+                    let after_val = after_node.get_property_bool(prop_name);
+                    if before_val != after_val {
+                        diff.property_changes.push(PropertyChange {
+                            node_id: node_id.clone(),
+                            property: prop_name.to_string(),
+                            before: before_val
+                                .map(|b| b.to_string())
+                                .unwrap_or_default(),
+                            after: after_val
+                                .map(|b| b.to_string())
+                                .unwrap_or_default(),
+                        });
+                    }
+                }
+            }
+        }
 
         diff
     }

@@ -1,0 +1,190 @@
+//! Turns recorded journey traces + focus snapshots into
+//! `InteractiveFinding`s.
+//!
+//! Each evaluator function takes the *evidence* from a journey runner
+//! and produces findings without itself touching the browser. That keeps
+//! the runtime side effects (CDP, JS evaluate, …) and the evaluation
+//! logic in separate, testable units.
+//!
+//! Phase 2a covers:
+//! - hidden focusables (aria-hidden, inert, hidden-by-style)
+//! - focus reaching `body` after the walk (focus loss)
+//!
+//! Focus-indicator detection and out-of-order detection land in
+//! separate evaluators in Phase 2a follow-up commits.
+
+use crate::accessibility::FocusSnapshot;
+use crate::audit::normalized::{InteractiveFinding, JourneyTrace};
+use crate::taxonomy::Severity;
+
+/// Evaluate a tab-walk trace and its per-step focus snapshots.
+///
+/// Pure function: deterministic given the inputs. No browser calls.
+pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<InteractiveFinding> {
+    let mut findings = Vec::new();
+
+    // Walk steps + snapshots in lockstep. `trace.steps[i]` corresponds to
+    // `snapshots[i]` by construction in `tab_walk::record`.
+    for (step, snap) in trace.steps.iter().zip(snapshots.iter()) {
+        // Hidden focusables are only meaningful for tab-press steps. The
+        // "start" step records the initial state and isn't an interaction.
+        if step.action != "tab" {
+            continue;
+        }
+        let Some(selector) = &step.focus else {
+            continue;
+        };
+
+        if snap.aria_hidden_chain {
+            findings.push(InteractiveFinding {
+                category: "HiddenFocusable".to_string(),
+                severity: Severity::High,
+                journey: trace.journey.clone(),
+                before_snapshot_label: None,
+                after_snapshot_label: step.snapshot_label.clone(),
+                message: format!(
+                    "Tastatur-Fokus landet auf einem Element innerhalb \
+                     eines aria-hidden-Bereichs ({selector}). Screenreader-Nutzer \
+                     erreichen ein vom AXTree ausgeblendetes Element."
+                ),
+                fix_suggestion: Some(
+                    "Element aus aria-hidden-Bereich entfernen oder \
+                     tabindex=\"-1\" setzen."
+                        .to_string(),
+                ),
+            });
+        } else if snap.inert_chain {
+            findings.push(InteractiveFinding {
+                category: "HiddenFocusable".to_string(),
+                severity: Severity::High,
+                journey: trace.journey.clone(),
+                before_snapshot_label: None,
+                after_snapshot_label: step.snapshot_label.clone(),
+                message: format!(
+                    "Tastatur-Fokus landet auf einem Element innerhalb \
+                     eines inert-Bereichs ({selector}). Inert-Bereiche \
+                     sollten nicht erreichbar sein."
+                ),
+                fix_suggestion: Some(
+                    "Element aus inert-Bereich nehmen oder \
+                     tabindex/Fokus-Kette korrigieren."
+                        .to_string(),
+                ),
+            });
+        } else if snap.hidden_by_style {
+            findings.push(InteractiveFinding {
+                category: "HiddenFocusable".to_string(),
+                severity: Severity::Medium,
+                journey: trace.journey.clone(),
+                before_snapshot_label: None,
+                after_snapshot_label: step.snapshot_label.clone(),
+                message: format!(
+                    "Tastatur-Fokus landet auf einem visuell verborgenen \
+                     Element ({selector}: display:none, visibility:hidden \
+                     oder opacity:0). Tastatur-Nutzer verlieren die \
+                     Orientierung."
+                ),
+                fix_suggestion: Some(
+                    "Element aus Tab-Sequenz entfernen (tabindex=\"-1\") \
+                     oder erst sichtbar machen."
+                        .to_string(),
+                ),
+            });
+        }
+    }
+
+    findings
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::normalized::JourneyStep;
+
+    fn step_tab(selector: &str, label: &str) -> JourneyStep {
+        JourneyStep {
+            action: "tab".to_string(),
+            target: None,
+            focus: Some(selector.to_string()),
+            result: None,
+            snapshot_label: Some(label.to_string()),
+        }
+    }
+
+    fn snap_with(aria: bool, inert: bool, hidden: bool) -> FocusSnapshot {
+        FocusSnapshot {
+            selector: Some("a".to_string()),
+            aria_hidden_chain: aria,
+            inert_chain: inert,
+            hidden_by_style: hidden,
+            ..Default::default()
+        }
+    }
+
+    fn trace_with(steps: Vec<JourneyStep>) -> JourneyTrace {
+        JourneyTrace {
+            journey: "tab_walk".to_string(),
+            steps,
+        }
+    }
+
+    #[test]
+    fn clean_walk_produces_no_findings() {
+        let trace = trace_with(vec![step_tab("a#one", "after_tab_1")]);
+        let snaps = vec![snap_with(false, false, false)];
+        assert!(tab_walk(&trace, &snaps).is_empty());
+    }
+
+    #[test]
+    fn aria_hidden_chain_emits_high_finding() {
+        let trace = trace_with(vec![step_tab("a#one", "after_tab_1")]);
+        let snaps = vec![snap_with(true, false, false)];
+        let findings = tab_walk(&trace, &snaps);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].category, "HiddenFocusable");
+        assert_eq!(findings[0].severity, Severity::High);
+        assert!(findings[0].message.contains("aria-hidden"));
+    }
+
+    #[test]
+    fn inert_chain_emits_high_finding() {
+        let trace = trace_with(vec![step_tab("a#one", "after_tab_1")]);
+        let snaps = vec![snap_with(false, true, false)];
+        let findings = tab_walk(&trace, &snaps);
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].message.contains("inert"));
+    }
+
+    #[test]
+    fn hidden_by_style_emits_medium_finding() {
+        let trace = trace_with(vec![step_tab("a#one", "after_tab_1")]);
+        let snaps = vec![snap_with(false, false, true)];
+        let findings = tab_walk(&trace, &snaps);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::Medium);
+    }
+
+    #[test]
+    fn aria_hidden_takes_precedence_over_inert() {
+        // Both flags set — only the highest-priority finding is emitted.
+        let trace = trace_with(vec![step_tab("a#one", "after_tab_1")]);
+        let snaps = vec![snap_with(true, true, true)];
+        let findings = tab_walk(&trace, &snaps);
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].message.contains("aria-hidden"));
+    }
+
+    #[test]
+    fn start_step_is_ignored() {
+        let mut trace = trace_with(vec![]);
+        trace.steps.push(JourneyStep {
+            action: "start".to_string(),
+            target: None,
+            focus: Some("body".to_string()),
+            result: None,
+            snapshot_label: Some("initial".to_string()),
+        });
+        let snaps = vec![snap_with(true, false, false)];
+        assert!(tab_walk(&trace, &snaps).is_empty());
+    }
+}

@@ -53,6 +53,19 @@ pub struct FocusSnapshot {
     pub bounding_box: Option<Rect>,
     /// Selector of an overlay occluding the focused element, if any.
     pub obscured_by: Option<String>,
+    /// Some ancestor (or the element itself) has `aria-hidden="true"`.
+    /// Focus landing here is a clear accessibility violation.
+    #[serde(default)]
+    pub aria_hidden_chain: bool,
+    /// Some ancestor (or the element itself) has the `inert` attribute.
+    /// Focus landing here is a clear accessibility violation.
+    #[serde(default)]
+    pub inert_chain: bool,
+    /// Computed style hides the element (`display:none`, `visibility:hidden`,
+    /// or `opacity:0`). Usually a sign of a focusable element that should
+    /// have been removed from the tab sequence.
+    #[serde(default)]
+    pub hidden_by_style: bool,
 }
 
 /// Detection of a visible focus indicator.
