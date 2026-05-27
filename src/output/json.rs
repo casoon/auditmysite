@@ -162,6 +162,15 @@ pub struct PageEntry {
     pub principle_coverage: crate::audit::PrincipleCoverage,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
+    /// Findings produced by the Accessibility-Journey-Layer (phase 2+).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interactive_findings: Vec<crate::audit::normalized::InteractiveFinding>,
+    /// Reproducible journey traces. Present only when `--interactive != off`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility_journey: Option<crate::audit::normalized::AccessibilityJourney>,
+    /// Advisory (semantic / LLM) findings. Never affect score or risk.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub advisory_findings: Vec<crate::audit::normalized::AdvisoryFinding>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
 }
@@ -594,6 +603,9 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         principle_coverage: normalized.principle_coverage.clone(),
         findings: normalized.findings.clone(),
         audit_flags: normalized.audit_flags.clone(),
+        interactive_findings: normalized.interactive_findings.clone(),
+        accessibility_journey: normalized.accessibility_journey.clone(),
+        advisory_findings: normalized.advisory_findings.clone(),
         detail,
     }
 }
