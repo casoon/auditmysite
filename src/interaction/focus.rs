@@ -176,7 +176,7 @@ pub async fn capture_focus(page: &Page) -> Result<FocusSnapshot> {
         .unwrap_or(false);
 
     // visible = element has non-zero box and is not hidden by style.
-    let has_area = bbox.map_or(false, |b| b.width > 0.0 && b.height > 0.0);
+    let has_area = bbox.is_some_and(|b| b.width > 0.0 && b.height > 0.0);
     let visible = has_area && !hidden_by_style;
 
     let focus_indicator = detect_focus_indicator(page).await;
