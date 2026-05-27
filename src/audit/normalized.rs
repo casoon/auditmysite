@@ -1217,9 +1217,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         viewport_scores: report.viewport_scores.clone(),
         score_calculation_method,
         score_breakdown,
-        // Accessibility-Journey-Layer — Phase 1 carries the trace through;
-        // findings/advisories are populated starting with Phase 2.
-        interactive_findings: Vec::new(),
+        // Accessibility-Journey-Layer — Phase 2a populates findings;
+        // advisories remain stubbed until Phase 4 wires up the LLM layer.
+        interactive_findings: report.interactive_findings.clone(),
         accessibility_journey: report.accessibility_journey.clone(),
         advisory_findings: Vec::new(),
         raw_performance: report.performance.clone(),

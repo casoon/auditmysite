@@ -11,7 +11,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Severity, Violation};
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let tablists = tree.nodes_with_role("tablist");
@@ -78,6 +78,26 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         ),
         confidence,
     );
+
+    // Emit journey candidates: one per tablist using the first tab as trigger.
+    for tablist in &tablists {
+        let first_tab = tablist
+            .child_ids
+            .iter()
+            .filter_map(|id| tree.get_node(id))
+            .find(|c| c.role.as_deref() == Some("tab"));
+        if let Some(tab) = first_tab {
+            if let Some(bid) = tab.backend_dom_node_id {
+                out.journey_candidates.push(JourneyCandidate {
+                    pattern_kind: PatternKind::Tabs,
+                    trigger_backend_id: Some(bid),
+                    controlled_backend_id: None,
+                    confidence: 0.8,
+                    required_journey: JourneyKind::TabsNavigate,
+                });
+            }
+        }
+    }
 }
 
 #[cfg(test)]

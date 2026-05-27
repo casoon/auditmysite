@@ -199,6 +199,10 @@ pub struct AuditReport {
     /// Accessibility-Journey-Layer result (populated when `--interactive != off`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessibility_journey: Option<crate::audit::normalized::AccessibilityJourney>,
+    /// Interactive findings produced by the Accessibility-Journey-Layer
+    /// evaluator. Empty when `--interactive=off`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interactive_findings: Vec<crate::audit::normalized::InteractiveFinding>,
 }
 
 /// Performance analysis results wrapper
@@ -284,6 +288,7 @@ impl AuditReport {
             consent_banner_cmp: None,
             consent_banner_dismissed: false,
             accessibility_journey: None,
+            interactive_findings: Vec::new(),
         }
     }
 

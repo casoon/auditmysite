@@ -467,7 +467,11 @@ pub async fn audit_page(
         budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
     };
     match crate::a11y_journey::run(journey_ctx).await {
-        Ok(journey) => report.accessibility_journey = journey,
+        Ok(Some(out)) => {
+            report.accessibility_journey = Some(out.journey);
+            report.interactive_findings = out.findings;
+        }
+        Ok(None) => {}
         Err(e) => warn!("Accessibility-Journey-Layer failed: {}", e),
     }
 

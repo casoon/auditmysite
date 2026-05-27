@@ -6,7 +6,7 @@
 
 use crate::accessibility::AXTree;
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 fn collect_links<'a>(
     tree: &'a AXTree,
@@ -83,6 +83,20 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         )
     };
     out.add_recognized("SkipLink", message, confidence);
+
+    // Emit journey candidates for interactive skip-link verification.
+    for candidate in &candidates {
+        if let Some(bid) = candidate.backend_dom_node_id {
+            let candidate_confidence = if is_first { 0.9 } else { 0.7 };
+            out.journey_candidates.push(JourneyCandidate {
+                pattern_kind: PatternKind::SkipLink,
+                trigger_backend_id: Some(bid),
+                controlled_backend_id: None,
+                confidence: candidate_confidence,
+                required_journey: JourneyKind::SkipLinkActivate,
+            });
+        }
+    }
 }
 
 #[cfg(test)]

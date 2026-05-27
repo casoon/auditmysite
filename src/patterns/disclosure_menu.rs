@@ -9,7 +9,7 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{Severity, Violation};
 
-use super::{PatternAnalysis, PatternConfidence};
+use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let buttons = tree.nodes_with_role("button");
@@ -50,6 +50,33 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         )
     };
     out.add_recognized("DisclosureMenu", detail, confidence);
+
+    // Emit journey candidates for interactive disclosure/menu verification.
+    for btn in &buttons {
+        if btn.get_property_bool("expanded").is_none() {
+            continue;
+        }
+        let haspopup = btn.get_property_str("haspopup");
+        let is_menu = matches!(haspopup, Some("menu") | Some("true"));
+        let has_controls = btn.has_property("controls");
+        if let Some(bid) = btn.backend_dom_node_id {
+            out.journey_candidates.push(JourneyCandidate {
+                pattern_kind: if is_menu {
+                    PatternKind::Menu
+                } else {
+                    PatternKind::Disclosure
+                },
+                trigger_backend_id: Some(bid),
+                controlled_backend_id: None,
+                confidence: if has_controls { 0.8 } else { 0.7 },
+                required_journey: if is_menu {
+                    JourneyKind::MenuOpen
+                } else {
+                    JourneyKind::DisclosureToggle
+                },
+            });
+        }
+    }
 
     // Flag toggle-like nodes that look like menus but lack aria-expanded.
     // Heuristic: a `generic` or `link` node whose name contains "menu" /
