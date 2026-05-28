@@ -24,7 +24,7 @@ use self::modules_block::build_modules_block_from_normalized;
 use self::positive::derive_positive_aspects_from_normalized;
 use super::helpers::localized_module_name;
 
-use crate::audit::normalized::{NormalizedReport, SeverityCounts};
+use crate::audit::normalized::NormalizedReport;
 use crate::audit::summary::analyze_with_locale;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
@@ -59,36 +59,6 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         })
         .map(|f| finding_group_from_normalized(&i18n, f))
         .collect();
-    let filtered_counts = {
-        let critical = sorted_groups
-            .iter()
-            .filter(|f| f.severity == Severity::Critical)
-            .map(|f| f.occurrence_count)
-            .sum();
-        let high = sorted_groups
-            .iter()
-            .filter(|f| f.severity == Severity::High)
-            .map(|f| f.occurrence_count)
-            .sum();
-        let medium = sorted_groups
-            .iter()
-            .filter(|f| f.severity == Severity::Medium)
-            .map(|f| f.occurrence_count)
-            .sum();
-        let low = sorted_groups
-            .iter()
-            .filter(|f| f.severity == Severity::Low)
-            .map(|f| f.occurrence_count)
-            .sum();
-        SeverityCounts {
-            critical,
-            high,
-            medium,
-            low,
-            total: critical + high + medium + low,
-        }
-    };
-
     sorted_groups.sort_by(|a, b| {
         let pa = priority_by_rule
             .get(a.rule_id.as_str())
@@ -219,12 +189,12 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             (ci + 1, co + f.occurrence_count as u32)
         });
     let severity = SeverityBlock {
-        critical: filtered_counts.critical as u32,
-        high: filtered_counts.high as u32,
-        medium: filtered_counts.medium as u32,
-        low: filtered_counts.low as u32,
-        total: filtered_counts.total as u32,
-        has_issues: filtered_counts.total > 0,
+        critical: normalized.occurrence_counts.critical as u32,
+        high: normalized.occurrence_counts.high as u32,
+        medium: normalized.occurrence_counts.medium as u32,
+        low: normalized.occurrence_counts.low as u32,
+        total: normalized.occurrence_counts.total as u32,
+        has_issues: normalized.occurrence_counts.total > 0,
         component_issues,
         component_occurrences,
     };
@@ -232,8 +202,9 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let modules = build_modules_block_from_normalized(&i18n, normalized);
 
     let quick_win_count = action_plan.quick_wins.len();
-    let critical_count = (filtered_counts.critical + filtered_counts.high) as u32;
-    let total_violations = filtered_counts.total as u32;
+    let critical_count =
+        (normalized.occurrence_counts.critical + normalized.occurrence_counts.high) as u32;
+    let total_violations = normalized.occurrence_counts.total as u32;
     let nodes_analyzed = normalized.nodes_analyzed;
     let warning_count = normalized.raw_wcag.warnings.len() as u32;
     let not_testable_count = normalized.raw_wcag.not_testables.len() as u32;
@@ -302,7 +273,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             score_note: build_score_note(&i18n, normalized),
             metrics: {
                 let label_violations_total = i18n.t("metric-violations-total");
-                let label_critical = i18n.t("metric-critical");
+                let label_critical = i18n.t("metric-critical-high");
                 let label_checked_nodes = i18n.t("metric-checked-nodes");
                 let label_quick_wins: String = "Quick Wins".into();
                 let label_wcag_level = i18n.t("metric-wcag-level");
@@ -386,8 +357,11 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
         severity,
         findings: {
             let clusters = build_thematic_clusters(&config.locale, &sorted_groups);
-            let finding_summary =
-                build_finding_summary(&config.locale, &filtered_counts, &audit_summary);
+            let finding_summary = build_finding_summary(
+                &config.locale,
+                &normalized.occurrence_counts,
+                &audit_summary,
+            );
             let by_severity = build_severity_tiers(&config.locale, &sorted_groups);
             let by_tier = build_criticality_groups(&config.locale, &sorted_groups);
             FindingsBlock {
@@ -446,6 +420,92 @@ mod tests {
             .capabilities
             .iter()
             .any(|cap| cap.signal == "WCAG-Regeln & Vorkommen"));
+    }
+
+    #[test]
+    fn view_model_summary_counts_wcag_occurrences_not_seo_findings() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "4.1.2",
+            "Name, Role, Value",
+            WcagLevel::A,
+            Severity::High,
+            "Missing accessible name",
+            "node-123",
+        ));
+
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            1500,
+        );
+        report.seo = Some(crate::seo::SeoAnalysis {
+            headings: crate::seo::HeadingStructure {
+                h1_count: 2,
+                issues: vec![crate::seo::HeadingIssue {
+                    issue_type: "multiple_h1".to_string(),
+                    message: "Multiple H1 headings".to_string(),
+                    severity: Severity::Medium,
+                }],
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+
+        let normalized = normalize(&report);
+        assert_eq!(normalized.findings.len(), 2);
+        assert_eq!(normalized.occurrence_counts.total, 1);
+
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        let total_metric = vm
+            .summary
+            .metrics
+            .iter()
+            .find(|m| m.title.contains("Verstöße"))
+            .expect("total violations metric");
+        assert_eq!(total_metric.value, "1");
+
+        let urgent_metric = vm
+            .summary
+            .metrics
+            .iter()
+            .find(|m| m.title == "Kritisch / Hoch")
+            .expect("critical/high metric");
+        assert_eq!(urgent_metric.value, "1");
+    }
+
+    #[test]
+    fn view_model_names_high_level_a_findings_as_high_not_critical_only() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "4.1.2",
+            "Name, Role, Value",
+            WcagLevel::A,
+            Severity::High,
+            "Missing accessible name",
+            "node-123",
+        ));
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            1500,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+        let risk_text = vm
+            .executive
+            .impact_rows
+            .iter()
+            .find(|(label, _)| label == "Risiko")
+            .map(|(_, text)| text.as_str())
+            .expect("risk row");
+
+        assert!(risk_text.contains("hohe oder kritische WCAG-Level-A-Befunde"));
+        assert!(!risk_text.contains("keine kritischen Level-A-Verstöße"));
     }
 
     #[test]

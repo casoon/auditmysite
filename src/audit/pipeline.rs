@@ -130,6 +130,8 @@ pub struct PipelineConfig {
     pub dismiss_consent: bool,
     /// Accessibility-Journey-Layer mode (off/basic/full).
     pub interactive: crate::cli::InteractiveMode,
+    /// Wall-clock budget for the interactive phase per URL (milliseconds).
+    pub journey_budget_ms: u64,
     /// Semantic AI evaluation config (Phase 4 — off by default).
     pub semantic_eval: crate::semantic_eval::SemanticEvalConfig,
     /// Report locale ("de" / "en") — used for i18n stopword loading.
@@ -145,7 +147,7 @@ impl PipelineConfig {
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
         format!(
-            "level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?}",
+            "level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={}",
             self.wcag_level,
             self.check_performance as u8,
             self.check_seo as u8,
@@ -155,13 +157,27 @@ impl PipelineConfig {
             self.check_stack as u8,
             self.dismiss_consent as u8,
             self.interactive,
+            self.journey_budget_ms,
         )
     }
 }
 
 impl From<&Args> for PipelineConfig {
     fn from(args: &Args) -> Self {
+        let toml_cfg = crate::cli::config::Config::load();
+        Self::from_args_and_config(args, toml_cfg.as_ref())
+    }
+}
+
+impl PipelineConfig {
+    pub fn from_args_and_config(
+        args: &Args,
+        toml_cfg: Option<&crate::cli::config::Config>,
+    ) -> Self {
         let full_audit = args.full_audit_enabled();
+        let journey_budget_ms = toml_cfg
+            .and_then(|c| c.interactive.journey_budget_ms)
+            .unwrap_or(crate::a11y_journey::DEFAULT_BUDGET_MS);
         Self {
             wcag_level: args.level,
             timeout_secs: args.effective_timeout(),
@@ -177,10 +193,11 @@ impl From<&Args> for PipelineConfig {
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
             dismiss_consent: args.dismiss_consent,
             interactive: args.interactive,
+            journey_budget_ms,
             semantic_eval: if args.semantic_eval {
                 // Key priority: env var > auditmysite.toml > None (Mistral skipped)
-                let toml_cfg = crate::cli::config::Config::load()
-                    .map(|c| c.semantic_eval)
+                let toml_cfg = toml_cfg
+                    .map(|c| c.semantic_eval.clone())
                     .unwrap_or_default();
                 let mistral_api_key = std::env::var("MISTRAL_API_KEY")
                     .ok()
@@ -492,7 +509,7 @@ pub async fn audit_page(
         ax_tree: &primary_snap.ax_tree,
         initial_url: url,
         locale: &config.lang,
-        budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
+        budget_ms: config.journey_budget_ms,
     };
     match crate::a11y_journey::run(journey_ctx).await {
         Ok(Some(out)) => {
@@ -1352,6 +1369,7 @@ fn persist_artifacts(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
 
     #[test]
     fn test_pipeline_config_from_args() {
@@ -1426,6 +1444,7 @@ mod tests {
             capture_screenshots: false,
             dismiss_consent: false,
             interactive: crate::cli::InteractiveMode::Off,
+            journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             semantic_eval: crate::semantic_eval::SemanticEvalConfig::default(),
             lang: "de".to_string(),
         }
@@ -1450,6 +1469,11 @@ mod tests {
         let mut other = test_pipeline_config();
         other.dismiss_consent = true;
         assert_ne!(base_sig, other.audit_signature());
+
+        // Interactive budget changes the possible journey findings.
+        let mut other = test_pipeline_config();
+        other.journey_budget_ms += 1;
+        assert_ne!(base_sig, other.audit_signature());
     }
 
     #[test]
@@ -1464,6 +1488,34 @@ mod tests {
         other.persist_artifacts = false;
         other.capture_screenshots = true;
         assert_eq!(base_sig, other.audit_signature());
+    }
+
+    #[test]
+    fn pipeline_config_uses_interactive_budget_from_config() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        let config: crate::cli::config::Config = toml::from_str(
+            r#"
+[interactive]
+journey_budget_ms = 1234
+"#,
+        )
+        .unwrap();
+
+        let pipeline = PipelineConfig::from_args_and_config(&args, Some(&config));
+
+        assert_eq!(pipeline.journey_budget_ms, 1234);
+    }
+
+    #[test]
+    fn pipeline_config_uses_default_interactive_budget_without_config() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+
+        let pipeline = PipelineConfig::from_args_and_config(&args, None);
+
+        assert_eq!(
+            pipeline.journey_budget_ms,
+            crate::a11y_journey::DEFAULT_BUDGET_MS
+        );
     }
 
     #[test]

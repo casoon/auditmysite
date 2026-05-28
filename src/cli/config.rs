@@ -47,7 +47,7 @@ pub struct SemanticEvalTomlConfig {
 /// Accessibility-Journey-Layer configuration.
 #[derive(Debug, Deserialize, Default, Clone)]
 pub struct InteractiveConfig {
-    /// `"off"`, `"basic"`, or `"full"`. Default `"off"`.
+    /// `"off"`, `"basic"`, or `"full"`. CLI default is `"full"`.
     pub mode: Option<String>,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
     /// Phase 1 stores the value; enforcement is wired up from Phase 2.
@@ -161,6 +161,16 @@ impl Config {
     /// Apply config file defaults to CLI args.
     /// CLI args always take precedence over config file values.
     pub fn apply_to_args(&self, args: &mut Args) {
+        self.apply_to_args_with_sources(args, false);
+    }
+
+    /// Apply config file defaults while preserving known CLI-specified values.
+    ///
+    /// Clap fills defaults before we see `Args`, so callers that can inspect
+    /// `ArgMatches::value_source()` should pass whether `--interactive` came
+    /// from the command line. That lets `[interactive].mode` override the CLI
+    /// default while still preserving explicit `--interactive off|basic|full`.
+    pub fn apply_to_args_with_sources(&self, args: &mut Args, interactive_from_cli: bool) {
         // Audit settings (only if CLI didn't override)
         if let Some(ref level_str) = self.audit.level {
             // Only apply if user didn't specify --level explicitly
@@ -204,7 +214,7 @@ impl Config {
         }
 
         // Accessibility-Journey-Layer
-        if matches!(args.interactive, InteractiveMode::Off) {
+        if !interactive_from_cli {
             if let Some(ref mode_str) = self.interactive.mode {
                 match mode_str.to_lowercase().as_str() {
                     "off" => args.interactive = InteractiveMode::Off,
@@ -270,6 +280,7 @@ pub fn get_ignored_rules(config: &Option<Config>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
 
     #[test]
     fn test_parse_config() {
@@ -339,6 +350,43 @@ similarity_threshold = 0.70
             Some("mistral-medium-latest")
         );
         assert_eq!(config.semantic_eval.similarity_threshold, Some(0.70));
+    }
+
+    #[test]
+    fn test_interactive_config_overrides_cli_default() {
+        let config: Config = toml::from_str(
+            r#"
+[interactive]
+mode = "off"
+"#,
+        )
+        .unwrap();
+        let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
+
+        config.apply_to_args_with_sources(&mut args, false);
+
+        assert_eq!(args.interactive, InteractiveMode::Off);
+    }
+
+    #[test]
+    fn test_explicit_interactive_cli_beats_config() {
+        let config: Config = toml::from_str(
+            r#"
+[interactive]
+mode = "off"
+"#,
+        )
+        .unwrap();
+        let mut args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--interactive",
+            "full",
+        ]);
+
+        config.apply_to_args_with_sources(&mut args, true);
+
+        assert_eq!(args.interactive, InteractiveMode::Full);
     }
 
     #[test]

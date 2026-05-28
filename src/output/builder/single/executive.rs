@@ -112,30 +112,30 @@ pub(super) fn build_executive_narrative(
         }),
         (
             risk_label.to_string(),
-            if severity.critical > 0 {
+            if normalized.risk.legal_flags > 0 {
                 if en {
                     format!(
-                        "Automated checks detected {} critical WCAG Level A violations — \
+                        "Automated checks detected {} high or critical WCAG Level A findings — \
                          potentially relevant for BFSG/EAA. Additional manual review is required \
                          for a defensible legal classification.",
-                        severity.critical
+                        normalized.risk.legal_flags
                     )
                 } else {
                     format!(
-                        "Automatisiert wurden {} kritische WCAG-Level-A-Verstöße erkannt — \
+                        "Automatisiert wurden {} hohe oder kritische WCAG-Level-A-Befunde erkannt — \
                          potenziell relevant für BFSG/EAA. Für eine belastbare rechtliche \
                          Einordnung ist ergänzend manuelle Prüfung nötig.",
-                        severity.critical
+                        normalized.risk.legal_flags
                     )
                 }
             } else if severity.high > 0 {
                 if en {
-                    "Automated checks found no critical Level A violations, but WCAG AA gaps \
+                    "Automated checks found no high or critical Level A findings, but WCAG gaps \
                      exist. Additional manual review is required for a defensible BFSG/WCAG \
                      classification."
                         .to_string()
                 } else {
-                    "Automatisiert keine kritischen Level-A-Verstöße erkannt, aber WCAG-AA-Mängel \
+                    "Automatisiert wurden keine hohen oder kritischen Level-A-Befunde erkannt, aber WCAG-Mängel \
                      vorhanden. Für eine belastbare BFSG-/WCAG-Einordnung ist ergänzend manuelle \
                      Prüfung nötig."
                         .to_string()
@@ -166,10 +166,10 @@ pub(super) fn build_executive_narrative(
         (
                 audit_summary.dominant_issue_note.clone().unwrap_or_else(|| {
                     if en {
-                        "The majority of critical problems originate from this single topic."
+                        "The majority of critical/high findings originate from this single topic."
                             .to_string()
                     } else {
-                        "Der Großteil der kritischen Probleme entsteht durch dieses eine Thema."
+                        "Der Großteil der kritischen/hohen Befunde entsteht durch dieses eine Thema."
                             .to_string()
                     }
                 }),
@@ -178,12 +178,12 @@ pub(super) fn build_executive_narrative(
                 (total_ch > 0).then(|| {
                     if en {
                         format!(
-                            "Fixing the main issue removes about {}% of critical errors. Immediately tangible improvement in usability.",
+                            "Fixing the main issue removes about {}% of critical/high findings. Immediately tangible improvement in usability.",
                             share.min(99)
                         )
                     } else {
                         format!(
-                            "Behebung des Hauptproblems reduziert ca. {}% der kritischen Fehler. Sofort spürbare Verbesserung der Nutzbarkeit.",
+                            "Behebung des Hauptproblems reduziert ca. {}% der kritischen/hohen Befunde. Sofort spürbare Verbesserung der Nutzbarkeit.",
                             share.min(99)
                         )
                     }
@@ -313,13 +313,13 @@ fn build_single_key_points_text(
         if share >= 30 {
             if en {
                 points.push(format!(
-                    "Main issue: {} ({}% of all critical errors)",
+                    "Main issue: {} ({}% of all critical/high findings)",
                     top.title,
                     share.min(99)
                 ));
             } else {
                 points.push(format!(
-                    "Hauptproblem: {} ({}% aller kritischen Fehler)",
+                    "Hauptproblem: {} ({}% aller kritischen/hohen Befunde)",
                     top.title,
                     share.min(99)
                 ));
@@ -331,14 +331,14 @@ fn build_single_key_points_text(
         }
     }
 
-    if severity.critical > 0 {
+    if normalized.risk.legal_flags > 0 {
         if en {
             points.push(
-                "WCAG Level A violations detected automatically — manual review needed for a defensible BFSG classification".to_string(),
+                "High or critical WCAG Level A findings detected automatically — manual review needed for a defensible BFSG classification".to_string(),
             );
         } else {
             points.push(
-                "WCAG-Level-A-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
+                "Hohe oder kritische WCAG-Level-A-Befunde automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
             );
         }
     } else if severity.high > 0 {

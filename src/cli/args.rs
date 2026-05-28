@@ -186,13 +186,13 @@ pub struct Args {
     /// Run the Accessibility-Journey-Layer for interactive checks
     /// (tab walk, modal focus trap, skip-link verification, …).
     ///
-    /// `off`   (default) — no interactive phase, fastest.
+    /// `off`   — no interactive phase, fastest.
     /// `basic` — tab walk + skip link + obvious pattern journeys.
-    /// `full`  — adds SPA navigation, form-error announcement,
+    /// `full`  (default) — adds SPA navigation, form-error announcement,
     ///           link-text inventory and outline export.
     ///
     /// Adds a few seconds per URL; recommended for single-URL audits.
-    #[arg(long, value_enum, default_value = "off")]
+    #[arg(long, value_enum, default_value = "full")]
     pub interactive: InteractiveMode,
 
     /// Enable semantic AI evaluation (fastembed + optional Mistral).
@@ -332,14 +332,14 @@ pub enum WcagLevel {
 #[derive(ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum InteractiveMode {
-    /// No interactive phase (default).
-    #[default]
+    /// No interactive phase.
     #[value(name = "off")]
     Off,
     /// Tab walk, skip link, obvious pattern journeys.
     #[value(name = "basic")]
     Basic,
     /// Adds SPA navigation, form-error announcement, link/outline export.
+    #[default]
     #[value(name = "full")]
     Full,
 }
@@ -578,6 +578,18 @@ mod tests {
         assert_eq!(OutputFormat::Json.to_string(), "json");
         assert_eq!(OutputFormat::Table.to_string(), "table");
         assert_eq!(OutputFormat::Pdf.to_string(), "pdf");
+    }
+
+    #[test]
+    fn test_interactive_defaults_to_full() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert_eq!(args.interactive, InteractiveMode::Full);
+    }
+
+    #[test]
+    fn test_interactive_can_be_disabled_explicitly() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--interactive", "off"]);
+        assert_eq!(args.interactive, InteractiveMode::Off);
     }
 
     #[test]

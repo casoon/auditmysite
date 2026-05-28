@@ -60,6 +60,14 @@ pub struct RunOutput {
 /// Default journey budget per URL (ms).
 pub const DEFAULT_BUDGET_MS: u64 = 5000;
 
+fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
+    match mode {
+        InteractiveMode::Off => false,
+        InteractiveMode::Basic => !matches!(journey, JourneyKind::FormErrorSubmit),
+        InteractiveMode::Full => true,
+    }
+}
+
 /// Single entry point invoked from `audit/pipeline.rs::audit_page`.
 ///
 /// Returns `None` for `--interactive=off` so the rest of the pipeline
@@ -101,7 +109,8 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                 tracing::info!("Journey budget exhausted, stopping pattern journeys early.");
                 break;
             }
-            if candidate.confidence < 0.7 {
+            if candidate.confidence < 0.7 || !journey_allowed(ctx.mode, candidate.required_journey)
+            {
                 continue;
             }
 
@@ -151,10 +160,8 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     }
 
     // ── SPA-Navigation detection (Phase 3) ───────────────────────────────────
-    // Runs unconditionally when interactive mode is enabled — only emits
-    // findings when actual SPA navigation is observed. Placed after pattern
-    // journeys so the page is in a clean state.
-    if Instant::now() < deadline {
+    // Full mode only: emits findings when actual SPA navigation is observed.
+    if matches!(ctx.mode, InteractiveMode::Full) && Instant::now() < deadline {
         match spa_navigation::run(ctx.page, ctx.initial_url).await {
             Ok(Some((trace, findings))) => {
                 out.journey.traces.push(trace);
@@ -168,10 +175,40 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     }
 
     // ── Link/Heading/Landmark inventory (Phase 3, Stufe B — pure AXTree) ────
-    // No browser interaction — runs even if budget is exhausted, because cost
-    // is O(n) in AXTree size and not subject to flakiness.
-    out.findings
-        .extend(link_inventory::analyse(ctx.ax_tree, ctx.locale));
+    // Full mode only. No browser interaction, so it can run even if budget is exhausted.
+    if matches!(ctx.mode, InteractiveMode::Full) {
+        out.findings
+            .extend(link_inventory::analyse(ctx.ax_tree, ctx.locale));
+    }
 
     Ok(Some(out))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_mode_excludes_full_only_journeys() {
+        assert!(journey_allowed(
+            InteractiveMode::Basic,
+            JourneyKind::SkipLinkActivate
+        ));
+        assert!(journey_allowed(
+            InteractiveMode::Basic,
+            JourneyKind::ModalOpen
+        ));
+        assert!(!journey_allowed(
+            InteractiveMode::Basic,
+            JourneyKind::FormErrorSubmit
+        ));
+    }
+
+    #[test]
+    fn full_mode_allows_full_scope_journeys() {
+        assert!(journey_allowed(
+            InteractiveMode::Full,
+            JourneyKind::FormErrorSubmit
+        ));
+    }
 }

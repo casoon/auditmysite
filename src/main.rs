@@ -22,7 +22,7 @@ use runners::{run_batch_mode, run_compare_mode, run_single_mode};
 
 use std::io::{self, IsTerminal};
 
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
 use colored::Colorize;
 use dialoguer::Input;
 use tracing::error;
@@ -33,13 +33,16 @@ use auditmysite::error::{AuditError, Result};
 
 #[tokio::main]
 async fn main() {
-    let mut args = Args::parse();
+    let matches = Args::command().get_matches();
+    let interactive_from_cli =
+        matches.value_source("interactive") == Some(clap::parser::ValueSource::CommandLine);
+    let mut args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     setup_logging(&args);
 
     // Load config file and apply defaults (CLI args take precedence)
     let config = auditmysite::cli::Config::load();
     if let Some(ref cfg) = config {
-        cfg.apply_to_args(&mut args);
+        cfg.apply_to_args_with_sources(&mut args, interactive_from_cli);
     }
 
     let exit_code = match run(args, &config).await {

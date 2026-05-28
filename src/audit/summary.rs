@@ -384,7 +384,7 @@ fn build_verdict_intro(
                 format!("{} hits", d.count)
             };
             return format!(
-                "One issue dominates: \"{}\" causes {:.0} % of critical findings ({detail}). \
+                "One issue dominates: \"{}\" causes {:.0} % of critical/high findings ({detail}). \
                  Focus here — one cause, high impact.{cross_note}",
                 d.title, d.share_pct
             );
@@ -395,7 +395,7 @@ fn build_verdict_intro(
             format!("{} Treffer", d.count)
         };
         return format!(
-            "Ein Problem dominiert: \"{}\" verursacht {:.0} % der kritischen Findings ({detail}). \
+            "Ein Problem dominiert: \"{}\" verursacht {:.0} % der kritischen/hohen Findings ({detail}). \
              Hier konzentrieren -- eine Ursache, hoher Impact.{cross_note}",
             d.title, d.share_pct
         );
@@ -690,6 +690,7 @@ mod tests {
                 high_issues: 0,
                 legal_flags: 0,
                 blocking_issues: 0,
+                interactive_critical_issues: 0,
                 summary: String::new(),
             },
             principle_coverage: crate::audit::scoring::AccessibilityScorer::calculate_coverage(&[]),

@@ -566,6 +566,7 @@ mod tests {
                 high_issues: 0,
                 legal_flags: 0,
                 blocking_issues: 0,
+                interactive_critical_issues: 0,
                 summary: String::new(),
             },
             principle_coverage: crate::audit::scoring::AccessibilityScorer::calculate_coverage(&[]),

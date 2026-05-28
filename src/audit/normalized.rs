@@ -314,6 +314,8 @@ pub struct RiskAssessment {
     pub legal_flags: usize,
     /// Number of blocking interaction issues (buttons/forms without names)
     pub blocking_issues: usize,
+    /// Number of critical findings from the interactive journey layer.
+    pub interactive_critical_issues: usize,
     /// Human-readable risk summary
     pub summary: String,
 }
@@ -334,10 +336,19 @@ impl RiskAssessment {
                 "High risk: {} critical and {} severe issues. Users are actively excluded.",
                 self.critical_issues, self.high_issues
             ),
-            RiskLevel::Medium => format!(
-                "Medium risk: {} severe issues detected. Limitations for certain user groups.",
-                self.high_issues + self.critical_issues
-            ),
+            RiskLevel::Medium => {
+                if self.interactive_critical_issues > 0 {
+                    format!(
+                        "Medium risk: {} critical interactive findings detected.",
+                        self.interactive_critical_issues
+                    )
+                } else {
+                    format!(
+                        "Medium risk: {} severe issues detected. Limitations for certain user groups.",
+                        self.high_issues + self.critical_issues
+                    )
+                }
+            }
             RiskLevel::Low => "Low risk: no critical violations — improvement potential remains.".to_string(),
         }
     }
@@ -1062,11 +1073,17 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .filter(|f| f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
             .map(|f| f.occurrence_count)
             .sum::<usize>();
+        let interactive_critical_issues = report
+            .interactive_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .count();
 
         let risk_score = (legal_flags as u32 * 20
             + critical_issues as u32 * 10
             + high_issues as u32 * 3
-            + blocking_issues as u32 * 2)
+            + blocking_issues as u32 * 2
+            + interactive_critical_issues as u32 * 10)
             .min(100);
 
         // Risk level — explicit precedence; legal_flags and blocking_issues both
@@ -1079,6 +1096,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             || critical_issues >= 1
             || legal_flags > 0
             || blocking_issues >= 1
+            || interactive_critical_issues > 0
             || score <= 20
         {
             RiskLevel::Medium
@@ -1144,6 +1162,15 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                          Einschränkungen für bestimmte Nutzergruppen.",
                         plural(blocking_issues, "Blocker", "Blocker")
                     )
+                } else if interactive_critical_issues > 0 {
+                    format!(
+                        "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
+                        plural(
+                            interactive_critical_issues,
+                            "kritischer Befund",
+                            "kritische Befunde"
+                        )
+                    )
                 } else {
                     format!(
                         "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
@@ -1173,7 +1200,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             RiskLevel::High => (30u32, "Accessibility".to_string()),
             RiskLevel::Medium => (
                 10u32,
-                if score <= 20 {
+                if interactive_critical_issues > 0 {
+                    "Accessibility Journey"
+                } else if score <= 20 {
                     "Score"
                 } else {
                     "Accessibility"
@@ -1192,6 +1221,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             high_issues,
             legal_flags,
             blocking_issues,
+            interactive_critical_issues,
             summary,
         }
     };
@@ -1417,6 +1447,32 @@ mod tests {
         assert_eq!(norm.occurrence_counts.high, 2);
         assert_eq!(norm.occurrence_counts.medium, 1);
         assert_eq!(norm.occurrence_counts.total, 3);
+    }
+
+    #[test]
+    fn critical_interactive_finding_raises_risk_without_wcag_counts() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.interactive_findings.push(InteractiveFinding {
+            category: "FocusTrap".to_string(),
+            severity: Severity::Critical,
+            journey: "modal".to_string(),
+            before_snapshot_label: None,
+            after_snapshot_label: None,
+            message: "Modal has no focus trap.".to_string(),
+            fix_suggestion: None,
+        });
+
+        let norm = normalize(&report);
+
+        assert_eq!(norm.risk.level, RiskLevel::Medium);
+        assert_eq!(norm.severity_counts.total, 0);
+        assert_eq!(norm.score, 100);
+        assert_eq!(norm.risk.interactive_critical_issues, 1);
     }
 
     #[test]

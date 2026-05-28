@@ -209,7 +209,7 @@ Useful flags:
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
 - `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
-- `--interactive <off|basic|full>`: enable the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `off`; adds a few seconds per URL)
+- `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs)
 
 For the full current interface, use:
 
@@ -293,15 +293,15 @@ Heuristic (indicator scores — tendency, not measurements):
 
 ### Accessibility Journey Layer
 
-Interactive checks that run a real browser session after the static AXTree phase. Enabled via `--interactive <basic|full>` (or `mode` in `auditmysite.toml`).
+Interactive checks run a real browser session after the static AXTree phase. They run in `full` mode by default and can be reduced via `--interactive <off|basic|full>` or `mode` in `auditmysite.toml`.
 
 | Mode | What runs |
 |------|-----------|
-| `off` (default) | No interactive phase — fastest, no browser interaction after initial load |
+| `off` | No interactive phase — fastest, no browser interaction after initial load |
 | `basic` | Tab-walk (focus order, reverse jumps), skip-link verification, disclosure/accordion, modal focus trap, tab-list, menu journey |
-| `full` | Everything in `basic`, plus: SPA-navigation detection, form-error announcement, link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
+| `full` (default) | Everything in `basic`, plus: SPA-navigation detection, form-error announcement, link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
 
-Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. They do not affect the accessibility score or `legal_flags`.
+Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. They do not affect the accessibility score or `legal_flags`; critical interactive findings can raise the risk level.
 
 **`auditmysite.toml` configuration:**
 
