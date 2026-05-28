@@ -124,7 +124,7 @@ impl Default for AXTree {
 }
 
 /// A single node in the Accessibility Tree
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AXNode {
     /// Unique identifier for this node
     pub node_id: String,

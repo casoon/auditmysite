@@ -11,6 +11,7 @@
 
 mod accordion;
 mod disclosure_menu;
+mod form;
 mod main_navigation;
 mod modal_dialog;
 mod skip_link;
@@ -121,5 +122,6 @@ pub fn analyze(tree: &AXTree) -> PatternAnalysis {
     tab_list::detect(tree, &mut result);
     skip_link::detect(tree, &mut result);
     accordion::detect(tree, &mut result);
+    form::detect(tree, &mut result);
     result
 }

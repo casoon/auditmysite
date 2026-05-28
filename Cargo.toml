@@ -71,6 +71,9 @@ unic-langid = "0.9"
 # PDF report generation via Typst.
 renderreport = { version = "0.2.17", optional = true }
 
+# Local embedding model for semantic link-text evaluation (semantic-eval feature).
+fastembed = { version = "5", optional = true }
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3"
@@ -94,3 +97,6 @@ pdf = ["dep:renderreport"]
 # Enables the heavy PDF smoke tests (Typst rendering). Run separately:
 #   cargo test --features pdf_test -- --test-threads=1
 pdf_test = ["pdf"]
+# Enables local embedding-based link-text evaluation via fastembed.
+# Downloads ~120 MB model on first use.
+semantic-eval = ["dep:fastembed"]

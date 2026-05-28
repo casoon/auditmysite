@@ -11,6 +11,7 @@ pub mod module;
 #[cfg(feature = "pdf")]
 mod pdf;
 pub mod report_model;
+pub mod snapshot_export;
 pub mod summary;
 
 pub use ai::format_ai_json;
@@ -20,6 +21,7 @@ pub use json::{format_json_batch, format_json_cached, format_json_normalized, Un
 pub use pdf::{
     generate_batch_pdf, generate_batch_typ, generate_comparison_pdf, generate_pdf, generate_typ,
 };
+pub use snapshot_export::export_snapshot_yaml;
 pub use summary::format_summary;
 
 #[cfg(test)]

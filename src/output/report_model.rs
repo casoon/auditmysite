@@ -946,6 +946,25 @@ pub struct CoverData {
     pub version: String,
 }
 
+/// One aggregated row per interactive category in the batch report.
+pub struct InteractiveCategoryRow {
+    pub category: String,
+    pub affected_urls: usize,
+    pub max_severity: Severity,
+}
+
+/// Aggregated summary of interactive journey findings across all audited pages.
+pub struct InteractiveJourneySummary {
+    /// Total pages that ran the interactive phase (had at least one trace or finding)
+    pub total_pages_tested: usize,
+    /// Number of pages with at least one interactive finding
+    pub pages_with_issues: usize,
+    /// Per-category aggregation, sorted by affected_urls descending
+    pub categories: Vec<InteractiveCategoryRow>,
+    /// True if any Critical interactive finding was found across all pages
+    pub has_critical: bool,
+}
+
 /// Complete presentation model for a batch audit report
 pub struct BatchPresentation {
     pub cover: CoverData,
@@ -957,6 +976,7 @@ pub struct BatchPresentation {
     pub url_details: Vec<CompactUrlSummary>,
     pub url_matrix: Vec<UrlMatrixRow>,
     pub appendix: BatchAppendixData,
+    pub interactive_summary: Option<InteractiveJourneySummary>,
 }
 
 pub struct ActionPlan {

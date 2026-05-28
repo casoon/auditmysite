@@ -203,6 +203,10 @@ pub struct AuditReport {
     /// evaluator. Empty when `--interactive=off`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interactive_findings: Vec<crate::audit::normalized::InteractiveFinding>,
+    /// Advisory findings from semantic / LLM evaluation (Phase 4).
+    /// Never influence score or risk. Empty unless `--semantic-eval` is set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub advisory_findings: Vec<crate::audit::normalized::AdvisoryFinding>,
 }
 
 /// Performance analysis results wrapper
@@ -289,6 +293,7 @@ impl AuditReport {
             consent_banner_dismissed: false,
             accessibility_journey: None,
             interactive_findings: Vec::new(),
+            advisory_findings: Vec::new(),
         }
     }
 

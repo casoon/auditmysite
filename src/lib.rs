@@ -38,6 +38,8 @@
 //!         capture_screenshots: false,
 //!         dismiss_consent: false,
 //!         interactive: auditmysite::cli::InteractiveMode::Off,
+//!         semantic_eval: auditmysite::semantic_eval::SemanticEvalConfig::default(),
+//!         lang: "de".to_string(),
 //!     };
 //!
 //!     // Run audit
@@ -96,6 +98,7 @@ pub mod output;
 pub mod patterns;
 pub mod performance;
 pub mod security;
+pub mod semantic_eval;
 pub mod seo;
 pub mod source_quality;
 pub mod studio;

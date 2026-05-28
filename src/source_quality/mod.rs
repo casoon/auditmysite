@@ -757,6 +757,7 @@ mod tests {
             consent_banner_dismissed: false,
             accessibility_journey: None,
             interactive_findings: Vec::new(),
+            advisory_findings: Vec::new(),
         }
     }
 

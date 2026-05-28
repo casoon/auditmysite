@@ -130,6 +130,10 @@ pub struct PipelineConfig {
     pub dismiss_consent: bool,
     /// Accessibility-Journey-Layer mode (off/basic/full).
     pub interactive: crate::cli::InteractiveMode,
+    /// Semantic AI evaluation config (Phase 4 — off by default).
+    pub semantic_eval: crate::semantic_eval::SemanticEvalConfig,
+    /// Report locale ("de" / "en") — used for i18n stopword loading.
+    pub lang: String,
 }
 
 impl PipelineConfig {
@@ -173,6 +177,28 @@ impl From<&Args> for PipelineConfig {
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
             dismiss_consent: args.dismiss_consent,
             interactive: args.interactive,
+            semantic_eval: if args.semantic_eval {
+                // Key priority: env var > auditmysite.toml > None (Mistral skipped)
+                let toml_cfg = crate::cli::config::Config::load()
+                    .map(|c| c.semantic_eval)
+                    .unwrap_or_default();
+                let mistral_api_key = std::env::var("MISTRAL_API_KEY")
+                    .ok()
+                    .or(toml_cfg.mistral_api_key);
+                let mistral_model = toml_cfg
+                    .mistral_model
+                    .unwrap_or_else(|| "mistral-small-latest".to_string());
+                let similarity_threshold = toml_cfg.similarity_threshold.unwrap_or(0.62);
+                crate::semantic_eval::SemanticEvalConfig {
+                    enabled: true,
+                    mistral_api_key,
+                    mistral_model,
+                    similarity_threshold,
+                }
+            } else {
+                crate::semantic_eval::SemanticEvalConfig::default()
+            },
+            lang: args.lang.clone(),
         }
     }
 }
@@ -463,7 +489,9 @@ pub async fn audit_page(
         page,
         mode: config.interactive,
         patterns: report.patterns.as_ref(),
+        ax_tree: &primary_snap.ax_tree,
         initial_url: url,
+        locale: &config.lang,
         budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
     };
     match crate::a11y_journey::run(journey_ctx).await {
@@ -474,6 +502,10 @@ pub async fn audit_page(
         Ok(None) => {}
         Err(e) => warn!("Accessibility-Journey-Layer failed: {}", e),
     }
+
+    // ── Semantic AI evaluation (Phase 4 — off unless --semantic-eval) ─────────
+    let advisory = crate::semantic_eval::run(&config.semantic_eval, &primary_snap.ax_tree).await;
+    report.advisory_findings = advisory;
 
     if config.persist_artifacts {
         persist_artifacts(url, config, &primary_snap, &report);
@@ -1364,6 +1396,8 @@ mod tests {
             logo: None,
             compare: vec![],
             debug_typ: false,
+            semantic_eval: false,
+            export_snapshot: None,
         };
 
         let config = PipelineConfig::from(&args);
@@ -1392,6 +1426,8 @@ mod tests {
             capture_screenshots: false,
             dismiss_consent: false,
             interactive: crate::cli::InteractiveMode::Off,
+            semantic_eval: crate::semantic_eval::SemanticEvalConfig::default(),
+            lang: "de".to_string(),
         }
     }
 

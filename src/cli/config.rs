@@ -27,6 +27,21 @@ pub struct Config {
     pub budgets: BudgetConfig,
     #[serde(default)]
     pub interactive: InteractiveConfig,
+    #[serde(default)]
+    pub semantic_eval: SemanticEvalTomlConfig,
+}
+
+/// Semantic AI evaluation configuration (`[semantic_eval]` in auditmysite.toml).
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct SemanticEvalTomlConfig {
+    /// Enable semantic evaluation. CLI flag `--semantic-eval` takes precedence.
+    pub enabled: Option<bool>,
+    /// Mistral API key. Falls back to `MISTRAL_API_KEY` env var.
+    pub mistral_api_key: Option<String>,
+    /// Mistral model. Default: `"mistral-small-latest"`.
+    pub mistral_model: Option<String>,
+    /// Cosine-similarity threshold for the fastembed link-text evaluator (0.0–1.0).
+    pub similarity_threshold: Option<f32>,
 }
 
 /// Accessibility-Journey-Layer configuration.
@@ -200,6 +215,13 @@ impl Config {
             }
         }
 
+        // Semantic evaluation — enable via TOML if CLI flag not set
+        if !args.semantic_eval {
+            if let Some(true) = self.semantic_eval.enabled {
+                args.semantic_eval = true;
+            }
+        }
+
         // Module settings
         if !args.full {
             if let Some(true) = self.modules.performance {
@@ -295,6 +317,28 @@ min_score = 70
         assert!(config.modules.performance.unwrap());
         assert_eq!(config.rules.ignore.as_ref().unwrap().len(), 1);
         assert_eq!(config.thresholds.min_score, Some(70.0));
+    }
+
+    #[test]
+    fn test_semantic_eval_config() {
+        let toml_str = r#"
+[semantic_eval]
+enabled = true
+mistral_api_key = "sk-test-key"
+mistral_model = "mistral-medium-latest"
+similarity_threshold = 0.70
+"#;
+        let config: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.semantic_eval.enabled, Some(true));
+        assert_eq!(
+            config.semantic_eval.mistral_api_key.as_deref(),
+            Some("sk-test-key")
+        );
+        assert_eq!(
+            config.semantic_eval.mistral_model.as_deref(),
+            Some("mistral-medium-latest")
+        );
+        assert_eq!(config.semantic_eval.similarity_threshold, Some(0.70));
     }
 
     #[test]
