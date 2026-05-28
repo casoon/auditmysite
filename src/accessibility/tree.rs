@@ -124,7 +124,7 @@ impl Default for AXTree {
 }
 
 /// A single node in the Accessibility Tree
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AXNode {
     /// Unique identifier for this node
     pub node_id: String,
@@ -154,25 +154,6 @@ pub struct AXNode {
     pub parent_id: Option<String>,
     /// Backend DOM node ID (for correlation with DOM)
     pub backend_dom_node_id: Option<i64>,
-}
-
-impl Default for AXNode {
-    fn default() -> Self {
-        Self {
-            node_id: String::new(),
-            ignored: false,
-            ignored_reasons: Vec::new(),
-            role: None,
-            name: None,
-            name_source: None,
-            description: None,
-            value: None,
-            properties: Vec::new(),
-            child_ids: Vec::new(),
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
 }
 
 impl AXNode {

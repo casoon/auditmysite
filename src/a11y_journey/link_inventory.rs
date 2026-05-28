@@ -185,7 +185,7 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
     let levels: Vec<u8> = headings.iter().filter_map(|h| h.heading_level()).collect();
 
     // Check: no h1.
-    if !levels.iter().any(|&l| l == 1) {
+    if !levels.contains(&1) {
         findings.push(InteractiveFinding {
             category: "HeadingOutline".to_string(),
             severity: Severity::Medium,

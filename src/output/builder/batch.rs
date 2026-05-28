@@ -1,5 +1,6 @@
 //! Batch-report presentation builder.
 
+use std::cmp::Reverse;
 use std::collections::HashMap;
 
 use crate::audit::normalized::NormalizedFinding;
@@ -102,7 +103,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
                         }
                     })
                     .collect();
-            categories.sort_by(|a, b| b.affected_urls.cmp(&a.affected_urls));
+            categories.sort_by_key(|c| Reverse(c.affected_urls));
             let pages_with_issues = normalized_reports
                 .iter()
                 .filter(|nr| !nr.interactive_findings.is_empty())
