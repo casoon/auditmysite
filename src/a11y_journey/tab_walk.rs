@@ -18,6 +18,9 @@ pub struct TabWalkRecord {
     pub trace: JourneyTrace,
     /// `snapshots[i]` corresponds to `trace.steps[i]`.
     pub snapshots: Vec<FocusSnapshot>,
+    /// Selectors of focusable elements as they appear in the DOM, captured
+    /// *before* the walk starts. Used to detect reverse jumps in tab order.
+    pub dom_order: Vec<String>,
 }
 
 /// Record a tab walk of up to `max_steps` Tab presses.
@@ -31,6 +34,11 @@ pub async fn record(page: &Page, max_steps: usize) -> Result<TabWalkRecord> {
         steps: Vec::with_capacity(max_steps),
     };
     let mut snapshots: Vec<FocusSnapshot> = Vec::with_capacity(max_steps);
+
+    // Capture the DOM order of focusable elements *before* the walk so the
+    // evaluator can detect reverse jumps. Empty list on JS failure — the
+    // evaluator treats that as "no order data".
+    let dom_order = focus::collect_focusable_dom_order(page).await;
 
     // Initial focus snapshot — usually body / no element.
     let start = focus::capture_focus(page).await?;
@@ -76,5 +84,9 @@ pub async fn record(page: &Page, max_steps: usize) -> Result<TabWalkRecord> {
         last_focus_selector = current;
     }
 
-    Ok(TabWalkRecord { trace, snapshots })
+    Ok(TabWalkRecord {
+        trace,
+        snapshots,
+        dom_order,
+    })
 }

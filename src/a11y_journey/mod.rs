@@ -72,6 +72,8 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     let record = tab_walk::record(ctx.page, max_steps).await?;
     out.findings
         .extend(evaluate::tab_walk(&record.trace, &record.snapshots));
+    out.findings
+        .extend(evaluate::tab_walk_order(&record.trace, &record.dom_order));
     out.journey.traces.push(record.trace);
 
     // Pattern-based journeys — only if we have candidates and time remains.

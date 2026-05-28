@@ -73,6 +73,77 @@ const ACTIVE_ELEMENT_JS: &str = r#"
 })()
 "#;
 
+/// JS that collects all focusable elements on the page in DOM order and
+/// returns their selectors. Used by the tab-walk evaluator to detect
+/// reverse jumps in tab order.
+///
+/// Filter logic mirrors what the browser treats as keyboard-reachable:
+/// - explicit interactive elements: `<a href>`, `<button>`, form controls
+/// - any element with positive or zero `tabindex`
+/// - `contenteditable` regions
+/// - excludes `disabled` controls and `tabindex="-1"` (HTMLElement.tabIndex < 0)
+const COLLECT_FOCUSABLES_JS: &str = r#"
+(function () {
+    function selectorFor(node) {
+        if (!node || node.nodeType !== 1) return null;
+        if (node.id) return '#' + node.id;
+        var parts = [];
+        while (node && node.nodeType === 1 && parts.length < 6) {
+            var tag = node.nodeName.toLowerCase();
+            if (node.id) { parts.unshift(tag + '#' + node.id); break; }
+            var parent = node.parentNode;
+            if (parent) {
+                var siblings = Array.from(parent.children).filter(function (c) {
+                    return c.nodeName === node.nodeName;
+                });
+                if (siblings.length > 1) {
+                    var idx = siblings.indexOf(node) + 1;
+                    tag += ':nth-of-type(' + idx + ')';
+                }
+            }
+            parts.unshift(tag);
+            node = parent;
+        }
+        return parts.join(' > ');
+    }
+    var sel = 'a[href], button, input:not([type="hidden"]), select, textarea, ' +
+              '[tabindex], [contenteditable=""], [contenteditable="true"]';
+    var els = Array.from(document.querySelectorAll(sel)).filter(function (el) {
+        if (el.disabled) return false;
+        if (typeof el.tabIndex === 'number' && el.tabIndex < 0) return false;
+        return true;
+    });
+    return els.map(selectorFor).filter(function (s) { return s !== null; });
+})()
+"#;
+
+/// Collect the in-DOM-order selectors of all focusable elements on the
+/// page. Used as the reference order by `evaluate::tab_walk_order`.
+///
+/// Returns an empty vector on evaluation failure rather than an error —
+/// missing DOM-order data simply means we cannot detect out-of-order jumps.
+pub async fn collect_focusable_dom_order(page: &Page) -> Vec<String> {
+    let Ok(params) = EvaluateParams::builder()
+        .expression(COLLECT_FOCUSABLES_JS.to_string())
+        .return_by_value(true)
+        .build()
+    else {
+        return Vec::new();
+    };
+    let Ok(result) = page.execute(params).await else {
+        return Vec::new();
+    };
+    let Some(value) = result.result.result.value.clone() else {
+        return Vec::new();
+    };
+    let Some(arr) = value.as_array() else {
+        return Vec::new();
+    };
+    arr.iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+        .collect()
+}
+
 /// JS that checks whether the currently focused element has a visible focus
 /// indicator via outline, box-shadow, or border changes.
 const FOCUS_INDICATOR_JS: &str = r#"

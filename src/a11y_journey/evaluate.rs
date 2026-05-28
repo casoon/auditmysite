@@ -9,6 +9,7 @@
 //! Currently covers:
 //! - hidden focusables (aria-hidden, inert, hidden-by-style)
 //! - missing focus indicator (no outline / box-shadow / border on :focus)
+//! - tab order vs. DOM order (`tab_walk_order`, separate evaluator)
 
 use crate::accessibility::{FocusIndicatorStatus, FocusSnapshot};
 use crate::audit::normalized::{InteractiveFinding, JourneyTrace};
@@ -114,6 +115,82 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
     }
 
     findings
+}
+
+/// Evaluate tab order against the DOM order of focusable elements.
+///
+/// Emits a single Warning-severity finding when the tab sequence jumps
+/// **backwards** relative to the DOM — that is, the focus moves to an
+/// element that comes earlier in the DOM than the previously focused one.
+/// Forward gaps (skipping elements) are ignored: Grid/Flex/Sticky layouts
+/// make them too ambiguous to call.
+///
+/// Pure function — takes the evidence from the tab-walk runner.
+pub fn tab_walk_order(trace: &JourneyTrace, dom_order: &[String]) -> Vec<InteractiveFinding> {
+    if dom_order.is_empty() {
+        return Vec::new();
+    }
+
+    // Build selector → DOM index lookup.
+    let dom_index =
+        |selector: &str| -> Option<usize> { dom_order.iter().position(|s| s == selector) };
+
+    let mut last_dom_index: Option<usize> = None;
+    let mut reverse_jumps: Vec<String> = Vec::new();
+
+    for step in &trace.steps {
+        if step.action != "tab" {
+            continue;
+        }
+        let Some(selector) = &step.focus else {
+            continue;
+        };
+        let Some(idx) = dom_index(selector) else {
+            // Element not in our pre-walk focusable list — could be a
+            // dynamically inserted control. Skip rather than flag.
+            continue;
+        };
+        if let Some(prev) = last_dom_index {
+            if idx < prev {
+                reverse_jumps.push(selector.clone());
+            }
+        }
+        last_dom_index = Some(idx);
+    }
+
+    if reverse_jumps.is_empty() {
+        return Vec::new();
+    }
+
+    // Aggregate one finding per page, not per jump — avoids spam on pages
+    // with several legitimate-but-noisy layouts.
+    let preview = reverse_jumps
+        .iter()
+        .take(3)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let count = reverse_jumps.len();
+    let suffix = if count > 3 { " (…)" } else { "" };
+
+    vec![InteractiveFinding {
+        category: "TabOrder".to_string(),
+        severity: Severity::Medium,
+        journey: trace.journey.clone(),
+        before_snapshot_label: None,
+        after_snapshot_label: None,
+        message: format!(
+            "Tab-Reihenfolge weicht von der DOM-Reihenfolge ab: {count} Rückwärts-Sprung(e) \
+             beobachtet. Erste betroffene Elemente: {preview}{suffix}. \
+             Tastatur-Nutzer könnten dem Lesefluss nicht folgen."
+        ),
+        fix_suggestion: Some(
+            "Negative oder hohe tabindex-Werte vermeiden. \
+             Lese-/DOM-Reihenfolge so anordnen, dass sie der visuellen \
+             Reihenfolge entspricht."
+                .to_string(),
+        ),
+    }]
 }
 
 #[cfg(test)]
@@ -249,7 +326,7 @@ mod tests {
     #[test]
     fn focus_indicator_ambiguous_emits_no_finding() {
         // Ambiguous is suppressed in evaluation — too noisy to surface as a
-        // finding.
+        // finding. Phase 3 may aggregate it.
         let trace = trace_with(vec![step_tab("a#one", "after_tab_1")]);
         let snaps = vec![snap_full(
             false,
@@ -274,5 +351,63 @@ mod tests {
         let findings = tab_walk(&trace, &snaps);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].category, "HiddenFocusable");
+    }
+
+    // ── tab_walk_order tests ─────────────────────────────────────────────
+
+    #[test]
+    fn forward_walk_produces_no_order_finding() {
+        let trace = trace_with(vec![
+            step_tab("a", "after_tab_1"),
+            step_tab("b", "after_tab_2"),
+            step_tab("c", "after_tab_3"),
+        ]);
+        let dom = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        assert!(tab_walk_order(&trace, &dom).is_empty());
+    }
+
+    #[test]
+    fn reverse_jump_emits_warning() {
+        // Tab goes a → c → b (b is before c in DOM) → reverse jump on step 3.
+        let trace = trace_with(vec![
+            step_tab("a", "after_tab_1"),
+            step_tab("c", "after_tab_2"),
+            step_tab("b", "after_tab_3"),
+        ]);
+        let dom = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let findings = tab_walk_order(&trace, &dom);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].category, "TabOrder");
+        assert_eq!(findings[0].severity, Severity::Medium);
+        assert!(findings[0].message.contains("b"));
+    }
+
+    #[test]
+    fn forward_gap_is_not_a_finding() {
+        // Skipping "b" forward is allowed — Grid/Flex layouts.
+        let trace = trace_with(vec![
+            step_tab("a", "after_tab_1"),
+            step_tab("c", "after_tab_2"),
+        ]);
+        let dom = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        assert!(tab_walk_order(&trace, &dom).is_empty());
+    }
+
+    #[test]
+    fn empty_dom_order_produces_no_finding() {
+        let trace = trace_with(vec![step_tab("a", "after_tab_1")]);
+        assert!(tab_walk_order(&trace, &[]).is_empty());
+    }
+
+    #[test]
+    fn unknown_selector_does_not_panic() {
+        // Selector that's not in the DOM list — dynamic content. Skip rather
+        // than flag.
+        let trace = trace_with(vec![
+            step_tab("a", "after_tab_1"),
+            step_tab("z", "after_tab_2"),
+        ]);
+        let dom = vec!["a".to_string(), "b".to_string()];
+        assert!(tab_walk_order(&trace, &dom).is_empty());
     }
 }
