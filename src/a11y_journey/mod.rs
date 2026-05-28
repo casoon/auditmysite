@@ -40,6 +40,9 @@ pub struct RunContext<'a> {
     pub ax_tree: &'a AXTree,
     /// URL at audit start (used for SPA-navigation detection).
     pub initial_url: &'a str,
+    /// Report locale (e.g. "de", "en") — drives which FTL stopword lists are
+    /// loaded for link-text detection in addition to the always-merged defaults.
+    pub locale: &'a str,
     /// Maximum wall-clock time the journey phase is allowed to consume.
     pub budget_ms: u64,
 }
@@ -167,7 +170,8 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     // ── Link/Heading/Landmark inventory (Phase 3, Stufe B — pure AXTree) ────
     // No browser interaction — runs even if budget is exhausted, because cost
     // is O(n) in AXTree size and not subject to flakiness.
-    out.findings.extend(link_inventory::analyse(ctx.ax_tree));
+    out.findings
+        .extend(link_inventory::analyse(ctx.ax_tree, ctx.locale));
 
     Ok(Some(out))
 }

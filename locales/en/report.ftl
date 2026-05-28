@@ -804,3 +804,4 @@ module-seo = SEO
 module-mobile = Mobile
 module-ux = UX
 module-journey = Journey
+linktext-generic-stopwords = read more,learn more,click here,here,more,details,link,view,open,see more,find out more,discover

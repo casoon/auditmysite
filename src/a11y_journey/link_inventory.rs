@@ -18,67 +18,65 @@ use std::collections::HashMap;
 
 use crate::accessibility::AXTree;
 use crate::audit::normalized::InteractiveFinding;
+use crate::i18n::I18n;
 use crate::taxonomy::Severity;
 
-/// Generic link-text patterns to flag — case-insensitive substring match.
-/// Bilingual (DE + EN) to cover common European sites without i18n overhead.
-const GENERIC_LINK_TEXTS: &[&str] = &[
-    // German
-    "mehr erfahren",
-    "weiterlesen",
-    "hier klicken",
-    "hier",
-    "mehr",
-    "weiter",
-    "lesen",
-    "anzeigen",
-    "öffnen",
-    "details",
-    "link",
-    "klicken",
-    // English
-    "read more",
-    "learn more",
-    "click here",
-    "here",
-    "more",
-    "details",
-    "link",
-    "view",
-    "open",
-    "see more",
-    "find out more",
-    "discover",
-];
+/// Load generic-linktext stopwords from FTL for the given locale.
+/// Falls back to an empty list if the key is missing.
+fn stopwords_for_locale(locale: &str) -> Vec<String> {
+    let Ok(i18n) = I18n::new(locale) else {
+        return Vec::new();
+    };
+    let raw = i18n.t("linktext-generic-stopwords");
+    if raw == "linktext-generic-stopwords" {
+        return Vec::new(); // key missing — I18n returns the key itself as fallback
+    }
+    raw.split(',').map(|s| s.trim().to_string()).collect()
+}
+
+/// All known locales whose stopwords are always checked, regardless of report
+/// language. Sites frequently mix languages; merging keeps current behaviour.
+const SUPPORTED_LOCALES: &[&str] = &["de", "en"];
 
 /// Landmark roles that should appear exactly once without a label when there
 /// is only one instance, or with distinct labels when there are multiple.
 const UNIQUE_LANDMARKS: &[&str] = &["main", "banner", "contentinfo"];
 
-/// Returns `true` if the name matches a generic link text.
-fn is_generic(name: &str) -> bool {
+/// Returns `true` if the name matches any word in the stopword list.
+fn is_generic(name: &str, stopwords: &[String]) -> bool {
     let lower = name.trim().to_lowercase();
-    // Exact match or the name *is* exactly one of the generic phrases.
-    GENERIC_LINK_TEXTS
+    stopwords
         .iter()
-        .any(|g| lower == *g || lower.contains(*g))
+        .any(|g| lower == g.as_str() || lower.contains(g.as_str()))
+}
+
+/// Build merged stopword list from all supported locales.
+fn load_stopwords() -> Vec<String> {
+    let mut words: Vec<String> = SUPPORTED_LOCALES
+        .iter()
+        .flat_map(|loc| stopwords_for_locale(loc))
+        .collect();
+    words.sort_unstable();
+    words.dedup();
+    words
 }
 
 /// Analyse link texts, heading outline, and landmark inventory from an AXTree.
 ///
-/// Returns a list of `InteractiveFinding`s. The journey name is set to
-/// `"link_inventory"` for all findings from this function.
-pub fn analyse(tree: &AXTree) -> Vec<InteractiveFinding> {
+/// `_locale` is reserved for future per-locale filtering; currently all
+/// supported locales are always merged so bilingual sites are covered.
+pub fn analyse(tree: &AXTree, _locale: &str) -> Vec<InteractiveFinding> {
+    let stopwords = load_stopwords();
     let mut findings = Vec::new();
 
-    findings.extend(check_link_texts(tree));
+    findings.extend(check_link_texts(tree, &stopwords));
     findings.extend(check_heading_outline(tree));
     findings.extend(check_landmarks(tree));
 
     findings
 }
 
-fn check_link_texts(tree: &AXTree) -> Vec<InteractiveFinding> {
+fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFinding> {
     let mut findings = Vec::new();
     let links = tree.links();
 
@@ -98,7 +96,7 @@ fn check_link_texts(tree: &AXTree) -> Vec<InteractiveFinding> {
         }
         let lower = name.to_lowercase();
         *name_counts.entry(lower.clone()).or_insert(0) += 1;
-        if is_generic(&name) {
+        if is_generic(&name, stopwords) {
             generic.push(name);
         }
     }
@@ -139,7 +137,7 @@ fn check_link_texts(tree: &AXTree) -> Vec<InteractiveFinding> {
     // Duplicate link names — aggregate once.
     let duplicates: Vec<_> = name_counts
         .iter()
-        .filter(|(name, &count)| count >= 3 && !is_generic(name))
+        .filter(|(name, &count)| count >= 3 && !is_generic(name, stopwords))
         .map(|(name, count)| (name.clone(), *count))
         .collect();
 
@@ -403,22 +401,24 @@ mod tests {
 
     #[test]
     fn generic_link_text_is_flagged() {
+        let stopwords = load_stopwords();
         let tree = tree_from(vec![
             make_link("mehr erfahren"),
             make_link("mehr erfahren"),
             make_link("Produkt A"),
         ]);
-        let findings = check_link_texts(&tree);
+        let findings = check_link_texts(&tree, &stopwords);
         assert!(findings.iter().any(|f| f.category == "LinkText"));
     }
 
     #[test]
     fn clean_link_texts_produce_no_findings() {
+        let stopwords = load_stopwords();
         let tree = tree_from(vec![
             make_link("Produkt A kaufen"),
             make_link("Barrierefreiheit verbessern"),
         ]);
-        let findings = check_link_texts(&tree);
+        let findings = check_link_texts(&tree, &stopwords);
         assert!(findings.is_empty(), "{findings:#?}");
     }
 

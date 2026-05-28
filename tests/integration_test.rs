@@ -86,6 +86,8 @@ fn default_config() -> PipelineConfig {
         capture_screenshots: false,
         dismiss_consent: false,
         interactive: auditmysite::cli::InteractiveMode::Off,
+        semantic_eval: auditmysite::semantic_eval::SemanticEvalConfig::default(),
+        lang: "de".to_string(),
     }
 }
 
