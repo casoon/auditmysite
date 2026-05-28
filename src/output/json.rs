@@ -109,8 +109,8 @@ pub struct UnifiedSummary {
     /// (über alle Pages dedupliziert).
     #[serde(default)]
     pub violated_rule_count: usize,
-    /// Häufigste WCAG-Regelverstöße im Batch (über Pages aggregiert, max. 10 Einträge).
-    /// Bei Single-Reports leer.
+    /// Häufigste WCAG-Regelverstöße (max. 10 Einträge, sortiert nach Occurrences).
+    /// Bei Single-Reports bezogen auf die eine Seite; bei Batch über alle Pages aggregiert.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub top_recurring_rules: Vec<RecurringRule>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,6 +154,19 @@ pub struct PageEntry {
     pub nodes_analyzed: usize,
     pub duration_ms: u64,
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
+    /// Shortcut scores derived from `module_scores`. Present only when the module ran.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performance_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seo_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ux_score: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub journey_score: Option<u32>,
     /// How `overall_score` was computed: `"module_weighted"` or `"viewport_weighted"`.
     pub score_calculation_method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -490,6 +503,7 @@ impl UnifiedReport {
             page.overall_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
         );
         let violated_rule_count = page.violated_rule_count;
+        let (_, top_recurring_rules) = aggregate_recurring_rules(std::slice::from_ref(&page));
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -504,7 +518,7 @@ impl UnifiedReport {
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             violated_rule_count,
-            top_recurring_rules: Vec::new(),
+            top_recurring_rules,
             performance_score: normalized_module_score(normalized, "Performance"),
             seo_score: normalized_module_score(normalized, "SEO"),
             security_score: normalized_module_score(normalized, "Security"),
@@ -597,6 +611,12 @@ fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> Page
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
         module_scores: normalized.module_scores.clone(),
+        performance_score: normalized_module_score(normalized, "Performance"),
+        seo_score: normalized_module_score(normalized, "SEO"),
+        security_score: normalized_module_score(normalized, "Security"),
+        mobile_score: normalized_module_score(normalized, "Mobile"),
+        ux_score: normalized_module_score(normalized, "UX"),
+        journey_score: normalized_module_score(normalized, "Journey"),
         score_calculation_method: normalized.score_calculation_method.clone(),
         score_breakdown: normalized.score_breakdown.clone(),
         risk: normalized.risk.clone(),
@@ -834,16 +854,16 @@ fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidance> {
             let expl = get_explanation(&finding.rule_id);
 
             let mut seen = std::collections::HashSet::new();
+            // Accept any non-empty selector that isn't a raw numeric node ID.
+            // The old CSS-character filter was too strict and dropped plain tag
+            // selectors (e.g. "a") from rules like color_link_indicator.
             let affected_selectors: Vec<String> = finding
                 .occurrences
                 .iter()
                 .filter_map(|o| o.selector.clone())
                 .filter(|s| {
-                    (s.contains('.')
-                        || s.contains('#')
-                        || s.contains('[')
-                        || s.contains('>')
-                        || s.contains(' '))
+                    !s.is_empty()
+                        && !s.chars().all(|c| c.is_ascii_digit())
                         && seen.insert(s.clone())
                 })
                 .take(10)

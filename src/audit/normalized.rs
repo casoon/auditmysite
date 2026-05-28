@@ -316,6 +316,9 @@ pub struct RiskAssessment {
     pub blocking_issues: usize,
     /// Number of critical findings from the interactive journey layer.
     pub interactive_critical_issues: usize,
+    /// Number of high-severity findings from the interactive journey layer.
+    #[serde(default)]
+    pub interactive_high_issues: usize,
     /// Human-readable risk summary
     pub summary: String,
 }
@@ -349,7 +352,17 @@ impl RiskAssessment {
                     )
                 }
             }
-            RiskLevel::Low => "Low risk: no critical violations — improvement potential remains.".to_string(),
+            RiskLevel::Low => {
+                let notable = self.interactive_high_issues + self.interactive_critical_issues;
+                if notable > 0 {
+                    format!(
+                        "Low risk: no critical violations — keyboard journey has {} requiring manual review.",
+                        if notable == 1 { "1 notable finding".to_string() } else { format!("{notable} notable findings") }
+                    )
+                } else {
+                    "Low risk: no critical violations — improvement potential remains.".to_string()
+                }
+            }
         }
     }
 }
@@ -1078,6 +1091,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .iter()
             .filter(|f| f.severity == Severity::Critical)
             .count();
+        let interactive_high_issues = report
+            .interactive_findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .count();
 
         let risk_score = (legal_flags as u32 * 20
             + critical_issues as u32 * 10
@@ -1183,8 +1201,16 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 }
             }
             RiskLevel::Low => {
-                "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
-                    .to_string()
+                let notable = interactive_high_issues + interactive_critical_issues;
+                if notable > 0 {
+                    format!(
+                        "Geringes Risiko: Keine kritischen Verstöße — Tastatur-Journey enthält {}, manuelle Prüfung empfohlen.",
+                        plural(notable, "auffälligen Befund", "auffällige Befunde")
+                    )
+                } else {
+                    "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
+                        .to_string()
+                }
             }
         };
         let (threshold, driven_by) = match level {
@@ -1222,6 +1248,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             legal_flags,
             blocking_issues,
             interactive_critical_issues,
+            interactive_high_issues,
             summary,
         }
     };
