@@ -104,6 +104,14 @@ cargo build --release
 ./target/release/auditmysite --version
 ```
 
+**Optional Cargo features:**
+
+| Feature | What it adds | Build command |
+|---------|-------------|---------------|
+| `pdf` | PDF report generation via the `renderreport`/Typst engine | `cargo build --release --features pdf` |
+| `pdf_test` | PDF rendering integration tests | `cargo test --features pdf_test` |
+| `semantic-eval` | Fastembed local embedding for semantic link-text analysis (requires `--semantic-eval` flag at runtime) | `cargo build --release --features semantic-eval` |
+
 ## Requirements
 
 - Rust 1.75+ for local builds
@@ -201,6 +209,7 @@ Useful flags:
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
 - `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
+- `--interactive <off|basic|full>`: enable the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `off`; adds a few seconds per URL)
 
 For the full current interface, use:
 
@@ -216,6 +225,12 @@ JSON output is treated as an automation contract.
 - Contract documentation: [docs/OUTPUT_CONTRACT.md](docs/OUTPUT_CONTRACT.md)
 - Single report schema: [docs/json-report.schema.json](docs/json-report.schema.json)
 - Batch report schema: [docs/json-batch-report.schema.json](docs/json-batch-report.schema.json)
+
+Key top-level fields in a single-page report:
+- `findings` — static WCAG violations and SEO findings
+- `interactive_findings` — journey-phase results (link texts, landmarks, heading outline, focus order, modal traps …); present when `--interactive basic|full` was used
+- `accessibility_journey` — structured trace of each journey (steps, snapshots, durations); present when `--interactive basic|full` was used
+- `advisory_findings` — semantic AI evaluation results (fastembed + Mistral); present when `--semantic-eval` was used; explicitly advisory, never affects score or risk
 
 The repository validates these contracts in automated tests.
 
@@ -276,9 +291,38 @@ Heuristic (indicator scores — tendency, not measurements):
 - Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
 
+### Accessibility Journey Layer
+
+Interactive checks that run a real browser session after the static AXTree phase. Enabled via `--interactive <basic|full>` (or `mode` in `auditmysite.toml`).
+
+| Mode | What runs |
+|------|-----------|
+| `off` (default) | No interactive phase — fastest, no browser interaction after initial load |
+| `basic` | Tab-walk (focus order, reverse jumps), skip-link verification, disclosure/accordion, modal focus trap, tab-list, menu journey |
+| `full` | Everything in `basic`, plus: SPA-navigation detection, form-error announcement, link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
+
+Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. They do not affect the accessibility score or `legal_flags`.
+
+**`auditmysite.toml` configuration:**
+
+```toml
+[interactive]
+mode = "full"             # off | basic | full
+journey_budget_ms = 8000  # wall-clock budget per URL in milliseconds (default: 6000)
+```
+
 ### Risk assessment
 
 Risk level is computed independently from the score. A page scoring 81 can still carry "Critical" risk if it has Level A violations relevant under BFSG/EAA. Risk levels: Low, Medium, High, Critical — based on critical/high violations, legal flags, and blocking issues (4.1.2/2.1.1).
+
+### Configuration file
+
+`auditmysite.toml` is an optional project-level config file placed in the working directory. It supports `[audit]`, `[rules]`, `[interactive]`, `[semantic_eval]`, `[thresholds]`, and `[budget]` sections.
+
+> **Security note:** If you store API keys (e.g. `mistral_api_key`) in `auditmysite.toml`, add the file to `.gitignore` to avoid accidentally committing secrets:
+> ```
+> echo "auditmysite.toml" >> .gitignore
+> ```
 
 ### Rule configuration
 
@@ -289,6 +333,42 @@ Rules can be selectively disabled or filtered via `auditmysite.toml`:
 disabled = ["heading-order", "landmark-one-main"]
 # enabled_only = ["image-alt", "label"]  # run only these rules
 ```
+
+### Semantic AI evaluation
+
+Adds a semantic layer on top of the static and interactive checks. Two providers run when `--semantic-eval` is set:
+
+- **Fastembed** (local, no API key): embeds link texts using a multilingual model (`MultilingualE5Small`) and flags links that are semantically similar to known generic patterns ("Mehr erfahren", "Read more", …) — catches variations that string matching misses. Requires the `semantic-eval` Cargo feature: `cargo build --features semantic-eval`.
+- **Mistral** (API, optional): evaluates heading-outline plausibility and produces a brief "blind user perspective" for the page. Requires a Mistral API key.
+
+Results appear in `advisory_findings` in the JSON output. They are explicitly advisory — they never influence the accessibility score or risk level.
+
+**Usage:**
+
+```bash
+# Fastembed only (local, no key needed)
+auditmysite https://example.com --semantic-eval
+
+# Fastembed + Mistral via environment variable
+MISTRAL_API_KEY=sk-... auditmysite https://example.com --semantic-eval
+```
+
+**`auditmysite.toml` configuration:**
+
+```toml
+[semantic_eval]
+enabled = true
+mistral_model = "mistral-small-latest"   # or "open-mistral-nemo", "mistral-medium-latest"
+similarity_threshold = 0.62              # fastembed cosine threshold (0.0–1.0)
+
+# API key — omit this field and use the MISTRAL_API_KEY env var instead
+# to avoid storing secrets in a file that might be committed.
+# mistral_api_key = "sk-..."
+```
+
+Key priority: `MISTRAL_API_KEY` environment variable > `mistral_api_key` in `auditmysite.toml` > Mistral skipped (only Fastembed runs).
+
+> **Security note:** If you add `mistral_api_key` to `auditmysite.toml`, make sure the file is listed in `.gitignore`.
 
 ### AI / LLM output format
 
