@@ -1416,6 +1416,7 @@ mod tests {
             debug_typ: false,
             semantic_eval: false,
             export_snapshot: None,
+            request_mode: crate::cli::RequestMode::Browser,
         };
 
         let config = PipelineConfig::from(&args);

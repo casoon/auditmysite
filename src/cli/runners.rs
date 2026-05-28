@@ -18,7 +18,7 @@ use auditmysite::audit::{
     CrawlResult, PipelineConfig,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
-use auditmysite::cli::{Args, OutputFormat};
+use auditmysite::cli::{Args, OutputFormat, RequestMode};
 use auditmysite::error::{AuditError, Result};
 use auditmysite::output::format_json_cached;
 use auditmysite::util::truncate_url;
@@ -32,6 +32,12 @@ use crate::report_writers::{
 use crate::sitemap_suggest::{
     check_url_reachable, discover_populated_sitemap, looks_like_base_url,
 };
+
+const BOT_USER_AGENT: &str = concat!(
+    "auditmysite/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/casoon/auditmysite)"
+);
 
 pub async fn run_single_mode(
     args: &Args,
@@ -103,6 +109,8 @@ pub async fn run_single_mode(
         window_size: (1920, 1080),
         timeout_secs: args.effective_timeout(),
         verbose: args.verbose,
+        user_agent_override: (args.request_mode == RequestMode::Bot)
+            .then(|| BOT_USER_AGENT.to_string()),
     };
 
     if !args.quiet {
@@ -456,6 +464,8 @@ pub async fn run_compare_mode(args: &Args) -> Result<f64> {
         window_size: (1920, 1080),
         timeout_secs: args.effective_timeout(),
         verbose: args.verbose,
+        user_agent_override: (args.request_mode == RequestMode::Bot)
+            .then(|| BOT_USER_AGENT.to_string()),
     };
 
     let browser = BrowserManager::with_options(browser_options).await?;

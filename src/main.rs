@@ -24,7 +24,7 @@ use std::io::{self, IsTerminal};
 
 use clap::{CommandFactory, FromArgMatches};
 use colored::Colorize;
-use dialoguer::Input;
+use dialoguer::{Input, Select};
 use tracing::error;
 use tracing_subscriber::EnvFilter;
 
@@ -145,6 +145,19 @@ async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Resu
             format!("https://{}", input)
         };
         args.url = Some(url);
+
+        let mode_idx = Select::new()
+            .with_prompt("  Request mode")
+            .items(&[
+                "Simulate browser  (default, avoids bot detection)",
+                "Identify as bot   (--request-mode bot, transparent)",
+            ])
+            .default(0)
+            .interact()
+            .map_err(|e| AuditError::ConfigError(e.to_string()))?;
+        if mode_idx == 1 {
+            args.request_mode = auditmysite::cli::RequestMode::Bot;
+        }
     }
 
     if let Err(e) = args.validate() {

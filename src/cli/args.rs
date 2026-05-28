@@ -266,6 +266,13 @@ pub struct Args {
     /// Example: --export-snapshot reports/casoon-snapshot.yaml
     #[arg(long, value_name = "PATH")]
     pub export_snapshot: Option<PathBuf>,
+
+    /// How the browser should identify itself when making requests.
+    ///
+    /// In interactive mode this is prompted automatically.
+    /// Use `--request-mode bot` to skip the prompt and identify as an audit bot.
+    #[arg(long, default_value = "browser", value_enum)]
+    pub request_mode: RequestMode,
 }
 
 /// Subcommands
@@ -403,6 +410,17 @@ impl std::fmt::Display for ReportLevel {
             ReportLevel::Technical => write!(f, "technical"),
         }
     }
+}
+
+/// How the browser should identify itself when making requests
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RequestMode {
+    /// Simulate a real browser (avoids bot detection)
+    #[default]
+    Browser,
+    /// Identify as an audit bot (transparent, RFC 9309)
+    Bot,
 }
 
 impl std::fmt::Display for OutputFormat {
@@ -654,6 +672,7 @@ mod tests {
             compare: vec![],
             debug_typ: false,
             export_snapshot: None,
+            request_mode: RequestMode::Browser,
         }
     }
 

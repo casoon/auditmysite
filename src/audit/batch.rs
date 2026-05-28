@@ -16,7 +16,7 @@ use tracing::{debug, info, warn};
 use super::pipeline::{audit_page, PipelineConfig};
 use super::report::{AuditReport, BatchError, BatchReport};
 use crate::browser::{BrowserOptions, BrowserPool, PoolConfig};
-use crate::cli::Args;
+use crate::cli::{Args, RequestMode};
 use crate::error::{AuditError, Result};
 use crate::util::build_browser_client;
 
@@ -43,6 +43,14 @@ impl From<&Args> for BatchConfig {
                 disable_images: args.disable_images,
                 timeout_secs: args.effective_timeout(),
                 verbose: args.verbose,
+                user_agent_override: (args.request_mode == RequestMode::Bot).then(|| {
+                    concat!(
+                        "auditmysite/",
+                        env!("CARGO_PKG_VERSION"),
+                        " (+https://github.com/casoon/auditmysite)"
+                    )
+                    .to_string()
+                }),
                 ..BrowserOptions::default()
             },
             ..PoolConfig::default()

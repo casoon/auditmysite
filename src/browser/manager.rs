@@ -39,6 +39,8 @@ pub struct BrowserOptions {
     pub timeout_secs: u64,
     /// Enable verbose browser logging
     pub verbose: bool,
+    /// Override the user-agent string (None = use default browser simulation UA)
+    pub user_agent_override: Option<String>,
 }
 
 impl Default for BrowserOptions {
@@ -52,6 +54,7 @@ impl Default for BrowserOptions {
             window_size: (1920, 1080),
             timeout_secs: 30,
             verbose: false,
+            user_agent_override: None,
         }
     }
 }
@@ -232,10 +235,12 @@ impl BrowserManager {
         chrome_version: Option<&str>,
     ) -> Vec<String> {
         let version = chrome_version.unwrap_or("131.0.0.0");
-        let user_agent = format!(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{} Safari/537.36",
-            version
-        );
+        let user_agent = options.user_agent_override.clone().unwrap_or_else(|| {
+            format!(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{} Safari/537.36",
+                version
+            )
+        });
 
         let mut args = vec![
             // Note: headless mode, user data dir, window size, and sandbox
