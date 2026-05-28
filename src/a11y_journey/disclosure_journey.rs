@@ -97,6 +97,7 @@ pub async fn test(
     if !opened {
         findings.push(InteractiveFinding {
             category: "StateTransition".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -154,6 +155,7 @@ pub async fn test(
     if !closed {
         findings.push(InteractiveFinding {
             category: "StateTransition".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name,
             before_snapshot_label: Some("after_open_click".to_string()),

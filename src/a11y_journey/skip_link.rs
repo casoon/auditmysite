@@ -69,6 +69,7 @@ pub async fn test(
     if focus_on_body {
         findings.push(InteractiveFinding {
             category: "SkipLink".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name,
             before_snapshot_label: None,

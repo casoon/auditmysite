@@ -499,7 +499,7 @@ fn build_eeat(
         .structured_data
         .types
         .iter()
-        .any(|t| matches!(t, SchemaType::Organization | SchemaType::LocalBusiness));
+        .any(SchemaType::is_organization_like);
     signals.push(if has_org {
         ContentSignal::positive(
             ContentArea::Seo,

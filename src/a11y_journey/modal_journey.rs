@@ -79,6 +79,7 @@ pub async fn test(
     if !focus_in_dialog {
         findings.push(InteractiveFinding {
             category: "FocusTrap".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -105,6 +106,7 @@ pub async fn test(
     if !background_hidden {
         findings.push(InteractiveFinding {
             category: "FocusTrap".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -158,6 +160,7 @@ pub async fn test(
     if focus_escaped {
         findings.push(InteractiveFinding {
             category: "FocusTrap".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -211,6 +214,7 @@ pub async fn test(
     if !dialog_closed {
         findings.push(InteractiveFinding {
             category: "FocusTrap".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -250,6 +254,7 @@ pub async fn test(
     if focus_on_body {
         findings.push(InteractiveFinding {
             category: "FocusRestoration".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name,
             before_snapshot_label: None,

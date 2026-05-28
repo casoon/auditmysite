@@ -367,10 +367,29 @@ impl RiskAssessment {
     }
 }
 
+fn gate_certificate_by_risk(certificate: String, risk_level: &RiskLevel) -> String {
+    match risk_level {
+        RiskLevel::Critical => "NICHT BESTANDEN".to_string(),
+        RiskLevel::High if matches!(certificate.as_str(), "SOLIDE" | "GUT" | "SEHR GUT") => {
+            "EINGESCHRÄNKT".to_string()
+        }
+        _ => certificate,
+    }
+}
+
+fn viewport_score_calculation_note() -> String {
+    "viewport_scores.weighted_overall is the desktop/mobile blend before security; \
+     overall_score is the canonical final score after the optional security blend."
+        .to_string()
+}
+
 /// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
 /// Allows consumers to reproduce the exact score from its inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoreBreakdown {
+    /// Human-readable note clarifying that `viewport_scores.weighted_overall`
+    /// is pre-security while `overall_score` is the canonical final score.
+    pub calculation_note: String,
     /// Blending weights for the two viewport passes
     pub desktop_weight_pct: u32,
     pub mobile_weight_pct: u32,
@@ -446,6 +465,9 @@ pub struct InteractiveFinding {
     /// | "FormError" | "SpaNavigation" | "HiddenFocusable" | "SkipLink"
     /// | "FocusIndicator" | "MenuJourney" | "TabsJourney"
     pub category: String,
+    /// WCAG finding rule ID this journey finding confirms, when it maps 1:1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maps_to_finding: Option<String>,
     pub severity: Severity,
     /// Which journey produced this finding (matches `JourneyTrace.journey`).
     pub journey: String,
@@ -954,6 +976,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                 total += 10.0;
             }
             let breakdown = ScoreBreakdown {
+                calculation_note: viewport_score_calculation_note(),
                 desktop_weight_pct: 30,
                 mobile_weight_pct: 70,
                 desktop_overall: vs.desktop.overall,
@@ -1252,6 +1275,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             summary,
         }
     };
+    let certificate = gate_certificate_by_risk(certificate, &risk.level);
 
     NormalizedReport {
         url: report.url.clone(),
@@ -1486,6 +1510,7 @@ mod tests {
         );
         report.interactive_findings.push(InteractiveFinding {
             category: "FocusTrap".to_string(),
+            maps_to_finding: None,
             severity: Severity::Critical,
             journey: "modal".to_string(),
             before_snapshot_label: None,
@@ -1569,6 +1594,22 @@ mod tests {
         let expected_cert = AccessibilityScorer::calculate_certificate(norm.overall_score as f32);
         assert_eq!(norm.grade, expected_grade);
         assert_eq!(norm.certificate, expected_cert);
+    }
+
+    #[test]
+    fn high_risk_vetoes_positive_certificate() {
+        assert_eq!(
+            gate_certificate_by_risk("SOLIDE".to_string(), &RiskLevel::High),
+            "EINGESCHRÄNKT"
+        );
+        assert_eq!(
+            gate_certificate_by_risk("SEHR GUT".to_string(), &RiskLevel::Critical),
+            "NICHT BESTANDEN"
+        );
+        assert_eq!(
+            gate_certificate_by_risk("AUSBAUFÄHIG".to_string(), &RiskLevel::High),
+            "AUSBAUFÄHIG"
+        );
     }
 
     #[test]
@@ -1740,6 +1781,10 @@ mod tests {
         });
         let norm = normalize(&report);
         assert_eq!(norm.score_calculation_method, "viewport_weighted");
+        assert!(norm
+            .score_breakdown
+            .as_ref()
+            .is_some_and(|b| b.calculation_note.contains("canonical final score")));
         let names_contributing: Vec<&str> = norm
             .module_scores
             .iter()

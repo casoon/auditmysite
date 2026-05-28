@@ -102,6 +102,57 @@ impl std::str::FromStr for SchemaType {
 }
 
 impl SchemaType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Organization => "Organization",
+            Self::LocalBusiness => "LocalBusiness",
+            Self::Person => "Person",
+            Self::Article => "Article",
+            Self::BlogPosting => "BlogPosting",
+            Self::NewsArticle => "NewsArticle",
+            Self::Product => "Product",
+            Self::Offer => "Offer",
+            Self::Event => "Event",
+            Self::Recipe => "Recipe",
+            Self::VideoObject => "VideoObject",
+            Self::WebPage => "WebPage",
+            Self::WebSite => "WebSite",
+            Self::BreadcrumbList => "BreadcrumbList",
+            Self::FAQPage => "FAQPage",
+            Self::HowTo => "HowTo",
+            Self::Review => "Review",
+            Self::AggregateRating => "AggregateRating",
+            Self::Other(s) => s,
+        }
+    }
+
+    pub fn is_organization_like(&self) -> bool {
+        matches!(self, Self::Organization | Self::LocalBusiness)
+            || matches!(
+                self.as_str(),
+                "Airline"
+                    | "Consortium"
+                    | "Corporation"
+                    | "EducationalOrganization"
+                    | "FundingScheme"
+                    | "GovernmentOrganization"
+                    | "LibrarySystem"
+                    | "LocalBusiness"
+                    | "MedicalOrganization"
+                    | "NGO"
+                    | "NewsMediaOrganization"
+                    | "OnlineBusiness"
+                    | "PerformingGroup"
+                    | "Project"
+                    | "ResearchOrganization"
+                    | "SearchRescueOrganization"
+                    | "SportsOrganization"
+                    | "WorkersUnion"
+                    | "LegalService"
+                    | "ProfessionalService"
+            )
+    }
+
     pub fn rich_snippet_type(&self) -> Option<&'static str> {
         match self {
             SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle => {
@@ -364,5 +415,15 @@ mod tests {
             Some("Product Rich Snippet")
         );
         assert_eq!(SchemaType::Organization.rich_snippet_type(), None);
+    }
+
+    #[test]
+    fn organization_like_accepts_schema_subtypes() {
+        assert!(SchemaType::Organization.is_organization_like());
+        assert!(SchemaType::LocalBusiness.is_organization_like());
+        assert!(SchemaType::Other("LegalService".into()).is_organization_like());
+        assert!(SchemaType::Other("MedicalOrganization".into()).is_organization_like());
+        assert!(!SchemaType::Person.is_organization_like());
+        assert!(!SchemaType::WebSite.is_organization_like());
     }
 }

@@ -389,9 +389,7 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
     let schema_types = seo.map_or(&[][..], |s| &s.structured_data.types);
 
     let has_author_schema = schema_types.iter().any(|t| matches!(t, SchemaType::Person));
-    let has_org_schema = schema_types
-        .iter()
-        .any(|t| matches!(t, SchemaType::Organization | SchemaType::LocalBusiness));
+    let has_org_schema = schema_types.iter().any(SchemaType::is_organization_like);
     let has_article_schema = schema_types.iter().any(|t| {
         matches!(
             t,
@@ -653,7 +651,7 @@ fn score_to_label(score: u32) -> String {
     match score {
         90..=100 => "Sehr gut",
         75..=89 => "Gut",
-        60..=74 => "Befriedigend",
+        60..=74 => "Verbesserungswürdig",
         40..=59 => "Ausbaufähig",
         _ => "Kritisch",
     }

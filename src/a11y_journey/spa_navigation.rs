@@ -277,6 +277,7 @@ pub async fn run(
     if !title_changed && !heading_changed && !focus_moved {
         findings.push(InteractiveFinding {
             category: "SpaNavigation".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_spa_nav".to_string()),
@@ -298,6 +299,7 @@ pub async fn run(
         // Partial: heading or focus changed but title didn't.
         findings.push(InteractiveFinding {
             category: "SpaNavigation".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_spa_nav".to_string()),
@@ -316,6 +318,7 @@ pub async fn run(
         // Title and/or heading changed, but focus stayed — weaker warning.
         findings.push(InteractiveFinding {
             category: "SpaNavigation".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_spa_nav".to_string()),

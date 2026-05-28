@@ -129,7 +129,7 @@ no = Nein
 # Grade labels
 grade-excellent = Sehr gut
 grade-good = Gut
-grade-satisfactory = Befriedigend
+grade-satisfactory = Verbesserungswürdig
 grade-deficient = Ausbaufähig
 grade-critical = Kritisch
 

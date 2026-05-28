@@ -112,6 +112,7 @@ pub async fn test(
     if !selection_moved {
         findings.push(InteractiveFinding {
             category: "TabsJourney".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: Some("after_first_tab_click".to_string()),
@@ -140,6 +141,7 @@ pub async fn test(
     if !focus_on_tab {
         findings.push(InteractiveFinding {
             category: "TabsJourney".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name,
             before_snapshot_label: None,

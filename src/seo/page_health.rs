@@ -119,6 +119,12 @@ pub struct PageHealthAnalysis {
     pub uses_http2: bool,
     /// True when the main page response is compressed (gzip/br/zstd)
     pub has_compression: bool,
+    /// Main document decoded body size from Navigation Timing, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_decoded_bytes: Option<u64>,
+    /// Main document transfer size from Navigation Timing, when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_transfer_bytes: Option<u64>,
     /// Raw Cache-Control header value from the main page response
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_control: Option<String>,
@@ -438,6 +444,10 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         const loadedResources = new Set(performance.getEntriesByType('resource').map(e => e.name));
         r.orphanedPreloadCount = [...preloadHrefs].filter(href => href && !loadedResources.has(href)).length;
 
+        const nav = performance.getEntriesByType('navigation')[0];
+        r.documentDecodedBytes = nav ? Math.round(nav.decodedBodySize || 0) : 0;
+        r.documentTransferBytes = nav ? Math.round(nav.transferSize || 0) : 0;
+
         // LCP image candidate: largest visible img by display area
         let lcpImg = null, lcpArea = 0;
         document.querySelectorAll('img[src]').forEach(img => {
@@ -589,6 +599,8 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.prefetch_hints = parsed["prefetchHints"].as_u64().unwrap_or(0) as u32;
     a.dns_prefetch_hints = parsed["dnsPrefetchHints"].as_u64().unwrap_or(0) as u32;
     a.orphaned_preload_count = parsed["orphanedPreloadCount"].as_u64().unwrap_or(0) as u32;
+    a.document_decoded_bytes = nonzero_u64(&parsed["documentDecodedBytes"]);
+    a.document_transfer_bytes = nonzero_u64(&parsed["documentTransferBytes"]);
     a.lcp_image_without_preload = parsed["lcpImageWithoutPreload"].as_bool().unwrap_or(false);
     a.lcp_image_without_fetchpriority = parsed["lcpImageWithoutFetchpriority"]
         .as_bool()
@@ -798,7 +810,7 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
     // HTTP headers
     if let Some((uses_http2, compression, cache_control, server_timing_count)) = header_result {
         a.uses_http2 = uses_http2;
-        a.has_compression = compression;
+        a.has_compression = compression || document_timing_indicates_compression(a);
         a.has_efficient_cache = cache_control
             .as_deref()
             .map(|cc| {
@@ -809,6 +821,9 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
             .unwrap_or(false);
         a.cache_control = cache_control;
         a.server_timing_count = server_timing_count;
+    }
+    if document_timing_indicates_compression(a) {
+        a.has_compression = true;
     }
 }
 
@@ -1276,7 +1291,7 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
         issues.push(PageHealthIssue {
             issue_type: "sync_head_scripts".to_string(),
             message: format!(
-                "{} Script(s) im <head> ohne defer/async/module blockieren das Rendering",
+                "{} Script(s) im <head> ohne defer/async/module sind syntaktisch render-blockierend; ob sie messbar verzögern, zeigt die Render-Blocking-Analyse.",
                 a.sync_head_scripts
             ),
             severity: "medium".to_string(),
@@ -1429,6 +1444,18 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     issues
 }
 
+fn nonzero_u64(value: &serde_json::Value) -> Option<u64> {
+    value.as_u64().filter(|v| *v > 0)
+}
+
+fn document_timing_indicates_compression(a: &PageHealthAnalysis) -> bool {
+    let (Some(transfer), Some(decoded)) = (a.document_transfer_bytes, a.document_decoded_bytes)
+    else {
+        return false;
+    };
+    decoded > 0 && transfer > 0 && (transfer as f64) < (decoded as f64 * 0.8)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1489,6 +1516,28 @@ mod tests {
                 .map(|i| i.severity.as_str()),
             Some("high")
         );
+    }
+
+    #[test]
+    fn compression_inferred_from_navigation_timing_ratio() {
+        let a = PageHealthAnalysis {
+            document_transfer_bytes: Some(21_814),
+            document_decoded_bytes: Some(1_233_280),
+            ..Default::default()
+        };
+        assert!(document_timing_indicates_compression(&a));
+    }
+
+    #[test]
+    fn missing_compression_issue_suppressed_when_timing_shows_compression() {
+        let a = PageHealthAnalysis {
+            has_compression: true,
+            document_transfer_bytes: Some(21_814),
+            document_decoded_bytes: Some(1_233_280),
+            ..Default::default()
+        };
+        let issues = collect_issues(&a);
+        assert!(!issues.iter().any(|i| i.issue_type == "missing_compression"));
     }
 
     #[test]

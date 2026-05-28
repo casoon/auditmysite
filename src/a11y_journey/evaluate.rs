@@ -36,6 +36,7 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
         if snap.aria_hidden_chain {
             findings.push(InteractiveFinding {
                 category: "HiddenFocusable".to_string(),
+                maps_to_finding: Some("a11y.aria_hidden_focus.invalid".to_string()),
                 severity: Severity::High,
                 journey: trace.journey.clone(),
                 before_snapshot_label: None,
@@ -54,6 +55,7 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
         } else if snap.inert_chain {
             findings.push(InteractiveFinding {
                 category: "HiddenFocusable".to_string(),
+                maps_to_finding: Some("a11y.aria_hidden_focus.invalid".to_string()),
                 severity: Severity::High,
                 journey: trace.journey.clone(),
                 before_snapshot_label: None,
@@ -72,6 +74,7 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
         } else if snap.hidden_by_style {
             findings.push(InteractiveFinding {
                 category: "HiddenFocusable".to_string(),
+                maps_to_finding: Some("a11y.aria_hidden_focus.invalid".to_string()),
                 severity: Severity::Medium,
                 journey: trace.journey.clone(),
                 before_snapshot_label: None,
@@ -94,6 +97,7 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
         ) {
             findings.push(InteractiveFinding {
                 category: "FocusIndicator".to_string(),
+                maps_to_finding: None,
                 severity: Severity::Medium,
                 journey: trace.journey.clone(),
                 before_snapshot_label: None,
@@ -175,6 +179,7 @@ pub fn tab_walk_order(trace: &JourneyTrace, dom_order: &[String]) -> Vec<Interac
 
     vec![InteractiveFinding {
         category: "TabOrder".to_string(),
+        maps_to_finding: None,
         severity: Severity::Medium,
         journey: trace.journey.clone(),
         before_snapshot_label: None,
@@ -351,6 +356,10 @@ mod tests {
         let findings = tab_walk(&trace, &snaps);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].category, "HiddenFocusable");
+        assert_eq!(
+            findings[0].maps_to_finding.as_deref(),
+            Some("a11y.aria_hidden_focus.invalid")
+        );
     }
 
     // ── tab_walk_order tests ─────────────────────────────────────────────

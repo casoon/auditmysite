@@ -15,6 +15,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::audit::AuditReport;
+use crate::seo::schema::SchemaType;
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -244,13 +245,19 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
         .iter()
         .filter(|v| v.rule_name.contains("Landmark"))
         .count();
-    let good_landmarks = landmark_violations == 0;
+    let missing_main_in_ax = report
+        .interactive_findings
+        .iter()
+        .any(|f| f.category == "Landmark" && f.message.contains("Kein <main>-Landmark"));
+    let good_landmarks = landmark_violations == 0 && !missing_main_in_ax;
     signals.push(QualitySignal {
         name: "Semantische Struktur".into(),
         present: good_landmarks,
         weight: 0.10,
         detail: if good_landmarks {
             "Korrekte Landmark-Regionen".into()
+        } else if missing_main_in_ax {
+            "<main>-Landmark im Accessibility Tree nicht nachweisbar".into()
         } else {
             format!("{} Strukturprobleme", landmark_violations)
         },
@@ -299,12 +306,9 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
 
     // 3. Schema.org Organization / Author
     if let Some(seo) = &report.seo {
-        let authority_types = ["Organization", "LocalBusiness", "Person", "WebSite"];
-        let has_org = seo
-            .structured_data
-            .types
-            .iter()
-            .any(|t| authority_types.iter().any(|at| t.as_str().contains(at)));
+        let has_org = seo.structured_data.types.iter().any(|t| {
+            t.is_organization_like() || matches!(t, SchemaType::Person | SchemaType::WebSite)
+        });
         signals.push(QualitySignal {
             name: "Herausgeber-Identität".into(),
             present: has_org,
@@ -642,7 +646,7 @@ fn score_to_label(score: u32) -> String {
     match score {
         90..=100 => "Sehr gut",
         75..=89 => "Gut",
-        60..=74 => "Befriedigend",
+        60..=74 => "Verbesserungswürdig",
         40..=59 => "Ausbaufähig",
         _ => "Kritisch",
     }
@@ -675,44 +679,14 @@ fn empty_analysis() -> SourceQualityAnalysis {
     }
 }
 
-// ─── SchemaType helper ───────────────────────────────────────────────────────
-
-trait SchemaTypeExt {
-    fn as_str(&self) -> &str;
-}
-
-impl SchemaTypeExt for crate::seo::schema::SchemaType {
-    fn as_str(&self) -> &str {
-        match self {
-            Self::Organization => "Organization",
-            Self::LocalBusiness => "LocalBusiness",
-            Self::Person => "Person",
-            Self::Article => "Article",
-            Self::BlogPosting => "BlogPosting",
-            Self::NewsArticle => "NewsArticle",
-            Self::Product => "Product",
-            Self::Offer => "Offer",
-            Self::Event => "Event",
-            Self::Recipe => "Recipe",
-            Self::VideoObject => "VideoObject",
-            Self::WebPage => "WebPage",
-            Self::WebSite => "WebSite",
-            Self::BreadcrumbList => "BreadcrumbList",
-            Self::FAQPage => "FAQPage",
-            Self::HowTo => "HowTo",
-            Self::Review => "Review",
-            Self::AggregateRating => "AggregateRating",
-            Self::Other(s) => s,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audit::normalized::InteractiveFinding;
     use crate::audit::AuditReport;
     use crate::audit::ViolationStatistics;
     use crate::cli::WcagLevel;
+    use crate::taxonomy::Severity;
     use crate::wcag::WcagResults;
 
     fn minimal_report() -> AuditReport {
@@ -791,6 +765,31 @@ mod tests {
         assert_eq!(score_to_grade(65), "C");
         assert_eq!(score_to_grade(45), "D");
         assert_eq!(score_to_grade(20), "F");
+    }
+
+    #[test]
+    fn ax_missing_main_prevents_positive_landmark_signal() {
+        let mut report = minimal_report();
+        report.interactive_findings.push(InteractiveFinding {
+            category: "Landmark".to_string(),
+            maps_to_finding: None,
+            severity: Severity::Medium,
+            journey: "link_inventory".to_string(),
+            before_snapshot_label: None,
+            after_snapshot_label: None,
+            message: "Kein <main>-Landmark gefunden.".to_string(),
+            fix_suggestion: None,
+        });
+
+        let analysis = analyze_source_quality(&report);
+        let signal = analysis
+            .substance
+            .signals
+            .iter()
+            .find(|s| s.name == "Semantische Struktur")
+            .expect("semantic structure signal");
+        assert!(!signal.present);
+        assert!(signal.detail.contains("Accessibility Tree"));
     }
 
     #[test]

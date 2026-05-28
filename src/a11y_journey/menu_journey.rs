@@ -98,6 +98,7 @@ pub async fn test(
     if !menu_visible {
         findings.push(InteractiveFinding {
             category: "MenuJourney".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -140,6 +141,7 @@ pub async fn test(
     if !focus_in_menu {
         findings.push(InteractiveFinding {
             category: "MenuJourney".to_string(),
+            maps_to_finding: None,
             severity: Severity::Low,
             journey: journey_name.clone(),
             before_snapshot_label: None,
@@ -192,6 +194,7 @@ pub async fn test(
     if !menu_closed {
         findings.push(InteractiveFinding {
             category: "MenuJourney".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name,
             before_snapshot_label: None,

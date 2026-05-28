@@ -260,7 +260,7 @@ pub(super) fn build_module_details_from_normalized(
         let coverage = p.coverage.as_ref().map(|cov| CoveragePresentation {
             js_used_pct: Some(cov.unused_js.used_pct),
             js_unused_kb: Some(cov.unused_js.unused_bytes as f64 / 1024.0),
-            css_used_pct: Some(cov.unused_css.used_pct),
+            css_used_pct: cov.unused_css.used_pct,
             css_total_rules: Some(cov.unused_css.total_rules),
             css_used_rules: Some(cov.unused_css.used_rules),
         });

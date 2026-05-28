@@ -116,6 +116,7 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
         let example_str = examples.join(", ");
         findings.push(InteractiveFinding {
             category: "LinkText".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -150,6 +151,7 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             .collect();
         findings.push(InteractiveFinding {
             category: "LinkText".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -188,6 +190,7 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
     if !levels.contains(&1) {
         findings.push(InteractiveFinding {
             category: "HeadingOutline".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -208,6 +211,7 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
     if h1_count > 1 {
         findings.push(InteractiveFinding {
             category: "HeadingOutline".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -242,6 +246,7 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
             .collect();
         findings.push(InteractiveFinding {
             category: "HeadingOutline".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -295,6 +300,7 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
     if role_counts.get("main").copied().unwrap_or(0) == 0 {
         findings.push(InteractiveFinding {
             category: "Landmark".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -316,6 +322,7 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
     if nav_count > 1 && nav_named < nav_count {
         findings.push(InteractiveFinding {
             category: "Landmark".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -339,6 +346,7 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
         if count > 1 {
             findings.push(InteractiveFinding {
                 category: "Landmark".to_string(),
+                maps_to_finding: None,
                 severity: Severity::Medium,
                 journey: "link_inventory".to_string(),
                 before_snapshot_label: None,

@@ -63,8 +63,10 @@ pub struct UnusedCssAnalysis {
     pub total_rules: u32,
     /// Rules that matched at least one element during the audit
     pub used_rules: u32,
-    /// Percentage of rules that were used (0–100)
-    pub used_pct: f64,
+    /// Percentage of rules that were used (0–100), or null when CDP returned no CSS data.
+    pub used_pct: Option<f64>,
+    /// Measurement state for CSS rule usage data.
+    pub measurement: String,
 }
 
 /// Combined coverage analysis returned to the pipeline.
@@ -74,6 +76,9 @@ pub struct CoverageAnalysis {
     pub unused_js: UnusedJsAnalysis,
     /// Unused CSS (#107)
     pub unused_css: UnusedCssAnalysis,
+    /// Coverage-specific measurement warnings.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measurement_warnings: Vec<String>,
 }
 
 /// Enable JS and CSS coverage collection **before** the page navigates.
@@ -217,26 +222,34 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
 
     let total_rules = css_coverage.len() as u32;
     let used_rules = css_coverage.iter().filter(|r| r.used).count() as u32;
-    let css_used_pct = if total_rules > 0 {
-        (used_rules as f64 / total_rules as f64 * 100.0).clamp(0.0, 100.0)
+    let (css_used_pct, css_measurement, measurement_warnings) = if total_rules > 0 {
+        (
+            Some((used_rules as f64 / total_rules as f64 * 100.0).clamp(0.0, 100.0)),
+            "measured".to_string(),
+            vec![],
+        )
     } else {
-        // 0 rules means coverage data was not captured (CDP call failed or
-        // returned empty). Report 0 rather than 100 to avoid a misleading
-        // "all CSS is used" claim when nothing was actually measured.
-        0.0
+        (
+            None,
+            "not_available".to_string(),
+            vec!["css_coverage_unavailable".to_string()],
+        )
     };
 
     let unused_css = UnusedCssAnalysis {
         total_rules,
         used_rules,
         used_pct: css_used_pct,
+        measurement: css_measurement,
     };
 
     info!(
-        "Coverage: JS {:.0}% used ({:.1} KB unused), CSS {:.0}% rules used ({}/{})",
+        "Coverage: JS {:.0}% used ({:.1} KB unused), CSS {} rules used ({}/{})",
         overall_used_pct,
         total_unused_bytes as f64 / 1024.0,
-        css_used_pct,
+        css_used_pct
+            .map(|v| format!("{v:.0}%"))
+            .unwrap_or_else(|| "not available".to_string()),
         used_rules,
         total_rules,
     );
@@ -244,6 +257,7 @@ pub async fn take_coverage_results(page: &Page) -> Result<CoverageAnalysis> {
     Ok(CoverageAnalysis {
         unused_js,
         unused_css,
+        measurement_warnings,
     })
 }
 
@@ -281,10 +295,23 @@ mod tests {
         let analysis = UnusedCssAnalysis {
             total_rules: 50,
             used_rules: 50,
-            used_pct: 100.0,
+            used_pct: Some(100.0),
+            measurement: "measured".to_string(),
         };
-        assert_eq!(analysis.used_pct, 100.0);
+        assert_eq!(analysis.used_pct, Some(100.0));
         assert_eq!(analysis.total_rules, analysis.used_rules);
+    }
+
+    #[test]
+    fn test_unused_css_unavailable_is_not_zero_percent() {
+        let analysis = UnusedCssAnalysis {
+            total_rules: 0,
+            used_rules: 0,
+            used_pct: None,
+            measurement: "not_available".to_string(),
+        };
+        assert_eq!(analysis.used_pct, None);
+        assert_eq!(analysis.measurement, "not_available");
     }
 
     #[test]

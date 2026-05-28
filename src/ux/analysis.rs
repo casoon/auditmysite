@@ -414,7 +414,10 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
         issues.push(UxIssue {
             dimension: "Content Clarity".into(),
             severity: "high".into(),
-            problem: format!("Sehr wenig Textinhalt (~{} Wörter)", word_count),
+            problem: format!(
+                "Sehr wenig Textinhalt im Accessibility Tree (~{} Wörter, ohne rein visuelle oder nicht zugängliche Inhalte)",
+                word_count
+            ),
             impact: "Nutzer erhalten nicht genügend Information für eine Entscheidung".into(),
             recommendation: "Relevanten Inhalt ergänzen, der den Seitenzweck klar vermittelt"
                 .into(),

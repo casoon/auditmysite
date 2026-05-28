@@ -58,20 +58,19 @@ fn suggest_alt_text(html_snippet: Option<&str>, role: Option<&str>) -> Option<St
     if role == Some("graphics-document") || role == Some("graphics-symbol") || html.contains("<svg")
     {
         return Some(
-            "<svg aria-label=\"[Grafik beschreiben]\" role=\"img\">\n  <title>[Grafik beschreiben]</title>\n  …\n</svg>"
+            "<svg aria-label=\"Grafikbeschreibung\" role=\"img\">\n  <title>Grafikbeschreibung</title>\n  …\n</svg>"
                 .to_string(),
         );
     }
 
     // img tag: inject alt attribute
     if html.trim_start().starts_with("<img") {
-        let fixed = inject_attribute(html, "alt", "[Bildbeschreibung ergänzen]");
+        let fixed = inject_attribute(html, "alt", "Bildbeschreibung");
         return Some(fixed);
     }
 
     // icon / other img-role element: recommend aria-label
-    if let Some(fixed) = inject_attribute_if_missing(html, "aria-label", "[Beschreibung ergänzen]")
-    {
+    if let Some(fixed) = inject_attribute_if_missing(html, "aria-label", "Beschreibung") {
         return Some(fixed);
     }
 
@@ -101,6 +100,10 @@ fn suggest_contrast(fix_suggestion: Option<&str>) -> Option<String> {
 fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Option<String> {
     let html = html_snippet?;
 
+    if html.contains("__next-route-announcer__") {
+        return Some(inject_attribute(html, "aria-label", "Seitenwechsel"));
+    }
+
     // Decorative <hr> — separator role does not need an accessible name.
     // Hide it from assistive tech instead.
     if html.trim_start().starts_with("<hr") {
@@ -109,11 +112,7 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
 
     // Button without accessible name
     if html.contains("<button") || role == Some("button") {
-        return Some(inject_attribute(
-            html,
-            "aria-label",
-            "[Schaltfläche beschreiben]",
-        ));
+        return Some(inject_attribute(html, "aria-label", "Schaltfläche"));
     }
 
     // Input without label — show label wrapper
@@ -122,26 +121,21 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
             .or_else(|| extract_attr(html, "name"))
             .unwrap_or("field-id");
         return Some(format!(
-            "<label for=\"{id}\">[Feldbeschriftung]</label>\n{html}",
+            "<label for=\"{id}\">Feldbeschriftung</label>\n{html}",
             id = id_hint,
             html = ensure_attr(html, "id", id_hint),
         ));
     }
 
-    // Generic interactive element
-    if let Some(fixed) =
-        inject_attribute_if_missing(html, "aria-label", "[Zugänglichen Namen ergänzen]")
-    {
-        return Some(fixed);
-    }
-
+    // Generic names require page-specific intent. Avoid emitting placeholder
+    // text into JSON/PDF when no concrete label can be inferred.
     None
 }
 
 fn suggest_link_purpose(html_snippet: Option<&str>) -> Option<String> {
     let html = html_snippet?;
     if html.contains("<a ") || html.starts_with("<a>") {
-        let fixed = inject_attribute(html, "aria-label", "[Linkziel beschreiben]");
+        let fixed = inject_attribute(html, "aria-label", "Linkziel");
         return Some(fixed);
     }
     None
@@ -162,7 +156,7 @@ fn suggest_form_label(html_snippet: Option<&str>, role: Option<&str>) -> Option<
             .unwrap_or("field-id");
         let tagged = ensure_attr(html, "id", id_hint);
         return Some(format!(
-            "<label for=\"{id}\">[Feldbeschriftung]</label>\n{html}",
+            "<label for=\"{id}\">Feldbeschriftung</label>\n{html}",
             id = id_hint,
             html = tagged,
         ));
@@ -188,7 +182,7 @@ fn suggest_keyboard(html_snippet: Option<&str>, role: Option<&str>) -> Option<St
 fn suggest_autocomplete(html_snippet: Option<&str>) -> Option<String> {
     let html = html_snippet?;
     if html.contains("<input") {
-        let fixed = inject_attribute(html, "autocomplete", "[z. B. name, email, tel]");
+        let fixed = inject_attribute(html, "autocomplete", "email");
         return Some(fixed);
     }
     None
@@ -315,6 +309,19 @@ mod tests {
     fn suggest_page_title() {
         let code = generate_suggested_code("2.4.2", None, None, None);
         assert!(code.unwrap().contains("<title>"));
+    }
+
+    #[test]
+    fn next_route_announcer_gets_concrete_label() {
+        let code = generate_suggested_code(
+            "4.1.2",
+            Some("<div id=\"__next-route-announcer__\" role=\"alert\"></div>"),
+            Some("alert"),
+            None,
+        )
+        .unwrap();
+        assert!(code.contains("aria-label=\"Seitenwechsel\""));
+        assert!(!code.contains("["));
     }
 
     #[test]

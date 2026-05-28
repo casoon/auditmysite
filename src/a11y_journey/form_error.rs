@@ -178,6 +178,7 @@ pub async fn test(
         // Heuristic: if no aria-invalid AND no live region, it's silent.
         findings.push(InteractiveFinding {
             category: "FormError".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_submit".to_string()),
@@ -200,6 +201,7 @@ pub async fn test(
     if new_invalid && !new_live {
         findings.push(InteractiveFinding {
             category: "FormError".to_string(),
+            maps_to_finding: None,
             severity: Severity::High,
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_submit".to_string()),
@@ -222,6 +224,7 @@ pub async fn test(
         let unlinked = invalid_after - linked_after;
         findings.push(InteractiveFinding {
             category: "FormError".to_string(),
+            maps_to_finding: None,
             severity: Severity::Medium,
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_submit".to_string()),

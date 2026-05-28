@@ -762,7 +762,10 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
                         None
                     }
                 };
-                let measurement_warnings = crate::performance::validate_metrics(&vitals);
+                let mut measurement_warnings = crate::performance::validate_metrics(&vitals);
+                if let Some(cov) = &coverage {
+                    measurement_warnings.extend(cov.measurement_warnings.clone());
+                }
                 Some(PerformanceResults {
                     vitals,
                     score,

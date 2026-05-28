@@ -88,7 +88,7 @@ pub fn score_label(score: u32) -> &'static str {
     match score {
         90..=100 => "Sehr gut",
         75..=89 => "Gut",
-        60..=74 => "Befriedigend",
+        60..=74 => "Verbesserungswürdig",
         40..=59 => "Ausbaufähig",
         _ => "Kritisch",
     }
@@ -182,7 +182,7 @@ mod tests {
     fn test_score_labels() {
         assert_eq!(score_label(95), "Sehr gut");
         assert_eq!(score_label(80), "Gut");
-        assert_eq!(score_label(65), "Befriedigend");
+        assert_eq!(score_label(65), "Verbesserungswürdig");
         assert_eq!(score_label(45), "Ausbaufähig");
         assert_eq!(score_label(20), "Kritisch");
     }

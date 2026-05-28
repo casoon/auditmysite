@@ -122,11 +122,11 @@ pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String
             "auditmysite-certificate-silver.svg",
             include_str!("../../../assets/certificates/silver.svg"),
         ),
-        "AUSBAUFÄHIG" => (
+        "AUSBAUFÄHIG" | "EINGESCHRÄNKT" => (
             "auditmysite-certificate-bronze.svg",
             include_str!("../../../assets/certificates/bronze.svg"),
         ),
-        "UNGENÜGEND" => (
+        "UNGENÜGEND" | "NICHT BESTANDEN" => (
             "auditmysite-certificate-failed.svg",
             include_str!("../../../assets/certificates/failed.svg"),
         ),
@@ -144,8 +144,8 @@ pub(super) fn certificate_accent_color(certificate: &str) -> &'static str {
         "SEHR GUT" => tokens::SUCCESS,
         "GUT" => tokens::ACCENT_BRONZE,
         "SOLIDE" => tokens::NEUTRAL,
-        "AUSBAUFÄHIG" => "#9a3412",
-        "UNGENÜGEND" => tokens::DANGER,
+        "AUSBAUFÄHIG" | "EINGESCHRÄNKT" => "#9a3412",
+        "UNGENÜGEND" | "NICHT BESTANDEN" => tokens::DANGER,
         _ => tokens::INFO,
     }
 }
