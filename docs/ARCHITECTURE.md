@@ -79,7 +79,27 @@ src/
 │   ├── json.rs          # JSON reports (via NormalizedReport)
 │   ├── pdf.rs           # PDF reports (via renderreport/Typst)
 │   ├── report_model.rs  # ViewModel structs for PDF
-│   └── report_builder.rs # AuditReport → ViewModel transformation
+│   ├── report_builder.rs # AuditReport → ViewModel transformation
+│   └── snapshot_export.rs # AXTree + journey traces → YAML (--export-snapshot)
+│
+├── a11y_journey/        # Accessibility Journey Layer (--interactive)
+│   ├── mod.rs           # Orchestrator: run() single entry point
+│   ├── tab_walk.rs      # Tab-order recording + focus evaluation
+│   ├── skip_link.rs     # Skip-link activation journey
+│   ├── disclosure_journey.rs # Accordion/disclosure toggle
+│   ├── modal_journey.rs # Modal focus-trap verification
+│   ├── tabs_journey.rs  # TabList navigation
+│   ├── menu_journey.rs  # DisclosureMenu journey
+│   ├── form_error.rs    # Form-error announcement (submit + ARIA live)
+│   ├── spa_navigation.rs # SPA single-page navigation detection
+│   ├── link_inventory.rs # Linktext/heading/landmark inventory (pure AXTree)
+│   └── evaluate.rs      # Tab-walk finding evaluation
+│
+├── semantic_eval/       # Semantic AI evaluation (--semantic-eval, optional feature)
+│   ├── mod.rs           # Entry point: run(), SemanticEvalConfig
+│   ├── fastembed_eval.rs # Local multilingual embedding (fastembed)
+│   ├── mistral.rs       # Mistral LLM evaluation (optional API key)
+│   └── prompts.rs       # Prompt templates
 │
 ├── security/            # Security analysis
 │   └── mod.rs           # Headers, SSL, SSRF protection
