@@ -30,7 +30,7 @@ use crate::browser::{
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
 use crate::error::Result;
-use crate::journey::{analyze_journey, JourneyAnalysis};
+use crate::journey::{analyze_journey_with_dom_check, JourneyAnalysis};
 use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
 use crate::performance::{
     analyze_content_weight, analyze_critical_chain, analyze_minification,
@@ -820,7 +820,20 @@ async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Re
     };
 
     let journey = if config.check_mobile || config.check_seo {
-        Some(analyze_journey(&ax_tree))
+        // If the AX tree has no main landmark, query the DOM to distinguish a
+        // truly missing <main> from one that is hidden by an overlay on this
+        // viewport (e.g. a consent banner covering <main> on mobile).
+        let ax_has_main = ax_tree.iter().any(|n| n.role.as_deref() == Some("main"));
+        let dom_has_main = if ax_has_main {
+            true
+        } else {
+            page.evaluate("!!document.querySelector('main, [role=\"main\"]')")
+                .await
+                .ok()
+                .and_then(|r| r.value().and_then(|v| v.as_bool()))
+                .unwrap_or(false)
+        };
+        Some(analyze_journey_with_dom_check(&ax_tree, dom_has_main))
     } else {
         None
     };

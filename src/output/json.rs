@@ -977,16 +977,11 @@ fn aggregate_recurring_rules(pages: &[PageEntry]) -> (usize, Vec<RecurringRule>)
     let mut by_rule: HashMap<String, Acc> = HashMap::new();
     for page in pages {
         for f in page.findings.iter().filter(|f| f.category == "wcag") {
-            let base_severity = crate::taxonomy::rules::RULES
-                .iter()
-                .find(|r| r.id == f.rule_id)
-                .map(|r| r.severity)
-                .unwrap_or(f.severity);
             let entry = by_rule.entry(f.rule_id.clone()).or_insert(Acc {
                 title: f.title.clone(),
                 wcag_criterion: f.wcag_criterion.clone(),
                 wcag_level: f.wcag_level.clone(),
-                severity: base_severity,
+                severity: f.severity,
                 affected_pages: 0,
                 total_occurrences: 0,
             });

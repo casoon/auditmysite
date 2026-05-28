@@ -1360,4 +1360,58 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    (
+        "seo.headings.skipped_level",
+        RuleExplanation {
+            customer_title: "Übersprungene Überschriftenebene",
+            customer_title_en: "Skipped heading level",
+            customer_description:
+                "Die Überschriften auf der Seite überspringen eine Ebene — zum Beispiel \
+                 folgt auf eine H1 direkt eine H3, ohne dass eine H2 dazwischen steht. \
+                 Das zerstört die logische Hierarchie, die Suchmaschinen und \
+                 Screenreader zur Navigation nutzen.",
+            customer_description_en:
+                "The headings on the page skip a level — for example, an H1 is \
+                 directly followed by an H3 without an H2 in between. This breaks the \
+                 logical hierarchy that search engines and screen readers use for navigation.",
+            user_impact:
+                "Screenreader-Nutzer navigieren Seiten über Überschriften. Fehlende \
+                 Ebenen unterbrechen diesen Pfad und erschweren die Orientierung. \
+                 Suchmaschinen bewerten Seiten mit konsistenter Überschriftenstruktur \
+                 als inhaltlich hochwertiger.",
+            user_impact_en:
+                "Screen reader users navigate pages via headings. Missing levels \
+                 interrupt this path and make orientation harder. Search engines \
+                 rate pages with consistent heading structure as higher quality content.",
+            typical_cause:
+                "CMS-Templates oder Komponenten setzen fest kodierte Überschriftenebenen \
+                 (z. B. immer H3 in Footer-Spalten), unabhängig davon, was der Seitenkontext \
+                 erfordert. Entwickler wählen Ebenen nach visuellem Stil statt nach Hierarchie.",
+            typical_cause_en:
+                "CMS templates or components hard-code heading levels (e.g. always H3 \
+                 in footer columns) regardless of page context. Developers choose levels \
+                 for visual style rather than hierarchy.",
+            recommendation:
+                "Überschriftenhierarchie von H1 abwärts lückenlos einhalten: H1 → H2 → H3. \
+                 Wenn eine Überschrift visuell kleiner wirken soll, CSS-Klassen verwenden \
+                 statt die HTML-Ebene zu ändern.",
+            recommendation_en:
+                "Maintain heading hierarchy from H1 downward without gaps: H1 → H2 → H3. \
+                 To make a heading look smaller visually, use CSS classes rather than \
+                 changing the HTML level.",
+            technical_note:
+                "WCAG 1.3.1 (Info and Relationships, Level A) erfordert, dass Struktur \
+                 programmatisch erkennbar ist. Übersprungene Ebenen verletzen diese Anforderung. \
+                 Screenreader wie NVDA/JAWS springen mit H-Tasten — Lücken erzeugen tote Punkte.",
+            technical_note_en:
+                "WCAG 1.3.1 (Info and Relationships, Level A) requires structure to be \
+                 programmatically determinable. Skipped levels violate this requirement. \
+                 Screen readers like NVDA/JAWS jump with H-keys — gaps create dead spots.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<h1>Seitentitel</h1>\n<h3>Abschnitt</h3>"),
+            example_good: Some("<h1>Seitentitel</h1>\n<h2>Abschnitt</h2>"),
+            example_decorative: None,
+        },
+    ),
 ];

@@ -38,6 +38,7 @@
 //!         capture_screenshots: false,
 //!         dismiss_consent: false,
 //!         interactive: auditmysite::cli::InteractiveMode::Off,
+//!         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
 //!         semantic_eval: auditmysite::semantic_eval::SemanticEvalConfig::default(),
 //!         lang: "de".to_string(),
 //!     };
@@ -129,7 +130,7 @@ pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use content_visibility::{analyze_content_visibility, ContentVisibilityAnalysis};
 pub use dark_mode::{analyze_dark_mode, DarkModeAnalysis, DarkModeIssue, DarkModeIssueKind};
 pub use error::{AuditError, Result};
-pub use journey::{analyze_journey, JourneyAnalysis, PageIntent};
+pub use journey::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis, PageIntent};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{

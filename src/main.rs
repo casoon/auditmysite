@@ -36,6 +36,8 @@ async fn main() {
     let matches = Args::command().get_matches();
     let interactive_from_cli =
         matches.value_source("interactive") == Some(clap::parser::ValueSource::CommandLine);
+    let request_mode_from_cli =
+        matches.value_source("request-mode") == Some(clap::parser::ValueSource::CommandLine);
     let mut args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     setup_logging(&args);
 
@@ -45,7 +47,7 @@ async fn main() {
         cfg.apply_to_args_with_sources(&mut args, interactive_from_cli);
     }
 
-    let exit_code = match run(args, &config).await {
+    let exit_code = match run(args, &config, request_mode_from_cli).await {
         Ok(score) => {
             // Check score threshold from config
             if let Some(min_score) = auditmysite::cli::config::get_min_score_threshold(&config) {
@@ -98,7 +100,11 @@ fn setup_logging(args: &Args) {
 
 /// Main application logic
 /// Returns the audit score (or 0.0 for non-scoring operations).
-async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Result<f64> {
+async fn run(
+    mut args: Args,
+    _config: &Option<auditmysite::cli::Config>,
+    request_mode_from_cli: bool,
+) -> Result<f64> {
     // Handle subcommands first
     if let Some(ref command) = args.command {
         return handle_command(command, &args).await;
@@ -145,7 +151,12 @@ async fn run(mut args: Args, _config: &Option<auditmysite::cli::Config>) -> Resu
             format!("https://{}", input)
         };
         args.url = Some(url);
+    }
 
+    // Request-mode prompt: fires whenever terminal + not set from CLI + not a subcommand/compare/scripted mode
+    let is_terminal = io::stdin().is_terminal() && io::stdout().is_terminal();
+    let is_audit_run = args.command.is_none() && args.compare.is_empty() && !args.detect_chrome;
+    if is_terminal && !request_mode_from_cli && !args.quiet && is_audit_run {
         let mode_idx = Select::new()
             .with_prompt("  Request mode")
             .items(&[
@@ -197,6 +208,7 @@ mod tests {
     use crate::runners::suggested_sitemap_batch_args;
     use crate::sitemap_suggest::{looks_like_base_url, sitemap_candidates};
     use auditmysite::cli::{OutputFormat, ReportLevel};
+    use clap::Parser;
     use std::path::PathBuf;
 
     #[test]

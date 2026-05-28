@@ -263,6 +263,19 @@ pub struct FrictionPoint {
 /// Analyze user journey quality from the Accessibility Tree.
 /// Runs purely on already-extracted AXTree data — no CDP calls needed.
 pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
+    analyze_journey_inner(tree, false)
+}
+
+/// Like [`analyze_journey`] but accepts a DOM-level hint for whether a `<main>`
+/// element exists in the HTML source. Pass `true` when a JS `querySelector`
+/// confirms `<main>` is present but hidden from the AX tree (e.g. by an overlay
+/// on mobile viewport), so the severity is downgraded instead of flagged as
+/// missing structure.
+pub fn analyze_journey_with_dom_check(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
+    analyze_journey_inner(tree, dom_has_main)
+}
+
+fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
     info!("Analyzing user journey...");
 
     let page_intent = detect_page_intent(tree);
@@ -271,7 +284,7 @@ pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
     let mut friction_points = Vec::new();
 
     let entry_clarity = analyze_entry_clarity(tree, &mut friction_points);
-    let orientation = analyze_orientation(tree, &mut friction_points);
+    let orientation = analyze_orientation(tree, &mut friction_points, dom_has_main);
     let navigation = analyze_navigation(tree, &mut friction_points);
     let interaction = analyze_interaction(tree, &mut friction_points);
     let conversion = analyze_conversion(tree, &mut friction_points);
@@ -418,7 +431,15 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
 }
 
 /// Orientation: Can the user tell where they are and where they can go?
-fn analyze_orientation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+///
+/// `dom_has_main`: when the caller has verified via DOM query that a `<main>`
+/// element exists in the HTML (but may be hidden from the AX tree by an overlay
+/// or `display:none`), set this to `true` to downgrade the finding severity.
+fn analyze_orientation(
+    tree: &AXTree,
+    friction: &mut Vec<FrictionPoint>,
+    dom_has_main: bool,
+) -> JourneyDimension {
     let mut penalties = Vec::new();
 
     // Navigation landmark
@@ -428,9 +449,9 @@ fn analyze_orientation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
         friction.push(FrictionPoint {
             step: "Orientation".into(),
             severity: "high".into(),
-            problem: "Kein Navigationsbereich (<nav>) erkannt".into(),
-            impact: "Nutzer können sich nicht orientieren und finden keine Hauptnavigation".into(),
-            recommendation: "Hauptnavigation in ein <nav>-Element einschließen".into(),
+            problem: "Navigation-Landmark nicht im Accessibility-Tree erreichbar".into(),
+            impact: "Screenreader-Nutzer können die Hauptnavigation nicht als solche erkennen oder gezielt ansteuern — häufig durch aria-hidden auf dem <nav>-Element oder einem Vorfahren verursacht.".into(),
+            recommendation: "Prüfen, ob aria-hidden=\"true\" auf oder oberhalb des <nav>-Elements gesetzt ist. Das Navigation-Landmark muss im Accessibility-Tree sichtbar sein (role=\"navigation\").".into(),
         });
     }
 
@@ -448,14 +469,27 @@ fn analyze_orientation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     // Main landmark
     let has_main = tree.iter().any(|n| n.role.as_deref() == Some("main"));
     if !has_main {
-        penalties.push(20.0);
-        friction.push(FrictionPoint {
-            step: "Orientation".into(),
-            severity: "medium".into(),
-            problem: "Kein Hauptinhaltsbereich (<main>) erkannt".into(),
-            impact: "Screenreader-Nutzer können den Hauptinhalt nicht direkt anspringen".into(),
-            recommendation: "Hauptinhalt in ein <main>-Element einschließen".into(),
-        });
+        if dom_has_main {
+            // <main> exists in HTML but is hidden from the AX tree (overlay / display:none on
+            // this viewport). Score impact is small — structure exists, but AT access is impaired.
+            penalties.push(8.0);
+            friction.push(FrictionPoint {
+                step: "Orientation".into(),
+                severity: "low".into(),
+                problem: "<main>-Element vorhanden, aber im Accessibility-Tree nicht sichtbar".into(),
+                impact: "Screenreader-Nutzer können den Hauptinhalt auf diesem Viewport möglicherweise nicht direkt anspringen".into(),
+                recommendation: "Prüfen, ob ein Overlay oder aria-hidden den <main>-Bereich auf diesem Viewport verbirgt".into(),
+            });
+        } else {
+            penalties.push(20.0);
+            friction.push(FrictionPoint {
+                step: "Orientation".into(),
+                severity: "medium".into(),
+                problem: "Kein Hauptinhaltsbereich (<main>) erkannt".into(),
+                impact: "Screenreader-Nutzer können den Hauptinhalt nicht direkt anspringen".into(),
+                recommendation: "Hauptinhalt in ein <main>-Element einschließen".into(),
+            });
+        }
     }
 
     // Footer / complementary landmark

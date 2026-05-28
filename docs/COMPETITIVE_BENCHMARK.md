@@ -74,17 +74,21 @@ Implication for `auditmysite`:
 
 - Real browser rendering via CDP and the native Accessibility Tree.
 - Single-binary distribution and local CLI ergonomics.
-- Deterministic JSON contracts with repository-level validation.
-- Multi-module view across accessibility, performance, SEO, security, and mobile.
-- Stakeholder-oriented PDF output with roadmap sections.
+- Deterministic JSON contracts with schema validation (Unified Report Envelope v2.0).
+- Multi-module view across accessibility, performance, SEO, security, mobile, UX, journey, AI visibility, and more.
+- Stakeholder-oriented PDF output via renderreport/Typst — presentation-grade typography.
+- Accessibility Journey Layer: interactive checks (tab-walk, focus-trap, SPA navigation, form-error announcement).
+- Semantic AI evaluation (local Fastembed + optional Mistral) for content discoverability signals.
+- Historical tracking and trend comparison across audit runs.
+- Stable scoring semantics documented in OUTPUT_CONTRACT.md and enforced via JSON schema.
+- Actionable fix guidance (`fix_guidance`) in every JSON report, per finding.
 
 ## Current gaps to close
 
-1. Score semantics must stay unambiguous across CLI, JSON, and PDF.
-2. PDF reports need cleaner typography, better text wrapping, and reliable umlaut handling.
-3. Competitive products emphasize historical tracking; `auditmysite` currently focuses on point-in-time reporting.
-4. Manual follow-up guidance exists, but it can be made much more explicit and actionable.
-5. Executive benchmarking is available in batch mode, but not yet a first-class story for repeated audits over time.
+1. Interactive/manual follow-up guidance is present in journey findings but not yet a first-class story in the PDF executive report.
+2. Trend dashboarding across repeated audits is functional in JSON but not yet surfaced as a visual PDF chapter.
+3. Accessibility rule coverage is strong in core WCAG A/AA areas but not yet at full axe-core breadth (see `docs/AXE_PARITY.md` for calibration methodology).
+4. Iframe and embedded content analysis is limited compared to axe-core's `frame-tested` scope.
 
 ## Product Direction
 
