@@ -12,8 +12,8 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    format_ai_json, format_batch_table, format_json_batch, format_summary, print_batch_table,
-    print_report, UnifiedReport,
+    export_snapshot_yaml, format_ai_json, format_batch_table, format_json_batch, format_summary,
+    print_batch_table, print_report, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
@@ -44,6 +44,14 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
             }
             let output = unified.to_json(true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
+            if let Some(ref snap_path) = args.export_snapshot {
+                export_snapshot_yaml(report, snap_path).map_err(|e| AuditError::OutputError {
+                    reason: format!("snapshot export failed: {e}"),
+                })?;
+                if !args.quiet {
+                    println!("Snapshot YAML written to {}", snap_path.display());
+                }
+            }
         }
         OutputFormat::Table => {
             print_report(report, args.level);
@@ -124,6 +132,16 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                     })?;
                     let typ_path = path.with_extension("typ");
                     output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
+                }
+                if let Some(ref snap_path) = args.export_snapshot {
+                    export_snapshot_yaml(report, snap_path).map_err(|e| {
+                        AuditError::OutputError {
+                            reason: format!("snapshot export failed: {e}"),
+                        }
+                    })?;
+                    if !args.quiet {
+                        println!("Snapshot YAML written to {}", snap_path.display());
+                    }
                 }
             }
             #[cfg(not(feature = "pdf"))]

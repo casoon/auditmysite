@@ -1892,3 +1892,122 @@ pub(super) fn render_best_practices(
 
     builder
 }
+
+/// Render the Accessibility-Journey-Layer findings in the single-page PDF report.
+/// Only called when `report.interactive_findings` is non-empty.
+pub(super) fn render_a11y_journey_findings(
+    mut builder: renderreport::engine::ReportBuilder,
+    findings: &[crate::audit::normalized::InteractiveFinding],
+    journey: Option<&crate::audit::normalized::AccessibilityJourney>,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+
+    builder = builder.add_component(PageBreak::new()).add_component(
+        Section::new(if en {
+            "Keyboard Accessibility Journey"
+        } else {
+            "Tastatur-Accessibility-Journey"
+        })
+        .with_level(2),
+    );
+
+    let critical_count = findings
+        .iter()
+        .filter(|f| f.severity == crate::taxonomy::Severity::Critical)
+        .count();
+    let high_count = findings
+        .iter()
+        .filter(|f| f.severity == crate::taxonomy::Severity::High)
+        .count();
+    let overview = if critical_count > 0 {
+        if en {
+            format!(
+                "{} critical and {} high issues detected during keyboard and state-transition tests.",
+                critical_count, high_count
+            )
+        } else {
+            format!(
+                "{} kritische und {} hohe Befunde aus Tastatur- und Zustandswechsel-Tests.",
+                critical_count, high_count
+            )
+        }
+    } else if high_count > 0 {
+        if en {
+            format!("{} high-severity interactive issues found.", high_count)
+        } else {
+            format!(
+                "{} interaktive Befunde mit hoher Schwere gefunden.",
+                high_count
+            )
+        }
+    } else if en {
+        format!(
+            "{} minor interactive issues — no critical or high barriers detected.",
+            findings.len()
+        )
+    } else {
+        format!(
+            "{} kleinere interaktive Befunde — keine kritischen oder hohen Barrieren erkannt.",
+            findings.len()
+        )
+    };
+    builder = builder.add_component(if critical_count > 0 {
+        Callout::warning(&overview)
+    } else if high_count > 0 {
+        Callout::info(&overview)
+    } else {
+        Callout::success(&overview)
+    });
+
+    let shown = findings.len().min(10);
+    for finding in &findings[..shown] {
+        let sev = map_severity(&finding.severity);
+        let body = if let Some(ref fix) = finding.fix_suggestion {
+            format!("{} — {}", finding.message, fix)
+        } else {
+            finding.message.clone()
+        };
+        let title = format!("[{}] {}", finding.journey, finding.category);
+        builder = builder.add_component(Finding::new(&title, sev, &body));
+    }
+    if findings.len() > 10 {
+        let more = if en {
+            format!(
+                "{} additional interactive findings in the JSON report.",
+                findings.len() - 10
+            )
+        } else {
+            format!(
+                "{} weitere interaktive Befunde im JSON-Report.",
+                findings.len() - 10
+            )
+        };
+        builder = builder.add_component(Callout::info(&more));
+    }
+
+    if let Some(journey_data) = journey {
+        if !journey_data.traces.is_empty() {
+            let mut kv = KeyValueList::new().with_title(if en {
+                "Tested Journey Sequences"
+            } else {
+                "Geprüfte Journey-Sequenzen"
+            });
+            for trace in &journey_data.traces {
+                let step_count = trace.steps.len();
+                let summary = format!("{} {}", step_count, if en { "steps" } else { "Schritte" });
+                kv = kv.add(&trace.journey, summary);
+            }
+            builder = builder.add_component(kv);
+        }
+    }
+
+    let disclaimer = if en {
+        "These tests check whether browser, DOM, focus, and accessibility tree provide a robust foundation for screen reader use. They do not simulate the exact output of NVDA, JAWS, or VoiceOver."
+    } else {
+        "Diese Tests prüfen, ob Browser, DOM, Fokus und Accessibility Tree eine robuste Grundlage für Screenreader-Nutzung liefern. Sie simulieren nicht den exakten Output von NVDA, JAWS oder VoiceOver."
+    };
+    builder = builder.add_component(Callout::info(disclaimer));
+
+    builder
+}

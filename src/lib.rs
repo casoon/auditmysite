@@ -96,6 +96,7 @@ pub mod output;
 pub mod patterns;
 pub mod performance;
 pub mod security;
+pub mod semantic_eval;
 pub mod seo;
 pub mod source_quality;
 pub mod studio;

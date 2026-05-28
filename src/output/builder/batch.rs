@@ -67,6 +67,60 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         })
         .collect();
 
+    let interactive_summary = {
+        use std::collections::HashMap as HMap;
+        let total_pages_tested = normalized_reports
+            .iter()
+            .filter(|nr| nr.accessibility_journey.is_some() || !nr.interactive_findings.is_empty())
+            .count();
+        if total_pages_tested == 0 {
+            None
+        } else {
+            let mut category_map: HMap<String, (usize, Severity)> = HMap::new();
+            for nr in &normalized_reports {
+                let mut seen_in_page: std::collections::HashSet<String> = Default::default();
+                for f in &nr.interactive_findings {
+                    let entry = category_map
+                        .entry(f.category.clone())
+                        .or_insert((0, Severity::Low));
+                    if seen_in_page.insert(f.category.clone()) {
+                        entry.0 += 1;
+                    }
+                    if f.severity > entry.1 {
+                        entry.1 = f.severity;
+                    }
+                }
+            }
+            let mut categories: Vec<crate::output::report_model::InteractiveCategoryRow> =
+                category_map
+                    .into_iter()
+                    .map(|(category, (affected_urls, max_severity))| {
+                        crate::output::report_model::InteractiveCategoryRow {
+                            category,
+                            affected_urls,
+                            max_severity,
+                        }
+                    })
+                    .collect();
+            categories.sort_by(|a, b| b.affected_urls.cmp(&a.affected_urls));
+            let pages_with_issues = normalized_reports
+                .iter()
+                .filter(|nr| !nr.interactive_findings.is_empty())
+                .count();
+            let has_critical = normalized_reports.iter().any(|nr| {
+                nr.interactive_findings
+                    .iter()
+                    .any(|f| f.severity == Severity::Critical)
+            });
+            Some(crate::output::report_model::InteractiveJourneySummary {
+                total_pages_tested,
+                pages_with_issues,
+                categories,
+                has_critical,
+            })
+        }
+    };
+
     let action_plan = derive_action_plan(i18n, &top_issues);
 
     let mut url_ranking: Vec<UrlSummary> = batch
@@ -639,6 +693,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         url_details,
         url_matrix: build_url_matrix(batch),
         appendix: build_batch_appendix(batch),
+        interactive_summary,
     }
 }
 

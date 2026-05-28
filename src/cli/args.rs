@@ -195,6 +195,11 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "off")]
     pub interactive: InteractiveMode,
 
+    /// Enable semantic AI evaluation (fastembed + optional Mistral).
+    /// Mistral requires MISTRAL_API_KEY env var.
+    #[arg(long, default_value = "false")]
+    pub semantic_eval: bool,
+
     /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
     #[arg(long)]
     pub stack: bool,
@@ -251,6 +256,16 @@ pub struct Args {
     /// `.typ` sidecar next to the PDF (single + batch). For template/wording review.
     #[arg(long, hide = true, global = true)]
     pub debug_typ: bool,
+
+    /// Export AXTree snapshots and journey traces as YAML for developer debugging.
+    ///
+    /// The YAML file contains the page URL, document title, and all journey traces
+    /// (action sequences with focus snapshots). Compatible with Playwright's ARIA
+    /// snapshot format for CI regression testing.
+    ///
+    /// Example: --export-snapshot reports/casoon-snapshot.yaml
+    #[arg(long, value_name = "PATH")]
+    pub export_snapshot: Option<PathBuf>,
 }
 
 /// Subcommands
@@ -618,6 +633,7 @@ mod tests {
             prefer_sitemap: false,
             per_page_reports: false,
             dismiss_consent: false,
+            semantic_eval: false,
             interactive: InteractiveMode::Off,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),
@@ -625,6 +641,7 @@ mod tests {
             logo: None,
             compare: vec![],
             debug_typ: false,
+            export_snapshot: None,
         }
     }
 
