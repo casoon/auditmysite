@@ -5,12 +5,16 @@
 //! without changing the signature.
 //!
 //! Phase 2: tab-walk evaluation, skip-link, disclosure, modal, tabs, menu journeys.
+//! Phase 3: form-error announcement, SPA-navigation detection, link/heading/landmark inventory.
 
 pub mod disclosure_journey;
 pub mod evaluate;
+pub mod form_error;
+pub mod link_inventory;
 pub mod menu_journey;
 pub mod modal_journey;
 pub mod skip_link;
+pub mod spa_navigation;
 pub mod tab_walk;
 pub mod tabs_journey;
 
@@ -18,6 +22,7 @@ use std::time::Instant;
 
 use chromiumoxide::Page;
 
+use crate::accessibility::AXTree;
 use crate::audit::normalized::{AccessibilityJourney, InteractiveFinding};
 use crate::cli::InteractiveMode;
 use crate::error::Result;
@@ -30,7 +35,10 @@ pub struct RunContext<'a> {
     pub mode: InteractiveMode,
     /// Pattern analysis from the static phase — provides journey candidates.
     pub patterns: Option<&'a PatternAnalysis>,
-    /// URL at audit start (used for SPA-navigation detection in Phase 3).
+    /// Initial AXTree snapshot — used by pure-analysis passes (link inventory,
+    /// heading outline, landmark inventory) that don't need browser interaction.
+    pub ax_tree: &'a AXTree,
+    /// URL at audit start (used for SPA-navigation detection).
     pub initial_url: &'a str,
     /// Maximum wall-clock time the journey phase is allowed to consume.
     pub budget_ms: u64,
@@ -68,7 +76,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
         InteractiveMode::Full => 60,
     };
 
-    // Tab walk + evaluation.
+    // ── Tab walk + evaluation ────────────────────────────────────────────────
     let record = tab_walk::record(ctx.page, max_steps).await?;
     out.findings
         .extend(evaluate::tab_walk(&record.trace, &record.snapshots));
@@ -76,13 +84,14 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
         .extend(evaluate::tab_walk_order(&record.trace, &record.dom_order));
     out.journey.traces.push(record.trace);
 
-    // Pattern-based journeys — only if we have candidates and time remains.
+    // ── Pattern-based journeys ───────────────────────────────────────────────
     if let Some(patterns) = ctx.patterns {
         let mut skip_link_idx = 0usize;
         let mut disclosure_idx = 0usize;
         let mut modal_idx = 0usize;
         let mut tabs_idx = 0usize;
         let mut menu_idx = 0usize;
+        let mut form_idx = 0usize;
 
         for candidate in &patterns.journey_candidates {
             if Instant::now() >= deadline {
@@ -120,8 +129,9 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     menu_journey::test(ctx.page, candidate, idx).await
                 }
                 JourneyKind::FormErrorSubmit => {
-                    // Phase 3.
-                    continue;
+                    let idx = form_idx;
+                    form_idx += 1;
+                    form_error::test(ctx.page, candidate, idx).await
                 }
             };
 
@@ -136,6 +146,28 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
             }
         }
     }
+
+    // ── SPA-Navigation detection (Phase 3) ───────────────────────────────────
+    // Runs unconditionally when interactive mode is enabled — only emits
+    // findings when actual SPA navigation is observed. Placed after pattern
+    // journeys so the page is in a clean state.
+    if Instant::now() < deadline {
+        match spa_navigation::run(ctx.page, ctx.initial_url).await {
+            Ok(Some((trace, findings))) => {
+                out.journey.traces.push(trace);
+                out.findings.extend(findings);
+            }
+            Ok(None) => {} // not an SPA or no candidate links found
+            Err(e) => {
+                tracing::warn!("SPA-navigation journey failed: {}", e);
+            }
+        }
+    }
+
+    // ── Link/Heading/Landmark inventory (Phase 3, Stufe B — pure AXTree) ────
+    // No browser interaction — runs even if budget is exhausted, because cost
+    // is O(n) in AXTree size and not subject to flakiness.
+    out.findings.extend(link_inventory::analyse(ctx.ax_tree));
 
     Ok(Some(out))
 }

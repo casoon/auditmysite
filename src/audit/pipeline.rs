@@ -463,6 +463,7 @@ pub async fn audit_page(
         page,
         mode: config.interactive,
         patterns: report.patterns.as_ref(),
+        ax_tree: &primary_snap.ax_tree,
         initial_url: url,
         budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
     };
