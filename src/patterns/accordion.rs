@@ -62,11 +62,17 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
         // Trigger without aria-controls is a warning (not strictly required
         // but strongly recommended for screen readers).
-        // Exception: skip navigation/banner contexts — those are disclosure
-        // patterns where the controlled element is often hidden (display:none)
-        // and therefore absent from the AXTree, making the controls property
-        // unreliable even when aria-controls is correctly set in the DOM.
-        if role == "button" && !has_controls && !in_nav_or_banner(node, tree) {
+        // Only check when the trigger is currently expanded: Chrome CDP does not
+        // resolve the `controls` AX property when the target element is hidden
+        // (display:none / aria-hidden), so the check is unreliable for collapsed
+        // triggers even when aria-controls is correctly set in the DOM.
+        // Nav/banner exception remains for disclosure menus that never expand
+        // into a visible AX node.
+        if role == "button"
+            && expanded == Some(true)
+            && !has_controls
+            && !in_nav_or_banner(node, tree)
+        {
             out.violations.push(
                 Violation::new(
                     "4.1.2",
@@ -157,6 +163,15 @@ mod tests {
     use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 
     fn trigger(id: &str, role: &str, controls: Option<&str>) -> AXNode {
+        trigger_with_expanded(id, role, controls, false)
+    }
+
+    fn trigger_with_expanded(
+        id: &str,
+        role: &str,
+        controls: Option<&str>,
+        expanded: bool,
+    ) -> AXNode {
         let mut n = AXNode {
             node_id: id.into(),
             ignored: false,
@@ -168,7 +183,7 @@ mod tests {
             value: None,
             properties: vec![AXProperty {
                 name: "expanded".into(),
-                value: AXValue::Bool(false),
+                value: AXValue::Bool(expanded),
             }],
             child_ids: vec![],
             parent_id: None,
@@ -204,13 +219,32 @@ mod tests {
     }
 
     #[test]
-    fn test_button_without_controls_low_violation() {
+    fn test_collapsed_button_without_controls_no_violation() {
+        // When collapsed (expanded=false), Chrome CDP doesn't resolve the `controls`
+        // property for hidden targets — the check is unreliable, so no violation is emitted.
         let tree = AXTree::from_nodes(vec![trigger("1", "button", None)]);
         let mut a = PatternAnalysis::default();
         detect(&tree, &mut a);
-        assert!(a
-            .violations
-            .iter()
-            .any(|v| v.message.contains("aria-controls")));
+        assert!(
+            a.violations
+                .iter()
+                .all(|v| !v.message.contains("aria-controls")),
+            "collapsed trigger should not emit aria-controls violation"
+        );
+    }
+
+    #[test]
+    fn test_expanded_button_without_controls_low_violation() {
+        // When expanded (expanded=true), the controlled panel should be in the AX tree.
+        // A missing `controls` property then means aria-controls is truly absent.
+        let tree = AXTree::from_nodes(vec![trigger_with_expanded("1", "button", None, true)]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(
+            a.violations
+                .iter()
+                .any(|v| v.message.contains("aria-controls")),
+            "expanded trigger without controls should emit aria-controls violation"
+        );
     }
 }

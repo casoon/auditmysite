@@ -1547,7 +1547,6 @@ mod tests {
             lang: "de".to_string(),
             also_json: false,
             logo: None,
-            compare: vec![],
             debug_typ: false,
             semantic_eval: false,
             export_snapshot: None,

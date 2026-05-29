@@ -1236,10 +1236,17 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             })
             .count();
 
-        // Blocking issues: interactive elements without accessible names (4.1.2)
+        // Blocking issues: interactive elements without accessible names (4.1.2/2.1.1).
+        // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.
         let blocking_issues = findings
             .iter()
-            .filter(|f| f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
+            .filter(|f| {
+                (f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
+                    && matches!(
+                        f.severity,
+                        Severity::Medium | Severity::High | Severity::Critical
+                    )
+            })
             .map(|f| f.occurrence_count)
             .sum::<usize>();
         let interactive_critical_issues = interactive_findings
