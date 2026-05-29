@@ -63,14 +63,19 @@ pub fn build_sr_audit_report(
 }
 
 fn landmark_quality_score(views: &NavigationViews) -> u32 {
-    percentage(
-        views
-            .landmarks
-            .iter()
-            .filter(|item| item.quality == navigator::LandmarkQuality::Ok)
-            .count(),
-        views.landmarks.len(),
-    )
+    // Score based on presence of all four required ARIA landmark roles.
+    // A page with only `main` used to score 100 % — that was misleading.
+    const REQUIRED: &[&str] = &["banner", "navigation", "contentinfo", "main"];
+    let present_count = REQUIRED
+        .iter()
+        .filter(|&&role| {
+            views
+                .landmarks
+                .iter()
+                .any(|l| l.role == role && l.quality != navigator::LandmarkQuality::MissingMain)
+        })
+        .count();
+    percentage(present_count, REQUIRED.len())
 }
 
 fn heading_quality_score(views: &NavigationViews) -> u32 {
@@ -126,5 +131,44 @@ fn bfsg_compliance(issues: &[SrAuditIssue]) -> BfsgCompliance {
         },
         violations,
         passed_criteria,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::screen_reader::navigator::navigation_views;
+    use crate::screen_reader::ReadingItem;
+
+    fn item(seq: usize, role: &str) -> ReadingItem {
+        ReadingItem {
+            seq,
+            role: Some(role.to_string()),
+            name: Some(role.to_string()),
+            description: None,
+            value: None,
+            states: vec![],
+            tab_stop: false,
+            depth: 0,
+            node_id: format!("node-{seq}"),
+        }
+    }
+
+    #[test]
+    fn landmark_quality_score_only_main_is_low() {
+        let views = navigation_views(&[item(0, "main")]);
+        // 1 of 4 required landmarks → 25 %
+        assert_eq!(landmark_quality_score(&views), 25);
+    }
+
+    #[test]
+    fn landmark_quality_score_all_required_is_100() {
+        let views = navigation_views(&[
+            item(0, "banner"),
+            item(1, "navigation"),
+            item(2, "main"),
+            item(3, "contentinfo"),
+        ]);
+        assert_eq!(landmark_quality_score(&views), 100);
     }
 }

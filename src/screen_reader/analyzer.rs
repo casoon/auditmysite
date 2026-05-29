@@ -19,9 +19,12 @@ pub fn analyze_reading_sequence(
     let mut issues = Vec::new();
 
     detect_non_descriptive_interactive_names(items, &stopwords, &mut issues);
+    detect_icon_font_contamination(items, &mut issues);
     detect_duplicate_link_texts(views, &mut issues);
     detect_announcement_deserts(items, &mut issues);
     detect_skipped_heading_levels(views, &mut issues);
+    detect_heading_order_issues(views, &mut issues);
+    detect_missing_required_landmarks(views, &mut issues);
     detect_unlabeled_duplicate_landmarks(views, &mut issues);
     detect_tab_stop_count(items, &mut issues);
     detect_empty_interactive_elements(items, &mut issues);
@@ -179,6 +182,105 @@ fn detect_unlabeled_duplicate_landmarks(views: &NavigationViews, issues: &mut Ve
             affected_node_ids: vec![landmark.node_id.clone()],
             message: "Kein Main-Landmark in der Screenreader-Landmarkliste erkennbar.".into(),
         });
+    }
+}
+
+fn detect_missing_required_landmarks(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+    const REQUIRED: &[(&str, &str)] = &[
+        (
+            "banner",
+            "Kein Header-Bereich (banner-Landmark) vorhanden. Screen Reader können die Seitenstruktur nicht vollständig navigieren.",
+        ),
+        (
+            "navigation",
+            "Keine Navigations-Landmark vorhanden. Tastaturnutzer können nicht direkt zur Navigation springen.",
+        ),
+        (
+            "contentinfo",
+            "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Die Seitenstruktur ist für Screen Reader unvollständig.",
+        ),
+    ];
+
+    for (role, message) in REQUIRED {
+        let present = views
+            .landmarks
+            .iter()
+            .any(|l| l.role == *role && l.quality != LandmarkQuality::MissingMain);
+        if !present {
+            issues.push(SrAuditIssue {
+                wcag_criterion: Some("1.3.6".into()),
+                severity: "medium".into(),
+                affected_node_ids: vec![],
+                message: message.to_string(),
+            });
+        }
+    }
+}
+
+fn detect_icon_font_contamination(items: &[ReadingItem], issues: &mut Vec<SrAuditIssue>) {
+    let affected: Vec<String> = items
+        .iter()
+        .filter(|item| {
+            matches!(item.role.as_deref(), Some("button" | "link"))
+                && item.name.as_deref().is_some_and(contains_pua)
+        })
+        .map(|item| item.node_id.clone())
+        .collect();
+
+    if !affected.is_empty() {
+        issues.push(SrAuditIssue {
+            wcag_criterion: Some("2.4.4".into()),
+            severity: "medium".into(),
+            affected_node_ids: affected,
+            message:
+                "Link- oder Button-Name enthält Icon-Font-Zeichen (Unicode Private Use Area). Screen Reader lesen diese als kryptische Zeichencodes vor."
+                    .into(),
+        });
+    }
+}
+
+fn contains_pua(text: &str) -> bool {
+    text.chars().any(|c| ('\u{E000}'..='\u{F8FF}').contains(&c))
+}
+
+fn detect_heading_order_issues(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+    let headings = &views.headings;
+
+    // First non-empty heading must be H1.
+    if let Some(first) = headings.iter().find(|h| h.quality != HeadingQuality::Empty) {
+        if first.level != Some(1) {
+            issues.push(SrAuditIssue {
+                wcag_criterion: Some("1.3.1".into()),
+                severity: "medium".into(),
+                affected_node_ids: vec![first.node_id.clone()],
+                message: format!(
+                    "Erste Überschrift im Dokument ist H{} statt H1 (Sequenzposition {}).",
+                    first.level.unwrap_or(0),
+                    first.seq
+                ),
+            });
+        }
+    }
+
+    // H1 must not appear after H2/H3 in document order.
+    let first_sub_seq = headings
+        .iter()
+        .find(|h| h.level.map(|l| l >= 2).unwrap_or(false))
+        .map(|h| h.seq);
+    let first_h1 = headings.iter().find(|h| h.level == Some(1));
+
+    if let (Some(sub_seq), Some(h1)) = (first_sub_seq, first_h1) {
+        if sub_seq < h1.seq {
+            issues.push(SrAuditIssue {
+                wcag_criterion: Some("1.3.1".into()),
+                severity: "medium".into(),
+                affected_node_ids: vec![h1.node_id.clone()],
+                message: format!(
+                    "H1 erscheint erst an Sequenzposition {} — nach einer H2/H3-Überschrift.",
+                    h1.seq
+                ),
+            });
+        }
     }
 }
 
@@ -377,5 +479,106 @@ mod tests {
         let issues = analyze_reading_sequence(&items, &views, "de");
 
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn detects_missing_required_landmarks() {
+        let items = vec![item(0, "main", Some("Inhalt"), false, vec![])];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de");
+
+        let landmark_issues: Vec<_> = issues
+            .iter()
+            .filter(|i| i.wcag_criterion.as_deref() == Some("1.3.6"))
+            .collect();
+        assert_eq!(
+            landmark_issues.len(),
+            3,
+            "expected issues for banner, navigation, contentinfo"
+        );
+    }
+
+    #[test]
+    fn no_landmark_issues_when_all_required_present() {
+        let items = vec![
+            item(0, "banner", Some("Header"), false, vec![]),
+            item(1, "navigation", Some("Main nav"), false, vec![]),
+            item(2, "main", Some("Inhalt"), false, vec![]),
+            item(3, "contentinfo", Some("Footer"), false, vec![]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de");
+
+        assert!(!issues
+            .iter()
+            .any(|i| i.wcag_criterion.as_deref() == Some("1.3.6")));
+    }
+
+    #[test]
+    fn detects_icon_font_pua_in_link_name() {
+        let items = vec![
+            item(0, "main", Some("Inhalt"), false, vec![]),
+            item(1, "link", Some("\u{E003}"), true, vec![]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de");
+
+        assert!(issues.iter().any(|i| i.message.contains("Icon-Font")));
+    }
+
+    #[test]
+    fn does_not_flag_link_with_normal_text() {
+        let items = vec![
+            item(0, "main", Some("Inhalt"), false, vec![]),
+            item(1, "link", Some("Kontakt"), true, vec![]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de");
+
+        assert!(!issues.iter().any(|i| i.message.contains("Icon-Font")));
+    }
+
+    #[test]
+    fn detects_h2_before_h1() {
+        let items = vec![
+            item(0, "banner", Some("Header"), false, vec![]),
+            item(1, "navigation", Some("Nav"), false, vec![]),
+            item(2, "main", Some("Inhalt"), false, vec![]),
+            item(3, "contentinfo", Some("Footer"), false, vec![]),
+            item(57, "heading", Some("Sub"), false, vec!["level=2"]),
+            item(128, "heading", Some("Title"), false, vec!["level=1"]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de");
+
+        let order_issues: Vec<_> = issues
+            .iter()
+            .filter(|i| i.wcag_criterion.as_deref() == Some("1.3.1"))
+            .collect();
+        // "erste Überschrift nicht H1" + "H1 erscheint nach H2"
+        assert!(
+            order_issues.len() >= 2,
+            "expected heading-order issues, got: {:?}",
+            order_issues.iter().map(|i| &i.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn no_heading_order_issue_when_h1_is_first() {
+        let items = vec![
+            item(0, "banner", Some("Header"), false, vec![]),
+            item(1, "navigation", Some("Nav"), false, vec![]),
+            item(2, "main", Some("Inhalt"), false, vec![]),
+            item(3, "contentinfo", Some("Footer"), false, vec![]),
+            item(10, "heading", Some("Title"), false, vec!["level=1"]),
+            item(20, "heading", Some("Sub"), false, vec!["level=2"]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de");
+
+        assert!(!issues.iter().any(|i| {
+            i.wcag_criterion.as_deref() == Some("1.3.1")
+                && (i.message.contains("erste Überschrift") || i.message.contains("H1 erscheint"))
+        }));
     }
 }

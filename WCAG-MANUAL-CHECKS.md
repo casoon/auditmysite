@@ -1,72 +1,67 @@
-# WCAG Rules: Nicht automatisierbar
+# WCAG Rules: Not Automatable
 
-Diese Regeln können durch statische DOM-/AXTree-Analyse oder CDP-Evaluation
-nicht zuverlässig geprüft werden. Sie erfordern manuelle Inspektion oder
-spezialisierte Werkzeuge (OCR, Video-Analyse, Verhaltensbeobachtung).
+These rules cannot be reliably checked through static DOM/AX-tree analysis or CDP
+evaluation. They require manual inspection or specialised tools (OCR, video analysis,
+behavioural observation).
 
-Kein bekanntes automatisches Tool (axe-core, Pa11y, Lighthouse) implementiert
-diese Kriterien vollständig.
+No known automated tool (axe-core, Pa11y, Lighthouse) implements these criteria fully.
 
 ---
 
 ## 1.4.9 Images of Text (No Exception) — Level AAA
 
-**Kriterium:** Text darf nur in Bildern vorkommen, wenn er rein dekorativ ist
-oder eine bestimmte visuelle Darstellung für die Information essenziell ist.
+**Criterion:** Text may only appear in images if it is purely decorative or if a
+specific visual presentation is essential to the information conveyed.
 
-**Warum nicht automatisierbar:** Erfordert OCR / Computer Vision, um Text in
-Bildern zu erkennen. Heuristiken über Bilddimensionen oder Dateinamen liefern
-zu viele Fehlalarme.
+**Why not automatable:** Requires OCR / computer vision to detect text inside images.
+Heuristics based on image dimensions or file names produce too many false positives.
 
-**Manuelle Prüfung:** Alle `<img>`, `<canvas>` und CSS-Hintergrundbilder
-visuell prüfen; `<img>` mit `role="img"` und texthaltiger Beschriftung sind
-Kandidaten.
+**Manual check:** Visually inspect all `<img>`, `<canvas>`, and CSS background images;
+`<img>` elements with `role="img"` and text-like alt attributes are the primary
+candidates.
 
 ---
 
 ## 2.3.2 Three Flashes (No Exception) — Level AAA
 
-**Kriterium:** Inhalte dürfen nicht mehr als dreimal pro Sekunde aufblitzen,
-ohne Ausnahme für den "sicheren Bereich" (wie in 2.3.1 Level A).
+**Criterion:** Content must not flash more than three times per second, with no
+exception for the "safe area" threshold that applies under 2.3.1 Level A.
 
-**Warum nicht automatisierbar:** Erfordert frame-genaue visuelle
-Rendering-Analyse (Video-Capture mit ≥ 60 fps). Selbst das schwächere 2.3.1
-(Level A) wird von nahezu keinem Tool geprüft. CSS-Animations-Dauer ist kein
-Proxy für die tatsächliche Blitzrate am Bildschirm.
+**Why not automatable:** Requires frame-accurate visual rendering analysis (video
+capture at ≥ 60 fps). Even the weaker 2.3.1 (Level A) is unsupported by nearly every
+tool. CSS animation duration is not a proxy for the actual flash rate on screen.
 
-**Manuelle Prüfung:** Animationen und Videos mit einem
-Photosensitivity-Analysetool wie PEAT (Photosensitive Epilepsy Analysis Tool)
-prüfen.
+**Manual check:** Analyse animations and videos with a photosensitivity tool such as
+PEAT (Photosensitive Epilepsy Analysis Tool).
 
 ---
 
 ## 3.2.5 Change on Request — Level AAA
 
-**Kriterium:** Kontextänderungen werden nur auf ausdrückliche Nutzeranforderung
-ausgelöst; kein automatisches Weiterleiten, kein Auto-Advance.
+**Criterion:** Context changes are initiated only by explicit user request; no
+automatic redirects, no auto-advance.
 
-**Warum nicht automatisierbar:** Erfordert Verhaltensbeobachtung über Zeit
-(z. B. ob eine Slideshow selbstständig weiterscrollt oder ob `onchange` eine
-Navigation auslöst). `<meta http-equiv="refresh">` ist erkennbar, aber das
-Kriterium ist breiter. Interaktionssequenzen können nicht statisch beurteilt
-werden.
+**Why not automatable:** Requires behavioural observation over time (e.g. whether a
+slideshow advances on its own, or whether `onchange` triggers navigation).
+`<meta http-equiv="refresh">` is detectable, but the criterion is broader. Interaction
+sequences cannot be assessed statically.
 
-**Manuelle Prüfung:** Seite ohne Interaktion beobachten (automatische
-Navigation?), alle Formularfelder auf unerwartete Kontextänderungen bei
-`onchange`/`onblur` testen.
+**Manual check:** Observe the page without interaction (does anything navigate
+automatically?); test all form fields for unexpected context changes on `onchange` /
+`onblur`.
 
 ---
 
 ## 3.3.6 Error Prevention (All) — Level AAA
 
-**Kriterium:** Für alle Seiten mit Formulareingaben muss der Nutzer Eingaben
-revidieren, bestätigen oder korrigieren können — nicht nur bei
-rechtlichen/finanziellen Transaktionen (das ist Level AA 3.3.4).
+**Criterion:** For all pages that accept user input, the user must be able to review,
+confirm, or correct entries — not only for legal or financial transactions (that is
+Level AA 3.3.4).
 
-**Warum nicht automatisierbar:** Ob ein Bestätigungsschritt existiert, ist aus
-dem DOM allein nicht ableitbar. Erfordert echte Formular-Submission-Simulation
-mit Zustandsverfolgung über mehrere Schritte.
+**Why not automatable:** Whether a confirmation step exists cannot be inferred from the
+DOM alone. Requires real form-submission simulation with state tracking across multiple
+steps.
 
-**Manuelle Prüfung:** Alle Formulare bis zum Abschluss durchlaufen; prüfen ob
-eine Zusammenfassung, ein Bestätigungsdialog oder eine Korrekturmöglichkeit
-angeboten wird.
+**Manual check:** Complete all forms through to submission; verify that a summary,
+confirmation dialog, or correction opportunity is offered before the final action is
+committed.
