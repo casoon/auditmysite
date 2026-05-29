@@ -9,7 +9,10 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::audit::normalized::NormalizedReport;
-use crate::audit::{AccessibilityScorer, AuditReport, BatchReport, SampleMetadata};
+use crate::audit::{
+    compute_recurring_rules, AccessibilityScorer, AuditReport, BatchReport, RecurringRule,
+    SampleMetadata,
+};
 use crate::error::Result;
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::explanations::get_explanation;
@@ -72,20 +75,6 @@ pub struct UnifiedReport {
     /// Serialization errors encountered while building this report.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub collection_errors: Vec<ReportError>,
-}
-
-/// Aggregate stats for a recurring WCAG rule across a batch's pages.
-#[derive(Debug, Serialize)]
-pub struct RecurringRule {
-    pub rule_id: String,
-    pub title: String,
-    pub wcag_criterion: String,
-    pub wcag_level: String,
-    pub severity: crate::taxonomy::Severity,
-    /// Number of pages where this rule fired.
-    pub affected_pages: usize,
-    /// Sum of `occurrence_count` over all affected pages.
-    pub total_occurrences: usize,
 }
 
 /// Uniform summary — identical field names for single and batch.
@@ -378,16 +367,6 @@ impl UnifiedReport {
         let severity_counts = aggregate_severity(&pages);
         let occurrence_counts = aggregate_occurrences(&pages);
         let accessibility_score = batch_report.summary.average_score.round() as u32;
-        let (violated_rule_count, top_recurring_rules) = aggregate_recurring_rules(&pages);
-
-        let worst_risk = {
-            let page_count = normalized_reports.len().max(1);
-            let mut counts = std::collections::HashMap::new();
-            for r in normalized_reports.iter() {
-                *counts.entry(r.risk.level).or_insert(0usize) += 1;
-            }
-            compute_worst_risk(&counts, page_count)
-        };
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score,
@@ -395,15 +374,15 @@ impl UnifiedReport {
             grade: AccessibilityScorer::calculate_grade(accessibility_score as f32).to_string(),
             certificate: AccessibilityScorer::calculate_certificate(accessibility_score as f32)
                 .to_string(),
-            risk_level: worst_risk,
+            risk_level: batch_report.summary.risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
             severity_counts,
             severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts,
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
-            violated_rule_count,
-            top_recurring_rules,
+            violated_rule_count: batch_report.summary.violated_rule_count,
+            top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
             performance_score: avg_module_score(&pages, "Performance"),
             seo_score: avg_module_score(&pages, "SEO"),
             security_score: avg_module_score(&pages, "Security"),
@@ -494,7 +473,7 @@ impl UnifiedReport {
             page.overall_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
         );
         let violated_rule_count = page.violated_rule_count;
-        let (_, top_recurring_rules) = aggregate_recurring_rules(std::slice::from_ref(&page));
+        let (top_recurring_rules, _) = compute_recurring_rules(std::slice::from_ref(normalized));
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: page.accessibility_score,
@@ -562,21 +541,6 @@ struct DetailContext {
     budget_violations: Vec<serde_json::Value>,
     screenshot_status: Option<serde_json::Value>,
     collection_errors: Vec<ReportError>,
-}
-
-fn compute_worst_risk(
-    counts: &std::collections::HashMap<crate::audit::normalized::RiskLevel, usize>,
-    page_count: usize,
-) -> crate::audit::normalized::RiskLevel {
-    use crate::audit::normalized::RiskLevel;
-    [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
-        .iter()
-        .copied()
-        .find(|&lvl| {
-            let n = *counts.get(&lvl).unwrap_or(&0);
-            n > 0 && (lvl == RiskLevel::Critical || n * 5 >= page_count)
-        })
-        .unwrap_or(RiskLevel::Low)
 }
 
 /// Build a [`PageEntry`]. `ctx` `Some` builds the full single-report `detail`;
@@ -942,64 +906,6 @@ fn aggregate_severity(pages: &[PageEntry]) -> crate::audit::normalized::Severity
     }
 }
 
-/// Aggregate findings across pages to surface recurring rule violations.
-/// Returns `(violated_rule_count, top_recurring_rules)` where:
-/// - `violated_rule_count` is the number of distinct rule IDs fired anywhere,
-///   across all categories (WCAG + SEO) — issue #254.
-/// - `top_recurring_rules` lists the top 10 *WCAG* rules sorted by affected_pages
-///   (descending), then by total_occurrences (spec: häufigste WCAG-Verstöße).
-fn aggregate_recurring_rules(pages: &[PageEntry]) -> (usize, Vec<RecurringRule>) {
-    use std::collections::{HashMap, HashSet};
-    let violated_rule_count = pages
-        .iter()
-        .flat_map(|p| p.findings.iter().map(|f| f.rule_id.as_str()))
-        .collect::<HashSet<_>>()
-        .len();
-    struct Acc {
-        title: String,
-        wcag_criterion: String,
-        wcag_level: String,
-        severity: crate::taxonomy::Severity,
-        affected_pages: usize,
-        total_occurrences: usize,
-    }
-    let mut by_rule: HashMap<String, Acc> = HashMap::new();
-    for page in pages {
-        for f in page.findings.iter().filter(|f| f.category == "wcag") {
-            let entry = by_rule.entry(f.rule_id.clone()).or_insert(Acc {
-                title: f.title.clone(),
-                wcag_criterion: f.wcag_criterion.clone(),
-                wcag_level: f.wcag_level.clone(),
-                severity: f.severity,
-                affected_pages: 0,
-                total_occurrences: 0,
-            });
-            entry.affected_pages += 1;
-            entry.total_occurrences += f.occurrence_count;
-        }
-    }
-    let mut rules: Vec<RecurringRule> = by_rule
-        .into_iter()
-        .map(|(rule_id, a)| RecurringRule {
-            rule_id,
-            title: a.title,
-            wcag_criterion: a.wcag_criterion,
-            wcag_level: a.wcag_level,
-            severity: a.severity,
-            affected_pages: a.affected_pages,
-            total_occurrences: a.total_occurrences,
-        })
-        .collect();
-    rules.sort_by(|a, b| {
-        b.affected_pages
-            .cmp(&a.affected_pages)
-            .then_with(|| b.total_occurrences.cmp(&a.total_occurrences))
-            .then_with(|| b.severity.cmp(&a.severity))
-    });
-    rules.truncate(10);
-    (violated_rule_count, rules)
-}
-
 fn aggregate_occurrences(pages: &[PageEntry]) -> crate::audit::normalized::SeverityCounts {
     crate::audit::normalized::SeverityCounts {
         critical: pages.iter().map(|p| p.occurrence_counts.critical).sum(),
@@ -1340,12 +1246,21 @@ mod tests {
 
     #[test]
     fn test_worst_risk_all_low() {
+        use crate::audit::compute_worst_risk;
         use crate::audit::normalized::RiskLevel;
-        use std::collections::HashMap;
-        // No critical/high/medium pages — result must be Low, not Critical
-        let mut counts = HashMap::new();
-        counts.insert(RiskLevel::Low, 3usize);
-        let result = super::compute_worst_risk(&counts, 3);
+        use crate::wcag::WcagResults;
+        // No critical/high/medium pages — result must be Low
+        let reports: Vec<_> = (0..3)
+            .map(|_| {
+                crate::audit::normalized::normalize(&AuditReport::new(
+                    "https://example.com".to_string(),
+                    WcagLevel::AA,
+                    WcagResults::new(),
+                    100,
+                ))
+            })
+            .collect();
+        let result = compute_worst_risk(&reports);
         assert_eq!(
             result,
             RiskLevel::Low,

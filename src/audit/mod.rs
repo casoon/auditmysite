@@ -38,8 +38,9 @@ pub use pipeline::{
     AUDIT_MODULES,
 };
 pub use report::{
-    AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
-    CrawlDiagnostics, PerformanceResults, RedirectChain, SampleMetadata, ScreenshotStatus,
-    ThrottledPerfResult, ViewportScoreSet, ViewportScores, ViewportScreenshot,
+    compute_recurring_rules, compute_worst_risk, AuditReport, BatchError, BatchReport,
+    BatchSummary, BrokenLink, BrokenLinkSeverity, CrawlDiagnostics, PerformanceResults,
+    RecurringRule, RedirectChain, SampleMetadata, ScreenshotStatus, ThrottledPerfResult,
+    ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};

@@ -278,6 +278,12 @@ pub enum RiskLevel {
     Critical,
 }
 
+impl Default for RiskLevel {
+    fn default() -> Self {
+        Self::Low
+    }
+}
+
 impl std::fmt::Display for RiskLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

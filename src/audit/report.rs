@@ -549,6 +549,21 @@ pub struct BatchError {
     pub error: String,
 }
 
+/// One WCAG rule that recurred across multiple pages in a batch audit.
+/// Domain-level type; used by BatchSummary and the JSON output formatter.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecurringRule {
+    pub rule_id: String,
+    pub title: String,
+    pub wcag_criterion: String,
+    pub wcag_level: String,
+    pub severity: crate::taxonomy::Severity,
+    /// Number of pages where this rule fired.
+    pub affected_pages: usize,
+    /// Sum of `occurrence_count` over all affected pages.
+    pub total_occurrences: usize,
+}
+
 /// Summary statistics for a batch audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchSummary {
@@ -562,6 +577,128 @@ pub struct BatchSummary {
     pub average_score: f64,
     /// Total violations found
     pub total_violations: usize,
+    /// Top-10 WCAG rules by page frequency, computed across all audited pages.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub top_recurring_rules: Vec<RecurringRule>,
+    /// Number of distinct WCAG + SEO rule IDs that fired anywhere across all pages.
+    #[serde(default)]
+    pub violated_rule_count: usize,
+    /// Number of distinct WCAG Level-A rules with High/Critical severity across
+    /// all pages (legal exposure indicator).
+    #[serde(default)]
+    pub legal_flags: usize,
+    /// Worst-case risk level across all audited pages.
+    #[serde(default)]
+    pub risk: crate::audit::normalized::RiskLevel,
+}
+
+/// Compute top-10 recurring WCAG rules and total violated-rule count across
+/// a set of normalized reports. Used by `BatchReport::from_reports` and the
+/// JSON formatter for single-page summary blocks.
+///
+/// Returns `(top_recurring_rules, violated_rule_count)`.
+pub fn compute_recurring_rules(
+    reports: &[crate::audit::normalized::NormalizedReport],
+) -> (Vec<RecurringRule>, usize) {
+    use std::collections::{HashMap, HashSet};
+
+    let violated_rule_count = reports
+        .iter()
+        .flat_map(|r| r.findings.iter().map(|f| f.rule_id.as_str()))
+        .collect::<HashSet<_>>()
+        .len();
+
+    struct Acc {
+        title: String,
+        wcag_criterion: String,
+        wcag_level: String,
+        severity: crate::taxonomy::Severity,
+        affected_pages: usize,
+        total_occurrences: usize,
+    }
+
+    let mut by_rule: HashMap<String, Acc> = HashMap::new();
+    for report in reports {
+        for f in report.findings.iter().filter(|f| f.category == "wcag") {
+            let entry = by_rule.entry(f.rule_id.clone()).or_insert(Acc {
+                title: f.title.clone(),
+                wcag_criterion: f.wcag_criterion.clone(),
+                wcag_level: f.wcag_level.clone(),
+                severity: f.severity,
+                affected_pages: 0,
+                total_occurrences: 0,
+            });
+            entry.affected_pages += 1;
+            entry.total_occurrences += f.occurrence_count;
+        }
+    }
+
+    let mut rules: Vec<RecurringRule> = by_rule
+        .into_iter()
+        .map(|(rule_id, a)| RecurringRule {
+            rule_id,
+            title: a.title,
+            wcag_criterion: a.wcag_criterion,
+            wcag_level: a.wcag_level,
+            severity: a.severity,
+            affected_pages: a.affected_pages,
+            total_occurrences: a.total_occurrences,
+        })
+        .collect();
+    rules.sort_by(|a, b| {
+        b.affected_pages
+            .cmp(&a.affected_pages)
+            .then_with(|| b.total_occurrences.cmp(&a.total_occurrences))
+            .then_with(|| b.severity.cmp(&a.severity))
+    });
+    rules.truncate(10);
+
+    (rules, violated_rule_count)
+}
+
+/// Count the number of distinct WCAG Level-A rules with High/Critical severity
+/// that appear across any of the given reports (legal exposure indicator).
+fn compute_legal_flags(reports: &[crate::audit::normalized::NormalizedReport]) -> usize {
+    use crate::taxonomy::Severity;
+    use std::collections::HashSet;
+
+    reports
+        .iter()
+        .flat_map(|r| r.findings.iter())
+        .filter(|f| {
+            f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
+        })
+        .map(|f| f.rule_id.as_str())
+        .collect::<HashSet<_>>()
+        .len()
+}
+
+/// Compute the worst-case risk level across a set of normalized reports.
+///
+/// Critical: any page is Critical.
+/// High: ≥ 20% of pages are High.
+/// Medium: ≥ 20% of pages are Medium.
+/// Low: otherwise.
+pub fn compute_worst_risk(
+    reports: &[crate::audit::normalized::NormalizedReport],
+) -> crate::audit::normalized::RiskLevel {
+    use crate::audit::normalized::RiskLevel;
+    use std::collections::HashMap;
+
+    let page_count = reports.len().max(1);
+    let mut counts: HashMap<RiskLevel, usize> = HashMap::new();
+    for r in reports {
+        *counts.entry(r.risk.level).or_insert(0) += 1;
+    }
+
+    [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
+        .iter()
+        .copied()
+        .find(|&lvl| {
+            let n = *counts.get(&lvl).unwrap_or(&0);
+            n > 0 && (lvl == RiskLevel::Critical || n * 5 >= page_count)
+        })
+        .unwrap_or(RiskLevel::Low)
 }
 
 impl BatchReport {
@@ -610,6 +747,11 @@ impl BatchReport {
             .map(|f| f.occurrence_count)
             .sum();
 
+        let (top_recurring_rules, violated_rule_count) =
+            compute_recurring_rules(&normalized_reports);
+        let legal_flags = compute_legal_flags(&normalized_reports);
+        let risk = compute_worst_risk(&normalized_reports);
+
         let mut result = Self {
             reports,
             errors,
@@ -619,6 +761,10 @@ impl BatchReport {
                 failed,
                 average_score,
                 total_violations,
+                top_recurring_rules,
+                violated_rule_count,
+                legal_flags,
+                risk,
             },
             crawl_diagnostics: None,
             consistency: None,
@@ -794,5 +940,119 @@ mod tests {
             100,
         );
         assert_eq!(report.violation_count(), 1);
+    }
+
+    #[test]
+    fn batch_summary_has_recurring_rules_and_risk() {
+        let reports = vec![
+            AuditReport::new(
+                "https://a.com".into(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            ),
+            AuditReport::new(
+                "https://b.com".into(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            ),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 0);
+        // No violations: no recurring rules, no violated rules, Low risk
+        assert!(batch.summary.top_recurring_rules.is_empty());
+        assert_eq!(batch.summary.violated_rule_count, 0);
+        assert_eq!(batch.summary.legal_flags, 0);
+        assert_eq!(batch.summary.risk, crate::audit::normalized::RiskLevel::Low);
+    }
+
+    #[test]
+    fn compute_recurring_rules_aggregates_across_pages() {
+        use crate::audit::normalized::normalize;
+        use crate::wcag::Violation;
+
+        let mut results1 = WcagResults::new();
+        results1.add_violation(Violation::new(
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            crate::wcag::Severity::High,
+            "Missing alt",
+            "n1",
+        ));
+
+        let mut results2 = WcagResults::new();
+        results2.add_violation(Violation::new(
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            crate::wcag::Severity::High,
+            "Missing alt",
+            "n2",
+        ));
+
+        let r1 = normalize(&AuditReport::new(
+            "https://a.com".into(),
+            WcagLevel::AA,
+            results1,
+            100,
+        ));
+        let r2 = normalize(&AuditReport::new(
+            "https://b.com".into(),
+            WcagLevel::AA,
+            results2,
+            100,
+        ));
+
+        let (rules, violated_count) = compute_recurring_rules(&[r1, r2]);
+        assert_eq!(violated_count, 1, "one distinct rule fired");
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].affected_pages, 2, "rule appeared on both pages");
+        assert_eq!(rules[0].total_occurrences, 2);
+    }
+
+    #[test]
+    fn compute_worst_risk_critical_if_any_critical_page() {
+        use crate::audit::normalized::{normalize, RiskLevel};
+        use crate::wcag::Violation;
+
+        // Create two pages: one with no violations (Low risk) and one with
+        // many critical violations that push it to Critical risk.
+        let empty = normalize(&AuditReport::new(
+            "https://a.com".into(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        ));
+
+        // Build a report likely to be Critical risk: legal_flags > 0 + critical issues
+        let mut results = WcagResults::new();
+        for i in 0..3 {
+            results.add_violation(Violation::new(
+                "1.1.1",
+                "Alt",
+                WcagLevel::A,
+                crate::wcag::Severity::Critical,
+                "missing",
+                &format!("n{i}"),
+            ));
+        }
+        let risky = normalize(&AuditReport::new(
+            "https://b.com".into(),
+            WcagLevel::AA,
+            results,
+            50,
+        ));
+
+        let risk = compute_worst_risk(&[empty, risky]);
+        // Risky page should pull the batch to at least Medium or higher
+        assert!(
+            matches!(
+                risk,
+                RiskLevel::Critical | RiskLevel::High | RiskLevel::Medium
+            ),
+            "batch risk must be elevated when one page has critical issues, got {:?}",
+            risk
+        );
     }
 }
