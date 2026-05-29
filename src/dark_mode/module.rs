@@ -17,6 +17,10 @@ impl AuditModule for DarkModeModule {
         "dark_mode"
     }
 
+    fn label(&self) -> &'static str {
+        "Dark Mode"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_dark_mode
     }

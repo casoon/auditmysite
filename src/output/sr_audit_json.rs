@@ -146,6 +146,24 @@ mod tests {
               "message": "Interaktiver Name \"Hier\" ist ohne Kontext nicht aussagekräftig.",
               "severity": "medium",
               "wcag_criterion": "2.4.4"
+            },
+            {
+              "affected_node_ids": [],
+              "message": "Kein Header-Bereich (banner-Landmark) vorhanden. Screen Reader können die Seitenstruktur nicht vollständig navigieren.",
+              "severity": "medium",
+              "wcag_criterion": "1.3.6"
+            },
+            {
+              "affected_node_ids": [],
+              "message": "Keine Navigations-Landmark vorhanden. Tastaturnutzer können nicht direkt zur Navigation springen.",
+              "severity": "medium",
+              "wcag_criterion": "1.3.6"
+            },
+            {
+              "affected_node_ids": [],
+              "message": "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Die Seitenstruktur ist für Screen Reader unvollständig.",
+              "severity": "medium",
+              "wcag_criterion": "1.3.6"
             }
           ],
           "navigation_views": {
@@ -218,7 +236,7 @@ mod tests {
           "summary": {
             "bfsg_violations": 1,
             "heading_quality_score": 100,
-            "landmark_quality_score": 100,
+            "landmark_quality_score": 25,
             "name_quality_score": 0,
             "tab_stops": 0,
             "total_announced_nodes": 3

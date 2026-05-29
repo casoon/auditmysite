@@ -33,10 +33,7 @@ pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
 pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
 pub use normalized::{normalize, NormalizedReport};
-pub use pipeline::{
-    audit_page, run_single_audit, AuditModuleDefinition, ModuleActivation, PipelineConfig,
-    AUDIT_MODULES,
-};
+pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_recurring_rules, compute_worst_risk, AuditReport, BatchError, BatchReport,
     BatchSummary, BrokenLink, BrokenLinkSeverity, CrawlDiagnostics, PerformanceResults,

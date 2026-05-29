@@ -23,6 +23,10 @@ impl AuditModule for SecurityModule {
         "security"
     }
 
+    fn label(&self) -> &'static str {
+        "Security"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_security
     }

@@ -17,6 +17,10 @@ impl AuditModule for TechStackModule {
         "tech_stack"
     }
 
+    fn label(&self) -> &'static str {
+        "Tech Stack"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_stack
     }

@@ -80,6 +80,7 @@ pub enum ModuleData {
     SourceQuality(Box<SourceQualityAnalysis>),
     AiVisibility(Box<AiVisibilityAnalysis>),
     ContentVisibility(Box<ContentVisibilityAnalysis>),
+    Error(String),
 }
 
 /// Contract every audit module will implement.
@@ -132,6 +133,10 @@ pub trait AuditModule: Send + Sync {
     /// assert_eq!(SeoModule.id(), "seo");
     /// ```
     fn id(&self) -> &'static str;
+
+    fn label(&self) -> &'static str {
+        self.id()
+    }
 
     /// Whether this module should run in the current pipeline configuration.
     /// Mirrors the existing `PipelineConfig.check_*` flags; A3 wires each

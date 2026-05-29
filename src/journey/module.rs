@@ -24,6 +24,10 @@ impl AuditModule for JourneyModule {
         "journey"
     }
 
+    fn label(&self) -> &'static str {
+        "Journey"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_mobile || cfg.check_seo
     }

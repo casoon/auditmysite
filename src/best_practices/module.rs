@@ -21,6 +21,10 @@ impl AuditModule for BestPracticesModule {
         "best_practices"
     }
 
+    fn label(&self) -> &'static str {
+        "Best Practices"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_performance
     }

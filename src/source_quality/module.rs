@@ -21,6 +21,10 @@ impl AuditModule for SourceQualityModule {
         "source_quality"
     }
 
+    fn label(&self) -> &'static str {
+        "Source Quality"
+    }
+
     fn is_enabled(&self, _cfg: &PipelineConfig) -> bool {
         true
     }

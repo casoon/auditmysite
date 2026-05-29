@@ -389,7 +389,7 @@ mod tests {
 
         assert_eq!(
             label,
-            "Accessibility, Accessibility Journey, Dark Mode, Source Quality, AI Visibility"
+            "Accessibility, Accessibility Journey, Dark Mode, AI Visibility, Source Quality"
         );
     }
 }

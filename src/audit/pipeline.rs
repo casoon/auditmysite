@@ -91,88 +91,6 @@ struct SnapshotData {
 
 // ── Pipeline config ───────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ModuleActivation {
-    Always,
-    Interactive,
-    Performance,
-    Seo,
-    Security,
-    Mobile,
-    SeoOrMobile,
-    Stack,
-    SemanticEval,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AuditModuleDefinition {
-    pub label: &'static str,
-    pub activation: ModuleActivation,
-}
-
-pub const AUDIT_MODULES: &[AuditModuleDefinition] = &[
-    AuditModuleDefinition {
-        label: "Accessibility",
-        activation: ModuleActivation::Always,
-    },
-    AuditModuleDefinition {
-        label: "Accessibility Journey",
-        activation: ModuleActivation::Interactive,
-    },
-    AuditModuleDefinition {
-        label: "Performance",
-        activation: ModuleActivation::Performance,
-    },
-    AuditModuleDefinition {
-        label: "Best Practices",
-        activation: ModuleActivation::Performance,
-    },
-    AuditModuleDefinition {
-        label: "SEO",
-        activation: ModuleActivation::Seo,
-    },
-    AuditModuleDefinition {
-        label: "Security",
-        activation: ModuleActivation::Security,
-    },
-    AuditModuleDefinition {
-        label: "Mobile",
-        activation: ModuleActivation::Mobile,
-    },
-    AuditModuleDefinition {
-        label: "UX",
-        activation: ModuleActivation::SeoOrMobile,
-    },
-    AuditModuleDefinition {
-        label: "Journey",
-        activation: ModuleActivation::SeoOrMobile,
-    },
-    AuditModuleDefinition {
-        label: "Dark Mode",
-        activation: ModuleActivation::Always,
-    },
-    AuditModuleDefinition {
-        label: "Tech Stack",
-        activation: ModuleActivation::Stack,
-    },
-    AuditModuleDefinition {
-        label: "Source Quality",
-        activation: ModuleActivation::Always,
-    },
-    AuditModuleDefinition {
-        label: "AI Visibility",
-        activation: ModuleActivation::Always,
-    },
-    AuditModuleDefinition {
-        label: "Content Visibility",
-        activation: ModuleActivation::Seo,
-    },
-    AuditModuleDefinition {
-        label: "Semantic Eval",
-        activation: ModuleActivation::SemanticEval,
-    },
-];
-
 /// Audit pipeline configuration
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
@@ -211,34 +129,22 @@ pub struct PipelineConfig {
 }
 
 impl PipelineConfig {
-    pub fn active_modules(&self) -> Vec<&'static AuditModuleDefinition> {
-        AUDIT_MODULES
-            .iter()
-            .filter(|module| self.module_is_active(module.activation))
-            .collect()
-    }
-
     pub fn active_module_labels(&self) -> Vec<&'static str> {
-        self.active_modules()
-            .into_iter()
-            .map(|module| module.label)
-            .collect()
-    }
-
-    fn module_is_active(&self, activation: ModuleActivation) -> bool {
-        match activation {
-            ModuleActivation::Always => true,
-            ModuleActivation::Interactive => {
-                !matches!(self.interactive, crate::cli::InteractiveMode::Off)
-            }
-            ModuleActivation::Performance => self.check_performance,
-            ModuleActivation::Seo => self.check_seo,
-            ModuleActivation::Security => self.check_security,
-            ModuleActivation::Mobile => self.check_mobile,
-            ModuleActivation::SeoOrMobile => self.check_seo || self.check_mobile,
-            ModuleActivation::Stack => self.check_stack,
-            ModuleActivation::SemanticEval => self.semantic_eval.enabled,
+        let mut labels = vec!["Accessibility"];
+        if !matches!(self.interactive, crate::cli::InteractiveMode::Off) {
+            labels.push("Accessibility Journey");
         }
+        let catalog = AuditCatalog::standard();
+        if let Ok(mut ordered) = catalog.topo_sorted() {
+            ordered.retain(|m| m.is_enabled(self));
+            for module in &ordered {
+                labels.push(module.label());
+            }
+        }
+        if self.semantic_eval.enabled {
+            labels.push("Semantic Eval");
+        }
+        labels
     }
 
     /// Deterministic fingerprint of the audit-relevant configuration.
@@ -273,6 +179,29 @@ impl From<&Args> for PipelineConfig {
 }
 
 impl PipelineConfig {
+    /// Return a viewport-specific copy with the correct module on/off pattern.
+    ///
+    /// Desktop: SEO, security, mobile and stack detection are off (run on mobile pass).
+    ///          Dark-mode analysis runs here because it needs the desktop layout.
+    /// Mobile:  Security and dark-mode are off.  All other user flags are respected.
+    pub fn for_viewport(&self, viewport: Viewport) -> Self {
+        match viewport {
+            Viewport::Desktop => Self {
+                check_seo: false,
+                check_security: false,
+                check_mobile: false,
+                check_dark_mode: true,
+                check_stack: false,
+                ..self.clone()
+            },
+            Viewport::Mobile => Self {
+                check_security: false,
+                check_dark_mode: false,
+                ..self.clone()
+            },
+        }
+    }
+
     pub fn from_args_and_config(
         args: &Args,
         toml_cfg: Option<&crate::cli::config::Config>,
@@ -418,15 +347,7 @@ pub async fn audit_page(
         }
     };
 
-    let desktop_config = PipelineConfig {
-        check_performance: config.check_performance,
-        check_seo: false,
-        check_security: false,
-        check_mobile: false,
-        check_dark_mode: true,
-        check_stack: false, // stack detection runs once on the mobile pass
-        ..config.clone()
-    };
+    let desktop_config = config.for_viewport(Viewport::Desktop);
     let desktop_snap = extract_snapshot(page, url, Viewport::Desktop, &desktop_config).await?;
     let desktop_wcag = run_rules(page, &desktop_snap, config, desktop_screenshot.as_ref()).await;
 
@@ -463,15 +384,7 @@ pub async fn audit_page(
         }
     };
 
-    let mobile_config = PipelineConfig {
-        check_performance: config.check_performance,
-        check_seo: config.check_seo,
-        check_security: false,
-        check_mobile: config.check_mobile,
-        check_dark_mode: false, // taken from desktop pass
-        check_stack: config.check_stack,
-        ..config.clone()
-    };
+    let mobile_config = config.for_viewport(Viewport::Mobile);
     let mobile_snap = extract_snapshot(page, url, Viewport::Mobile, &mobile_config).await?;
     let mut mobile_wcag = run_rules(page, &mobile_snap, config, mobile_screenshot.as_ref()).await;
 
@@ -861,11 +774,10 @@ async fn extract_snapshot(
             ModuleData::DarkMode(d) => snapshot.dark_mode = Some(*d),
             ModuleData::TechStack(t) => snapshot.tech_stack = Some(*t),
             ModuleData::BestPractices(b) => snapshot.best_practices = Some(*b),
-            // Post-processing variants are produced during the derive phase
-            // (catalog.derive_all in aggregate_report), not during collect.
             ModuleData::SourceQuality(_)
             | ModuleData::AiVisibility(_)
-            | ModuleData::ContentVisibility(_) => {}
+            | ModuleData::ContentVisibility(_)
+            | ModuleData::Error(_) => {}
         }
     }
 
@@ -1304,17 +1216,17 @@ mod tests {
             vec![
                 "Accessibility",
                 "Accessibility Journey",
-                "Performance",
                 "Best Practices",
-                "SEO",
-                "Security",
-                "Mobile",
-                "UX",
-                "Journey",
                 "Dark Mode",
-                "Tech Stack",
-                "Source Quality",
+                "Journey",
+                "Mobile",
+                "Performance",
+                "Security",
+                "SEO",
                 "AI Visibility",
+                "Tech Stack",
+                "UX",
+                "Source Quality",
                 "Content Visibility",
             ]
         );
@@ -1334,8 +1246,8 @@ mod tests {
                 "Accessibility",
                 "Accessibility Journey",
                 "Dark Mode",
-                "Source Quality",
                 "AI Visibility",
+                "Source Quality",
             ]
         );
     }
@@ -1418,6 +1330,33 @@ journey_budget_ms = 1234
     }
 
     #[test]
+    fn for_viewport_desktop_disables_seo_security_mobile_stack() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--full"]);
+        let config = PipelineConfig::from_args_and_config(&args, None);
+        let desktop = config.for_viewport(Viewport::Desktop);
+
+        assert!(!desktop.check_seo);
+        assert!(!desktop.check_security);
+        assert!(!desktop.check_mobile);
+        assert!(!desktop.check_stack);
+        assert!(desktop.check_dark_mode);
+        assert_eq!(desktop.check_performance, config.check_performance);
+    }
+
+    #[test]
+    fn for_viewport_mobile_disables_security_and_dark_mode() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--full"]);
+        let config = PipelineConfig::from_args_and_config(&args, None);
+        let mobile = config.for_viewport(Viewport::Mobile);
+
+        assert!(!mobile.check_security);
+        assert!(!mobile.check_dark_mode);
+        assert_eq!(mobile.check_seo, config.check_seo);
+        assert_eq!(mobile.check_mobile, config.check_mobile);
+        assert_eq!(mobile.check_stack, config.check_stack);
+    }
+
+    #[test]
     fn pipeline_config_uses_default_interactive_budget_without_config() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
 
@@ -1490,6 +1429,135 @@ journey_budget_ms = 1234
 
         assert_eq!(merged.passes, 5); // max of desktop/mobile
         assert_eq!(merged.nodes_checked, 100);
+    }
+
+    #[test]
+    fn test_merge_wcag_violations_empty_desktop() {
+        use crate::wcag::Severity;
+
+        fn make_v(rule: &str, selector: &str) -> Violation {
+            let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
+            v.selector = Some(selector.to_string());
+            v
+        }
+
+        let desktop = WcagResults {
+            violations: vec![],
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 0,
+            incomplete: 0,
+            nodes_checked: 0,
+        };
+        let mobile = WcagResults {
+            violations: vec![make_v("1.1.1", "#img1"), make_v("1.4.3", "#text1")],
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 3,
+            incomplete: 0,
+            nodes_checked: 50,
+        };
+
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        assert_eq!(merged.violations.len(), 2);
+        assert!(merged
+            .violations
+            .iter()
+            .all(|v| v.tags.contains(&"mobile-only".to_string())));
+        assert_eq!(merged.passes, 3);
+        assert_eq!(merged.nodes_checked, 50);
+    }
+
+    #[test]
+    fn test_merge_wcag_violations_empty_mobile() {
+        use crate::wcag::Severity;
+
+        fn make_v(rule: &str, selector: &str) -> Violation {
+            let mut v = Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1");
+            v.selector = Some(selector.to_string());
+            v
+        }
+
+        let desktop = WcagResults {
+            violations: vec![make_v("2.4.4", "#link1")],
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 7,
+            incomplete: 0,
+            nodes_checked: 80,
+        };
+        let mobile = WcagResults {
+            violations: vec![],
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 4,
+            incomplete: 0,
+            nodes_checked: 60,
+        };
+
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        assert_eq!(merged.violations.len(), 1);
+        assert!(merged
+            .violations
+            .iter()
+            .all(|v| v.tags.contains(&"desktop-only".to_string())));
+        assert_eq!(merged.passes, 7); // max
+        assert_eq!(merged.nodes_checked, 80); // max
+    }
+
+    #[test]
+    fn test_merge_wcag_violations_contradictory_severity_takes_mobile() {
+        use crate::wcag::Severity;
+
+        let mut desktop_v = Violation::new(
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::Critical,
+            "msg",
+            "node-1",
+        );
+        desktop_v.selector = Some("#text1".to_string());
+
+        let mut mobile_v = Violation::new(
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::High,
+            "msg",
+            "node-1",
+        );
+        mobile_v.selector = Some("#text1".to_string());
+
+        let desktop = WcagResults {
+            violations: vec![desktop_v],
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 0,
+            incomplete: 0,
+            nodes_checked: 0,
+        };
+        let mobile = WcagResults {
+            violations: vec![mobile_v],
+            warnings: vec![],
+            positives: vec![],
+            not_testables: vec![],
+            passes: 0,
+            incomplete: 0,
+            nodes_checked: 0,
+        };
+
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        assert_eq!(merged.violations.len(), 1);
+        let v = &merged.violations[0];
+        // Shared violations take the mobile clone (mobile variant wins).
+        assert_eq!(v.severity, Severity::High);
+        assert!(v.tags.contains(&"both-viewports".to_string()));
     }
 
     #[test]

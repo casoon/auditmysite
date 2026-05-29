@@ -22,6 +22,10 @@ impl AuditModule for SeoModule {
         "seo"
     }
 
+    fn label(&self) -> &'static str {
+        "SEO"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_seo
     }

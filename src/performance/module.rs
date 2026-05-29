@@ -31,6 +31,10 @@ impl AuditModule for PerformanceModule {
         "performance"
     }
 
+    fn label(&self) -> &'static str {
+        "Performance"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_performance
     }

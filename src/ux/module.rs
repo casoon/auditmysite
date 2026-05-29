@@ -19,6 +19,10 @@ impl AuditModule for UxModule {
         "ux"
     }
 
+    fn label(&self) -> &'static str {
+        "UX"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_seo || cfg.check_mobile
     }

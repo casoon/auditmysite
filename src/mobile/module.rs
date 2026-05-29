@@ -17,6 +17,10 @@ impl AuditModule for MobileModule {
         "mobile"
     }
 
+    fn label(&self) -> &'static str {
+        "Mobile"
+    }
+
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         cfg.check_mobile
     }

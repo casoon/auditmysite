@@ -21,6 +21,10 @@ impl AuditModule for AiVisibilityModule {
         "ai_visibility"
     }
 
+    fn label(&self) -> &'static str {
+        "AI Visibility"
+    }
+
     fn is_enabled(&self, _cfg: &PipelineConfig) -> bool {
         true
     }

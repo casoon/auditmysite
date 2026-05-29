@@ -472,8 +472,11 @@ mod tests {
     #[test]
     fn does_not_flag_icon_button_with_accessible_name() {
         let items = vec![
-            item(0, "main", Some("Inhalt"), false, vec![]),
-            item(1, "button", Some("Suche öffnen"), true, vec![]),
+            item(0, "banner", Some("Header"), false, vec![]),
+            item(1, "navigation", Some("Nav"), false, vec![]),
+            item(2, "main", Some("Inhalt"), false, vec![]),
+            item(3, "contentinfo", Some("Footer"), false, vec![]),
+            item(4, "button", Some("Suche öffnen"), true, vec![]),
         ];
         let views = navigation_views(&items);
         let issues = analyze_reading_sequence(&items, &views, "de");

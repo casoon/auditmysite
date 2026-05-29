@@ -296,4 +296,27 @@ mod tests {
             PerformanceGrade::Gold | PerformanceGrade::Platinum
         ));
     }
+
+    #[test]
+    fn test_partial_vitals_scores_on_available_metrics_only() {
+        // Only LCP and CLS present; FCP/TBT/SI absent.
+        // Score must be computed against the available weight budget (W_LCP + W_CLS = 50),
+        // not the full 100-point budget — otherwise missing vitals would silently deflate scores.
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)), // → score_lcp = 25 (max)
+            cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),         // → score_cls = 25 (max)
+            ..Default::default()
+        };
+        let score = calculate_performance_score(&vitals);
+        assert_eq!(score.overall, 100, "all available metrics perfect → 100");
+        assert_eq!(score.metrics_available, 2);
+    }
+
+    #[test]
+    fn test_no_vitals_returns_zero() {
+        let vitals = WebVitals::default();
+        let score = calculate_performance_score(&vitals);
+        assert_eq!(score.overall, 0, "no vitals available → 0");
+        assert_eq!(score.metrics_available, 0);
+    }
 }

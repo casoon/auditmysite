@@ -24,6 +24,7 @@ use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
 use crate::audit::pipeline::PipelineConfig;
 use crate::audit::report::AuditReport;
 use crate::error::{AuditError, Result};
+use tracing::warn;
 
 /// Owns every `AuditModule` instance for a run.
 pub struct AuditCatalog {
@@ -200,7 +201,13 @@ impl AuditCatalog {
 
         let mut results = Vec::with_capacity(ordered.len());
         for module in ordered {
-            let data = module.collect(ctx).await?;
+            let data = match module.collect(ctx).await {
+                Ok(d) => d,
+                Err(e) => {
+                    warn!("module '{}' collect failed: {}", module.id(), e);
+                    ModuleData::Error(e.to_string())
+                }
+            };
             results.push((module.id(), data));
         }
         Ok(results)
@@ -405,6 +412,12 @@ mod tests {
             .with_module(boxed(StubModule::new("twin")));
         let msg = expect_config_error(cat.topo_sorted());
         assert!(msg.contains("twin"));
+    }
+
+    #[test]
+    fn module_data_error_variant_can_be_constructed() {
+        let err = ModuleData::Error("test error".into());
+        assert!(matches!(err, ModuleData::Error(_)));
     }
 
     #[test]

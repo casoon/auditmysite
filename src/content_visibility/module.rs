@@ -22,8 +22,12 @@ impl AuditModule for ContentVisibilityModule {
         "content_visibility"
     }
 
-    fn is_enabled(&self, _cfg: &PipelineConfig) -> bool {
-        true
+    fn label(&self) -> &'static str {
+        "Content Visibility"
+    }
+
+    fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
+        cfg.check_seo
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

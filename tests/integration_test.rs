@@ -488,3 +488,152 @@ async fn test_image_contrast_pixel_sampling() {
         "The split-gradient text should be a manual review warning"
     );
 }
+
+/// #343 — catalog-driven audit produces a complete report structure.
+#[tokio::test]
+#[ignore]
+async fn test_catalog_driven_audit_complete_structure() {
+    let (url, shutdown) = serve_fixture("perfect.html");
+
+    let config = PipelineConfig {
+        check_performance: true,
+        check_seo: true,
+        check_mobile: true,
+        ..default_config()
+    };
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let report = auditmysite::audit_page(&page, &url, &config, &manager)
+        .await
+        .expect("Audit failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(
+        report.source_quality.is_some(),
+        "source_quality must be populated"
+    );
+    assert!(
+        report.ai_visibility.is_some(),
+        "ai_visibility must be populated"
+    );
+    assert!(
+        report.content_visibility.is_some(),
+        "content_visibility must be populated"
+    );
+    assert!(report.score >= 0.0 && report.score <= 100.0);
+}
+
+/// #345 — a page that causes a sub-analysis to fail does not abort the audit.
+#[tokio::test]
+#[ignore]
+async fn test_partial_module_failure_does_not_abort_audit() {
+    let (url, shutdown) = serve_fixture("many_violations.html");
+
+    let config = PipelineConfig {
+        check_performance: true,
+        check_seo: true,
+        check_security: true,
+        check_mobile: true,
+        ..default_config()
+    };
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let report = auditmysite::audit_page(&page, &url, &config, &manager)
+        .await
+        .expect("Audit must succeed even when sub-analyses fail");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(
+        !report.wcag_results.violations.is_empty() || report.wcag_results.passes > 0,
+        "WCAG results must be present"
+    );
+}
+
+/// #346 — auditing two URLs sequentially with the same BrowserManager succeeds.
+#[tokio::test]
+#[ignore]
+async fn test_sequential_two_url_audit() {
+    let (url1, shutdown1) = serve_fixture("perfect.html");
+    let (url2, shutdown2) = serve_fixture("many_violations.html");
+
+    let manager = ci_browser().await;
+
+    let page1 = manager.new_page().await.expect("page 1 failed");
+    manager.navigate(&page1, &url1).await.expect("nav 1 failed");
+    let report1 = auditmysite::audit_page(&page1, &url1, &default_config(), &manager)
+        .await
+        .expect("audit 1 failed");
+
+    let page2 = manager.new_page().await.expect("page 2 failed");
+    manager.navigate(&page2, &url2).await.expect("nav 2 failed");
+    let report2 = auditmysite::audit_page(&page2, &url2, &default_config(), &manager)
+        .await
+        .expect("audit 2 failed");
+
+    shutdown1.store(true, std::sync::atomic::Ordering::Relaxed);
+    shutdown2.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    assert!(
+        report1.score > report2.score,
+        "perfect page ({:.1}) should beat violations page ({:.1})",
+        report1.score,
+        report2.score
+    );
+}
+
+/// #347 — JSON output from a catalog-driven audit validates against the v2.0 envelope.
+#[tokio::test]
+#[ignore]
+async fn test_catalog_audit_json_envelope_v2() {
+    let (url, shutdown) = serve_fixture("perfect.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let report = auditmysite::audit_page(&page, &url, &default_config(), &manager)
+        .await
+        .expect("Audit failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let normalized = auditmysite::audit::normalize(&report);
+    let json = auditmysite::format_json_normalized(&normalized, &report, true)
+        .expect("JSON formatting failed");
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("invalid JSON");
+
+    assert_eq!(
+        parsed["schema_version"].as_str(),
+        Some("2.0"),
+        "schema_version must be 2.0"
+    );
+    assert_eq!(
+        parsed["report_type"].as_str(),
+        Some("single"),
+        "report_type must be single"
+    );
+    let pages = parsed["pages"].as_array().expect("pages must be array");
+    assert!(!pages.is_empty(), "pages must have at least one entry");
+    assert!(pages[0]["url"].is_string(), "page entry must have url");
+    assert!(
+        pages[0]["accessibility_score"].is_number(),
+        "page entry must have accessibility_score"
+    );
+}

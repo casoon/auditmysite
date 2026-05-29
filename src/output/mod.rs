@@ -10,6 +10,7 @@ mod json;
 pub mod module;
 #[cfg(feature = "pdf")]
 mod pdf;
+pub mod renderer;
 pub mod report_model;
 pub mod snapshot_export;
 pub mod sr_audit_json;
@@ -20,6 +21,7 @@ pub use cli::{format_batch_table, format_violations_list, print_batch_table, pri
 pub use json::{format_json_batch, format_json_cached, format_json_normalized, UnifiedReport};
 #[cfg(feature = "pdf")]
 pub use pdf::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
+pub use renderer::{JsonRenderer, ReportRenderer, SummaryRenderer};
 pub use snapshot_export::export_snapshot_yaml;
 pub use sr_audit_json::export_sr_audit;
 pub use summary::format_summary;
