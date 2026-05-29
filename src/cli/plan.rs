@@ -10,8 +10,8 @@ use auditmysite::audit::PipelineConfig;
 use auditmysite::cli::{Args, OutputFormat};
 
 use crate::output_paths::{
-    default_batch_pdf_output_path, default_single_json_output_path, default_single_pdf_output_path,
-    per_page_output_directory,
+    default_batch_pdf_output_path, default_screen_reader_json_output_path,
+    default_single_json_output_path, default_single_pdf_output_path, per_page_output_directory,
 };
 
 // ─── Banner ──────────────────────────────────────────────────────────────────
@@ -110,16 +110,31 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
                 .clone()
                 .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
             let mut outputs = vec![path.display().to_string()];
-            if args.output.is_none() {
+            if args.also_json || args.output.is_none() {
                 outputs.push(default_single_json_output_path(&path).display().to_string());
             }
+            outputs.push(
+                default_screen_reader_json_output_path(&path)
+                    .display()
+                    .to_string(),
+            );
             outputs
         }
         OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
-            match args.output.as_ref() {
+            let mut outputs = match args.output.as_ref() {
                 Some(path) => vec![path.display().to_string()],
                 None => vec!["stdout".to_string()],
-            }
+            };
+            let primary_path = args
+                .output
+                .clone()
+                .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
+            outputs.push(
+                default_screen_reader_json_output_path(&primary_path)
+                    .display()
+                    .to_string(),
+            );
+            outputs
         }
     }
 }
@@ -203,7 +218,9 @@ mod tests {
     fn planned_single_outputs_json_returns_stdout_without_output_flag() {
         let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
-        assert_eq!(outputs, vec!["stdout"]);
+        assert_eq!(outputs.len(), 2);
+        assert_eq!(outputs[0], "stdout");
+        assert!(outputs[1].ends_with("-single-report-screen-reader-audit.json"));
     }
 
     #[test]
@@ -217,7 +234,13 @@ mod tests {
             "out.json",
         ]);
         let outputs = planned_single_outputs(&args, "https://example.com");
-        assert_eq!(outputs, vec!["out.json"]);
+        assert_eq!(
+            outputs,
+            vec![
+                "out.json".to_string(),
+                "out-screen-reader-audit.json".to_string()
+            ]
+        );
     }
 
     #[test]

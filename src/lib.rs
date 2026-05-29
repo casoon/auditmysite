@@ -98,6 +98,7 @@ pub mod mobile;
 pub mod output;
 pub mod patterns;
 pub mod performance;
+pub mod screen_reader;
 pub mod security;
 pub mod semantic_eval;
 pub mod seo;
@@ -135,6 +136,10 @@ pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::{format_json_normalized, print_report};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
+};
+pub use screen_reader::{
+    announce, announce_localized, linearize, linearize_with_ignored, navigation_views,
+    IgnoredReadingNode, NavigationViews, ReadingItem,
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};

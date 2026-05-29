@@ -27,7 +27,7 @@ use crate::output_paths::output_text;
 use crate::plan::{print_batch_audit_plan, print_comparison_audit_plan, print_single_audit_plan};
 use crate::report_writers::{
     output_batch_as_single_reports, output_batch_report, output_comparison_report,
-    output_single_report,
+    output_screen_reader_sidecar, output_single_report,
 };
 use crate::sitemap_suggest::{
     check_url_reachable, discover_populated_sitemap, looks_like_base_url,
@@ -75,6 +75,8 @@ pub async fn run_single_mode(
                     OutputFormat::Json => {
                         let output = format_json_cached(&cached.audit, true)?;
                         output_text(&output, &args.output, "JSON", args.quiet)?;
+                        let report = to_audit_report(&cached);
+                        output_screen_reader_sidecar(&report, args)?;
                         return Ok(cached.audit.score as f64);
                     }
                     OutputFormat::Table

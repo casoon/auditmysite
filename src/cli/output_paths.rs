@@ -64,6 +64,17 @@ pub fn default_single_json_output_path(pdf_path: &Path) -> PathBuf {
     pdf_path.with_extension("json")
 }
 
+/// Derive the standalone screen-reader audit JSON sidecar path.
+pub fn default_screen_reader_json_output_path(primary_path: &Path) -> PathBuf {
+    let mut path = primary_path.to_path_buf();
+    let stem = primary_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("audit-report");
+    path.set_file_name(format!("{stem}-screen-reader-audit.json"));
+    path
+}
+
 /// Directory used for per-page batch output files.
 pub fn per_page_output_directory(args: &Args) -> PathBuf {
     match args.output.as_ref() {
@@ -194,6 +205,15 @@ mod tests {
         assert_eq!(
             default_single_json_output_path(pdf),
             PathBuf::from("reports/casoon-2026-01-01-single-report.json")
+        );
+    }
+
+    #[test]
+    fn default_screen_reader_json_output_path_adds_suffix() {
+        let pdf = Path::new("reports/casoon-2026-01-01-single-report.pdf");
+        assert_eq!(
+            default_screen_reader_json_output_path(pdf),
+            PathBuf::from("reports/casoon-2026-01-01-single-report-screen-reader-audit.json")
         );
     }
 }

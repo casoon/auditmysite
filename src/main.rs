@@ -359,9 +359,10 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
 
-        assert_eq!(outputs.len(), 2);
+        assert_eq!(outputs.len(), 3);
         assert!(outputs[0].ends_with("-single-report.pdf"));
         assert!(outputs[1].ends_with("-single-report.json"));
+        assert!(outputs[2].ends_with("-single-report-screen-reader-audit.json"));
     }
 
     #[test]
@@ -369,7 +370,9 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
 
-        assert_eq!(outputs, vec!["stdout".to_string()]);
+        assert_eq!(outputs.len(), 2);
+        assert_eq!(outputs[0], "stdout");
+        assert!(outputs[1].ends_with("-single-report-screen-reader-audit.json"));
     }
 
     #[test]

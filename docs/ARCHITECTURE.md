@@ -77,6 +77,7 @@ src/
 │   ├── mod.rs
 │   ├── cli.rs           # Terminal table output
 │   ├── json.rs          # JSON reports (via NormalizedReport)
+│   ├── sr_audit_json.rs # Standalone screen-reader audit JSON sidecar
 │   ├── pdf.rs           # PDF reports (via renderreport/Typst)
 │   ├── report_model.rs  # ViewModel structs for PDF
 │   ├── report_builder.rs # AuditReport → ViewModel transformation
@@ -94,6 +95,15 @@ src/
 │   ├── spa_navigation.rs # SPA single-page navigation detection
 │   ├── link_inventory.rs # Linktext/heading/landmark inventory (pure AXTree)
 │   └── evaluate.rs      # Tab-walk finding evaluation
+│
+├── screen_reader/       # Screen-reader audit primitives
+│   ├── mod.rs
+│   ├── types.rs         # ReadingItem and ignored-node diagnostics
+│   ├── announcer.rs     # Localized screen-reader announcement strings
+│   ├── navigator.rs     # Virtual SR navigation lists
+│   ├── analyzer.rs      # SR-specific issue detection
+│   ├── bfsg.rs          # WCAG → EN 301 549 → BFSG mapping
+│   └── linearizer.rs    # AXTree DFS reading-order linearization
 │
 ├── semantic_eval/       # Semantic AI evaluation (--semantic-eval, optional feature)
 │   ├── mod.rs           # Entry point: run(), SemanticEvalConfig

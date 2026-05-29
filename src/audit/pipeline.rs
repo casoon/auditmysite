@@ -1238,6 +1238,12 @@ fn aggregate_report(
         duration_ms,
     );
     report = report.with_patterns(pattern_analysis);
+    report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+        url,
+        report.timestamp,
+        &snapshot.ax_tree,
+        &config.lang,
+    ));
 
     if let Some(performance) = snapshot.performance.clone() {
         report = report.with_performance(performance);

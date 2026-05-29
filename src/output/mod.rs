@@ -12,6 +12,7 @@ pub mod module;
 mod pdf;
 pub mod report_model;
 pub mod snapshot_export;
+pub mod sr_audit_json;
 pub mod summary;
 
 pub use ai::format_ai_json;
@@ -22,6 +23,7 @@ pub use pdf::{
     generate_batch_pdf, generate_batch_typ, generate_comparison_pdf, generate_pdf, generate_typ,
 };
 pub use snapshot_export::export_snapshot_yaml;
+pub use sr_audit_json::export_sr_audit;
 pub use summary::format_summary;
 
 #[cfg(test)]

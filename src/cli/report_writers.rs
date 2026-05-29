@@ -12,8 +12,8 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    export_snapshot_yaml, format_ai_json, format_batch_table, format_json_batch, format_summary,
-    print_batch_table, print_report, UnifiedReport,
+    export_snapshot_yaml, export_sr_audit, format_ai_json, format_batch_table, format_json_batch,
+    format_summary, print_batch_table, print_report, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
@@ -21,11 +21,10 @@ use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, 
 #[cfg(feature = "pdf")]
 use crate::output_paths::output_bytes;
 #[cfg(feature = "pdf")]
+use crate::output_paths::{default_batch_pdf_output_path, default_single_json_output_path};
 use crate::output_paths::{
-    default_batch_pdf_output_path, default_single_json_output_path, default_single_pdf_output_path,
-};
-use crate::output_paths::{
-    output_directory, output_text, per_page_output_directory, per_page_output_path,
+    default_screen_reader_json_output_path, default_single_pdf_output_path, output_directory,
+    output_text, per_page_output_directory, per_page_output_path,
 };
 
 pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
@@ -162,6 +161,31 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
             })?;
             output_text(&output, &args.output, "summary JSON", args.quiet)?;
         }
+    }
+    output_screen_reader_sidecar(report, args)?;
+    Ok(())
+}
+
+pub(crate) fn output_screen_reader_sidecar(
+    report: &auditmysite::AuditReport,
+    args: &Args,
+) -> Result<()> {
+    let Some(sr_audit) = report.screen_reader_audit.as_ref() else {
+        return Ok(());
+    };
+
+    let primary_output_path = args
+        .output
+        .clone()
+        .unwrap_or_else(|| default_single_pdf_output_path(report.url.as_str(), args.report_level));
+    let path = default_screen_reader_json_output_path(&primary_output_path);
+    export_sr_audit(sr_audit, &path)?;
+    if !args.quiet {
+        println!(
+            "{} Screen-reader JSON report saved to {}",
+            "Done:".green().bold(),
+            path.display()
+        );
     }
     Ok(())
 }

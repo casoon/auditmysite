@@ -267,6 +267,12 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
         accessibility_journey: None,
         interactive_findings: Vec::new(),
         advisory_findings: Vec::new(),
+        screen_reader_audit: Some(crate::screen_reader::build_sr_audit_report(
+            &artifacts.audit.url,
+            artifacts.audit.timestamp,
+            &artifacts.snapshot.ax_tree,
+            "de",
+        )),
     };
 
     if report.wcag_level != artifacts.audit.wcag_level {

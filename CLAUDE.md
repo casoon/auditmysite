@@ -49,6 +49,7 @@ src/
 ├── dark_mode/           # Dark mode support detection and contrast
 ├── ux/                  # UX analysis (5 dimensions, saturation curves)
 ├── journey/             # User journey analysis, page intent detection
+├── screen_reader/       # Screen-reader reading-order primitives
 ├── ai_visibility/       # AI/LLM discoverability analysis
 ├── content_visibility/  # Cross-module signal aggregation (SEO+AI+Quality)
 ├── source_quality/      # Source quality signals (headers, schema, HTTPS)
