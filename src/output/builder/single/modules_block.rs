@@ -2,7 +2,7 @@ use crate::audit::normalized::NormalizedReport;
 use crate::i18n::I18n;
 use crate::output::report_model::{ModuleScore, ModulesBlock};
 
-use super::super::helpers::{interpret_score, localized_module_name, InterpretArea};
+use super::super::helpers::localized_module_name;
 use super::super::modules::{
     derive_accessibility_card_context, derive_accessibility_context, derive_accessibility_lever,
     derive_mobile_card_context, derive_mobile_context, derive_mobile_lever,
@@ -12,6 +12,15 @@ use super::super::modules::{
 };
 use super::super::seo::build_seo_interpretation;
 use super::module_details::normalized_module_score;
+
+fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &str) -> String {
+    normalized
+        .interpretation
+        .as_ref()
+        .and_then(|i| i.per_module.get(module))
+        .map(|t| t.for_locale(locale).to_string())
+        .unwrap_or_default()
+}
 
 pub(super) fn build_modules_block_from_normalized(
     i18n: &I18n,
@@ -23,7 +32,7 @@ pub(super) fn build_modules_block_from_normalized(
         name: localized_module_name("Accessibility", i18n),
         score: a11y_score.round() as u32,
         measurement_type: "measured".into(),
-        interpretation: interpret_score(InterpretArea::Accessibility, a11y_score, locale),
+        interpretation: module_interpretation(normalized, "accessibility", locale),
         card_context: derive_accessibility_card_context(i18n, normalized),
         score_context: derive_accessibility_context(i18n, normalized),
         key_lever: derive_accessibility_lever(i18n, normalized),
@@ -37,7 +46,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Performance".into(),
             score,
             measurement_type: "measured".into(),
-            interpretation: interpret_score(InterpretArea::Performance, score as f32, locale),
+            interpretation: module_interpretation(normalized, "performance", locale),
             card_context: derive_performance_card_context(i18n, p),
             score_context: derive_performance_context(i18n, p),
             key_lever: derive_performance_lever(i18n, p),
@@ -65,7 +74,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: localized_module_name("Security", i18n),
             score,
             measurement_type: "measured".into(),
-            interpretation: interpret_score(InterpretArea::Security, score as f32, locale),
+            interpretation: module_interpretation(normalized, "security", locale),
             card_context: derive_security_card_context(i18n, s),
             score_context: derive_security_context(i18n, s),
             key_lever: derive_security_lever(i18n, s),
@@ -79,7 +88,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Mobile".into(),
             score,
             measurement_type: "measured".into(),
-            interpretation: interpret_score(InterpretArea::Mobile, score as f32, locale),
+            interpretation: module_interpretation(normalized, "mobile", locale),
             card_context: derive_mobile_card_context(i18n, m),
             score_context: derive_mobile_context(i18n, m),
             key_lever: derive_mobile_lever(i18n, m),
@@ -106,7 +115,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "UX".into(),
             score: ux_score,
             measurement_type: "heuristic".into(),
-            interpretation: interpret_score(InterpretArea::Ux, ux_score as f32, locale),
+            interpretation: module_interpretation(normalized, "ux", locale),
             card_context: ux_context.clone(),
             score_context: ux_context,
             key_lever: ux_lever,
@@ -135,7 +144,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Journey".into(),
             score: journey_score,
             measurement_type: "heuristic".into(),
-            interpretation: interpret_score(InterpretArea::Journey, journey_score as f32, locale),
+            interpretation: module_interpretation(normalized, "journey", locale),
             card_context: journey_context.clone(),
             score_context: journey_context,
             key_lever: journey_lever,

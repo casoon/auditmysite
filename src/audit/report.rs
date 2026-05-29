@@ -590,6 +590,9 @@ pub struct BatchSummary {
     /// Worst-case risk level across all audited pages.
     #[serde(default)]
     pub risk: crate::audit::normalized::RiskLevel,
+    /// i18n key for the batch verdict sentence ("verdict-batch-excellent", …).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub verdict_key: String,
 }
 
 /// Compute top-10 recurring WCAG rules and total violated-rule count across
@@ -751,6 +754,19 @@ impl BatchReport {
             compute_recurring_rules(&normalized_reports);
         let legal_flags = compute_legal_flags(&normalized_reports);
         let risk = compute_worst_risk(&normalized_reports);
+        let verdict_key = {
+            let s = average_score.round() as u32;
+            if s >= 90 {
+                "verdict-batch-excellent"
+            } else if s >= 70 {
+                "verdict-batch-solid"
+            } else if s >= 50 {
+                "verdict-batch-deficient"
+            } else {
+                "verdict-batch-critical"
+            }
+            .to_string()
+        };
 
         let mut result = Self {
             reports,
@@ -765,6 +781,7 @@ impl BatchReport {
                 violated_rule_count,
                 legal_flags,
                 risk,
+                verdict_key,
             },
             crawl_diagnostics: None,
             consistency: None,

@@ -515,7 +515,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
     };
 
     let average_score = batch.summary.average_score.round() as u32;
-    let verdict_text = build_batch_verdict(i18n, batch.summary.total_urls, average_score);
+    let verdict_text = build_batch_verdict(i18n, batch);
 
     // Aggregate module averages
     let module_averages = {

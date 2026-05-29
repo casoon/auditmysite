@@ -487,16 +487,15 @@ mod tests {
         report
     }
 
-    /// Invariants for `interpret_score` wording (CLAUDE.md "Report Wording Style"):
-    ///   1. Localization actually happens — `en` must never fall back to the `de`
-    ///      sentence (the bug that produced "die accessibility ist …").
-    ///   2. Each module/band carries the controlled band label in the right
-    ///      locale — locks the vocabulary and keeps the school grade
-    ///      "Befriedigend" from creeping back. Asserts the label as a categorical
-    ///      *value*, not the free-form prose (mirrors `test_grade_matches_score`).
+    /// Invariants for `interpret_score_localized` wording (CLAUDE.md "Report Wording Style"):
+    ///   1. Localization actually happens — `en` must never fall back to the `de` sentence.
+    ///   2. Each module/band carries the controlled band label in the right locale.
+    ///
+    /// Test moved here from audit::interpretation::tests to stay close to the builder
+    /// and verify the end-to-end path from the pre-computed interpretation.
     #[test]
     fn test_interpret_score_localized_and_label_contract() {
-        use helpers::InterpretArea;
+        use crate::audit::interpretation::{interpret_score_localized, InterpretArea};
 
         let areas = [
             InterpretArea::Accessibility,
@@ -506,7 +505,6 @@ mod tests {
             InterpretArea::Ux,
             InterpretArea::Journey,
         ];
-        // (representative score, de label, en label) — one per grade band.
         let bands = [
             (95.0_f32, "Sehr gut", "Excellent"),
             (80.0, "Gut", "Good"),
@@ -517,24 +515,25 @@ mod tests {
 
         for area in areas {
             for (score, de_label, en_label) in bands {
-                let de = helpers::interpret_score(area, score, "de");
-                let en = helpers::interpret_score(area, score, "en");
-
+                let text = interpret_score_localized(area, score);
                 assert_ne!(
-                    de, en,
+                    text.de, text.en,
                     "de/en interpretation identical at score {score} — en fell back to de"
                 );
                 assert!(
-                    de.starts_with(&format!("{de_label} \u{2014}")),
-                    "DE band label wrong at score {score}: {de:?}"
+                    text.de.starts_with(&format!("{de_label} \u{2014}")),
+                    "DE band label wrong at score {score}: {:?}",
+                    text.de
                 );
                 assert!(
-                    en.starts_with(&format!("{en_label} \u{2014}")),
-                    "EN band label wrong at score {score}: {en:?}"
+                    text.en.starts_with(&format!("{en_label} \u{2014}")),
+                    "EN band label wrong at score {score}: {:?}",
+                    text.en
                 );
                 assert!(
-                    !de.contains("Befriedigend"),
-                    "banned school grade reappeared: {de:?}"
+                    !text.de.contains("Befriedigend"),
+                    "banned school grade reappeared: {:?}",
+                    text.de
                 );
             }
         }
@@ -561,24 +560,26 @@ mod tests {
         let bands = [95.0_f32, 80.0, 65.0, 50.0, 20.0];
         let mut records: Vec<serde_json::Value> = Vec::new();
 
-        // 1. Per-module, locale-aware interpret_score — the dominant interpreter.
+        // 1. Per-module, locale-aware interpret_score_localized — the dominant interpreter.
+        use crate::audit::interpretation::{interpret_score_localized, InterpretArea};
         let areas = [
-            ("accessibility", helpers::InterpretArea::Accessibility),
-            ("performance", helpers::InterpretArea::Performance),
-            ("security", helpers::InterpretArea::Security),
-            ("mobile", helpers::InterpretArea::Mobile),
-            ("ux", helpers::InterpretArea::Ux),
-            ("journey", helpers::InterpretArea::Journey),
+            ("accessibility", InterpretArea::Accessibility),
+            ("performance", InterpretArea::Performance),
+            ("security", InterpretArea::Security),
+            ("mobile", InterpretArea::Mobile),
+            ("ux", InterpretArea::Ux),
+            ("journey", InterpretArea::Journey),
         ];
         for (module, area) in areas {
-            for locale in ["de", "en"] {
-                for score in bands {
+            for score in bands {
+                let text = interpret_score_localized(area, score);
+                for (locale, t) in [("de", &text.de), ("en", &text.en)] {
                     records.push(serde_json::json!({
                         "source": "interpret_score",
                         "module": module,
                         "area_locale": locale,
                         "score": score as u32,
-                        "text": super::helpers::interpret_score(area, score, locale),
+                        "text": t,
                     }));
                 }
             }

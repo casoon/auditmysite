@@ -10,9 +10,7 @@ use crate::output::report_model::{
     UxIssuePresentation, UxPresentation,
 };
 
-use super::super::helpers::{
-    interpret_score, truncate_list, truncate_url_list, yes_no, InterpretArea,
-};
+use super::super::helpers::{truncate_list, truncate_url_list, yes_no};
 use super::super::modules::{
     build_tracking_summary_text, build_vitals_list, derive_performance_recommendations,
     derive_security_recommendations,
@@ -22,6 +20,18 @@ use super::super::seo::{
 };
 use super::serp::{build_page_health_presentation, build_serp_presentation};
 use crate::util::truncate_url;
+
+/// Read the pre-computed interpretation for a module. Falls back to an empty
+/// string if the interpretation layer was not populated (should not happen
+/// after a full normalize() call).
+fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &str) -> String {
+    normalized
+        .interpretation
+        .as_ref()
+        .and_then(|i| i.per_module.get(module))
+        .map(|t| t.for_locale(locale).to_string())
+        .unwrap_or_default()
+}
 
 pub(super) fn build_module_details_from_normalized(
     i18n: &I18n,
@@ -124,6 +134,8 @@ pub(super) fn build_module_details_from_normalized(
             );
         }
         let en = locale == "en";
+        let base_perf = module_interpretation(normalized, "performance", locale);
+        // When all core vitals are green but score < 85, append the cause for the gap.
         let score_below_excellent = performance_score < 85;
         let perf_interpretation = if cwv_all_good && score_below_excellent {
             let mut reasons = Vec::new();
@@ -141,22 +153,22 @@ pub(super) fn build_module_details_from_normalized(
                 reasons.push("Total Blocking Time");
             }
             if reasons.is_empty() {
-                interpret_score(InterpretArea::Performance, performance_score as f32, locale)
+                base_perf
             } else if en {
                 format!(
                     "{} Score reduced by {} although Core Web Vitals are in the green.",
-                    interpret_score(InterpretArea::Performance, performance_score as f32, locale),
+                    base_perf,
                     reasons.join(", ")
                 )
             } else {
                 format!(
                     "{} Score durch {} reduziert, obwohl Core Web Vitals im grünen Bereich liegen.",
-                    interpret_score(InterpretArea::Performance, performance_score as f32, locale),
+                    base_perf,
                     reasons.join(", ")
                 )
             }
         } else {
-            interpret_score(InterpretArea::Performance, performance_score as f32, locale)
+            base_perf
         };
 
         let throttled_profiles: Vec<ThrottledPerfEntry> = normalized
@@ -775,7 +787,7 @@ pub(super) fn build_module_details_from_normalized(
             score: security_score,
             grade: normalized_module_grade(normalized, "Security")
                 .unwrap_or_else(|| sec.grade.clone()),
-            interpretation: interpret_score(InterpretArea::Security, security_score as f32, locale),
+            interpretation: module_interpretation(normalized, "security", locale),
             headers: header_checks
                 .iter()
                 .map(|(name, value)| {
@@ -845,24 +857,21 @@ pub(super) fn build_module_details_from_normalized(
         } else {
             String::new()
         };
+        let base_mobile = module_interpretation(normalized, "mobile", locale);
         let mobile_interpretation = if small_targets >= 10 {
             if en {
                 format!(
                     "{} {} touch targets smaller than recommended (44×44 px){}.",
-                    interpret_score(InterpretArea::Mobile, mobile_score as f32, locale),
-                    small_targets,
-                    context_hint,
+                    base_mobile, small_targets, context_hint,
                 )
             } else {
                 format!(
                     "{} {} Touch-Targets kleiner als empfohlen (44×44 px){}.",
-                    interpret_score(InterpretArea::Mobile, mobile_score as f32, locale),
-                    small_targets,
-                    context_hint,
+                    base_mobile, small_targets, context_hint,
                 )
             }
         } else {
-            interpret_score(InterpretArea::Mobile, mobile_score as f32, locale)
+            base_mobile
         };
         MobilePresentation {
             score: mobile_score,
@@ -976,7 +985,7 @@ pub(super) fn build_module_details_from_normalized(
         UxPresentation {
             score: ux_score,
             grade: normalized_module_grade(normalized, "UX").unwrap_or_else(|| u.grade.clone()),
-            interpretation: interpret_score(InterpretArea::Ux, ux_score as f32, locale),
+            interpretation: module_interpretation(normalized, "ux", locale),
             dimensions: vec![
                 UxDimensionPresentation {
                     name: u.cta_clarity.name.clone(),
@@ -1043,14 +1052,11 @@ pub(super) fn build_module_details_from_normalized(
             }
             _ => String::new(),
         };
+        let base_journey = module_interpretation(normalized, "journey", locale);
         let journey_interpretation = if type_note.is_empty() {
-            interpret_score(InterpretArea::Journey, journey_score as f32, locale)
+            base_journey
         } else {
-            format!(
-                "{}{}",
-                interpret_score(InterpretArea::Journey, journey_score as f32, locale),
-                type_note
-            )
+            format!("{}{}", base_journey, type_note)
         };
         JourneyPresentation {
             score: journey_score,

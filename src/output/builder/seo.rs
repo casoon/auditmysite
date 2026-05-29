@@ -1,10 +1,128 @@
 //! SEO-related interpretation and topic extraction helpers.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use super::helpers::{german_stopwords, normalize_topic_token};
 use crate::audit::AuditReport;
 use crate::output::report_model::CompactUrlSummary;
+
+fn normalize_topic_token(token: &str) -> String {
+    token
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_lowercase()
+        .replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("ß", "ss")
+}
+
+fn german_stopwords() -> HashSet<&'static str> {
+    [
+        "2026",
+        "aber",
+        "allem",
+        "alle",
+        "auch",
+        "auf",
+        "aus",
+        "autor",
+        "bei",
+        "bereits",
+        "bietet",
+        "bild",
+        "bilder",
+        "casoon",
+        "checker",
+        "cloud",
+        "content",
+        "damit",
+        "dass",
+        "deine",
+        "diese",
+        "dieser",
+        "drei",
+        "durch",
+        "eine",
+        "einem",
+        "einen",
+        "einer",
+        "eines",
+        "einfach",
+        "entwickelt",
+        "entwicklung",
+        "erfahren",
+        "fuer",
+        "für",
+        "gmbh",
+        "heute",
+        "hier",
+        "ihre",
+        "ihren",
+        "ihrer",
+        "ihres",
+        "inklusive",
+        "inhalt",
+        "jetzt",
+        "keine",
+        "kunden",
+        "launch",
+        "lesen",
+        "mehr",
+        "moderne",
+        "klare",
+        "oder",
+        "page",
+        "pages",
+        "projekt",
+        "projekten",
+        "recht",
+        "rund",
+        "seite",
+        "seiten",
+        "seine",
+        "seiner",
+        "sich",
+        "sind",
+        "site",
+        "statt",
+        "systeme",
+        "technik",
+        "themen",
+        "thema",
+        "über",
+        "und",
+        "unsere",
+        "unserer",
+        "unsers",
+        "unter",
+        "transparent",
+        "viele",
+        "vom",
+        "von",
+        "web",
+        "websites",
+        "webentwicklung",
+        "website",
+        "weiter",
+        "werden",
+        "wird",
+        "wenig",
+        "willkommen",
+        "zeigen",
+        "ziel",
+        "with",
+        "your",
+        "about",
+        "into",
+        "that",
+        "this",
+        "from",
+        "haben",
+        "sowie",
+        "digitale",
+    ]
+    .into_iter()
+    .collect()
+}
 
 pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalysis) -> String {
     let en = locale == "en";

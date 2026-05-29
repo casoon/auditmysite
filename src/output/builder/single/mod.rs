@@ -273,7 +273,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             date: date.clone(),
             executive_lead: audit_summary.verdict_intro.clone(),
             dominant_issue_note: audit_summary.dominant_issue_note.clone(),
-            verdict: build_verdict_text(&i18n, &normalized.url, score as f32),
+            verdict: build_verdict_text(&i18n, &normalized.url, score as f32, normalized),
             score_note: build_score_note(&i18n, normalized),
             metrics: {
                 let label_violations_total = i18n.t("metric-violations-total");
@@ -348,7 +348,7 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
                 .collect(),
             overall_impact,
             technical_overview,
-            benchmark_context: build_benchmark_context(&config.locale, score as f32),
+            benchmark_context: build_benchmark_context(&config.locale, normalized),
             business_consequence: build_business_consequence(&i18n, normalized),
             consequence: build_consequence_text(&i18n, normalized),
             risk_level: normalized.risk.level.label_localized(&i18n),

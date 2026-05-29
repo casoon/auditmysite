@@ -74,6 +74,24 @@ pub struct Interpretation {
     pub per_module: HashMap<String, LocalizedText>,
     /// Overall score band for the accessibility score.
     pub overall_score_band: ScoreBand,
+    /// Three-row overall impact table (user experience, risk level, conversion
+    /// effect) as pre-computed DE+EN label-value pairs.
+    pub overall_impact: Vec<(LocalizedText, LocalizedText)>,
+    /// Benchmark context sentence comparing this score to other sites.
+    pub benchmark_context: LocalizedText,
+    /// i18n key for the business-consequence sentence. The output layer calls
+    /// `i18n.t(key)` so the audit layer never depends on FTL bundles.
+    pub business_consequence_key: String,
+    /// i18n key for the consequence text. Empty string means no consequence
+    /// text (e.g. no violations found).
+    pub consequence_key: String,
+    /// i18n key for the verdict tier ("verdict-tier-excellent", …).
+    /// Combine with URL and score in `i18n.t_args`.
+    pub verdict_key: String,
+    /// i18n key for the score-note callout, or `None` if no note applies.
+    pub score_note_key: Option<String>,
+    /// i18n key for the batch verdict tier, or empty string for single-page reports.
+    pub batch_verdict_key: String,
 }
 
 impl Interpretation {
@@ -81,11 +99,25 @@ impl Interpretation {
         let technical_overview = build_technical_overview_localized(report);
         let per_module = build_per_module_localized(report);
         let overall_score_band = ScoreBand::from_score(report.score as f32);
+        let overall_impact = build_overall_impact_localized(report);
+        let benchmark_context = build_benchmark_context_localized(report.overall_score as f32);
+        let business_consequence_key = pick_business_consequence_key(report);
+        let consequence_key = pick_consequence_key(report);
+        let verdict_key = pick_verdict_key(report.overall_score as f32);
+        let score_note_key = pick_score_note_key(report);
+        let batch_verdict_key = String::new();
 
         Self {
             technical_overview,
             per_module,
             overall_score_band,
+            overall_impact,
+            benchmark_context,
+            business_consequence_key,
+            consequence_key,
+            verdict_key,
+            score_note_key,
+            batch_verdict_key,
         }
     }
 }
@@ -456,6 +488,221 @@ fn build_per_module_localized(normalized: &NormalizedReport) -> HashMap<String, 
     }
 
     map
+}
+
+fn build_overall_impact_localized(
+    normalized: &NormalizedReport,
+) -> Vec<(LocalizedText, LocalizedText)> {
+    let score = normalized.score;
+    let critical = normalized.severity_counts.critical;
+    let high = normalized.severity_counts.high;
+    let urgent = critical + high;
+
+    let user_rating = LocalizedText {
+        de: if score >= 90 && urgent == 0 {
+            "Sehr gut — keine relevanten Barrieren".to_string()
+        } else if score >= 75 {
+            "Gut — einzelne Barrieren für Hilfstechnologien".to_string()
+        } else if score >= 50 {
+            "Eingeschränkt — spürbare Barrieren für Screenreader-Nutzer".to_string()
+        } else {
+            "Stark eingeschränkt — wesentliche Inhalte nicht zugänglich".to_string()
+        },
+        en: if score >= 90 && urgent == 0 {
+            "Excellent — no relevant barriers".to_string()
+        } else if score >= 75 {
+            "Good — individual barriers for assistive technologies".to_string()
+        } else if score >= 50 {
+            "Limited — noticeable barriers for screen-reader users".to_string()
+        } else {
+            "Heavily limited — essential content not accessible".to_string()
+        },
+    };
+
+    let risk_level = LocalizedText {
+        de: if critical >= 2 {
+            "Hoch — BITV/WCAG-Verstoßrisiko akut".to_string()
+        } else if critical >= 1 || urgent >= 3 {
+            "Mittel — kritische Themen vorhanden".to_string()
+        } else if score < 70 {
+            "Mittel — kumulierter Nachholbedarf".to_string()
+        } else {
+            "Niedrig".to_string()
+        },
+        en: if critical >= 2 {
+            "High — acute BITV/WCAG violation risk".to_string()
+        } else if critical >= 1 || urgent >= 3 {
+            "Medium — critical topics present".to_string()
+        } else if score < 70 {
+            "Medium — cumulative backlog".to_string()
+        } else {
+            "Low".to_string()
+        },
+    };
+
+    let conversion = LocalizedText {
+        de: if score < 50 {
+            "Hoch wahrscheinlich negativ".to_string()
+        } else if score < 75 {
+            "Möglicherweise negativ (Navigation, Formulare)".to_string()
+        } else {
+            "Gering — gute Nutzbarkeit".to_string()
+        },
+        en: if score < 50 {
+            "Likely negative".to_string()
+        } else if score < 75 {
+            "Possibly negative (navigation, forms)".to_string()
+        } else {
+            "Low — good usability".to_string()
+        },
+    };
+
+    vec![
+        (
+            LocalizedText {
+                de: "Nutzererlebnis".to_string(),
+                en: "User experience".to_string(),
+            },
+            user_rating,
+        ),
+        (
+            LocalizedText {
+                de: "Risiko-Level".to_string(),
+                en: "Risk level".to_string(),
+            },
+            risk_level,
+        ),
+        (
+            LocalizedText {
+                de: "Conversion-Effekt".to_string(),
+                en: "Conversion effect".to_string(),
+            },
+            conversion,
+        ),
+    ]
+}
+
+fn build_benchmark_context_localized(score: f32) -> LocalizedText {
+    LocalizedText {
+        de: if score >= 95.0 {
+            "Top 5% — Ausnahmeniveau. Kein struktureller Handlungsdruck.".to_string()
+        } else if score >= 90.0 {
+            "Top 15% — Deutlich besser als die Mehrheit. Feinschliff genügt.".to_string()
+        } else if score >= 80.0 {
+            "Oberes Drittel — Guter Stand, einzelne Optimierungen lohnen sich.".to_string()
+        } else if score >= 70.0 {
+            "Mittleres Feld — Verbesserungspotenzial vorhanden, kein akuter Notfall.".to_string()
+        } else if score >= 55.0 {
+            "Unteres Mittelfeld — Deutlicher Rückstand gegenüber vergleichbaren Websites."
+                .to_string()
+        } else if score >= 40.0 {
+            "Unteres Drittel — Erheblicher Rückstand, strukturelle Defizite häufig.".to_string()
+        } else {
+            "Kritisch — Zu den schwächsten geprüften Seiten. Sofortiger Handlungsbedarf."
+                .to_string()
+        },
+        en: if score >= 95.0 {
+            "Top 5% — exceptional level. No structural pressure to act.".to_string()
+        } else if score >= 90.0 {
+            "Top 15% — clearly above the majority. Polish is enough.".to_string()
+        } else if score >= 80.0 {
+            "Upper third — good standing, individual optimizations pay off.".to_string()
+        } else if score >= 70.0 {
+            "Middle pack — improvement potential, no acute emergency.".to_string()
+        } else if score >= 55.0 {
+            "Lower middle — clear gap to comparable websites.".to_string()
+        } else if score >= 40.0 {
+            "Lower third — significant gap, structural deficits common.".to_string()
+        } else {
+            "Critical — among the weakest audited sites. Immediate action required.".to_string()
+        },
+    }
+}
+
+fn pick_business_consequence_key(normalized: &NormalizedReport) -> String {
+    let critical = normalized.severity_counts.critical;
+    let total = normalized.severity_counts.total;
+    let score = normalized.score;
+
+    if total == 0 {
+        return "business-consequence-clean".to_string();
+    }
+
+    let has_weak_seo = normalized.raw_seo.as_ref().is_some_and(|s| s.score < 65);
+    let has_heading_issues = normalized.findings.iter().any(|f| {
+        f.rule_id.to_lowercase().contains("heading")
+            || f.title.to_lowercase().contains("überschrift")
+    });
+
+    if score < 50 || (critical >= 5 && total > 30) {
+        "business-consequence-severe"
+    } else if has_weak_seo && has_heading_issues {
+        "business-consequence-seo-headings"
+    } else if critical >= 2 {
+        "business-consequence-screenreader"
+    } else {
+        "business-consequence-default"
+    }
+    .to_string()
+}
+
+fn pick_consequence_key(normalized: &NormalizedReport) -> String {
+    let critical = normalized.severity_counts.critical;
+    let total = normalized.severity_counts.total;
+    let score = normalized.score;
+
+    if total == 0 {
+        return String::new();
+    }
+
+    let weak_module_count = [
+        normalized
+            .raw_security
+            .as_ref()
+            .is_some_and(|s| s.score < 60),
+        normalized.raw_seo.as_ref().is_some_and(|s| s.score < 60),
+        normalized
+            .raw_performance
+            .as_ref()
+            .is_some_and(|p| p.score.overall < 70),
+        normalized.raw_mobile.as_ref().is_some_and(|m| m.score < 65),
+    ]
+    .iter()
+    .filter(|&&v| v)
+    .count();
+
+    if score < 50 || (critical >= 5 && total > 30) {
+        "consequence-severe"
+    } else if critical >= 3 || weak_module_count >= 3 {
+        "consequence-many-weak-modules"
+    } else if score >= 85 {
+        "consequence-stable"
+    } else {
+        "consequence-default"
+    }
+    .to_string()
+}
+
+fn pick_verdict_key(score: f32) -> String {
+    if score >= 90.0 {
+        "verdict-tier-excellent"
+    } else if score >= 70.0 {
+        "verdict-tier-solid"
+    } else if score >= 50.0 {
+        "verdict-tier-deficient"
+    } else {
+        "verdict-tier-critical"
+    }
+    .to_string()
+}
+
+fn pick_score_note_key(normalized: &NormalizedReport) -> Option<String> {
+    let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
+    if normalized.score >= 90 && critical_topics > 0 {
+        Some("score-note-high-with-critical".to_string())
+    } else {
+        None
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
