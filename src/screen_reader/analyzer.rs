@@ -36,7 +36,7 @@ fn localized_stopwords(locale: &str) -> HashSet<String> {
         .map(|i18n| {
             i18n.t("linktext-generic-stopwords")
                 .split(',')
-                .map(|word| normalize_text(word))
+                .map(normalize_text)
                 .filter(|word| !word.is_empty())
                 .collect()
         })
