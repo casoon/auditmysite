@@ -7,10 +7,13 @@ mod content_weight;
 mod coverage;
 mod critical_chain;
 mod minification;
+pub mod module;
 mod render_blocking;
 mod scoring;
 mod third_party;
 mod vitals;
+
+pub use module::PerformanceModule;
 
 pub use animations::{
     analyze_non_composited_animations, AnimationAnalysis, NonCompositedAnimation,

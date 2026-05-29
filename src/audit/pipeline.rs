@@ -20,36 +20,26 @@ use super::report::{
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
-use crate::best_practices::{
-    analyze_best_practices, prepare_console_collection, BestPracticesAnalysis,
-};
+use crate::best_practices::{prepare_console_collection, BestPracticesAnalysis};
 use crate::browser::{
     consent::{handle_post_navigation, inject_consent_cookies},
     throttle, BrowserManager, ThrottleProfile,
 };
 use crate::cli::{Args, WcagLevel};
-use crate::dark_mode::{analyze_dark_mode, DarkModeAnalysis};
+use crate::dark_mode::DarkModeAnalysis;
 use crate::error::Result;
-use crate::journey::{analyze_journey_with_dom_check, JourneyAnalysis};
-use crate::mobile::{analyze_mobile_friendliness, MobileFriendliness};
-use crate::performance::{
-    analyze_content_weight, analyze_critical_chain, analyze_minification,
-    analyze_non_composited_animations, analyze_render_blocking, analyze_third_party_attribution,
-    calculate_performance_score, extract_web_vitals, prepare_coverage_collection,
-    prepare_vitals_collection, take_coverage_results,
-};
+use crate::journey::JourneyAnalysis;
+use crate::mobile::MobileFriendliness;
+use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
 use crate::security::{analyze_security, SecurityAnalysis};
-use crate::seo::{analyze_seo, SeoAnalysis};
-use crate::ux::{analyze_ux, UxAnalysis};
+use crate::seo::SeoAnalysis;
+use crate::ux::UxAnalysis;
 use crate::wcag::{self, Violation, WcagResults};
 
 // ── Viewport helpers ──────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy)]
-enum Viewport {
-    Desktop,
-    Mobile,
-}
+use super::catalog::AuditCatalog;
+use super::module::{ModuleContext, ModuleData, Viewport};
 
 async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
     use chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams;
@@ -437,7 +427,7 @@ pub async fn audit_page(
         check_stack: false, // stack detection runs once on the mobile pass
         ..config.clone()
     };
-    let desktop_snap = extract_snapshot(page, url, &desktop_config).await?;
+    let desktop_snap = extract_snapshot(page, url, Viewport::Desktop, &desktop_config).await?;
     let desktop_wcag = run_rules(page, &desktop_snap, config, desktop_screenshot.as_ref()).await;
 
     // ── Mobile pass ───────────────────────────────────────────────────────────
@@ -482,7 +472,7 @@ pub async fn audit_page(
         check_stack: config.check_stack,
         ..config.clone()
     };
-    let mobile_snap = extract_snapshot(page, url, &mobile_config).await?;
+    let mobile_snap = extract_snapshot(page, url, Viewport::Mobile, &mobile_config).await?;
     let mut mobile_wcag = run_rules(page, &mobile_snap, config, mobile_screenshot.as_ref()).await;
 
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile
@@ -817,191 +807,69 @@ async fn capture_screenshot_with_metadata(page: &Page) -> crate::error::Result<V
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
-async fn extract_snapshot(page: &Page, url: &str, config: &PipelineConfig) -> Result<SnapshotData> {
+async fn extract_snapshot(
+    page: &Page,
+    url: &str,
+    viewport: Viewport,
+    config: &PipelineConfig,
+) -> Result<SnapshotData> {
     debug!("Extracting Accessibility Tree...");
     let ax_tree = extract_ax_tree(page).await?;
     info!("Extracted {} nodes from AXTree", ax_tree.len());
 
-    let performance = if config.check_performance {
-        match extract_web_vitals(page).await {
-            Ok(vitals) => {
-                let score = calculate_performance_score(&vitals);
-                let render_blocking = match analyze_render_blocking(page, url).await {
-                    Ok(rb) => Some(rb),
-                    Err(e) => {
-                        warn!("Render-blocking analysis failed: {}", e);
-                        None
-                    }
-                };
-                let content_weight = match analyze_content_weight(page).await {
-                    Ok(cw) => Some(cw),
-                    Err(e) => {
-                        warn!("Content-weight analysis failed: {}", e);
-                        None
-                    }
-                };
-                let third_party = match analyze_third_party_attribution(page, url).await {
-                    Ok(tp) => Some(tp),
-                    Err(e) => {
-                        warn!("Third-party attribution analysis failed: {}", e);
-                        None
-                    }
-                };
-                let critical_chain = match analyze_critical_chain(page).await {
-                    Ok(cc) => Some(cc),
-                    Err(e) => {
-                        warn!("Critical chain analysis failed: {}", e);
-                        None
-                    }
-                };
-                let minification = match analyze_minification(page).await {
-                    Ok(m) => Some(m),
-                    Err(e) => {
-                        warn!("Minification analysis failed: {}", e);
-                        None
-                    }
-                };
-                let animations = match analyze_non_composited_animations(page).await {
-                    Ok(a) => Some(a),
-                    Err(e) => {
-                        warn!("Non-composited animation analysis failed: {}", e);
-                        None
-                    }
-                };
-                let coverage = match take_coverage_results(page).await {
-                    Ok(c) => Some(c),
-                    Err(e) => {
-                        warn!("Coverage analysis failed: {}", e);
-                        None
-                    }
-                };
-                let mut measurement_warnings = crate::performance::validate_metrics(&vitals);
-                if let Some(cov) = &coverage {
-                    measurement_warnings.extend(cov.measurement_warnings.clone());
-                }
-                Some(PerformanceResults {
-                    vitals,
-                    score,
-                    render_blocking,
-                    content_weight,
-                    third_party,
-                    critical_chain,
-                    minification,
-                    animations,
-                    coverage,
-                    measurement_warnings,
-                })
-            }
-            Err(e) => {
-                warn!("Performance analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let seo = if config.check_seo {
-        match analyze_seo(page, url).await {
-            Ok(seo) => Some(seo),
-            Err(e) => {
-                warn!("SEO analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    // Security is handled outside extract_snapshot (shared between passes)
-    let security = None;
-
-    let mobile = if config.check_mobile {
-        match analyze_mobile_friendliness(page).await {
-            Ok(mobile) => Some(mobile),
-            Err(e) => {
-                warn!("Mobile analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    // UX and Journey run once on the mobile pass (gated by check_mobile || check_seo)
-    let ux = if config.check_mobile || config.check_seo {
-        Some(analyze_ux(&ax_tree))
-    } else {
-        None
-    };
-
-    let journey = if config.check_mobile || config.check_seo {
-        // If the AX tree has no main landmark, query the DOM to distinguish a
-        // truly missing <main> from one that is hidden by an overlay on this
-        // viewport (e.g. a consent banner covering <main> on mobile).
-        let ax_has_main = ax_tree.iter().any(|n| n.role.as_deref() == Some("main"));
-        let dom_has_main = if ax_has_main {
-            true
-        } else {
-            page.evaluate("!!document.querySelector('main, [role=\"main\"]')")
-                .await
-                .ok()
-                .and_then(|r| r.value().and_then(|v| v.as_bool()))
-                .unwrap_or(false)
+    // ── Catalog-driven collection (A3 / #332) ─────────────────────────────────
+    // Eight collection modules run through the AuditCatalog. Per-module
+    // failure semantics (warn + None) live inside each `impl AuditModule`.
+    // Security is registered in the catalog but `is_enabled` returns false
+    // here — per-pass configs set `check_security = false` so it stays None
+    // in the snapshot and the top-level fetch in `audit_page` provides the
+    // actual SecurityAnalysis.
+    let collected = {
+        let catalog = AuditCatalog::standard();
+        let ctx = ModuleContext {
+            page,
+            url,
+            viewport,
+            ax_tree: &ax_tree,
+            pipeline_config: config,
         };
-        Some(analyze_journey_with_dom_check(&ax_tree, dom_has_main))
-    } else {
-        None
+        catalog.collect_all(&ctx).await?
     };
 
-    let dark_mode = if config.check_dark_mode {
-        match analyze_dark_mode(page, config.wcag_level).await {
-            Ok(dm) => Some(dm),
-            Err(e) => {
-                warn!("Dark mode analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let tech_stack = if config.check_stack {
-        match crate::tech_stack::analyze_tech_stack(page, url).await {
-            Ok(ts) => Some(ts),
-            Err(e) => {
-                warn!("Tech stack analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let best_practices = if config.check_performance {
-        match analyze_best_practices(page).await {
-            Ok(bp) => Some(bp),
-            Err(e) => {
-                warn!("Best practices analysis failed: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    Ok(SnapshotData {
+    let mut snapshot = SnapshotData {
         ax_tree,
-        performance,
-        seo,
-        security,
-        mobile,
-        ux,
-        journey,
-        dark_mode,
-        tech_stack,
-        best_practices,
-    })
+        performance: None,
+        seo: None,
+        security: None,
+        mobile: None,
+        ux: None,
+        journey: None,
+        dark_mode: None,
+        tech_stack: None,
+        best_practices: None,
+    };
+
+    for (_id, data) in collected {
+        match data {
+            ModuleData::None => {}
+            ModuleData::Performance(p) => snapshot.performance = Some(*p),
+            ModuleData::Seo(s) => snapshot.seo = Some(*s),
+            ModuleData::Security(s) => snapshot.security = Some(*s),
+            ModuleData::Mobile(m) => snapshot.mobile = Some(*m),
+            ModuleData::Ux(u) => snapshot.ux = Some(*u),
+            ModuleData::Journey(j) => snapshot.journey = Some(*j),
+            ModuleData::DarkMode(d) => snapshot.dark_mode = Some(*d),
+            ModuleData::TechStack(t) => snapshot.tech_stack = Some(*t),
+            ModuleData::BestPractices(b) => snapshot.best_practices = Some(*b),
+            // Post-processing variants are produced during the derive phase
+            // (catalog.derive_all in aggregate_report), not during collect.
+            ModuleData::SourceQuality(_)
+            | ModuleData::AiVisibility(_)
+            | ModuleData::ContentVisibility(_) => {}
+        }
+    }
+
+    Ok(snapshot)
 }
 
 async fn run_rules(
@@ -1275,11 +1143,12 @@ fn aggregate_report(
         report = report.with_best_practices(bp);
     }
 
-    report.source_quality = Some(crate::source_quality::analyze_source_quality(&report));
-    report.ai_visibility = Some(crate::ai_visibility::analyze_ai_visibility(&report));
-    report.content_visibility = Some(crate::content_visibility::analyze_content_visibility(
-        &report,
-    ));
+    // Post-processing modules (source_quality, ai_visibility, content_visibility)
+    // run via the catalog's derive phase. Topo order ensures content_visibility
+    // sees source_quality + ai_visibility populated.
+    if let Err(e) = AuditCatalog::standard().derive_all(&mut report, config) {
+        warn!("Post-processing derive_all failed: {}", e);
+    }
 
     report
 }

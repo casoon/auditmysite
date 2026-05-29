@@ -5,6 +5,9 @@
 //! stack-specific security/privacy issues (admin panel exposure, user
 //! enumeration, version disclosure, etc.).
 
+pub mod module;
+pub use module::TechStackModule;
+
 use std::time::Duration;
 
 use chromiumoxide::Page;

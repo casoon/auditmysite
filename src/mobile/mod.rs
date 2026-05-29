@@ -2,7 +2,9 @@
 //!
 //! Analyzes viewport, touch targets, font sizes, and responsive layout.
 
+pub mod module;
 pub mod ux_heuristics;
+pub use module::MobileModule;
 pub use ux_heuristics::{analyze_ux_heuristics, UxHeuristicFinding, UxHeuristics};
 
 use chromiumoxide::Page;

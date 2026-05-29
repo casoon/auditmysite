@@ -1,11 +1,13 @@
 //! Best practices analysis — console errors (#121) and vulnerable libraries (#124).
 
 mod console_errors;
+pub mod module;
 mod vulnerable_libs;
 
 pub use console_errors::{
     prepare_console_collection, take_console_results, ConsoleErrorsAnalysis, ConsoleMessage,
 };
+pub use module::BestPracticesModule;
 pub use vulnerable_libs::{
     analyze_vulnerable_libraries, DetectedLibrary, VulnerableLibrariesAnalysis, VulnerableLibrary,
 };

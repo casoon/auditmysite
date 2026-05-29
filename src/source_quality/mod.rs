@@ -12,6 +12,9 @@
 //! semantic, and metadata signals. It does NOT evaluate whether the content
 //! itself is factually correct, complete, or up to date.
 
+pub mod module;
+pub use module::SourceQualityModule;
+
 use serde::{Deserialize, Serialize};
 
 use crate::audit::AuditReport;

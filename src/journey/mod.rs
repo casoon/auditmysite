@@ -5,6 +5,7 @@
 //! Includes page-intent detection for context-aware weighting.
 
 mod analysis;
+pub mod module;
 mod page_intent;
 mod scoring;
 
@@ -12,5 +13,6 @@ pub use analysis::{
     analyze_journey, analyze_journey_with_dom_check, FrictionPoint, JourneyAnalysis,
     JourneyDimension,
 };
+pub use module::JourneyModule;
 pub use page_intent::{detect_page_intent, PageIntent};
 pub use scoring::journey_dimension_score;

@@ -2,6 +2,9 @@
 //!
 //! Analyzes HTTP security headers and SSL/TLS configuration.
 
+pub mod module;
+pub use module::SecurityModule;
+
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use tracing::info;

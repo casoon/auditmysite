@@ -8,6 +8,9 @@
 //! - Comparison of light-mode vs. dark-mode contrast violations
 //! - Per-element contrast violation details for dark mode (selector, message, mode)
 
+pub mod module;
+pub use module::DarkModeModule;
+
 use chromiumoxide::cdp::browser_protocol::emulation::MediaFeature;
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};

@@ -5,6 +5,7 @@
 mod headings;
 pub mod image_efficiency;
 mod meta;
+pub mod module;
 pub mod page_health;
 pub mod profile;
 pub mod robots;
@@ -12,6 +13,8 @@ pub mod schema;
 pub mod serp;
 mod social;
 pub mod technical;
+
+pub use module::SeoModule;
 
 pub use headings::{analyze_heading_structure, HeadingIssue, HeadingStructure};
 pub use image_efficiency::{analyze_image_efficiency, ImageEfficiencyAnalysis, OversizedImage};

@@ -16,6 +16,7 @@
 mod chunks;
 mod citation;
 mod knowledge_graph;
+pub mod module;
 mod readability;
 
 pub use chunks::{ChunkAnalysis, ChunkQuality, ContentSection};
@@ -23,6 +24,7 @@ pub use citation::CitationAnalysis;
 pub use knowledge_graph::{
     EntityRelationship, EntitySource, GraphEntity, KnowledgeGraphAnalysis, LinkSuggestion,
 };
+pub use module::AiVisibilityModule;
 pub use readability::ReadabilityAnalysis;
 
 use serde::{Deserialize, Serialize};

@@ -15,6 +15,9 @@
 //! Signal titles are intentionally hedged ("Hinweis auf …", "erkennbar",
 //! "im Single-Durchlauf") to avoid overstating what automated analysis can prove.
 
+pub mod module;
+pub use module::ContentVisibilityModule;
+
 use serde::{Deserialize, Serialize};
 
 use crate::assessment::{
