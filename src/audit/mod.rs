@@ -7,10 +7,8 @@ pub mod baseline;
 mod batch;
 pub mod batch_consistency;
 pub mod budget;
-pub mod comparison;
 mod crawl;
 pub mod duplicate;
-pub mod history;
 pub mod normalized;
 mod pipeline;
 mod report;
@@ -27,7 +25,6 @@ pub use batch::{
     BatchResult,
 };
 pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
-pub use comparison::{ComparisonEntry, ComparisonReport};
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
 pub use normalized::{normalize, NormalizedReport};

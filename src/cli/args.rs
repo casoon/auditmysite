@@ -246,12 +246,6 @@ pub struct Args {
     #[arg(long, value_name = "PATH")]
     pub logo: Option<PathBuf>,
 
-    /// Audit multiple domains and compare them side-by-side
-    ///
-    /// Example: --compare https://a.com https://b.com https://c.com
-    #[arg(long, value_name = "URL", num_args = 2..=10)]
-    pub compare: Vec<String>,
-
     /// Hidden: with `--format pdf`, also write the intermediate Typst source as a
     /// `.typ` sidecar next to the PDF (single + batch). For template/wording review.
     #[arg(long, hide = true, global = true)]
@@ -449,7 +443,6 @@ impl Args {
     pub fn effective_format(&self) -> OutputFormat {
         match self.format {
             Some(format) => format,
-            None if !self.compare.is_empty() => OutputFormat::Pdf,
             None if self.per_page_reports => OutputFormat::Pdf,
             None if self.url.is_some() => OutputFormat::Pdf,
             None => OutputFormat::Table,
@@ -470,29 +463,6 @@ impl Args {
     pub fn validate(&self) -> Result<(), String> {
         // Subcommands don't need URL validation
         if self.command.is_some() {
-            return Ok(());
-        }
-
-        // --compare mode: validate compare URLs and no other input source
-        if !self.compare.is_empty() {
-            let other_inputs = self.url.is_some()
-                || self.sitemap.is_some()
-                || self.url_file.is_some()
-                || self.crawl;
-            if other_inputs {
-                return Err(
-                    "--compare cannot be combined with URL, --sitemap, --url-file, or --crawl."
-                        .to_string(),
-                );
-            }
-            for url in &self.compare {
-                url::Url::parse(url)
-                    .map_err(|e| format!("Invalid compare URL '{}': {}", url, e))?;
-            }
-            // Skip remaining validation for compare mode
-            if self.verbose && self.quiet {
-                return Err("Cannot use --verbose and --quiet together".to_string());
-            }
             return Ok(());
         }
 
@@ -669,7 +639,6 @@ mod tests {
             lang: "de".to_string(),
             also_json: false,
             logo: None,
-            compare: vec![],
             debug_typ: false,
             export_snapshot: None,
             request_mode: RequestMode::Browser,

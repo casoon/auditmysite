@@ -201,7 +201,7 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - **Semantic AI Evaluation** (`--semantic-eval`): Fastembed (lokal, multilingual) + optionaler Mistral-LLM-Check. Ergebnisse in `advisory_findings` (nie score-relevant). Feature-Flag: `semantic-eval` (#301).
 - **Snapshot Export** (`--export-snapshot <path>`): AXTree + Journey-Traces als YAML für CI-Regression (#301).
 - Linktext-Stopwords in i18n FTL (`locales/de|en/report.ftl`, Schlüssel `linktext-generic-stopwords`) — erweiterbar ohne Code-Änderung (#299).
-- 77+ WCAG rules implemented (Level A, AA, full AAA coverage)
+- 95+ WCAG rules implemented (Level A, AA, full AAA coverage)
 - 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency
 - Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList, Form

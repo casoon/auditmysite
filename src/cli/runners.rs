@@ -24,10 +24,10 @@ use auditmysite::output::format_json_cached;
 use auditmysite::util::truncate_url;
 
 use crate::output_paths::output_text;
-use crate::plan::{print_batch_audit_plan, print_comparison_audit_plan, print_single_audit_plan};
+use crate::plan::{print_batch_audit_plan, print_single_audit_plan};
 use crate::report_writers::{
-    output_batch_as_single_reports, output_batch_report, output_comparison_report,
-    output_screen_reader_sidecar, output_single_report,
+    output_batch_as_single_reports, output_batch_report, output_screen_reader_sidecar,
+    output_single_report,
 };
 use crate::sitemap_suggest::{
     check_url_reachable, discover_populated_sitemap, looks_like_base_url,
@@ -447,94 +447,4 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
     output_batch_report(&batch_report, args)?;
 
     Ok(batch_report.summary.average_score)
-}
-
-pub async fn run_compare_mode(args: &Args) -> Result<f64> {
-    let urls = &args.compare;
-
-    if !args.quiet {
-        println!("{} {} domains\n", "Comparing:".cyan().bold(), urls.len());
-        print_comparison_audit_plan(args);
-    }
-
-    let browser_options = BrowserOptions {
-        chrome_path: args.chrome_path.clone(),
-        headless: true,
-        disable_gpu: true,
-        no_sandbox: args.no_sandbox,
-        disable_images: args.disable_images,
-        window_size: (1920, 1080),
-        timeout_secs: args.effective_timeout(),
-        verbose: args.verbose,
-        user_agent_override: (args.request_mode == RequestMode::Bot)
-            .then(|| BOT_USER_AGENT.to_string()),
-    };
-
-    let browser = BrowserManager::with_options(browser_options).await?;
-    let config = PipelineConfig::from(args);
-
-    let start = std::time::Instant::now();
-    let mut reports = Vec::new();
-    let mut failed = 0usize;
-
-    for url in urls {
-        if !args.quiet {
-            println!("{} {}", "Auditing:".dimmed(), url);
-        }
-        match run_single_audit(url, &browser, &config).await {
-            Ok(report) => reports.push(report),
-            Err(e) => {
-                if !args.quiet {
-                    eprintln!("{} {} — {}", "Error:".red().bold(), url, e);
-                }
-                failed += 1;
-            }
-        }
-    }
-
-    let close_result = browser.close().await;
-    close_result?;
-
-    if reports.is_empty() {
-        return Err(AuditError::ConfigError(
-            "No domain audit succeeded.".to_string(),
-        ));
-    }
-
-    let total_ms = start.elapsed().as_millis() as u64;
-    let comparison = auditmysite::audit::ComparisonReport::from_reports(reports, total_ms);
-
-    if !args.quiet {
-        if failed > 0 {
-            println!(
-                "{} {} domain(s) could not be audited.",
-                "Warning:".yellow().bold(),
-                failed
-            );
-        }
-        println!();
-        println!("{}", "Ranking:".cyan().bold());
-        for (rank, entry) in comparison.entries.iter().enumerate() {
-            println!(
-                "  {}. {} — Overall: {}/100 ({}), Accessibility: {}/100, {} Violations",
-                rank + 1,
-                entry.domain,
-                entry.overall_score,
-                entry.grade,
-                entry.accessibility_score,
-                entry.total_violations,
-            );
-        }
-        println!();
-    }
-
-    output_comparison_report(&comparison, args)?;
-
-    let avg = comparison
-        .entries
-        .iter()
-        .map(|e| e.overall_score as f64)
-        .sum::<f64>()
-        / comparison.entries.len() as f64;
-    Ok(avg)
 }

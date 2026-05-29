@@ -4,7 +4,6 @@ mod actions_block;
 mod diagnosis;
 mod executive;
 mod findings;
-mod history;
 mod methodology;
 mod module_details;
 mod modules_block;
@@ -17,7 +16,6 @@ use self::diagnosis::{
 };
 use self::executive::{build_executive_narrative, build_positive_signals};
 use self::findings::finding_group_from_normalized;
-use self::history::build_history_trend_block;
 use self::methodology::{build_appendix_block_from_normalized, build_methodology};
 use self::module_details::build_module_details_from_normalized;
 use self::modules_block::build_modules_block_from_normalized;
@@ -212,10 +210,6 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let actions = build_actions_block(&i18n, &action_plan, score as f32, &audit_summary.site_state);
 
     let module_details = build_module_details_from_normalized(&i18n, normalized);
-    let history = config
-        .history_preview
-        .as_ref()
-        .map(|preview| build_history_trend_block(&i18n, preview));
     let executive = build_executive_narrative(
         &i18n,
         normalized,
@@ -351,7 +345,6 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
             risk_summary: normalized.risk.summary_for(&config.locale),
         },
         executive,
-        history,
         methodology: build_methodology(&i18n, normalized),
         modules,
         severity,
@@ -386,7 +379,7 @@ mod tests {
     use super::build_view_model;
     use crate::audit::{normalize, AuditReport};
     use crate::cli::WcagLevel;
-    use crate::output::report_model::{ReportConfig, ReportHistoryPreview};
+    use crate::output::report_model::ReportConfig;
     use crate::wcag::{Severity, Violation, WcagResults};
 
     #[test]
@@ -506,51 +499,6 @@ mod tests {
 
         assert!(risk_text.contains("hohe oder kritische WCAG-Level-A-Befunde"));
         assert!(!risk_text.contains("keine kritischen Level-A-Verstöße"));
-    }
-
-    #[test]
-    fn view_model_exposes_history_delta_when_preview_exists() {
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagLevel::AA,
-            WcagResults::new(),
-            1500,
-        );
-        let normalized = normalize(&report);
-        let vm = build_view_model(
-            &normalized,
-            &ReportConfig {
-                history_preview: Some(ReportHistoryPreview {
-                    previous_date: "01.04.2026".to_string(),
-                    timeline_entries: 3,
-                    previous_accessibility_score: 74,
-                    previous_overall_score: 78,
-                    delta_accessibility: 8,
-                    delta_overall: 5,
-                    delta_total_issues: -6,
-                    delta_critical_issues: -2,
-                    recent_entries: vec![
-                        ("01.04.2026".to_string(), 74, 78, "C".to_string(), 12),
-                        (
-                            "06.04.2026".to_string(),
-                            normalized.score,
-                            normalized.overall_score,
-                            normalized.grade.clone(),
-                            normalized.severity_counts.total as u32,
-                        ),
-                    ],
-                    new_findings: vec!["Link-Purpose".to_string()],
-                    resolved_findings: vec!["Alt-Text".to_string()],
-                }),
-                ..ReportConfig::default()
-            },
-        );
-
-        let history = vm.history.expect("history block should exist");
-        assert_eq!(history.trend_label, "Deutlich verbessert");
-        assert!(history.summary.contains("01.04.2026"));
-        assert_eq!(history.timeline_rows.len(), 2);
-        assert_eq!(history.resolved_findings.len(), 1);
     }
 
     #[test]

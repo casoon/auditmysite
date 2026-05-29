@@ -6,20 +6,17 @@
 mod appendix;
 mod batch;
 mod batch_report;
-mod comparison_report;
 mod cover;
 mod design;
 mod detail_modules;
 mod diagnosis;
 mod findings;
 mod helpers;
-mod history;
 mod modules;
 mod single_report;
 mod wcag_coverage;
 
 pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
-pub use self::comparison_report::generate_comparison_pdf;
 
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, DevicePreview, DominantIssueSpotlight, ImpactGrid,
@@ -39,7 +36,6 @@ use self::cover::{build_cover_score_row, certificate_badge_path};
 use self::diagnosis::{business_relevance, format_word_count, output_scope_callout};
 use self::findings::render_key_finding_block;
 use self::helpers::{component_json, create_engine, extract_domain, soft_flow_group};
-use self::history::{render_history_section, render_methodology_section};
 use self::modules::{build_summary_overview, render_next_steps_single};
 use self::single_report::{
     render_action_plan, render_part_divider, render_tech_details, render_tech_entry,
@@ -543,12 +539,6 @@ fn build_single_report(
         }
     }
 
-    if vm.meta.report_level != ReportLevel::Executive {
-        if let Some(ref history) = vm.history {
-            builder = render_history_section(builder, history, &i18n);
-        }
-    }
-
     // Executive level stops here — slim methodology (limitations only)
     if vm.meta.report_level == ReportLevel::Executive {
         builder = builder
@@ -572,7 +562,6 @@ fn build_single_report(
     builder = render_tech_details(builder, &vm, report, &i18n);
 
     builder = render_next_steps_single(builder, &vm);
-    builder = render_methodology_section(builder, &vm.methodology, &i18n);
 
     let built_report = builder.build();
     Ok((engine, built_report))

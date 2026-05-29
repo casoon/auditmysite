@@ -83,23 +83,6 @@ pub fn print_batch_audit_plan(args: &Args, total_urls: usize) {
     println!();
 }
 
-pub fn print_comparison_audit_plan(args: &Args) {
-    if args.quiet {
-        return;
-    }
-    println!("{}", "Audit plan".cyan().bold());
-    println!("  {} Competitive comparison", "Mode:".dimmed());
-    println!("  {} {} domains", "Scope:".dimmed(), args.compare.len());
-    println!("  {} {}", "Format:".dimmed(), args.effective_format());
-    println!("  {} {}", "Report level:".dimmed(), args.report_level);
-    println!("  {} {}", "Modules:".dimmed(), active_modules_label(args));
-    let outputs = planned_comparison_outputs(args);
-    if !outputs.is_empty() {
-        println!("  {} {}", "Output:".dimmed(), outputs.join(", "));
-    }
-    println!();
-}
-
 // ─── Planned output path lists ────────────────────────────────────────────────
 
 pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
@@ -154,23 +137,6 @@ pub fn planned_batch_outputs(args: &Args) -> Vec<String> {
                 path.with_extension("json").display().to_string(),
             ]
         }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
-            match args.output.as_ref() {
-                Some(path) => vec![path.display().to_string()],
-                None => vec!["stdout".to_string()],
-            }
-        }
-    }
-}
-
-pub fn planned_comparison_outputs(args: &Args) -> Vec<String> {
-    match args.effective_format() {
-        OutputFormat::Pdf => vec![args
-            .output
-            .clone()
-            .unwrap_or_else(|| std::path::PathBuf::from("comparison-report.pdf"))
-            .display()
-            .to_string()],
         OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
             match args.output.as_ref() {
                 Some(path) => vec![path.display().to_string()],

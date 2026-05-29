@@ -207,8 +207,6 @@ pub struct PageDetail {
     pub throttled_performance: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub screenshot_status: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub history: Option<serde_json::Value>,
     /// Serialization errors encountered while building this page's detail.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub collection_errors: Vec<ReportError>,
@@ -469,13 +467,6 @@ impl UnifiedReport {
         }
     }
 
-    /// Attach a history preview to the (single-report) first page detail.
-    pub fn set_history(&mut self, history: serde_json::Value) {
-        if let Some(detail) = self.pages.first_mut().and_then(|p| p.detail.as_mut()) {
-            detail.history = Some(history);
-        }
-    }
-
     /// Serialize to a JSON string.
     pub fn to_json(&self, pretty: bool) -> Result<String> {
         let output = if pretty {
@@ -644,7 +635,6 @@ fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
         budget_violations: Vec::new(),
         throttled_performance: Vec::new(),
         screenshot_status: None,
-        history: None,
         collection_errors: Vec::new(),
     }
 }
@@ -840,7 +830,6 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
         budget_violations: ctx.budget_violations,
         throttled_performance,
         screenshot_status: ctx.screenshot_status,
-        history: None,
         collection_errors: errors,
     }
 }

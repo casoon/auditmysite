@@ -2,7 +2,7 @@
 #[cfg(all(test, feature = "pdf_test"))]
 mod tests {
     use super::super::*;
-    use crate::audit::{AuditReport, BatchReport, ComparisonReport};
+    use crate::audit::{AuditReport, BatchReport};
     use crate::cli::{ReportLevel, WcagLevel};
     use crate::util::truncate_url;
     use crate::wcag::{Severity, Violation, WcagResults};
@@ -65,21 +65,6 @@ mod tests {
 
         let pdf = generate_batch_pdf(&batch, &ReportConfig::default()).expect("PDF should render");
         assert_pdf_smoke(&pdf, 20_000);
-    }
-
-    #[test]
-    fn test_comparison_pdf_smoke_renders_valid_pdf() {
-        let comparison = ComparisonReport::from_reports(
-            vec![
-                pdf_fixture_report_for_url("https://alpha.example.com"),
-                pdf_fixture_report_for_url("https://beta.example.com"),
-            ],
-            2_400,
-        );
-
-        let pdf = generate_comparison_pdf(&comparison, &ReportConfig::default())
-            .expect("PDF should render");
-        assert_pdf_smoke(&pdf, 12_000);
     }
 
     #[test]
@@ -689,20 +674,6 @@ mod tests {
             "Batch PDF must have at least 3 pages, got {}",
             pages
         );
-    }
-
-    #[test]
-    fn test_comparison_pdf_renders_without_panic() {
-        let comparison = ComparisonReport::from_reports(
-            vec![
-                pdf_fixture_report_for_url("https://alpha.example.com"),
-                pdf_fixture_report_for_url("https://beta.example.com"),
-            ],
-            2_400,
-        );
-        let pdf = generate_comparison_pdf(&comparison, &ReportConfig::default())
-            .expect("comparison PDF should render");
-        assert!(!pdf.is_empty(), "comparison PDF should not be empty");
     }
 
     #[test]

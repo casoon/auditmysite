@@ -40,7 +40,7 @@ By default, a single URL audit runs the full analysis set, prints a compact term
 
 - `./example-com-YYYY-MM-DD-single-report.pdf`
 - `./example-com-YYYY-MM-DD-single-report.json`
-- `./example-com-history.json`
+- `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
 
 For CI or machine-readable output:
 
@@ -78,7 +78,7 @@ That default command writes report artifacts into the current directory, for exa
 
 - `./example-com-YYYY-MM-DD-single-report.pdf`
 - `./example-com-YYYY-MM-DD-single-report.json`
-- `./example-com-history.json`
+- `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
 
 ### cargo install (crates.io)
 
@@ -142,7 +142,7 @@ auditmysite https://example.com -f json -o report.json
 ### Single page
 
 ```bash
-# default: full audit + terminal summary + PDF/JSON/history in current directory
+# default: full audit + terminal summary + PDF/JSON in current directory
 auditmysite https://example.com
 
 # JSON
@@ -194,7 +194,7 @@ auditmysite [OPTIONS] [URL] [COMMAND]
 ```
 
 Primary commands:
-- `auditmysite <url>`: run a full single-page audit and write PDF/JSON/history into the current directory
+- `auditmysite <url>`: run a full single-page audit and write PDF/JSON into the current directory
 - `auditmysite --sitemap <url>`: audit sitemap URLs
 - `auditmysite --url-file <file>`: audit URLs from file
 - `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
@@ -267,7 +267,7 @@ ARIA and semantics:
 - Server-side image maps — detection and flagging
 - Meta viewport — large maximum-scale restrictions
 
-77 rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
+95+ rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
 Some criteria (keyboard trap behavior, timed content, captions) cannot be reliably verified by automated means. These are flagged as `not_testable` in the JSON output and listed in the report's audit scope section as requiring manual review.
 
@@ -398,7 +398,7 @@ The `Baseline` type in the `audit` module supports `from_violations`, `diff`, `l
 Single-page reports and sitemap/batch reports are intentionally different.
 
 **Single-page report** is structured in two layers:
-- Top (decision layer): hero block with score + risk level, top 3 problems, next 3 steps, overall assessment (UX/Accessibility, Technik/Sicherheit, SEO), trend
+- Top (decision layer): hero block with score + risk level, top 3 problems, next 3 steps, overall assessment (UX/Accessibility, Technik/Sicherheit, SEO)
 - Bottom (implementation layer): task block ("Was jetzt tun?" with role, effort, impact, priority), module overview, key findings, technical implementation details, detailed metrics
 
 **Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics.
@@ -426,7 +426,14 @@ Standard accessibility checkers verify individual rules in isolation. `auditmysi
 | Landmark navigation strategy (can a SR user reach main content?) | — | — | ✓ |
 | BFSG / EN 301 549 legal mapping per finding | — | — | ✓ |
 
-The reading sequence export (`--export-sr-audit`) produces a JSON that shows exactly what a screen reader would announce, node by node, including which announcements are ambiguous or missing — suitable as a developer reference and as evidence for BFSG compliance audits.
+When the screen reader module runs, a JSON sidecar is written automatically next to the primary report:
+
+```
+example-com-YYYY-MM-DD-single-report.pdf
+example-com-YYYY-MM-DD-single-report-screen-reader-audit.json  ← automatic sidecar
+```
+
+The sidecar shows exactly what a screen reader would announce, node by node, including which announcements are ambiguous or missing — suitable as a developer reference and as evidence for BFSG compliance audits. No extra flag is required; the file is created whenever screen reader data is available in the audit result.
 
 ## Typical Workflows
 

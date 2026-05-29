@@ -18,7 +18,7 @@ mod sitemap_suggest;
 
 use commands::{detect_chrome_command, handle_command};
 use plan::print_banner;
-use runners::{run_batch_mode, run_compare_mode, run_single_mode};
+use runners::{run_batch_mode, run_single_mode};
 
 use std::io::{self, IsTerminal};
 
@@ -114,17 +114,6 @@ async fn run(
         return detect_chrome_command(&args);
     }
 
-    // --compare mode: audits multiple domains for side-by-side comparison
-    if !args.compare.is_empty() {
-        if let Err(e) = args.validate() {
-            return Err(AuditError::ConfigError(e));
-        }
-        if !args.quiet {
-            print_banner();
-        }
-        return run_compare_mode(&args).await;
-    }
-
     // If no input source specified interactively ask for a domain (terminal only)
     let no_input = args.url.is_none()
         && args.sitemap.is_none()
@@ -155,7 +144,7 @@ async fn run(
 
     // Request-mode prompt: fires whenever terminal + not set from CLI + not a subcommand/compare/scripted mode
     let is_terminal = io::stdin().is_terminal() && io::stdout().is_terminal();
-    let is_audit_run = args.command.is_none() && args.compare.is_empty() && !args.detect_chrome;
+    let is_audit_run = args.command.is_none() && !args.detect_chrome;
     if is_terminal && !request_mode_from_cli && !args.quiet && is_audit_run {
         let mode_idx = Select::new()
             .with_prompt("  Request mode")
@@ -201,10 +190,7 @@ mod tests {
         default_single_pdf_output_path, output_directory, per_page_output_directory,
         per_page_output_path, report_subject_from_url,
     };
-    use crate::plan::{
-        active_modules_label, planned_batch_outputs, planned_comparison_outputs,
-        planned_single_outputs,
-    };
+    use crate::plan::{active_modules_label, planned_batch_outputs, planned_single_outputs};
     use crate::runners::suggested_sitemap_batch_args;
     use crate::sitemap_suggest::{looks_like_base_url, sitemap_candidates};
     use auditmysite::cli::{OutputFormat, ReportLevel};
@@ -389,34 +375,6 @@ mod tests {
         assert_eq!(outputs.len(), 2);
         assert!(outputs[0].ends_with("-sitemap-report.pdf"));
         assert!(outputs[1].ends_with("-sitemap-report.json"));
-    }
-
-    #[test]
-    fn test_planned_comparison_outputs_default_to_pdf_file() {
-        let args = Args::parse_from([
-            "auditmysite",
-            "--compare",
-            "https://alpha.example.com",
-            "https://beta.example.com",
-        ]);
-        let outputs = planned_comparison_outputs(&args);
-
-        assert_eq!(outputs, vec!["comparison-report.pdf".to_string()]);
-    }
-
-    #[test]
-    fn test_planned_comparison_outputs_use_stdout_for_json_without_output() {
-        let args = Args::parse_from([
-            "auditmysite",
-            "--compare",
-            "https://alpha.example.com",
-            "https://beta.example.com",
-            "-f",
-            "json",
-        ]);
-        let outputs = planned_comparison_outputs(&args);
-
-        assert_eq!(outputs, vec!["stdout".to_string()]);
     }
 
     #[test]

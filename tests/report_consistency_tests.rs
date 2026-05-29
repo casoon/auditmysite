@@ -7,9 +7,7 @@
 //! - fix_guidance entries match findings
 //! - Score/grade/certificate are consistent
 
-use auditmysite::audit::{
-    normalize, AuditReport, BatchReport, ComparisonReport, PerformanceResults,
-};
+use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
 use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::mobile::MobileFriendliness;
@@ -681,24 +679,6 @@ fn test_audit_flags_surface_in_json_output() {
     );
 }
 
-#[test]
-fn test_json_field_order_fix_guidance_before_history() {
-    let report = make_full_report();
-    let mut unified = UnifiedReport::single(&normalize(&report), &report);
-    unified.set_history(serde_json::json!({"test": true}));
-    let json_str = unified.to_json(true).unwrap();
-
-    // fix_guidance should appear before history in serialized output
-    let fg_pos = json_str
-        .find("fix_guidance")
-        .expect("fix_guidance not in JSON");
-    let hist_pos = json_str.find("history").expect("history not in JSON");
-    assert!(
-        fg_pos < hist_pos,
-        "fix_guidance should appear before history in JSON"
-    );
-}
-
 // ─── Risk Assessment Tests ────────────────────────────────────────
 
 #[test]
@@ -868,25 +848,6 @@ fn test_ai_json_scores_match_normalized_scores() {
         parsed["overall_score"].as_u64(),
         Some(normalized.overall_score as u64),
         "AI JSON overall_score must use NormalizedReport.overall_score as secondary weighted score"
-    );
-}
-
-#[test]
-fn test_comparison_scores_match_normalized_scores() {
-    let report = make_full_report();
-    let normalized = normalize(&report);
-    let comparison = ComparisonReport::from_reports(vec![report], 100);
-    let entry = comparison.entries.first().expect("entry must exist");
-
-    assert_eq!(entry.accessibility_score, normalized.score);
-    assert_eq!(entry.overall_score, normalized.overall_score);
-    assert_eq!(
-        entry.performance_score,
-        normalized
-            .module_scores
-            .iter()
-            .find(|m| m.name == "Performance")
-            .map(|m| m.score)
     );
 }
 
