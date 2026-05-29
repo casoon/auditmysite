@@ -315,7 +315,12 @@ pub enum BrowserAction {
 }
 
 /// WCAG conformance levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+///
+/// Variant order is significant: derives `PartialOrd`/`Ord` so a higher
+/// configured level is `>=` every lower required level. This lets rule
+/// catalogs filter with `cfg.wcag_level >= rule.min_level` instead of
+/// pattern-matching the gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum WcagLevel {
     /// Level A - Minimum conformance

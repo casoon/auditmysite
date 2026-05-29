@@ -880,84 +880,9 @@ async fn run_rules(
 ) -> WcagResults {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
+    apply_lang_attribute_check(page, &mut wcag_results).await;
 
-    // The AX tree does not expose the html[lang] attribute — verify it via DOM.
-    if wcag_results.violations.iter().any(|v| v.rule == "3.1.1") {
-        let has_lang = page
-            .evaluate(
-                "document.documentElement.getAttribute('lang') || \
-                 document.documentElement.getAttribute('xml:lang') || ''",
-            )
-            .await
-            .ok()
-            .and_then(|r| r.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
-            .map(|lang| {
-                let l = lang.trim().to_lowercase();
-                l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
-            })
-            .unwrap_or(false);
-
-        if has_lang {
-            wcag_results.violations.retain(|v| v.rule != "3.1.1");
-            wcag_results.passes += 1;
-        }
-    }
-
-    // 4.1.2 aria-hidden-focus — focusable elements inside aria-hidden subtree (Level A)
-    let aria_hidden_focus_violations = wcag::rules::check_aria_hidden_focus(page).await;
-    if !aria_hidden_focus_violations.is_empty() {
-        info!(
-            "Found {} aria-hidden-focus violations",
-            aria_hidden_focus_violations.len()
-        );
-    }
-    wcag_results.extend_findings(aria_hidden_focus_violations);
-
-    // 4.1.2 aria-prohibited-attr — DOM supplement for generic elements
-    let aria_prohibited_attr_violations =
-        wcag::rules::check_aria_prohibited_attr_with_page(page).await;
-    if !aria_prohibited_attr_violations.is_empty() {
-        info!(
-            "Found {} aria-prohibited-attr violations",
-            aria_prohibited_attr_violations.len()
-        );
-    }
-    wcag_results.extend_findings(aria_prohibited_attr_violations);
-
-    // 4.1.2 frame-title — iframe/frame accessible names
-    let frame_title_violations = wcag::rules::check_frame_title_with_page(page).await;
-    if !frame_title_violations.is_empty() {
-        info!(
-            "Found {} frame-title violations",
-            frame_title_violations.len()
-        );
-    }
-    wcag_results.extend_findings(frame_title_violations);
-
-    // 2.1.1 Keyboard — onclick on non-interactive tags without keyboard equivalent (Level A)
-    let click_handler_violations = wcag::check_click_handlers_with_page(page).await;
-    if !click_handler_violations.is_empty() {
-        info!(
-            "Found {} inline click-handler violations",
-            click_handler_violations.len()
-        );
-    }
-    wcag_results.extend_findings(click_handler_violations);
-
-    // 2.2.1 Timing Adjustable — <meta http-equiv="refresh"> (Level A)
-    let timing_violations = wcag::check_timing_with_page(page).await;
-    if !timing_violations.is_empty() {
-        info!("Found {} meta-refresh violations", timing_violations.len());
-    }
-    wcag_results.extend_findings(timing_violations);
-
-    // 1.4.1 Use of Color — inline links distinguishable by color alone (Level A)
-    let color_violations = wcag::check_use_of_color_with_page(page).await;
-    if !color_violations.is_empty() {
-        info!("Found {} use-of-color violations", color_violations.len());
-    }
-    wcag_results.extend_findings(color_violations);
-
+    // Contrast carries extra args (ax tree, level, screenshot) and stays inline.
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running contrast check with CDP...");
         let contrast_violations = wcag::rules::ContrastRule::check_with_page(
@@ -969,124 +894,61 @@ async fn run_rules(
         .await;
         info!("Found {} contrast violations", contrast_violations.len());
         wcag_results.extend_findings(contrast_violations);
-
-        // 1.3.4 Orientation — CSS inspection, no viewport change
-        let orientation_violations = wcag::check_orientation_with_page(page).await;
-        if !orientation_violations.is_empty() {
-            info!(
-                "Found {} orientation violations",
-                orientation_violations.len()
-            );
-        }
-        wcag_results.extend_findings(orientation_violations);
-
-        // 2.4.7 Focus Visible — CSS-level :focus { outline: none } detection
-        let focus_css_violations = wcag::check_focus_visible_css_with_page(page).await;
-        if !focus_css_violations.is_empty() {
-            info!(
-                "Found {} CSS focus-suppression violations",
-                focus_css_violations.len()
-            );
-        }
-        wcag_results.extend_findings(focus_css_violations);
-
-        // 2.3.3 prefers-reduced-motion — animations without reduced-motion handling
-        let reduced_motion_violations = wcag::check_reduced_motion_with_page(page).await;
-        if !reduced_motion_violations.is_empty() {
-            info!(
-                "Found {} reduced-motion violations",
-                reduced_motion_violations.len()
-            );
-        }
-        wcag_results.extend_findings(reduced_motion_violations);
-
-        // 1.4.13 Content on Hover or Focus — title-only descriptions, orphan tooltips
-        let hover_violations = wcag::check_content_on_hover_with_page(page).await;
-        if !hover_violations.is_empty() {
-            info!(
-                "Found {} content-on-hover violations",
-                hover_violations.len()
-            );
-        }
-        wcag_results.extend_findings(hover_violations);
     }
 
-    // AAA-only page rules
-    if config.wcag_level == WcagLevel::AAA {
-        // 1.3.6 Identify Purpose
-        let violations = wcag::check_identify_purpose_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 1.4.7 Low or No Background Audio
-        let violations = wcag::check_background_audio_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 1.4.8 Visual Presentation
-        let violations = wcag::check_visual_presentation_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.2.3 No Timing
-        let violations = wcag::check_no_timing_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.2.4 Interruptions
-        let violations = wcag::check_no_interruptions_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.2.5 Re-authenticating
-        let violations = wcag::check_re_authenticate_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.2.6 Timeouts
-        let violations = wcag::check_timeouts_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.4.8 Location
-        let violations = wcag::check_location_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.5.1 Pointer Gestures
-        let violations = wcag::check_pointer_gestures_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.5.2 Pointer Cancellation
-        let violations = wcag::check_pointer_cancellation_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.5.3 Label in Name (Enhanced)
-        let violations = wcag::check_label_in_name_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.5.4 Motion Actuation
-        let violations = wcag::check_motion_actuation_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 2.5.5 Target Size (Enhanced)
-        let violations = wcag::check_target_size_enhanced_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 3.1.4 Abbreviations
-        let violations = wcag::check_abbreviations_with_page(page).await;
-        wcag_results.extend_findings(violations);
-
-        // 4.1.1 Duplicate IDs (DOM check)
-        let violations = wcag::check_parsing_with_page(page).await;
-        wcag_results.extend_findings(violations);
+    // Table-driven page rules (#334). min_level gates each entry.
+    for rule in wcag::rules::PAGE_RULES {
+        if config.wcag_level < rule.min_level {
+            continue;
+        }
+        let findings = (rule.check_fn)(page).await;
+        if !findings.is_empty() {
+            info!("Found {} {} violations", findings.len(), rule.name);
+        }
+        wcag_results.extend_findings(findings);
     }
 
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
+    move_demoted_violations_to_warnings(&mut wcag_results);
+    wcag_results
+}
 
-    // After enrichment, violations whose kind was demoted to Warning (e.g. because
-    // no DOM element could be located) must be moved to the warnings Vec so they
-    // don't inflate violation counts or affect scoring.
-    let (kept, demoted): (Vec<_>, Vec<_>) = wcag_results
+/// 3.1.1 verifying-subtraction: the AX tree does not expose `html[lang]`,
+/// so if check_all emitted a 3.1.1 violation, query the DOM and remove it
+/// when a valid lang attribute is present.
+async fn apply_lang_attribute_check(page: &Page, results: &mut WcagResults) {
+    if !results.violations.iter().any(|v| v.rule == "3.1.1") {
+        return;
+    }
+    let has_lang = page
+        .evaluate(
+            "document.documentElement.getAttribute('lang') || \
+             document.documentElement.getAttribute('xml:lang') || ''",
+        )
+        .await
+        .ok()
+        .and_then(|r| r.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
+        .map(|lang| {
+            let l = lang.trim().to_lowercase();
+            l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
+        })
+        .unwrap_or(false);
+    if has_lang {
+        results.violations.retain(|v| v.rule != "3.1.1");
+        results.passes += 1;
+    }
+}
+
+/// After enrichment, violations whose kind was demoted to Warning (e.g.
+/// because no DOM element could be located) must be moved to the warnings
+/// Vec so they don't inflate violation counts or affect scoring.
+fn move_demoted_violations_to_warnings(results: &mut WcagResults) {
+    let (kept, demoted): (Vec<_>, Vec<_>) = results
         .violations
         .drain(..)
         .partition(|v| v.kind == crate::wcag::types::FindingKind::Violation);
-    wcag_results.violations = kept;
-    wcag_results.warnings.extend(demoted);
-
-    wcag_results
+    results.violations = kept;
+    results.warnings.extend(demoted);
 }
 
 fn aggregate_report(
