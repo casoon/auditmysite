@@ -2533,6 +2533,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "inventory"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4f0c30c76f2f4ccee3fe55a2435f691ca00c0e4bd87abe4f4a851b1d4dac39b"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3964,9 +3973,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "renderreport"
-version = "0.2.17"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca5b88687c5ab3fa0723d462db2bdf68137b4c3bf07bda12f65aef3879e6b313"
+checksum = "6d87c6e817394df139ea3472e6e3f1a8aad1b99f16fc66ddffc5cc3e0b6da0d4"
 dependencies = [
  "anyhow",
  "barcoders",
@@ -3974,6 +3983,7 @@ dependencies = [
  "comemo",
  "datamatrix",
  "fontdb 0.22.0",
+ "inventory",
  "qrcode",
  "serde",
  "serde_json",
