@@ -31,7 +31,10 @@ pub use comparison::{ComparisonEntry, ComparisonReport};
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
 pub use normalized::{normalize, NormalizedReport};
-pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
+pub use pipeline::{
+    audit_page, run_single_audit, AuditModuleDefinition, ModuleActivation, PipelineConfig,
+    AUDIT_MODULES,
+};
 pub use report::{
     AuditReport, BatchError, BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity,
     CrawlDiagnostics, PerformanceResults, RedirectChain, SampleMetadata, ScreenshotStatus,

@@ -101,6 +101,88 @@ struct SnapshotData {
 
 // ── Pipeline config ───────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleActivation {
+    Always,
+    Interactive,
+    Performance,
+    Seo,
+    Security,
+    Mobile,
+    SeoOrMobile,
+    Stack,
+    SemanticEval,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AuditModuleDefinition {
+    pub label: &'static str,
+    pub activation: ModuleActivation,
+}
+
+pub const AUDIT_MODULES: &[AuditModuleDefinition] = &[
+    AuditModuleDefinition {
+        label: "Accessibility",
+        activation: ModuleActivation::Always,
+    },
+    AuditModuleDefinition {
+        label: "Accessibility Journey",
+        activation: ModuleActivation::Interactive,
+    },
+    AuditModuleDefinition {
+        label: "Performance",
+        activation: ModuleActivation::Performance,
+    },
+    AuditModuleDefinition {
+        label: "Best Practices",
+        activation: ModuleActivation::Performance,
+    },
+    AuditModuleDefinition {
+        label: "SEO",
+        activation: ModuleActivation::Seo,
+    },
+    AuditModuleDefinition {
+        label: "Security",
+        activation: ModuleActivation::Security,
+    },
+    AuditModuleDefinition {
+        label: "Mobile",
+        activation: ModuleActivation::Mobile,
+    },
+    AuditModuleDefinition {
+        label: "UX",
+        activation: ModuleActivation::SeoOrMobile,
+    },
+    AuditModuleDefinition {
+        label: "Journey",
+        activation: ModuleActivation::SeoOrMobile,
+    },
+    AuditModuleDefinition {
+        label: "Dark Mode",
+        activation: ModuleActivation::Always,
+    },
+    AuditModuleDefinition {
+        label: "Tech Stack",
+        activation: ModuleActivation::Stack,
+    },
+    AuditModuleDefinition {
+        label: "Source Quality",
+        activation: ModuleActivation::Always,
+    },
+    AuditModuleDefinition {
+        label: "AI Visibility",
+        activation: ModuleActivation::Always,
+    },
+    AuditModuleDefinition {
+        label: "Content Visibility",
+        activation: ModuleActivation::Seo,
+    },
+    AuditModuleDefinition {
+        label: "Semantic Eval",
+        activation: ModuleActivation::SemanticEval,
+    },
+];
+
 /// Audit pipeline configuration
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
@@ -139,6 +221,36 @@ pub struct PipelineConfig {
 }
 
 impl PipelineConfig {
+    pub fn active_modules(&self) -> Vec<&'static AuditModuleDefinition> {
+        AUDIT_MODULES
+            .iter()
+            .filter(|module| self.module_is_active(module.activation))
+            .collect()
+    }
+
+    pub fn active_module_labels(&self) -> Vec<&'static str> {
+        self.active_modules()
+            .into_iter()
+            .map(|module| module.label)
+            .collect()
+    }
+
+    fn module_is_active(&self, activation: ModuleActivation) -> bool {
+        match activation {
+            ModuleActivation::Always => true,
+            ModuleActivation::Interactive => {
+                !matches!(self.interactive, crate::cli::InteractiveMode::Off)
+            }
+            ModuleActivation::Performance => self.check_performance,
+            ModuleActivation::Seo => self.check_seo,
+            ModuleActivation::Security => self.check_security,
+            ModuleActivation::Mobile => self.check_mobile,
+            ModuleActivation::SeoOrMobile => self.check_seo || self.check_mobile,
+            ModuleActivation::Stack => self.check_stack,
+            ModuleActivation::SemanticEval => self.semantic_eval.enabled,
+        }
+    }
+
     /// Deterministic fingerprint of the audit-relevant configuration.
     ///
     /// Captures every option that changes the audit's findings, scores, or which
@@ -147,7 +259,8 @@ impl PipelineConfig {
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
         format!(
-            "level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={}",
+            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={}",
+            env!("CARGO_PKG_VERSION"),
             self.wcag_level,
             self.check_performance as u8,
             self.check_seo as u8,
@@ -1444,6 +1557,51 @@ mod tests {
         assert!(config.check_seo);
         assert!(config.check_security);
         assert!(config.check_dark_mode);
+    }
+
+    #[test]
+    fn active_module_labels_follow_pipeline_flags() {
+        let config =
+            PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        assert_eq!(
+            config.active_module_labels(),
+            vec![
+                "Accessibility",
+                "Accessibility Journey",
+                "Performance",
+                "Best Practices",
+                "SEO",
+                "Security",
+                "Mobile",
+                "UX",
+                "Journey",
+                "Dark Mode",
+                "Tech Stack",
+                "Source Quality",
+                "AI Visibility",
+                "Content Visibility",
+            ]
+        );
+    }
+
+    #[test]
+    fn active_module_labels_respect_disabled_full_modules() {
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--skip-performance",
+            "--skip-mobile",
+        ]));
+        assert_eq!(
+            config.active_module_labels(),
+            vec![
+                "Accessibility",
+                "Accessibility Journey",
+                "Dark Mode",
+                "Source Quality",
+                "AI Visibility",
+            ]
+        );
     }
 
     fn test_pipeline_config() -> PipelineConfig {

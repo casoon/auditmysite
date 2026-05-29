@@ -598,7 +598,7 @@ pub(super) fn interpret_score(area: InterpretArea, score: f32, locale: &str) -> 
             "Excellent — accessibility is implemented cleanly, with only minor limitations.",
         ),
         (Accessibility, Good) => (
-            "Gut — die Barrierefreiheit ist insgesamt solide, kleinere Optimierungen sind sinnvoll.",
+            "Gut — die Barrierefreiheit ist insgesamt stabil und konsistent, kleinere Optimierungen sind sinnvoll.",
             "Good — accessibility is sound overall; minor improvements are worthwhile.",
         ),
         (Accessibility, NeedsImprovement) => (
@@ -640,7 +640,7 @@ pub(super) fn interpret_score(area: InterpretArea, score: f32, locale: &str) -> 
             "Excellent — no significant security issues found within the scope checked.",
         ),
         (Security, Good) => (
-            "Gut — grundlegende Sicherheitsmechanismen sind vorhanden, kleinere Schwächen wurden erkannt.",
+            "Gut — grundlegende Sicherheitsmechanismen sind vorhanden, kleinere Optimierungspotenziale wurden erkannt.",
             "Good — basic security mechanisms are in place; minor weaknesses were identified.",
         ),
         (Security, NeedsImprovement) => (

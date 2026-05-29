@@ -1,12 +1,11 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 233
 expression: value
 ---
 {
   "action_column_count": 2,
   "cover": {
-    "certificate": "AUSBAUFÄHIG",
+    "certificate": "NICHT BESTANDEN",
     "critical_issues": 5,
     "grade": "D",
     "score": 49,
@@ -35,7 +34,7 @@ expression: value
     "total": 8
   },
   "summary": {
-    "certificate": "AUSBAUFÄHIG",
+    "certificate": "NICHT BESTANDEN",
     "grade": "D",
     "maturity_label": "Kritisch",
     "score": 49

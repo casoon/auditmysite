@@ -16,9 +16,9 @@ pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalys
         }
     } else if seo.score >= 70 {
         if en {
-            "Solid SEO base with targeted potential to improve visibility."
+            "Good SEO base with targeted potential to improve visibility."
         } else {
-            "Solide SEO-Basis mit gezieltem Optimierungspotenzial für mehr Sichtbarkeit."
+            "Gute SEO-Grundlage mit gezieltem Optimierungspotenzial für mehr Sichtbarkeit."
         }
     } else if seo.score >= 55 {
         if en {
@@ -201,14 +201,14 @@ pub(super) fn summarize_page_profile(
     let quality = if en {
         match avg {
             85..=100 => "very coherently structured",
-            70..=84 => "solidly built in terms of content",
+            70..=84 => "substantively well built",
             50..=69 => "only partly clearly structured",
             _ => "currently weak in content and structure",
         }
     } else {
         match avg {
             85..=100 => "sehr stimmig aufgebaut",
-            70..=84 => "inhaltlich solide aufgestellt",
+            70..=84 => "inhaltlich stabil und ausgewogen aufgestellt",
             50..=69 => "nur teilweise klar strukturiert",
             _ => "aktuell inhaltlich und strukturell schwach ausgeprägt",
         }

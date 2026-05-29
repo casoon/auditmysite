@@ -426,6 +426,9 @@ mod tests {
         ]);
         let label = active_modules_label(&args);
 
-        assert_eq!(label, "Accessibility");
+        assert_eq!(
+            label,
+            "Accessibility, Accessibility Journey, Dark Mode, Source Quality, AI Visibility"
+        );
     }
 }

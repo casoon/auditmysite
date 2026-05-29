@@ -6,6 +6,7 @@
 
 use colored::Colorize;
 
+use auditmysite::audit::PipelineConfig;
 use auditmysite::cli::{Args, OutputFormat};
 
 use crate::output_paths::{
@@ -167,21 +168,7 @@ pub fn planned_comparison_outputs(args: &Args) -> Vec<String> {
 // ─── Module label ─────────────────────────────────────────────────────────────
 
 pub fn active_modules_label(args: &Args) -> String {
-    let mut modules = vec!["Accessibility"];
-    let full = args.full_audit_enabled();
-    if (full || args.performance) && !args.skip_performance {
-        modules.push("Performance");
-    }
-    if full || args.seo {
-        modules.push("SEO");
-    }
-    if full || args.security {
-        modules.push("Security");
-    }
-    if (full || args.mobile) && !args.skip_mobile {
-        modules.push("Mobile");
-    }
-    modules.join(", ")
+    PipelineConfig::from(args).active_module_labels().join(", ")
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -195,9 +182,21 @@ mod tests {
     #[test]
     fn active_modules_label_skip_performance_disables_full_mode() {
         // --skip-performance makes full_audit_enabled() return false,
-        // so no individual modules are active unless explicitly requested.
+        // so no optional full modules are active unless explicitly requested.
         let args = Args::parse_from(["auditmysite", "https://example.com", "--skip-performance"]);
-        assert_eq!(active_modules_label(&args), "Accessibility");
+        assert_eq!(
+            active_modules_label(&args),
+            "Accessibility, Accessibility Journey, Dark Mode, Source Quality, AI Visibility"
+        );
+    }
+
+    #[test]
+    fn active_modules_label_default_matches_standard_pipeline() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert_eq!(
+            active_modules_label(&args),
+            "Accessibility, Accessibility Journey, Performance, Best Practices, SEO, Security, Mobile, UX, Journey, Dark Mode, Tech Stack, Source Quality, AI Visibility, Content Visibility"
+        );
     }
 
     #[test]

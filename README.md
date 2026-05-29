@@ -413,6 +413,21 @@ Batch reports are not a stack of single-page reports.
 - Broader reporting surface than a pure accessibility-only checker when you also want performance, SEO, security, and mobile signals
 - Violations carry stable `rule_id`, `tags`, and `impact` — easier to integrate with existing tooling or dashboards
 
+### Screen Reader Audit vs. axe-core / Pa11y
+
+Standard accessibility checkers verify individual rules in isolation. `auditmysite` additionally simulates the sequential experience of a screen reader user navigating the page — detecting problems that only emerge in context.
+
+| Capability | axe-core | Pa11y | auditmysite |
+|---|---|---|---|
+| Rule-based WCAG checks | ✓ | ✓ | ✓ |
+| Reading sequence simulation | — | — | ✓ |
+| Out-of-context link text analysis (duplicate "Read more" × 8) | — | — | ✓ |
+| Accessible name quality score (not just present/absent) | — | — | ✓ |
+| Landmark navigation strategy (can a SR user reach main content?) | — | — | ✓ |
+| BFSG / EN 301 549 legal mapping per finding | — | — | ✓ |
+
+The reading sequence export (`--export-sr-audit`) produces a JSON that shows exactly what a screen reader would announce, node by node, including which announcements are ambiguous or missing — suitable as a developer reference and as evidence for BFSG compliance audits.
+
 ## Typical Workflows
 
 Examples grouped by audience and goal.

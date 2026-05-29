@@ -39,7 +39,7 @@ pub(super) fn build_batch_assessment(
         if en {
             "Technically solid, but legally risky".to_string()
         } else {
-            "Technisch solide, aber rechtlich riskant".to_string()
+            "Technisch stabil, aber rechtlich riskant".to_string()
         }
     } else if dist.high > 0 {
         if en {
@@ -56,7 +56,7 @@ pub(super) fn build_batch_assessment(
     } else if en {
         "Solid foundation with room to optimize".to_string()
     } else {
-        "Solide Grundlage mit Optimierungspotenzial".to_string()
+        "Stabile Grundlage mit Optimierungspotenzial".to_string()
     }
 }
 
@@ -122,7 +122,7 @@ pub(super) fn build_batch_key_points(
             );
         } else {
             points.push(
-                "Keine Level-A-Verstöße, aber strukturelle Schwächen auf mehreren Seiten"
+                "Keine Level-A-Verstöße, aber strukturelle Optimierungspotenziale auf mehreren Seiten"
                     .to_string(),
             );
         }

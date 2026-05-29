@@ -362,6 +362,16 @@ pub(super) fn render_tech_details(
         builder = render_wcag_coverage_section(builder, report, i18n);
     }
 
+    // Interactive Accessibility-Journey findings (Phase 2+)
+    if !report.interactive_findings.is_empty() {
+        builder = render_a11y_journey_findings(
+            builder,
+            &report.interactive_findings,
+            report.accessibility_journey.as_ref(),
+            i18n,
+        );
+    }
+
     // Appendix — full violations list, conclusion of Part 2 (#246).
     {
         let (appendix_title, appendix_intro) = if en {
@@ -615,16 +625,6 @@ pub(super) fn render_tech_details(
     }
     if let Some(ref bp) = vm.module_details.best_practices {
         builder = render_best_practices(builder, bp, i18n);
-    }
-
-    // Interactive Accessibility-Journey findings (Phase 2+)
-    if !report.interactive_findings.is_empty() {
-        builder = render_a11y_journey_findings(
-            builder,
-            &report.interactive_findings,
-            report.accessibility_journey.as_ref(),
-            i18n,
-        );
     }
 
     builder

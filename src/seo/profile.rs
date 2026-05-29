@@ -603,7 +603,16 @@ fn analyze_schema(schema_type: &str, content: &serde_json::Value) -> Option<Sche
     let (expected, extracted) = match schema_type {
         "Organization" => analyze_organization(content),
         "LocalBusiness" => analyze_local_business(content),
-        "ProfessionalService" => analyze_service(content),
+        "ProfessionalService"
+        | "Service"
+        | "WebDesignCompany"
+        | "LegalService"
+        | "AccountingService"
+        | "FinancialService"
+        | "HVACBusiness"
+        | "Dentist"
+        | "Physician"
+        | "Attorney" => analyze_service(content),
         "Article" | "BlogPosting" | "NewsArticle" => analyze_article(content),
         "FAQPage" => analyze_faq(content),
         "Product" => analyze_product(content),

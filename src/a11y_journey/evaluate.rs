@@ -74,7 +74,10 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
         } else if snap.hidden_by_style {
             findings.push(InteractiveFinding {
                 category: "HiddenFocusable".to_string(),
-                maps_to_finding: Some("a11y.aria_hidden_focus.invalid".to_string()),
+                // CSS-hidden elements (display:none / visibility:hidden / opacity:0) are a
+                // different failure type from aria-hidden-focus — no existing static rule covers
+                // this exact case, so there is nothing to reference.
+                maps_to_finding: None,
                 severity: Severity::Medium,
                 journey: trace.journey.clone(),
                 before_snapshot_label: None,

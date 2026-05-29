@@ -345,6 +345,11 @@ impl RiskAssessment {
                         "Medium risk: {} critical interactive findings detected.",
                         self.interactive_critical_issues
                     )
+                } else if self.interactive_high_issues > 0 {
+                    format!(
+                        "Medium risk: {} severe interactive findings detected.",
+                        self.interactive_high_issues
+                    )
                 } else {
                     format!(
                         "Medium risk: {} severe issues detected. Limitations for certain user groups.",
@@ -756,6 +761,112 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .then_with(|| b.severity.cmp(&a.severity))
     });
 
+    let mut interactive_findings = report.interactive_findings.clone();
+    let mut aria_hidden_selectors: std::collections::HashSet<String> = report
+        .wcag_results
+        .violations
+        .iter()
+        .filter(|v| v.rule == "aria-hidden-focus")
+        .filter_map(|v| v.selector.clone())
+        .collect();
+
+    aria_hidden_selectors.extend(
+        findings
+            .iter()
+            .filter(|f| f.rule_id == "a11y.aria_hidden_focus.invalid")
+            .flat_map(|f| f.occurrences.iter().filter_map(|o| o.selector.clone())),
+    );
+
+    if !aria_hidden_selectors.is_empty() {
+        fn normalize_selector(sel: &str) -> String {
+            let mut normalized = String::new();
+            let mut chars = sel.chars().peekable();
+            while let Some(c) = chars.next() {
+                if c == '.' {
+                    while let Some(&next_c) = chars.peek() {
+                        if next_c.is_alphanumeric() || next_c == '-' || next_c == '_' {
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                } else if c.is_alphabetic() {
+                    let mut tag = String::new();
+                    tag.push(c);
+                    while let Some(&next_c) = chars.peek() {
+                        if next_c.is_alphanumeric() || next_c == '-' || next_c == '_' {
+                            tag.push(chars.next().unwrap());
+                        } else {
+                            break;
+                        }
+                    }
+                    if chars.peek() == Some(&'#') {
+                        // discard tag prefix before ID
+                    } else {
+                        normalized.push_str(&tag);
+                    }
+                } else if c == ' ' {
+                    let is_around_gt = normalized.ends_with('>') || chars.peek() == Some(&'>');
+                    if !is_around_gt {
+                        normalized.push(' ');
+                    }
+                } else {
+                    normalized.push(c);
+                }
+            }
+            normalized.trim().replace(" >", ">").replace("> ", ">")
+        }
+
+        fn extract_selector_from_message(message: &str) -> Option<String> {
+            let start_idx = message.find('(')?;
+            let mut depth = 0;
+            let mut end_idx = None;
+            for (i, c) in message[start_idx..].char_indices() {
+                if c == '(' {
+                    depth += 1;
+                } else if c == ')' {
+                    depth -= 1;
+                    if depth == 0 {
+                        end_idx = Some(start_idx + i);
+                        break;
+                    }
+                }
+            }
+            let mut sel = &message[start_idx + 1..end_idx?];
+            if let Some(colon_idx) = sel.find(": display:") {
+                sel = &sel[..colon_idx];
+            } else if let Some(colon_idx) = sel.find(": visibility:") {
+                sel = &sel[..colon_idx];
+            } else if let Some(colon_idx) = sel.find(": opacity:") {
+                sel = &sel[..colon_idx];
+            }
+            Some(sel.trim().to_string())
+        }
+
+        let normalized_aria_hidden_selectors: std::collections::HashSet<String> =
+            aria_hidden_selectors
+                .iter()
+                .map(|s| normalize_selector(s))
+                .collect();
+
+        interactive_findings.retain(|inf| {
+            if inf.category == "HiddenFocusable" {
+                if let Some(sel) = extract_selector_from_message(&inf.message) {
+                    let norm_sel = normalize_selector(&sel);
+                    !normalized_aria_hidden_selectors.iter().any(|s| {
+                        norm_sel == *s
+                            || norm_sel.ends_with(&format!(">{}", s))
+                            || s.ends_with(&format!(">{}", norm_sel))
+                    })
+                } else {
+                    true
+                }
+            } else {
+                true
+            }
+        });
+    }
+
     let score = report.score.round().max(1.0) as u32;
     let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
 
@@ -1086,6 +1197,28 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         }
     }
 
+    // Skip-link functional failure: static bypass_blocks check passes when a skip link
+    // exists, but the journey may find that it does not actually move focus. If the
+    // journey detected a broken skip link and no static bypass_blocks violation was
+    // raised, emit an audit_flag to surface the discrepancy explicitly.
+    let has_broken_skip_link = interactive_findings
+        .iter()
+        .any(|f| f.category == "SkipLink");
+    let has_bypass_blocks_violation = findings
+        .iter()
+        .any(|f| f.rule_id == "a11y.bypass_blocks.missing");
+    if has_broken_skip_link && !has_bypass_blocks_violation {
+        audit_flags.push(AuditFlag {
+            kind: "bypass_blocks_untested".to_string(),
+            related_rule: Some("a11y.bypass_blocks.missing".to_string()),
+            source: "a11y_journey.skip_link".to_string(),
+            message: "A skip link is present (WCAG 2.4.1 static check passed) but the \
+                journey found it does not move keyboard focus to the target. The page \
+                effectively fails WCAG 2.4.1 — verify and fix the skip-link target."
+                .to_string(),
+        });
+    }
+
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = {
         // Risk thresholds reflect total affected elements (occurrence_counts),
@@ -1109,13 +1242,11 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             .filter(|f| f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
             .map(|f| f.occurrence_count)
             .sum::<usize>();
-        let interactive_critical_issues = report
-            .interactive_findings
+        let interactive_critical_issues = interactive_findings
             .iter()
             .filter(|f| f.severity == Severity::Critical)
             .count();
-        let interactive_high_issues = report
-            .interactive_findings
+        let interactive_high_issues = interactive_findings
             .iter()
             .filter(|f| f.severity == Severity::High)
             .count();
@@ -1124,7 +1255,8 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             + critical_issues as u32 * 10
             + high_issues as u32 * 3
             + blocking_issues as u32 * 2
-            + interactive_critical_issues as u32 * 10)
+            + interactive_critical_issues as u32 * 10
+            + interactive_high_issues as u32 * 5)
             .min(100);
 
         // Risk level — explicit precedence; legal_flags and blocking_issues both
@@ -1138,6 +1270,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
             || legal_flags > 0
             || blocking_issues >= 1
             || interactive_critical_issues > 0
+            || interactive_high_issues > 0
             || score <= 20
         {
             RiskLevel::Medium
@@ -1210,6 +1343,15 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
                             interactive_critical_issues,
                             "kritischer Befund",
                             "kritische Befunde"
+                        )
+                    )
+                } else if interactive_high_issues > 0 {
+                    format!(
+                        "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
+                        plural(
+                            interactive_high_issues,
+                            "schwerwiegender Befund",
+                            "schwerwiegende Befunde"
                         )
                     )
                 } else {
@@ -1298,7 +1440,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         viewport_scores: report.viewport_scores.clone(),
         score_calculation_method,
         score_breakdown,
-        interactive_findings: report.interactive_findings.clone(),
+        interactive_findings,
         accessibility_journey: report.accessibility_journey.clone(),
         advisory_findings: report.advisory_findings.clone(),
         raw_performance: report.performance.clone(),
@@ -1525,6 +1667,34 @@ mod tests {
         assert_eq!(norm.severity_counts.total, 0);
         assert_eq!(norm.score, 100);
         assert_eq!(norm.risk.interactive_critical_issues, 1);
+    }
+
+    #[test]
+    fn high_interactive_finding_raises_risk_without_wcag_counts() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        report.interactive_findings.push(InteractiveFinding {
+            category: "SkipLink".to_string(),
+            maps_to_finding: None,
+            severity: Severity::High,
+            journey: "skip-link".to_string(),
+            before_snapshot_label: None,
+            after_snapshot_label: None,
+            message: "Skip link is present but does not move focus to the target.".to_string(),
+            fix_suggestion: None,
+        });
+
+        let norm = normalize(&report);
+
+        assert_eq!(norm.risk.level, RiskLevel::Medium);
+        assert_eq!(norm.risk.score, 5);
+        assert_eq!(norm.risk.interactive_high_issues, 1);
+        assert_eq!(norm.severity_counts.total, 0);
+        assert_eq!(norm.score, 100);
     }
 
     #[test]

@@ -262,7 +262,7 @@ fn build_single_assessment_text(locale: &str, score: u32, severity: &SeverityBlo
         if en {
             "Technically solid, but legally risky".to_string()
         } else {
-            "Technisch solide, aber rechtlich riskant".to_string()
+            "Technisch stabil, aber rechtlich riskant".to_string()
         }
     } else if has_high {
         if en {
@@ -279,7 +279,7 @@ fn build_single_assessment_text(locale: &str, score: u32, severity: &SeverityBlo
     } else if en {
         "Solid foundation with room to optimize".to_string()
     } else {
-        "Solide Grundlage mit Optimierungspotenzial".to_string()
+        "Stabile Grundlage mit Optimierungspotenzial".to_string()
     }
 }
 
@@ -345,7 +345,9 @@ fn build_single_key_points_text(
         if en {
             points.push("No Level A violations, but structural weaknesses".to_string());
         } else {
-            points.push("Keine Level-A-Verstöße, aber strukturelle Schwächen".to_string());
+            points.push(
+                "Keine Level-A-Verstöße, aber strukturelle Optimierungspotenziale".to_string(),
+            );
         }
     } else if !normalized.audit_flags.is_empty() {
         if en {

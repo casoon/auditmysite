@@ -116,7 +116,7 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
         let example_str = examples.join(", ");
         findings.push(InteractiveFinding {
             category: "LinkText".to_string(),
-            maps_to_finding: None,
+            maps_to_finding: Some("a11y.link_purpose.weak".to_string()),
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
@@ -151,7 +151,7 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             .collect();
         findings.push(InteractiveFinding {
             category: "LinkText".to_string(),
-            maps_to_finding: None,
+            maps_to_finding: Some("a11y.link_purpose.weak".to_string()),
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,

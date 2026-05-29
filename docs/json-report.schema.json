@@ -323,7 +323,7 @@
     },
     "riskAssessment": {
       "type": "object",
-      "required": ["level", "score", "threshold", "driven_by", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "summary"],
+      "required": ["level", "score", "threshold", "driven_by", "critical_issues", "high_issues", "legal_flags", "blocking_issues", "interactive_critical_issues", "interactive_high_issues", "summary"],
       "additionalProperties": false,
       "properties": {
         "level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
@@ -334,6 +334,8 @@
         "high_issues": { "type": "integer", "minimum": 0 },
         "legal_flags": { "type": "integer", "minimum": 0 },
         "blocking_issues": { "type": "integer", "minimum": 0 },
+        "interactive_critical_issues": { "type": "integer", "minimum": 0 },
+        "interactive_high_issues": { "type": "integer", "minimum": 0 },
         "summary": { "type": "string" }
       }
     }
