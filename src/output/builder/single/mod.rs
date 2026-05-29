@@ -32,8 +32,8 @@ use crate::wcag::Severity;
 use super::actions::{derive_action_plan, humanize_action_text, impact_score};
 use super::helpers::{
     build_benchmark_context, build_business_consequence, build_consequence_text,
-    build_overall_impact, build_score_note, build_technical_overview, build_verdict_text,
-    extract_domain, localized_report_subtitle, localized_report_title,
+    build_overall_impact, build_score_note, build_verdict_text, extract_domain,
+    localized_report_subtitle, localized_report_title,
 };
 
 /// Build a complete ViewModel from a normalized report (single source of truth for score/grade/certificate)
@@ -103,7 +103,17 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let audit_summary = analyze_with_locale(normalized, &config.locale);
     let maturity_label = audit_summary.site_state.label_localized(&i18n);
     let problem_type = audit_summary.problem_type_label.clone();
-    let mut technical_overview = build_technical_overview(&config.locale, normalized);
+    let mut technical_overview: Vec<String> = normalized
+        .interpretation
+        .as_ref()
+        .map(|interp| {
+            interp
+                .technical_overview
+                .iter()
+                .map(|t| t.for_locale(&config.locale).to_string())
+                .collect()
+        })
+        .unwrap_or_default();
     for cross in &audit_summary.cross_impacts {
         technical_overview.push(format!(
             "Cross-Impact {}: {}",

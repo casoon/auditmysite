@@ -676,6 +676,7 @@ mod tests {
             interactive_findings: Vec::new(),
             accessibility_journey: None,
             advisory_findings: Vec::new(),
+            interpretation: None,
             raw_performance: None,
             raw_performance_desktop: None,
             raw_seo: None,

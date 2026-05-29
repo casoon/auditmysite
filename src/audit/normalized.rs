@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::audit::interpretation::Interpretation;
 use crate::audit::report::{AuditReport, PerformanceResults, ViewportScores};
 use crate::audit::scoring::{AccessibilityScorer, PrincipleCoverage};
 use crate::cli::WcagLevel;
@@ -87,6 +88,12 @@ pub struct NormalizedReport {
     /// risk — explicitly advisory.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub advisory_findings: Vec<AdvisoryFinding>,
+
+    /// Pre-computed interpretation (evaluation texts, score bands). Always
+    /// present after `normalize()`. Skipped in the `#[serde(skip)]` raw fields
+    /// below so it IS serialized — consumers can read it without recomputing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interpretation: Option<Interpretation>,
 
     /// Rohdaten für Modul-Details (nicht serialisiert)
     #[serde(skip)]
@@ -1426,7 +1433,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     };
     let certificate = gate_certificate_by_risk(certificate, &risk.level);
 
-    NormalizedReport {
+    let mut normalized = NormalizedReport {
         url: report.url.clone(),
         wcag_level: report.wcag_level,
         timestamp: report.timestamp,
@@ -1450,6 +1457,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         interactive_findings,
         accessibility_journey: report.accessibility_journey.clone(),
         advisory_findings: report.advisory_findings.clone(),
+        interpretation: None,
         raw_performance: report.performance.clone(),
         raw_performance_desktop: report
             .dual_viewport
@@ -1469,7 +1477,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_patterns: report.patterns.clone(),
         raw_throttled_performance: report.throttled_performance.clone(),
         raw_best_practices: report.best_practices.clone(),
-    }
+    };
+    normalized.interpretation = Some(Interpretation::from_report(&normalized));
+    normalized
 }
 
 fn calculate_priority_score(severity: Severity, occurrence_count: usize, rule_id: &str) -> f32 {

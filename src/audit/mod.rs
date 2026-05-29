@@ -10,6 +10,7 @@ pub mod budget;
 pub mod catalog;
 mod crawl;
 pub mod duplicate;
+pub mod interpretation;
 pub mod module;
 pub mod normalized;
 mod pipeline;
