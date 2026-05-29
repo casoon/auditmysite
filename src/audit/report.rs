@@ -712,9 +712,9 @@ impl BatchReport {
         total_duration_ms: u64,
     ) -> Self {
         let total_urls = reports.len();
-        let normalized_reports: Vec<_> = reports
+        let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = reports
             .iter()
-            .map(crate::audit::normalized::normalize)
+            .map(|r| crate::audit::normalized::normalize(r).normalized)
             .collect();
         // Pass criterion: accessibility score ≥ 80, no critical findings, and
         // no WCAG-Level-A high/critical findings (i.e. no legal exposure).
@@ -1021,7 +1021,7 @@ mod tests {
             100,
         ));
 
-        let (rules, violated_count) = compute_recurring_rules(&[r1, r2]);
+        let (rules, violated_count) = compute_recurring_rules(&[r1.normalized, r2.normalized]);
         assert_eq!(violated_count, 1, "one distinct rule fired");
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].affected_pages, 2, "rule appeared on both pages");
@@ -1061,7 +1061,7 @@ mod tests {
             50,
         ));
 
-        let risk = compute_worst_risk(&[empty, risky]);
+        let risk = compute_worst_risk(&[empty.normalized, risky.normalized]);
         // Risky page should pull the batch to at least Medium or higher
         assert!(
             matches!(

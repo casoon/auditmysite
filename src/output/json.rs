@@ -8,7 +8,7 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::audit::{
     compute_recurring_rules, AccessibilityScorer, AuditReport, BatchReport, RecurringRule,
     SampleMetadata,
@@ -24,13 +24,13 @@ const SCHEMA_VERSION: &str = "2.0";
 
 // ─── Public entry points ──────────────────────────────────────────────────────
 
-/// Generate single-report JSON from a normalized report.
+/// Generate single-report JSON from a live audit context.
 pub fn format_json_normalized(
-    normalized: &NormalizedReport,
+    ctx: &AuditContext,
     report: &AuditReport,
     pretty: bool,
 ) -> Result<String> {
-    UnifiedReport::single(normalized, report).to_json(pretty)
+    UnifiedReport::single(ctx, report).to_json(pretty)
 }
 
 /// Generate single-report JSON from cached normalized data only.
@@ -299,7 +299,7 @@ pub struct ReportMetadata {
 
 impl UnifiedReport {
     /// Build a single-page report with full module detail.
-    pub fn single(normalized: &NormalizedReport, raw: &AuditReport) -> Self {
+    pub fn single(ctx: &AuditContext, raw: &AuditReport) -> Self {
         let mut collection_errors: Vec<ReportError> = Vec::new();
 
         let budget_violations = raw
@@ -331,19 +331,19 @@ impl UnifiedReport {
                 .ok(),
         };
 
-        let ctx = DetailContext {
+        let detail_ctx = DetailContext {
             budget_violations,
             screenshot_status,
             collection_errors,
         };
-        let page = build_page(normalized, Some(ctx));
-        Self::wrap_single(normalized, page)
+        let page = build_page(ctx, Some(ctx), Some(detail_ctx));
+        Self::wrap_single(ctx, page)
     }
 
     /// Build a single-page report from cached normalized data only.
     pub fn single_from_normalized(normalized: &NormalizedReport) -> Self {
-        let page = build_page(normalized, Some(DetailContext::default()));
-        Self::wrap_single(normalized, page)
+        let page = build_page(normalized, None, Some(DetailContext::default()));
+        Self::wrap_single_from_normalized(normalized, page)
     }
 
     /// Build a batch report — one summary page per URL, no `detail`.
@@ -351,14 +351,14 @@ impl UnifiedReport {
         let normalized_reports: Vec<NormalizedReport> = batch_report
             .reports
             .iter()
-            .map(crate::audit::normalize)
+            .map(|r| crate::audit::normalize(r).normalized)
             .collect();
         let presentation = build_batch_presentation(batch_report);
 
         let pages: Vec<PageEntry> = normalized_reports
             .iter()
             .map(|n| {
-                let mut page = build_page(n, None);
+                let mut page = build_page(n, None, None);
                 page.detail = Some(build_batch_detail(n));
                 page
             })
@@ -458,10 +458,82 @@ impl UnifiedReport {
         })
     }
 
-    fn wrap_single(normalized: &NormalizedReport, page: PageEntry) -> Self {
-        // Single-report pass criterion mirrors the batch criterion (issue #253):
-        // accessibility score ≥ 80, no critical findings, no WCAG-Level-A
-        // high/critical findings (no legal exposure).
+    fn wrap_single(ctx: &AuditContext, page: PageEntry) -> Self {
+        let no_legal_flags = !page.findings.iter().any(|f| {
+            f.wcag_level == "A"
+                && matches!(
+                    f.severity,
+                    crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
+                )
+        });
+        let passed = usize::from(
+            page.overall_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+        );
+        let violated_rule_count = page.violated_rule_count;
+        let (top_recurring_rules, _) =
+            compute_recurring_rules(std::slice::from_ref(&ctx.normalized));
+        let summary = UnifiedSummary {
+            url_count: 1,
+            accessibility_score: page.accessibility_score,
+            overall_score: page.overall_score,
+            grade: page.grade.clone(),
+            certificate: page.certificate.clone(),
+            risk_level: page.risk.level,
+            violation_count: page.violation_count,
+            severity_counts: page.severity_counts.clone(),
+            severity_counts_scope: "wcag_only".to_string(),
+            occurrence_counts: page.occurrence_counts.clone(),
+            passed_url_count: passed,
+            failed_url_count: 1 - passed,
+            violated_rule_count,
+            top_recurring_rules,
+            performance_score: normalized_module_score(ctx, "Performance"),
+            seo_score: normalized_module_score(ctx, "SEO"),
+            security_score: normalized_module_score(ctx, "Security"),
+            mobile_score: normalized_module_score(ctx, "Mobile"),
+            ux_score: normalized_module_score(ctx, "UX"),
+            journey_score: normalized_module_score(ctx, "Journey"),
+            performance_throttled_avg_score: {
+                let scores: Vec<u32> = ctx
+                    .raw_throttled_performance
+                    .iter()
+                    .map(|t| t.score)
+                    .collect();
+                if scores.is_empty() {
+                    None
+                } else {
+                    Some(scores.iter().sum::<u32>() / scores.len() as u32)
+                }
+            },
+            lh_mobile_score: ctx
+                .raw_throttled_performance
+                .iter()
+                .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
+                .map(|t| t.score),
+        };
+
+        UnifiedReport {
+            schema_version: SCHEMA_VERSION,
+            report_type: "single",
+            tool_version: env!("CARGO_PKG_VERSION"),
+            metadata: ReportMetadata {
+                tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
+                timestamp: ctx.timestamp,
+                wcag_level: ctx.wcag_level.to_string(),
+                execution_time_ms: ctx.duration_ms,
+            },
+            summary,
+            sample: None,
+            pages: vec![page],
+            url_matrix: Vec::new(),
+            crawl_diagnostics: None,
+            errors: Vec::new(),
+            collection_errors: Vec::new(),
+        }
+    }
+
+    /// Wrap a single page (cached/from-normalized path — no raw module data available).
+    fn wrap_single_from_normalized(normalized: &NormalizedReport, page: PageEntry) -> Self {
         let no_legal_flags = !page.findings.iter().any(|f| {
             f.wcag_level == "A"
                 && matches!(
@@ -495,23 +567,8 @@ impl UnifiedReport {
             mobile_score: normalized_module_score(normalized, "Mobile"),
             ux_score: normalized_module_score(normalized, "UX"),
             journey_score: normalized_module_score(normalized, "Journey"),
-            performance_throttled_avg_score: {
-                let scores: Vec<u32> = normalized
-                    .raw_throttled_performance
-                    .iter()
-                    .map(|t| t.score)
-                    .collect();
-                if scores.is_empty() {
-                    None
-                } else {
-                    Some(scores.iter().sum::<u32>() / scores.len() as u32)
-                }
-            },
-            lh_mobile_score: normalized
-                .raw_throttled_performance
-                .iter()
-                .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
-                .map(|t| t.score),
+            performance_throttled_avg_score: None,
+            lh_mobile_score: None,
         };
 
         UnifiedReport {
@@ -543,11 +600,21 @@ struct DetailContext {
     collection_errors: Vec<ReportError>,
 }
 
-/// Build a [`PageEntry`]. `ctx` `Some` builds the full single-report `detail`;
-/// `None` leaves `detail` unset (batch callers attach a compact detail via
-/// [`build_batch_detail`]).
-fn build_page(normalized: &NormalizedReport, ctx: Option<DetailContext>) -> PageEntry {
-    let detail = ctx.map(|ctx| build_detail(normalized, ctx));
+/// Build a [`PageEntry`]. `audit_ctx` `Some` builds the full single-report `detail`
+/// using raw module data; `None` builds a minimal cached detail.
+/// `detail_ctx` `None` leaves `detail` unset (batch callers attach a compact detail).
+fn build_page(
+    normalized: &NormalizedReport,
+    audit_ctx: Option<&AuditContext>,
+    detail_ctx: Option<DetailContext>,
+) -> PageEntry {
+    let detail = detail_ctx.map(|d| {
+        if let Some(ctx) = audit_ctx {
+            build_detail(ctx, d)
+        } else {
+            build_detail_cached(normalized, d)
+        }
+    });
 
     PageEntry {
         url: normalized.url.clone(),
@@ -603,9 +670,25 @@ fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
     }
 }
 
-fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail {
-    let vm = build_view_model(normalized, &ReportConfig::default());
-    let mut errors = ctx.collection_errors;
+/// Minimal detail for the cached/from-normalized path — no raw module data available.
+fn build_detail_cached(normalized: &NormalizedReport, detail_ctx: DetailContext) -> PageDetail {
+    PageDetail {
+        fix_guidance: build_fix_guidance(normalized),
+        modules: ModuleBlob::default(),
+        confidence_summary: Vec::new(),
+        capabilities: Vec::new(),
+        viewport_scores: normalized.viewport_scores.clone(),
+        budget_violations: detail_ctx.budget_violations,
+        throttled_performance: Vec::new(),
+        screenshot_status: detail_ctx.screenshot_status,
+        collection_errors: detail_ctx.collection_errors,
+    }
+}
+
+fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
+    let vm = build_view_model(ctx, &ReportConfig::default());
+    let normalized: &NormalizedReport = ctx;
+    let mut errors = detail_ctx.collection_errors;
 
     let wcag_findings: Vec<_> = normalized
         .findings
@@ -618,7 +701,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
         .filter(|f| f.category == "seo")
         .collect();
 
-    let tech_stack = normalized.raw_tech_stack.as_ref().and_then(|m| {
+    let tech_stack = ctx.raw_tech_stack.as_ref().and_then(|m| {
         serde_json::to_value(m)
             .map_err(|e| {
                 errors.push(ReportError {
@@ -630,7 +713,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             .ok()
     });
 
-    let patterns = normalized.raw_patterns.as_ref().map(|m| {
+    let patterns = ctx.raw_patterns.as_ref().map(|m| {
         let total = m.recognized.len() + m.violations.len();
         let pattern_score: u32 = if total > 0 {
             (m.recognized.len() as u32 * 100) / total as u32
@@ -663,7 +746,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
 
     let throttled_performance: Vec<serde_json::Value> = {
         let mut acc = Vec::new();
-        for v in normalized.raw_throttled_performance.iter() {
+        for v in ctx.raw_throttled_performance.iter() {
             match serde_json::to_value(v) {
                 Ok(json) => acc.push(json),
                 Err(e) => errors.push(ReportError {
@@ -676,7 +759,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
         acc
     };
 
-    let seo = normalized.raw_seo.as_ref().map(|m| {
+    let seo = ctx.raw_seo.as_ref().map(|m| {
         let mut v = with_normalized_score(m.to_json(), normalized, "SEO");
         let findings_value = match serde_json::to_value(&seo_findings) {
             Ok(json) => json,
@@ -703,42 +786,42 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             "principle_coverage": normalized.principle_coverage,
             "findings": wcag_findings,
         })),
-        performance: normalized.raw_performance.as_ref().map(|m| {
+        performance: ctx.raw_performance.as_ref().map(|m| {
             inject_unused_js_bytes(
                 with_normalized_score(m.to_json(), normalized, "Performance"),
                 m,
             )
         }),
         seo,
-        security: normalized
+        security: ctx
             .raw_security
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Security")),
-        mobile: normalized
+        mobile: ctx
             .raw_mobile
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Mobile")),
-        ux: normalized
+        ux: ctx
             .raw_ux
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "UX")),
-        journey: normalized
+        journey: ctx
             .raw_journey
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Journey")),
-        dark_mode: normalized
+        dark_mode: ctx
             .raw_dark_mode
             .as_ref()
             .map(|m| inject_grade(m.to_json(), m.score)),
-        source_quality: normalized
+        source_quality: ctx
             .raw_source_quality
             .as_ref()
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),
-        ai_visibility: normalized
+        ai_visibility: ctx
             .raw_ai_visibility
             .as_ref()
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),
-        content_visibility: normalized.raw_content_visibility.as_ref().and_then(|m| {
+        content_visibility: ctx.raw_content_visibility.as_ref().and_then(|m| {
             // Only emit when SEO data was available — all signal sections are empty
             // without --full, which is misleading.
             if m.signal_count == 0 {
@@ -760,7 +843,7 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
         }),
         tech_stack,
         patterns,
-        best_practices: normalized
+        best_practices: ctx
             .raw_best_practices
             .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Best Practices")),
@@ -791,9 +874,9 @@ fn build_detail(normalized: &NormalizedReport, ctx: DetailContext) -> PageDetail
             })
             .collect(),
         viewport_scores: normalized.viewport_scores.clone(),
-        budget_violations: ctx.budget_violations,
+        budget_violations: detail_ctx.budget_violations,
         throttled_performance,
-        screenshot_status: ctx.screenshot_status,
+        screenshot_status: detail_ctx.screenshot_status,
         collection_errors: errors,
     }
 }
@@ -1250,7 +1333,7 @@ mod tests {
         use crate::audit::normalized::RiskLevel;
         use crate::wcag::WcagResults;
         // No critical/high/medium pages — result must be Low
-        let reports: Vec<_> = (0..3)
+        let reports: Vec<crate::audit::normalized::NormalizedReport> = (0..3)
             .map(|_| {
                 crate::audit::normalized::normalize(&AuditReport::new(
                     "https://example.com".to_string(),
@@ -1258,6 +1341,7 @@ mod tests {
                     WcagResults::new(),
                     100,
                 ))
+                .normalized
             })
             .collect();
         let result = compute_worst_risk(&reports);
@@ -1522,7 +1606,7 @@ mod tests {
             100,
         );
         let normalized = normalize(&report);
-        let page = super::build_page(&normalized, None);
+        let page = super::build_page(&normalized, None, None);
         let json_str = serde_json::to_string(&page).unwrap();
         let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
         assert!(

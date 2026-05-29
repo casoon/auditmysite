@@ -1,4 +1,4 @@
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::report_model::{
     ActionPlan, ExecutiveNarrativeBlock, FindingGroup, PositiveSignal, PositiveSignalsBlock,
@@ -11,7 +11,7 @@ use super::super::helpers::{build_business_consequence, build_overall_impact};
 /// description (already human-readable from the detector).
 pub(super) fn build_positive_signals(
     locale: &str,
-    normalized: &NormalizedReport,
+    normalized: &AuditContext,
 ) -> PositiveSignalsBlock {
     let en = locale == "en";
     let mut items: Vec<PositiveSignal> = normalized

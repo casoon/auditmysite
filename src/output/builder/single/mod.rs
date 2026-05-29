@@ -22,7 +22,7 @@ use self::modules_block::build_modules_block_from_normalized;
 use self::positive::derive_positive_aspects_from_normalized;
 use super::helpers::localized_module_name;
 
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::AuditContext;
 use crate::audit::summary::analyze_with_locale;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
@@ -36,8 +36,9 @@ use super::helpers::{
     localized_report_subtitle, localized_report_title,
 };
 
-/// Build a complete ViewModel from a normalized report (single source of truth for score/grade/certificate)
-pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) -> ReportViewModel {
+/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
+/// For the cached/deserialized path, use `build_view_model_from_normalized` instead.
+pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> ReportViewModel {
     let i18n = I18n::new(&config.locale)
         .or_else(|_| I18n::new("de"))
         .expect("default locale must always load");
@@ -171,23 +172,14 @@ pub fn build_view_model(normalized: &NormalizedReport, config: &ReportConfig) ->
     let action_plan = derive_action_plan(&i18n, &sorted_groups);
 
     let mut module_names: Vec<String> = vec![localized_module_name("Accessibility", &i18n)];
-    if normalized.raw_performance.is_some() {
-        module_names.push(localized_module_name("Performance", &i18n));
-    }
-    if normalized.raw_seo.is_some() {
-        module_names.push(localized_module_name("SEO", &i18n));
-    }
-    if normalized.raw_security.is_some() {
-        module_names.push(localized_module_name("Security", &i18n));
-    }
-    if normalized.raw_mobile.is_some() {
-        module_names.push(localized_module_name("Mobile", &i18n));
-    }
-    if normalized.raw_ux.is_some() {
-        module_names.push(localized_module_name("UX", &i18n));
-    }
-    if normalized.raw_journey.is_some() {
-        module_names.push(localized_module_name("Journey", &i18n));
+    for module_name in &["Performance", "SEO", "Security", "Mobile", "UX", "Journey"] {
+        if normalized
+            .module_scores
+            .iter()
+            .any(|m| m.name == *module_name)
+        {
+            module_names.push(localized_module_name(module_name, &i18n));
+        }
     }
 
     let (component_issues, component_occurrences) = sorted_groups

@@ -281,9 +281,10 @@ fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<Cros
     let en = locale == "en";
 
     let has_weak_seo = normalized
-        .raw_seo
-        .as_ref()
-        .map(|s| s.score < 65)
+        .module_scores
+        .iter()
+        .find(|m| m.name == "SEO")
+        .map(|m| m.score < 65)
         .unwrap_or(false);
     let has_heading_issues = normalized.findings.iter().any(|f| {
         f.rule_id.to_lowercase().contains("heading")
@@ -302,13 +303,15 @@ fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<Cros
     }
 
     let has_security_issues = normalized
-        .raw_security
-        .as_ref()
-        .map(|s| s.score < 60)
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Security")
+        .map(|m| m.score < 60)
         .unwrap_or(false);
     let has_mobile_issues = normalized
-        .raw_mobile
-        .as_ref()
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Mobile")
         .map(|m| m.score < 60)
         .unwrap_or(false);
     if has_security_issues && has_mobile_issues {
@@ -323,9 +326,10 @@ fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<Cros
     }
 
     let has_perf_issues = normalized
-        .raw_performance
-        .as_ref()
-        .map(|p| p.score.overall < 60)
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Performance")
+        .map(|m| m.score < 60)
         .unwrap_or(false);
     if has_perf_issues && has_mobile_issues {
         impacts.push(CrossImpact {
@@ -677,11 +681,6 @@ mod tests {
             accessibility_journey: None,
             advisory_findings: Vec::new(),
             interpretation: None,
-            raw_performance: None,
-            raw_performance_desktop: None,
-            raw_seo: None,
-            raw_security: None,
-            raw_mobile: None,
             risk: crate::audit::normalized::RiskAssessment {
                 level: crate::audit::normalized::RiskLevel::Low,
                 score: 0,
@@ -696,17 +695,6 @@ mod tests {
                 summary: String::new(),
             },
             principle_coverage: crate::audit::scoring::AccessibilityScorer::calculate_coverage(&[]),
-            raw_ux: None,
-            raw_journey: None,
-            raw_dark_mode: None,
-            raw_source_quality: None,
-            raw_ai_visibility: None,
-            raw_tech_stack: None,
-            raw_content_visibility: None,
-            raw_wcag: crate::wcag::WcagResults::new(),
-            raw_patterns: None,
-            raw_throttled_performance: Vec::new(),
-            raw_best_practices: None,
         }
     }
 

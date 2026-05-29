@@ -31,7 +31,11 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 /// Locale-aware variant of [`build_batch_presentation`].
 pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
     // Normalize all reports early — needed for overall scores, risk, module averages
-    let normalized_reports: Vec<_> = batch.reports.iter().map(normalize).collect();
+    let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = batch
+        .reports
+        .iter()
+        .map(|r| normalize(r).normalized)
+        .collect();
     let collected = collect_batch_finding_groups(&normalized_reports, i18n);
     // Deduplicate findings with the same title across rule sources; prefer
     // non-"unknown." rule_ids, merge occurrence counts.

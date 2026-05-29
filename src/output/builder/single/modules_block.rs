@@ -1,4 +1,4 @@
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::report_model::{ModuleScore, ModulesBlock};
 
@@ -24,7 +24,7 @@ fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &s
 
 pub(super) fn build_modules_block_from_normalized(
     i18n: &I18n,
-    normalized: &NormalizedReport,
+    normalized: &AuditContext,
 ) -> ModulesBlock {
     let locale = i18n.locale();
     let a11y_score = normalized.score as f32;

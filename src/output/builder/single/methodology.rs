@@ -345,7 +345,11 @@ fn build_capability_matrix(locale: &str, normalized: &NormalizedReport) -> Vec<C
             } else {
                 "Performance-Modul".into()
             },
-            confidence: if normalized.raw_performance.is_some() {
+            confidence: if normalized
+                .module_scores
+                .iter()
+                .any(|m| m.name == "Performance")
+            {
                 confidence_high.to_string()
             } else {
                 confidence_off.to_string()
@@ -368,7 +372,7 @@ fn build_capability_matrix(locale: &str, normalized: &NormalizedReport) -> Vec<C
             } else {
                 "SEO-Modul".into()
             },
-            confidence: if normalized.raw_seo.is_some() {
+            confidence: if normalized.module_scores.iter().any(|m| m.name == "SEO") {
                 confidence_solid.to_string()
             } else {
                 confidence_off.to_string()
@@ -392,7 +396,11 @@ fn build_capability_matrix(locale: &str, normalized: &NormalizedReport) -> Vec<C
             } else {
                 "Security-Modul".into()
             },
-            confidence: if normalized.raw_security.is_some() {
+            confidence: if normalized
+                .module_scores
+                .iter()
+                .any(|m| m.name == "Security")
+            {
                 confidence_high.to_string()
             } else {
                 confidence_off.to_string()

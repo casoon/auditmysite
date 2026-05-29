@@ -94,40 +94,45 @@ pub struct NormalizedReport {
     /// below so it IS serialized — consumers can read it without recomputing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interpretation: Option<Interpretation>,
+}
 
-    /// Rohdaten für Modul-Details (nicht serialisiert)
-    #[serde(skip)]
+/// In-memory wrapper for a live audit run.
+///
+/// Holds the serializable `NormalizedReport` plus the raw module results needed
+/// by output builders. Distinct from `NormalizedReport`: a deserialized
+/// `NormalizedReport` is a complete, valid snapshot without raw data, whereas
+/// `AuditContext` always carries live module results alongside it.
+pub struct AuditContext {
+    pub normalized: NormalizedReport,
     pub raw_performance: Option<PerformanceResults>,
-    #[serde(skip)]
     pub raw_performance_desktop: Option<PerformanceResults>,
-    #[serde(skip)]
     pub raw_seo: Option<SeoAnalysis>,
-    #[serde(skip)]
     pub raw_security: Option<SecurityAnalysis>,
-    #[serde(skip)]
     pub raw_mobile: Option<MobileFriendliness>,
-    #[serde(skip)]
     pub raw_ux: Option<crate::ux::UxAnalysis>,
-    #[serde(skip)]
     pub raw_journey: Option<crate::journey::JourneyAnalysis>,
-    #[serde(skip)]
     pub raw_dark_mode: Option<DarkModeAnalysis>,
-    #[serde(skip)]
     pub raw_source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
-    #[serde(skip)]
     pub raw_ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
-    #[serde(skip)]
     pub raw_tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
-    #[serde(skip)]
     pub raw_content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
-    #[serde(skip)]
     pub raw_wcag: WcagResults,
-    #[serde(skip)]
     pub raw_patterns: Option<crate::patterns::PatternAnalysis>,
-    #[serde(skip)]
     pub raw_throttled_performance: Vec<crate::audit::report::ThrottledPerfResult>,
-    #[serde(skip)]
     pub raw_best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
+}
+
+impl std::ops::Deref for AuditContext {
+    type Target = NormalizedReport;
+    fn deref(&self) -> &NormalizedReport {
+        &self.normalized
+    }
+}
+
+impl std::ops::DerefMut for AuditContext {
+    fn deref_mut(&mut self) -> &mut NormalizedReport {
+        &mut self.normalized
+    }
 }
 
 /// Einheitliche Severity-Zähler
@@ -526,7 +531,7 @@ pub struct AuditFlag {
 /// - Gruppert Violations nach Regel-ID
 /// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
 /// - Berechnet Grade/Certificate aus korrigiertem Score
-pub fn normalize(report: &AuditReport) -> NormalizedReport {
+pub fn normalize(report: &AuditReport) -> AuditContext {
     let violations = &report.wcag_results.violations;
 
     let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
@@ -1439,7 +1444,7 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
     };
     let certificate = gate_certificate_by_risk(certificate, &risk.level);
 
-    let mut normalized = NormalizedReport {
+    let normalized_data = NormalizedReport {
         url: report.url.clone(),
         wcag_level: report.wcag_level,
         timestamp: report.timestamp,
@@ -1464,6 +1469,9 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         accessibility_journey: report.accessibility_journey.clone(),
         advisory_findings: report.advisory_findings.clone(),
         interpretation: None,
+    };
+    let mut ctx = AuditContext {
+        normalized: normalized_data,
         raw_performance: report.performance.clone(),
         raw_performance_desktop: report
             .dual_viewport
@@ -1484,8 +1492,8 @@ pub fn normalize(report: &AuditReport) -> NormalizedReport {
         raw_throttled_performance: report.throttled_performance.clone(),
         raw_best_practices: report.best_practices.clone(),
     };
-    normalized.interpretation = Some(Interpretation::from_report(&normalized));
-    normalized
+    ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
+    ctx
 }
 
 fn calculate_priority_score(severity: Severity, occurrence_count: usize, rule_id: &str) -> f32 {

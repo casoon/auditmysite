@@ -16,7 +16,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::audit::normalized::{NormalizedReport, RiskLevel};
+use crate::audit::normalized::{AuditContext, RiskLevel};
 use crate::audit::AuditReport;
 use crate::output::builder::build_view_model;
 use crate::output::report_model::ReportConfig;
@@ -122,7 +122,7 @@ impl StudioAuditResponse {
     /// The `json_report` must be pre-rendered — this function does not
     /// call the JSON formatter itself to avoid circular dependencies.
     pub fn from_normalized(
-        normalized: &NormalizedReport,
+        normalized: &AuditContext,
         _report: &AuditReport,
         json_report: String,
     ) -> Self {

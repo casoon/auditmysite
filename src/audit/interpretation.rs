@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::AuditContext;
 
 // ── LocalizedText ─────────────────────────────────────────────────────────────
 
@@ -95,16 +95,16 @@ pub struct Interpretation {
 }
 
 impl Interpretation {
-    pub fn from_report(report: &NormalizedReport) -> Self {
-        let technical_overview = build_technical_overview_localized(report);
-        let per_module = build_per_module_localized(report);
-        let overall_score_band = ScoreBand::from_score(report.score as f32);
-        let overall_impact = build_overall_impact_localized(report);
-        let benchmark_context = build_benchmark_context_localized(report.overall_score as f32);
-        let business_consequence_key = pick_business_consequence_key(report);
-        let consequence_key = pick_consequence_key(report);
-        let verdict_key = pick_verdict_key(report.overall_score as f32);
-        let score_note_key = pick_score_note_key(report);
+    pub fn from_context(ctx: &AuditContext) -> Self {
+        let technical_overview = build_technical_overview_localized(ctx);
+        let per_module = build_per_module_localized(ctx);
+        let overall_score_band = ScoreBand::from_score(ctx.score as f32);
+        let overall_impact = build_overall_impact_localized(ctx);
+        let benchmark_context = build_benchmark_context_localized(ctx.overall_score as f32);
+        let business_consequence_key = pick_business_consequence_key(ctx);
+        let consequence_key = pick_consequence_key(ctx);
+        let verdict_key = pick_verdict_key(ctx.overall_score as f32);
+        let score_note_key = pick_score_note_key(ctx);
         let batch_verdict_key = String::new();
 
         Self {
@@ -277,7 +277,7 @@ pub fn interpret_score_localized(area: InterpretArea, score: f32) -> LocalizedTe
 
 // ── Private builders ──────────────────────────────────────────────────────────
 
-fn build_technical_overview_localized(normalized: &NormalizedReport) -> Vec<LocalizedText> {
+fn build_technical_overview_localized(normalized: &AuditContext) -> Vec<LocalizedText> {
     let mut bullets = Vec::new();
 
     let critical = normalized.severity_counts.critical;
@@ -444,7 +444,7 @@ fn build_technical_overview_localized(normalized: &NormalizedReport) -> Vec<Loca
     bullets
 }
 
-fn build_per_module_localized(normalized: &NormalizedReport) -> HashMap<String, LocalizedText> {
+fn build_per_module_localized(normalized: &AuditContext) -> HashMap<String, LocalizedText> {
     let mut map = HashMap::new();
 
     map.insert(
@@ -491,7 +491,7 @@ fn build_per_module_localized(normalized: &NormalizedReport) -> HashMap<String, 
 }
 
 fn build_overall_impact_localized(
-    normalized: &NormalizedReport,
+    normalized: &AuditContext,
 ) -> Vec<(LocalizedText, LocalizedText)> {
     let score = normalized.score;
     let critical = normalized.severity_counts.critical;
@@ -619,7 +619,7 @@ fn build_benchmark_context_localized(score: f32) -> LocalizedText {
     }
 }
 
-fn pick_business_consequence_key(normalized: &NormalizedReport) -> String {
+fn pick_business_consequence_key(normalized: &AuditContext) -> String {
     let critical = normalized.severity_counts.critical;
     let total = normalized.severity_counts.total;
     let score = normalized.score;
@@ -646,7 +646,7 @@ fn pick_business_consequence_key(normalized: &NormalizedReport) -> String {
     .to_string()
 }
 
-fn pick_consequence_key(normalized: &NormalizedReport) -> String {
+fn pick_consequence_key(normalized: &AuditContext) -> String {
     let critical = normalized.severity_counts.critical;
     let total = normalized.severity_counts.total;
     let score = normalized.score;
@@ -696,7 +696,7 @@ fn pick_verdict_key(score: f32) -> String {
     .to_string()
 }
 
-fn pick_score_note_key(normalized: &NormalizedReport) -> Option<String> {
+fn pick_score_note_key(normalized: &AuditContext) -> Option<String> {
     let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
     if normalized.score >= 90 && critical_topics > 0 {
         Some("score-note-high-with-critical".to_string())

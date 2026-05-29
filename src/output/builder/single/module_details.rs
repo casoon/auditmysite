@@ -1,4 +1,4 @@
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::report_model::{
     AnimationPresentation, CoveragePresentation, CriticalChainPresentation, DarkModePresentation,
@@ -35,7 +35,7 @@ fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &s
 
 pub(super) fn build_module_details_from_normalized(
     i18n: &I18n,
-    normalized: &NormalizedReport,
+    normalized: &AuditContext,
 ) -> ModuleDetailsBlock {
     let locale = i18n.locale();
     let performance = normalized.raw_performance.as_ref().map(|p| {

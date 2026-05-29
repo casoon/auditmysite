@@ -89,6 +89,32 @@ struct SnapshotData {
     best_practices: Option<BestPracticesAnalysis>,
 }
 
+impl SnapshotData {
+    /// Route a `ModuleData` payload into the matching snapshot field.
+    ///
+    /// Called once per collected module after `catalog.collect_all()`. Keeping
+    /// the routing here means adding a new module only requires updating
+    /// `SnapshotData` and this method — not the pipeline loop body.
+    fn apply_module_data(&mut self, data: ModuleData) {
+        match data {
+            ModuleData::None => {}
+            ModuleData::Performance(p) => self.performance = Some(*p),
+            ModuleData::Seo(s) => self.seo = Some(*s),
+            ModuleData::Security(s) => self.security = Some(*s),
+            ModuleData::Mobile(m) => self.mobile = Some(*m),
+            ModuleData::Ux(u) => self.ux = Some(*u),
+            ModuleData::Journey(j) => self.journey = Some(*j),
+            ModuleData::DarkMode(d) => self.dark_mode = Some(*d),
+            ModuleData::TechStack(t) => self.tech_stack = Some(*t),
+            ModuleData::BestPractices(b) => self.best_practices = Some(*b),
+            ModuleData::SourceQuality(_)
+            | ModuleData::AiVisibility(_)
+            | ModuleData::ContentVisibility(_)
+            | ModuleData::Error(_) => {}
+        }
+    }
+}
+
 // ── Pipeline config ───────────────────────────────────────────────────────────
 
 /// Audit pipeline configuration
@@ -763,22 +789,7 @@ async fn extract_snapshot(
     };
 
     for (_id, data) in collected {
-        match data {
-            ModuleData::None => {}
-            ModuleData::Performance(p) => snapshot.performance = Some(*p),
-            ModuleData::Seo(s) => snapshot.seo = Some(*s),
-            ModuleData::Security(s) => snapshot.security = Some(*s),
-            ModuleData::Mobile(m) => snapshot.mobile = Some(*m),
-            ModuleData::Ux(u) => snapshot.ux = Some(*u),
-            ModuleData::Journey(j) => snapshot.journey = Some(*j),
-            ModuleData::DarkMode(d) => snapshot.dark_mode = Some(*d),
-            ModuleData::TechStack(t) => snapshot.tech_stack = Some(*t),
-            ModuleData::BestPractices(b) => snapshot.best_practices = Some(*b),
-            ModuleData::SourceQuality(_)
-            | ModuleData::AiVisibility(_)
-            | ModuleData::ContentVisibility(_)
-            | ModuleData::Error(_) => {}
-        }
+        snapshot.apply_module_data(data);
     }
 
     Ok(snapshot)
@@ -1114,7 +1125,7 @@ fn persist_artifacts(
         mobile: snapshot.mobile.clone(),
     };
     let hash = content_hash(&snapshot_artifact);
-    let normalized = normalize(report);
+    let normalized = normalize(report).normalized;
     let wcag_level = report.wcag_level.to_string();
     let meta = CacheMeta {
         auditmysite_version: env!("CARGO_PKG_VERSION").to_string(),

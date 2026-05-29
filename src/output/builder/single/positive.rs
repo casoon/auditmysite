@@ -1,4 +1,4 @@
-use crate::audit::normalized::NormalizedReport;
+use crate::audit::normalized::AuditContext;
 use crate::output::report_model::{
     ExampleBlock, FindingGroup, FindingPatternCluster, NarrativeArc, PositiveAspect,
     RepresentativeOccurrence, RoleAssignment,
@@ -6,7 +6,7 @@ use crate::output::report_model::{
 
 pub(super) fn derive_positive_aspects_from_normalized(
     locale: &str,
-    normalized: &NormalizedReport,
+    normalized: &AuditContext,
 ) -> Vec<PositiveAspect> {
     let en = locale == "en";
     let mut positives = Vec::new();

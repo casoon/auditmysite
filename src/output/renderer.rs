@@ -20,10 +20,12 @@ impl ReportRenderer for JsonRenderer {
     fn render_single_report(
         &self,
         normalized: &NormalizedReport,
-        raw: &AuditReport,
+        _raw: &AuditReport,
     ) -> Result<String> {
         use crate::output::json::UnifiedReport;
-        UnifiedReport::single(normalized, raw).to_json(self.pretty)
+        // This path is reached from a deserialized/cached NormalizedReport;
+        // raw module data is no longer available, so we use single_from_normalized.
+        UnifiedReport::single_from_normalized(normalized).to_json(self.pretty)
     }
 }
 
