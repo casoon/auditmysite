@@ -127,19 +127,20 @@ Häufige Falle: neue Felder in `NormalizedReport` brechen Struct-Initialisierer 
 
 `renderreport` ist eine eigene Typst-basierte PDF-Library unter `/Users/jseidel/GitHub/renderreport`.
 
-**Dependency-Regel:** Immer als **git-Dependency mit Tag** — niemals als `path`-Dep (bricht CI):
+**Dependency-Regel:** Immer als **crates.io-Dependency mit exakter Version** — niemals als `path`- oder `git`-Dep:
 ```toml
-renderreport = { git = "https://github.com/casoon/renderreport.git", tag = "v0.2.9", optional = true }
+renderreport = { version = "0.2.19", optional = true }
 ```
 
 **Neue Komponente oder Bugfix in renderreport:**
 1. Änderungen in `/Users/jseidel/GitHub/renderreport` vornehmen
-2. Version in `renderreport/Cargo.toml` bumpen (z. B. `0.2.9` → `0.2.10`)
+2. Version in `renderreport/Cargo.toml` bumpen (z. B. `0.2.19` → `0.2.20`)
 3. In renderreport committen und pushen: `git push origin main`
-4. Tag setzen und pushen: `git tag v0.2.10 && git push origin v0.2.10`
-5. In `auditmysite/Cargo.toml` den Tag aktualisieren
-6. `cargo check --features pdf` zur Verifikation
-7. `Cargo.lock` committen
+4. Tag setzen und pushen: `git tag v0.2.20 && git push origin v0.2.20`
+5. Auf crates.io veröffentlichen: `cargo publish --allow-dirty`
+6. In `auditmysite/Cargo.toml` die Version aktualisieren
+7. `cargo check --features pdf` zur Verifikation
+8. `Cargo.lock` committen
 
 **Komponenten** (Rust-Struct + Typst-Template + Registry-Eintrag):
 - Rust-Struct: `src/components/standard.rs` oder `advanced.rs`
@@ -170,6 +171,9 @@ Overall-Erklärung, Modul-Dashboard). Quelle: `src/output/builder/helpers.rs` (`
   Mobile = "Nutzung auf Mobilgeräten" (nicht "mobile Nutzbarkeit").
 - **Beschreibe Wirkung, nicht nur Zustand.** Gute Audit-Sätze decken Zustand + Auswirkung (+ ggf.
   Risiko/Priorität) ab — nicht nur "ist solide".
+- **Aufwand nicht als Zeit ausdrücken.** Keine Zeitfenster oder Fristen für Aufwandsschätzungen
+  nennen ("einige Tage", "1–4 Wochen", "mittelfristig", "innerhalb von Tagen"). Stattdessen nach
+  Aufwand/Priorität formulieren: `geringer Aufwand`, `mittlerer Aufwand`, `strukturelle Änderung`.
 - **Notenbänder (Label-Präfix):** `Sehr gut` (≥90) · `Gut` (≥75) · `Verbesserungswürdig` (≥60) ·
   `Ausbaufähig` (≥40) · `Kritisch` (<40). EN: `Excellent` · `Good` · `Needs improvement` ·
   `Inadequate` · `Critical`. **"Befriedigend" ist verboten** (klingt nach Schulnote).

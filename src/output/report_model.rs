@@ -83,7 +83,7 @@ impl Effort {
     pub fn label(&self) -> &'static str {
         match self {
             Effort::Quick => "Quick Win",
-            Effort::Medium => "Mittelfristig",
+            Effort::Medium => "Mittlerer Aufwand",
             Effort::Structural => "Strukturell",
         }
     }

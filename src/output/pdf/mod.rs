@@ -233,7 +233,7 @@ fn build_single_report(
                 "Risk classification (BFSG relevance)",
                 "Top 5 critical and high-severity issues",
                 "Business impact and consequences",
-                "Effort estimation (quick wins, mid-term, complex)",
+                "Effort estimation (quick wins, medium effort, complex)",
                 "Recommended next steps",
             ]
         } else {
@@ -241,7 +241,7 @@ fn build_single_report(
                 "Risikoeinstufung (BFSG-Relevanz)",
                 "Top 5 kritische und hohe Probleme",
                 "Geschäftliche Auswirkungen und Konsequenzen",
-                "Aufwandsschätzung (Quick Wins, mittelfristig, komplex)",
+                "Aufwandsschätzung (Quick Wins, mittlerer Aufwand, komplex)",
                 "Empfohlene nächste Schritte",
             ]
         };
