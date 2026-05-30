@@ -69,8 +69,8 @@ fn ax_tree_rich_page() -> AXTree {
     // backfill parent_id so AXTree::iter() (which walks the tree) yields
     // every node.
     let mut nodes = nodes;
-    for i in 1..nodes.len() {
-        nodes[i].parent_id = Some("1".to_string());
+    for node in nodes.iter_mut().skip(1) {
+        node.parent_id = Some("1".to_string());
     }
     AXTree::from_nodes(nodes)
 }

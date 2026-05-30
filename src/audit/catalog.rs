@@ -192,8 +192,8 @@ impl AuditCatalog {
     /// the error internally and return `Ok(ModuleData::None)` — that
     /// mirrors today's `extract_snapshot` behavior where a failing
     /// sub-analysis logs a warning and yields `None`.
-    pub async fn collect_all<'a>(
-        &'a self,
+    pub async fn collect_all(
+        &self,
         ctx: &ModuleContext<'_>,
     ) -> Result<Vec<(&'static str, ModuleData)>> {
         let mut ordered = self.topo_sorted()?;
