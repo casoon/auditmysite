@@ -103,6 +103,7 @@ verdict-tier-solid = { $url } erreicht { $score }/100 im Accessibility-Audit. Di
 verdict-tier-deficient = { $url } erreicht { $score }/100 im Accessibility-Audit. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
 verdict-tier-critical = { $url } erreicht nur { $score }/100 im Accessibility-Audit. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
 score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen.
+score-note-perfect-automated-scope = Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Verstöße gefunden. Kontextabhängige WCAG-Kriterien benötigen weiterhin manuelle Prüfung.
 
 # Verdict (batch audit)
 verdict-batch-excellent = Über { $total_urls } geprüfte URLs hinweg erreicht die Website einen Gesamtscore von { $score }/100 — ein sehr gutes Ergebnis.

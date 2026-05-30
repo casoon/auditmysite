@@ -197,6 +197,30 @@ pub struct NormalizedFinding {
     pub occurrence_count: usize,
     /// Prioritätswert für Maßnahmenplanung (impact × reach / effort)
     pub priority_score: f32,
+    /// Detection confidence for the automated finding. Does not affect severity.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub confidence: String,
+    /// Estimated false-positive risk for this automated finding.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub false_positive_risk: String,
+    /// Verification wording: confirmed automatically or manual review recommended.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub verification: String,
+    /// Implementation complexity class, independent from severity.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub complexity: String,
+    /// Short explanation of the complexity classification.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub complexity_reason: String,
+    /// Expected effect of fixing this finding group.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub expected_impact: String,
+    /// Cautious BFSG/EAA relevance classification.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub bfsg_relevance: String,
+    /// Execution priority label, separate from severity/risk.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub remediation_priority: String,
     /// Einzelne Vorkommen
     pub occurrences: Vec<OccurrenceDetail>,
 }
@@ -643,6 +667,22 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
                 .max()
                 .unwrap_or(first.severity);
             let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
+            let confidence = derive_confidence(&tax_id, &subcategory, &issue_class);
+            let false_positive_risk =
+                derive_false_positive_risk(&tax_id, &subcategory, &issue_class);
+            let verification = derive_verification(&false_positive_risk);
+            let (complexity, complexity_reason) =
+                derive_complexity(occurrence_count, &tax_id, &issue_class);
+            let expected_impact = derive_expected_impact(
+                severity,
+                occurrence_count,
+                "wcag",
+                first.level.to_string().as_str(),
+            );
+            let bfsg_relevance =
+                derive_bfsg_relevance("wcag", first.level.to_string().as_str(), severity);
+            let remediation_priority =
+                derive_remediation_priority(severity, occurrence_count, &complexity);
 
             // Prefer the taxonomy title (customer-facing, localized) over the
             // raw rule_name from the WCAG engine — ensures JSON `title` and PDF
@@ -671,6 +711,14 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
                 help_url: first.help_url.clone(),
                 occurrence_count,
                 priority_score,
+                confidence,
+                false_positive_risk,
+                verification,
+                complexity,
+                complexity_reason,
+                expected_impact,
+                bfsg_relevance,
+                remediation_priority,
                 occurrences,
             }
         })
@@ -727,6 +775,16 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
             };
             let priority_score =
                 calculate_priority_score(first.severity, occurrence_count, &rule_id);
+            let confidence = derive_confidence(&rule_id, "Content", "issue");
+            let false_positive_risk = derive_false_positive_risk(&rule_id, "Content", "issue");
+            let verification = derive_verification(&false_positive_risk);
+            let (complexity, complexity_reason) =
+                derive_complexity(occurrence_count, &rule_id, "issue");
+            let expected_impact =
+                derive_expected_impact(first.severity, occurrence_count, "seo", "");
+            let bfsg_relevance = derive_bfsg_relevance("seo", "", first.severity);
+            let remediation_priority =
+                derive_remediation_priority(first.severity, occurrence_count, &complexity);
             findings.push(NormalizedFinding {
                 category: "seo".to_string(),
                 rule_id: rule_id.clone(),
@@ -751,6 +809,14 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
                 help_url: None,
                 occurrence_count,
                 priority_score,
+                confidence,
+                false_positive_risk,
+                verification,
+                complexity,
+                complexity_reason,
+                expected_impact,
+                bfsg_relevance,
+                remediation_priority,
                 occurrences: issues
                     .iter()
                     .take(MAX_OCCURRENCES)
@@ -1503,6 +1569,150 @@ fn calculate_priority_score(severity: Severity, occurrence_count: usize, rule_id
     let reach = occurrence_count.max(1) as f32;
     let effort_weight = effort_weight_for_rule(rule_id);
     (severity_weight * reach) / effort_weight
+}
+
+fn derive_confidence(rule_id: &str, subcategory: &str, issue_class: &str) -> String {
+    let key = format!(
+        "{} {} {}",
+        rule_id.to_ascii_lowercase(),
+        subcategory.to_ascii_lowercase(),
+        issue_class.to_ascii_lowercase()
+    );
+    if key.contains("alt_text.weak")
+        || key.contains("understand")
+        || key.contains("readability")
+        || key.contains("content")
+    {
+        "medium".to_string()
+    } else if key.contains("aria")
+        || key.contains("heading")
+        || key.contains("landmark")
+        || key.contains("focus")
+    {
+        "high".to_string()
+    } else {
+        "very_high".to_string()
+    }
+}
+
+fn derive_false_positive_risk(rule_id: &str, subcategory: &str, issue_class: &str) -> String {
+    let key = format!(
+        "{} {} {}",
+        rule_id.to_ascii_lowercase(),
+        subcategory.to_ascii_lowercase(),
+        issue_class.to_ascii_lowercase()
+    );
+    if key.contains("weak")
+        || key.contains("alt_text.weak")
+        || key.contains("understand")
+        || key.contains("content")
+    {
+        "medium".to_string()
+    } else if key.contains("aria") || key.contains("heading") || key.contains("landmark") {
+        "low".to_string()
+    } else {
+        "very_low".to_string()
+    }
+}
+
+fn derive_verification(false_positive_risk: &str) -> String {
+    match false_positive_risk {
+        "medium" | "high" => "manual_review_recommended",
+        _ => "automatically_confirmed",
+    }
+    .to_string()
+}
+
+fn derive_complexity(
+    occurrence_count: usize,
+    rule_id: &str,
+    issue_class: &str,
+) -> (String, String) {
+    let key = format!(
+        "{} {}",
+        rule_id.to_ascii_lowercase(),
+        issue_class.to_ascii_lowercase()
+    );
+    if occurrence_count >= 10 {
+        (
+            "high".to_string(),
+            format!(
+                "{} Vorkommen deuten auf ein Komponenten- oder Templateproblem hin.",
+                occurrence_count
+            ),
+        )
+    } else if key.contains("aria") || key.contains("focus") || key.contains("keyboard") {
+        (
+            "medium".to_string(),
+            "Der Fix ist technisch, betrifft aber eine begrenzte Anzahl von Mustern.".to_string(),
+        )
+    } else if occurrence_count >= 5 {
+        (
+            "medium".to_string(),
+            format!(
+                "{} Vorkommen müssen konsistent in Inhalt oder Template angepasst werden.",
+                occurrence_count
+            ),
+        )
+    } else {
+        (
+            "low".to_string(),
+            "Wenige Vorkommen und ein klar begrenzter Fix.".to_string(),
+        )
+    }
+}
+
+fn derive_expected_impact(
+    severity: Severity,
+    occurrence_count: usize,
+    category: &str,
+    wcag_level: &str,
+) -> String {
+    let score_effect = match (severity, occurrence_count) {
+        (Severity::Critical | Severity::High, n) if n >= 5 => "high",
+        (Severity::Critical | Severity::High, _) => "medium",
+        (_, n) if n >= 10 => "medium",
+        _ => "low",
+    };
+    if category == "wcag" {
+        format!(
+            "Behebt {} Vorkommen; erwarteter Score-Effekt: {}; WCAG-Level: {}.",
+            occurrence_count, score_effect, wcag_level
+        )
+    } else {
+        format!(
+            "Behebt {} Vorkommen; erwarteter Sichtbarkeits-/Struktureffekt: {}.",
+            occurrence_count, score_effect
+        )
+    }
+}
+
+fn derive_bfsg_relevance(category: &str, wcag_level: &str, severity: Severity) -> String {
+    if category != "wcag" {
+        return "low".to_string();
+    }
+    match (wcag_level, severity) {
+        ("A", Severity::Critical | Severity::High) => "high",
+        ("A" | "AA", _) => "medium",
+        _ => "low",
+    }
+    .to_string()
+}
+
+fn derive_remediation_priority(
+    severity: Severity,
+    occurrence_count: usize,
+    complexity: &str,
+) -> String {
+    match (severity, occurrence_count, complexity) {
+        (Severity::Critical, _, _) => "immediate",
+        (Severity::High, _, "low") => "quick_win",
+        (Severity::High, _, _) => "high",
+        (Severity::Medium, n, _) if n >= 10 => "high",
+        (Severity::Medium, _, "low") => "quick_win",
+        _ => "normal",
+    }
+    .to_string()
 }
 
 fn effort_weight_for_rule(rule_id: &str) -> f32 {

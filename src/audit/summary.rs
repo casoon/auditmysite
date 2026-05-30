@@ -602,6 +602,14 @@ mod tests {
             help_url: None,
             occurrence_count: count,
             priority_score: 1.0,
+            confidence: "very_high".into(),
+            false_positive_risk: "very_low".into(),
+            verification: "automatically_confirmed".into(),
+            complexity: "low".into(),
+            complexity_reason: "Test fixture".into(),
+            expected_impact: "Test fixture".into(),
+            bfsg_relevance: "medium".into(),
+            remediation_priority: "normal".into(),
             occurrences: vec![],
         }
     }

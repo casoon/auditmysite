@@ -65,7 +65,71 @@
         "seo_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "security_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "mobile_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "performance_throttled_avg_score": { "type": "integer", "minimum": 0, "maximum": 100 }
+        "ux_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "journey_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "performance_throttled_avg_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "lh_mobile_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "wcag_coverage": { "$ref": "#/$defs/wcagCoverageSummary" },
+        "accessibility_score_breakdown": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/accessibilityScoreComponent" }
+        },
+        "management_risks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/managementRisk" }
+        },
+        "top_actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/decisionAction" }
+        }
+      }
+    },
+    "wcagCoverageSummary": {
+      "type": "object",
+      "required": ["level", "automated_criteria", "manual_review_criteria", "total_wcag_aa_criteria", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "level": { "type": "string" },
+        "automated_criteria": { "type": "integer", "minimum": 0 },
+        "manual_review_criteria": { "type": "integer", "minimum": 0 },
+        "total_wcag_aa_criteria": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "accessibilityScoreComponent": {
+      "type": "object",
+      "required": ["area", "score", "weight_pct", "estimated_lost_points", "main_driver"],
+      "additionalProperties": false,
+      "properties": {
+        "area": { "type": "string" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "weight_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "estimated_lost_points": { "type": "integer", "minimum": 0 },
+        "main_driver": { "type": "string" }
+      }
+    },
+    "managementRisk": {
+      "type": "object",
+      "required": ["dimension", "level", "rationale"],
+      "additionalProperties": false,
+      "properties": {
+        "dimension": { "type": "string" },
+        "level": { "type": "string" },
+        "rationale": { "type": "string" }
+      }
+    },
+    "decisionAction": {
+      "type": "object",
+      "required": ["title", "risk", "priority", "complexity", "occurrence_count", "root_cause", "expected_impact"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "risk": { "type": "string" },
+        "priority": { "type": "string" },
+        "complexity": { "type": "string" },
+        "occurrence_count": { "type": "integer", "minimum": 0 },
+        "root_cause": { "type": "string" },
+        "expected_impact": { "type": "string" }
       }
     },
     "pageEntry": {

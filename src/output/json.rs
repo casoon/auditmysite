@@ -66,6 +66,9 @@ pub struct UnifiedReport {
     /// Batch only — compact per-URL score matrix.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub url_matrix: Vec<UrlMatrixRow>,
+    /// Batch only — internal comparison across audited URLs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_comparison: Option<InternalComparison>,
     /// Batch only — crawl diagnostics.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crawl_diagnostics: Option<serde_json::Value>,
@@ -120,6 +123,83 @@ pub struct UnifiedSummary {
     /// single-page reports when the throttled pass ran (#289).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lh_mobile_score: Option<u32>,
+    /// Automated WCAG coverage scope shown near the executive summary.
+    pub wcag_coverage: WcagCoverageSummary,
+    /// Accessibility score explanation by weighted topic.
+    pub accessibility_score_breakdown: Vec<AccessibilityScoreComponent>,
+    /// Management-oriented risk view derived from findings and module scores.
+    pub management_risks: Vec<ManagementRisk>,
+    /// Decision-oriented top actions combining risk, impact, complexity, and reach.
+    pub top_actions: Vec<DecisionAction>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WcagCoverageSummary {
+    pub level: String,
+    pub automated_criteria: usize,
+    pub manual_review_criteria: usize,
+    pub total_wcag_aa_criteria: usize,
+    pub note: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AccessibilityScoreComponent {
+    pub area: String,
+    pub score: u32,
+    pub weight_pct: u32,
+    pub estimated_lost_points: u32,
+    pub main_driver: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ManagementRisk {
+    pub dimension: String,
+    pub level: String,
+    pub rationale: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DecisionAction {
+    pub title: String,
+    pub risk: String,
+    pub priority: String,
+    pub complexity: String,
+    pub occurrence_count: usize,
+    pub root_cause: String,
+    pub expected_impact: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InternalComparison {
+    pub module_extremes: Vec<ModuleExtreme>,
+    pub outlier_urls: Vec<UrlOutlier>,
+    pub root_causes: Vec<RootCauseSummary>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModuleExtreme {
+    pub module: String,
+    pub best_url: String,
+    pub best_score: u32,
+    pub worst_url: String,
+    pub worst_score: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UrlOutlier {
+    pub url: String,
+    pub accessibility_score: u32,
+    pub batch_average: u32,
+    pub delta_points: i32,
+    pub reason: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RootCauseSummary {
+    pub title: String,
+    pub occurrence_count: usize,
+    pub affected_urls: usize,
+    pub classification: String,
 }
 
 /// One audited page. `detail` is present for single reports, omitted for batch.
@@ -241,6 +321,15 @@ pub struct FixGuidance {
     pub title: String,
     pub wcag_criterion: String,
     pub severity: String,
+    pub risk: String,
+    pub remediation_priority: String,
+    pub complexity: String,
+    pub complexity_reason: String,
+    pub confidence: String,
+    pub false_positive_risk: String,
+    pub verification: String,
+    pub expected_impact: String,
+    pub bfsg_relevance: String,
     pub occurrence_count: usize,
     pub problem: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -391,6 +480,13 @@ impl UnifiedReport {
             journey_score: avg_module_score(&pages, "Journey"),
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
+            wcag_coverage: normalized_reports
+                .first()
+                .map(build_wcag_coverage_summary)
+                .unwrap_or_else(|| build_wcag_coverage_for_level("mixed")),
+            accessibility_score_breakdown: build_accessibility_score_breakdown(&normalized_reports),
+            management_risks: build_management_risks(&normalized_reports),
+            top_actions: build_decision_actions(&normalized_reports),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -440,6 +536,7 @@ impl UnifiedReport {
             sample: batch_report.sample.clone(),
             pages,
             url_matrix: presentation.url_matrix,
+            internal_comparison: Some(build_internal_comparison(&normalized_reports)),
             crawl_diagnostics,
             errors,
             collection_errors,
@@ -510,6 +607,12 @@ impl UnifiedReport {
                 .iter()
                 .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
                 .map(|t| t.score),
+            wcag_coverage: build_wcag_coverage_summary(ctx),
+            accessibility_score_breakdown: build_accessibility_score_breakdown(
+                std::slice::from_ref(&ctx.normalized),
+            ),
+            management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
+            top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
         };
 
         UnifiedReport {
@@ -526,6 +629,7 @@ impl UnifiedReport {
             sample: None,
             pages: vec![page],
             url_matrix: Vec::new(),
+            internal_comparison: None,
             crawl_diagnostics: None,
             errors: Vec::new(),
             collection_errors: Vec::new(),
@@ -569,6 +673,12 @@ impl UnifiedReport {
             journey_score: normalized_module_score(normalized, "Journey"),
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
+            wcag_coverage: build_wcag_coverage_summary(normalized),
+            accessibility_score_breakdown: build_accessibility_score_breakdown(
+                std::slice::from_ref(normalized),
+            ),
+            management_risks: build_management_risks(std::slice::from_ref(normalized)),
+            top_actions: build_decision_actions(std::slice::from_ref(normalized)),
         };
 
         UnifiedReport {
@@ -585,6 +695,7 @@ impl UnifiedReport {
             sample: None,
             pages: vec![page],
             url_matrix: Vec::new(),
+            internal_comparison: None,
             crawl_diagnostics: None,
             errors: Vec::new(),
             collection_errors: Vec::new(),
@@ -920,6 +1031,15 @@ fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidance> {
                     .unwrap_or_else(|| finding.title.clone()),
                 wcag_criterion: finding.wcag_criterion.clone(),
                 severity: format!("{:?}", finding.severity).to_lowercase(),
+                risk: format!("{:?}", finding.severity).to_lowercase(),
+                remediation_priority: finding.remediation_priority.clone(),
+                complexity: finding.complexity.clone(),
+                complexity_reason: finding.complexity_reason.clone(),
+                confidence: finding.confidence.clone(),
+                false_positive_risk: finding.false_positive_risk.clone(),
+                verification: finding.verification.clone(),
+                expected_impact: finding.expected_impact.clone(),
+                bfsg_relevance: finding.bfsg_relevance.clone(),
                 occurrence_count: finding.occurrence_count,
                 problem: expl
                     .map(|e| e.customer_description.to_string())
@@ -945,6 +1065,337 @@ fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidance> {
             }
         })
         .collect()
+}
+
+fn build_wcag_coverage_summary(normalized: &NormalizedReport) -> WcagCoverageSummary {
+    build_wcag_coverage_for_level(&normalized.wcag_level.to_string())
+}
+
+fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary {
+    let (automated, total) = crate::wcag::coverage::coverage_stats();
+    WcagCoverageSummary {
+        level: format!("WCAG 2.1 {level}"),
+        automated_criteria: automated,
+        manual_review_criteria: crate::wcag::coverage::MANUAL_REVIEW_CRITERIA.len(),
+        total_wcag_aa_criteria: total,
+        note: "Automated score covers detectable criteria only; context-dependent WCAG criteria require manual review.".to_string(),
+    }
+}
+
+fn build_accessibility_score_breakdown(
+    reports: &[NormalizedReport],
+) -> Vec<AccessibilityScoreComponent> {
+    const AREAS: [(&str, u32); 8] = [
+        ("Semantics", 15),
+        ("Forms", 15),
+        ("Keyboard", 15),
+        ("Focus management", 10),
+        ("Images / alternative text", 15),
+        ("ARIA", 15),
+        ("Heading structure", 8),
+        ("Landmarks / page structure", 7),
+    ];
+
+    AREAS
+        .iter()
+        .map(|(area, weight_pct)| {
+            let mut penalty = 0u32;
+            let mut driver: Option<(&str, usize)> = None;
+
+            for finding in reports.iter().flat_map(|report| report.findings.iter()) {
+                if score_area_for_finding(finding) != *area {
+                    continue;
+                }
+                let severity_weight = match finding.severity {
+                    crate::taxonomy::Severity::Critical => 20,
+                    crate::taxonomy::Severity::High => 14,
+                    crate::taxonomy::Severity::Medium => 8,
+                    crate::taxonomy::Severity::Low => 4,
+                };
+                penalty = penalty.saturating_add(severity_weight * finding.occurrence_count as u32);
+                if driver
+                    .map(|(_, count)| finding.occurrence_count > count)
+                    .unwrap_or(true)
+                {
+                    driver = Some((&finding.title, finding.occurrence_count));
+                }
+            }
+
+            let estimated_lost_points = penalty.min(100);
+            AccessibilityScoreComponent {
+                area: (*area).to_string(),
+                score: 100u32.saturating_sub(estimated_lost_points),
+                weight_pct: *weight_pct,
+                estimated_lost_points,
+                main_driver: driver
+                    .map(|(title, count)| format!("{title} ({count} occurrences)"))
+                    .unwrap_or_else(|| "No detected driver".to_string()),
+            }
+        })
+        .collect()
+}
+
+fn score_area_for_finding(finding: &crate::audit::normalized::NormalizedFinding) -> &'static str {
+    let key = format!(
+        "{} {} {} {}",
+        finding.rule_id.to_ascii_lowercase(),
+        finding.subcategory.to_ascii_lowercase(),
+        finding.title.to_ascii_lowercase(),
+        finding.description.to_ascii_lowercase()
+    );
+    if key.contains("form") || key.contains("label") || key.contains("input") {
+        "Forms"
+    } else if key.contains("keyboard") || key.contains("tastatur") {
+        "Keyboard"
+    } else if key.contains("focus") || key.contains("fokus") {
+        "Focus management"
+    } else if key.contains("alt") || key.contains("image") || key.contains("bild") {
+        "Images / alternative text"
+    } else if key.contains("aria") || key.contains("role") {
+        "ARIA"
+    } else if key.contains("heading") || key.contains("überschrift") || key.contains("h1") {
+        "Heading structure"
+    } else if key.contains("landmark") || key.contains("main") || key.contains("navigation") {
+        "Landmarks / page structure"
+    } else {
+        "Semantics"
+    }
+}
+
+fn build_management_risks(reports: &[NormalizedReport]) -> Vec<ManagementRisk> {
+    let legal_flags: usize = reports.iter().map(|r| r.risk.legal_flags).sum();
+    let critical: usize = reports.iter().map(|r| r.severity_counts.critical).sum();
+    let high: usize = reports.iter().map(|r| r.severity_counts.high).sum();
+    let avg = average_accessibility_score(reports);
+    let seo = average_module_score_from_reports(reports, "SEO");
+    let perf = average_module_score_from_reports(reports, "Performance");
+    let mobile = average_module_score_from_reports(reports, "Mobile");
+    let component_findings = reports
+        .iter()
+        .flat_map(|r| r.findings.iter())
+        .filter(|f| f.occurrence_count >= 10 || f.complexity == "high")
+        .count();
+
+    vec![
+        ManagementRisk {
+            dimension: "Legal / BFSG-EAA".to_string(),
+            level: if legal_flags > 0 || critical > 0 {
+                "high"
+            } else if high > 0 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+            rationale: format!(
+                "{legal_flags} legal flags, {critical} critical and {high} high WCAG findings detected automatically."
+            ),
+        },
+        ManagementRisk {
+            dimension: "Conversion / usability".to_string(),
+            level: if avg < 60 || critical > 0 || perf.is_some_and(|s| s < 50) {
+                "high"
+            } else if avg < 80 || high > 0 || mobile.is_some_and(|s| s < 75) {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+            rationale: format!(
+                "Average accessibility score is {avg}/100; performance {:?}, mobile {:?}.",
+                perf, mobile
+            ),
+        },
+        ManagementRisk {
+            dimension: "SEO / visibility".to_string(),
+            level: risk_level_from_optional_score(seo),
+            rationale: seo
+                .map(|score| format!("Average SEO score is {score}/100."))
+                .unwrap_or_else(|| "SEO module was not run.".to_string()),
+        },
+        ManagementRisk {
+            dimension: "Trust / brand".to_string(),
+            level: if critical > 0 || avg < 50 {
+                "high"
+            } else if high > 0 || avg < 75 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+            rationale: "Accessibility barriers can reduce perceived reliability and inclusiveness.".to_string(),
+        },
+        ManagementRisk {
+            dimension: "Project risk".to_string(),
+            level: if component_findings >= 3 {
+                "high"
+            } else if component_findings > 0 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
+            rationale: format!("{component_findings} likely component or template issue(s) need coordinated remediation."),
+        },
+    ]
+}
+
+fn build_decision_actions(reports: &[NormalizedReport]) -> Vec<DecisionAction> {
+    let mut findings: Vec<_> = reports.iter().flat_map(|r| r.findings.iter()).collect();
+    findings.sort_by(|a, b| {
+        b.priority_score
+            .partial_cmp(&a.priority_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
+    });
+    findings
+        .into_iter()
+        .take(8)
+        .map(|finding| DecisionAction {
+            title: finding.title.clone(),
+            risk: format!("{:?}", finding.severity).to_lowercase(),
+            priority: finding.remediation_priority.clone(),
+            complexity: finding.complexity.clone(),
+            occurrence_count: finding.occurrence_count,
+            root_cause: if finding.occurrence_count >= 10 {
+                "Likely shared component or template".to_string()
+            } else {
+                finding.subcategory.clone()
+            },
+            expected_impact: finding.expected_impact.clone(),
+        })
+        .collect()
+}
+
+fn build_internal_comparison(reports: &[NormalizedReport]) -> InternalComparison {
+    let module_names = {
+        let mut names = std::collections::BTreeSet::new();
+        for report in reports {
+            for module in &report.module_scores {
+                names.insert(module.name.clone());
+            }
+        }
+        names
+    };
+
+    let module_extremes = module_names
+        .into_iter()
+        .filter_map(|module| {
+            let mut scored: Vec<(&NormalizedReport, u32)> = reports
+                .iter()
+                .filter_map(|report| {
+                    report
+                        .module_scores
+                        .iter()
+                        .find(|m| m.name == module)
+                        .map(|m| (report, m.score))
+                })
+                .collect();
+            if scored.is_empty() {
+                return None;
+            }
+            scored.sort_by_key(|(_, score)| *score);
+            let (worst_report, worst_score) = scored.first().copied()?;
+            let (best_report, best_score) = scored.last().copied()?;
+            Some(ModuleExtreme {
+                module,
+                best_url: best_report.url.clone(),
+                best_score,
+                worst_url: worst_report.url.clone(),
+                worst_score,
+            })
+        })
+        .collect();
+
+    let avg = average_accessibility_score(reports);
+    let outlier_urls = reports
+        .iter()
+        .filter_map(|report| {
+            let delta = report.score as i32 - avg as i32;
+            (delta <= -15).then(|| UrlOutlier {
+                url: report.url.clone(),
+                accessibility_score: report.score,
+                batch_average: avg,
+                delta_points: delta,
+                reason: "Accessibility score is at least 15 points below the batch average."
+                    .to_string(),
+            })
+        })
+        .collect();
+
+    let mut root_map: std::collections::BTreeMap<
+        String,
+        (usize, std::collections::BTreeSet<String>),
+    > = std::collections::BTreeMap::new();
+    for report in reports {
+        for finding in &report.findings {
+            let entry = root_map
+                .entry(finding.title.clone())
+                .or_insert_with(|| (0, std::collections::BTreeSet::new()));
+            entry.0 += finding.occurrence_count;
+            entry.1.insert(report.url.clone());
+        }
+    }
+    let mut root_causes: Vec<_> = root_map
+        .into_iter()
+        .map(|(title, (occurrence_count, urls))| RootCauseSummary {
+            title,
+            occurrence_count,
+            affected_urls: urls.len(),
+            classification: if urls.len() >= 2 || occurrence_count >= 10 {
+                "likely_template_or_component".to_string()
+            } else {
+                "page_specific".to_string()
+            },
+        })
+        .collect();
+    root_causes.sort_by(|a, b| {
+        b.affected_urls
+            .cmp(&a.affected_urls)
+            .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))
+    });
+    root_causes.truncate(10);
+
+    InternalComparison {
+        module_extremes,
+        outlier_urls,
+        root_causes,
+    }
+}
+
+fn average_accessibility_score(reports: &[NormalizedReport]) -> u32 {
+    if reports.is_empty() {
+        0
+    } else {
+        reports.iter().map(|r| r.score).sum::<u32>() / reports.len() as u32
+    }
+}
+
+fn average_module_score_from_reports(
+    reports: &[NormalizedReport],
+    module_name: &str,
+) -> Option<u32> {
+    let scores: Vec<u32> = reports
+        .iter()
+        .filter_map(|report| {
+            report
+                .module_scores
+                .iter()
+                .find(|module| module.name == module_name)
+                .map(|module| module.score)
+        })
+        .collect();
+    (!scores.is_empty()).then(|| scores.iter().sum::<u32>() / scores.len() as u32)
+}
+
+fn risk_level_from_optional_score(score: Option<u32>) -> String {
+    match score {
+        Some(score) if score < 60 => "high",
+        Some(score) if score < 80 => "medium",
+        Some(_) => "low",
+        None => "unknown",
+    }
+    .to_string()
 }
 
 /// Number of distinct violated rules across all finding categories (issue #254).
@@ -1687,10 +2138,15 @@ mod tests {
                 journey_score: None,
                 performance_throttled_avg_score: None,
                 lh_mobile_score: None,
+                wcag_coverage: build_wcag_coverage_for_level("AA"),
+                accessibility_score_breakdown: vec![],
+                management_risks: vec![],
+                top_actions: vec![],
             },
             sample: None,
             pages: vec![],
             url_matrix: vec![],
+            internal_comparison: None,
             crawl_diagnostics: None,
             errors: vec![],
             collection_errors: vec![ReportError {

@@ -4,9 +4,10 @@
 //! components, and returns the builder for further chaining.
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, List, PageBreak, PhaseBlock,
-    SectionHeaderSplit,
+    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, KeyValueList, List, PageBreak,
+    PhaseBlock, SectionHeaderSplit,
 };
+use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
 use super::appendix::build_cli_snapshot_table;
@@ -102,6 +103,8 @@ pub(super) fn render_action_plan(
         }
     }
 
+    builder = render_management_risk_table(builder, vm, i18n);
+
     // QuickWins — immediate actions
     let quick_items: Vec<&RoadmapItemData> = vm
         .actions
@@ -123,6 +126,8 @@ pub(super) fn render_action_plan(
             .add_component(ChecklistPanel::new(rows).with_title(i18n.t("panel-quick-actions")));
     }
 
+    builder = render_decision_action_table(builder, vm, i18n);
+
     // ActionTable — full prioritized table
     let wjt_table = build_was_jetzt_tun_table(vm);
     match wjt_table {
@@ -131,6 +136,149 @@ pub(super) fn render_action_plan(
     }
 
     builder
+}
+
+fn render_management_risk_table(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let legal_level = if vm.severity.critical > 0 {
+        if en {
+            "High"
+        } else {
+            "Hoch"
+        }
+    } else if vm.severity.high > 0 {
+        if en {
+            "Medium"
+        } else {
+            "Mittel"
+        }
+    } else if en {
+        "Low"
+    } else {
+        "Niedrig"
+    };
+    let conversion_level = if vm.summary.score < 60 {
+        if en {
+            "High"
+        } else {
+            "Hoch"
+        }
+    } else if vm.summary.score < 80 || vm.severity.high > 0 {
+        if en {
+            "Medium"
+        } else {
+            "Mittel"
+        }
+    } else if en {
+        "Low"
+    } else {
+        "Niedrig"
+    };
+    let project_level = if vm.severity.component_issues >= 3 {
+        if en {
+            "High"
+        } else {
+            "Hoch"
+        }
+    } else if vm.severity.component_issues > 0 {
+        if en {
+            "Medium"
+        } else {
+            "Mittel"
+        }
+    } else if en {
+        "Low"
+    } else {
+        "Niedrig"
+    };
+
+    let mut kv = KeyValueList::new().with_title(if en {
+        "Management risk view"
+    } else {
+        "Management-Risikoansicht"
+    });
+    kv = kv
+        .add(
+            if en {
+                "Legal / BFSG-EAA"
+            } else {
+                "Recht / BFSG-EAA"
+            },
+            format!(
+                "{} — {} critical/high findings",
+                legal_level,
+                vm.severity.critical + vm.severity.high
+            ),
+        )
+        .add(
+            if en {
+                "Conversion / usability"
+            } else {
+                "Conversion / Nutzbarkeit"
+            },
+            format!(
+                "{} — Accessibility {} / 100",
+                conversion_level, vm.summary.score
+            ),
+        )
+        .add(
+            if en { "Project risk" } else { "Projektrisiko" },
+            format!(
+                "{} — {} component/template issue(s), {} occurrence(s)",
+                project_level, vm.severity.component_issues, vm.severity.component_occurrences
+            ),
+        );
+    builder.add_component(kv)
+}
+
+fn render_decision_action_table(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let mut rows = Vec::new();
+    for item in vm
+        .actions
+        .roadmap_columns
+        .iter()
+        .flat_map(|column| column.items.iter())
+        .take(8)
+    {
+        rows.push(vec![
+            item.action.clone(),
+            item.priority.clone(),
+            item.execution_priority.clone(),
+            item.effort.clone(),
+            item.risk_effect.clone(),
+            item.user_effect.clone(),
+        ]);
+    }
+    if rows.is_empty() {
+        return builder;
+    }
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new(if en { "Action" } else { "Maßnahme" }).with_width("30%"),
+        TableColumn::new(if en { "Risk" } else { "Risiko" }).with_width("12%"),
+        TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("14%"),
+        TableColumn::new(if en { "Complexity" } else { "Komplexität" }).with_width("14%"),
+        TableColumn::new(if en { "Risk effect" } else { "Risiko-Effekt" }).with_width("15%"),
+        TableColumn::new(if en { "User effect" } else { "Nutzerwirkung" }).with_width("15%"),
+    ])
+    .with_title(if en {
+        "Decision-oriented top actions"
+    } else {
+        "Entscheidungsorientierte Top-Maßnahmen"
+    });
+    for row in rows {
+        table = table.add_row(row);
+    }
+    builder.add_component(table)
 }
 
 /// Section 5 — Tech Entry: intro + module health diagnosis panel.

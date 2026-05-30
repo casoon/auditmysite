@@ -397,6 +397,11 @@ fn build_single_key_points_text(
         }
     }
 
+    let score_driver_note = build_score_driver_note(locale, normalized);
+    if !score_driver_note.is_empty() {
+        points.push(score_driver_note);
+    }
+
     if normalized.risk.legal_flags > 0 {
         if en {
             points.push(
@@ -438,6 +443,17 @@ fn build_single_key_points_text(
         );
     }
 
+    let (automated, total) = crate::wcag::coverage::coverage_stats();
+    if en {
+        points.push(format!(
+            "WCAG scope: {automated} of about {total} WCAG 2.1 AA criteria are checked automatically; manual review remains required for context-dependent criteria."
+        ));
+    } else {
+        points.push(format!(
+            "WCAG-Prüfumfang: {automated} von ca. {total} WCAG-2.1-AA-Kriterien werden automatisch geprüft; kontextabhängige Kriterien bleiben manuell zu prüfen."
+        ));
+    }
+
     if let Some(flag) = normalized
         .audit_flags
         .iter()
@@ -447,6 +463,72 @@ fn build_single_key_points_text(
     }
 
     points
+}
+
+fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> String {
+    let en = locale == "en";
+    let mut drivers: std::collections::BTreeMap<&'static str, u32> =
+        std::collections::BTreeMap::new();
+    for finding in &normalized.findings {
+        let severity_weight = match finding.severity {
+            crate::wcag::Severity::Critical => 20,
+            crate::wcag::Severity::High => 14,
+            crate::wcag::Severity::Medium => 8,
+            crate::wcag::Severity::Low => 4,
+        };
+        *drivers
+            .entry(score_area_for_key_point(finding))
+            .or_default() += severity_weight * finding.occurrence_count as u32;
+    }
+    let mut drivers: Vec<_> = drivers.into_iter().filter(|(_, loss)| *loss > 0).collect();
+    drivers.sort_by_key(|(_, loss)| std::cmp::Reverse(*loss));
+    let labels: Vec<_> = drivers.into_iter().take(3).map(|(area, _)| area).collect();
+    if labels.is_empty() {
+        if en {
+            "Score matrix: no negative driver detected in the weighted accessibility topics."
+                .to_string()
+        } else {
+            "Score-Matrix: kein negativer Haupttreiber in den gewichteten Accessibility-Themen erkannt."
+                .to_string()
+        }
+    } else if en {
+        format!(
+            "Score matrix: strongest negative drivers are {}; weighting includes semantics, forms, keyboard, focus, images, ARIA, headings and landmarks.",
+            labels.join(", ")
+        )
+    } else {
+        format!(
+            "Score-Matrix: stärkste negative Treiber sind {}; gewichtet werden Semantik, Formulare, Tastatur, Fokus, Bilder, ARIA, Überschriften und Landmarks.",
+            labels.join(", ")
+        )
+    }
+}
+
+fn score_area_for_key_point(finding: &crate::audit::normalized::NormalizedFinding) -> &'static str {
+    let key = format!(
+        "{} {} {} {}",
+        finding.rule_id.to_ascii_lowercase(),
+        finding.subcategory.to_ascii_lowercase(),
+        finding.title.to_ascii_lowercase(),
+        finding.description.to_ascii_lowercase()
+    );
+    if key.contains("form") || key.contains("label") || key.contains("input") {
+        "Forms"
+    } else if key.contains("keyboard") || key.contains("tastatur") {
+        "Keyboard"
+    } else if key.contains("focus") || key.contains("fokus") {
+        "Focus management"
+    } else if key.contains("alt") || key.contains("image") || key.contains("bild") {
+        "Images / alternative text"
+    } else if key.contains("aria") || key.contains("role") {
+        "ARIA"
+    } else if key.contains("heading") || key.contains("überschrift") || key.contains("h1") {
+        "Heading structure"
+    } else if key.contains("landmark") || key.contains("main") || key.contains("navigation") {
+        "Landmarks / page structure"
+    } else {
+        "Semantics"
+    }
 }
 
 fn build_single_quick_actions_text(

@@ -710,6 +710,8 @@ fn pick_score_note_key(normalized: &AuditContext) -> Option<String> {
     let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
     if normalized.score >= 90 && critical_topics > 0 {
         Some("score-note-high-with-critical".to_string())
+    } else if normalized.score == 100 {
+        Some("score-note-perfect-automated-scope".to_string())
     } else {
         None
     }

@@ -82,9 +82,9 @@ pub enum Effort {
 impl Effort {
     pub fn label(&self) -> &'static str {
         match self {
-            Effort::Quick => "Quick Win",
+            Effort::Quick => "Geringe Komplexität",
             Effort::Medium => "Mittlerer Aufwand",
-            Effort::Structural => "Strukturell",
+            Effort::Structural => "Hohe Komplexität",
         }
     }
 }
@@ -527,6 +527,14 @@ pub struct FindingGroup {
     pub typical_cause: String,
     pub recommendation: String,
     pub technical_note: String,
+    pub confidence: String,
+    pub false_positive_risk: String,
+    pub verification: String,
+    pub complexity: String,
+    pub complexity_reason: String,
+    pub expected_impact: String,
+    pub bfsg_relevance: String,
+    pub remediation_priority: String,
     pub occurrence_count: usize,
     pub affected_urls: Vec<String>,
     pub affected_elements: usize,

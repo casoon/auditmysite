@@ -93,6 +93,278 @@ pub(super) fn build_batch_assessment(
     }
 }
 
+fn render_batch_management_risks(
+    builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let dist = &pres.portfolio_summary.severity_distribution;
+    let avg = pres.portfolio_summary.average_score.round() as u32;
+    let seo = pres
+        .portfolio_summary
+        .module_averages
+        .iter()
+        .find(|(name, _)| name == "SEO")
+        .map(|(_, score)| *score);
+    let component_count = pres
+        .top_issues
+        .iter()
+        .filter(|issue| issue.is_component_issue || issue.affected_urls.len() > 1)
+        .count();
+    let legal_level = if dist.critical > 0 {
+        if en {
+            "High"
+        } else {
+            "Hoch"
+        }
+    } else if dist.high > 0 {
+        if en {
+            "Medium"
+        } else {
+            "Mittel"
+        }
+    } else if en {
+        "Low"
+    } else {
+        "Niedrig"
+    };
+    let visibility_level = match seo {
+        Some(score) if score < 60 => {
+            if en {
+                "High"
+            } else {
+                "Hoch"
+            }
+        }
+        Some(score) if score < 80 => {
+            if en {
+                "Medium"
+            } else {
+                "Mittel"
+            }
+        }
+        Some(_) => {
+            if en {
+                "Low"
+            } else {
+                "Niedrig"
+            }
+        }
+        None => {
+            if en {
+                "Unknown"
+            } else {
+                "Unbekannt"
+            }
+        }
+    };
+    let project_level = if component_count >= 3 {
+        if en {
+            "High"
+        } else {
+            "Hoch"
+        }
+    } else if component_count > 0 {
+        if en {
+            "Medium"
+        } else {
+            "Mittel"
+        }
+    } else if en {
+        "Low"
+    } else {
+        "Niedrig"
+    };
+
+    let mut kv = KeyValueList::new().with_title(if en {
+        "Management risk view"
+    } else {
+        "Management-Risikoansicht"
+    });
+    kv = kv
+        .add(
+            if en {
+                "Legal / BFSG-EAA"
+            } else {
+                "Recht / BFSG-EAA"
+            },
+            format!(
+                "{} — {} critical/high findings across {} URLs",
+                legal_level,
+                dist.critical + dist.high,
+                pres.portfolio_summary.total_urls
+            ),
+        )
+        .add(
+            if en {
+                "Conversion / usability"
+            } else {
+                "Conversion / Nutzbarkeit"
+            },
+            format!("{} / 100 average accessibility score", avg),
+        )
+        .add(
+            if en {
+                "SEO / visibility"
+            } else {
+                "SEO / Sichtbarkeit"
+            },
+            seo.map(|score| format!("{} — SEO {} / 100", visibility_level, score))
+                .unwrap_or_else(|| visibility_level.to_string()),
+        )
+        .add(
+            if en { "Project risk" } else { "Projektrisiko" },
+            format!(
+                "{} — {} recurring component/template pattern(s)",
+                project_level, component_count
+            ),
+        );
+    builder.add_component(kv)
+}
+
+fn render_batch_internal_comparison(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let mut rows = Vec::new();
+    let mut module_names = std::collections::BTreeSet::new();
+    for detail in &pres.url_details {
+        for (module, _) in &detail.module_scores {
+            module_names.insert(module.clone());
+        }
+    }
+    for module in module_names {
+        let mut scored: Vec<_> = pres
+            .url_details
+            .iter()
+            .filter_map(|detail| {
+                detail
+                    .module_scores
+                    .iter()
+                    .find(|(name, _)| name == &module)
+                    .map(|(_, score)| (detail.url.as_str(), *score))
+            })
+            .collect();
+        if scored.is_empty() {
+            continue;
+        }
+        scored.sort_by_key(|(_, score)| *score);
+        let (worst_url, worst_score) = scored[0];
+        let (best_url, best_score) = scored[scored.len() - 1];
+        rows.push(vec![
+            module,
+            format!("{} ({}/100)", truncate_url(best_url, 34), best_score),
+            format!("{} ({}/100)", truncate_url(worst_url, 34), worst_score),
+        ]);
+    }
+    if !rows.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if en { "Module" } else { "Modul" }).with_width("20%"),
+            TableColumn::new(if en { "Best URL" } else { "Beste URL" }).with_width("40%"),
+            TableColumn::new(if en { "Weakest URL" } else { "Schwächste URL" }).with_width("40%"),
+        ])
+        .with_title(if en {
+            "Internal comparison by module"
+        } else {
+            "Interner Vergleich nach Modul"
+        });
+        for row in rows {
+            table = table.add_row(row);
+        }
+        builder = builder.add_component(table);
+    }
+
+    let avg = pres.portfolio_summary.average_score.round() as i32;
+    let outliers: Vec<_> = pres
+        .url_ranking
+        .iter()
+        .filter_map(|url| {
+            let delta = url.score.round() as i32 - avg;
+            (delta <= -15).then(|| {
+                format!(
+                    "{}: {} / 100 ({} Punkte unter Durchschnitt)",
+                    truncate_url(&url.url, 70),
+                    url.score.round() as u32,
+                    delta.abs()
+                )
+            })
+        })
+        .take(6)
+        .collect();
+    if !outliers.is_empty() {
+        let mut list = List::new().with_title(if en {
+            "Outlier URLs"
+        } else {
+            "Ausreißer-URLs"
+        });
+        for item in outliers {
+            list = list.add_item(item);
+        }
+        builder = builder.add_component(list);
+    }
+
+    builder
+}
+
+fn render_batch_decision_actions(
+    builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let mut table = AuditTable::new(vec![
+        TableColumn::new(if en {
+            "Action / root cause"
+        } else {
+            "Maßnahme / Root Cause"
+        })
+        .with_width("34%"),
+        TableColumn::new(if en { "Risk" } else { "Risiko" }).with_width("12%"),
+        TableColumn::new(if en { "Impact" } else { "Wirkung" }).with_width("24%"),
+        TableColumn::new(if en { "Complexity" } else { "Komplexität" }).with_width("14%"),
+        TableColumn::new(if en { "Reach" } else { "Reichweite" }).with_width("16%"),
+    ])
+    .with_title(if en {
+        "Decision-oriented top actions"
+    } else {
+        "Entscheidungsorientierte Top-Maßnahmen"
+    });
+
+    let mut count = 0;
+    for group in pres.top_issues.iter().take(8) {
+        let root = if group.is_component_issue || group.affected_urls.len() > 1 {
+            if en {
+                "likely shared component/template"
+            } else {
+                "vermutlich Komponente/Template"
+            }
+        } else if en {
+            "page-specific"
+        } else {
+            "seitenspezifisch"
+        };
+        table = table.add_row(vec![
+            format!("{} — {}", group.title, root),
+            severity_label_i18n(group.severity, i18n),
+            group.expected_impact.clone(),
+            group.effort.label().to_string(),
+            format!(
+                "{} occurrences / {} URLs",
+                group.occurrence_count,
+                group.affected_urls.len()
+            ),
+        ]);
+        count += 1;
+    }
+    if count == 0 {
+        return builder;
+    }
+    builder.add_component(table)
+}
+
 /// 3 key takeaways for batch report
 pub(super) fn build_batch_key_points(
     pres: &BatchPresentation,
@@ -896,6 +1168,9 @@ fn build_batch_report(
         builder = builder.add_component(module_kv);
     }
 
+    builder = render_batch_management_risks(builder, &pres, &i18n);
+    builder = render_batch_internal_comparison(builder, &pres, &i18n);
+
     // ── 2. URL-Ranking ──────────────────────────────────────────────
     let rows: Vec<BenchmarkRow> = pres
         .url_ranking
@@ -987,6 +1262,8 @@ fn build_batch_report(
         }
         builder = builder.add_component(freq_table);
     }
+
+    builder = render_batch_decision_actions(builder, &pres, &i18n);
 
     // Unified problem blocks — 1 Problem = 1 kompakter Block
     // (keine doppelten Cards + Details mehr)

@@ -29,12 +29,7 @@ pub(super) fn render_key_finding_block(
         (crate::wcag::Severity::Low, true) => "LOW",
         (crate::wcag::Severity::Low, false) => "GERING",
     };
-    let is_quick_win = group.effort == crate::output::report_model::Effort::Quick;
-    let title = if is_quick_win {
-        format!("{} — {} [Quick Win]", sev_label, group.title)
-    } else {
-        format!("{} — {}", sev_label, group.title)
-    };
+    let title = format!("{} — {}", sev_label, group.title);
 
     let arc = &group.narrative;
     let en = i18n.locale() == "en";
@@ -114,6 +109,33 @@ pub(super) fn first_sentence(text: &str) -> &str {
     text
 }
 
+fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
+    let en = i18n.locale() == "en";
+    match (value, en) {
+        ("very_high", true) => "Very high",
+        ("very_high", false) => "Sehr hoch",
+        ("high", true) => "High",
+        ("high", false) => "Hoch",
+        ("medium", true) => "Medium",
+        ("medium", false) => "Mittel",
+        ("low", true) => "Low",
+        ("low", false) => "Niedrig",
+        ("very_low", true) => "Very low",
+        ("very_low", false) => "Sehr niedrig",
+        ("immediate", true) => "Immediate",
+        ("immediate", false) => "Sofort",
+        ("quick_win", true) => "Quick win",
+        ("quick_win", false) => "Quick Win",
+        ("normal", true) => "Normal",
+        ("normal", false) => "Normal",
+        ("manual_review_recommended", true) => "Manual review recommended",
+        ("manual_review_recommended", false) => "Manuelle Prüfung empfohlen",
+        ("automatically_confirmed", true) => "Automatically confirmed",
+        ("automatically_confirmed", false) => "Automatisch bestätigt",
+        _ => "n/a",
+    }
+}
+
 pub(super) fn render_finding_technical(
     mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
@@ -143,6 +165,38 @@ pub(super) fn render_finding_technical(
             effort_label_i18n(group.effort, i18n),
         )
         .add(
+            if i18n.locale() == "en" {
+                "Implementation priority"
+            } else {
+                "Umsetzungspriorität"
+            },
+            report_code_label(&group.remediation_priority, i18n),
+        )
+        .add(
+            if i18n.locale() == "en" {
+                "Detection confidence"
+            } else {
+                "Erkennungssicherheit"
+            },
+            report_code_label(&group.confidence, i18n),
+        )
+        .add(
+            if i18n.locale() == "en" {
+                "False-positive risk"
+            } else {
+                "Falschpositiv-Risiko"
+            },
+            report_code_label(&group.false_positive_risk, i18n),
+        )
+        .add(
+            if i18n.locale() == "en" {
+                "BFSG/EAA relevance"
+            } else {
+                "BFSG-/EAA-Relevanz"
+            },
+            report_code_label(&group.bfsg_relevance, i18n),
+        )
+        .add(
             i18n.t("finding-elements"),
             group.affected_elements.to_string(),
         )
@@ -159,6 +213,49 @@ pub(super) fn render_finding_technical(
         meta_kv = meta_kv.add(i18n.t("finding-reference"), url);
     }
     builder = builder.add_component(meta_kv);
+
+    if !group.expected_impact.is_empty() || !group.complexity_reason.is_empty() {
+        let mut assessment = KeyValueList::new().with_title(if i18n.locale() == "en" {
+            "Action assessment"
+        } else {
+            "Maßnahmenbewertung"
+        });
+        if !group.expected_impact.is_empty() {
+            assessment = assessment.add(
+                if i18n.locale() == "en" {
+                    "Expected effect"
+                } else {
+                    "Erwartete Wirkung"
+                },
+                &group.expected_impact,
+            );
+        }
+        if !group.complexity_reason.is_empty() {
+            assessment = assessment.add(
+                if i18n.locale() == "en" {
+                    "Complexity reason"
+                } else {
+                    "Komplexitätsgrund"
+                },
+                &group.complexity_reason,
+            );
+        }
+        if group.verification == "manual_review_recommended" {
+            assessment = assessment.add(
+                if i18n.locale() == "en" {
+                    "Verification"
+                } else {
+                    "Prüfung"
+                },
+                if i18n.locale() == "en" {
+                    "Manual review recommended"
+                } else {
+                    "Manuelle Prüfung empfohlen"
+                },
+            );
+        }
+        builder = builder.add_component(assessment);
+    }
 
     // AffectedElements: element-type summary + deduplicated selector list
     if !group.representative_occurrences.is_empty() {

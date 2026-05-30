@@ -86,6 +86,21 @@ fn test_json_report_generation() {
     assert_eq!(parsed["pages"][0]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
     assert_eq!(parsed["metadata"]["timestamp"], "2026-01-15T12:00:00Z");
+    assert!(
+        parsed["summary"]["wcag_coverage"]["automated_criteria"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
+    assert!(parsed["summary"]["accessibility_score_breakdown"]
+        .as_array()
+        .is_some_and(|items| items.len() >= 8));
+    assert!(parsed["summary"]["management_risks"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(parsed["summary"]["top_actions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
     assert!(parsed["pages"][0]["detail"]["confidence_summary"].is_array());
     assert!(parsed["pages"][0]["detail"]["capabilities"].is_array());
     // Findings are now grouped by rule, with taxonomy fields
@@ -95,6 +110,20 @@ fn test_json_report_generation() {
     assert!(findings[0]["dimension"].is_string());
     assert!(findings[0]["subcategory"].is_string());
     assert!(findings[0]["issue_class"].is_string());
+    assert_eq!(findings[0]["confidence"], "very_high");
+    assert_eq!(findings[0]["false_positive_risk"], "very_low");
+    assert_eq!(findings[0]["verification"], "automatically_confirmed");
+    assert_eq!(findings[0]["complexity"], "low");
+    assert_eq!(findings[0]["bfsg_relevance"], "high");
+    assert!(findings[0]["expected_impact"].is_string());
+    assert!(findings[0]["remediation_priority"].is_string());
+
+    let fix_guidance = parsed["pages"][0]["detail"]["fix_guidance"]
+        .as_array()
+        .expect("fix_guidance must be an array");
+    assert_eq!(fix_guidance[0]["risk"], "high");
+    assert_eq!(fix_guidance[0]["confidence"], "very_high");
+    assert_eq!(fix_guidance[0]["complexity"], "low");
     assert_matches_schema(&parsed, "json-report.schema.json");
 }
 
