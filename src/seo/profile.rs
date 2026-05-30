@@ -1423,7 +1423,7 @@ fn build_content_signals(seo: &SeoAnalysis) -> SignalCategory {
 
     let checks = vec![
         check(
-            "Inhaltsstärke (≥ 300 Wörter)",
+            "Inhaltsstärke (≥ 300 Wörter, Richtwert)",
             wc >= 300,
             Some(format!("{} Wörter", wc)),
         ),

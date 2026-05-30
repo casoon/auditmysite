@@ -859,15 +859,26 @@ pub(super) fn build_module_details_from_normalized(
         };
         let base_mobile = module_interpretation(normalized, "mobile", locale);
         let mobile_interpretation = if small_targets >= 10 {
+            // When context is known (e.g. "footer", "navigation"), qualify as locally scoped
+            // so a high overall score paired with a large touch-target count reads correctly.
+            let scope_note = if !context_hint.is_empty() {
+                if en {
+                    " — locally scoped"
+                } else {
+                    " — lokal begrenzt"
+                }
+            } else {
+                ""
+            };
             if en {
                 format!(
-                    "{} {} touch targets smaller than recommended (44×44 px){}.",
-                    base_mobile, small_targets, context_hint,
+                    "{} {} touch targets smaller than recommended (44×44 px){}{}.",
+                    base_mobile, small_targets, context_hint, scope_note,
                 )
             } else {
                 format!(
-                    "{} {} Touch-Targets kleiner als empfohlen (44×44 px){}.",
-                    base_mobile, small_targets, context_hint,
+                    "{} {} Touch-Targets kleiner als empfohlen (44×44 px){}{}.",
+                    base_mobile, small_targets, context_hint, scope_note,
                 )
             }
         } else {

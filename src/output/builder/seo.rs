@@ -159,6 +159,7 @@ pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalys
     if let Some(profile) = &seo.content_profile {
         let page_type = profile.page_classification.primary_type.label();
         let reference = profile.page_classification.intent_fit_score;
+        let content_depth = profile.page_classification.content_depth_score;
         let score = seo.score;
         let context = if score >= reference {
             if en {
@@ -180,18 +181,31 @@ pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalys
                     "Seitentyp: \u{201E}{page_type}\u{201C} — Score {score} liegt knapp unter dem Erwartungswert für diesen Seitentyp ({reference}); einzelne Signale fehlen noch."
                 )
             }
+        } else if en {
+            format!(
+                "Classified as \u{201C}{page_type}\u{201D} — score {score} is notably below the reference for this page type ({reference})."
+            )
         } else {
+            format!(
+                "Seitentyp: \u{201E}{page_type}\u{201C} — Score {score} liegt deutlich unter dem Erwartungswert für diesen Seitentyp ({reference})."
+            )
+        };
+        // When technical SEO is strong but content depth is weak, make the gap explicit
+        // so readers don't interpret a high SEO score as endorsing the content quality.
+        let depth_note = if seo.score >= 80 && content_depth < 55 {
             if en {
                 format!(
-                    "Classified as \u{201C}{page_type}\u{201D} — score {score} is notably below the reference for this page type ({reference})."
+                    " Technical SEO complete — content depth ({content_depth}/100) still has room to grow."
                 )
             } else {
                 format!(
-                    "Seitentyp: \u{201E}{page_type}\u{201C} — Score {score} liegt deutlich unter dem Erwartungswert für diesen Seitentyp ({reference})."
+                    " Technisches SEO vollständig — inhaltliche Tiefe ({content_depth}/100) noch ausbaufähig."
                 )
             }
+        } else {
+            String::new()
         };
-        format!("{lead} {context}")
+        format!("{lead} {context}{depth_note}")
     } else {
         lead.to_string()
     }
