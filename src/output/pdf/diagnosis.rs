@@ -15,11 +15,9 @@ pub(super) fn render_diagnosis_section(
 
     builder = builder.add_component(Section::new(&diagnosis.section_title).with_level(2));
 
-    // Pattern overview — label + description
-    let pattern_intro = format!(
-        "{}: {}",
-        diagnosis.pattern_label, diagnosis.pattern_description
-    );
+    // Pattern overview — label is the callout title; the body carries only the
+    // description so the label is not repeated as a prefix in the body text.
+    let pattern_intro = diagnosis.pattern_description.clone();
     let callout = if diagnosis.is_systematic {
         Callout::warning(&pattern_intro).with_title(&diagnosis.pattern_label)
     } else {

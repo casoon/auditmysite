@@ -94,25 +94,25 @@ narrative-next-steps-intro = Konkrete Handlungsempfehlung für die nächsten 1�
 narrative-next-steps-callout-title = Nächster Schritt
 narrative-next-steps-callout-body = Für eine vollständige Barrierefreiheits-Prüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation).
 narrative-findings-intro-strong = Die Seite ist technisch stark aufgestellt. Die folgenden Punkte sind letzte Optimierungshebel ohne strukturellen Druck.
-narrative-findings-intro-solid = Solide Basis — die folgenden Punkte sind gezielte Verbesserungshebel.
+narrative-findings-intro-solid = Tragfähige Basis — die folgenden Punkte sind gezielte Verbesserungshebel.
 narrative-findings-intro-default = Die folgenden Probleme haben den größten Einfluss auf Nutzbarkeit und Risiko. Technische Details folgen im nächsten Abschnitt.
 
 # Verdict (single audit)
 verdict-tier-excellent = { $url } erreicht { $score }/100 im Accessibility-Audit. Die verbleibenden Findings sind letzte Optimierungshebel — kein strukturelles Problem, sondern Feinschliff.
-verdict-tier-solid = { $url } erreicht { $score }/100 im Accessibility-Audit. Die Basis ist solide — klarer Verbesserungshebel mit überschaubarem Aufwand.
+verdict-tier-solid = { $url } erreicht { $score }/100 im Accessibility-Audit. Die Grundlage ist stabil — klarer Verbesserungshebel mit überschaubarem Aufwand.
 verdict-tier-deficient = { $url } erreicht { $score }/100 im Accessibility-Audit. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
 verdict-tier-critical = { $url } erreicht nur { $score }/100 im Accessibility-Audit. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
 score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen.
 
 # Verdict (batch audit)
 verdict-batch-excellent = Über { $total_urls } geprüfte URLs hinweg erreicht die Website einen Gesamtscore von { $score }/100 — ein sehr gutes Ergebnis.
-verdict-batch-solid = Im Durchschnitt erreichen die { $total_urls } geprüften URLs einen Gesamtscore von { $score }/100. Die Basis ist solide, es bestehen aber wiederkehrende Probleme in einzelnen Modulen.
+verdict-batch-solid = Im Durchschnitt erreichen die { $total_urls } geprüften URLs einen Gesamtscore von { $score }/100. Die Grundlage ist stabil, es bestehen aber wiederkehrende Probleme in einzelnen Modulen.
 verdict-batch-deficient = Die { $total_urls } geprüften URLs erreichen im Schnitt nur { $score }/100 Punkte. Es bestehen erhebliche systematische Probleme.
 verdict-batch-critical = Die { $total_urls } geprüften URLs erreichen im Schnitt nur { $score }/100 Punkte. Dringender Handlungsbedarf in mehreren Modulen.
 
 # Site state (audit summary)
 site-state-polished = Stark
-site-state-needs-work = Solide Basis
+site-state-needs-work = Tragfähige Basis
 site-state-weak = Instabil
 site-state-critical = Kritisch
 
@@ -355,12 +355,13 @@ finding-reference = Referenz
 
 # SEO / Tracking section
 seo-tracking-services = Tracking und externe Dienste
-seo-kv-title = Technisches SEO
+seo-kv-title = Technische SEO-Signale
 seo-serp-readiness = SERP-Bereitschaft
 seo-serp-signals = SERP-Signale
 seo-page-health-issues = Gefundene Probleme
 seo-page-health-url-analysis = URL-Analyse
 seo-page-html-validation = HTML-Validierung
+seo-technical-issues-title = Technische SEO-Probleme
 
 # Security section
 security-score-card = Security Score
@@ -372,6 +373,10 @@ mobile-touch-targets = Touch Targets
 mobile-viewport-config = Viewport-Konfiguration
 mobile-font-analysis = Schriftanalyse
 mobile-content-sizing = Inhaltsanpassung
+mobile-cat-viewport = Viewport
+mobile-cat-touch_targets = Touch-Targets
+mobile-cat-fonts = Schriftgrößen
+mobile-cat-content = Inhaltsanpassung
 
 # AI Visibility section
 ai-score-card = AI-Sichtbarkeit (Indikator)
@@ -432,7 +437,7 @@ effect-conversion-heading = Strukturklarheit → schnellere Orientierung
 effect-conversion-language = Korrekte Sprachausgabe → keine Abbrüche durch Vorlesefehler
 effect-conversion-default-quick = Schnell wirksam — messbar innerhalb von Tagen
 effect-conversion-default-medium = Mittelfristig messbare UX-Verbesserung
-effect-conversion-default-structural = Solide technische Basis für weiteres Wachstum
+effect-conversion-default-structural = Stabile technische Basis für weiteres Wachstum
 
 # Narrative Arc Formatters
 narrative-diagnose-multiple = { $count }× festgestellt: { $desc }

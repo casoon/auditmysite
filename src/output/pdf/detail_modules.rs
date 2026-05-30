@@ -1182,9 +1182,103 @@ pub(super) fn render_mobile(
     }
 
     for (cat, sev, msg) in &mobile.issues {
-        builder = builder.add_component(Finding::new(cat, map_severity(sev), msg));
+        let label = mobile_category_label(cat, i18n);
+        builder = builder.add_component(Finding::new(&label, map_severity(sev), msg));
     }
     builder
+}
+
+/// Maps a raw journey finding category (e.g. "HiddenFocusable") to a localized,
+/// human-readable title. Unknown categories fall back to a space-separated form
+/// of the PascalCase identifier so an internal enum name never reaches the
+/// report verbatim (#358).
+fn journey_category_label(category: &str, i18n: &I18n) -> String {
+    let en = i18n.locale() == "en";
+    let label = match category {
+        "TabOrder" => Some(if en { "Tab order" } else { "Tab-Reihenfolge" }),
+        "FocusTrap" => Some(if en { "Focus trap" } else { "Fokus-Falle" }),
+        "StateTransition" => Some(if en {
+            "State transition"
+        } else {
+            "Zustandswechsel"
+        }),
+        "FocusRestoration" => Some(if en {
+            "Focus restoration"
+        } else {
+            "Fokus-Wiederherstellung"
+        }),
+        "FormError" => Some(if en {
+            "Form error announcement"
+        } else {
+            "Formularfehler-Ansage"
+        }),
+        "SpaNavigation" => Some(if en {
+            "SPA navigation"
+        } else {
+            "SPA-Navigation"
+        }),
+        "HiddenFocusable" => Some(if en {
+            "Hidden focusable element"
+        } else {
+            "Verstecktes fokussierbares Element"
+        }),
+        "SkipLink" => Some(if en { "Skip link" } else { "Skip-Link" }),
+        "FocusIndicator" => Some(if en {
+            "Focus indicator"
+        } else {
+            "Fokus-Indikator"
+        }),
+        "MenuJourney" => Some(if en {
+            "Menu navigation"
+        } else {
+            "Menü-Navigation"
+        }),
+        "TabsJourney" => Some(if en {
+            "Tab navigation"
+        } else {
+            "Tab-Navigation"
+        }),
+        _ => None,
+    };
+    if let Some(label) = label {
+        return label.to_string();
+    }
+    // Fallback: split a PascalCase / snake_case identifier into words.
+    let mut out = String::new();
+    for (i, ch) in category.char_indices() {
+        if ch == '_' || ch == '-' {
+            out.push(' ');
+        } else if ch.is_uppercase() && i > 0 && !out.ends_with(' ') {
+            out.push(' ');
+            out.push(ch);
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// Maps a raw mobile issue category (e.g. "touch_targets") to a localized,
+/// human-readable label. Unknown categories fall back to a title-cased form of
+/// the identifier so a snake_case key never reaches the report verbatim (#358).
+fn mobile_category_label(category: &str, i18n: &I18n) -> String {
+    let key = format!("mobile-cat-{category}");
+    let translated = i18n.t(&key);
+    if translated != key {
+        return translated;
+    }
+    category
+        .split(['_', '-'])
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 pub(super) fn render_ux(
@@ -1912,13 +2006,31 @@ pub(super) fn render_a11y_journey_findings(
         .with_level(2),
     );
 
-    let critical_count = findings
+    // Collapse identical journey findings (same journey, category, message and
+    // severity) into a single row with an occurrence count. Repeated identical
+    // entries otherwise read like a render-loop bug (#358). Distinct elements
+    // carry distinct messages and are never merged.
+    let mut deduped: Vec<(&crate::audit::normalized::InteractiveFinding, usize)> = Vec::new();
+    for f in findings {
+        if let Some(entry) = deduped.iter_mut().find(|(g, _)| {
+            g.journey == f.journey
+                && g.category == f.category
+                && g.message == f.message
+                && g.severity == f.severity
+        }) {
+            entry.1 += 1;
+        } else {
+            deduped.push((f, 1));
+        }
+    }
+
+    let critical_count = deduped
         .iter()
-        .filter(|f| f.severity == crate::taxonomy::Severity::Critical)
+        .filter(|(f, _)| f.severity == crate::taxonomy::Severity::Critical)
         .count();
-    let high_count = findings
+    let high_count = deduped
         .iter()
-        .filter(|f| f.severity == crate::taxonomy::Severity::High)
+        .filter(|(f, _)| f.severity == crate::taxonomy::Severity::High)
         .count();
     let overview = if critical_count > 0 {
         if en {
@@ -1944,12 +2056,12 @@ pub(super) fn render_a11y_journey_findings(
     } else if en {
         format!(
             "{} minor interactive issues — no critical or high barriers detected.",
-            findings.len()
+            deduped.len()
         )
     } else {
         format!(
             "{} kleinere interaktive Befunde — keine kritischen oder hohen Barrieren erkannt.",
-            findings.len()
+            deduped.len()
         )
     };
     builder = builder.add_component(if critical_count > 0 {
@@ -1960,27 +2072,32 @@ pub(super) fn render_a11y_journey_findings(
         Callout::success(&overview)
     });
 
-    let shown = findings.len().min(10);
-    for finding in &findings[..shown] {
+    let shown = deduped.len().min(10);
+    for (finding, count) in &deduped[..shown] {
         let sev = map_severity(&finding.severity);
         let body = if let Some(ref fix) = finding.fix_suggestion {
             format!("{} — {}", finding.message, fix)
         } else {
             finding.message.clone()
         };
-        let title = format!("[{}] {}", finding.journey, finding.category);
+        let label = journey_category_label(&finding.category, i18n);
+        let title = if *count > 1 {
+            format!("{label} (×{count})")
+        } else {
+            label
+        };
         builder = builder.add_component(Finding::new(&title, sev, &body));
     }
-    if findings.len() > 10 {
+    if deduped.len() > 10 {
         let more = if en {
             format!(
                 "{} additional interactive findings in the JSON report.",
-                findings.len() - 10
+                deduped.len() - 10
             )
         } else {
             format!(
                 "{} weitere interaktive Befunde im JSON-Report.",
-                findings.len() - 10
+                deduped.len() - 10
             )
         };
         builder = builder.add_component(Callout::info(&more));

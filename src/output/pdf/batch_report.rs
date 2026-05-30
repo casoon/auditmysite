@@ -29,34 +29,67 @@ pub(super) fn build_batch_assessment(
 ) -> String {
     let en = i18n.locale() == "en";
     let score = summary.average_score.round() as u32;
-    if dist.critical > 0 && score < 50 {
+    // Score band is the primary signal; severity only refines wording within a
+    // band. A low average must never yield a reassuring label (mirrors the
+    // single-report logic in builder/single/executive.rs, #355).
+    if score < 40 {
         if en {
             "Critical barriers — not WCAG conformant".to_string()
         } else {
             "Kritische Barrieren — nicht WCAG-konform".to_string()
         }
-    } else if dist.critical > 0 {
-        if en {
-            "Technically solid, but legally risky".to_string()
+    } else if score < 60 {
+        if dist.critical > 0 {
+            if en {
+                "Serious barriers — not WCAG conformant".to_string()
+            } else {
+                "Gravierende Barrieren — nicht WCAG-konform".to_string()
+            }
+        } else if en {
+            "Substantial accessibility gaps".to_string()
         } else {
-            "Technisch stabil, aber rechtlich riskant".to_string()
+            "Erhebliche Barrierefreiheitslücken".to_string()
         }
-    } else if dist.high > 0 {
-        if en {
-            "Good foundation, but not accessible".to_string()
+    } else if score < 75 {
+        if dist.critical > 0 {
+            if en {
+                "Usable, but legally risky".to_string()
+            } else {
+                "Nutzbar, aber rechtlich riskant".to_string()
+            }
+        } else if dist.high > 0 {
+            if en {
+                "Usable foundation, but not yet accessible".to_string()
+            } else {
+                "Nutzbare Basis, aber noch nicht barrierefrei".to_string()
+            }
+        } else if en {
+            "Needs improvement toward accessibility".to_string()
         } else {
-            "Gute Basis, aber nicht barrierefrei".to_string()
+            "Verbesserungswürdig auf dem Weg zur Barrierefreiheit".to_string()
         }
-    } else if score >= 85 {
-        if en {
-            "Largely accessible — polish".to_string()
+    } else if score < 90 {
+        if dist.critical > 0 {
+            if en {
+                "Technically stable, but legally risky".to_string()
+            } else {
+                "Technisch stabil, aber rechtlich riskant".to_string()
+            }
+        } else if dist.high > 0 {
+            if en {
+                "Good foundation, but not accessible".to_string()
+            } else {
+                "Gute Basis, aber nicht barrierefrei".to_string()
+            }
+        } else if en {
+            "Largely accessible — fine-tuning".to_string()
         } else {
             "Weitgehend barrierefrei — Feinschliff".to_string()
         }
     } else if en {
-        "Solid foundation with room to optimize".to_string()
+        "Largely accessible — polish".to_string()
     } else {
-        "Stabile Grundlage mit Optimierungspotenzial".to_string()
+        "Weitgehend barrierefrei — Feinschliff".to_string()
     }
 }
 

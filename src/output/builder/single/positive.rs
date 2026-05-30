@@ -31,9 +31,9 @@ pub(super) fn derive_positive_aspects_from_normalized(
         positives.push(PositiveAspect {
             area: area_a11y,
             description: if en {
-                "Solid base quality with focused, prioritizable remaining items.".into()
+                "Stable base quality with focused, prioritizable remaining items.".into()
             } else {
-                "Solide Grundqualität mit gezielt priorisierbaren Restpunkten.".into()
+                "Stabile Grundqualität mit gezielt priorisierbaren Restpunkten.".into()
             },
         });
     }

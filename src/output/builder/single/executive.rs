@@ -69,8 +69,20 @@ pub(super) fn build_executive_narrative(
 ) -> ExecutiveNarrativeBlock {
     let en = i18n.locale() == "en";
     let assessment = build_single_assessment_text(i18n.locale(), score, severity);
-    let key_points =
-        build_single_key_points_text(i18n.locale(), severity, top_findings, normalized);
+    // Single source of truth for "share of critical/high findings from the
+    // dominant issue". Both the key-points line and the leverage text below must
+    // use this value — never an independently recomputed percentage (#360).
+    let dominant_share = audit_summary
+        .dominant_issue
+        .as_ref()
+        .map(|d| d.share_pct.round() as usize);
+    let key_points = build_single_key_points_text(
+        i18n.locale(),
+        severity,
+        top_findings,
+        normalized,
+        dominant_share,
+    );
     let (user_label, business_label, risk_label) = if en {
         ("User", "Business", "Risk")
     } else {
@@ -160,9 +172,11 @@ pub(super) fn build_executive_narrative(
     ) =
         top_findings.first()
     {
-        let share = (top.occurrence_count * 100)
-            .checked_div(total_ch)
-            .unwrap_or(0);
+        let share = dominant_share.unwrap_or_else(|| {
+            (top.occurrence_count * 100)
+                .checked_div(total_ch)
+                .unwrap_or(0)
+        });
         (
                 audit_summary.dominant_issue_note.clone().unwrap_or_else(|| {
                     if en {
@@ -247,39 +261,86 @@ pub(super) fn build_executive_narrative(
     }
 }
 
+/// Assessment label for the executive cover. The score band is the primary
+/// signal (bands per CLAUDE.md: ≥90/≥75/≥60/≥40/<40); severity only refines the
+/// wording *within* a band. A low score must never yield a reassuring label —
+/// e.g. "Gute Basis" may only appear from score ≥ 60 upward.
 fn build_single_assessment_text(locale: &str, score: u32, severity: &SeverityBlock) -> String {
     let en = locale == "en";
     let has_critical_a11y = severity.critical > 0;
     let has_high = severity.high > 0;
 
-    if has_critical_a11y && score < 50 {
+    if score < 40 {
+        // Critical band — never a "good foundation" wording, regardless of severity mix.
         if en {
             "Critical barriers — not WCAG conformant".to_string()
         } else {
             "Kritische Barrieren — nicht WCAG-konform".to_string()
         }
-    } else if has_critical_a11y {
-        if en {
-            "Technically solid, but legally risky".to_string()
+    } else if score < 60 {
+        // Inadequate band: relevant barriers, no reassurance.
+        if has_critical_a11y {
+            if en {
+                "Serious barriers — not WCAG conformant".to_string()
+            } else {
+                "Gravierende Barrieren — nicht WCAG-konform".to_string()
+            }
+        } else if en {
+            "Substantial accessibility gaps".to_string()
         } else {
-            "Technisch stabil, aber rechtlich riskant".to_string()
+            "Erhebliche Barrierefreiheitslücken".to_string()
         }
-    } else if has_high {
-        if en {
-            "Good foundation, but not accessible".to_string()
+    } else if score < 75 {
+        // Needs-improvement band.
+        if has_critical_a11y {
+            if en {
+                "Usable, but legally risky".to_string()
+            } else {
+                "Nutzbar, aber rechtlich riskant".to_string()
+            }
+        } else if has_high {
+            if en {
+                "Usable foundation, but not yet accessible".to_string()
+            } else {
+                "Nutzbare Basis, aber noch nicht barrierefrei".to_string()
+            }
+        } else if en {
+            "Needs improvement toward accessibility".to_string()
         } else {
-            "Gute Basis, aber nicht barrierefrei".to_string()
+            "Verbesserungswürdig auf dem Weg zur Barrierefreiheit".to_string()
         }
-    } else if score >= 85 {
-        if en {
+    } else if score < 90 {
+        // Good band.
+        if has_critical_a11y {
+            if en {
+                "Technically stable, but legally risky".to_string()
+            } else {
+                "Technisch stabil, aber rechtlich riskant".to_string()
+            }
+        } else if has_high {
+            if en {
+                "Good foundation, but not accessible".to_string()
+            } else {
+                "Gute Basis, aber nicht barrierefrei".to_string()
+            }
+        } else if en {
+            "Largely accessible — fine-tuning".to_string()
+        } else {
+            "Weitgehend barrierefrei — Feinschliff".to_string()
+        }
+    } else {
+        // Excellent band.
+        if has_high {
+            if en {
+                "Largely accessible — close residual gaps".to_string()
+            } else {
+                "Weitgehend barrierefrei — Restlücken schließen".to_string()
+            }
+        } else if en {
             "Largely accessible — polish".to_string()
         } else {
             "Weitgehend barrierefrei — Feinschliff".to_string()
         }
-    } else if en {
-        "Solid foundation with room to optimize".to_string()
-    } else {
-        "Stabile Grundlage mit Optimierungspotenzial".to_string()
     }
 }
 
@@ -288,6 +349,7 @@ fn build_single_key_points_text(
     severity: &SeverityBlock,
     top_findings: &[FindingGroup],
     normalized: &NormalizedReport,
+    dominant_share: Option<usize>,
 ) -> Vec<String> {
     let en = locale == "en";
     let mut points = Vec::with_capacity(3);
@@ -307,9 +369,13 @@ fn build_single_key_points_text(
 
     if let Some(top) = top_findings.first() {
         let total_ch = (severity.critical + severity.high) as usize;
-        let share = (top.occurrence_count * 100)
-            .checked_div(total_ch)
-            .unwrap_or(0);
+        // Prefer the canonical dominant-issue share so this line and the
+        // leverage text never disagree on the same percentage (#360).
+        let share = dominant_share.unwrap_or_else(|| {
+            (top.occurrence_count * 100)
+                .checked_div(total_ch)
+                .unwrap_or(0)
+        });
         if share >= 30 {
             if en {
                 points.push(format!(

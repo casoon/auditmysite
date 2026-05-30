@@ -48,7 +48,7 @@ impl SiteState {
     pub fn label(&self) -> &str {
         match self {
             Self::Polished => "Stark",
-            Self::NeedsWork => "Solide Basis",
+            Self::NeedsWork => "Tragfähige Basis",
             Self::Weak => "Instabil",
             Self::Critical => "Kritisch",
         }
@@ -412,16 +412,16 @@ fn build_verdict_intro(
                     format!("No pressing barriers detected by automation.{cross_note} Maintain the level and re-check regularly.")
                 } else {
                     let topic_word = if urgent == 1 { "topic" } else { "topics" };
-                    format!("Solid foundation. {urgent} prioritized {topic_word} — fix deliberately before they pile up.{cross_note}")
+                    format!("Stable foundation. {urgent} prioritized {topic_word} — fix deliberately before they pile up.{cross_note}")
                 }
             }
             (SiteState::NeedsWork, IssuePattern::Clustered) => format!(
-                "Solid foundation, but {urgent} prioritized topics span several independent areas. \
+                "Stable foundation, but {urgent} prioritized topics span several independent areas. \
                  Prioritize systematically — not all at once.{cross_note}"
             ),
             (SiteState::NeedsWork, _) => {
                 if urgent == 0 {
-                    format!("Solid foundation without acute risks. {total} improvements possible — easy to prioritize.{cross_note}")
+                    format!("Stable foundation without acute risks. {total} improvements possible — easy to prioritize.{cross_note}")
                 } else {
                     let topic_word = if urgent == 1 { "topic" } else { "topics" };
                     let needs_word = if urgent == 1 { "needs" } else { "need" };
@@ -445,7 +445,7 @@ fn build_verdict_intro(
                 format!("Automatisiert unauffällig — keine dringenden Barrieren erkannt.{cross_note} Niveau halten und regelmäßig nachprüfen.")
             } else {
                 format!(
-                    "Solide Basis. {} priorisierte{} Thema{} — gezielt beheben, bevor sie sich häufen.{cross_note}",
+                    "Tragfähige Basis. {} priorisierte{} Thema{} — gezielt beheben, bevor sie sich häufen.{cross_note}",
                     urgent,
                     if urgent == 1 { "s" } else { "" },
                     if urgent == 1 { "" } else { "n" }
@@ -453,12 +453,12 @@ fn build_verdict_intro(
             }
         }
         (SiteState::NeedsWork, IssuePattern::Clustered) => format!(
-            "Solide Basis, aber {urgent} priorisierte Themen verteilen sich auf mehrere unabhängige Bereiche. \
+            "Tragfähige Basis, aber {urgent} priorisierte Themen verteilen sich auf mehrere unabhängige Bereiche. \
              Strukturiert priorisieren — nicht alles auf einmal.{cross_note}"
         ),
         (SiteState::NeedsWork, _) => {
             if urgent == 0 {
-                format!("Solide Basis ohne akute Risiken. {total} Verbesserungen möglich — gut priorisierbar.{cross_note}")
+                format!("Tragfähige Basis ohne akute Risiken. {total} Verbesserungen möglich — gut priorisierbar.{cross_note}")
             } else {
                 format!(
                     "Gute Basis, aber {} priorisierte{} Thema{} braucht{} sofortige Aufmerksamkeit.{cross_note}",
