@@ -274,19 +274,16 @@ pub struct ModuleScoreEntry {
 
 /// Risk level — independent from score.
 /// Score = quality level, Risk = operational/legal relevance.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
+    #[default]
     Low,
     Medium,
     High,
     Critical,
-}
-
-impl Default for RiskLevel {
-    fn default() -> Self {
-        Self::Low
-    }
 }
 
 impl std::fmt::Display for RiskLevel {

@@ -103,7 +103,7 @@ impl Interpretation {
         let benchmark_context = build_benchmark_context_localized(ctx.overall_score as f32);
         let business_consequence_key = pick_business_consequence_key(ctx);
         let consequence_key = pick_consequence_key(ctx);
-        let verdict_key = pick_verdict_key(ctx.overall_score as f32);
+        let verdict_key = pick_verdict_key(ctx.overall_score as f32, ctx.risk.legal_flags);
         let score_note_key = pick_score_note_key(ctx);
         let batch_verdict_key = String::new();
 
@@ -683,7 +683,17 @@ fn pick_consequence_key(normalized: &AuditContext) -> String {
     .to_string()
 }
 
-fn pick_verdict_key(score: f32) -> String {
+fn pick_verdict_key(score: f32, legal_flags: usize) -> String {
+    // A page with legal-relevant Level-A findings must never receive the
+    // reassuring "solid" verdict, regardless of an otherwise passable score (#356).
+    if legal_flags > 0 {
+        return if score < 50.0 {
+            "verdict-tier-critical"
+        } else {
+            "verdict-tier-deficient"
+        }
+        .to_string();
+    }
     if score >= 90.0 {
         "verdict-tier-excellent"
     } else if score >= 70.0 {

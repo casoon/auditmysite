@@ -558,10 +558,11 @@ fn build_single_report(
     // SECTIONS 4 + 5 + 5b + 6+ (Standard / Technical only)
     // ─────────────────────────────────────────────────────────────────
     builder = render_action_plan(builder, &vm, &i18n);
+    // Recommended next steps belong with the action plan at the end of Part 1,
+    // not buried after the least actionable technical modules (#362).
+    builder = render_next_steps_single(builder, &vm);
     builder = render_tech_entry(builder, &vm, &i18n);
     builder = render_tech_details(builder, &vm, report, &i18n);
-
-    builder = render_next_steps_single(builder, &vm);
 
     let built_report = builder.build();
     Ok((engine, built_report))

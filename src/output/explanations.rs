@@ -1415,3 +1415,27 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression for #357: these rules carry their explanation under the
+    /// taxonomy key, so a lookup must resolve them and return a localized
+    /// (non-empty, distinct DE/EN) recommendation rather than a raw English fix.
+    #[test]
+    fn taxonomy_keyed_rules_have_localized_recommendation() {
+        for rule_id in [
+            "a11y.aria_hidden_focus.invalid",
+            "a11y.aria_prohibited_attr.invalid",
+        ] {
+            let expl = get_explanation(rule_id)
+                .unwrap_or_else(|| panic!("missing explanation for {rule_id}"));
+            let de = expl.recommendation_for("de");
+            let en = expl.recommendation_for("en");
+            assert!(!de.is_empty(), "{rule_id}: empty DE recommendation");
+            assert!(!en.is_empty(), "{rule_id}: empty EN recommendation");
+            assert_ne!(de, en, "{rule_id}: DE and EN recommendation identical");
+        }
+    }
+}

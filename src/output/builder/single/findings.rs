@@ -15,7 +15,11 @@ pub(super) fn finding_group_from_normalized(
     f: &crate::audit::normalized::NormalizedFinding,
 ) -> FindingGroup {
     let locale = i18n.locale();
-    let explanation = get_explanation(&f.wcag_criterion);
+    // Try the taxonomy rule_id first (e.g. "a11y.aria_hidden_focus.invalid"),
+    // then fall back to the WCAG criterion. Some rules carry their localized
+    // explanation under the taxonomy key, not the WCAG number — looking up by
+    // wcag_criterion alone left those findings with the raw English fix (#357).
+    let explanation = get_explanation(&f.rule_id).or_else(|| get_explanation(&f.wcag_criterion));
 
     let (
         title,

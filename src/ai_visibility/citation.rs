@@ -195,7 +195,7 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
                 .map_or("n/a".to_string(), |s| format!("{}", s)),
             input.a11y_score,
             if tech_trust {
-                "solide technische Basis"
+                "stabile technische Basis"
             } else {
                 "technische Schwächen mindern Vertrauen"
             }

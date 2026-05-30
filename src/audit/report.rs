@@ -1051,7 +1051,7 @@ mod tests {
                 WcagLevel::A,
                 crate::wcag::Severity::Critical,
                 "missing",
-                &format!("n{i}"),
+                format!("n{i}"),
             ));
         }
         let risky = normalize(&AuditReport::new(

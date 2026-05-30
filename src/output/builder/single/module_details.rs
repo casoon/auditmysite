@@ -33,6 +33,161 @@ fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &s
         .unwrap_or_default()
 }
 
+/// Joins phrases into a natural list ("a, b and c" / "a, b und c").
+fn join_phrases(items: &[String], en: bool) -> String {
+    match items.len() {
+        0 => String::new(),
+        1 => items[0].clone(),
+        _ => {
+            let (last, head) = items.split_last().unwrap();
+            format!(
+                "{} {} {}",
+                head.join(", "),
+                if en { "and" } else { "und" },
+                last
+            )
+        }
+    }
+}
+
+/// Appends threshold-based qualifiers to the performance interpretation so that
+/// concrete weak metrics (DOM complexity, throttled LCP, render-blocking
+/// resources, unminified weight, non-composited animations) are named instead
+/// of left to the score band alone, while genuinely strong metrics (CLS, TBT)
+/// are acknowledged as contrast (#367).
+fn append_performance_qualifiers(
+    base: String,
+    p: &crate::PerformanceResults,
+    normalized: &AuditContext,
+    en: bool,
+) -> String {
+    let mut critical: Vec<String> = Vec::new();
+
+    if let Some(nodes) = p.vitals.dom_nodes.filter(|n| *n > 3000) {
+        critical.push(if en {
+            format!("high DOM complexity ({nodes} nodes)")
+        } else {
+            format!("die hohe DOM-Komplexität ({nodes} Knoten)")
+        });
+    }
+
+    // Worst LCP measured under network throttling (e.g. Slow 3G).
+    let throttled_lcp = normalized
+        .raw_throttled_performance
+        .iter()
+        .filter_map(|t| t.lcp_ms)
+        .fold(0.0_f64, f64::max);
+    if throttled_lcp > 4000.0 {
+        critical.push(if en {
+            format!("a late largest contentful paint under throttling ({throttled_lcp:.0} ms)")
+        } else {
+            format!(
+                "der spät erscheinende Hauptinhalt unter Drosselung ({throttled_lcp:.0} ms LCP)"
+            )
+        });
+    }
+
+    let rb_count = p
+        .render_blocking
+        .as_ref()
+        .map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len())
+        .unwrap_or(0);
+    if rb_count > 0 {
+        critical.push(if en {
+            format!("{rb_count} render-blocking resources")
+        } else {
+            format!("{rb_count} render-blockierende Ressourcen")
+        });
+    }
+
+    let unminified_kb = p
+        .minification
+        .as_ref()
+        .map(|m| m.total_savings_bytes as f64 / 1024.0)
+        .unwrap_or(0.0);
+    if unminified_kb > 100.0 {
+        critical.push(if en {
+            format!("unminified assets (~{unminified_kb:.0} KB savings)")
+        } else {
+            format!("unminifizierte Assets (~{unminified_kb:.0} KB Einsparpotenzial)")
+        });
+    }
+
+    let anim_count = p.animations.as_ref().map(|a| a.total_count).unwrap_or(0);
+    if anim_count > 10 {
+        critical.push(if en {
+            format!("{anim_count} non-composited animations")
+        } else {
+            format!("{anim_count} nicht-composited Animationen")
+        });
+    }
+
+    if critical.is_empty() {
+        return base;
+    }
+
+    let mut positive: Vec<String> = Vec::new();
+    if p.vitals.cls.as_ref().is_some_and(|v| v.rating == "good") {
+        positive.push(
+            if en {
+                "layout stability (CLS)"
+            } else {
+                "Layout-Stabilität (CLS)"
+            }
+            .to_string(),
+        );
+    }
+    if p.vitals.tbt.as_ref().is_some_and(|v| v.rating == "good") {
+        positive.push(
+            if en {
+                "main-thread blocking (TBT)"
+            } else {
+                "Hauptthread-Blockierung (TBT)"
+            }
+            .to_string(),
+        );
+    }
+
+    let mut out = base;
+    if !out.is_empty() {
+        out.push(' ');
+    }
+    if en {
+        out.push_str(&format!(
+            "Critical here are {}.",
+            join_phrases(&critical, en)
+        ));
+        if !positive.is_empty() {
+            let verb = if positive.len() == 1 {
+                "remains"
+            } else {
+                "remain"
+            };
+            out.push_str(&format!(
+                " In contrast, {} {verb} unobtrusive.",
+                join_phrases(&positive, en)
+            ));
+        }
+    } else {
+        out.push_str(&format!(
+            "Kritisch sind hier {}.",
+            join_phrases(&critical, en)
+        ));
+        if !positive.is_empty() {
+            let verb = if positive.len() == 1 {
+                "bleibt"
+            } else {
+                "bleiben"
+            };
+            out.push_str(&format!(
+                " Im Kontrast dazu {verb} {} unauffällig.",
+                join_phrases(&positive, en)
+            ));
+        }
+    }
+    out
+}
+
 pub(super) fn build_module_details_from_normalized(
     i18n: &I18n,
     normalized: &AuditContext,
@@ -170,6 +325,8 @@ pub(super) fn build_module_details_from_normalized(
         } else {
             base_perf
         };
+        let perf_interpretation =
+            append_performance_qualifiers(perf_interpretation, p, normalized, en);
 
         let throttled_profiles: Vec<ThrottledPerfEntry> = normalized
             .raw_throttled_performance

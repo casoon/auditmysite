@@ -267,7 +267,7 @@ pub(super) fn render_tech_details(
                     .with_level(2),
             );
 
-            for criticality in &vm.findings.by_tier {
+            for (tier_idx, criticality) in vm.findings.by_tier.iter().enumerate() {
                 let tier_summary = if en {
                     format!(
                         "{} finding(s) — {} occurrence(s) total. {}",
@@ -283,7 +283,13 @@ pub(super) fn render_tech_details(
                         criticality.intro
                     )
                 };
-                builder = builder.add_component(PageBreak::new()).add_component(
+                // Keep the first tier on the same page as the section divider so
+                // the divider page is not nearly empty (#365); break only before
+                // subsequent tiers.
+                if tier_idx > 0 {
+                    builder = builder.add_component(PageBreak::new());
+                }
+                builder = builder.add_component(
                     SectionHeaderSplit::new(&criticality.label, &tier_summary)
                         .with_eyebrow(&criticality.eyebrow)
                         .with_level(2),
@@ -372,8 +378,10 @@ pub(super) fn render_tech_details(
         );
     }
 
-    // Appendix — full violations list, conclusion of Part 2 (#246).
-    {
+    // Appendix — full violations list, conclusion of Part 2 (#246). Only render
+    // the section header when there are violations to list; otherwise it
+    // promises a list that never appears (#364).
+    if vm.appendix.has_violations {
         let (appendix_title, appendix_intro) = if en {
             (
                 "Complete Findings List",
@@ -390,9 +398,7 @@ pub(super) fn render_tech_details(
                 .with_eyebrow(if en { "APPENDIX" } else { "ANHANG" })
                 .with_level(2),
         );
-    }
 
-    if vm.appendix.has_violations {
         builder = builder.add_component(build_cli_snapshot_table(vm, i18n));
 
         // JSON hint in appendix (#219)
@@ -593,7 +599,10 @@ pub(super) fn render_tech_details(
                 },
             )
             .with_eyebrow(if en { "ANALYSIS" } else { "ANALYSE" })
-            .with_level(2),
+            // Sub-divider that groups the technical modules — must sit one level
+            // above the L2 module headings it introduces, otherwise two equal
+            // L2 headings collide with no content between them (#363).
+            .with_level(1),
         );
     }
     if let Some(ref perf) = vm.module_details.performance {

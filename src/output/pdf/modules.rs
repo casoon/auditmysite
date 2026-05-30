@@ -75,8 +75,8 @@ pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunCont
     }
 
     let table_title = match selected.len() {
-        1 => "Maßnahmenplan (1 Maßnahme) — Executive View".to_string(),
-        n => format!("Maßnahmenplan ({n} Maßnahmen) — Executive View"),
+        1 => "Maßnahmenplan (1 Maßnahme)".to_string(),
+        n => format!("Maßnahmenplan ({n} Maßnahmen)"),
     };
 
     let mut table = AuditTable::new(vec![

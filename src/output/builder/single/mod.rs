@@ -616,7 +616,7 @@ mod tests {
 
         // Site state (maturity_label) must be one of the English variants.
         assert!(
-            ["Strong", "Solid foundation", "Unstable", "Critical"]
+            ["Strong", "Stable foundation", "Unstable", "Critical"]
                 .contains(&vm.summary.maturity_label.as_str()),
             "Maturity label should be English, got {}",
             vm.summary.maturity_label

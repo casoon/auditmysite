@@ -94,25 +94,25 @@ narrative-next-steps-intro = Concrete recommendation for the next 1–4 weeks.
 narrative-next-steps-callout-title = Next step
 narrative-next-steps-callout-body = For a complete accessibility verification we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation).
 narrative-findings-intro-strong = The site is technically strong. The following items are last optimization levers without structural pressure.
-narrative-findings-intro-solid = Solid foundation — the following items are targeted improvement levers.
+narrative-findings-intro-solid = Stable foundation — the following items are targeted improvement levers.
 narrative-findings-intro-default = The following issues have the largest impact on usability and risk. Technical details follow in the next section.
 
 # Verdict (single audit)
 verdict-tier-excellent = { $url } reaches { $score }/100 in the accessibility audit. The remaining findings are last optimization levers — not a structural problem but polish.
-verdict-tier-solid = { $url } reaches { $score }/100 in the accessibility audit. The foundation is solid — clear improvement levers at manageable effort.
+verdict-tier-solid = { $url } reaches { $score }/100 in the accessibility audit. The foundation is stable — clear improvement levers at manageable effort.
 verdict-tier-deficient = { $url } reaches { $score }/100 in the accessibility audit. There are significant barriers — not isolated details but structural backlog.
 verdict-tier-critical = { $url } only reaches { $score }/100 in the accessibility audit. Urgent action needed: essential content and functions are not accessible for a part of users.
 score-note-high-with-critical = The score weighs frequency and severity. Individual critical topics can persist despite a high overall score.
 
 # Verdict (batch audit)
 verdict-batch-excellent = Across { $total_urls } audited URLs the site reaches an overall score of { $score }/100 — a very good result.
-verdict-batch-solid = On average the { $total_urls } audited URLs reach an overall score of { $score }/100. The foundation is solid, but recurring issues exist in individual modules.
+verdict-batch-solid = On average the { $total_urls } audited URLs reach an overall score of { $score }/100. The foundation is stable, but recurring issues exist in individual modules.
 verdict-batch-deficient = The { $total_urls } audited URLs reach on average only { $score }/100 points. There are significant systematic problems.
 verdict-batch-critical = The { $total_urls } audited URLs reach on average only { $score }/100 points. Urgent action required across multiple modules.
 
 # Site state (audit summary)
 site-state-polished = Strong
-site-state-needs-work = Solid foundation
+site-state-needs-work = Stable foundation
 site-state-weak = Unstable
 site-state-critical = Critical
 
@@ -134,7 +134,7 @@ grade-deficient = Needs work
 grade-critical = Critical
 
 # Business / forward-looking consequence
-business-consequence-clean = No known barriers — solid foundation for all user groups.
+business-consequence-clean = No known barriers — a stable foundation for all user groups.
 business-consequence-severe = Large parts of the site are unusable or barely usable for certain user groups.
 business-consequence-seo-headings = The site is harder to find and structurally inaccessible to part of users.
 business-consequence-screenreader = Individual key functions are blocked or unreliable for screen-reader users.
@@ -355,12 +355,13 @@ finding-reference = Reference
 
 # SEO / Tracking section
 seo-tracking-services = Tracking and external services
-seo-kv-title = Technical SEO
+seo-kv-title = Technical SEO signals
 seo-serp-readiness = SERP readiness
 seo-serp-signals = SERP signals
 seo-page-health-issues = Detected issues
 seo-page-health-url-analysis = URL analysis
 seo-page-html-validation = HTML validation
+seo-technical-issues-title = Technical SEO issues
 
 # Security section
 security-score-card = Security score
@@ -372,6 +373,10 @@ mobile-touch-targets = Touch targets
 mobile-viewport-config = Viewport configuration
 mobile-font-analysis = Font analysis
 mobile-content-sizing = Content sizing
+mobile-cat-viewport = Viewport
+mobile-cat-touch_targets = Touch targets
+mobile-cat-fonts = Font sizes
+mobile-cat-content = Content sizing
 
 # AI Visibility section
 ai-score-card = AI visibility (indicator)
