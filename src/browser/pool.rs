@@ -83,18 +83,27 @@ struct BrowserPoolInner {
 impl BrowserPoolInner {
     /// Return a page to the pool
     async fn return_page(&self, page: Page) {
-        // Try to reset the page for reuse
-        if let Err(e) = page.goto("about:blank").await {
-            warn!("Failed to reset page: {}", e);
-            // Page is unusable, don't return it
-            self.semaphore.add_permits(1);
-            return;
-        }
+        // Reset the page for reuse. Guard with a short timeout — some pages become
+        // unresponsive after navigating to heavy sites and the goto call would hang
+        // indefinitely, starving the semaphore.
+        let reset = tokio::time::timeout(Duration::from_secs(10), page.goto("about:blank")).await;
 
-        let mut pages = self.pages.lock().await;
-        pages.push(page);
-        self.semaphore.add_permits(1);
-        debug!("Page returned to pool ({} available)", pages.len());
+        match reset {
+            Ok(Ok(_)) => {
+                let mut pages = self.pages.lock().await;
+                pages.push(page);
+                self.semaphore.add_permits(1);
+                debug!("Page returned to pool ({} available)", pages.len());
+            }
+            Ok(Err(e)) => {
+                warn!("Failed to reset page: {}", e);
+                self.semaphore.add_permits(1);
+            }
+            Err(_) => {
+                warn!("Page reset timed out after 10s, discarding page");
+                self.semaphore.add_permits(1);
+            }
+        }
     }
 }
 

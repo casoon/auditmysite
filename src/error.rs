@@ -96,6 +96,10 @@ pub enum AuditError {
     /// Accessibility-Journey-Layer interaction failed (keyboard/pointer dispatch).
     #[error("Interaction failed: {reason}")]
     InteractionFailed { reason: String },
+
+    /// Per-page audit exceeded the total time budget.
+    #[error("Audit timed out for '{url}' after {timeout_secs} seconds")]
+    AuditTimeout { url: String, timeout_secs: u64 },
 }
 
 /// Result type alias for AuditError

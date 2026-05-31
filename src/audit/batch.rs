@@ -8,7 +8,7 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use tracing::{debug, info, warn};
@@ -203,21 +203,31 @@ async fn audit_url_with_pool(
     config: &PipelineConfig,
 ) -> BatchResult {
     let mut last_error = None;
+    // Total budget per attempt: generous multiple of the navigation timeout so that
+    // a hung page (browser tab unresponsive, CDP stream frozen) cannot block the
+    // whole batch forever via in_flight.next().await.
+    let per_attempt_timeout = Duration::from_secs(config.timeout_secs.max(30) * 4);
 
     for attempt in 0..2 {
         if attempt > 0 {
             warn!("Retrying audit for {} (attempt {})", url, attempt + 1);
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            tokio::time::sleep(Duration::from_secs(2)).await;
         }
 
-        let result = async {
+        let result = tokio::time::timeout(per_attempt_timeout, async {
             let pooled_page = pool.acquire().await?;
             let page = pooled_page.page()?;
             // audit_page handles viewport switching and navigation internally
             let report = audit_page(page, url, config, pool.browser()).await?;
             Ok::<AuditReport, AuditError>(report)
-        }
-        .await;
+        })
+        .await
+        .unwrap_or_else(|_| {
+            Err(AuditError::AuditTimeout {
+                url: url.to_string(),
+                timeout_secs: per_attempt_timeout.as_secs(),
+            })
+        });
 
         match result {
             Ok(report) => {
