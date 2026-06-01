@@ -74,8 +74,9 @@ pub struct BatchResult {
     pub result: std::result::Result<AuditReport, String>,
 }
 
-/// Progress callback type
-pub type ProgressCallback = Arc<dyn Fn(usize, usize, &str) + Send + Sync>;
+/// Progress callback type: (current, total, url, error_message)
+/// error_message is Some if the URL failed, None on success.
+pub type ProgressCallback = Arc<dyn Fn(usize, usize, &str, Option<&str>) + Send + Sync>;
 
 /// Run concurrent batch audit on multiple URLs
 ///
@@ -124,15 +125,22 @@ pub async fn run_concurrent_batch(
         async move {
             let result = audit_url_with_pool(&pool, &url, &config).await;
             let current = completed.fetch_add(1, Ordering::SeqCst) + 1;
-            if let Some(ref cb) = progress {
-                cb(current, total, &url);
-            }
             match &result.result {
-                Ok(report) => info!(
-                    "[{}/{}] Completed: {} (score: {})",
-                    current, total, url, report.score
-                ),
-                Err(e) => warn!("[{}/{}] Failed: {} - {}", current, total, url, e),
+                Ok(report) => {
+                    info!(
+                        "[{}/{}] Completed: {} (score: {})",
+                        current, total, url, report.score
+                    );
+                    if let Some(ref cb) = progress {
+                        cb(current, total, &url, None);
+                    }
+                }
+                Err(e) => {
+                    warn!("[{}/{}] Failed: {} - {}", current, total, url, e);
+                    if let Some(ref cb) = progress {
+                        cb(current, total, &url, Some(e));
+                    }
+                }
             }
             result
         }
@@ -234,6 +242,17 @@ async fn audit_url_with_pool(
                 return BatchResult {
                     url: url.to_string(),
                     result: Ok(report),
+                };
+            }
+            Err(
+                ref e @ AuditError::AuditTimeout { .. }
+                | ref e @ AuditError::PageLoadTimeout { .. },
+            ) => {
+                // Timeouts are not transient — retrying the same URL with the same
+                // budget is unlikely to succeed. Bail immediately.
+                return BatchResult {
+                    url: url.to_string(),
+                    result: Err(e.to_string()),
                 };
             }
             Err(e) => {

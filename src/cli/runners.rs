@@ -397,12 +397,16 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
     };
 
     #[allow(clippy::type_complexity)]
-    let progress: Option<Arc<dyn Fn(usize, usize, &str) + Send + Sync>> =
+    let progress: Option<Arc<dyn Fn(usize, usize, &str, Option<&str>) + Send + Sync>> =
         if let Some(ref pb) = progress_bar {
             let pb_clone = pb.clone();
-            Some(Arc::new(move |current, _total, url| {
+            Some(Arc::new(move |current, _total, url, error| {
                 pb_clone.set_position(current as u64);
-                pb_clone.set_message(truncate_url(url, 50));
+                if let Some(err) = error {
+                    pb_clone.println(format!("  ✗ {url}\n    {err}"));
+                } else {
+                    pb_clone.set_message(truncate_url(url, 50));
+                }
             }))
         } else {
             None
