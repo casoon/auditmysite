@@ -818,16 +818,24 @@ mod tests {
     }
 
     /// True if `n` appears as a *value* (not a color/spacing/font literal).
-    /// Matches the value representations the renderer emits:
-    ///   `"value":"73"`  `"value":"73/100"`  `"score":73`  `"diagnosis":"73/100"`
+    /// Matches both JSON-in-string (renderreport ≤0.2.20) and Typst-dict
+    /// (renderreport ≥0.2.21) representations:
+    ///   JSON: `"value":"73"`  `"value":"73/100"`  `"score":73`
+    ///   Typst: `value: "73"`  `value: "73/100"`  `score: 73,`
     fn part_has_value(part: &str, n: u32) -> bool {
         let s = n.to_string();
         [
+            // JSON-in-string format (renderreport ≤0.2.20)
             format!(":\"{s}\""),
             format!(":\"{s}/100\""),
             format!(":\"{s}/"),
             format!(":{s},"),
             format!(":{s}}}"),
+            // Typst dict format (renderreport ≥0.2.21): `key: "value"` or `key: number`
+            format!(": \"{s}\""),
+            format!(": \"{s}/"),
+            format!(": {s},"),
+            format!(": {s})"),
         ]
         .iter()
         .any(|needle| part.contains(needle))
