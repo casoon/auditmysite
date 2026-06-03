@@ -108,6 +108,21 @@ jobs:
       - name: Check formatting
         run: cargo fmt -- --check
 
+  unused-deps:
+    name: Unused Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-machete
+        run: cargo install cargo-machete --locked
+
+      - name: Check for unused dependencies
+        run: cargo machete
+
   integration-mocked:
     name: Mocked Integration Tests (no Chrome)
     runs-on: ubuntu-latest
