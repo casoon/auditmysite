@@ -167,58 +167,50 @@ const STYLES_EXTRACT_JS: &str = r#"
         };
     }
 
-    const selectors = ['p', 'span', 'div', 'a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'td', 'th', 'label', 'strong', 'em'];
     const results = [];
     const seen = new Set();
+    let idx = 0;
 
-    selectors.forEach(selector => {
-        const elements = document.querySelectorAll(selector);
-        elements.forEach((el, idx) => {
-            if (seen.has(el)) return;
-            seen.add(el);
+    // Walk all text nodes to find every element that renders visible text.
+    // This matches axe-core's approach of checking all rendered text, not
+    // just a fixed list of element types.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    let textNode;
+    while ((textNode = walker.nextNode()) !== null) {
+        if (!textNode.textContent.trim()) continue;
+        const el = textNode.parentElement;
+        if (!el || seen.has(el)) continue;
+        seen.add(el);
 
-            // Skip elements hidden from assistive technology (self or ancestor)
-            if (el.closest('[aria-hidden="true"]') !== null) return;
+        // Skip visually-hidden / .sr-only text — WCAG 1.4.3 does not apply
+        if (__amsIsVisuallyHidden(el)) continue;
 
-            // Skip visually-hidden / .sr-only text — WCAG 1.4.3 does not apply
-            if (__amsIsVisuallyHidden(el)) return;
+        const styles = window.getComputedStyle(el);
+        if (styles.display === 'none' || styles.visibility === 'hidden') continue;
 
-            let hasDirectText = false;
-            for (const child of el.childNodes) {
-                if (child.nodeType === 3 && child.textContent.trim().length > 0) {
-                    hasDirectText = true;
-                    break;
-                }
-            }
-            if (!hasDirectText) return;
+        const effectiveBackground = getEffectiveBackground(el);
+        const fg = parseCssColor(styles.color);
+        const bg = effectiveBackground.color;
+        const bgParsed = parseCssColor(bg) || { r: 255, g: 255, b: 255, a: 1 };
 
-            const styles = window.getComputedStyle(el);
-            if (styles.display === 'none' || styles.visibility === 'hidden') return;
+        let finalFg = fg || { r: 0, g: 0, b: 0, a: 1 };
+        if (fg && fg.a < 1) {
+            finalFg = composite(fg, bgParsed);
+        }
 
-            const effectiveBackground = getEffectiveBackground(el);
-            const fg = parseCssColor(styles.color);
-            const bg = effectiveBackground.color;
-            const bgParsed = parseCssColor(bg) || { r: 255, g: 255, b: 255, a: 1 };
-
-            let finalFg = fg || { r: 0, g: 0, b: 0, a: 1 };
-            if (fg && fg.a < 1) {
-                finalFg = composite(fg, bgParsed);
-            }
-
-            results.push({
-                cssPath: __amsCssSelector(el),
-                snippet: el.outerHTML.substring(0, 200),
-                index: idx,
-                color: `rgb(${finalFg.r}, ${finalFg.g}, ${finalFg.b})`,
-                backgroundColor: bg,
-                backgroundUncertain: effectiveBackground.uncertain,
-                fontSize: styles.fontSize,
-                fontWeight: styles.fontWeight,
-                visibility: styles.visibility,
-                display: styles.display
-            });
+        results.push({
+            cssPath: __amsCssSelector(el),
+            snippet: el.outerHTML.substring(0, 200),
+            index: idx++,
+            color: `rgb(${finalFg.r}, ${finalFg.g}, ${finalFg.b})`,
+            backgroundColor: bg,
+            backgroundUncertain: effectiveBackground.uncertain,
+            fontSize: styles.fontSize,
+            fontWeight: styles.fontWeight,
+            visibility: styles.visibility,
+            display: styles.display
         });
-    });
+    }
 
     return results;
 "#;

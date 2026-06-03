@@ -26,11 +26,12 @@ use crate::wcag::Violation;
 
 use super::{
     check_abbreviations_with_page, check_aria_hidden_focus, check_aria_prohibited_attr_with_page,
-    check_background_audio_with_page, check_content_on_hover_with_page,
-    check_focus_visible_css_with_page, check_frame_tested_with_page, check_frame_title_with_page,
-    check_identify_purpose_with_page, check_label_in_name_with_page, check_location_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
-    check_orientation_with_page, check_parsing_with_page, check_pointer_cancellation_with_page,
+    check_aria_valid_attr_value_with_page, check_background_audio_with_page,
+    check_content_on_hover_with_page, check_focus_visible_css_with_page,
+    check_frame_tested_with_page, check_frame_title_with_page, check_identify_purpose_with_page,
+    check_label_in_name_with_page, check_location_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
+    check_parsing_with_page, check_pointer_cancellation_with_page,
     check_pointer_gestures_with_page, check_re_authenticate_with_page,
     check_reduced_motion_with_page, check_target_size_enhanced_with_page, check_timeouts_with_page,
     check_timing_with_page, check_use_of_color_with_page, check_visual_presentation_with_page,
@@ -211,8 +212,14 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
     PageRuleEntry {
         rule_id: "4.1.1/parsing",
         name: "parsing",
-        min_level: WcagLevel::AAA,
+        min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_parsing_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "4.1.2/aria-valid-attr-value",
+        name: "aria-valid-attr-value",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_aria_valid_attr_value_with_page(p)),
     },
 ];
 
@@ -240,9 +247,10 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::A >= r.min_level)
             .count();
-        // Seven Level-A page rules in the table; tightening this catches
+        // Level-A page rules in the table; tightening this catches
         // accidental reclassification of a rule's min_level.
-        assert_eq!(count, 7);
+        // 7 original + parsing (AAA→A) + aria-valid-attr-value = 9
+        assert_eq!(count, 9);
     }
 
     #[test]
@@ -251,8 +259,8 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::AA >= r.min_level)
             .count();
-        // 7 A + 4 AA = 11.
-        assert_eq!(count, 11);
+        // 9 A + 4 AA = 13.
+        assert_eq!(count, 13);
     }
 
     #[test]
