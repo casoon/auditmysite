@@ -24,6 +24,8 @@ pub struct Config {
     #[serde(default)]
     pub thresholds: ThresholdsConfig,
     #[serde(default)]
+    pub verdict: VerdictConfig,
+    #[serde(default)]
     pub budgets: BudgetConfig,
     #[serde(default)]
     pub interactive: InteractiveConfig,
@@ -100,6 +102,19 @@ pub struct RulesConfig {
 pub struct ThresholdsConfig {
     /// Minimum score to pass (exit code 0)
     pub min_score: Option<f64>,
+}
+
+/// CI verdict thresholds (`[verdict]` in auditmysite.toml).
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct VerdictConfig {
+    /// Fail if any WCAG Level A violations with High/Critical severity exist. Default: true.
+    pub fail_on_legal_flags: Option<bool>,
+    /// Fail if any blocking interaction issues (buttons/forms without accessible names) exist. Default: true.
+    pub fail_on_blocking_issues: Option<bool>,
+    /// Fail if the accessibility score drops below this value (0 = disabled). Default: disabled.
+    pub fail_below_score: Option<u32>,
+    /// Warn if the accessibility score drops below this value. Default: 70.
+    pub warn_below_score: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -248,6 +263,18 @@ impl Config {
             }
         }
     }
+
+    /// Returns the effective verdict config, merging the `[verdict]` section with the
+    /// legacy `[thresholds].min_score` fallback for backwards compatibility.
+    pub fn effective_verdict_config(&self) -> VerdictConfig {
+        let mut v = self.verdict.clone();
+        if v.fail_below_score.is_none() {
+            if let Some(min) = self.thresholds.min_score {
+                v.fail_below_score = Some(min as u32);
+            }
+        }
+        v
+    }
 }
 
 /// Search for config file starting from current dir, walking up to root.
@@ -328,6 +355,8 @@ min_score = 70
         assert!(config.modules.performance.unwrap());
         assert_eq!(config.rules.ignore.as_ref().unwrap().len(), 1);
         assert_eq!(config.thresholds.min_score, Some(70.0));
+        // VerdictConfig defaults
+        assert!(config.verdict.fail_on_legal_flags.is_none());
     }
 
     #[test]

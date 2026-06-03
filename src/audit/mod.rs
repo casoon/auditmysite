@@ -17,6 +17,7 @@ mod pipeline;
 mod report;
 mod scoring;
 pub mod summary;
+pub mod verdict;
 
 pub use artifacts::{
     cache_matches_signature, content_hash, load_artifacts, save_artifacts, to_audit_report,
@@ -41,3 +42,4 @@ pub use report::{
     ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
+pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

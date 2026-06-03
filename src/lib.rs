@@ -121,6 +121,7 @@ pub use audit::{
     analyze_crawl_links, audit_page, crawl_site, parse_sitemap, read_url_file,
     run_concurrent_batch, AuditReport, BatchConfig, BatchReport, BrokenLink, BrokenLinkSeverity,
     CrawlDiagnostics, CrawlNode, CrawlResult, PerformanceResults, PipelineConfig, RedirectChain,
+    Verdict, VerdictResult,
 };
 pub use browser::{
     detect_all_browsers, resolve_browser, BrowserInstaller, BrowserKind, BrowserManager,

@@ -6,13 +6,14 @@
 use colored::Colorize;
 
 use auditmysite::audit::normalize;
+use auditmysite::audit::VerdictResult;
 use auditmysite::cli::{Args, OutputFormat};
 use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    export_snapshot_yaml, export_sr_audit, format_ai_json, format_batch_table, format_json_batch,
-    format_summary, print_batch_table, print_report, UnifiedReport,
+    export_snapshot_yaml, export_sr_audit, format_ai_json, format_batch_table, format_summary,
+    print_batch_table, print_report, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
@@ -26,11 +27,18 @@ use crate::output_paths::{
     per_page_output_directory, per_page_output_path,
 };
 
-pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
+pub fn output_single_report(
+    report: &auditmysite::AuditReport,
+    args: &Args,
+    verdict: Option<&VerdictResult>,
+) -> Result<()> {
     match args.effective_format() {
         OutputFormat::Json => {
             let normalized = normalize(report);
-            let unified = UnifiedReport::single(&normalized, report);
+            let mut unified = UnifiedReport::single(&normalized, report);
+            if let Some(vr) = verdict {
+                unified = unified.with_verdict(vr);
+            }
             let output = unified.to_json(true)?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
             if let Some(ref snap_path) = args.export_snapshot {
@@ -71,7 +79,10 @@ pub fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> R
                     }
                 })?;
                 if let Some(json_path) = auto_json_path.as_ref() {
-                    let unified = UnifiedReport::single(&normalized, report);
+                    let mut unified = UnifiedReport::single(&normalized, report);
+                    if let Some(vr) = verdict {
+                        unified = unified.with_verdict(vr);
+                    }
                     let json_output = unified.to_json(true)?;
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
@@ -146,10 +157,15 @@ pub(crate) fn output_screen_reader_sidecar(
 pub fn output_batch_report(
     batch_report: &auditmysite::audit::BatchReport,
     args: &Args,
+    verdict: Option<&VerdictResult>,
 ) -> Result<()> {
     match args.effective_format() {
         OutputFormat::Json => {
-            let output = format_json_batch(batch_report, true)?;
+            let mut unified = auditmysite::output::UnifiedReport::batch(batch_report);
+            if let Some(vr) = verdict {
+                unified = unified.with_verdict(vr);
+            }
+            let output = unified.to_json(true)?;
             output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
@@ -181,7 +197,11 @@ pub fn output_batch_report(
 
                 // Auto-generate JSON alongside batch PDF
                 let json_path = path.with_extension("json");
-                let json_output = format_json_batch(batch_report, true)?;
+                let mut unified = UnifiedReport::batch(batch_report);
+                if let Some(vr) = verdict {
+                    unified = unified.with_verdict(vr);
+                }
+                let json_output = unified.to_json(true)?;
                 output_text(&json_output, &Some(json_path), "JSON batch", args.quiet)?;
 
                 if args.debug_typ {
@@ -249,7 +269,7 @@ pub fn output_batch_as_single_reports(
             single_args.effective_format(),
             single_args.report_level,
         ));
-        output_single_report(report, &single_args)?;
+        output_single_report(report, &single_args, None)?;
     }
 
     Ok(())

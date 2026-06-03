@@ -48,28 +48,11 @@ async fn main() {
     }
 
     let exit_code = match run(args, &config, request_mode_from_cli).await {
-        Ok(score) => {
-            // Check score threshold from config
-            if let Some(min_score) = auditmysite::cli::config::get_min_score_threshold(&config) {
-                if score < min_score {
-                    eprintln!(
-                        "{} Score {:.1} is below threshold {:.1}",
-                        "FAIL:".red().bold(),
-                        score,
-                        min_score
-                    );
-                    1
-                } else {
-                    0
-                }
-            } else {
-                0
-            }
-        }
+        Ok(verdict) => verdict.exit_code(),
         Err(e) => {
             error!("{}", e);
             eprintln!("{} {}", "Error:".red().bold(), e);
-            2
+            3
         }
     };
 
@@ -99,19 +82,20 @@ fn setup_logging(args: &Args) {
 }
 
 /// Main application logic
-/// Returns the audit score (or 0.0 for non-scoring operations).
 async fn run(
     mut args: Args,
     _config: &Option<auditmysite::cli::Config>,
     request_mode_from_cli: bool,
-) -> Result<f64> {
+) -> Result<auditmysite::Verdict> {
     // Handle subcommands first
     if let Some(ref command) = args.command {
-        return handle_command(command, &args).await;
+        return handle_command(command, &args)
+            .await
+            .map(|_| auditmysite::Verdict::Pass);
     }
 
     if args.detect_chrome {
-        return detect_chrome_command(&args);
+        return detect_chrome_command(&args).map(|_| auditmysite::Verdict::Pass);
     }
 
     // If no input source specified interactively ask for a domain (terminal only)
@@ -174,7 +158,7 @@ async fn run(
     let is_batch = args.sitemap.is_some() || args.url_file.is_some() || args.crawl;
 
     if is_batch {
-        run_batch_mode(&args).await
+        run_batch_mode(&args, _config).await
     } else {
         run_single_mode(&args, _config).await
     }

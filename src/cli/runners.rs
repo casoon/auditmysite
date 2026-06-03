@@ -13,9 +13,9 @@ use tracing::info;
 
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, cache_matches_signature, crawl_site, load_artifacts, parse_sitemap,
-    read_url_file, run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig,
-    CrawlResult, PipelineConfig,
+    analyze_crawl_links, cache_matches_signature, compute_batch_verdict, compute_verdict,
+    crawl_site, load_artifacts, parse_sitemap, read_url_file, run_concurrent_batch,
+    run_single_audit, to_audit_report, BatchConfig, CrawlResult, PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::{Args, OutputFormat, RequestMode};
@@ -42,14 +42,14 @@ const BOT_USER_AGENT: &str = concat!(
 pub async fn run_single_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
-) -> Result<f64> {
+) -> Result<Verdict> {
     let url = args
         .url
         .as_ref()
         .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
-    if let Some(batch_score) = maybe_offer_sitemap_scan(args, url).await? {
-        return Ok(batch_score);
+    if let Some(batch_verdict) = maybe_offer_sitemap_scan(args, url, config).await? {
+        return Ok(batch_verdict);
     }
 
     print_single_audit_plan(args, url);
@@ -77,15 +77,28 @@ pub async fn run_single_mode(
                         output_text(&output, &args.output, "JSON", args.quiet)?;
                         let report = to_audit_report(&cached);
                         output_screen_reader_sidecar(&report, args)?;
-                        return Ok(cached.audit.score as f64);
+                        let verdict_cfg = config
+                            .as_ref()
+                            .map(|c| c.effective_verdict_config())
+                            .unwrap_or_default();
+                        let verdict_result = compute_verdict(&cached.audit, &verdict_cfg);
+                        print_verdict(&verdict_result, args.quiet);
+                        return Ok(verdict_result.verdict);
                     }
                     OutputFormat::Table
                     | OutputFormat::Pdf
                     | OutputFormat::Ai
                     | OutputFormat::Summary => {
                         let report = to_audit_report(&cached);
-                        output_single_report(&report, args)?;
-                        return Ok(normalize(&report).score as f64);
+                        output_single_report(&report, args, None)?;
+                        let normalized = normalize(&report).normalized;
+                        let verdict_cfg = config
+                            .as_ref()
+                            .map(|c| c.effective_verdict_config())
+                            .unwrap_or_default();
+                        let verdict_result = compute_verdict(&normalized, &verdict_cfg);
+                        print_verdict(&verdict_result, args.quiet);
+                        return Ok(verdict_result.verdict);
                     }
                 }
             }
@@ -170,12 +183,22 @@ pub async fn run_single_mode(
         }
     }
 
-    output_single_report(&report, args)?;
-
-    Ok(normalize(&report).score as f64)
+    let normalized = normalize(&report).normalized;
+    let verdict_cfg = config
+        .as_ref()
+        .map(|c| c.effective_verdict_config())
+        .unwrap_or_default();
+    let verdict_result = compute_verdict(&normalized, &verdict_cfg);
+    output_single_report(&report, args, Some(&verdict_result))?;
+    print_verdict(&verdict_result, args.quiet);
+    Ok(verdict_result.verdict)
 }
 
-async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>> {
+async fn maybe_offer_sitemap_scan(
+    args: &Args,
+    url: &str,
+    config: &Option<auditmysite::cli::Config>,
+) -> Result<Option<Verdict>> {
     if args.no_sitemap_suggest {
         return Ok(None);
     }
@@ -201,7 +224,7 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
 
     if args.prefer_sitemap {
         let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
-        return run_batch_mode(&batch_args).await.map(Some);
+        return run_batch_mode(&batch_args, config).await.map(Some);
     }
 
     if args.quiet {
@@ -260,13 +283,13 @@ async fn maybe_offer_sitemap_scan(args: &Args, url: &str) -> Result<Option<f64>>
         let mut batch_args = suggested_sitemap_batch_args(args, sitemap_url);
         batch_args.max_pages = 20;
         println!();
-        return run_batch_mode(&batch_args).await.map(Some);
+        return run_batch_mode(&batch_args, config).await.map(Some);
     }
 
     if selection == 2 {
         let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
         println!();
-        return run_batch_mode(&batch_args).await.map(Some);
+        return run_batch_mode(&batch_args, config).await.map(Some);
     }
 
     println!();
@@ -287,7 +310,10 @@ pub fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> Args {
     batch_args
 }
 
-pub async fn run_batch_mode(args: &Args) -> Result<f64> {
+pub async fn run_batch_mode(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+) -> Result<Verdict> {
     let mut crawl_result: Option<CrawlResult> = None;
 
     let url_source: &str;
@@ -338,7 +364,7 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
         if !args.quiet {
             println!("{} No URLs found to audit.", "Warning:".yellow().bold());
         }
-        return Ok(0.0);
+        return Ok(Verdict::Warn);
     }
 
     let total_discovered = urls.len();
@@ -443,12 +469,35 @@ pub async fn run_batch_mode(args: &Args) -> Result<f64> {
         );
     }
 
+    let verdict_cfg = config
+        .as_ref()
+        .map(|c| c.effective_verdict_config())
+        .unwrap_or_default();
+    let verdict_result = compute_batch_verdict(&batch_report.summary, &verdict_cfg);
+
     if args.per_page_reports {
         output_batch_as_single_reports(&batch_report, args)?;
-        return Ok(batch_report.summary.average_score);
+        print_verdict(&verdict_result, args.quiet);
+        return Ok(verdict_result.verdict);
     }
 
-    output_batch_report(&batch_report, args)?;
+    output_batch_report(&batch_report, args, Some(&verdict_result))?;
+    print_verdict(&verdict_result, args.quiet);
+    Ok(verdict_result.verdict)
+}
 
-    Ok(batch_report.summary.average_score)
+fn print_verdict(vr: &auditmysite::VerdictResult, quiet: bool) {
+    if quiet {
+        return;
+    }
+    let label = match vr.verdict {
+        auditmysite::Verdict::Pass => "PASS".green().bold(),
+        auditmysite::Verdict::Warn => "WARN".yellow().bold(),
+        auditmysite::Verdict::Fail => "FAIL".red().bold(),
+    };
+    if vr.reasons.is_empty() {
+        println!("\n{}", label);
+    } else {
+        println!("\n{} — {}", label, vr.reasons.join(", ").dimmed());
+    }
 }

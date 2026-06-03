@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::audit::normalized::{AuditContext, NormalizedReport};
+use crate::audit::verdict::{Verdict, VerdictResult};
 use crate::audit::{
     compute_recurring_rules, AccessibilityScorer, AuditReport, BatchReport, RecurringRule,
     SampleMetadata,
@@ -78,6 +79,11 @@ pub struct UnifiedReport {
     /// Serialization errors encountered while building this report.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub collection_errors: Vec<ReportError>,
+    /// CI verdict derived from this report's findings.
+    pub verdict: Verdict,
+    /// Reasons that drove the verdict away from Pass.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub verdict_reasons: Vec<String>,
 }
 
 /// Uniform summary — identical field names for single and batch.
@@ -540,6 +546,8 @@ impl UnifiedReport {
             crawl_diagnostics,
             errors,
             collection_errors,
+            verdict: Verdict::Pass,
+            verdict_reasons: Vec::new(),
         }
     }
 
@@ -553,6 +561,13 @@ impl UnifiedReport {
         output.map_err(|e| crate::error::AuditError::OutputError {
             reason: format!("JSON serialization failed: {}", e),
         })
+    }
+
+    /// Override the default (Pass) verdict with a computed result.
+    pub fn with_verdict(mut self, vr: &VerdictResult) -> Self {
+        self.verdict = vr.verdict;
+        self.verdict_reasons = vr.reasons.clone();
+        self
     }
 
     fn wrap_single(ctx: &AuditContext, page: PageEntry) -> Self {
@@ -633,6 +648,8 @@ impl UnifiedReport {
             crawl_diagnostics: None,
             errors: Vec::new(),
             collection_errors: Vec::new(),
+            verdict: Verdict::Pass,
+            verdict_reasons: Vec::new(),
         }
     }
 
@@ -699,6 +716,8 @@ impl UnifiedReport {
             crawl_diagnostics: None,
             errors: Vec::new(),
             collection_errors: Vec::new(),
+            verdict: Verdict::Pass,
+            verdict_reasons: Vec::new(),
         }
     }
 }
@@ -2164,6 +2183,8 @@ mod tests {
                 error_type: "serialization_failed",
                 reason: "NaN value in field".to_string(),
             }],
+            verdict: Verdict::Pass,
+            verdict_reasons: Vec::new(),
         };
         let json_str = unified.to_json(false).unwrap();
         let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
