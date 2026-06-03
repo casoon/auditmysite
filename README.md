@@ -263,11 +263,12 @@ ARIA and semantics:
 - Dialog rules — accessible name, aria-modal, alert region labeling
 - Widget rules — tab/tabpanel pairing, selected state, combobox options, slider value, tree context, summary element naming
 - Media rules — application and image-role elements without accessible names
+- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), duplicate IDs (4.1.1), html lang (3.1.1)
 - SVG rules — SVG image accessible names
 - Server-side image maps — detection and flagging
 - Meta viewport — large maximum-scale restrictions
 
-95+ rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
+100+ rules with stable `rule_id`, `tags` (e.g. `wcag2a`, `wcag412`, `cat.aria`), and an `impact` field (`critical` / `serious` / `moderate` / `minor`).
 
 Some criteria (keyboard trap behavior, timed content, captions) cannot be reliably verified by automated means. These are flagged as `not_testable` in the JSON output and listed in the report's audit scope section as requiring manual review.
 
