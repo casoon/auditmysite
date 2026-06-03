@@ -911,48 +911,21 @@ fn render_batch_interactive_summary(
     builder
 }
 
-// ─── Batch Report ───────────────────────────────────────────────────────────
+// ─── Batch Report Sections ──────────────────────────────────────────────────
 
-pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
-    let (engine, built_report) = build_batch_report(batch, config)?;
-    Ok(engine.render_pdf(&built_report)?)
-}
-
-/// Render the intermediate Typst source for a batch report (hidden `--debug-typ`).
-pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<String> {
-    let (engine, built_report) = build_batch_report(batch, config)?;
-    Ok(engine.render_typ(&built_report)?)
-}
-
-fn build_batch_report(
+fn render_batch_cover(
+    mut builder: renderreport::engine::ReportBuilder,
     batch: &BatchReport,
+    pres: &BatchPresentation,
     config: &ReportConfig,
-) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
-    let engine = super::helpers::create_engine()?;
-    let i18n = I18n::new(&config.locale)?;
-    let pres = build_batch_presentation(batch);
-
+    score: u32,
+    i18n: &I18n,
+) -> anyhow::Result<renderreport::engine::ReportBuilder> {
     let domain = &pres.portfolio_summary.domain;
-    let score = pres.portfolio_summary.average_score.round() as u32;
-
-    let mut builder = engine
-        .report("wcag-batch-audit")
-        .title(&pres.cover.title)
-        .subtitle(&pres.cover.url)
-        .metadata("date", &pres.cover.date)
-        .metadata("version", &pres.cover.version)
-        .metadata("author", domain)
-        .metadata("footer_prefix", "Audit:")
-        .metadata("footer_link_url", "")
-        .metadata(
-            "footer_tagline",
-            "A technical auditing platform by casoon.de",
-        );
 
     let cover_logo_asset = super::cover_logo_asset(config);
     builder = super::register_cover_logo_asset(builder, config, cover_logo_asset);
 
-    // ── Cover Page with Audit-Rahmen ────────────────────────────────
     builder = builder
         .add_component(Image::new(cover_logo_asset).with_width("120pt"))
         .add_component(
@@ -972,10 +945,9 @@ fn build_batch_report(
                 .with_color("#475569"),
         );
 
-    // Audit-Rahmen box (matching single report style)
+    // Audit-Rahmen box
     {
         let modules_str = pres.portfolio_summary.active_modules.join(", ");
-
         let mut cover_meta = KeyValueList::new().with_title(i18n.t("batch-cover-frame-title"));
         cover_meta = cover_meta
             .add(i18n.t("batch-cover-frame-domain"), domain)
@@ -1033,7 +1005,7 @@ fn build_batch_report(
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
             batch_badge_enabled.then_some(batch_badge_asset),
-            &i18n,
+            i18n,
         )?)
         .add_component(
             TextBlock::new(&pres.portfolio_summary.verdict_text)
@@ -1041,34 +1013,40 @@ fn build_batch_report(
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         )
-        .add_component(super::output_scope_callout(&i18n))
+        .add_component(super::output_scope_callout(i18n))
         .add_component(PageBreak::new());
+
     if config.level != ReportLevel::Executive {
         builder = builder.add_component(TableOfContents::new().with_depth(1));
     }
 
+    Ok(builder)
+}
+
+fn render_batch_status_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     let dist = &pres.portfolio_summary.severity_distribution;
 
-    // ── 1. Status der Website ───────────────────────────────────────
-    {
-        // Block 1: Bewertung — klare Einordnung, Risiko primär
-        let assessment = build_batch_assessment(&pres.portfolio_summary, dist, &i18n);
-        let risk_title = assessment;
-        let callout = match pres.portfolio_summary.risk_level.as_str() {
-            "Kritisch" | "Hoch" | "Critical" | "High" => {
-                Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&risk_title)
-            }
-            "Mittel" | "Medium" => {
-                Callout::info(&pres.portfolio_summary.risk_summary).with_title(&risk_title)
-            }
-            _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&risk_title),
-        };
-        builder = builder
-            .add_component(Section::new(i18n.t("batch-section-status")).with_level(1))
-            .add_component(callout);
-    }
+    // Assessment callout
+    let assessment = build_batch_assessment(&pres.portfolio_summary, dist, i18n);
+    let callout = match pres.portfolio_summary.risk_level.as_str() {
+        "Kritisch" | "Hoch" | "Critical" | "High" => {
+            Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&assessment)
+        }
+        "Mittel" | "Medium" => {
+            Callout::info(&pres.portfolio_summary.risk_summary).with_title(&assessment)
+        }
+        _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&assessment),
+    };
+    builder = builder
+        .add_component(Section::new(i18n.t("batch-section-status")).with_level(1))
+        .add_component(callout);
 
-    // Score overview cards (sekundär)
+    // Score overview cards
+    let score = pres.portfolio_summary.average_score.round() as u32;
     builder = builder.add_component(build_batch_overview_grid(
         pres.portfolio_summary.total_urls as u32,
         score,
@@ -1079,87 +1057,30 @@ fn build_batch_report(
         }),
     ));
 
-    // Block 2: Kernaussagen (max 3 Punkte)
-    {
-        let key_points = build_batch_key_points(&pres, dist, &i18n);
-        let mut kp_list = List::new().with_title(i18n.t("narrative-key-points-title"));
-        for point in &key_points {
-            kp_list = kp_list.add_item(point);
-        }
-        builder = builder.add_component(kp_list);
+    // Key points
+    let key_points = build_batch_key_points(pres, dist, i18n);
+    let mut kp_list = List::new().with_title(i18n.t("narrative-key-points-title"));
+    for point in &key_points {
+        kp_list = kp_list.add_item(point);
+    }
+    builder = builder.add_component(kp_list);
+
+    // Impact summary
+    builder = render_batch_impact_summary(builder, pres, i18n);
+
+    // Quick actions
+    let actions = build_batch_quick_actions(pres, i18n);
+    if !actions.is_empty() {
+        let rows: Vec<ChecklistRow> = actions
+            .iter()
+            .map(|action| ChecklistRow::new(action, "").with_status("warn"))
+            .collect();
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("narrative-quick-actions-title")),
+        );
     }
 
-    // Auswirkungen
-    {
-        let en = i18n.locale() == "en";
-        let a11y_avg = pres.portfolio_summary.average_score.round() as u32;
-        let user_impact = match (a11y_avg, en) {
-            (s, true) if s < 50 => "Critical — core functions are unreachable for users with disabilities",
-            (s, false) if s < 50 => "Kritisch — zentrale Funktionen sind für Nutzer mit Einschränkungen nicht erreichbar",
-            (s, true) if s < 70 => "Limited — structural issues impede users with assistive technologies",
-            (s, false) if s < 70 => "Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien",
-            (s, true) if s < 85 => "Good — individual barriers for assistive technologies on several pages",
-            (s, false) if s < 85 => "Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten",
-            (_, true) => "Very good — assistive technologies are largely supported",
-            (_, false) => "Sehr gut — Hilfstechnologien werden weitgehend unterstützt",
-        };
-        let business_impact = if dist.critical > 0 {
-            if en {
-                "Large parts of the website are unusable or barely usable for certain user groups."
-            } else {
-                "Weite Teile der Website sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
-            }
-        } else if dist.high > 0 {
-            if en {
-                "Individual functional areas are problematic for users with disabilities."
-            } else {
-                "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
-            }
-        } else if en {
-            "Low impact — users can fundamentally use the website."
-        } else {
-            "Geringe Auswirkung — Nutzer können die Website grundsätzlich verwenden."
-        };
-        let legal_impact = if dist.critical > 0 {
-            if en {
-                "WCAG Level A violations detected automatically — manual review required for a defensible BFSG classification."
-            } else {
-                "WCAG-Level-A-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
-            }
-        } else if en {
-            "No critical violations detected automatically — manual review recommended for full classification."
-        } else {
-            "Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen."
-        };
-
-        let (user_label, business_label, risk_label) = if en {
-            ("User", "Business", "Risk")
-        } else {
-            ("Nutzer", "Business", "Risiko")
-        };
-        let mut impact_kv = KeyValueList::new().with_title(i18n.t("narrative-impact-title"));
-        impact_kv = impact_kv
-            .add(user_label, user_impact)
-            .add(business_label, business_impact)
-            .add(risk_label, legal_impact);
-        builder = builder.add_component(impact_kv);
-    }
-
-    // Block 3: Handlungsempfehlung
-    {
-        let actions = build_batch_quick_actions(&pres, &i18n);
-        if !actions.is_empty() {
-            let rows: Vec<ChecklistRow> = actions
-                .iter()
-                .map(|action| ChecklistRow::new(action, "").with_status("warn"))
-                .collect();
-            builder = builder.add_component(
-                ChecklistPanel::new(rows).with_title(i18n.t("narrative-quick-actions-title")),
-            );
-        }
-    }
-
-    // Module overview
+    // Module averages
     if !pres.portfolio_summary.module_averages.is_empty() {
         let mut module_kv = KeyValueList::new().with_title(i18n.t("batch-panel-module-averages"));
         for (name, score) in &pres.portfolio_summary.module_averages {
@@ -1168,10 +1089,92 @@ fn build_batch_report(
         builder = builder.add_component(module_kv);
     }
 
-    builder = render_batch_management_risks(builder, &pres, &i18n);
-    builder = render_batch_internal_comparison(builder, &pres, &i18n);
+    builder = render_batch_management_risks(builder, pres, i18n);
+    builder = render_batch_internal_comparison(builder, pres, i18n);
 
-    // ── 2. URL-Ranking ──────────────────────────────────────────────
+    builder
+}
+
+fn render_batch_impact_summary(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let dist = &pres.portfolio_summary.severity_distribution;
+    let a11y_avg = pres.portfolio_summary.average_score.round() as u32;
+
+    let user_impact = match (a11y_avg, en) {
+        (s, true) if s < 50 => {
+            "Critical — core functions are unreachable for users with disabilities"
+        }
+        (s, false) if s < 50 => {
+            "Kritisch — zentrale Funktionen sind für Nutzer mit Einschränkungen nicht erreichbar"
+        }
+        (s, true) if s < 70 => {
+            "Limited — structural issues impede users with assistive technologies"
+        }
+        (s, false) if s < 70 => {
+            "Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien"
+        }
+        (s, true) if s < 85 => {
+            "Good — individual barriers for assistive technologies on several pages"
+        }
+        (s, false) if s < 85 => {
+            "Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten"
+        }
+        (_, true) => "Very good — assistive technologies are largely supported",
+        (_, false) => "Sehr gut — Hilfstechnologien werden weitgehend unterstützt",
+    };
+    let business_impact = if dist.critical > 0 {
+        if en {
+            "Large parts of the website are unusable or barely usable for certain user groups."
+        } else {
+            "Weite Teile der Website sind für bestimmte Nutzergruppen nicht oder kaum nutzbar."
+        }
+    } else if dist.high > 0 {
+        if en {
+            "Individual functional areas are problematic for users with disabilities."
+        } else {
+            "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
+        }
+    } else if en {
+        "Low impact — users can fundamentally use the website."
+    } else {
+        "Geringe Auswirkung — Nutzer können die Website grundsätzlich verwenden."
+    };
+    let legal_impact = if dist.critical > 0 {
+        if en {
+            "WCAG Level A violations detected automatically — manual review required for a defensible BFSG classification."
+        } else {
+            "WCAG-Level-A-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
+        }
+    } else if en {
+        "No critical violations detected automatically — manual review recommended for full classification."
+    } else {
+        "Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen."
+    };
+
+    let (user_label, business_label, risk_label) = if en {
+        ("User", "Business", "Risk")
+    } else {
+        ("Nutzer", "Business", "Risiko")
+    };
+    let mut impact_kv = KeyValueList::new().with_title(i18n.t("narrative-impact-title"));
+    impact_kv = impact_kv
+        .add(user_label, user_impact)
+        .add(business_label, business_impact)
+        .add(risk_label, legal_impact);
+    builder = builder.add_component(impact_kv);
+
+    builder
+}
+
+fn render_batch_url_ranking(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     let rows: Vec<BenchmarkRow> = pres
         .url_ranking
         .iter()
@@ -1221,25 +1224,20 @@ fn build_batch_report(
         )
         .add_component(BenchmarkTable::new(rows));
 
-    // ── 2b. Interaktive Accessibility-Journey ──────────────────────────
-    if let Some(ref interactive) = pres.interactive_summary {
-        if interactive.total_pages_tested > 0 {
-            builder = render_batch_interactive_summary(
-                builder,
-                interactive,
-                pres.portfolio_summary.total_urls,
-                &i18n,
-            );
-        }
-    }
+    builder
+}
 
-    // ── 3. Top-Probleme (vereinheitlicht) ─────────────────────────
+fn render_batch_top_issues(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     let top_intro = i18n.t("batch-top-issues-intro");
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-section-most-frequent"), top_intro).with_level(1),
     );
 
-    // Übersichtstabelle mit Aufwand
+    // Frequency table
     if !pres.issue_frequency.is_empty() {
         let affected_col = i18n.t("batch-col-affected-urls");
         let mut freq_table = AuditTable::new(vec![
@@ -1257,16 +1255,15 @@ fn build_batch_report(
                 issue.wcag.clone(),
                 issue.occurrences.to_string(),
                 issue.affected_urls.to_string(),
-                super::helpers::priority_label_i18n(issue.priority, &i18n),
+                super::helpers::priority_label_i18n(issue.priority, i18n),
             ]);
         }
         builder = builder.add_component(freq_table);
     }
 
-    builder = render_batch_decision_actions(builder, &pres, &i18n);
+    builder = render_batch_decision_actions(builder, pres, i18n);
 
-    // Unified problem blocks — 1 Problem = 1 kompakter Block
-    // (keine doppelten Cards + Details mehr)
+    // Unified problem blocks
     let scope_global_word = i18n.t("batch-meta-global");
     let scope_individual = i18n.t("batch-meta-individual");
     let occurrences_word_top = i18n.t("batch-meta-occurrences");
@@ -1315,14 +1312,21 @@ fn build_batch_report(
         builder = builder.add_component(kv);
     }
 
-    // ── 4. Maßnahmenplan (mit Aufwand + Scope) ─────────────────────
+    builder
+}
+
+fn render_batch_action_plan_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     let action_intro = i18n.t("batch-action-plan-intro");
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-action-plan-title"), action_intro).with_level(1),
     );
-    builder = render_batch_action_plan_enhanced(builder, &pres.action_plan, &i18n);
+    builder = render_batch_action_plan_enhanced(builder, &pres.action_plan, i18n);
 
-    // ── 5a. Render Blocking (Batch) ─────────────────────────────────
+    // Render blocking
     if !pres.portfolio_summary.render_blocking_summary.is_empty() {
         let mut kv = KeyValueList::new().with_title(i18n.t("batch-render-blocking-kv-title"));
         for (label, value) in &pres.portfolio_summary.render_blocking_summary {
@@ -1334,7 +1338,7 @@ fn build_batch_report(
             .add_component(kv);
     }
 
-    // ── 5b. Performance Budgets (Batch) ─────────────────────────────
+    // Performance budgets
     if !pres.portfolio_summary.budget_summary.is_empty() {
         let pages_col = i18n.t("batch-budget-pages-col");
         let budget_table_title = i18n.t("batch-budget-table-title");
@@ -1360,7 +1364,15 @@ fn build_batch_report(
             .add_component(table);
     }
 
-    // ── 5. Technische URL-Matrix ───────────────────────────────────
+    builder
+}
+
+fn render_batch_tech_url_matrix(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    config: &ReportConfig,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-section-tech-url-matrix"),
@@ -1370,143 +1382,10 @@ fn build_batch_report(
     );
 
     if let Some(ref crawl_links) = pres.portfolio_summary.crawl_links {
-        let target_col = i18n.t("batch-crawl-col-target");
-        let type_col = i18n.t("batch-crawl-col-type");
-        let direct_label = i18n.t("batch-crawl-label-direct");
-        let hops_label = i18n.t("batch-crawl-label-hops");
-        let internal_intro = i18n.t_args(
-            "batch-crawl-internal-intro",
-            &[
-                ("seed", crawl_links.seed_url.clone()),
-                ("checked", crawl_links.checked_internal_links.to_string()),
-                (
-                    "broken",
-                    crawl_links.broken_internal_links.len().to_string(),
-                ),
-            ],
-        );
-        builder = builder
-            .add_component(
-                Section::new(i18n.t("batch-section-broken-links-internal")).with_level(1),
-            )
-            .add_component(TextBlock::new(internal_intro));
-
-        if crawl_links.broken_internal_links.is_empty() {
-            builder =
-                builder.add_component(Callout::info(i18n.t("batch-crawl-no-broken-internal")));
-        } else {
-            let mut table = AuditTable::new(vec![
-                TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new(target_col.clone()),
-                TableColumn::new(i18n.t("batch-col-status-code")),
-                TableColumn::new(type_col.clone()),
-            ])
-            .with_title(i18n.t("batch-table-broken-internal"));
-
-            for row in &crawl_links.broken_internal_links {
-                let severity_color = match row.severity.as_str() {
-                    "high" => "#dc2626",
-                    "medium" => "#ea580c",
-                    _ => "#ca8a04",
-                };
-                let typ_label = if row.redirect_hops > 0 {
-                    format!("→{} {}", row.redirect_hops, hops_label)
-                } else {
-                    direct_label.to_string()
-                };
-                table = table.add_row(vec![
-                    truncate_url(&row.source_url, 30),
-                    truncate_url(&row.target_url, 38),
-                    format!("\x1b[{}m{}\x1b[0m", severity_color, row.status),
-                    typ_label,
-                ]);
-            }
-
-            builder = builder.add_component(table);
-        }
-
-        // External broken links
-        if !crawl_links.broken_external_links.is_empty() {
-            let ext_intro = i18n.t_args(
-                "batch-crawl-external-intro",
-                &[
-                    ("checked", crawl_links.checked_external_links.to_string()),
-                    (
-                        "broken",
-                        crawl_links.broken_external_links.len().to_string(),
-                    ),
-                ],
-            );
-            builder = builder
-                .add_component(
-                    Section::new(i18n.t("batch-section-broken-links-external")).with_level(2),
-                )
-                .add_component(TextBlock::new(ext_intro));
-
-            let mut ext_table = AuditTable::new(vec![
-                TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new(target_col.clone()),
-                TableColumn::new(i18n.t("batch-col-status-code")),
-                TableColumn::new(type_col.clone()),
-            ])
-            .with_title(i18n.t("batch-table-broken-external"));
-
-            for row in &crawl_links.broken_external_links {
-                let typ_label = if row.redirect_hops > 0 {
-                    format!("→{} {}", row.redirect_hops, hops_label)
-                } else {
-                    direct_label.to_string()
-                };
-                ext_table = ext_table.add_row(vec![
-                    truncate_url(&row.source_url, 30),
-                    truncate_url(&row.target_url, 38),
-                    row.status.clone(),
-                    typ_label,
-                ]);
-            }
-
-            builder = builder.add_component(ext_table);
-        } else if crawl_links.checked_external_links > 0 {
-            let ext_clean_msg = i18n.t_args(
-                "batch-crawl-external-clean",
-                &[("checked", crawl_links.checked_external_links.to_string())],
-            );
-            builder = builder
-                .add_component(Section::new(i18n.t("batch-section-external-links")).with_level(2))
-                .add_component(Callout::info(ext_clean_msg));
-        }
-
-        // Redirect chains
-        if !crawl_links.redirect_chains.is_empty() {
-            let chain_intro = i18n.t_args(
-                "batch-crawl-redirect-chains-intro",
-                &[("count", crawl_links.redirect_chains.len().to_string())],
-            );
-            builder = builder
-                .add_component(Section::new(i18n.t("batch-section-redirect-chains")).with_level(2))
-                .add_component(TextBlock::new(chain_intro));
-
-            let mut chain_table = AuditTable::new(vec![
-                TableColumn::new(i18n.t("batch-col-source")),
-                TableColumn::new(i18n.t("batch-col-target")),
-                TableColumn::new("Hops"),
-                TableColumn::new(i18n.t("batch-col-final-url")),
-            ])
-            .with_title(i18n.t("batch-redirect-chains-title"));
-
-            for chain in &crawl_links.redirect_chains {
-                chain_table = chain_table.add_row(vec![
-                    truncate_url(&chain.source_url, 28),
-                    truncate_url(&chain.target_url, 28),
-                    chain.hops.to_string(),
-                    truncate_url(&chain.final_url, 32),
-                ]);
-            }
-
-            builder = builder.add_component(chain_table);
-        }
+        builder = render_batch_crawl_links(builder, crawl_links, i18n);
     }
 
+    // URL matrix table
     let page_col = i18n.t("batch-matrix-col-page");
     let title_col = i18n.t("batch-matrix-col-title");
     let mut matrix = AuditTable::new(vec![
@@ -1570,7 +1449,155 @@ fn build_batch_report(
         builder = builder.add_component(focus_table);
     }
 
-    // ── 6. Content & SEO — integriert mit Business-Impact ─────────
+    builder
+}
+
+fn render_batch_crawl_links(
+    mut builder: renderreport::engine::ReportBuilder,
+    crawl_links: &crate::output::report_model::CrawlLinkSummary,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let target_col = i18n.t("batch-crawl-col-target");
+    let type_col = i18n.t("batch-crawl-col-type");
+    let direct_label = i18n.t("batch-crawl-label-direct");
+    let hops_label = i18n.t("batch-crawl-label-hops");
+    let internal_intro = i18n.t_args(
+        "batch-crawl-internal-intro",
+        &[
+            ("seed", crawl_links.seed_url.clone()),
+            ("checked", crawl_links.checked_internal_links.to_string()),
+            (
+                "broken",
+                crawl_links.broken_internal_links.len().to_string(),
+            ),
+        ],
+    );
+    builder = builder
+        .add_component(Section::new(i18n.t("batch-section-broken-links-internal")).with_level(1))
+        .add_component(TextBlock::new(internal_intro));
+
+    if crawl_links.broken_internal_links.is_empty() {
+        builder = builder.add_component(Callout::info(i18n.t("batch-crawl-no-broken-internal")));
+    } else {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-source")),
+            TableColumn::new(target_col.clone()),
+            TableColumn::new(i18n.t("batch-col-status-code")),
+            TableColumn::new(type_col.clone()),
+        ])
+        .with_title(i18n.t("batch-table-broken-internal"));
+
+        for row in &crawl_links.broken_internal_links {
+            let severity_color = match row.severity.as_str() {
+                "high" => "#dc2626",
+                "medium" => "#ea580c",
+                _ => "#ca8a04",
+            };
+            let typ_label = if row.redirect_hops > 0 {
+                format!("→{} {}", row.redirect_hops, hops_label)
+            } else {
+                direct_label.to_string()
+            };
+            table = table.add_row(vec![
+                truncate_url(&row.source_url, 30),
+                truncate_url(&row.target_url, 38),
+                format!("\x1b[{}m{}\x1b[0m", severity_color, row.status),
+                typ_label,
+            ]);
+        }
+
+        builder = builder.add_component(table);
+    }
+
+    // External broken links
+    if !crawl_links.broken_external_links.is_empty() {
+        let ext_intro = i18n.t_args(
+            "batch-crawl-external-intro",
+            &[
+                ("checked", crawl_links.checked_external_links.to_string()),
+                (
+                    "broken",
+                    crawl_links.broken_external_links.len().to_string(),
+                ),
+            ],
+        );
+        builder = builder
+            .add_component(
+                Section::new(i18n.t("batch-section-broken-links-external")).with_level(2),
+            )
+            .add_component(TextBlock::new(ext_intro));
+
+        let mut ext_table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-source")),
+            TableColumn::new(target_col.clone()),
+            TableColumn::new(i18n.t("batch-col-status-code")),
+            TableColumn::new(type_col.clone()),
+        ])
+        .with_title(i18n.t("batch-table-broken-external"));
+
+        for row in &crawl_links.broken_external_links {
+            let typ_label = if row.redirect_hops > 0 {
+                format!("→{} {}", row.redirect_hops, hops_label)
+            } else {
+                direct_label.to_string()
+            };
+            ext_table = ext_table.add_row(vec![
+                truncate_url(&row.source_url, 30),
+                truncate_url(&row.target_url, 38),
+                row.status.clone(),
+                typ_label,
+            ]);
+        }
+
+        builder = builder.add_component(ext_table);
+    } else if crawl_links.checked_external_links > 0 {
+        let ext_clean_msg = i18n.t_args(
+            "batch-crawl-external-clean",
+            &[("checked", crawl_links.checked_external_links.to_string())],
+        );
+        builder = builder
+            .add_component(Section::new(i18n.t("batch-section-external-links")).with_level(2))
+            .add_component(Callout::info(ext_clean_msg));
+    }
+
+    // Redirect chains
+    if !crawl_links.redirect_chains.is_empty() {
+        let chain_intro = i18n.t_args(
+            "batch-crawl-redirect-chains-intro",
+            &[("count", crawl_links.redirect_chains.len().to_string())],
+        );
+        builder = builder
+            .add_component(Section::new(i18n.t("batch-section-redirect-chains")).with_level(2))
+            .add_component(TextBlock::new(chain_intro));
+
+        let mut chain_table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-source")),
+            TableColumn::new(i18n.t("batch-col-target")),
+            TableColumn::new("Hops"),
+            TableColumn::new(i18n.t("batch-col-final-url")),
+        ])
+        .with_title(i18n.t("batch-redirect-chains-title"));
+
+        for chain in &crawl_links.redirect_chains {
+            chain_table = chain_table.add_row(vec![
+                truncate_url(&chain.source_url, 28),
+                truncate_url(&chain.target_url, 28),
+                chain.hops.to_string(),
+                truncate_url(&chain.final_url, 32),
+            ]);
+        }
+
+        builder = builder.add_component(chain_table);
+    }
+
+    builder
+}
+
+fn render_batch_seo_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-seo-potential-title"),
@@ -1579,7 +1606,7 @@ fn build_batch_report(
         .with_level(1),
     );
 
-    // Schwache Seiten zuerst — mit Business-Impact
+    // Weakest pages
     if !pres.portfolio_summary.weakest_content_pages.is_empty() {
         let issues_title = i18n.t("batch-seo-issues-title");
         let mut issues_kv = KeyValueList::new().with_title(issues_title);
@@ -1613,7 +1640,7 @@ fn build_batch_report(
         builder = builder.add_component(issues_kv);
     }
 
-    // Content-Auffälligkeiten als Business-Relevanz
+    // Distribution insights
     if !pres.portfolio_summary.distribution_insights.is_empty() {
         let action_label = i18n.t("batch-seo-action-needed");
         let panel_title = i18n.t("batch-seo-patterns-impact-title");
@@ -1638,7 +1665,7 @@ fn build_batch_report(
         builder = builder.add_component(ChecklistPanel::new(rows).with_title(panel_title));
     }
 
-    // Near-duplicates mit Business-Kontext
+    // Near-duplicates
     if !pres.portfolio_summary.near_duplicates.is_empty() {
         let near_dup_title = i18n.t("batch-seo-near-dup-title");
         let mut table = AuditTable::new(vec![
@@ -1665,7 +1692,7 @@ fn build_batch_report(
         builder = builder.add_component(table);
     }
 
-    // Seitentyp-Verteilung (kompakt)
+    // Page type distribution
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
         let high_label = i18n.t("batch-relevance-high");
         let medium_label = i18n.t("batch-relevance-medium");
@@ -1700,7 +1727,7 @@ fn build_batch_report(
         builder = builder.add_component(type_table);
     }
 
-    // Schema-Typ-Verteilung
+    // Schema distribution
     if !pres.portfolio_summary.schema_distribution.is_empty() {
         let total = pres.portfolio_summary.total_urls;
         let without = pres.portfolio_summary.pages_without_schema;
@@ -1734,7 +1761,7 @@ fn build_batch_report(
         builder = builder.add_component(schema_table);
     }
 
-    // Stärkste Seiten (kurz)
+    // Strongest pages
     if !pres.portfolio_summary.strongest_content_pages.is_empty() {
         let mut strengths = AuditTable::new(vec![
             TableColumn::new("URL"),
@@ -1753,59 +1780,127 @@ fn build_batch_report(
         builder = builder.add_component(strengths);
     }
 
-    // ── Cross-page consistency (issues #44/#45/#46) ─────────────────
+    builder
+}
+
+fn render_batch_appendix(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let appendix_intro = i18n.t("batch-appendix-intro");
+    builder = builder.add_component(
+        SectionHeaderSplit::new(i18n.t("section-appendix"), appendix_intro).with_level(1),
+    );
+
+    let rule_col = i18n.t("batch-appendix-col-rule");
+    let elements_col = i18n.t("batch-appendix-col-elements");
+    for url_appendix in &pres.appendix.per_url {
+        if url_appendix.violations.is_empty() {
+            continue;
+        }
+
+        builder =
+            builder.add_component(Section::new(truncate_url(&url_appendix.url, 70)).with_level(2));
+
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(rule_col.clone()),
+            TableColumn::new(i18n.t("batch-col-severity")),
+            TableColumn::new(i18n.t("batch-col-description")),
+            TableColumn::new(elements_col.clone()),
+        ]);
+
+        for v in &url_appendix.violations {
+            let elements = v
+                .affected_elements
+                .iter()
+                .map(|e| e.selector.clone())
+                .collect::<Vec<_>>()
+                .join("; ");
+            table = table.add_row(vec![
+                format!(
+                    "{} — {} ({}×)",
+                    v.rule,
+                    v.rule_name,
+                    v.affected_elements.len()
+                ),
+                severity_label_i18n(v.severity, i18n),
+                v.message.clone(),
+                elements,
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    builder
+}
+
+// ─── Batch Report ───────────────────────────────────────────────────────────
+
+pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
+    let (engine, built_report) = build_batch_report(batch, config)?;
+    Ok(engine.render_pdf(&built_report)?)
+}
+
+/// Render the intermediate Typst source for a batch report (hidden `--debug-typ`).
+pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<String> {
+    let (engine, built_report) = build_batch_report(batch, config)?;
+    Ok(engine.render_typ(&built_report)?)
+}
+
+fn build_batch_report(
+    batch: &BatchReport,
+    config: &ReportConfig,
+) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
+    let engine = super::helpers::create_engine()?;
+    let i18n = I18n::new(&config.locale)?;
+    let pres = build_batch_presentation(batch);
+
+    let domain = &pres.portfolio_summary.domain;
+    let score = pres.portfolio_summary.average_score.round() as u32;
+
+    let mut builder = engine
+        .report("wcag-batch-audit")
+        .title(&pres.cover.title)
+        .subtitle(&pres.cover.url)
+        .metadata("date", &pres.cover.date)
+        .metadata("version", &pres.cover.version)
+        .metadata("author", domain)
+        .metadata("footer_prefix", "Audit:")
+        .metadata("footer_link_url", "")
+        .metadata(
+            "footer_tagline",
+            "A technical auditing platform by casoon.de",
+        );
+
+    builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
+    builder = render_batch_status_section(builder, &pres, &i18n);
+    builder = render_batch_url_ranking(builder, &pres, &i18n);
+
+    if let Some(ref interactive) = pres.interactive_summary {
+        if interactive.total_pages_tested > 0 {
+            builder = render_batch_interactive_summary(
+                builder,
+                interactive,
+                pres.portfolio_summary.total_urls,
+                &i18n,
+            );
+        }
+    }
+
+    builder = render_batch_top_issues(builder, &pres, &i18n);
+    builder = render_batch_action_plan_section(builder, &pres, &i18n);
+    builder = render_batch_tech_url_matrix(builder, &pres, config, &i18n);
+    builder = render_batch_seo_section(builder, &pres, &i18n);
+
     if let Some(ref consistency) = batch.consistency {
         builder = render_batch_consistency(builder, consistency, &i18n);
     }
 
-    // ── Empfohlene nächste Schritte ───────────────────────────────
     builder = render_next_steps_batch(builder, &pres, &i18n);
 
-    // ── 7. Anhang ───────────────────────────────────────────────────
     if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
-        let appendix_intro = i18n.t("batch-appendix-intro");
-        builder = builder.add_component(
-            SectionHeaderSplit::new(i18n.t("section-appendix"), appendix_intro).with_level(1),
-        );
-
-        let rule_col = i18n.t("batch-appendix-col-rule");
-        let elements_col = i18n.t("batch-appendix-col-elements");
-        for url_appendix in &pres.appendix.per_url {
-            if url_appendix.violations.is_empty() {
-                continue;
-            }
-
-            builder = builder
-                .add_component(Section::new(truncate_url(&url_appendix.url, 70)).with_level(2));
-
-            let mut table = AuditTable::new(vec![
-                TableColumn::new(rule_col.clone()),
-                TableColumn::new(i18n.t("batch-col-severity")),
-                TableColumn::new(i18n.t("batch-col-description")),
-                TableColumn::new(elements_col.clone()),
-            ]);
-
-            for v in &url_appendix.violations {
-                let elements = v
-                    .affected_elements
-                    .iter()
-                    .map(|e| e.selector.clone())
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                table = table.add_row(vec![
-                    format!(
-                        "{} — {} ({}×)",
-                        v.rule,
-                        v.rule_name,
-                        v.affected_elements.len()
-                    ),
-                    severity_label_i18n(v.severity, &i18n),
-                    v.message.clone(),
-                    elements,
-                ]);
-            }
-            builder = builder.add_component(table);
-        }
+        builder = render_batch_appendix(builder, &pres, &i18n);
     }
 
     let built_report = builder.build();

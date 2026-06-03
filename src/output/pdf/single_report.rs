@@ -394,7 +394,32 @@ pub(super) fn render_tech_details(
     if vm.severity.has_issues {
         builder = render_diagnosis_section(builder, &vm.diagnosis, i18n);
     }
+    builder = render_findings_section(builder, vm, en, i18n);
+    // WCAG Coverage (issue #37)
+    if vm.meta.report_level != ReportLevel::Executive {
+        builder = render_wcag_coverage_section(builder, report, i18n);
+    }
+    // Interactive Accessibility-Journey findings (Phase 2+)
+    if !report.interactive_findings.is_empty() {
+        builder = render_a11y_journey_findings(
+            builder,
+            &report.interactive_findings,
+            report.accessibility_journey.as_ref(),
+            i18n,
+        );
+    }
+    builder = render_appendix_section(builder, vm, i18n);
+    builder = render_part3_header(builder, vm, report, i18n);
+    builder = render_module_sections(builder, vm, report, i18n);
+    builder
+}
 
+fn render_findings_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    en: bool,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     // Section 6+ — Findings grouped by criticality tier, then severity (#245).
     if vm.severity.has_issues {
         if !vm.findings.by_tier.is_empty() {
@@ -510,22 +535,15 @@ pub(super) fn render_tech_details(
             }
         }
     }
+    builder
+}
 
-    // WCAG Coverage (issue #37)
-    if vm.meta.report_level != ReportLevel::Executive {
-        builder = render_wcag_coverage_section(builder, report, i18n);
-    }
-
-    // Interactive Accessibility-Journey findings (Phase 2+)
-    if !report.interactive_findings.is_empty() {
-        builder = render_a11y_journey_findings(
-            builder,
-            &report.interactive_findings,
-            report.accessibility_journey.as_ref(),
-            i18n,
-        );
-    }
-
+fn render_appendix_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
     // Appendix — full violations list, conclusion of Part 2 (#246). Only render
     // the section header when there are violations to list; otherwise it
     // promises a list that never appears (#364).
@@ -612,7 +630,16 @@ pub(super) fn render_tech_details(
             );
         }
     }
+    builder
+}
 
+fn render_part3_header(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    report: &AuditReport,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
     // Part 3 — SEO, AI & Quality (optional). Only render if any module is present (#246).
     let has_part3 = vm.module_details.seo.is_some()
         || vm.module_details.ai_visibility.is_some()
@@ -714,7 +741,16 @@ pub(super) fn render_tech_details(
             i18n,
         );
     }
+    builder
+}
 
+fn render_module_sections(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    report: &AuditReport,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
     if let Some(ref seo) = vm.module_details.seo {
         builder = render_seo(builder, seo, i18n);
     }
@@ -783,6 +819,5 @@ pub(super) fn render_tech_details(
     if let Some(ref bp) = vm.module_details.best_practices {
         builder = render_best_practices(builder, bp, i18n);
     }
-
     builder
 }
