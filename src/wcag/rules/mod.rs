@@ -125,7 +125,9 @@ pub use link_purpose_link_only::check_link_purpose_link_only;
 pub use list_structure::check_list_structure;
 pub use location::check_location_with_page;
 pub use media_alternative::check_media_alternative;
-pub use media_rules::{check_frame_title_with_page, check_media_rules};
+pub use media_rules::{
+    check_frame_tested_with_page, check_frame_title_with_page, check_media_rules,
+};
 pub use meta_viewport_large::check_meta_viewport_large;
 pub use motion_actuation::check_motion_actuation_with_page;
 pub use no_interruptions::check_no_interruptions_with_page;

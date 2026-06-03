@@ -246,6 +246,114 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
         .collect()
 }
 
+/// Rule metadata for frame-tested (axe-core `frame-tested`).
+pub const RULE_META_FRAME_TESTED: RuleMetadata = RuleMetadata {
+    id: "frame-tested",
+    name: "Frame tested",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "Identifies cross-origin iframes that cannot be analyzed automatically",
+    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    axe_id: "frame-tested",
+    tags: &["wcag2a", "wcag412", "cat.text-alternatives"],
+};
+
+/// DOM check for iframes that cannot be analyzed via CDP (cross-origin).
+///
+/// Chrome's `getFullAXTree` returns the accessibility tree of same-origin
+/// iframes as part of the main page tree, so existing WCAG rules already
+/// cover those. Cross-origin iframes are inaccessible — one `NotTestable`
+/// finding is emitted per cross-origin frame so auditors know manual review
+/// is required (mirrors axe-core's `frame-tested` rule).
+pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        r#"
+        var results = [];
+        var frames = document.querySelectorAll('iframe, frame');
+        for (var i = 0; i < frames.length; i++) {
+          var el = frames[i];
+          var role = (el.getAttribute('role') || '').toLowerCase();
+          if (role === 'none' || role === 'presentation') continue;
+          if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;
+          var style = window.getComputedStyle(el);
+          if (style && (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse')) continue;
+          var rect = el.getBoundingClientRect();
+          if (rect.width <= 1 || rect.height <= 1) continue;
+
+          var crossOrigin = false;
+          try {
+            crossOrigin = (el.contentDocument === null);
+          } catch(e) {
+            crossOrigin = true;
+          }
+          if (!crossOrigin) continue;
+
+          results.push({
+            selector: __amsCssSelector(el),
+            snippet: el.outerHTML.substring(0, 200),
+            src: el.src || ''
+          });
+        }
+        return results;
+        "#,
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("frame-tested DOM JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let Some(value) = result.value() else {
+        return vec![];
+    };
+    let Some(frames) = value.as_array() else {
+        return vec![];
+    };
+
+    frames
+        .iter()
+        .filter_map(|frame| {
+            let selector = frame.get("selector")?.as_str()?.to_string();
+            let mut violation = Violation::new(
+                RULE_META_FRAME_TESTED.id,
+                RULE_META_FRAME_TESTED.name,
+                RULE_META_FRAME_TESTED.level,
+                RULE_META_FRAME_TESTED.severity,
+                "Cross-origin iframe cannot be analyzed automatically — manual review required",
+                &selector,
+            )
+            .with_selector(&selector)
+            .with_rule_id(RULE_META_FRAME_TESTED.axe_id)
+            .with_tags(
+                RULE_META_FRAME_TESTED
+                    .tags
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+            )
+            .with_fix(
+                "Verify that the embedded content meets WCAG requirements independently. \
+                 Ensure the iframe source provides an accessible experience for screen reader users.",
+            )
+            .with_help_url(RULE_META_FRAME_TESTED.help_url)
+            .with_kind(FindingKind::NotTestable);
+
+            if let Some(snippet) = frame.get("snippet").and_then(|v| v.as_str()) {
+                violation = violation.with_html_snippet(snippet);
+            }
+
+            Some(violation)
+        })
+        .collect()
+}
+
 /// Elements with role="application" (often video/canvas wrappers) need an accessible name
 fn check_application_has_name(node: &AXNode, results: &mut WcagResults) {
     if !node.has_name() {

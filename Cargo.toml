@@ -1,6 +1,6 @@
 [package]
 name = "auditmysite"
-version = "0.45.0"
+version = "0.45.1"
 edition = "2021"
 authors = ["Casoon"]
 description = "Resource-efficient WCAG 2.1 Accessibility Checker in Rust"
@@ -69,7 +69,7 @@ fluent-bundle = "0.15"
 unic-langid = "0.9"
 
 # PDF report generation via Typst.
-renderreport = { version = "0.2.21", optional = true }
+renderreport = { version = "0.2.22", optional = true }
 
 # Local embedding model for semantic link-text evaluation (semantic-eval feature).
 fastembed = { version = "5", optional = true }

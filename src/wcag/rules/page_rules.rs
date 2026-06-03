@@ -27,7 +27,7 @@ use crate::wcag::Violation;
 use super::{
     check_abbreviations_with_page, check_aria_hidden_focus, check_aria_prohibited_attr_with_page,
     check_background_audio_with_page, check_content_on_hover_with_page,
-    check_focus_visible_css_with_page, check_frame_title_with_page,
+    check_focus_visible_css_with_page, check_frame_tested_with_page, check_frame_title_with_page,
     check_identify_purpose_with_page, check_label_in_name_with_page, check_location_with_page,
     check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
     check_orientation_with_page, check_parsing_with_page, check_pointer_cancellation_with_page,
@@ -73,6 +73,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "frame-title",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_frame_title_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "4.1.2/frame-tested",
+        name: "frame-tested",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_frame_tested_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.1.1/click-handler",
@@ -234,9 +240,9 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::A >= r.min_level)
             .count();
-        // Six Level-A page rules in the table; tightening this catches
+        // Seven Level-A page rules in the table; tightening this catches
         // accidental reclassification of a rule's min_level.
-        assert_eq!(count, 6);
+        assert_eq!(count, 7);
     }
 
     #[test]
@@ -245,8 +251,8 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::AA >= r.min_level)
             .count();
-        // 6 A + 4 AA = 10.
-        assert_eq!(count, 10);
+        // 7 A + 4 AA = 11.
+        assert_eq!(count, 11);
     }
 
     #[test]

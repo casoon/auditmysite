@@ -238,7 +238,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "auditmysite"
-version = "0.45.0"
+version = "0.45.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3972,14 +3972,13 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "renderreport"
-version = "0.2.21"
+version = "0.2.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f23b2b2ae9f56a2f4a4cacc58db4a5d078ee7d629dcea48331ff7c117401cca"
+checksum = "71fa8948f65739635aa927769b72e5dbc957568c369e1e4be5548114d71e3ec3"
 dependencies = [
  "anyhow",
  "barcoders",
  "chrono",
- "comemo",
  "datamatrix",
  "fontdb 0.22.0",
  "inventory",
@@ -3990,8 +3989,6 @@ dependencies = [
  "toml",
  "typst",
  "typst-pdf",
- "typst-syntax",
- "uuid",
 ]
 
 [[package]]
@@ -5743,9 +5740,7 @@ version = "1.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddd74a9687298c6858e9b88ec8935ec45d22e8fd5e6394fa1bd4e99a87789c76"
 dependencies = [
- "getrandom 0.4.2",
  "js-sys",
- "serde_core",
  "wasm-bindgen",
 ]
 
