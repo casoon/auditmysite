@@ -5,10 +5,12 @@
 //! - Large text (18pt+ or 14pt+ bold): at least 3:1
 //! - Level AAA: 7:1 for normal, 4.5:1 for large
 
+use std::collections::HashMap;
+
 use chromiumoxide::Page;
 use tracing::{debug, warn};
 
-use crate::accessibility::{extract_text_styles, AXTree};
+use crate::accessibility::{extract_text_styles, AXTree, ComputedStyles};
 use crate::audit::ViewportScreenshot;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
@@ -38,11 +40,12 @@ pub enum ContrastVerdict {
     NeedsReview,
 }
 
+type SampledVerdicts = HashMap<String, (String, Option<f64>, Option<f64>)>;
+
 /// WCAG 1.4.3: Contrast (Minimum)
 pub struct ContrastRule;
 
 impl ContrastRule {
-    /// Check contrast ratios for text elements (with CDP access)
     /// Check contrast ratios for text elements (with CDP access)
     pub async fn check_with_page(
         page: &Page,
@@ -52,83 +55,190 @@ impl ContrastRule {
     ) -> Vec<Violation> {
         debug!("Running contrast check with CDP integration...");
 
-        let mut violations = Vec::new();
-
-        // Extract computed styles for text elements
-        let styles_result = extract_text_styles(page).await;
-        let styles = match styles_result {
+        let styles = match extract_text_styles(page).await {
             Ok(s) => s,
             Err(e) => {
                 warn!("Failed to extract text styles: {}", e);
-                return violations;
+                return Vec::new();
             }
         };
 
         debug!("Checking contrast for {} elements", styles.len());
 
-        let mut sample_tasks = Vec::new();
-        if screenshot.is_some() {
-            for style in &styles {
-                let fg_color_str = match style.color() {
-                    Some(c) => c,
-                    None => continue,
-                };
-                let background_uncertain = style
-                    .get("background-uncertain")
-                    .map(|value| value == "true")
-                    .unwrap_or(false);
+        let sampled = match screenshot {
+            Some(shot) => {
+                let tasks = Self::build_sample_tasks(&styles, level);
+                if tasks.is_empty() {
+                    HashMap::new()
+                } else {
+                    Self::run_pixel_sampling(page, shot, tasks).await
+                }
+            }
+            None => HashMap::new(),
+        };
 
-                if background_uncertain {
-                    let fg_color = match Color::from_css(fg_color_str) {
-                        Some(c) => c,
-                        None => continue,
-                    };
-                    let bg_color_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
-                    let bg_color = match Color::from_css(bg_color_str) {
-                        Some(c) => c,
-                        None => continue,
-                    };
-                    let white_color = Color::new(255, 255, 255);
-                    let bg_effective = bg_color.composite_over(&white_color);
-                    let fg_effective = fg_color.composite_over(&bg_effective);
-                    let ratio = Self::calculate_contrast_ratio(&fg_effective, &bg_effective);
-                    let is_large = style.is_large_text();
+        let violations: Vec<Violation> = styles
+            .iter()
+            .filter_map(|style| Self::evaluate_style(style, level, &sampled))
+            .collect();
 
-                    if !Self::meets_requirement(ratio, is_large, level) {
-                        if let Some(ref sel) = style.selector {
-                            let threshold = if is_large {
-                                if level == WcagLevel::AAA {
-                                    4.5
-                                } else {
-                                    3.0
-                                }
-                            } else if level == WcagLevel::AAA {
-                                7.0
-                            } else {
-                                4.5
-                            };
+        debug!("Found {} contrast violations", violations.len());
+        violations
+    }
 
-                            sample_tasks.push(serde_json::json!({
-                                "selector": sel,
-                                "fgColor": fg_color_str,
-                                "threshold": threshold,
-                            }));
+    /// Calculate contrast ratio between two colors
+    pub fn calculate_contrast_ratio(color1: &Color, color2: &Color) -> f64 {
+        let lum1 = color1.relative_luminance();
+        let lum2 = color2.relative_luminance();
+        let lighter = lum1.max(lum2);
+        let darker = lum1.min(lum2);
+        (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /// Decide whether a measured ratio is a pass, a confirmed violation, or a
+    /// manual-review case.
+    ///
+    /// When the effective background is uncertain (text over an image/gradient
+    /// that CSS could not resolve), a sub-threshold ratio is demoted to
+    /// `NeedsReview` instead of a confirmed `Violation`, because the CSS-derived
+    /// background is only an estimate of what is actually rendered (#264).
+    pub fn verdict(
+        contrast_ratio: f64,
+        is_large_text: bool,
+        level: WcagLevel,
+        background_uncertain: bool,
+    ) -> ContrastVerdict {
+        if Self::meets_requirement(contrast_ratio, is_large_text, level) {
+            ContrastVerdict::Pass
+        } else if background_uncertain {
+            ContrastVerdict::NeedsReview
+        } else {
+            ContrastVerdict::Violation
+        }
+    }
+
+    /// Check if contrast ratio meets WCAG requirements
+    pub fn meets_requirement(contrast_ratio: f64, is_large_text: bool, level: WcagLevel) -> bool {
+        if level == WcagLevel::A {
+            return true;
+        }
+        contrast_ratio >= Self::contrast_threshold(is_large_text, level)
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    /// Required contrast ratio for the given text category and WCAG level.
+    fn contrast_threshold(is_large: bool, level: WcagLevel) -> f64 {
+        match (level, is_large) {
+            (WcagLevel::AAA, false) => 7.0,
+            (WcagLevel::AAA, true) => 4.5,
+            (_, false) => 4.5,
+            (_, true) => 3.0,
+        }
+    }
+
+    /// Threshold as a display string for violation messages.
+    fn contrast_threshold_str(is_large: bool, level: WcagLevel) -> &'static str {
+        match (level, is_large) {
+            (WcagLevel::AAA, false) => "7.0",
+            (WcagLevel::AAA, true) => "4.5",
+            (_, false) => "4.5",
+            (_, true) => "3.0",
+        }
+    }
+
+    fn is_invisible(style: &ComputedStyles) -> bool {
+        style.get("visibility").map_or(false, |v| v == "hidden")
+            || style.get("display").map_or(false, |v| v == "none")
+    }
+
+    /// Collect pixel-sampling tasks for uncertain-background elements that appear
+    /// to fail the contrast check based on their CSS colors alone.
+    fn build_sample_tasks(styles: &[ComputedStyles], level: WcagLevel) -> Vec<serde_json::Value> {
+        let mut tasks = Vec::new();
+        for style in styles {
+            let fg_str = match style.color() {
+                Some(c) => c,
+                None => continue,
+            };
+            if !style
+                .get("background-uncertain")
+                .map_or(false, |v| v == "true")
+            {
+                continue;
+            }
+            let fg = match Color::from_css(fg_str) {
+                Some(c) => c,
+                None => continue,
+            };
+            let bg_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
+            let bg = match Color::from_css(bg_str) {
+                Some(c) => c,
+                None => continue,
+            };
+            let white = Color::new(255, 255, 255);
+            let bg_eff = bg.composite_over(&white);
+            let fg_eff = fg.composite_over(&bg_eff);
+            let ratio = Self::calculate_contrast_ratio(&fg_eff, &bg_eff);
+            let is_large = style.is_large_text();
+            if !Self::meets_requirement(ratio, is_large, level) {
+                if let Some(ref sel) = style.selector {
+                    tasks.push(serde_json::json!({
+                        "selector": sel,
+                        "fgColor": fg_str,
+                        "threshold": Self::contrast_threshold(is_large, level),
+                    }));
+                }
+            }
+        }
+        tasks
+    }
+
+    /// Run the in-browser canvas pixel-sampling script and return per-selector verdicts.
+    async fn run_pixel_sampling(
+        page: &Page,
+        shot: &ViewportScreenshot,
+        tasks: Vec<serde_json::Value>,
+    ) -> SampledVerdicts {
+        let mut verdicts = SampledVerdicts::new();
+        let base64_data = to_base64(&shot.bytes);
+        let tasks_json = serde_json::to_string(&tasks).unwrap();
+        let js = Self::pixel_sampling_script(&tasks_json, &base64_data, shot);
+
+        match page.evaluate(js.as_str()).await {
+            Ok(res) => {
+                if let Some(val) = res.value() {
+                    if let Some(arr) = val.get("results").and_then(|v| v.as_array()) {
+                        for item in arr {
+                            if let (Some(sel), Some(verdict)) = (
+                                item.get("selector").and_then(|v| v.as_str()),
+                                item.get("verdict").and_then(|v| v.as_str()),
+                            ) {
+                                let median = item.get("medianRatio").and_then(|v| v.as_f64());
+                                let worst = item.get("worstCaseRatio").and_then(|v| v.as_f64());
+                                verdicts
+                                    .insert(sel.to_string(), (verdict.to_string(), median, worst));
+                            }
                         }
                     }
                 }
             }
+            Err(e) => warn!("Pixel sampling script execution failed: {}", e),
         }
+        verdicts
+    }
 
-        let mut sampled_verdicts = std::collections::HashMap::new();
-        if !sample_tasks.is_empty() {
-            if let Some(shot) = screenshot {
-                let base64_data = to_base64(&shot.bytes);
-                let tasks_json = serde_json::to_string(&sample_tasks).unwrap();
-                let js_script = format!(
-                    r#"(async () => {{
+    /// Build the JS canvas pixel-sampling script.
+    fn pixel_sampling_script(
+        tasks_json: &str,
+        base64_data: &str,
+        shot: &ViewportScreenshot,
+    ) -> String {
+        format!(
+            r#"(async () => {{
   const tasks = {};
   const screenshotBase64 = "{}";
-  
+
   const img = new Image();
   const loaded = new Promise((resolve, reject) => {{
     img.onload = () => resolve(true);
@@ -187,7 +297,7 @@ impl ContrastRule {
         results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Element not found" }});
         continue;
       }}
-      
+
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {{
         results.push({{ selector: task.selector, verdict: "NeedsReview", reason: "Zero area rect" }});
@@ -255,238 +365,150 @@ impl ContrastRule {
 
   return {{ results }};
 }})();"#,
-                    tasks_json, base64_data, shot.device_scale_factor, shot.scroll_x, shot.scroll_y
-                );
-
-                match page.evaluate(js_script.as_str()).await {
-                    Ok(res) => {
-                        if let Some(val) = res.value() {
-                            if let Some(arr) = val.get("results").and_then(|v| v.as_array()) {
-                                for item in arr {
-                                    if let Some(sel) = item.get("selector").and_then(|v| v.as_str())
-                                    {
-                                        if let Some(verdict) =
-                                            item.get("verdict").and_then(|v| v.as_str())
-                                        {
-                                            let median_ratio =
-                                                item.get("medianRatio").and_then(|v| v.as_f64());
-                                            let worst_case_ratio =
-                                                item.get("worstCaseRatio").and_then(|v| v.as_f64());
-                                            sampled_verdicts.insert(
-                                                sel.to_string(),
-                                                (
-                                                    verdict.to_string(),
-                                                    median_ratio,
-                                                    worst_case_ratio,
-                                                ),
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!("Pixel sampling script execution failed: {}", e);
-                    }
-                }
-            }
-        }
-
-        // Check each element's contrast
-        for style in &styles {
-            // Skip invisible elements
-            if let Some(visibility) = style.get("visibility") {
-                if visibility == "hidden" {
-                    continue;
-                }
-            }
-            if let Some(display) = style.get("display") {
-                if display == "none" {
-                    continue;
-                }
-            }
-
-            // Get foreground and background colors
-            let fg_color_str = match style.color() {
-                Some(c) => c,
-                None => continue, // No color specified
-            };
-
-            // JS background extraction traverses the DOM, composites alpha
-            // colors, and marks image/gradient backgrounds as uncertain.
-            let bg_color_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
-            let background_uncertain = style
-                .get("background-uncertain")
-                .map(|value| value == "true")
-                .unwrap_or(false);
-
-            let fg_color = match Color::from_css(fg_color_str) {
-                Some(c) => c,
-                None => {
-                    debug!("Failed to parse foreground color: {}", fg_color_str);
-                    continue;
-                }
-            };
-
-            let bg_color = match Color::from_css(bg_color_str) {
-                Some(c) => c,
-                None => {
-                    debug!("Failed to parse background color: {}", bg_color_str);
-                    continue;
-                }
-            };
-
-            let white_color = Color::new(255, 255, 255);
-            let bg_effective = bg_color.composite_over(&white_color);
-            let fg_effective = fg_color.composite_over(&bg_effective);
-
-            // Calculate contrast ratio
-            let ratio = Self::calculate_contrast_ratio(&fg_effective, &bg_effective);
-            let is_large = style.is_large_text();
-
-            // Pass / confirmed violation / needs-review (uncertain background).
-            let mut verdict = Self::verdict(ratio, is_large, level, background_uncertain);
-            let mut final_ratio = ratio;
-            let mut is_warning = background_uncertain;
-
-            if background_uncertain && verdict == ContrastVerdict::NeedsReview {
-                if let Some(ref sel) = style.selector {
-                    if let Some((sampled_verdict, median, _worst)) = sampled_verdicts.get(sel) {
-                        if sampled_verdict == "Pass" {
-                            verdict = ContrastVerdict::Pass;
-                        } else if sampled_verdict == "Violation" {
-                            verdict = ContrastVerdict::Violation;
-                            is_warning = false;
-                            if let Some(m) = median {
-                                final_ratio = *m;
-                            }
-                        } else {
-                            verdict = ContrastVerdict::NeedsReview;
-                            is_warning = true;
-                            if let Some(m) = median {
-                                final_ratio = *m;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if verdict != ContrastVerdict::Pass {
-                let selector = style.selector.as_deref().unwrap_or("unknown");
-                let threshold = if is_large {
-                    if level == WcagLevel::AAA {
-                        "4.5"
-                    } else {
-                        "3.0"
-                    }
-                } else if level == WcagLevel::AAA {
-                    "7.0"
-                } else {
-                    "4.5"
-                };
-                let message = if is_warning {
-                    format!(
-                        "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). Background includes an image or gradient and needs manual review.",
-                        final_ratio,
-                        if is_large { "large " } else { "" },
-                        threshold
-                    )
-                } else {
-                    format!(
-                        "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1)",
-                        final_ratio,
-                        if is_large { "large " } else { "" },
-                        threshold
-                    )
-                };
-
-                let fix = if is_warning {
-                    format!(
-                        "Verify contrast against the rendered image/gradient background. Estimated from CSS colors: foreground={}, background={}",
-                        fg_color_str, bg_color_str
-                    )
-                } else {
-                    format!(
-                        "Adjust colors to improve contrast. Current: foreground={}, background={}",
-                        fg_color_str, bg_color_str
-                    )
-                };
-
-                let mut violation = Violation::new(
-                    CONTRAST_RULE.id,
-                    CONTRAST_RULE.name,
-                    CONTRAST_RULE.level,
-                    Severity::High,
-                    &message,
-                    format!("{}#{}", selector, style.node_id),
-                )
-                .with_selector(selector)
-                .with_fix(&fix)
-                .with_help_url(CONTRAST_RULE.help_url);
-                if let Some(snippet) = &style.html_snippet {
-                    violation = violation.with_html_snippet(snippet);
-                }
-                if is_warning {
-                    violation = violation.as_warning();
-                }
-
-                violations.push(violation);
-            }
-        }
-
-        debug!("Found {} contrast violations", violations.len());
-        violations
+            tasks_json, base64_data, shot.device_scale_factor, shot.scroll_x, shot.scroll_y
+        )
     }
 
-    /// Calculate contrast ratio between two colors
-    ///
-    /// Formula: (L1 + 0.05) / (L2 + 0.05)
-    /// where L1 is the relative luminance of the lighter color
-    /// and L2 is the relative luminance of the darker color
-    pub fn calculate_contrast_ratio(color1: &Color, color2: &Color) -> f64 {
-        let lum1 = color1.relative_luminance();
-        let lum2 = color2.relative_luminance();
-
-        let lighter = lum1.max(lum2);
-        let darker = lum1.min(lum2);
-
-        (lighter + 0.05) / (darker + 0.05)
+    /// Refine a verdict using pixel-sampled results when the background was uncertain.
+    fn resolve_sampled(
+        verdict: ContrastVerdict,
+        is_warning: bool,
+        ratio: f64,
+        selector: Option<&str>,
+        sampled: &SampledVerdicts,
+    ) -> (ContrastVerdict, bool, f64) {
+        if !is_warning || verdict != ContrastVerdict::NeedsReview {
+            return (verdict, is_warning, ratio);
+        }
+        let selector = match selector {
+            Some(s) => s,
+            None => return (verdict, is_warning, ratio),
+        };
+        match sampled.get(selector) {
+            Some((sv, median, _worst)) => match sv.as_str() {
+                "Pass" => (ContrastVerdict::Pass, false, ratio),
+                "Violation" => (ContrastVerdict::Violation, false, median.unwrap_or(ratio)),
+                _ => (ContrastVerdict::NeedsReview, true, median.unwrap_or(ratio)),
+            },
+            None => (verdict, is_warning, ratio),
+        }
     }
 
-    /// Decide whether a measured ratio is a pass, a confirmed violation, or a
-    /// manual-review case.
-    ///
-    /// When the effective background is uncertain (text over an image/gradient
-    /// that CSS could not resolve), a sub-threshold ratio is demoted to
-    /// `NeedsReview` instead of a confirmed `Violation`, because the CSS-derived
-    /// background is only an estimate of what is actually rendered (#264).
-    pub fn verdict(
-        contrast_ratio: f64,
-        is_large_text: bool,
+    /// Evaluate a single style entry and return a violation if contrast fails.
+    fn evaluate_style(
+        style: &ComputedStyles,
         level: WcagLevel,
-        background_uncertain: bool,
-    ) -> ContrastVerdict {
-        if Self::meets_requirement(contrast_ratio, is_large_text, level) {
-            ContrastVerdict::Pass
-        } else if background_uncertain {
-            ContrastVerdict::NeedsReview
-        } else {
-            ContrastVerdict::Violation
+        sampled: &SampledVerdicts,
+    ) -> Option<Violation> {
+        if Self::is_invisible(style) {
+            return None;
         }
-    }
 
-    /// Check if contrast ratio meets WCAG requirements
-    pub fn meets_requirement(contrast_ratio: f64, is_large_text: bool, level: WcagLevel) -> bool {
-        let threshold = match (level, is_large_text) {
-            (WcagLevel::AAA, false) => 7.0,   // AAA normal text
-            (WcagLevel::AAA, true) => 4.5,    // AAA large text
-            (WcagLevel::AA, false) => 4.5,    // AA normal text
-            (WcagLevel::AA, true) => 3.0,     // AA large text
-            (WcagLevel::A, _) => return true, // Level A has no contrast requirement
+        let fg_str = style.color()?;
+        let bg_str = style.background_color().unwrap_or("rgb(255, 255, 255)");
+        let bg_uncertain = style
+            .get("background-uncertain")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+
+        let fg = Color::from_css(fg_str)?;
+        let bg = match Color::from_css(bg_str) {
+            Some(c) => c,
+            None => {
+                debug!("Failed to parse background color: {}", bg_str);
+                return None;
+            }
         };
 
-        contrast_ratio >= threshold
+        let white = Color::new(255, 255, 255);
+        let bg_eff = bg.composite_over(&white);
+        let fg_eff = fg.composite_over(&bg_eff);
+        let ratio = Self::calculate_contrast_ratio(&fg_eff, &bg_eff);
+        let is_large = style.is_large_text();
+
+        let initial_verdict = Self::verdict(ratio, is_large, level, bg_uncertain);
+        let (verdict, is_warning, final_ratio) = Self::resolve_sampled(
+            initial_verdict,
+            bg_uncertain,
+            ratio,
+            style.selector.as_deref(),
+            sampled,
+        );
+
+        if verdict == ContrastVerdict::Pass {
+            return None;
+        }
+        Some(Self::build_violation(
+            style,
+            final_ratio,
+            is_large,
+            is_warning,
+            level,
+            fg_str,
+            bg_str,
+        ))
+    }
+
+    /// Build a contrast violation from evaluated element data.
+    fn build_violation(
+        style: &ComputedStyles,
+        final_ratio: f64,
+        is_large: bool,
+        is_warning: bool,
+        level: WcagLevel,
+        fg_str: &str,
+        bg_str: &str,
+    ) -> Violation {
+        let selector = style.selector.as_deref().unwrap_or("unknown");
+        let threshold = Self::contrast_threshold_str(is_large, level);
+
+        let message = if is_warning {
+            format!(
+                "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). Background includes an image or gradient and needs manual review.",
+                final_ratio,
+                if is_large { "large " } else { "" },
+                threshold
+            )
+        } else {
+            format!(
+                "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1)",
+                final_ratio,
+                if is_large { "large " } else { "" },
+                threshold
+            )
+        };
+
+        let fix = if is_warning {
+            format!(
+                "Verify contrast against the rendered image/gradient background. Estimated from CSS colors: foreground={}, background={}",
+                fg_str, bg_str
+            )
+        } else {
+            format!(
+                "Adjust colors to improve contrast. Current: foreground={}, background={}",
+                fg_str, bg_str
+            )
+        };
+
+        let mut violation = Violation::new(
+            CONTRAST_RULE.id,
+            CONTRAST_RULE.name,
+            CONTRAST_RULE.level,
+            Severity::High,
+            &message,
+            format!("{}#{}", selector, style.node_id),
+        )
+        .with_selector(selector)
+        .with_fix(&fix)
+        .with_help_url(CONTRAST_RULE.help_url);
+
+        if let Some(snippet) = &style.html_snippet {
+            violation = violation.with_html_snippet(snippet);
+        }
+        if is_warning {
+            violation = violation.as_warning();
+        }
+        violation
     }
 }
 
@@ -541,58 +563,41 @@ impl Color {
         if css == "transparent" {
             return true;
         }
-        if css.starts_with("rgba") {
-            if let Some(start) = css.find('(') {
-                if let Some(end) = css.find(')') {
-                    let parts: Vec<&str> =
-                        css[start + 1..end].split(',').map(|s| s.trim()).collect();
-                    if parts.len() == 4 {
-                        if let Ok(alpha) = parts[3].parse::<f64>() {
-                            return alpha <= 0.001; // Epsilon-friendly transparency check
-                        }
-                    }
-                }
-            }
+        if !css.starts_with("rgba") {
+            return false;
         }
-        false
+        let Some(start) = css.find('(') else {
+            return false;
+        };
+        let Some(end) = css.rfind(')') else {
+            return false;
+        };
+        css[start + 1..end]
+            .split(',')
+            .nth(3)
+            .and_then(|s| s.trim().parse::<f64>().ok())
+            .map_or(false, |a| a <= 0.001)
     }
 
     /// Parse color from CSS color string
-    ///
-    /// Supports:
-    /// - rgb(r, g, b)
-    /// - rgba(r, g, b, a)
-    /// - #RRGGBB
-    /// - #RGB
-    /// - #RRGGBBAA
-    /// - #RGBA
     pub fn from_css(css: &str) -> Option<Self> {
         let css = css.trim();
-
-        // rgb(r, g, b) or rgba(r, g, b, a)
         if css.starts_with("rgb") {
             return Self::parse_rgb(css);
         }
-
-        // Hex colors #RRGGBB, #RGB, #RRGGBBAA, or #RGBA
         if css.starts_with('#') {
             return Self::parse_hex(css);
         }
-
         None
     }
 
-    /// Parse rgb(r, g, b) or rgba(r, g, b, a)
     fn parse_rgb(css: &str) -> Option<Self> {
         let start = css.find('(')?;
         let end = css.find(')')?;
-        let values = &css[start + 1..end];
-
-        let parts: Vec<&str> = values.split(',').map(|s| s.trim()).collect();
+        let parts: Vec<&str> = css[start + 1..end].split(',').map(|s| s.trim()).collect();
         if parts.len() < 3 {
             return None;
         }
-
         let r = parts[0].parse::<u8>().ok()?;
         let g = parts[1].parse::<u8>().ok()?;
         let b = parts[2].parse::<u8>().ok()?;
@@ -601,68 +606,61 @@ impl Color {
         } else {
             1.0
         };
-
         Some(Self { r, g, b, a })
     }
 
-    /// Parse hex color #RRGGBB, #RGB, #RRGGBBAA or #RGBA
     fn parse_hex(css: &str) -> Option<Self> {
         let hex = css.trim_start_matches('#');
-
         match hex.len() {
             3 => {
-                // #RGB -> #RRGGBB
                 let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
                 let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
                 let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
                 Some(Self { r, g, b, a: 1.0 })
             }
             4 => {
-                // #RGBA -> #RRGGBBAA
                 let r = u8::from_str_radix(&hex[0..1].repeat(2), 16).ok()?;
                 let g = u8::from_str_radix(&hex[1..2].repeat(2), 16).ok()?;
                 let b = u8::from_str_radix(&hex[2..3].repeat(2), 16).ok()?;
                 let a_val = u8::from_str_radix(&hex[3..4].repeat(2), 16).ok()?;
-                let a = a_val as f64 / 255.0;
-                Some(Self { r, g, b, a })
+                Some(Self {
+                    r,
+                    g,
+                    b,
+                    a: a_val as f64 / 255.0,
+                })
             }
             6 => {
-                // #RRGGBB
                 let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
                 let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
                 let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
                 Some(Self { r, g, b, a: 1.0 })
             }
             8 => {
-                // #RRGGBBAA
                 let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
                 let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
                 let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
                 let a_val = u8::from_str_radix(&hex[6..8], 16).ok()?;
-                let a = a_val as f64 / 255.0;
-                Some(Self { r, g, b, a })
+                Some(Self {
+                    r,
+                    g,
+                    b,
+                    a: a_val as f64 / 255.0,
+                })
             }
             _ => None,
         }
     }
 
-    /// Calculate relative luminance
-    ///
-    /// Formula from WCAG 2.1:
-    /// L = 0.2126 * R + 0.7152 * G + 0.0722 * B
-    /// where R, G, B are sRGB values converted to linear RGB
     pub fn relative_luminance(&self) -> f64 {
         let r = Self::srgb_to_linear(self.r);
         let g = Self::srgb_to_linear(self.g);
         let b = Self::srgb_to_linear(self.b);
-
         0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 
-    /// Convert sRGB 8-bit value to linear RGB
     fn srgb_to_linear(value: u8) -> f64 {
         let v = value as f64 / 255.0;
-
         if v <= 0.04045 {
             v / 12.92
         } else {
@@ -773,14 +771,14 @@ mod tests {
     fn test_relative_luminance_white() {
         let white = Color::new(255, 255, 255);
         let lum = white.relative_luminance();
-        assert!((lum - 1.0).abs() < 0.01); // White has luminance ~1.0
+        assert!((lum - 1.0).abs() < 0.01);
     }
 
     #[test]
     fn test_relative_luminance_black() {
         let black = Color::new(0, 0, 0);
         let lum = black.relative_luminance();
-        assert!(lum < 0.01); // Black has luminance ~0.0
+        assert!(lum < 0.01);
     }
 
     #[test]
@@ -788,19 +786,18 @@ mod tests {
         let black = Color::new(0, 0, 0);
         let white = Color::new(255, 255, 255);
         let ratio = ContrastRule::calculate_contrast_ratio(&black, &white);
-        assert!((ratio - 21.0).abs() < 0.1); // Black/white has ratio ~21:1
+        assert!((ratio - 21.0).abs() < 0.1);
     }
 
     #[test]
     fn test_contrast_ratio_same_color() {
         let red = Color::new(255, 0, 0);
         let ratio = ContrastRule::calculate_contrast_ratio(&red, &red);
-        assert!((ratio - 1.0).abs() < 0.01); // Same color has ratio 1:1
+        assert!((ratio - 1.0).abs() < 0.01);
     }
 
     #[test]
     fn test_meets_requirement_aa_normal() {
-        // Normal text AA requires 4.5:1
         assert!(ContrastRule::meets_requirement(4.5, false, WcagLevel::AA));
         assert!(ContrastRule::meets_requirement(5.0, false, WcagLevel::AA));
         assert!(!ContrastRule::meets_requirement(4.0, false, WcagLevel::AA));
@@ -808,7 +805,6 @@ mod tests {
 
     #[test]
     fn test_meets_requirement_aa_large() {
-        // Large text AA requires 3:1
         assert!(ContrastRule::meets_requirement(3.0, true, WcagLevel::AA));
         assert!(ContrastRule::meets_requirement(4.0, true, WcagLevel::AA));
         assert!(!ContrastRule::meets_requirement(2.5, true, WcagLevel::AA));
@@ -816,7 +812,6 @@ mod tests {
 
     #[test]
     fn test_meets_requirement_aaa_normal() {
-        // Normal text AAA requires 7:1
         assert!(ContrastRule::meets_requirement(7.0, false, WcagLevel::AAA));
         assert!(ContrastRule::meets_requirement(8.0, false, WcagLevel::AAA));
         assert!(!ContrastRule::meets_requirement(6.5, false, WcagLevel::AAA));
@@ -824,7 +819,6 @@ mod tests {
 
     #[test]
     fn test_meets_requirement_level_a() {
-        // Level A has no contrast requirement
         assert!(ContrastRule::meets_requirement(1.0, false, WcagLevel::A));
         assert!(ContrastRule::meets_requirement(2.0, true, WcagLevel::A));
     }
@@ -843,7 +837,6 @@ mod tests {
 
     #[test]
     fn verdict_passes_when_ratio_meets_threshold() {
-        // Above threshold is a pass regardless of background certainty.
         assert_eq!(
             ContrastRule::verdict(5.0, false, WcagLevel::AA, false),
             ContrastVerdict::Pass
@@ -856,7 +849,6 @@ mod tests {
 
     #[test]
     fn verdict_confirms_violation_on_solid_background() {
-        // Sub-threshold over a known/solid background → confirmed violation.
         assert_eq!(
             ContrastRule::verdict(3.0, false, WcagLevel::AA, false),
             ContrastVerdict::Violation
@@ -865,13 +857,10 @@ mod tests {
 
     #[test]
     fn verdict_demotes_image_background_to_review() {
-        // Sub-threshold over an uncertain image/gradient background → manual
-        // review, NOT a confirmed failure (avoids the old white-bg false positive).
         assert_eq!(
             ContrastRule::verdict(3.0, false, WcagLevel::AA, true),
             ContrastVerdict::NeedsReview
         );
-        // Large-text threshold (3:1) — a 3.0 ratio passes, so even uncertain bg is a pass.
         assert_eq!(
             ContrastRule::verdict(3.0, true, WcagLevel::AA, true),
             ContrastVerdict::Pass
