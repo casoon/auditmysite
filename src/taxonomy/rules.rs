@@ -1017,7 +1017,7 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.13"),
         external_level: Some("AA"),
         axe_id: Some("content-on-hover-focus"),
-        title: "Inzugängliche Hover- oder Fokus-Inhalte (Tooltips)",
+        title: "Unzugängliche Hover- oder Fokus-Inhalte (Tooltips)",
         description: "Zusatzinhalte bei Hover/Fokus (Tooltips) sind unzugänglich, nicht steuerbar oder unvollständig verknüpft.",
         user_impact: "Nutzer können Tooltip-Inhalte nicht lesen, diese nicht per Tastatur schließen, oder sie werden von Screenreadern ignoriert.",
         technical_impact: "Nutzung des nativen title-Attributs als einzige Beschriftung, unvollständige ARIA-Verknüpfung (aria-describedby) oder fehlende Steuerungsmöglichkeiten.",
