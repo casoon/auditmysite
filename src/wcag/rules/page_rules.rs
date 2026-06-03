@@ -33,8 +33,9 @@ use super::{
     check_no_interruptions_with_page, check_no_timing_with_page, check_orientation_with_page,
     check_parsing_with_page, check_pointer_cancellation_with_page,
     check_pointer_gestures_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_target_size_enhanced_with_page, check_timeouts_with_page,
-    check_timing_with_page, check_use_of_color_with_page, check_visual_presentation_with_page,
+    check_reduced_motion_with_page, check_same_origin_iframes_with_page,
+    check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
 
@@ -80,6 +81,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "frame-tested",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_frame_tested_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "iframe/same-origin-content",
+        name: "same-origin iframe content",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_same_origin_iframes_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.1.1/click-handler",
@@ -249,8 +256,8 @@ mod tests {
             .count();
         // Level-A page rules in the table; tightening this catches
         // accidental reclassification of a rule's min_level.
-        // 7 original + parsing (AAA→A) + aria-valid-attr-value = 9
-        assert_eq!(count, 9);
+        // 7 original + parsing (AAA→A) + aria-valid-attr-value + iframe-content = 10
+        assert_eq!(count, 10);
     }
 
     #[test]
@@ -259,8 +266,8 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::AA >= r.min_level)
             .count();
-        // 9 A + 4 AA = 13.
-        assert_eq!(count, 13);
+        // 10 A + 4 AA = 14.
+        assert_eq!(count, 14);
     }
 
     #[test]
