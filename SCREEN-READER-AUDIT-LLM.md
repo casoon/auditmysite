@@ -115,4 +115,3 @@ LLM findings are **qualitative, not normative** — they supplement the rule-bas
 ## Related documents
 
 - `WCAG-MANUAL-CHECKS.md` — manual checks no tool can replace
-- `AXE-COMPARE.md` — calibration against axe-core

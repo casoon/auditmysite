@@ -87,8 +87,7 @@ Implication for `auditmysite`:
 
 1. Interactive/manual follow-up guidance is present in journey findings but not yet a first-class story in the PDF executive report.
 2. Trend dashboarding across repeated audits is functional in JSON but not yet surfaced as a visual PDF chapter.
-3. Accessibility rule coverage is strong in core WCAG A/AA areas but not yet at full axe-core breadth (see `docs/AXE_PARITY.md` for calibration methodology).
-4. Iframe and embedded content analysis is limited compared to axe-core's `frame-tested` scope.
+3. Iframe and embedded content analysis is limited compared to axe-core's `frame-tested` scope.
 
 ## Product Direction
 
