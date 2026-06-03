@@ -251,7 +251,6 @@ dependencies = [
  "dirs 5.0.1",
  "fastembed",
  "fluent-bundle",
- "fluent-syntax",
  "futures",
  "html5ever",
  "indicatif 0.17.11",
