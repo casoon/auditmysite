@@ -547,22 +547,12 @@ pub struct AuditFlag {
     pub message: String,
 }
 
-/// Normalisiert einen rohen AuditReport.
-///
-/// - Gruppert Violations nach Regel-ID
-/// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
-/// - Berechnet Grade/Certificate aus korrigiertem Score
-pub fn normalize(report: &AuditReport) -> AuditContext {
-    let violations = &report.wcag_results.violations;
+// Maximum selector-deduplicated occurrences stored per finding.
+// occurrence_count always reflects the true total; this only caps what is
+// serialized to keep JSON payloads compact.
+const MAX_OCCURRENCES: usize = 5;
 
-    let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
-    let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
-
-    // Maximum selector-deduplicated occurrences stored per finding.
-    // occurrence_count always reflects the true total; this only caps what is
-    // serialized to keep JSON payloads compact.
-    const MAX_OCCURRENCES: usize = 5;
-
+fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedFinding> {
     // Group violations by rule ID
     let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
     for v in violations {
@@ -570,7 +560,7 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
     }
 
     // Build normalized findings
-    let mut findings: Vec<NormalizedFinding> = groups
+    let findings: Vec<NormalizedFinding> = groups
         .into_iter()
         .map(|(rule_id, violations)| {
             let first = violations[0];
@@ -724,128 +714,123 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
         })
         .collect();
 
-    // Aggregate SEO heading issues into findings
-    if let Some(seo) = &report.seo {
-        let mut heading_groups: HashMap<&str, Vec<&crate::seo::HeadingIssue>> = HashMap::new();
-        for issue in &seo.headings.issues {
-            heading_groups
-                .entry(&issue.issue_type)
-                .or_default()
-                .push(issue);
-        }
-        for (issue_type, issues) in heading_groups {
-            let first = issues[0];
-            let occurrence_count = issues.len();
-            let rule_id = format!("seo.headings.{}", issue_type);
-            let title = match issue_type {
-                "long_heading" => "Überschrift zu lang".to_string(),
-                "missing_h1" => "Fehlende H1-Überschrift".to_string(),
-                "multiple_h1" => "Mehrere H1-Überschriften".to_string(),
-                "skipped_level" => "Übersprungene Überschriftenebene".to_string(),
-                "empty_heading" => "Leere Überschrift".to_string(),
-                other => other.replace('_', " "),
-            };
-            let technical_impact = match issue_type {
-                "skipped_level" => {
-                    "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader \
-                     und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten."
-                        .to_string()
-                }
-                "missing_h1" => {
-                    "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader \
-                     nicht erkennbar."
-                        .to_string()
-                }
-                "multiple_h1" => {
-                    "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; \
-                     Suchmaschinen können keinen eindeutigen Hauptfokus ableiten."
-                        .to_string()
-                }
-                "long_heading" => {
-                    "Überlange Überschriften werden in SERPs abgeschnitten und erschweren \
-                     das schnelle Scannen für Nutzer."
-                        .to_string()
-                }
-                "empty_heading" => {
-                    "Leere Überschriften erzeugen Navigationsprobleme für Screenreader \
-                     und werden von SEO-Crawlern als schlechtes Signal gewertet."
-                        .to_string()
-                }
-                _ => first.message.clone(),
-            };
-            let priority_score =
-                calculate_priority_score(first.severity, occurrence_count, &rule_id);
-            let confidence = derive_confidence(&rule_id, "Content", "issue");
-            let false_positive_risk = derive_false_positive_risk(&rule_id, "Content", "issue");
-            let verification = derive_verification(&false_positive_risk);
-            let (complexity, complexity_reason) =
-                derive_complexity(occurrence_count, &rule_id, "issue");
-            let expected_impact =
-                derive_expected_impact(first.severity, occurrence_count, "seo", "");
-            let bfsg_relevance = derive_bfsg_relevance("seo", "", first.severity);
-            let remediation_priority =
-                derive_remediation_priority(first.severity, occurrence_count, &complexity);
-            findings.push(NormalizedFinding {
-                category: "seo".to_string(),
-                rule_id: rule_id.clone(),
-                wcag_criterion: String::new(),
-                axe_id: None,
-                wcag_level: String::new(),
-                dimension: "SEO".to_string(),
-                subcategory: "Content".to_string(),
-                issue_class: "issue".to_string(),
-                severity: first.severity,
-                user_impact: String::new(),
-                technical_impact,
-                score_impact: ScoreImpactData {
-                    base_penalty: 0.0,
-                    max_penalty: 0.0,
-                    scaling: "none".to_string(),
-                },
-                report_visibility: ReportVisibilityData::default(),
-                aggregation_key: rule_id,
-                title,
-                description: first.message.clone(),
-                help_url: None,
-                occurrence_count,
-                priority_score,
-                confidence,
-                false_positive_risk,
-                verification,
-                complexity,
-                complexity_reason,
-                expected_impact,
-                bfsg_relevance,
-                remediation_priority,
-                occurrences: issues
-                    .iter()
-                    .take(MAX_OCCURRENCES)
-                    .map(|i| OccurrenceDetail {
-                        node_id: i.issue_type.clone(),
-                        message: i.message.clone(),
-                        selector: None,
-                        fix_suggestion: None,
-                        html_snippet: None,
-                        suggested_code: None,
-                        tags: vec!["seo".to_string()],
-                    })
-                    .collect(),
-            });
-        }
+    findings
+}
+
+fn aggregate_seo_findings(
+    seo: &crate::seo::SeoAnalysis,
+    max_occurrences: usize,
+) -> Vec<NormalizedFinding> {
+    let mut heading_groups: HashMap<&str, Vec<&crate::seo::HeadingIssue>> = HashMap::new();
+    for issue in &seo.headings.issues {
+        heading_groups
+            .entry(&issue.issue_type)
+            .or_default()
+            .push(issue);
     }
+    let mut findings = Vec::new();
+    for (issue_type, issues) in heading_groups {
+        let first = issues[0];
+        let occurrence_count = issues.len();
+        let rule_id = format!("seo.headings.{}", issue_type);
+        let title = match issue_type {
+            "long_heading" => "Überschrift zu lang".to_string(),
+            "missing_h1" => "Fehlende H1-Überschrift".to_string(),
+            "multiple_h1" => "Mehrere H1-Überschriften".to_string(),
+            "skipped_level" => "Übersprungene Überschriftenebene".to_string(),
+            "empty_heading" => "Leere Überschrift".to_string(),
+            other => other.replace('_', " "),
+        };
+        let technical_impact = match issue_type {
+            "skipped_level" => {
+                "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader \
+                 und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten."
+                    .to_string()
+            }
+            "missing_h1" => {
+                "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader \
+                 nicht erkennbar."
+                    .to_string()
+            }
+            "multiple_h1" => "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; \
+                 Suchmaschinen können keinen eindeutigen Hauptfokus ableiten."
+                .to_string(),
+            "long_heading" => {
+                "Überlange Überschriften werden in SERPs abgeschnitten und erschweren \
+                 das schnelle Scannen für Nutzer."
+                    .to_string()
+            }
+            "empty_heading" => "Leere Überschriften erzeugen Navigationsprobleme für Screenreader \
+                 und werden von SEO-Crawlern als schlechtes Signal gewertet."
+                .to_string(),
+            _ => first.message.clone(),
+        };
+        let priority_score = calculate_priority_score(first.severity, occurrence_count, &rule_id);
+        let confidence = derive_confidence(&rule_id, "Content", "issue");
+        let false_positive_risk = derive_false_positive_risk(&rule_id, "Content", "issue");
+        let verification = derive_verification(&false_positive_risk);
+        let (complexity, complexity_reason) =
+            derive_complexity(occurrence_count, &rule_id, "issue");
+        let expected_impact = derive_expected_impact(first.severity, occurrence_count, "seo", "");
+        let bfsg_relevance = derive_bfsg_relevance("seo", "", first.severity);
+        let remediation_priority =
+            derive_remediation_priority(first.severity, occurrence_count, &complexity);
+        findings.push(NormalizedFinding {
+            category: "seo".to_string(),
+            rule_id: rule_id.clone(),
+            wcag_criterion: String::new(),
+            axe_id: None,
+            wcag_level: String::new(),
+            dimension: "SEO".to_string(),
+            subcategory: "Content".to_string(),
+            issue_class: "issue".to_string(),
+            severity: first.severity,
+            user_impact: String::new(),
+            technical_impact,
+            score_impact: ScoreImpactData {
+                base_penalty: 0.0,
+                max_penalty: 0.0,
+                scaling: "none".to_string(),
+            },
+            report_visibility: ReportVisibilityData::default(),
+            aggregation_key: rule_id,
+            title,
+            description: first.message.clone(),
+            help_url: None,
+            occurrence_count,
+            priority_score,
+            confidence,
+            false_positive_risk,
+            verification,
+            complexity,
+            complexity_reason,
+            expected_impact,
+            bfsg_relevance,
+            remediation_priority,
+            occurrences: issues
+                .iter()
+                .take(max_occurrences)
+                .map(|i| OccurrenceDetail {
+                    node_id: i.issue_type.clone(),
+                    message: i.message.clone(),
+                    selector: None,
+                    fix_suggestion: None,
+                    html_snippet: None,
+                    suggested_code: None,
+                    tags: vec!["seo".to_string()],
+                })
+                .collect(),
+        });
+    }
+    findings
+}
 
-    // Sort by priority score (highest first), then by severity
-    findings.sort_by(|a, b| {
-        b.priority_score
-            .partial_cmp(&a.priority_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| b.severity.cmp(&a.severity))
-    });
-
-    let mut interactive_findings = report.interactive_findings.clone();
-    let mut aria_hidden_selectors: std::collections::HashSet<String> = report
-        .wcag_results
-        .violations
+fn filter_aria_hidden_interactive(
+    interactive_findings: &mut Vec<InteractiveFinding>,
+    findings: &[NormalizedFinding],
+    wcag_violations: &[crate::wcag::Violation],
+) {
+    let mut aria_hidden_selectors: std::collections::HashSet<String> = wcag_violations
         .iter()
         .filter(|v| v.rule == "aria-hidden-focus")
         .filter_map(|v| v.selector.clone())
@@ -858,147 +843,106 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
             .flat_map(|f| f.occurrences.iter().filter_map(|o| o.selector.clone())),
     );
 
-    if !aria_hidden_selectors.is_empty() {
-        fn normalize_selector(sel: &str) -> String {
-            let mut normalized = String::new();
-            let mut chars = sel.chars().peekable();
-            while let Some(c) = chars.next() {
-                if c == '.' {
-                    while let Some(&next_c) = chars.peek() {
-                        if next_c.is_alphanumeric() || next_c == '-' || next_c == '_' {
-                            chars.next();
-                        } else {
-                            break;
-                        }
-                    }
-                } else if c.is_alphabetic() {
-                    let mut tag = String::new();
-                    tag.push(c);
-                    while let Some(&next_c) = chars.peek() {
-                        if next_c.is_alphanumeric() || next_c == '-' || next_c == '_' {
-                            tag.push(chars.next().unwrap());
-                        } else {
-                            break;
-                        }
-                    }
-                    if chars.peek() == Some(&'#') {
-                        // discard tag prefix before ID
-                    } else {
-                        normalized.push_str(&tag);
-                    }
-                } else if c == ' ' {
-                    let is_around_gt = normalized.ends_with('>') || chars.peek() == Some(&'>');
-                    if !is_around_gt {
-                        normalized.push(' ');
-                    }
-                } else {
-                    normalized.push(c);
-                }
-            }
-            normalized.trim().replace(" >", ">").replace("> ", ">")
-        }
+    if aria_hidden_selectors.is_empty() {
+        return;
+    }
 
-        fn extract_selector_from_message(message: &str) -> Option<String> {
-            let start_idx = message.find('(')?;
-            let mut depth = 0;
-            let mut end_idx = None;
-            for (i, c) in message[start_idx..].char_indices() {
-                if c == '(' {
-                    depth += 1;
-                } else if c == ')' {
-                    depth -= 1;
-                    if depth == 0 {
-                        end_idx = Some(start_idx + i);
+    fn normalize_selector(sel: &str) -> String {
+        let mut normalized = String::new();
+        let mut chars = sel.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '.' {
+                while let Some(&next_c) = chars.peek() {
+                    if next_c.is_alphanumeric() || next_c == '-' || next_c == '_' {
+                        chars.next();
+                    } else {
                         break;
                     }
                 }
-            }
-            let mut sel = &message[start_idx + 1..end_idx?];
-            if let Some(colon_idx) = sel.find(": display:") {
-                sel = &sel[..colon_idx];
-            } else if let Some(colon_idx) = sel.find(": visibility:") {
-                sel = &sel[..colon_idx];
-            } else if let Some(colon_idx) = sel.find(": opacity:") {
-                sel = &sel[..colon_idx];
-            }
-            Some(sel.trim().to_string())
-        }
-
-        let normalized_aria_hidden_selectors: std::collections::HashSet<String> =
-            aria_hidden_selectors
-                .iter()
-                .map(|s| normalize_selector(s))
-                .collect();
-
-        interactive_findings.retain(|inf| {
-            if inf.category == "HiddenFocusable" {
-                if let Some(sel) = extract_selector_from_message(&inf.message) {
-                    let norm_sel = normalize_selector(&sel);
-                    !normalized_aria_hidden_selectors.iter().any(|s| {
-                        norm_sel == *s
-                            || norm_sel.ends_with(&format!(">{}", s))
-                            || s.ends_with(&format!(">{}", norm_sel))
-                    })
-                } else {
-                    true
+            } else if c.is_alphabetic() {
+                let mut tag = String::new();
+                tag.push(c);
+                while let Some(&next_c) = chars.peek() {
+                    if next_c.is_alphanumeric() || next_c == '-' || next_c == '_' {
+                        tag.push(chars.next().unwrap());
+                    } else {
+                        break;
+                    }
                 }
+                if chars.peek() == Some(&'#') {
+                    // discard tag prefix before ID
+                } else {
+                    normalized.push_str(&tag);
+                }
+            } else if c == ' ' {
+                let is_around_gt = normalized.ends_with('>') || chars.peek() == Some(&'>');
+                if !is_around_gt {
+                    normalized.push(' ');
+                }
+            } else {
+                normalized.push(c);
+            }
+        }
+        normalized.trim().replace(" >", ">").replace("> ", ">")
+    }
+
+    fn extract_selector_from_message(message: &str) -> Option<String> {
+        let start_idx = message.find('(')?;
+        let mut depth = 0;
+        let mut end_idx = None;
+        for (i, c) in message[start_idx..].char_indices() {
+            if c == '(' {
+                depth += 1;
+            } else if c == ')' {
+                depth -= 1;
+                if depth == 0 {
+                    end_idx = Some(start_idx + i);
+                    break;
+                }
+            }
+        }
+        let mut sel = &message[start_idx + 1..end_idx?];
+        if let Some(colon_idx) = sel.find(": display:") {
+            sel = &sel[..colon_idx];
+        } else if let Some(colon_idx) = sel.find(": visibility:") {
+            sel = &sel[..colon_idx];
+        } else if let Some(colon_idx) = sel.find(": opacity:") {
+            sel = &sel[..colon_idx];
+        }
+        Some(sel.trim().to_string())
+    }
+
+    let normalized_aria_hidden_selectors: std::collections::HashSet<String> = aria_hidden_selectors
+        .iter()
+        .map(|s| normalize_selector(s))
+        .collect();
+
+    interactive_findings.retain(|inf| {
+        if inf.category == "HiddenFocusable" {
+            if let Some(sel) = extract_selector_from_message(&inf.message) {
+                let norm_sel = normalize_selector(&sel);
+                !normalized_aria_hidden_selectors.iter().any(|s| {
+                    norm_sel == *s
+                        || norm_sel.ends_with(&format!(">{}", s))
+                        || s.ends_with(&format!(">{}", norm_sel))
+                })
             } else {
                 true
             }
-        });
-    }
+        } else {
+            true
+        }
+    });
+}
 
+fn build_module_scores(
+    report: &AuditReport,
+    occurrence_counts: &SeverityCounts,
+    vuln_security_penalty: u32,
+) -> Vec<ModuleScoreEntry> {
     let score = report.score.round().max(1.0) as u32;
     let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
 
-    // Severity counts — only WCAG findings count (not SEO findings).
-    // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
-    // `occurrence_counts` zählt Element-Occurrences (Summe aller betroffenen Elemente).
-    let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category == "wcag").collect();
-    let severity_counts = SeverityCounts {
-        critical: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Critical)
-            .count(),
-        high: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::High)
-            .count(),
-        medium: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Medium)
-            .count(),
-        low: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Low)
-            .count(),
-        total: wcag_findings.len(),
-    };
-    let occurrence_counts = SeverityCounts {
-        critical: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Critical)
-            .map(|f| f.occurrence_count)
-            .sum(),
-        high: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::High)
-            .map(|f| f.occurrence_count)
-            .sum(),
-        medium: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Medium)
-            .map(|f| f.occurrence_count)
-            .sum(),
-        low: wcag_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Low)
-            .map(|f| f.occurrence_count)
-            .sum(),
-        total: wcag_findings.iter().map(|f| f.occurrence_count).sum(),
-    };
-
-    // Module scores
     let mut module_scores = Vec::new();
 
     module_scores.push(ModuleScoreEntry {
@@ -1030,25 +974,6 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
             measurement_type: "measured".to_string(),
         });
     }
-    // Vulnerable JS libraries (Best Practices) count as security findings.
-    // The penalty is applied to the Security module score so that XSS/RCE-level
-    // library issues move the security signal — not just an informational entry.
-    let vuln_security_penalty: u32 = report
-        .best_practices
-        .as_ref()
-        .map(|bp| {
-            bp.vulnerable_libraries
-                .vulnerable
-                .iter()
-                .map(|v| match v.severity.as_str() {
-                    "high" => 15,
-                    "medium" => 8,
-                    _ => 3,
-                })
-                .sum::<u32>()
-                .min(30)
-        })
-        .unwrap_or(0);
     if let Some(ref sec) = report.security {
         let adjusted = sec.score.saturating_sub(vuln_security_penalty);
         module_scores.push(ModuleScoreEntry {
@@ -1148,6 +1073,318 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
             measurement_type: "measured".to_string(),
         });
     }
+
+    module_scores
+}
+
+fn compute_risk_assessment(
+    findings: &[NormalizedFinding],
+    occurrence_counts: &SeverityCounts,
+    interactive_findings: &[InteractiveFinding],
+    score: u32,
+    overall_score: u32,
+) -> RiskAssessment {
+    // Risk thresholds reflect total affected elements (occurrence_counts),
+    // not the number of distinct rules (severity_counts).
+    let critical_issues = occurrence_counts.critical;
+    let high_issues = occurrence_counts.high;
+
+    // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
+    // Per-occurrence counting would inflate the number (e.g. 1000 images without
+    // alt text is one rule violation, not 1000 legal flags).
+    let legal_flags = findings
+        .iter()
+        .filter(|f| {
+            f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
+        })
+        .count();
+
+    // Blocking issues: interactive elements without accessible names (4.1.2/2.1.1).
+    // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.
+    let blocking_issues = findings
+        .iter()
+        .filter(|f| {
+            (f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
+                && matches!(
+                    f.severity,
+                    Severity::Medium | Severity::High | Severity::Critical
+                )
+        })
+        .map(|f| f.occurrence_count)
+        .sum::<usize>();
+    let interactive_critical_issues = interactive_findings
+        .iter()
+        .filter(|f| f.severity == Severity::Critical)
+        .count();
+    let interactive_high_issues = interactive_findings
+        .iter()
+        .filter(|f| f.severity == Severity::High)
+        .count();
+
+    let risk_score = (legal_flags as u32 * 20
+        + critical_issues as u32 * 10
+        + high_issues as u32 * 3
+        + blocking_issues as u32 * 2
+        + interactive_critical_issues as u32 * 10
+        + interactive_high_issues as u32 * 5)
+        .min(100);
+
+    // Risk level — explicit precedence; legal_flags and blocking_issues both
+    // raise the floor even when critical_issues is zero (see issue #250).
+    let level = if legal_flags > 0 && critical_issues > 0 {
+        RiskLevel::Critical
+    } else if critical_issues >= 3 || blocking_issues >= 5 || risk_score >= 80 {
+        RiskLevel::High
+    } else if (high_issues >= 3 && score < 80)
+        || critical_issues >= 1
+        || legal_flags > 0
+        || blocking_issues >= 1
+        || interactive_critical_issues > 0
+        || interactive_high_issues > 0
+        || score <= 20
+    {
+        RiskLevel::Medium
+    } else {
+        RiskLevel::Low
+    };
+
+    let plural = |n: usize, singular: &str, plural: &str| -> String {
+        if n == 1 {
+            format!("{} {}", n, singular)
+        } else {
+            format!("{} {}", n, plural)
+        }
+    };
+    let summary = match level {
+        RiskLevel::Critical => {
+            // If the overall score is high (≥ 80, i.e. Grade A or B), the
+            // Critical risk level alongside a strong grade looks
+            // contradictory. Surface the contrast explicitly so the report
+            // explains why both signals can hold at once. See issue #237.
+            let prefix = if overall_score >= 80 {
+                "Kritisches Risiko trotz gutem Gesamtscore"
+            } else {
+                "Kritisches Risiko"
+            };
+            format!(
+                "{}: {} mit rechtlicher Relevanz (BFSG). {}.",
+                prefix,
+                plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                plural(
+                    blocking_issues,
+                    "Blocker bei Bedienelementen",
+                    "Blocker bei Bedienelementen"
+                )
+            )
+        }
+        RiskLevel::High => format!(
+            "Hohes Risiko: {} und {}. Nutzer werden aktiv ausgeschlossen.",
+            plural(critical_issues, "kritisches Problem", "kritische Probleme"),
+            plural(
+                high_issues,
+                "schwerwiegendes Problem",
+                "schwerwiegende Probleme"
+            )
+        ),
+        RiskLevel::Medium => {
+            if legal_flags > 0 {
+                format!(
+                    "Mittleres Risiko: {} mit rechtlicher Relevanz (BFSG){}.",
+                    plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                    if blocking_issues > 0 {
+                        format!(
+                            ", {} bei Bedienelementen",
+                            plural(blocking_issues, "Blocker", "Blocker")
+                        )
+                    } else {
+                        String::new()
+                    }
+                )
+            } else if blocking_issues > 0 {
+                format!(
+                    "Mittleres Risiko: {} bei Bedienelementen erkannt. \
+                     Einschränkungen für bestimmte Nutzergruppen.",
+                    plural(blocking_issues, "Blocker", "Blocker")
+                )
+            } else if interactive_critical_issues > 0 {
+                format!(
+                    "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
+                    plural(
+                        interactive_critical_issues,
+                        "kritischer Befund",
+                        "kritische Befunde"
+                    )
+                )
+            } else if interactive_high_issues > 0 {
+                format!(
+                    "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
+                    plural(
+                        interactive_high_issues,
+                        "schwerwiegender Befund",
+                        "schwerwiegende Befunde"
+                    )
+                )
+            } else {
+                format!(
+                    "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
+                    plural(
+                        high_issues + critical_issues,
+                        "schwerwiegendes Problem",
+                        "schwerwiegende Probleme"
+                    )
+                )
+            }
+        }
+        RiskLevel::Low => {
+            let notable = interactive_high_issues + interactive_critical_issues;
+            if notable > 0 {
+                format!(
+                    "Geringes Risiko: Keine kritischen Verstöße — Tastatur-Journey enthält {}, manuelle Prüfung empfohlen.",
+                    plural(notable, "auffälligen Befund", "auffällige Befunde")
+                )
+            } else {
+                "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
+                    .to_string()
+            }
+        }
+    };
+    let (threshold, driven_by) = match level {
+        RiskLevel::Critical => (
+            60u32,
+            if legal_flags > 0 {
+                "Legal Compliance"
+            } else {
+                "Accessibility"
+            }
+            .to_string(),
+        ),
+        RiskLevel::High => (30u32, "Accessibility".to_string()),
+        RiskLevel::Medium => (
+            10u32,
+            if interactive_critical_issues > 0 {
+                "Accessibility Journey"
+            } else if score <= 20 {
+                "Score"
+            } else {
+                "Accessibility"
+            }
+            .to_string(),
+        ),
+        RiskLevel::Low => (0u32, String::new()),
+    };
+
+    RiskAssessment {
+        level,
+        score: risk_score,
+        threshold,
+        driven_by,
+        critical_issues,
+        high_issues,
+        legal_flags,
+        blocking_issues,
+        interactive_critical_issues,
+        interactive_high_issues,
+        summary,
+    }
+}
+
+/// Normalisiert einen rohen AuditReport.
+///
+/// - Gruppert Violations nach Regel-ID
+/// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
+/// - Berechnet Grade/Certificate aus korrigiertem Score
+pub fn normalize(report: &AuditReport) -> AuditContext {
+    let violations = &report.wcag_results.violations;
+
+    let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
+    let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
+
+    let mut findings = build_wcag_findings(violations);
+    if let Some(seo) = &report.seo {
+        findings.extend(aggregate_seo_findings(seo, MAX_OCCURRENCES));
+    }
+
+    // Sort by priority score (highest first), then by severity
+    findings.sort_by(|a, b| {
+        b.priority_score
+            .partial_cmp(&a.priority_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.severity.cmp(&a.severity))
+    });
+
+    let mut interactive_findings = report.interactive_findings.clone();
+    filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);
+
+    let score = report.score.round().max(1.0) as u32;
+
+    // Severity counts — only WCAG findings count (not SEO findings).
+    // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
+    // `occurrence_counts` zählt Element-Occurrences (Summe aller betroffenen Elemente).
+    let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category == "wcag").collect();
+    let severity_counts = SeverityCounts {
+        critical: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .count(),
+        high: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .count(),
+        medium: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .count(),
+        low: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .count(),
+        total: wcag_findings.len(),
+    };
+    let occurrence_counts = SeverityCounts {
+        critical: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Critical)
+            .map(|f| f.occurrence_count)
+            .sum(),
+        high: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::High)
+            .map(|f| f.occurrence_count)
+            .sum(),
+        medium: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Medium)
+            .map(|f| f.occurrence_count)
+            .sum(),
+        low: wcag_findings
+            .iter()
+            .filter(|f| f.severity == Severity::Low)
+            .map(|f| f.occurrence_count)
+            .sum(),
+        total: wcag_findings.iter().map(|f| f.occurrence_count).sum(),
+    };
+
+    // Vulnerable JS libraries (Best Practices) count as security findings.
+    // The penalty is applied to the Security module score so that XSS/RCE-level
+    // library issues move the security signal — not just an informational entry.
+    let vuln_security_penalty: u32 = report
+        .best_practices
+        .as_ref()
+        .map(|bp| {
+            bp.vulnerable_libraries
+                .vulnerable
+                .iter()
+                .map(|v| match v.severity.as_str() {
+                    "high" => 15,
+                    "medium" => 8,
+                    _ => 3,
+                })
+                .sum::<u32>()
+                .min(30)
+        })
+        .unwrap_or(0);
+
+    let module_scores = build_module_scores(report, &occurrence_counts, vuln_security_penalty);
 
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
     let (overall_score, score_calculation_method, score_breakdown) =
@@ -1301,210 +1538,13 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
     }
 
     // ── Risk Assessment (independent from score) ──────────────────
-    let risk = {
-        // Risk thresholds reflect total affected elements (occurrence_counts),
-        // not the number of distinct rules (severity_counts).
-        let critical_issues = occurrence_counts.critical;
-        let high_issues = occurrence_counts.high;
-
-        // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
-        // Per-occurrence counting would inflate the number (e.g. 1000 images without
-        // alt text is one rule violation, not 1000 legal flags).
-        let legal_flags = findings
-            .iter()
-            .filter(|f| {
-                f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
-            })
-            .count();
-
-        // Blocking issues: interactive elements without accessible names (4.1.2/2.1.1).
-        // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.
-        let blocking_issues = findings
-            .iter()
-            .filter(|f| {
-                (f.wcag_criterion == "4.1.2" || f.wcag_criterion == "2.1.1")
-                    && matches!(
-                        f.severity,
-                        Severity::Medium | Severity::High | Severity::Critical
-                    )
-            })
-            .map(|f| f.occurrence_count)
-            .sum::<usize>();
-        let interactive_critical_issues = interactive_findings
-            .iter()
-            .filter(|f| f.severity == Severity::Critical)
-            .count();
-        let interactive_high_issues = interactive_findings
-            .iter()
-            .filter(|f| f.severity == Severity::High)
-            .count();
-
-        let risk_score = (legal_flags as u32 * 20
-            + critical_issues as u32 * 10
-            + high_issues as u32 * 3
-            + blocking_issues as u32 * 2
-            + interactive_critical_issues as u32 * 10
-            + interactive_high_issues as u32 * 5)
-            .min(100);
-
-        // Risk level — explicit precedence; legal_flags and blocking_issues both
-        // raise the floor even when critical_issues is zero (see issue #250).
-        let level = if legal_flags > 0 && critical_issues > 0 {
-            RiskLevel::Critical
-        } else if critical_issues >= 3 || blocking_issues >= 5 || risk_score >= 80 {
-            RiskLevel::High
-        } else if (high_issues >= 3 && score < 80)
-            || critical_issues >= 1
-            || legal_flags > 0
-            || blocking_issues >= 1
-            || interactive_critical_issues > 0
-            || interactive_high_issues > 0
-            || score <= 20
-        {
-            RiskLevel::Medium
-        } else {
-            RiskLevel::Low
-        };
-
-        let plural = |n: usize, singular: &str, plural: &str| -> String {
-            if n == 1 {
-                format!("{} {}", n, singular)
-            } else {
-                format!("{} {}", n, plural)
-            }
-        };
-        let summary = match level {
-            RiskLevel::Critical => {
-                // If the overall score is high (≥ 80, i.e. Grade A or B), the
-                // Critical risk level alongside a strong grade looks
-                // contradictory. Surface the contrast explicitly so the report
-                // explains why both signals can hold at once. See issue #237.
-                let prefix = if overall_score >= 80 {
-                    "Kritisches Risiko trotz gutem Gesamtscore"
-                } else {
-                    "Kritisches Risiko"
-                };
-                format!(
-                    "{}: {} mit rechtlicher Relevanz (BFSG). {}.",
-                    prefix,
-                    plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
-                    plural(
-                        blocking_issues,
-                        "Blocker bei Bedienelementen",
-                        "Blocker bei Bedienelementen"
-                    )
-                )
-            }
-            RiskLevel::High => format!(
-                "Hohes Risiko: {} und {}. Nutzer werden aktiv ausgeschlossen.",
-                plural(critical_issues, "kritisches Problem", "kritische Probleme"),
-                plural(
-                    high_issues,
-                    "schwerwiegendes Problem",
-                    "schwerwiegende Probleme"
-                )
-            ),
-            RiskLevel::Medium => {
-                if legal_flags > 0 {
-                    format!(
-                        "Mittleres Risiko: {} mit rechtlicher Relevanz (BFSG){}.",
-                        plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
-                        if blocking_issues > 0 {
-                            format!(
-                                ", {} bei Bedienelementen",
-                                plural(blocking_issues, "Blocker", "Blocker")
-                            )
-                        } else {
-                            String::new()
-                        }
-                    )
-                } else if blocking_issues > 0 {
-                    format!(
-                        "Mittleres Risiko: {} bei Bedienelementen erkannt. \
-                         Einschränkungen für bestimmte Nutzergruppen.",
-                        plural(blocking_issues, "Blocker", "Blocker")
-                    )
-                } else if interactive_critical_issues > 0 {
-                    format!(
-                        "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
-                        plural(
-                            interactive_critical_issues,
-                            "kritischer Befund",
-                            "kritische Befunde"
-                        )
-                    )
-                } else if interactive_high_issues > 0 {
-                    format!(
-                        "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
-                        plural(
-                            interactive_high_issues,
-                            "schwerwiegender Befund",
-                            "schwerwiegende Befunde"
-                        )
-                    )
-                } else {
-                    format!(
-                        "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
-                        plural(
-                            high_issues + critical_issues,
-                            "schwerwiegendes Problem",
-                            "schwerwiegende Probleme"
-                        )
-                    )
-                }
-            }
-            RiskLevel::Low => {
-                let notable = interactive_high_issues + interactive_critical_issues;
-                if notable > 0 {
-                    format!(
-                        "Geringes Risiko: Keine kritischen Verstöße — Tastatur-Journey enthält {}, manuelle Prüfung empfohlen.",
-                        plural(notable, "auffälligen Befund", "auffällige Befunde")
-                    )
-                } else {
-                    "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
-                        .to_string()
-                }
-            }
-        };
-        let (threshold, driven_by) = match level {
-            RiskLevel::Critical => (
-                60u32,
-                if legal_flags > 0 {
-                    "Legal Compliance"
-                } else {
-                    "Accessibility"
-                }
-                .to_string(),
-            ),
-            RiskLevel::High => (30u32, "Accessibility".to_string()),
-            RiskLevel::Medium => (
-                10u32,
-                if interactive_critical_issues > 0 {
-                    "Accessibility Journey"
-                } else if score <= 20 {
-                    "Score"
-                } else {
-                    "Accessibility"
-                }
-                .to_string(),
-            ),
-            RiskLevel::Low => (0u32, String::new()),
-        };
-
-        RiskAssessment {
-            level,
-            score: risk_score,
-            threshold,
-            driven_by,
-            critical_issues,
-            high_issues,
-            legal_flags,
-            blocking_issues,
-            interactive_critical_issues,
-            interactive_high_issues,
-            summary,
-        }
-    };
+    let risk = compute_risk_assessment(
+        &findings,
+        &occurrence_counts,
+        &interactive_findings,
+        score,
+        overall_score,
+    );
     let certificate = gate_certificate_by_risk(certificate, &risk.level);
 
     let normalized_data = NormalizedReport {
