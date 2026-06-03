@@ -297,6 +297,10 @@ perf-warning-si-fallback = Speed Index equals LCP: formula estimate without an i
 perf-warning-tti-fallback = TTI equals LCP: formula estimate without a direct interactivity value.
 perf-warning-inp-missing = INP not measurable: headless browsers generate no user input — interaction latency could not be captured.
 perf-warning-lh-mobile-gap = Desktop score: { $desktop } · LhMobile score: { $mobile } — gap { $gap } points. The primary score is based on the unthrottled measurement.
+perf-capped-size = The performance score was capped at { $cap } due to a very large payload size ({ $size } MB).
+perf-capped-js = The performance score was capped at { $cap } due to a critical JavaScript size ({ $size } MB).
+perf-capped-requests = The performance score was capped at { $cap } due to a high request count ({ $count }).
+perf-capped-dom = The performance score was capped at { $cap } due to extremely high DOM complexity ({ $nodes } nodes).
 
 # SEO section
 seo-score-card = Technical SEO
@@ -537,6 +541,9 @@ pdf-perf-section-title = Performance — User Experience & Technical Complexity
 pdf-perf-intro-user-experience = Core Web Vitals, render blocking — how fast the page feels to users
 pdf-perf-intro-technical-complexity = DOM size, resource loading, blocking budget
 pdf-perf-overview-title = Performance — Overview
+pdf-perf-sub-vitals = Loading Experience & Vitals
+pdf-perf-sub-resources = Resources & Payload Size
+pdf-perf-sub-bottlenecks = Loading Bottlenecks & Rendering
 pdf-perf-throttled-title = Performance under throttled conditions
 pdf-perf-throttled-profile = Profile
 pdf-perf-cls-title = CLS — Layout Shifts

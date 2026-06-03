@@ -297,6 +297,10 @@ perf-warning-si-fallback = Speed Index entspricht LCP: Formelschätzung ohne una
 perf-warning-tti-fallback = TTI entspricht LCP: Formelschätzung ohne direkten Interaktivitätswert.
 perf-warning-inp-missing = INP nicht messbar: Headless-Browser erzeugen keine Nutzereingaben — Interaktionslatenz konnte nicht erfasst werden.
 perf-warning-lh-mobile-gap = Desktop-Score: { $desktop } · LhMobile-Score: { $mobile } — Abweichung { $gap } Punkte. Der Primärscore basiert auf der ungedrosselten Messung.
+perf-capped-size = Der Performance-Score wurde aufgrund einer sehr großen Datenmenge ({ $size } MB) auf { $cap } gedeckelt.
+perf-capped-js = Der Performance-Score wurde aufgrund einer kritischen JavaScript-Größe ({ $size } MB) auf { $cap } gedeckelt.
+perf-capped-requests = Der Performance-Score wurde aufgrund einer hohen Anzahl an Anfragen ({ $count }) auf { $cap } gedeckelt.
+perf-capped-dom = Der Performance-Score wurde aufgrund einer hohen DOM-Komplexität ({ $nodes } Knoten) auf { $cap } gedeckelt.
 
 # SEO section
 seo-score-card = Technisches SEO
@@ -537,6 +541,9 @@ pdf-perf-section-title = Performance — Nutzererlebnis & Technische Metriken
 pdf-perf-intro-user-experience = Core Web Vitals, Render-Blocking — wie schnell die Seite für Nutzer wirkt
 pdf-perf-intro-technical-complexity = DOM-Größe, Ressourcen-Loading, Blocking-Budget
 pdf-perf-overview-title = Performance — Überblick
+pdf-perf-sub-vitals = Lade-Erfahrung & Vitals
+pdf-perf-sub-resources = Ressourcen & Datenmenge
+pdf-perf-sub-bottlenecks = Lade-Engpässe & Rendering
 pdf-perf-throttled-title = Performance unter gedrosselten Bedingungen
 pdf-perf-throttled-profile = Profil
 pdf-perf-cls-title = CLS — Layout-Verschiebungen

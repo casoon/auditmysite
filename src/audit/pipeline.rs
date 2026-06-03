@@ -1002,7 +1002,7 @@ async fn collect_throttled_performance(
 
         match crate::performance::extract_web_vitals(page).await {
             Ok(vitals) => {
-                let score = calculate_performance_score(&vitals);
+                let score = calculate_performance_score(&vitals, None);
                 // If LCP could not be measured under throttling (timeout or
                 // navigation pre-completion), the most important navigation
                 // metric is missing — do not let CLS/TBT alone push the score

@@ -325,8 +325,88 @@ pub(super) fn build_module_details_from_normalized(
         } else {
             base_perf
         };
-        let perf_interpretation =
+        let mut perf_interpretation =
             append_performance_qualifiers(perf_interpretation, p, normalized, en);
+
+        let mut capping_warnings = Vec::new();
+        if p.score.is_capped == Some(true) {
+            let cap = p.score.overall;
+            let mut size_cap = 100u32;
+            let mut js_cap = 100u32;
+            let mut req_cap = 100u32;
+            let mut dom_cap = 100u32;
+
+            if let Some(ref cw) = p.content_weight {
+                if cw.total_bytes > 10_000_000 {
+                    size_cap = 39;
+                } else if cw.total_bytes > 5_000_000 {
+                    size_cap = 59;
+                } else if cw.total_bytes > 3_000_000 {
+                    size_cap = 74;
+                }
+
+                if cw.breakdown.javascript.bytes > 3_000_000 {
+                    js_cap = 59;
+                } else if cw.breakdown.javascript.bytes > 1_500_000 {
+                    js_cap = 74;
+                }
+
+                if cw.request_count > 120 {
+                    req_cap = 74;
+                }
+            }
+            if let Some(nodes) = p.vitals.dom_nodes {
+                if nodes > 3000 {
+                    dom_cap = 59;
+                } else if nodes > 2000 {
+                    dom_cap = 74;
+                }
+            }
+
+            let min_computed = size_cap.min(js_cap).min(req_cap).min(dom_cap);
+
+            if let Some(ref cw) = p.content_weight {
+                if size_cap == min_computed && size_cap < 100 {
+                    let mb_str = format!("{:.1}", cw.total_bytes as f64 / 1_000_000.0);
+                    capping_warnings.push(i18n.t_args(
+                        "perf-capped-size",
+                        &[("size", mb_str), ("cap", cap.to_string())],
+                    ));
+                }
+                if js_cap == min_computed && js_cap < 100 {
+                    let mb_str =
+                        format!("{:.1}", cw.breakdown.javascript.bytes as f64 / 1_000_000.0);
+                    capping_warnings.push(i18n.t_args(
+                        "perf-capped-js",
+                        &[("size", mb_str), ("cap", cap.to_string())],
+                    ));
+                }
+                if req_cap == min_computed && req_cap < 100 {
+                    capping_warnings.push(i18n.t_args(
+                        "perf-capped-requests",
+                        &[
+                            ("count", cw.request_count.to_string()),
+                            ("cap", cap.to_string()),
+                        ],
+                    ));
+                }
+            }
+            if let Some(nodes) = p.vitals.dom_nodes {
+                if dom_cap == min_computed && dom_cap < 100 {
+                    capping_warnings.push(i18n.t_args(
+                        "perf-capped-dom",
+                        &[("nodes", nodes.to_string()), ("cap", cap.to_string())],
+                    ));
+                }
+            }
+        }
+
+        if !capping_warnings.is_empty() {
+            if !perf_interpretation.is_empty() {
+                perf_interpretation.push(' ');
+            }
+            perf_interpretation.push_str(&capping_warnings.join(" "));
+        }
 
         let throttled_profiles: Vec<ThrottledPerfEntry> = normalized
             .raw_throttled_performance

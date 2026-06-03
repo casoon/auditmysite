@@ -51,19 +51,20 @@ impl AuditModule for PerformanceModule {
             }
         };
 
-        let score = calculate_performance_score(&vitals);
+        let content_weight = match analyze_content_weight(page).await {
+            Ok(cw) => Some(cw),
+            Err(e) => {
+                warn!("Content-weight analysis failed: {}", e);
+                None
+            }
+        };
+
+        let score = calculate_performance_score(&vitals, content_weight.as_ref());
 
         let render_blocking = match analyze_render_blocking(page, url).await {
             Ok(rb) => Some(rb),
             Err(e) => {
                 warn!("Render-blocking analysis failed: {}", e);
-                None
-            }
-        };
-        let content_weight = match analyze_content_weight(page).await {
-            Ok(cw) => Some(cw),
-            Err(e) => {
-                warn!("Content-weight analysis failed: {}", e);
                 None
             }
         };

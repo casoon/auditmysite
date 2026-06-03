@@ -99,8 +99,8 @@ pub(super) fn render_performance(
                 .with_thresholds(75, 50),
         );
 
-    // ── User-perceived Performance (Core Web Vitals) ─────────────────
-    builder = builder.add_component(Section::new(i18n.t("section-user-experience")).with_level(3));
+    // ── Subsection 1: Lade-Erfahrung & Vitals ──────────────────────────
+    builder = builder.add_component(Section::new(i18n.t("pdf-perf-sub-vitals")).with_level(3));
     builder = builder.add_component(
         Callout::info(i18n.t("perf-lab-data-body")).with_title(i18n.t("perf-lab-data-note")),
     );
@@ -184,7 +184,7 @@ pub(super) fn render_performance(
         _ => {}
     }
 
-    // ── Measurement Warnings (#291) ──────────────────────────────────
+    // Measurement Warnings
     if !perf.measurement_warnings.is_empty() {
         let title = i18n.t("perf-measurement-warnings-title");
         let mut warning_items: Vec<String> = perf
@@ -199,9 +199,6 @@ pub(super) fn render_performance(
                 _ => key.clone(),
             })
             .collect();
-        // When primary score is the unthrottled desktop measurement (LhMobile LCP
-        // could not be captured), surface the gap explicitly so the discrepancy
-        // is visible without having to cross-reference the throttled table (#289).
         if perf
             .measurement_warnings
             .iter()
@@ -229,49 +226,7 @@ pub(super) fn render_performance(
         builder = builder.add_component(Callout::warning(&body).with_title(&title));
     }
 
-    // ── Technical Complexity ─────────────────────────────────────────
-    if !perf.additional_metrics.is_empty() || perf.has_render_blocking {
-        builder = builder
-            .add_component(Section::new(i18n.t("section-technical-complexity")).with_level(3));
-
-        if !perf.additional_metrics.is_empty() {
-            let mut metrics = KeyValueList::new().with_title(i18n.t("perf-technical-indicators"));
-            for (k, v) in &perf.additional_metrics {
-                metrics = metrics.add(k, v);
-            }
-            builder = builder.add_component(metrics);
-        }
-
-        if perf.has_render_blocking {
-            if !perf.render_blocking_metrics.is_empty() {
-                let mut kv =
-                    KeyValueList::new().with_title(i18n.t("perf-render-blocking-analysis"));
-                for (k, v) in &perf.render_blocking_metrics {
-                    kv = kv.add(k, v);
-                }
-                builder = builder.add_component(kv);
-            }
-
-            if !perf.render_blocking_suggestions.is_empty() {
-                let mut suggestions = List::new().with_title(i18n.t("label-recommendations"));
-                for s in &perf.render_blocking_suggestions {
-                    suggestions = suggestions.add_item(s);
-                }
-                builder = builder.add_component(suggestions);
-            }
-        }
-    }
-
-    // ── Improvement suggestions (across both layers) ─────────────────
-    if !perf.recommendations.is_empty() {
-        let mut rec_list = List::new().with_title(i18n.t("label-improvement-suggestions"));
-        for recommendation in &perf.recommendations {
-            rec_list = rec_list.add_item(recommendation);
-        }
-        builder = builder.add_component(rec_list);
-    }
-
-    // ── Throttled Network Performance ────────────────────────────────
+    // Throttled Network Performance table
     if !perf.throttled_profiles.is_empty() {
         let title = i18n.t("pdf-perf-throttled-title");
         let col_profile = i18n.t("pdf-perf-throttled-profile");
@@ -295,7 +250,7 @@ pub(super) fn render_performance(
         builder = builder.add_component(table);
     }
 
-    // ── CLS Attribution ──────────────────────────────────────────────
+    // CLS Attribution table
     if !perf.cls_attribution.is_empty() {
         let title = i18n.t("pdf-perf-cls-title");
         let col_val = i18n.t("pdf-perf-cls-value");
@@ -318,7 +273,24 @@ pub(super) fn render_performance(
         builder = builder.add_component(table);
     }
 
-    // ── Third-Party Attribution ───────────────────────────────────────
+    // ── Subsection 2: Ressourcen & Datenmenge ──────────────────────────
+    builder = builder.add_component(Section::new(i18n.t("pdf-perf-sub-resources")).with_level(3));
+
+    // Indicator stats (excluding DOM-Knoten)
+    let resource_metrics: Vec<&(String, String)> = perf
+        .additional_metrics
+        .iter()
+        .filter(|(k, _)| k != "DOM-Knoten")
+        .collect();
+    if !resource_metrics.is_empty() {
+        let mut metrics = KeyValueList::new().with_title(i18n.t("perf-technical-indicators"));
+        for (k, v) in resource_metrics {
+            metrics = metrics.add(k, v);
+        }
+        builder = builder.add_component(metrics);
+    }
+
+    // Third-Party Attribution
     if let Some(ref tp) = perf.third_party {
         if !tp.origins.is_empty() {
             let title = i18n.t("pdf-perf-tp-title");
@@ -364,50 +336,7 @@ pub(super) fn render_performance(
         }
     }
 
-    // ── Critical Request Chain ────────────────────────────────────────
-    if let Some(ref cc) = perf.critical_chain {
-        let title = i18n.t("pdf-perf-cc-title");
-        let mut kv = KeyValueList::new().with_title(&title);
-        kv = kv.add(i18n.t("pdf-perf-cc-max-depth"), cc.max_depth.to_string());
-        kv = kv.add(
-            i18n.t("pdf-perf-cc-path"),
-            format!("{} / {}", cc.critical_path_ms, cc.critical_path_kb),
-        );
-        kv = kv.add(
-            i18n.t("pdf-perf-cc-total-requests"),
-            cc.total_requests.to_string(),
-        );
-        builder = builder.add_component(kv);
-    }
-
-    // ── Minification ─────────────────────────────────────────────────
-    if let Some(ref min) = perf.minification {
-        let title = i18n.t("pdf-perf-min-title");
-        let mut kv = KeyValueList::new().with_title(&title);
-        kv = kv.add(i18n.t("pdf-perf-min-files"), min.total_count.to_string());
-        kv = kv.add(
-            i18n.t("pdf-perf-min-savings"),
-            format!("{:.1} KB", min.total_savings_kb),
-        );
-        builder = builder.add_component(kv);
-
-        if !min.top_assets.is_empty() {
-            let col_url = "URL";
-            let col_kind = i18n.t("pdf-perf-min-type");
-            let col_save = i18n.t("pdf-perf-min-saving-col");
-            let mut table = AuditTable::new(vec![
-                TableColumn::new(col_url).with_width("62%"),
-                TableColumn::new(&col_kind).with_width("16%"),
-                TableColumn::new(&col_save).with_width("22%"),
-            ]);
-            for (url, kind, savings) in &min.top_assets {
-                table = table.add_row(vec![url.as_str(), kind.as_str(), savings.as_str()]);
-            }
-            builder = builder.add_component(table);
-        }
-    }
-
-    // ── Coverage (unused JS/CSS) ──────────────────────────────────────
+    // Coverage (unused JS/CSS)
     if let Some(ref cov) = perf.coverage {
         let title = i18n.t("pdf-perf-cov-title");
         let mut kv = KeyValueList::new().with_title(&title);
@@ -438,7 +367,84 @@ pub(super) fn render_performance(
         builder = builder.add_component(kv);
     }
 
-    // ── Non-composited Animations ─────────────────────────────────────
+    // Minification
+    if let Some(ref min) = perf.minification {
+        let title = i18n.t("pdf-perf-min-title");
+        let mut kv = KeyValueList::new().with_title(&title);
+        kv = kv.add(i18n.t("pdf-perf-min-files"), min.total_count.to_string());
+        kv = kv.add(
+            i18n.t("pdf-perf-min-savings"),
+            format!("{:.1} KB", min.total_savings_kb),
+        );
+        builder = builder.add_component(kv);
+
+        if !min.top_assets.is_empty() {
+            let col_url = "URL";
+            let col_kind = i18n.t("pdf-perf-min-type");
+            let col_save = i18n.t("pdf-perf-min-saving-col");
+            let mut table = AuditTable::new(vec![
+                TableColumn::new(col_url).with_width("62%"),
+                TableColumn::new(&col_kind).with_width("16%"),
+                TableColumn::new(&col_save).with_width("22%"),
+            ]);
+            for (url, kind, savings) in &min.top_assets {
+                table = table.add_row(vec![url.as_str(), kind.as_str(), savings.as_str()]);
+            }
+            builder = builder.add_component(table);
+        }
+    }
+
+    // ── Subsection 3: Lade-Engpässe & Rendering ────────────────────────
+    builder = builder.add_component(Section::new(i18n.t("pdf-perf-sub-bottlenecks")).with_level(3));
+
+    // DOM Complexity
+    let dom_metric = perf
+        .additional_metrics
+        .iter()
+        .find(|(k, _)| k == "DOM-Knoten");
+    if let Some((k, v)) = dom_metric {
+        let metrics = KeyValueList::new()
+            .with_title(i18n.t("pdf-perf-sub-bottlenecks"))
+            .add(k, v);
+        builder = builder.add_component(metrics);
+    }
+
+    // Render-blocking resources
+    if perf.has_render_blocking {
+        if !perf.render_blocking_metrics.is_empty() {
+            let mut kv = KeyValueList::new().with_title(i18n.t("perf-render-blocking-analysis"));
+            for (k, v) in &perf.render_blocking_metrics {
+                kv = kv.add(k, v);
+            }
+            builder = builder.add_component(kv);
+        }
+
+        if !perf.render_blocking_suggestions.is_empty() {
+            let mut suggestions = List::new().with_title(i18n.t("label-recommendations"));
+            for s in &perf.render_blocking_suggestions {
+                suggestions = suggestions.add_item(s);
+            }
+            builder = builder.add_component(suggestions);
+        }
+    }
+
+    // Critical Request Chain
+    if let Some(ref cc) = perf.critical_chain {
+        let title = i18n.t("pdf-perf-cc-title");
+        let mut kv = KeyValueList::new().with_title(&title);
+        kv = kv.add(i18n.t("pdf-perf-cc-max-depth"), cc.max_depth.to_string());
+        kv = kv.add(
+            i18n.t("pdf-perf-cc-path"),
+            format!("{} / {}", cc.critical_path_ms, cc.critical_path_kb),
+        );
+        kv = kv.add(
+            i18n.t("pdf-perf-cc-total-requests"),
+            cc.total_requests.to_string(),
+        );
+        builder = builder.add_component(kv);
+    }
+
+    // Non-composited Animations
     if let Some(ref anim) = perf.animations {
         let title = i18n.t("pdf-perf-anim-title");
         let mut kv = KeyValueList::new().with_title(&title);
@@ -450,6 +456,15 @@ pub(super) fn render_performance(
             );
         }
         builder = builder.add_component(kv);
+    }
+
+    // General improvement suggestions / recommendations
+    if !perf.recommendations.is_empty() {
+        let mut rec_list = List::new().with_title(i18n.t("label-improvement-suggestions"));
+        for recommendation in &perf.recommendations {
+            rec_list = rec_list.add_item(recommendation);
+        }
+        builder = builder.add_component(rec_list);
     }
 
     builder

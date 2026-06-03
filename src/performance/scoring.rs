@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::content_weight::ContentWeight;
 use super::vitals::WebVitals;
 
 /// Performance grade levels
@@ -88,13 +89,32 @@ pub struct PerformanceScore {
     pub si_score: Option<u32>,
     /// Number of metrics that were actually measured (0-5)
     pub metrics_available: u32,
+    /// Penalty deducted for page size (transfer/decoded bytes)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size_penalty: Option<u32>,
+    /// Penalty deducted for JavaScript size
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub js_penalty: Option<u32>,
+    /// Penalty deducted for request count
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_penalty: Option<u32>,
+    /// Penalty deducted for DOM complexity
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dom_penalty: Option<u32>,
+    /// Whether the score was capped due to a critical threshold
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_capped: Option<bool>,
 }
 
-/// Calculate performance score from Web Vitals.
+/// Calculate performance score from Web Vitals and Content Weight.
 ///
 /// Weights follow Lighthouse v10/v11 (FCP 10 %, LCP 25 %, TBT 30 %, CLS 25 %, SI 10 %).
 /// The overall score is normalized to the metrics that were actually measured.
-pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
+/// Then deductions and caps are applied based on content size, request count, and DOM complexity.
+pub fn calculate_performance_score(
+    vitals: &WebVitals,
+    content_weight: Option<&ContentWeight>,
+) -> PerformanceScore {
     let lcp_score = vitals.lcp.as_ref().map(|v| score_lcp(v.value));
     let fcp_score = vitals.fcp.as_ref().map(|v| score_fcp(v.value));
     let cls_score = vitals.cls.as_ref().map(|v| score_cls(v.value));
@@ -130,10 +150,94 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
         metrics_available += 1;
     }
 
-    let overall = (total * 100)
+    let base_overall = (total * 100)
         .checked_div(max_possible)
         .map(|n| n.min(100))
         .unwrap_or(0);
+
+    let mut overall = base_overall;
+    let mut size_penalty = None;
+    let mut js_penalty = None;
+    let mut request_penalty = None;
+    let mut dom_penalty = None;
+    let mut is_capped = None;
+
+    let mut size_cap = 100u32;
+    let mut js_cap = 100u32;
+    let mut req_cap = 100u32;
+    let mut dom_cap = 100u32;
+
+    if let Some(cw) = content_weight {
+        // Page Size (Total Bytes): > 2MB starts linear penalty (5 points per MB, max 30)
+        let total_mb = cw.total_bytes as f64 / 1_000_000.0;
+        if total_mb > 2.0 {
+            let penalty = ((total_mb - 2.0) * 5.0).min(30.0).round() as u32;
+            size_penalty = Some(penalty);
+            overall = overall.saturating_sub(penalty);
+        }
+
+        // JS Size (Decoded): > 1MB starts linear penalty (5 points per 500KB, max 20)
+        let js_mb = cw.breakdown.javascript.bytes as f64 / 1_000_000.0;
+        if js_mb > 1.0 {
+            let penalty = (((js_mb - 1.0) / 0.5) * 5.0).min(20.0).round() as u32;
+            js_penalty = Some(penalty);
+            overall = overall.saturating_sub(penalty);
+        }
+
+        // Request Count: > 60 requests starts linear penalty (2 points per 10 requests, max 15)
+        if cw.request_count > 60 {
+            let penalty =
+                ((((cw.request_count - 60) as f64 / 10.0).round() * 2.0).min(15.0)) as u32;
+            request_penalty = Some(penalty);
+            overall = overall.saturating_sub(penalty);
+        }
+
+        // Caps
+        // Page Size caps: > 10MB -> max 39, > 5MB -> max 59, > 3MB -> max 74
+        if cw.total_bytes > 10_000_000 {
+            size_cap = 39;
+        } else if cw.total_bytes > 5_000_000 {
+            size_cap = 59;
+        } else if cw.total_bytes > 3_000_000 {
+            size_cap = 74;
+        }
+
+        // JS caps: > 3MB -> max 59, > 1.5MB -> max 74
+        if cw.breakdown.javascript.bytes > 3_000_000 {
+            js_cap = 59;
+        } else if cw.breakdown.javascript.bytes > 1_500_000 {
+            js_cap = 74;
+        }
+
+        // Request count cap: > 120 -> max 74
+        if cw.request_count > 120 {
+            req_cap = 74;
+        }
+    }
+
+    // DOM Nodes (WebVitals): > 1000 nodes starts linear penalty (2 points per 100 nodes, max 15)
+    if let Some(nodes) = vitals.dom_nodes {
+        if nodes > 1000 {
+            let penalty = ((((nodes - 1000) as f64 / 100.0).round() * 2.0).min(15.0)) as u32;
+            dom_penalty = Some(penalty);
+            overall = overall.saturating_sub(penalty);
+        }
+
+        // DOM nodes caps: > 3000 -> max 59, > 2000 -> max 74
+        if nodes > 3000 {
+            dom_cap = 59;
+        } else if nodes > 2000 {
+            dom_cap = 74;
+        }
+    }
+
+    // Apply caps
+    let min_cap = size_cap.min(js_cap).min(req_cap).min(dom_cap);
+    if overall > min_cap {
+        overall = min_cap;
+        is_capped = Some(true);
+    }
+
     let grade = PerformanceGrade::from_score(overall);
 
     PerformanceScore {
@@ -145,6 +249,11 @@ pub fn calculate_performance_score(vitals: &WebVitals) -> PerformanceScore {
         interactivity_score,
         si_score,
         metrics_available,
+        size_penalty,
+        js_penalty,
+        request_penalty,
+        dom_penalty,
+        is_capped,
     }
 }
 
@@ -222,6 +331,7 @@ fn score_si(ms: f64) -> u32 {
 mod tests {
     use super::*;
     use crate::performance::vitals::VitalMetric;
+    use crate::performance::ResourceBreakdown;
 
     #[test]
     fn test_performance_grade_from_score() {
@@ -273,7 +383,7 @@ mod tests {
             tbt: Some(VitalMetric::new(800.0, 200.0, 600.0)),
             ..Default::default()
         };
-        let s = calculate_performance_score(&vitals);
+        let s = calculate_performance_score(&vitals, None);
         // Issue #248: a profile with LCP > 7 s should land well below 50,
         // not in the 70s as the old weighting allowed.
         assert!(s.overall < 50, "overall was {}", s.overall);
@@ -289,7 +399,7 @@ mod tests {
             ..Default::default()
         };
 
-        let score = calculate_performance_score(&vitals);
+        let score = calculate_performance_score(&vitals, None);
         assert!(score.overall >= 80);
         assert!(matches!(
             score.grade,
@@ -307,7 +417,7 @@ mod tests {
             cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),         // → score_cls = 25 (max)
             ..Default::default()
         };
-        let score = calculate_performance_score(&vitals);
+        let score = calculate_performance_score(&vitals, None);
         assert_eq!(score.overall, 100, "all available metrics perfect → 100");
         assert_eq!(score.metrics_available, 2);
     }
@@ -315,8 +425,102 @@ mod tests {
     #[test]
     fn test_no_vitals_returns_zero() {
         let vitals = WebVitals::default();
-        let score = calculate_performance_score(&vitals);
+        let score = calculate_performance_score(&vitals, None);
         assert_eq!(score.overall, 0, "no vitals available → 0");
         assert_eq!(score.metrics_available, 0);
+    }
+
+    #[test]
+    fn test_page_weight_capping_and_penalties() {
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.01, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
+            ..Default::default()
+        };
+
+        // 1. Size = 2.5 MB (no cap, minor penalty)
+        // size_penalty: (2.5 - 2.0) * 5 = 2.5 -> round to 3
+        let cw_light = ContentWeight {
+            total_bytes: 2_500_000,
+            transfer_bytes: 1_800_000,
+            breakdown: ResourceBreakdown::default(),
+            request_count: 30,
+            recommendations: vec![],
+        };
+        let s_light = calculate_performance_score(&vitals, Some(&cw_light));
+        assert_eq!(s_light.size_penalty, Some(3));
+        assert_eq!(s_light.overall, 97);
+        assert_eq!(s_light.is_capped, None);
+
+        // 2. Size = 4.5 MB (cap 74)
+        let cw_medium = ContentWeight {
+            total_bytes: 4_500_000,
+            transfer_bytes: 3_000_000,
+            breakdown: ResourceBreakdown::default(),
+            request_count: 50,
+            recommendations: vec![],
+        };
+        let s_medium = calculate_performance_score(&vitals, Some(&cw_medium));
+        assert_eq!(s_medium.overall, 74);
+        assert_eq!(s_medium.is_capped, Some(true));
+
+        // 3. Size = 12 MB (cap 39 - "geht gar nicht")
+        let cw_heavy = ContentWeight {
+            total_bytes: 12_000_000,
+            transfer_bytes: 9_000_000,
+            breakdown: ResourceBreakdown::default(),
+            request_count: 80,
+            recommendations: vec![],
+        };
+        let s_heavy = calculate_performance_score(&vitals, Some(&cw_heavy));
+        assert_eq!(s_heavy.overall, 39);
+        assert_eq!(s_heavy.is_capped, Some(true));
+    }
+
+    #[test]
+    fn test_js_weight_capping_and_penalties() {
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.01, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
+            ..Default::default()
+        };
+
+        // JS size = 1.6 MB decoded -> capped at 74
+        let mut breakdown = ResourceBreakdown::default();
+        breakdown.javascript.bytes = 1_600_000;
+        let cw = ContentWeight {
+            total_bytes: 2_500_000,
+            transfer_bytes: 1_800_000,
+            breakdown,
+            request_count: 30,
+            recommendations: vec![],
+        };
+
+        let s = calculate_performance_score(&vitals, Some(&cw));
+        assert_eq!(s.overall, 74);
+        assert_eq!(s.is_capped, Some(true));
+        assert_eq!(s.js_penalty, Some(6)); // (1.6 - 1.0)/0.5 * 5 = 6
+    }
+
+    #[test]
+    fn test_dom_nodes_capping_and_penalties() {
+        // DOM nodes = 2500 -> capped at 74, penalty applied
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.01, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
+            dom_nodes: Some(2500),
+            ..Default::default()
+        };
+
+        let s = calculate_performance_score(&vitals, None);
+        assert_eq!(s.overall, 74);
+        assert_eq!(s.is_capped, Some(true));
+        assert_eq!(s.dom_penalty, Some(15)); // (2500-1000)/100 * 2 = 30 -> max 15
     }
 }
