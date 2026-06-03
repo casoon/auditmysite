@@ -2,13 +2,5 @@
   "name": "auditmysite-scripts",
   "private": true,
   "description": "Development scripts for auditmysite",
-  "license": "BUSL-1.1",
-  "scripts": {
-    "axe-compare": "node axe-compare.js"
-  },
-  "dependencies": {
-    "axe-core": "^4.10.0",
-    "pa11y": "^9.1.1",
-    "playwright": "^1.44.0"
-  }
+  "license": "BUSL-1.1"
 }

@@ -201,7 +201,6 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Batch-JSON: optionaler `sample`-Block (source, total_discovered, audited, sample_limit, selection, is_sample) + PDF-Prüfumfang-Zeile (#261)
 - Performance: `VitalMetric.measurement` (`lab_headless`/`estimated_lab`); INP/TTI/Speed Index als Lab-Schätzung markiert, Lab-Disclaimer im Report (#262)
 - Kontrast: Bild-/Gradient-Hintergründe werden zu Manual-Review-Warnungen demoted statt als bestätigte Verstöße (#264, Pixel-Sampling offen)
-- axe-Parität: `scripts/axe-compare.js` + `docs/AXE_PARITY.md` Kalibrierungs-Workflow (#265)
 - **Accessibility Journey Layer** (`--interactive off|basic|full`): Tab-Walk, Skip-Link, Disclosure, Modal, TabList, Menu, Form-Error-Announcement, SPA-Navigation, Linktext-/Heading-/Landmark-Inventur (#297–#301). Ergebnisse in `interactive_findings` + `accessibility_journey` im JSON.
 - **Semantic AI Evaluation** (`--semantic-eval`): Fastembed (lokal, multilingual) + optionaler Mistral-LLM-Check. Ergebnisse in `advisory_findings` (nie score-relevant). Feature-Flag: `semantic-eval` (#301).
 - **Snapshot Export** (`--export-snapshot <path>`): AXTree + Journey-Traces als YAML für CI-Regression (#301).
