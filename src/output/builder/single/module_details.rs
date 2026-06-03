@@ -188,12 +188,12 @@ fn append_performance_qualifiers(
     out
 }
 
-pub(super) fn build_module_details_from_normalized(
-    i18n: &I18n,
+fn build_performance_details(
     normalized: &AuditContext,
-) -> ModuleDetailsBlock {
+    i18n: &I18n,
+) -> Option<PerformancePresentation> {
     let locale = i18n.locale();
-    let performance = normalized.raw_performance.as_ref().map(|p| {
+    normalized.raw_performance.as_ref().map(|p| {
         let performance_score =
             normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
         let performance_grade = normalized_module_grade(normalized, "Performance")
@@ -559,9 +559,12 @@ pub(super) fn build_module_details_from_normalized(
             animations,
             measurement_warnings: p.measurement_warnings.clone(),
         }
-    });
+    })
+}
 
-    let seo = normalized.raw_seo.as_ref().map(|s| {
+fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresentation> {
+    let locale = i18n.locale();
+    normalized.raw_seo.as_ref().map(|s| {
         let seo_score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
         if let Some(ref title) = s.meta.title {
@@ -990,9 +993,12 @@ pub(super) fn build_module_details_from_normalized(
                 })
                 .collect(),
         }
-    });
+    })
+}
 
-    let security = normalized.raw_security.as_ref().map(|sec| {
+fn build_security_details(normalized: &AuditContext, i18n: &I18n) -> Option<SecurityPresentation> {
+    let locale = i18n.locale();
+    normalized.raw_security.as_ref().map(|sec| {
         let security_score = normalized_module_score(normalized, "Security").unwrap_or(sec.score);
         let header_checks: Vec<(&str, &Option<String>)> = vec![
             (
@@ -1070,9 +1076,12 @@ pub(super) fn build_module_details_from_normalized(
             has_waf: sec.protection.has_waf,
             has_cdn: sec.protection.has_cdn,
         }
-    });
+    })
+}
 
-    let mobile = normalized.raw_mobile.as_ref().map(|m| {
+fn build_mobile_details(normalized: &AuditContext, i18n: &I18n) -> Option<MobilePresentation> {
+    let locale = i18n.locale();
+    normalized.raw_mobile.as_ref().map(|m| {
         let mobile_score = normalized_module_score(normalized, "Mobile").unwrap_or(m.score);
         let small_targets = m.touch_targets.small_targets;
         let en = locale == "en";
@@ -1206,9 +1215,11 @@ pub(super) fn build_module_details_from_normalized(
                 .map(|i| (i.category.clone(), i.severity, i.message.clone()))
                 .collect(),
         }
-    });
+    })
+}
 
-    let dark_mode = normalized
+fn build_dark_mode_details(normalized: &AuditContext) -> Option<DarkModePresentation> {
+    normalized
         .raw_dark_mode
         .as_ref()
         .map(|dm| DarkModePresentation {
@@ -1226,9 +1237,12 @@ pub(super) fn build_module_details_from_normalized(
                 .iter()
                 .map(|i| (i.severity.clone(), i.description.clone()))
                 .collect(),
-        });
+        })
+}
 
-    let ux = normalized.raw_ux.as_ref().map(|u| {
+fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresentation> {
+    let locale = i18n.locale();
+    normalized.raw_ux.as_ref().map(|u| {
         let ux_score = normalized_module_score(normalized, "UX").unwrap_or(u.score);
         UxPresentation {
             score: ux_score,
@@ -1273,9 +1287,12 @@ pub(super) fn build_module_details_from_normalized(
                 })
                 .collect(),
         }
-    });
+    })
+}
 
-    let journey = normalized.raw_journey.as_ref().map(|j| {
+fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<JourneyPresentation> {
+    let locale = i18n.locale();
+    normalized.raw_journey.as_ref().map(|j| {
         let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
         // Detect page type mismatch between SEO profile and Journey module
         let seo_type: Option<String> = normalized
@@ -1356,7 +1373,27 @@ pub(super) fn build_module_details_from_normalized(
                 })
                 .collect(),
         }
-    });
+    })
+}
+
+pub(super) fn build_module_details_from_normalized(
+    i18n: &I18n,
+    normalized: &AuditContext,
+) -> ModuleDetailsBlock {
+    let performance = build_performance_details(normalized, i18n);
+    let seo = build_seo_details(normalized, i18n);
+    let security = build_security_details(normalized, i18n);
+    let mobile = build_mobile_details(normalized, i18n);
+    let dark_mode = build_dark_mode_details(normalized);
+    let ux = build_ux_details(normalized, i18n);
+    let journey = build_journey_details(normalized, i18n);
+
+    let source_quality = normalized.raw_source_quality.clone();
+    let ai_visibility = normalized.raw_ai_visibility.clone();
+    let tech_stack = normalized.raw_tech_stack.clone();
+    let content_visibility = normalized.raw_content_visibility.clone();
+    let best_practices = normalized.raw_best_practices.clone();
+    let patterns = normalized.raw_patterns.clone();
 
     let has_any = performance.is_some()
         || seo.is_some()
@@ -1364,16 +1401,7 @@ pub(super) fn build_module_details_from_normalized(
         || mobile.is_some()
         || ux.is_some()
         || journey.is_some()
-        || dark_mode.is_some();
-    let source_quality = normalized.raw_source_quality.clone();
-    let ai_visibility = normalized.raw_ai_visibility.clone();
-    let tech_stack = normalized.raw_tech_stack.clone();
-    let content_visibility = normalized.raw_content_visibility.clone();
-
-    let best_practices = normalized.raw_best_practices.clone();
-    let patterns = normalized.raw_patterns.clone();
-
-    let has_any = has_any
+        || dark_mode.is_some()
         || source_quality.is_some()
         || ai_visibility.is_some()
         || tech_stack.is_some()
