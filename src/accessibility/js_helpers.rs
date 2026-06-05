@@ -47,6 +47,26 @@ function __amsCssSelector(el) {
 }
 "#;
 
+/// `__amsIsAriaHidden(el)` — returns true when an element is part of an
+/// `aria-hidden="true"` subtree or carries `role="presentation"/"none"` itself.
+///
+/// WCAG 1.4.3 explicitly exempts decorative elements from contrast requirements.
+/// Elements inside an `aria-hidden="true"` subtree are not exposed to assistive
+/// technology and serve a purely decorative role — they must be skipped.
+/// `role="presentation"` and `role="none"` on the element itself also signal
+/// decoration with no accessibility semantics.
+pub const IS_ARIA_HIDDEN_JS: &str = r#"
+function __amsIsAriaHidden(el) {
+  var cur = el;
+  while (cur && cur !== document.documentElement) {
+    if (cur.getAttribute('aria-hidden') === 'true') return true;
+    cur = cur.parentElement;
+  }
+  var role = el.getAttribute('role');
+  return role === 'presentation' || role === 'none';
+}
+"#;
+
 /// `__amsIsVisuallyHidden(el)` — detects the visually-hidden / `.sr-only`
 /// pattern (text exposed only to assistive technology).
 ///

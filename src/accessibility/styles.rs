@@ -184,6 +184,9 @@ const STYLES_EXTRACT_JS: &str = r#"
 
         // Skip visually-hidden / .sr-only text — WCAG 1.4.3 does not apply
         if (__amsIsVisuallyHidden(el)) continue;
+        // Skip aria-hidden="true" subtrees and role=presentation/none — WCAG 1.4.3 exempts
+        // decorative elements that are not exposed to assistive technology (#395)
+        if (__amsIsAriaHidden(el)) continue;
 
         const styles = window.getComputedStyle(el);
         if (styles.display === 'none' || styles.visibility === 'hidden') continue;
@@ -229,6 +232,7 @@ pub async fn extract_text_styles(page: &Page) -> Result<Vec<ComputedStyles>> {
         "(() => {",
         crate::accessibility::js_helpers::CSS_SELECTOR_JS,
         crate::accessibility::js_helpers::IS_VISUALLY_HIDDEN_JS,
+        crate::accessibility::js_helpers::IS_ARIA_HIDDEN_JS,
         STYLES_EXTRACT_JS,
         "})();",
     ]
