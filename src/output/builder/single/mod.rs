@@ -687,6 +687,7 @@ mod tests {
         .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
         .with_dark_mode(DarkModeAnalysis {
             supported: false,
+            class_based_dark_mode: false,
             score: 50,
             detection_methods: vec![],
             color_scheme_css: false,

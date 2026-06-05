@@ -302,26 +302,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
 fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     use crate::assessment::AssessmentLevel;
 
-    let lb_schema = seo
-        .content_profile
-        .as_ref()
-        .and_then(|cp| {
-            cp.schema_inventory.schemas.iter().find(|s| {
-                s.schema_type == "LocalBusiness"
-                    || seo
-                        .structured_data
-                        .types
-                        .contains(&SchemaType::LocalBusiness)
-            })
-        })
-        .or_else(|| {
-            seo.content_profile.as_ref().and_then(|cp| {
-                cp.schema_inventory
-                    .schemas
-                    .iter()
-                    .find(|s| s.schema_type == "LocalBusiness")
-            })
-        });
+    let lb_schema = seo.content_profile.as_ref().and_then(|cp| {
+        cp.schema_inventory
+            .schemas
+            .iter()
+            .find(|s| s.schema_type == "LocalBusiness")
+    });
 
     let raw = seo
         .structured_data
@@ -374,7 +360,14 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
                     aggregate_rating.is_some(),
                 )
             } else {
-                (false, false, false, false, false, false)
+                (
+                    !v["address"]["postalCode"].is_null(),
+                    !v["address"]["addressLocality"].is_null(),
+                    !v["telephone"].is_null(),
+                    !v["geo"]["latitude"].is_null() || !v["geo"]["longitude"].is_null(),
+                    !v["sameAs"].is_null(),
+                    !v["aggregateRating"].is_null(),
+                )
             }
         } else {
             (

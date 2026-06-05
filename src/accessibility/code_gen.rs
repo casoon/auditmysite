@@ -54,11 +54,14 @@ pub fn generate_suggested_code(
 fn suggest_alt_text(html_snippet: Option<&str>, role: Option<&str>) -> Option<String> {
     let html = html_snippet?;
 
-    // SVG: recommend <title> inside the element
+    // SVG: offer both decorative and informative patterns
     if role == Some("graphics-document") || role == Some("graphics-symbol") || html.contains("<svg")
     {
         return Some(
-            "<svg aria-label=\"Grafikbeschreibung\" role=\"img\">\n  <title>Grafikbeschreibung</title>\n  …\n</svg>"
+            "<!-- Dekorativ (Icon neben sichtbarem Text): -->\n\
+             <svg aria-hidden=\"true\">…</svg>\n\n\
+             <!-- Informativ (eigenständiges Bild ohne Text-Kontext): -->\n\
+             <svg role=\"img\" aria-label=\"Beschreibung\"><title>Beschreibung</title>…</svg>"
                 .to_string(),
         );
     }

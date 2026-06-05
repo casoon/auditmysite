@@ -28,6 +28,10 @@ use crate::wcag::Violation;
 pub struct DarkModeAnalysis {
     /// Site declares `@media (prefers-color-scheme: dark)` CSS rules.
     pub supported: bool,
+    /// Dark mode is implemented via CSS class toggle (html.dark / [data-theme="dark"])
+    /// rather than @media (prefers-color-scheme: dark). Contrast testing via CDP is not
+    /// possible in this mode.
+    pub class_based_dark_mode: bool,
     /// Aggregate quality score 0–100.
     pub score: u32,
     /// Human-readable list of detected implementation methods.
@@ -150,12 +154,16 @@ pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<Dar
     if static_info.has_dark_media_query {
         detection_methods.push("@media (prefers-color-scheme: dark)".to_string());
     }
+    if static_info.has_class_based_dark_mode {
+        detection_methods.push("CSS class-based (.dark / [data-theme=dark])".to_string());
+    }
     if static_info.meta_theme_color_dark {
         detection_methods.push("<meta name=\"theme-color\" media dark>".to_string());
     }
 
     Ok(DarkModeAnalysis {
-        supported: static_info.has_dark_media_query,
+        supported: static_info.has_dark_media_query || static_info.has_class_based_dark_mode,
+        class_based_dark_mode: static_info.has_class_based_dark_mode,
         score,
         detection_methods,
         color_scheme_css: static_info.color_scheme_css,
@@ -181,13 +189,26 @@ fn build_issues(
 ) -> Vec<DarkModeIssue> {
     let mut issues: Vec<DarkModeIssue> = Vec::new();
 
-    if !info.has_dark_media_query {
+    if !info.has_dark_media_query && !info.has_class_based_dark_mode {
         issues.push(DarkModeIssue {
             kind: DarkModeIssueKind::NoDarkModeSupport,
             description: "Keine @media (prefers-color-scheme: dark) Regeln gefunden. \
                           Nutzer mit aktiviertem Systemdunkel-Modus erhalten die helle Ansicht."
                 .to_string(),
             severity: "medium".to_string(),
+        });
+        return issues;
+    }
+
+    if !info.has_dark_media_query && info.has_class_based_dark_mode {
+        issues.push(DarkModeIssue {
+            kind: DarkModeIssueKind::IncompleteImplementation,
+            description:
+                "Class-basierter Dark Mode erkannt (html.dark / [data-theme=\"dark\"]). \
+                          Kontrast-Prüfung im Dark Mode ist über CDP-Emulation nicht möglich — \
+                          nur @media (prefers-color-scheme: dark) kann automatisch getestet werden."
+                    .to_string(),
+            severity: "low".to_string(),
         });
         return issues;
     }
@@ -350,6 +371,7 @@ fn classify_contrast_violations(
 
 struct StaticDarkModeInfo {
     has_dark_media_query: bool,
+    has_class_based_dark_mode: bool,
     color_scheme_css: bool,
     meta_color_scheme: Option<String>,
     meta_theme_color_dark: bool,
@@ -361,6 +383,7 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
     (() => {
         const result = {
             hasDarkMediaQuery: false,
+            hasClassBasedDarkMode: false,
             colorSchemeCss: false,
             metaColorScheme: null,
             metaThemeColorDark: false,
@@ -443,6 +466,32 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
             result.cssCustomProperties = count;
         } catch(e) {}
 
+        // 6. Check for class-based dark mode in CSS selectors
+        try {
+            const darkClassPatterns = [
+                'html.dark', 'body.dark', ':root.dark',
+                '[data-theme="dark"]', "[data-theme='dark']",
+                '.dark-mode', '.theme-dark'
+            ];
+            classLoop:
+            for (const sheet of document.styleSheets) {
+                let rules;
+                try { rules = sheet.cssRules || sheet.rules; } catch (_) { continue; }
+                if (!rules) continue;
+                for (const rule of rules) {
+                    if (rule instanceof CSSStyleRule) {
+                        const sel = rule.selectorText || '';
+                        for (const pattern of darkClassPatterns) {
+                            if (sel.includes(pattern)) {
+                                result.hasClassBasedDarkMode = true;
+                                break classLoop;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+
         return JSON.stringify(result);
     })()
     "#;
@@ -457,6 +506,7 @@ async fn detect_static_support(page: &Page) -> Result<StaticDarkModeInfo> {
 
     Ok(StaticDarkModeInfo {
         has_dark_media_query: parsed["hasDarkMediaQuery"].as_bool().unwrap_or(false),
+        has_class_based_dark_mode: parsed["hasClassBasedDarkMode"].as_bool().unwrap_or(false),
         color_scheme_css: parsed["colorSchemeCss"].as_bool().unwrap_or(false),
         meta_color_scheme: parsed["metaColorScheme"]
             .as_str()
@@ -505,8 +555,11 @@ async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec
 // ─── Scoring ─────────────────────────────────────────────────────────────────
 
 fn compute_score(info: &StaticDarkModeInfo, dark_contrast_count: u32, dark_only: u32) -> u32 {
-    if !info.has_dark_media_query {
+    if !info.has_dark_media_query && !info.has_class_based_dark_mode {
         return 50;
+    }
+    if !info.has_dark_media_query && info.has_class_based_dark_mode {
+        return 65;
     }
 
     let mut score: i32 = 70;
@@ -551,6 +604,7 @@ mod tests {
     ) -> StaticDarkModeInfo {
         StaticDarkModeInfo {
             has_dark_media_query: has_dark,
+            has_class_based_dark_mode: false,
             color_scheme_css: color_scheme,
             meta_color_scheme: if meta {
                 Some("dark light".into())
@@ -791,5 +845,43 @@ mod tests {
 
         assert!(light_issue.is_some());
         assert_eq!(light_issue.unwrap().severity, "low");
+    }
+
+    #[test]
+    fn score_class_based_dark_mode_is_65() {
+        let info = StaticDarkModeInfo {
+            has_dark_media_query: false,
+            has_class_based_dark_mode: true,
+            color_scheme_css: false,
+            meta_color_scheme: None,
+            meta_theme_color_dark: false,
+            css_custom_properties: 0,
+        };
+        assert_eq!(compute_score(&info, 0, 0), 65);
+    }
+
+    #[test]
+    fn issues_class_based_dark_mode_not_reported_as_no_support() {
+        let info = StaticDarkModeInfo {
+            has_dark_media_query: false,
+            has_class_based_dark_mode: true,
+            color_scheme_css: false,
+            meta_color_scheme: None,
+            meta_theme_color_dark: false,
+            css_custom_properties: 0,
+        };
+        let issues = build_issues(&info, 0, 0, 0, &[]);
+        assert!(
+            issues
+                .iter()
+                .all(|i| !matches!(i.kind, DarkModeIssueKind::NoDarkModeSupport)),
+            "class-based dark mode should not be reported as NoDarkModeSupport"
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|i| matches!(i.kind, DarkModeIssueKind::IncompleteImplementation)),
+            "class-based dark mode should report IncompleteImplementation"
+        );
     }
 }
