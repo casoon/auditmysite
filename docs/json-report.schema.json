@@ -16,7 +16,9 @@
       "minItems": 1,
       "maxItems": 1,
       "items": { "$ref": "#/$defs/pageEntry" }
-    }
+    },
+    "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
+    "verdict_reasons": { "type": "array", "items": { "type": "string" } }
   },
   "$defs": {
     "metadata": {

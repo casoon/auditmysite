@@ -19,7 +19,9 @@
     "url_matrix": { "type": "array" },
     "internal_comparison": { "$ref": "#/$defs/internalComparison" },
     "crawl_diagnostics": { "type": ["object", "null"] },
-    "errors": { "type": "array" }
+    "errors": { "type": "array" },
+    "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
+    "verdict_reasons": { "type": "array", "items": { "type": "string" } }
   },
   "$defs": {
     "sample": {
