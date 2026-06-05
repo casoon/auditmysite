@@ -21,10 +21,12 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
             continue;
         }
         // Skip dialog/menu/combobox — those have their own patterns.
+        // Also skip Details (the <details> container): it carries expanded state
+        // but is not itself the clickable trigger — DisclosureTriangle (<summary>) is.
         let role = node.role.as_deref().unwrap_or("");
         if matches!(
             role,
-            "dialog" | "alertdialog" | "menu" | "combobox" | "listbox"
+            "dialog" | "alertdialog" | "menu" | "combobox" | "listbox" | "Details"
         ) {
             continue;
         }
@@ -39,7 +41,10 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         }
 
         // Accordion triggers must be buttons.
-        if role != "button" {
+        // DisclosureTriangle is Chrome's AX-tree role for <summary>, which has
+        // implicit ARIA role "button" per the HTML-ARIA spec — treat it as compliant.
+        let is_button_like = role == "button" || role == "DisclosureTriangle";
+        if !is_button_like {
             non_button_triggers += 1;
             out.violations.push(
                 Violation::new(
@@ -68,7 +73,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         // triggers even when aria-controls is correctly set in the DOM.
         // Nav/banner exception remains for disclosure menus that never expand
         // into a visible AX node.
-        if role == "button"
+        if is_button_like
             && expanded == Some(true)
             && !has_controls
             && !in_nav_or_banner(node, tree)
@@ -110,7 +115,8 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     );
 
     // Emit journey candidates for interactive accordion verification.
-    // Only button-role triggers, skip nav/banner contexts (handled by DisclosureMenu).
+    // Include both button and DisclosureTriangle (<summary>) triggers.
+    // Skip nav/banner contexts (handled by DisclosureMenu).
     for node in tree.iter() {
         if node.get_property_bool("expanded").is_none() {
             continue;
@@ -118,11 +124,11 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         let role = node.role.as_deref().unwrap_or("");
         if matches!(
             role,
-            "dialog" | "alertdialog" | "menu" | "combobox" | "listbox"
+            "dialog" | "alertdialog" | "menu" | "combobox" | "listbox" | "Details"
         ) {
             continue;
         }
-        if role != "button" {
+        if role != "button" && role != "DisclosureTriangle" {
             continue;
         }
         if in_nav_or_banner(node, tree) {
@@ -216,6 +222,35 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("should be a button")));
+    }
+
+    #[test]
+    fn test_disclosure_triangle_no_false_positive() {
+        // Chrome exposes <summary> as DisclosureTriangle in the AX tree.
+        // It has an implicit ARIA role of "button" per the HTML-ARIA spec
+        // and must not be reported as a non-button accordion trigger.
+        let tree = AXTree::from_nodes(vec![trigger("1", "DisclosureTriangle", None)]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(
+            !a.violations
+                .iter()
+                .any(|v| v.message.contains("should be a button")),
+            "DisclosureTriangle (<summary>) must not be flagged as non-button trigger"
+        );
+    }
+
+    #[test]
+    fn test_details_container_skipped() {
+        // The <details> element itself carries expanded state but is the container,
+        // not the trigger — it must not be counted as an accordion trigger.
+        let tree = AXTree::from_nodes(vec![trigger("1", "Details", None)]);
+        let mut a = PatternAnalysis::default();
+        detect(&tree, &mut a);
+        assert!(
+            a.violations.is_empty(),
+            "Details role (the <details> container) must not produce violations"
+        );
     }
 
     #[test]
