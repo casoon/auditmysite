@@ -148,8 +148,8 @@ impl ContrastRule {
     }
 
     fn is_invisible(style: &ComputedStyles) -> bool {
-        style.get("visibility").map_or(false, |v| v == "hidden")
-            || style.get("display").map_or(false, |v| v == "none")
+        style.get("visibility").is_some_and(|v| v == "hidden")
+            || style.get("display").is_some_and(|v| v == "none")
     }
 
     /// Collect pixel-sampling tasks for uncertain-background elements that appear
@@ -163,7 +163,7 @@ impl ContrastRule {
             };
             if !style
                 .get("background-uncertain")
-                .map_or(false, |v| v == "true")
+                .is_some_and(|v| v == "true")
             {
                 continue;
             }
@@ -576,7 +576,7 @@ impl Color {
             .split(',')
             .nth(3)
             .and_then(|s| s.trim().parse::<f64>().ok())
-            .map_or(false, |a| a <= 0.001)
+            .is_some_and(|a| a <= 0.001)
     }
 
     /// Parse color from CSS color string

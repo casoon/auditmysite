@@ -5,6 +5,7 @@
 //! - Tristate attributes: "true", "false", or "mixed"
 //! - Token-list attributes: one of a defined set of allowed tokens
 //! - ID-ref attributes: must reference existing DOM elements
+//!
 //! Level A
 
 use chromiumoxide::Page;

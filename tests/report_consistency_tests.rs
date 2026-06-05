@@ -1059,6 +1059,7 @@ fn test_json_report_includes_extra_module_keys() {
         supported: false,
         score: 0,
         detection_methods: vec![],
+        class_based_dark_mode: false,
         color_scheme_css: false,
         meta_color_scheme: None,
         meta_theme_color_dark: false,
