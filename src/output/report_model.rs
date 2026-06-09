@@ -413,6 +413,7 @@ pub struct FindingsBlock {
 
 /// Module detail presentations (unchanged from before)
 pub struct ModuleDetailsBlock {
+    pub search_experience: Option<SearchExperiencePresentation>,
     pub performance: Option<PerformancePresentation>,
     pub seo: Option<SeoPresentation>,
     pub security: Option<SecurityPresentation>,
@@ -427,6 +428,22 @@ pub struct ModuleDetailsBlock {
     pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
     pub patterns: Option<crate::patterns::PatternAnalysis>,
     pub has_any: bool,
+}
+
+/// Composite front-report score for findability, content clarity, trust and machine readability.
+pub struct SearchExperiencePresentation {
+    pub score: u32,
+    pub label: String,
+    pub interpretation: String,
+    pub components: Vec<SearchExperienceComponent>,
+    pub warnings: Vec<String>,
+}
+
+pub struct SearchExperienceComponent {
+    pub label: String,
+    pub score: u32,
+    pub weight_pct: u32,
+    pub explanation: String,
 }
 
 /// Dark mode analysis presentation block

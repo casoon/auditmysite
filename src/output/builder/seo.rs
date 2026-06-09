@@ -333,14 +333,14 @@ pub(super) fn summarize_page_profile(
     let quality = if en {
         match avg {
             85..=100 => "very coherently structured",
-            70..=84 => "substantively well built",
+            70..=84 => "technically and structurally well supported",
             50..=69 => "only partly clearly structured",
             _ => "currently weak in content and structure",
         }
     } else {
         match avg {
             85..=100 => "sehr stimmig aufgebaut",
-            70..=84 => "inhaltlich stabil und ausgewogen aufgestellt",
+            70..=84 => "technisch und strukturell gut gestützt",
             50..=69 => "nur teilweise klar strukturiert",
             _ => "aktuell inhaltlich und strukturell schwach ausgeprägt",
         }

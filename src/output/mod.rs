@@ -12,6 +12,7 @@ pub mod module;
 mod pdf;
 pub mod renderer;
 pub mod report_model;
+pub mod search_experience;
 pub mod snapshot_export;
 pub mod sr_audit_json;
 pub mod summary;

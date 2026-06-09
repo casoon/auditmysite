@@ -1,8 +1,8 @@
-//! SEO Content Profile — Inhaltsanalyse & Strategiebewertung
+//! SEO Content Profile — technical content and signal profile
 //!
 //! Analysiert die vorhandenen SEO-Rohdaten (Meta, Headings, JSON-LD, Social, Technical)
-//! und erzeugt eine kompakte Zusammenfassung: Was ist die Seite, welche SEO-Strategien
-//! werden eingesetzt, wie vollständig sind strukturierte Daten.
+//! und erzeugt eine kompakte Zusammenfassung: Was ist die Seite, welche technischen
+//! SEO-Signale werden eingesetzt, wie vollständig sind strukturierte Daten.
 
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,9 @@ impl SeoMaturityLevel {
             Self::Basic => "Grundlegende SEO-Maßnahmen fehlen weitgehend.",
             Self::Standard => "Basis-SEO ist vorhanden, fortgeschrittene Techniken fehlen.",
             Self::Advanced => "Gute SEO-Abdeckung mit strukturierten Daten und Social Tags.",
-            Self::Professional => "Umfassende SEO-Strategie mit vollständiger Technik-Abdeckung.",
+            Self::Professional => {
+                "Sehr breite technische SEO-Abdeckung; keine Aussage zur strategischen Content-Qualität."
+            }
         }
     }
 
@@ -1423,7 +1425,7 @@ fn build_content_signals(seo: &SeoAnalysis) -> SignalCategory {
 
     let checks = vec![
         check(
-            "Inhaltsstärke (≥ 300 Wörter, Richtwert)",
+            "Lesbarer Textumfang (≥ 300 Wörter, Richtwert)",
             wc >= 300,
             Some(format!("{} Wörter", wc)),
         ),
@@ -1440,7 +1442,7 @@ fn build_content_signals(seo: &SeoAnalysis) -> SignalCategory {
     ];
     let score_pct = category_score(&checks);
     SignalCategory {
-        name: "Inhaltsqualität".to_string(),
+        name: "Technische Inhaltsbasis".to_string(),
         score_pct,
         checks,
     }

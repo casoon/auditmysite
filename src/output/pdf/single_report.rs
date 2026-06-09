@@ -14,8 +14,8 @@ use super::appendix::build_cli_snapshot_table;
 use super::detail_modules::{
     render_a11y_journey_findings, render_ai_visibility, render_best_practices,
     render_budget_violations, render_content_visibility, render_dark_mode, render_journey,
-    render_mobile, render_performance, render_security, render_seo, render_source_quality,
-    render_tech_stack, render_ux,
+    render_mobile, render_performance, render_search_experience, render_security, render_seo,
+    render_source_quality, render_tech_stack, render_ux,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::findings::render_finding_technical;
@@ -630,7 +630,8 @@ fn render_part3_header(
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
     // Part 3 — SEO, AI & Quality (optional). Only render if any module is present (#246).
-    let has_part3 = vm.module_details.seo.is_some()
+    let has_part3 = vm.module_details.search_experience.is_some()
+        || vm.module_details.seo.is_some()
         || vm.module_details.ai_visibility.is_some()
         || vm.module_details.content_visibility.is_some()
         || vm.module_details.performance.is_some()
@@ -663,14 +664,15 @@ fn render_part3_header(
             )
         };
         let mut p3_contents: Vec<&str> = Vec::new();
-        if vm.module_details.seo.is_some()
+        if vm.module_details.search_experience.is_some()
+            || vm.module_details.seo.is_some()
             || vm.module_details.ai_visibility.is_some()
             || vm.module_details.content_visibility.is_some()
         {
             p3_contents.push(if en {
-                "SEO, AI visibility, and content authority signals"
+                "Search experience, SEO, AI visibility, and content authority signals"
             } else {
-                "SEO, KI-Sichtbarkeit und inhaltliche Autoritätssignale"
+                "Search Experience, SEO, KI-Sichtbarkeit und inhaltliche Autoritätssignale"
             });
         }
         if vm.module_details.performance.is_some() || !report.budget_violations.is_empty() {
@@ -740,6 +742,9 @@ fn render_module_sections(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
+    if let Some(ref sx) = vm.module_details.search_experience {
+        builder = render_search_experience(builder, sx, i18n);
+    }
     if let Some(ref seo) = vm.module_details.seo {
         builder = render_seo(builder, seo, i18n);
     }

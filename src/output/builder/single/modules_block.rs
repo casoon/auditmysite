@@ -1,6 +1,7 @@
 use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::report_model::{ModuleScore, ModulesBlock};
+use crate::output::search_experience::build_search_experience;
 
 use super::super::helpers::localized_module_name;
 use super::super::modules::{
@@ -8,9 +9,7 @@ use super::super::modules::{
     derive_mobile_card_context, derive_mobile_context, derive_mobile_lever,
     derive_performance_card_context, derive_performance_context, derive_performance_lever,
     derive_security_card_context, derive_security_context, derive_security_lever,
-    derive_seo_card_context, derive_seo_context, derive_seo_lever,
 };
-use super::super::seo::build_seo_interpretation;
 use super::module_details::normalized_module_score;
 
 fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &str) -> String {
@@ -54,16 +53,24 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 50,
         });
     }
-    if let Some(ref s) = normalized.raw_seo {
-        let score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
+    if let Some(search_experience) = build_search_experience(normalized, i18n) {
         dashboard.push(ModuleScore {
-            name: "SEO".into(),
-            score,
-            measurement_type: "measured".into(),
-            interpretation: build_seo_interpretation(locale, s),
-            card_context: derive_seo_card_context(i18n, s),
-            score_context: derive_seo_context(i18n, s),
-            key_lever: derive_seo_lever(i18n, s),
+            name: search_experience.label.clone(),
+            score: search_experience.score,
+            measurement_type: "composite".into(),
+            interpretation: search_experience.interpretation.clone(),
+            card_context: search_experience.interpretation.clone(),
+            score_context: search_experience
+                .components
+                .iter()
+                .map(|c| format!("{} {}%: {}/100", c.label, c.weight_pct, c.score))
+                .collect::<Vec<_>>()
+                .join(", "),
+            key_lever: search_experience
+                .warnings
+                .first()
+                .cloned()
+                .unwrap_or_else(|| search_experience.interpretation.clone()),
             good_threshold: 75,
             warn_threshold: 50,
         });

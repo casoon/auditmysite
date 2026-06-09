@@ -9,6 +9,7 @@ use crate::output::report_model::{
     ThirdPartyOriginRow, ThirdPartyPresentation, ThrottledPerfEntry, UxDimensionPresentation,
     UxIssuePresentation, UxPresentation,
 };
+use crate::output::search_experience::build_search_experience;
 
 use super::super::helpers::{truncate_list, truncate_url_list, yes_no};
 use super::super::modules::{
@@ -1381,6 +1382,7 @@ pub(super) fn build_module_details_from_normalized(
     normalized: &AuditContext,
 ) -> ModuleDetailsBlock {
     let performance = build_performance_details(normalized, i18n);
+    let search_experience = build_search_experience(normalized, i18n);
     let seo = build_seo_details(normalized, i18n);
     let security = build_security_details(normalized, i18n);
     let mobile = build_mobile_details(normalized, i18n);
@@ -1396,6 +1398,7 @@ pub(super) fn build_module_details_from_normalized(
     let patterns = normalized.raw_patterns.clone();
 
     let has_any = performance.is_some()
+        || search_experience.is_some()
         || seo.is_some()
         || security.is_some()
         || mobile.is_some()
@@ -1410,6 +1413,7 @@ pub(super) fn build_module_details_from_normalized(
         || patterns.is_some();
 
     ModuleDetailsBlock {
+        search_experience,
         performance,
         seo,
         security,

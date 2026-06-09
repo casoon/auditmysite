@@ -393,7 +393,7 @@ mod tests {
     #[test]
     fn test_module_scores_in_viewmodel_match_normalized() {
         // Module scores in NormalizedReport must all appear in vm.summary.metrics.
-        // Performance, SEO, Security, UX each produce a dashboard card.
+        // Performance, Search Experience, Security, UX each produce a dashboard card.
         // (Journey is intentionally absent from the dashboard — it has its own detail section.)
         let report = make_topic_report_with_modules(
             "https://example.com/",
@@ -416,7 +416,13 @@ mod tests {
         let vm = build_view_model(&normalized, &config);
 
         // Each non-Journey module must have a matching dashboard card.
-        let dashboard_modules = ["Accessibility", "Performance", "SEO", "Security", "UX"];
+        let dashboard_modules = [
+            "Accessibility",
+            "Performance",
+            "Search Experience",
+            "Security",
+            "UX",
+        ];
         for &expected in &dashboard_modules {
             assert!(
                 vm.modules
@@ -431,6 +437,80 @@ mod tests {
             dashboard_modules.len(),
             "Dashboard card count mismatch"
         );
+        assert!(
+            vm.module_details.seo.is_some(),
+            "technical SEO detail section must remain available"
+        );
+        assert!(
+            vm.module_details.search_experience.is_some(),
+            "composite Search Experience detail section must be present"
+        );
+    }
+
+    #[test]
+    fn test_search_experience_dashboard_corrects_optimistic_seo_score() {
+        let report = make_topic_report_with_modules(
+            "https://example.com/",
+            "Technically OK",
+            "Technically complete page.",
+            &["Offers"],
+            "short image-led content",
+            72.0,
+            88,
+            70,
+            90,
+        )
+        .with_ux(crate::ux::UxAnalysis {
+            score: 62,
+            grade: "D".into(),
+            cta_clarity: crate::ux::UxDimension {
+                name: "CTA Clarity".into(),
+                score: 70,
+                weight: 0.30,
+                summary: "CTA ausreichend".into(),
+            },
+            visual_hierarchy: crate::ux::UxDimension {
+                name: "Visual Hierarchy".into(),
+                score: 60,
+                weight: 0.20,
+                summary: "Heading-Hierarchie lueckenhaft".into(),
+            },
+            content_clarity: crate::ux::UxDimension {
+                name: "Content Clarity".into(),
+                score: 45,
+                weight: 0.20,
+                summary: "Wenig verwertbarer Inhalt".into(),
+            },
+            trust_signals: crate::ux::UxDimension {
+                name: "Trust Signals".into(),
+                score: 35,
+                weight: 0.15,
+                summary: "Wichtige Vertrauenssignale fehlen".into(),
+            },
+            cognitive_load: crate::ux::UxDimension {
+                name: "Cognitive Load".into(),
+                score: 100,
+                weight: 0.15,
+                summary: "Angemessene Komplexität".into(),
+            },
+            issues: vec![],
+        });
+
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+        let sx = vm
+            .modules
+            .dashboard
+            .iter()
+            .find(|m| m.name.contains("Sichtbarkeit"))
+            .expect("Search Experience dashboard card missing");
+
+        assert!(
+            sx.score < 88,
+            "composite score should correct SEO-only score"
+        );
+        assert!(sx.interpretation.contains("Technisch auffindbar"));
+        assert!(vm.modules.dashboard.iter().all(|m| m.name != "SEO"));
     }
 
     fn make_topic_report(

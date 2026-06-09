@@ -287,52 +287,6 @@ pub(super) fn derive_performance_recommendations(
     recommendations
 }
 
-// ─── SEO ─────────────────────────────────────────────────────────────────────
-
-pub(super) fn derive_seo_lever(i18n: &I18n, seo: &crate::seo::SeoAnalysis) -> String {
-    if !seo.meta_issues.is_empty() {
-        return i18n.t_args(
-            "lever-seo-meta",
-            &[("open_issues", seo.meta_issues.len().to_string())],
-        );
-    }
-    if seo.social.completeness < 80 {
-        return i18n.t("lever-seo-social");
-    }
-    i18n.t("lever-seo-default")
-}
-
-pub(super) fn derive_seo_context(i18n: &I18n, seo: &crate::seo::SeoAnalysis) -> String {
-    let meta_issues = seo.meta_issues.len();
-    let schema_count = seo.structured_data.json_ld.len();
-    let h1 = seo.headings.h1_count;
-    i18n.t_args(
-        "context-seo-summary",
-        &[
-            ("meta_issues", meta_issues.to_string()),
-            ("h1", h1.to_string()),
-            ("schema_count", schema_count.to_string()),
-        ],
-    )
-}
-
-pub(super) fn derive_seo_card_context(i18n: &I18n, seo: &crate::seo::SeoAnalysis) -> String {
-    if !seo.meta_issues.is_empty() {
-        i18n.t_args(
-            "card-seo-meta",
-            &[("meta_issues", seo.meta_issues.len().to_string())],
-        )
-    } else {
-        i18n.t_args(
-            "card-seo-schema",
-            &[(
-                "schema_count",
-                seo.structured_data.json_ld.len().to_string(),
-            )],
-        )
-    }
-}
-
 // ─── Security ────────────────────────────────────────────────────────────────
 
 pub(super) fn derive_security_lever(

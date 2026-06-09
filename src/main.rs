@@ -37,7 +37,7 @@ async fn main() {
     let interactive_from_cli =
         matches.value_source("interactive") == Some(clap::parser::ValueSource::CommandLine);
     let request_mode_from_cli =
-        matches.value_source("request-mode") == Some(clap::parser::ValueSource::CommandLine);
+        matches.value_source("request_mode") == Some(clap::parser::ValueSource::CommandLine);
     let mut args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     setup_logging(&args);
 

@@ -12,6 +12,81 @@ use crate::output::report_model::*;
 
 use super::helpers::{map_severity, score_quality_color, score_quality_label};
 
+pub(super) fn render_search_experience(
+    mut builder: renderreport::engine::ReportBuilder,
+    sx: &SearchExperiencePresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let title = if en {
+        "Search Experience"
+    } else {
+        "Sichtbarkeit & Nutzerverständnis"
+    };
+    let body = if en {
+        "This composite combines classic technical SEO with content clarity, trust signals, AI readability, semantic structure and mobile readability. Classic SEO remains visible in the next detail section."
+    } else {
+        "Dieser Gesamtwert verbindet klassisches technisches SEO mit Inhaltsverständlichkeit, Vertrauenssignalen, KI-Lesbarkeit, semantischer Struktur und mobiler Lesbarkeit. Das klassische SEO bleibt im nächsten Detailkapitel sichtbar."
+    };
+
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new(title).with_level(2))
+        .add_component(Callout::info(body).with_title(if en {
+            "Why this value exists"
+        } else {
+            "Warum dieser Wert vorne steht"
+        }))
+        .add_component(module_customer_context(
+            i18n,
+            "search_experience",
+            sx.score,
+            &sx.interpretation,
+        ))
+        .add_component(
+            ScoreCard::new(&sx.label, sx.score)
+                .with_description(&sx.interpretation)
+                .with_thresholds(75, 50),
+        );
+
+    if !sx.components.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if en { "Component" } else { "Bestandteil" }).with_width("28%"),
+            TableColumn::new(if en { "Weight" } else { "Gewicht" }).with_width("14%"),
+            TableColumn::new("Score").with_width("14%"),
+            TableColumn::new(if en { "Meaning" } else { "Einordnung" }).with_width("44%"),
+        ])
+        .with_title(if en {
+            "How the score is composed"
+        } else {
+            "Wie sich der Wert zusammensetzt"
+        });
+        for component in &sx.components {
+            table = table.add_row(vec![
+                component.label.clone(),
+                format!("{}%", component.weight_pct),
+                format!("{}/100", component.score),
+                component.explanation.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !sx.warnings.is_empty() {
+        let mut list = List::new().with_title(if en {
+            "What still goes wrong"
+        } else {
+            "Was noch schief läuft"
+        });
+        for warning in &sx.warnings {
+            list = list.add_item(warning);
+        }
+        builder = builder.add_component(list);
+    }
+
+    builder
+}
+
 pub(super) fn render_budget_violations(
     mut builder: renderreport::engine::ReportBuilder,
     violations: &[crate::audit::BudgetViolation],
@@ -1572,6 +1647,8 @@ fn module_customer_context(
         ("performance", false) => "Besucher können Verzögerungen, instabiles Rendering oder unnötige Datenmenge erleben, bevor die Seite nutzbar wirkt.",
         ("seo", true) => "Search engines and AI systems need clear titles, headings, structured data and enough readable content to understand the page.",
         ("seo", false) => "Suchmaschinen und KI-Systeme benötigen klare Titel, Überschriften, strukturierte Daten und ausreichend lesbaren Inhalt, um die Seite zu verstehen.",
+        ("search_experience", true) => "This score combines technical findability with whether users, search engines and AI systems can actually understand and trust the content.",
+        ("search_experience", false) => "Dieser Wert verbindet technische Auffindbarkeit mit der Frage, ob Nutzer, Suchmaschinen und KI-Systeme die Inhalte tatsächlich verstehen und ihnen vertrauen können.",
         ("security", true) => "Security headers and HTTPS signals influence visible trust and reduce avoidable browser-side risk in the checked scope.",
         ("security", false) => "Security Header und HTTPS-Signale beeinflussen sichtbares Vertrauen und reduzieren vermeidbare Browser-Risiken im geprüften Umfang.",
         ("mobile", true) => "Mobile visitors depend on readable text, fitting content and controls that are easy to tap on small screens.",
