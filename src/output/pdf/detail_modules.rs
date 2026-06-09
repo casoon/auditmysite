@@ -1600,30 +1600,6 @@ fn module_customer_context(
     Callout::info(parts.join(" ")).with_title(title)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::module_customer_context;
-    use crate::i18n::I18n;
-    use renderreport::components::Component;
-
-    #[test]
-    fn module_customer_context_explains_non_accessibility_modules() {
-        let i18n = I18n::new("de").expect("de locale");
-        let perf = module_customer_context(&i18n, "performance", 59, "Ladezeit ist ausbaufähig.")
-            .to_data();
-        let perf_text = perf.to_string();
-        assert!(perf_text.contains("Was das für Kunden bedeutet"));
-        assert!(perf_text.contains("Verzögerungen"));
-        assert!(perf_text.contains("Verbesserungspotenzial"));
-
-        let ai = module_customer_context(&i18n, "ai_visibility", 42, "").to_data();
-        let ai_text = ai.to_string();
-        assert!(ai_text.contains("KI-Sichtbarkeit"));
-        assert!(ai_text.contains("gelesen"));
-        assert!(ai_text.contains("zitiert"));
-    }
-}
-
 fn score_color(score: u32) -> &'static str {
     if score >= 75 {
         "#0f766e"
@@ -2282,4 +2258,28 @@ pub(super) fn render_a11y_journey_findings(
     builder = builder.add_component(Callout::info(disclaimer));
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::module_customer_context;
+    use crate::i18n::I18n;
+    use renderreport::components::Component;
+
+    #[test]
+    fn module_customer_context_explains_non_accessibility_modules() {
+        let i18n = I18n::new("de").expect("de locale");
+        let perf = module_customer_context(&i18n, "performance", 59, "Ladezeit ist ausbaufähig.")
+            .to_data();
+        let perf_text = perf.to_string();
+        assert!(perf_text.contains("Was das für Kunden bedeutet"));
+        assert!(perf_text.contains("Verzögerungen"));
+        assert!(perf_text.contains("Verbesserungspotenzial"));
+
+        let ai = module_customer_context(&i18n, "ai_visibility", 42, "").to_data();
+        let ai_text = ai.to_string();
+        assert!(ai_text.contains("KI-Sichtbarkeit"));
+        assert!(ai_text.contains("gelesen"));
+        assert!(ai_text.contains("zitiert"));
+    }
 }

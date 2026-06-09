@@ -161,9 +161,9 @@ impl ContrastRule {
                 Some(c) => c,
                 None => continue,
             };
-            if !style
+            if style
                 .get("background-uncertain")
-                .is_some_and(|v| v == "true")
+                .is_none_or(|v| v != "true")
             {
                 continue;
             }
