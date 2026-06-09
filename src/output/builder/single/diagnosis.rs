@@ -111,13 +111,13 @@ pub(super) fn build_criticality_groups(
                         (
                             "Mandatory — must be fixed".to_string(),
                             "LEVEL 1 · MANDATORY".to_string(),
-                            "Accessibility violations under WCAG Level A/AA — legally relevant under the BFSG. These findings carry the highest priority and must be remediated.".to_string(),
+                            "Accessibility violations under WCAG Level A/AA — legally relevant under the BFSG. These findings describe barriers that must be remediated for conformance.".to_string(),
                         )
                     } else {
                         (
                             "Pflicht — muss behoben werden".to_string(),
                             "EBENE 1 · PFLICHT".to_string(),
-                            "Barrierefreiheits-Verstöße nach WCAG Level A/AA — gesetzlich relevant nach BFSG. Diese Befunde haben höchste Priorität und müssen behoben werden.".to_string(),
+                            "Barrierefreiheits-Verstöße nach WCAG Level A/AA — gesetzlich relevant nach BFSG. Diese Befunde beschreiben Barrieren, die für Konformität behoben werden müssen.".to_string(),
                         )
                     }
                 }

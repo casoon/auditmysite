@@ -623,6 +623,143 @@ mod tests {
         );
     }
 
+    fn report_with_repeated_rule(
+        url: &str,
+        rule: &str,
+        name: &str,
+        severity: Severity,
+        count: usize,
+    ) -> AuditReport {
+        let mut results = WcagResults::new();
+        for idx in 0..count {
+            results.add_violation(
+                Violation::new(
+                    rule,
+                    name,
+                    WcagLevel::AA,
+                    severity,
+                    format!("{name} occurrence {idx}"),
+                    format!("node-{idx}"),
+                )
+                .with_selector(format!("#item-{idx}"))
+                .with_fix(format!("Fix required for {name}")),
+            );
+        }
+        AuditReport::new(url.to_string(), WcagLevel::AA, results, 1_500)
+    }
+
+    #[test]
+    fn report_archetype_many_repeated_findings_is_component_pattern() {
+        let report = report_with_repeated_rule(
+            "https://auto-birne.example",
+            "4.1.2",
+            "Name, Role, Value",
+            Severity::High,
+            12,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        assert!(vm.severity.component_issues > 0);
+        assert!(vm.severity.component_occurrences >= 10);
+        assert!(vm
+            .findings
+            .top_findings
+            .iter()
+            .any(|f| f.is_component_issue && f.occurrence_count >= 10));
+    }
+
+    #[test]
+    fn report_archetype_mixed_findings_keeps_breadth_visible() {
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "4.1.2",
+            "Name, Role, Value",
+            WcagLevel::A,
+            Severity::High,
+            "Missing accessible name",
+            "node-name",
+        ));
+        results.add_violation(Violation::new(
+            "2.4.4",
+            "Link Purpose",
+            WcagLevel::A,
+            Severity::Medium,
+            "Generic link text",
+            "node-link",
+        ));
+        let mut report = AuditReport::new(
+            "https://berkeley.example".to_string(),
+            WcagLevel::AA,
+            results,
+            1_500,
+        );
+        report.seo = Some(crate::seo::SeoAnalysis {
+            headings: crate::seo::HeadingStructure {
+                issues: vec![crate::seo::HeadingIssue {
+                    issue_type: "empty_heading".to_string(),
+                    message: "Leere Überschrift".to_string(),
+                    severity: Severity::High,
+                }],
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        assert!(vm.findings.all_findings.len() >= 3);
+        assert_eq!(vm.severity.component_issues, 0);
+        assert!(vm
+            .findings
+            .all_findings
+            .iter()
+            .any(|f| f.dimension.as_deref() == Some("SEO")));
+    }
+
+    #[test]
+    fn report_archetype_single_design_issue_becomes_dominant_pattern() {
+        let report = report_with_repeated_rule(
+            "https://casoon.example",
+            "1.4.3",
+            "Contrast (Minimum)",
+            Severity::High,
+            25,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        assert!(vm.severity.component_issues > 0);
+        assert!(vm.diagnosis.dominant_issue.is_some());
+        assert!(vm
+            .findings
+            .top_findings
+            .iter()
+            .any(|f| f.is_component_issue && f.occurrence_count == 25));
+    }
+
+    #[test]
+    fn report_archetype_clean_accessibility_still_has_module_context() {
+        let report = AuditReport::new(
+            "https://mv-lack.example".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1_500,
+        );
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+
+        assert_eq!(vm.summary.score, 100);
+        assert_eq!(vm.severity.total, 0);
+        assert!(vm
+            .summary
+            .score_note
+            .as_deref()
+            .unwrap_or_default()
+            .contains("keine bestätigten Accessibility-Verstöße"));
+        assert!(vm.summary.verdict.contains("100/100"));
+    }
+
     /// Builds an AuditReport with all 11 modules registered in `active_modules()`.
     fn all_active_modules_report() -> AuditReport {
         use crate::audit::PerformanceResults;

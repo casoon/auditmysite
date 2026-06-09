@@ -35,11 +35,20 @@ pub(super) fn render_key_finding_block(
     let en = i18n.locale() == "en";
     let recommendation_label = if en { "Recommendation" } else { "Empfehlung" };
 
-    builder = builder.add_component(Label::new(&title).bold().with_size("11pt"));
+    builder = builder
+        .add_component(Label::new(&title).bold().with_size("11pt"))
+        .add_component(
+            Callout::info(customer_perspective_body(group, en))
+                .with_title(customer_perspective_title(group, en)),
+        );
 
     if let Some(ref cause) = group.structural_cause {
         if group.is_component_issue {
-            builder = builder.add_component(Callout::warning(cause).with_title("Root Cause"));
+            builder = builder.add_component(Callout::warning(cause).with_title(if en {
+                "Recurring pattern"
+            } else {
+                "Wiederkehrendes Muster"
+            }));
         }
     }
 
@@ -109,6 +118,113 @@ pub(super) fn first_sentence(text: &str) -> &str {
     text
 }
 
+fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
+    let rule = group.rule_id.as_str();
+    let dimension = group.dimension.as_deref().unwrap_or_default();
+    let subcategory = group.subcategory.as_deref().unwrap_or_default();
+    let haystack = format!(
+        "{} {} {} {}",
+        rule,
+        dimension,
+        subcategory,
+        group.title.to_lowercase()
+    );
+
+    if haystack.contains("name_role")
+        || haystack.contains("focus")
+        || haystack.contains("keyboard")
+        || haystack.contains("button")
+        || haystack.contains("link_purpose")
+        || haystack.contains("target")
+        || haystack.contains("form")
+    {
+        if en {
+            "Operability"
+        } else {
+            "Bedienbarkeit"
+        }
+    } else if haystack.contains("structure")
+        || haystack.contains("heading")
+        || haystack.contains("landmark")
+        || haystack.contains("region")
+        || haystack.contains("bypass")
+        || haystack.contains("parsing")
+        || haystack.contains("semant")
+    {
+        if en {
+            "Orientation and structure"
+        } else {
+            "Orientierung und Struktur"
+        }
+    } else if haystack.contains("contrast")
+        || haystack.contains("color")
+        || haystack.contains("image")
+        || haystack.contains("alt")
+        || haystack.contains("visibility")
+    {
+        if en {
+            "Perception and readability"
+        } else {
+            "Wahrnehmbarkeit und Lesbarkeit"
+        }
+    } else if dimension == "SEO"
+        || haystack.contains("seo")
+        || haystack.contains("schema")
+        || haystack.contains("meta")
+        || haystack.contains("ai")
+    {
+        if en {
+            "Discoverability and AI understanding"
+        } else {
+            "Auffindbarkeit und KI-Verständnis"
+        }
+    } else if dimension == "Security" || haystack.contains("security") {
+        if en {
+            "Trust and technical quality"
+        } else {
+            "Vertrauen und technische Qualität"
+        }
+    } else if dimension == "Performance" || dimension == "Mobile" {
+        if en {
+            "Loading and mobile experience"
+        } else {
+            "Lade- und Mobile-Erlebnis"
+        }
+    } else if en {
+        "Customer impact"
+    } else {
+        "Kundenauswirkung"
+    }
+}
+
+fn customer_perspective_body(group: &FindingGroup, en: bool) -> String {
+    let impact = first_sentence(&group.user_impact);
+    let base = match customer_perspective_title(group, en) {
+        "Operability" => "This finding affects whether visitors can reliably use controls, links, forms or keyboard focus.",
+        "Bedienbarkeit" => "Dieser Befund betrifft, ob Besucher Bedienelemente, Links, Formulare oder Tastaturfokus zuverlässig nutzen können.",
+        "Orientation and structure" => "This finding affects whether people, assistive technologies, search engines and AI systems can understand the page structure.",
+        "Orientierung und Struktur" => "Dieser Befund betrifft, ob Menschen, assistive Technologien, Suchmaschinen und KI-Systeme die Seitenstruktur verstehen.",
+        "Perception and readability" => "This finding affects whether content is visible, distinguishable or readable for all visitors.",
+        "Wahrnehmbarkeit und Lesbarkeit" => "Dieser Befund betrifft, ob Inhalte für alle Besucher sichtbar, unterscheidbar oder lesbar sind.",
+        "Discoverability and AI understanding" => "This finding affects whether the page can be found, summarized and cited reliably by search engines or AI systems.",
+        "Auffindbarkeit und KI-Verständnis" => "Dieser Befund betrifft, ob die Seite von Suchmaschinen oder KI-Systemen zuverlässig gefunden, zusammengefasst und zitiert werden kann.",
+        "Trust and technical quality" => "This finding affects visible trust signals and the technical reliability of the checked page.",
+        "Vertrauen und technische Qualität" => "Dieser Befund betrifft sichtbare Vertrauenssignale und die technische Verlässlichkeit der geprüften Seite.",
+        "Loading and mobile experience" => "This finding affects how the page feels while loading, especially on constrained devices or networks.",
+        "Lade- und Mobile-Erlebnis" => "Dieser Befund betrifft, wie sich die Seite beim Laden anfühlt, besonders auf eingeschränkten Geräten oder Netzwerken.",
+        _ if en => "This finding affects the customer-facing quality of the checked page.",
+        _ => "Dieser Befund betrifft die kundennahe Qualität der geprüften Seite.",
+    };
+
+    if impact.is_empty() {
+        base.to_string()
+    } else if en {
+        format!("{base} Audit impact: {impact}")
+    } else {
+        format!("{base} Auswirkung im Audit: {impact}")
+    }
+}
+
 fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
     let en = i18n.locale() == "en";
     match (value, en) {
@@ -152,6 +268,14 @@ pub(super) fn render_finding_technical(
     builder = builder.add_component(Label::new(&header).bold().with_size("14pt"));
 
     let mut meta_kv = KeyValueList::new()
+        .add(
+            if i18n.locale() == "en" {
+                "Customer view"
+            } else {
+                "Kundensicht"
+            },
+            customer_perspective_title(group, i18n.locale() == "en"),
+        )
         .add(
             i18n.t("label-priority"),
             priority_label_i18n(group.priority, i18n),
@@ -413,4 +537,107 @@ fn extract_element_type(selector: &str) -> &str {
         .find(|c: char| !c.is_ascii_alphanumeric() && c != '-')
         .unwrap_or(last_token.len());
     &last_token[..end]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::customer_perspective_title;
+    use crate::output::report_model::{
+        CriticalityTier, Effort, FindingGroup, FindingPatternCluster, NarrativeArc, Priority, Role,
+    };
+    use crate::wcag::Severity;
+
+    fn group(rule_id: &str, title: &str, dimension: &str) -> FindingGroup {
+        FindingGroup {
+            title: title.to_string(),
+            rule_id: rule_id.to_string(),
+            wcag_criterion: String::new(),
+            wcag_level: String::new(),
+            help_url: None,
+            dimension: Some(dimension.to_string()),
+            subcategory: None,
+            issue_class: None,
+            severity: Severity::High,
+            priority: Priority::High,
+            customer_description: String::new(),
+            user_impact: "Nutzer können die betroffene Funktion nicht zuverlässig verwenden."
+                .to_string(),
+            business_impact: String::new(),
+            typical_cause: String::new(),
+            recommendation: String::new(),
+            technical_note: String::new(),
+            confidence: String::new(),
+            false_positive_risk: String::new(),
+            verification: String::new(),
+            complexity: String::new(),
+            complexity_reason: String::new(),
+            expected_impact: String::new(),
+            bfsg_relevance: String::new(),
+            remediation_priority: String::new(),
+            occurrence_count: 1,
+            affected_urls: vec![],
+            affected_elements: 1,
+            additional_occurrences: 0,
+            pattern_clusters: Vec::<FindingPatternCluster>::new(),
+            location_hints: vec![],
+            representative_occurrences: vec![],
+            responsible_role: Role::Development,
+            effort: Effort::Medium,
+            execution_priority: crate::output::report_model::ExecutionPriority::Important,
+            examples: vec![],
+            structural_cause: None,
+            is_component_issue: false,
+            criticality_tier: CriticalityTier::Mandatory,
+            narrative: NarrativeArc {
+                diagnose: String::new(),
+                ursache: String::new(),
+                wirkung: String::new(),
+                umsetzung: String::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn finding_customer_perspective_maps_common_audit_topics() {
+        assert_eq!(
+            customer_perspective_title(
+                &group(
+                    "a11y.name_role.missing",
+                    "Fehlende Name/Rolle",
+                    "Accessibility"
+                ),
+                false,
+            ),
+            "Bedienbarkeit"
+        );
+        assert_eq!(
+            customer_perspective_title(
+                &group(
+                    "a11y.structure.missing",
+                    "Fehlende semantische Struktur",
+                    "Accessibility"
+                ),
+                false,
+            ),
+            "Orientierung und Struktur"
+        );
+        assert_eq!(
+            customer_perspective_title(
+                &group(
+                    "a11y.contrast.weak",
+                    "Unzureichender Farbkontrast",
+                    "Accessibility"
+                ),
+                false,
+            ),
+            "Wahrnehmbarkeit und Lesbarkeit"
+        );
+        assert_eq!(
+            customer_perspective_title(
+                &group("seo.headings.empty_heading", "Leere Überschrift", "SEO"),
+                false,
+            ),
+            "Orientierung und Struktur"
+        );
+    }
 }

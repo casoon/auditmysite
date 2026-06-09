@@ -233,16 +233,16 @@ fn build_single_report(
                 "Risk classification (BFSG relevance)",
                 "Top 5 critical and high-severity issues",
                 "Business impact and consequences",
-                "Effort estimation (quick wins, medium effort, complex)",
-                "Recommended next steps",
+                "Customer-facing site diagnosis",
+                "Recommended improvements",
             ]
         } else {
             vec![
                 "Risikoeinstufung (BFSG-Relevanz)",
                 "Top 5 kritische und hohe Probleme",
                 "Geschäftliche Auswirkungen und Konsequenzen",
-                "Aufwandsschätzung (Quick Wins, mittlerer Aufwand, komplex)",
-                "Empfohlene nächste Schritte",
+                "Kundensichtliche Diagnose",
+                "Empfohlene Verbesserungen",
             ]
         };
         builder = render_part_divider(
@@ -321,6 +321,9 @@ fn build_single_report(
                 ),
             ],
         ));
+
+        builder = builder.add_component(build_customer_diagnosis_panel(&vm, &i18n));
+        builder = render_audit_confidence_notes(builder, &normalized.audit_flags, &i18n);
 
         if vm.meta.report_level != ReportLevel::Executive {
             builder = builder.add_component(build_module_strip(&vm, &i18n));
@@ -500,24 +503,26 @@ fn build_single_report(
                 let msg = if en {
                     format!(
                         "{} of the {} occurrences above stem from {} component issue(s) \
-                         in shared templates. Each component fix resolves all its occurrences \
-                         at once — prioritize these first.",
+                         in shared templates. This is probably not a set of isolated defects, \
+                         but a recurring pattern in a component, template or design rule.",
                         co, vm.severity.total, ci,
                     )
                 } else {
                     format!(
                         "{} der {} Vorkommen oben stammen aus {} Komponentenproblem(en) \
-                         in gemeinsamen Templates. Jeder Komponenten-Fix behebt alle \
-                         seine Vorkommen auf einmal — diese zuerst priorisieren.",
+                         in gemeinsamen Templates. Das spricht eher für ein wiederkehrendes \
+                         Muster in Komponente, Template oder Designregel als für viele \
+                         unabhängige Einzelfehler.",
                         co, vm.severity.total, ci,
                     )
                 };
                 let label = if en {
-                    "Component Issues"
+                    "Recurring pattern"
                 } else {
-                    "Komponentenprobleme"
+                    "Wiederkehrendes Muster"
                 };
                 builder = builder.add_component(Callout::warning(&msg).with_title(label));
+                builder = builder.add_component(build_recurring_pattern_panel(&vm, &i18n));
             }
         }
 
@@ -566,6 +571,204 @@ fn build_single_report(
 
     let built_report = builder.build();
     Ok((engine, built_report))
+}
+
+fn build_customer_diagnosis_panel(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
+    let en = i18n.locale() == "en";
+    let mut rows = Vec::new();
+    let accessibility = if vm.severity.total > 0 {
+        if en {
+            format!(
+                "{} accessibility occurrence(s) affect operation, orientation or perception.",
+                vm.severity.total
+            )
+        } else {
+            format!(
+                "{} Accessibility-Vorkommen betreffen Bedienbarkeit, Orientierung oder Wahrnehmbarkeit.",
+                vm.severity.total
+            )
+        }
+    } else if en {
+        "No automatically confirmed accessibility barriers were detected in the tested scope."
+            .to_string()
+    } else {
+        "Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Barrieren erkannt."
+            .to_string()
+    };
+    rows.push(
+        ChecklistRow::new(
+            if en {
+                "Accessibility"
+            } else {
+                "Barrierefreiheit"
+            },
+            accessibility,
+        )
+        .with_status(if vm.severity.total > 0 {
+            "warn"
+        } else {
+            "good"
+        }),
+    );
+
+    for module in vm
+        .modules
+        .dashboard
+        .iter()
+        .filter(|m| m.name != "Accessibility")
+    {
+        if module.score >= 85 {
+            continue;
+        }
+        let status = if module.score < 50 { "bad" } else { "warn" };
+        let detail = if module.interpretation.is_empty() {
+            format!("{}/100", module.score)
+        } else {
+            format!("{}/100 — {}", module.score, module.interpretation)
+        };
+        rows.push(ChecklistRow::new(&module.name, detail).with_status(status));
+        if rows.len() >= 6 {
+            break;
+        }
+    }
+
+    if rows.len() == 1 && !vm.modules.dashboard.is_empty() {
+        let text = if en {
+            "The audited modules are mostly stable; the detailed sections document remaining quality signals."
+        } else {
+            "Die geprüften Module sind überwiegend stabil; die Detailkapitel zeigen verbleibende Qualitätssignale."
+        };
+        rows.push(
+            ChecklistRow::new(if en { "Overall picture" } else { "Gesamtbild" }, text)
+                .with_status("good"),
+        );
+    }
+
+    ChecklistPanel::new(rows).with_title(if en {
+        "What the audit says about the site"
+    } else {
+        "Was der Audit über die Seite aussagt"
+    })
+}
+
+fn build_recurring_pattern_panel(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
+    let en = i18n.locale() == "en";
+    let rows: Vec<ChecklistRow> = vm
+        .findings
+        .top_findings
+        .iter()
+        .filter(|f| f.is_component_issue)
+        .take(4)
+        .map(|f| {
+            let scope = if f.occurrence_count >= 25 {
+                if en {
+                    "component/template pattern"
+                } else {
+                    "Komponenten-/Template-Muster"
+                }
+            } else {
+                if en {
+                    "repeated pattern"
+                } else {
+                    "wiederholtes Muster"
+                }
+            };
+            let detail = if en {
+                format!(
+                    "{} occurrence(s) — likely a {}. Customer effect: {}",
+                    f.occurrence_count,
+                    scope,
+                    first_customer_sentence(&f.user_impact)
+                )
+            } else {
+                format!(
+                    "{} Vorkommen — wahrscheinlich ein {}. Kundenauswirkung: {}",
+                    f.occurrence_count,
+                    scope,
+                    first_customer_sentence(&f.user_impact)
+                )
+            };
+            ChecklistRow::new(&f.title, detail).with_status("warn")
+        })
+        .collect();
+
+    ChecklistPanel::new(rows).with_title(if en {
+        "Recurring issue patterns"
+    } else {
+        "Wiederkehrende Fehlerbilder"
+    })
+}
+
+fn render_audit_confidence_notes(
+    mut builder: renderreport::engine::ReportBuilder,
+    audit_flags: &[crate::audit::normalized::AuditFlag],
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let base = if en {
+        "Automated findings are reliable for detectable patterns, but context-dependent WCAG criteria, semantic content quality and user journeys still require manual verification. Indicator modules such as AI visibility, content visibility and UX are best-effort signals, not guarantees."
+    } else {
+        "Automatisierte Befunde sind belastbar für erkennbare Muster, aber kontextabhängige WCAG-Kriterien, semantische Inhaltsqualität und Nutzerwege benötigen weiterhin manuelle Prüfung. Indikator-Module wie KI-Sichtbarkeit, Content Visibility und UX sind Hinweiswerte, keine Garantien."
+    };
+    builder = builder.add_component(Callout::info(base).with_title(if en {
+        "Notes on report confidence"
+    } else {
+        "Hinweise zur Aussagekraft"
+    }));
+
+    if !audit_flags.is_empty() {
+        let mut rows = Vec::new();
+        for flag in audit_flags.iter().take(4) {
+            rows.push(
+                ChecklistRow::new(
+                    audit_flag_title(&flag.kind, en),
+                    audit_flag_customer_text(flag, en),
+                )
+                .with_status("warn"),
+            );
+        }
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Audit caveats"
+        } else {
+            "Audit-Hinweise"
+        }));
+    }
+    builder
+}
+
+fn audit_flag_title(kind: &str, en: bool) -> &'static str {
+    match (kind, en) {
+        ("consent_banner", true) => "Consent banner",
+        ("consent_banner", false) => "Consent-Banner",
+        ("bypass_blocks_untested", true) => "Skip link verification",
+        ("bypass_blocks_untested", false) => "Skip-Link-Prüfung",
+        ("conflicting_signal", true) => "Conflicting signal",
+        ("conflicting_signal", false) => "Widersprüchliches Signal",
+        ("viewport_gap", true) => "Desktop/mobile difference",
+        ("viewport_gap", false) => "Desktop-/Mobile-Unterschied",
+        ("consent_wall_artifact", true) => "Consent wall artifact",
+        ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
+        (_, true) => "Audit note",
+        (_, false) => "Audit-Hinweis",
+    }
+}
+
+fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool) -> String {
+    match (flag.kind.as_str(), en) {
+        ("consent_banner", true) => "A consent banner was detected. Parts of the page may have been hidden or not fully measurable without consent.".to_string(),
+        ("consent_banner", false) => "Ein Consent-Banner wurde erkannt. Teile der Seite können ohne Zustimmung verborgen oder nicht vollständig messbar gewesen sein.".to_string(),
+        ("bypass_blocks_untested", true) => "A skip link exists, but the usage journey indicates that keyboard focus may not reach the intended target.".to_string(),
+        ("bypass_blocks_untested", false) => "Ein Skip-Link ist vorhanden, der Nutzungstest deutet aber darauf hin, dass der Tastaturfokus sein Ziel nicht zuverlässig erreicht.".to_string(),
+        ("conflicting_signal", true) => "Two checks report different signals. Treat this result as a review point rather than a final conclusion.".to_string(),
+        ("conflicting_signal", false) => "Zwei Prüfungen melden unterschiedliche Signale. Dieses Ergebnis sollte als Prüfhilfe statt als endgültige Aussage gelesen werden.".to_string(),
+        ("viewport_gap", true) => "Desktop and mobile results differ strongly. The page experience should be checked separately for both viewports.".to_string(),
+        ("viewport_gap", false) => "Desktop- und Mobile-Ergebnis unterscheiden sich deutlich. Die Nutzung sollte für beide Ansichten getrennt geprüft werden.".to_string(),
+        _ => flag.message.clone(),
+    }
+}
+
+fn first_customer_sentence(text: &str) -> &str {
+    text.split(". ").next().unwrap_or(text)
 }
 
 fn cleanup_screenshot_temps(report: &AuditReport) {

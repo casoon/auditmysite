@@ -5,7 +5,7 @@
 
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, KeyValueList, List, PageBreak,
-    PhaseBlock, SectionHeaderSplit,
+    SectionHeaderSplit,
 };
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -67,7 +67,7 @@ pub(super) fn render_part_divider(
     builder
 }
 
-/// Section 4 — Action Plan: quick wins, prioritized actions, execution note.
+/// Section 4 — audit-derived improvement areas.
 pub(super) fn render_action_plan(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -79,9 +79,9 @@ pub(super) fn render_action_plan(
             &vm.executive.action_plan_intro,
         )
         .with_eyebrow(if i18n.locale() == "en" {
-            "IMPLEMENTATION PLAN"
+            "AUDIT FINDINGS"
         } else {
-            "UMSETZUNGSPLAN"
+            "AUDIT-BEFUNDE"
         })
         .with_level(2),
     );
@@ -92,20 +92,9 @@ pub(super) fn render_action_plan(
             .with_title(&vm.executive.action_plan_callout_title),
     );
 
-    if !vm.actions.phase_preview.is_empty() {
-        for (idx, phase) in vm.actions.phase_preview.iter().enumerate() {
-            builder = builder.add_component(
-                PhaseBlock::new((idx + 1) as u8, &phase.phase_label, &phase.description)
-                    .with_items(phase.top_items.clone())
-                    .with_total(phase.item_count)
-                    .with_color(&phase.accent_color),
-            );
-        }
-    }
-
     builder = render_management_risk_table(builder, vm, i18n);
 
-    // QuickWins — immediate actions
+    // Low-complexity improvements.
     let quick_items: Vec<&RoadmapItemData> = vm
         .actions
         .roadmap_columns
@@ -128,7 +117,7 @@ pub(super) fn render_action_plan(
 
     builder = render_decision_action_table(builder, vm, i18n);
 
-    // ActionTable — full prioritized table
+    // Action table — audit-derived improvement fields.
     let wjt_table = build_was_jetzt_tun_table(vm);
     match wjt_table {
         WasJetztTunContent::Table(t) => builder = builder.add_component(t),
@@ -252,8 +241,8 @@ fn render_decision_action_table(
         rows.push(vec![
             item.action.clone(),
             item.priority.clone(),
-            item.execution_priority.clone(),
             item.effort.clone(),
+            item.role.clone(),
             item.risk_effect.clone(),
             item.user_effect.clone(),
         ]);
@@ -264,16 +253,16 @@ fn render_decision_action_table(
 
     let mut table = AuditTable::new(vec![
         TableColumn::new(if en { "Action" } else { "Maßnahme" }).with_width("30%"),
-        TableColumn::new(if en { "Risk" } else { "Risiko" }).with_width("12%"),
-        TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("14%"),
+        TableColumn::new(if en { "Classification" } else { "Einstufung" }).with_width("12%"),
         TableColumn::new(if en { "Complexity" } else { "Komplexität" }).with_width("14%"),
+        TableColumn::new(if en { "Area" } else { "Bereich" }).with_width("14%"),
         TableColumn::new(if en { "Risk effect" } else { "Risiko-Effekt" }).with_width("15%"),
         TableColumn::new(if en { "User effect" } else { "Nutzerwirkung" }).with_width("15%"),
     ])
     .with_title(if en {
-        "Decision-oriented top actions"
+        "Audit-derived improvement areas"
     } else {
-        "Entscheidungsorientierte Top-Maßnahmen"
+        "Aus dem Audit abgeleitete Verbesserungsfelder"
     });
     for row in rows {
         table = table.add_row(row);

@@ -93,6 +93,12 @@ pub(super) fn render_performance(
         .add_component(
             Callout::info(&perf.interpretation).with_title(i18n.t("pdf-perf-overview-title")),
         )
+        .add_component(module_customer_context(
+            i18n,
+            "performance",
+            perf.score,
+            &perf.interpretation,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("perf-score-card"), perf.score)
                 .with_description(format!("Grade: {}", perf.grade))
@@ -485,6 +491,12 @@ pub(super) fn render_seo(
         .add_component(
             Callout::info(&seo.interpretation).with_title(i18n.t("pdf-seo-overview-title")),
         )
+        .add_component(module_customer_context(
+            i18n,
+            "seo",
+            seo.score,
+            &seo.interpretation,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("seo-score-card"), seo.score)
                 .with_description(i18n.t("seo-score-card-description"))
@@ -1055,6 +1067,12 @@ pub(super) fn render_security(
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-security")).with_level(2))
         .add_component(TextBlock::new(&sec.interpretation))
+        .add_component(module_customer_context(
+            i18n,
+            "security",
+            sec.score,
+            &sec.interpretation,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("security-score-card"), sec.score)
                 .with_description(format!("Grade: {}", sec.grade))
@@ -1140,6 +1158,12 @@ pub(super) fn render_mobile(
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("section-mobile-usability")).with_level(2))
         .add_component(TextBlock::new(&mobile.interpretation))
+        .add_component(module_customer_context(
+            i18n,
+            "mobile",
+            mobile.score,
+            &mobile.interpretation,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("mobile-score-card"), mobile.score).with_thresholds(80, 50),
         );
@@ -1307,6 +1331,12 @@ pub(super) fn render_ux(
         .add_component(
             Callout::info(&ux.interpretation).with_title(i18n.t("pdf-ux-overview-title")),
         )
+        .add_component(module_customer_context(
+            i18n,
+            "ux",
+            ux.score,
+            &ux.interpretation,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("ux-score-card"), ux.score)
                 .with_description(i18n.t("label-heuristic-indicator"))
@@ -1352,6 +1382,12 @@ pub(super) fn render_journey(
         .add_component(
             Callout::info(&journey.interpretation).with_title(i18n.t("pdf-journey-overview-title")),
         )
+        .add_component(module_customer_context(
+            i18n,
+            "journey",
+            journey.score,
+            &journey.interpretation,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("journey-score-card"), journey.score)
                 .with_description(i18n.t("label-heuristic-indicator"))
@@ -1502,6 +1538,92 @@ fn score_status(score: u32) -> &'static str {
     }
 }
 
+fn module_customer_context(
+    i18n: &I18n,
+    module_key: &str,
+    score: u32,
+    interpretation: &str,
+) -> Callout {
+    let en = i18n.locale() == "en";
+    let title = if en {
+        "What this means for customers"
+    } else {
+        "Was das für Kunden bedeutet"
+    };
+    let weakness = if module_key == "content_visibility" {
+        None
+    } else if score < 50 {
+        Some(if en {
+            "The score indicates a clear weakness in this area."
+        } else {
+            "Der Score zeigt in diesem Bereich eine deutliche Schwäche."
+        })
+    } else if score < 75 {
+        Some(if en {
+            "The score indicates visible improvement potential in this area."
+        } else {
+            "Der Score zeigt in diesem Bereich erkennbares Verbesserungspotenzial."
+        })
+    } else {
+        None
+    };
+    let module_text = match (module_key, en) {
+        ("performance", true) => "Visitors may experience delays, unstable rendering or unnecessary data transfer before the page feels usable.",
+        ("performance", false) => "Besucher können Verzögerungen, instabiles Rendering oder unnötige Datenmenge erleben, bevor die Seite nutzbar wirkt.",
+        ("seo", true) => "Search engines and AI systems need clear titles, headings, structured data and enough readable content to understand the page.",
+        ("seo", false) => "Suchmaschinen und KI-Systeme benötigen klare Titel, Überschriften, strukturierte Daten und ausreichend lesbaren Inhalt, um die Seite zu verstehen.",
+        ("security", true) => "Security headers and HTTPS signals influence visible trust and reduce avoidable browser-side risk in the checked scope.",
+        ("security", false) => "Security Header und HTTPS-Signale beeinflussen sichtbares Vertrauen und reduzieren vermeidbare Browser-Risiken im geprüften Umfang.",
+        ("mobile", true) => "Mobile visitors depend on readable text, fitting content and controls that are easy to tap on small screens.",
+        ("mobile", false) => "Mobile Besucher sind auf lesbaren Text, passende Inhaltsbreiten und gut antippbare Bedienelemente angewiesen.",
+        ("ux", true) => "This indicator estimates whether the page feels understandable, consistent and low-friction for common visitor tasks.",
+        ("ux", false) => "Dieser Indikator schätzt, ob die Seite für typische Besucheraufgaben verständlich, konsistent und reibungsarm wirkt.",
+        ("journey", true) => "This indicator estimates whether visitors can move through the page intent without avoidable friction.",
+        ("journey", false) => "Dieser Indikator schätzt, ob Besucher ohne vermeidbare Reibung durch den Zweck der Seite kommen.",
+        ("source_quality", true) => "Source quality signals show whether content appears substantial, consistent and trustworthy enough to support decisions.",
+        ("source_quality", false) => "Quellenqualität zeigt, ob Inhalte substanziell, konsistent und vertrauenswürdig genug wirken, um Entscheidungen zu stützen.",
+        ("ai_visibility", true) => "AI visibility indicates whether content can be parsed, chunked, attributed and cited by AI-assisted systems.",
+        ("ai_visibility", false) => "KI-Sichtbarkeit zeigt, ob Inhalte von KI-gestützten Systemen gelesen, gegliedert, zugeordnet und zitiert werden können.",
+        ("content_visibility", true) => "Content visibility combines discoverability, trust and topical depth signals; it is an indicator, not a guarantee of reach.",
+        ("content_visibility", false) => "Content Visibility verbindet Auffindbarkeit, Vertrauen und inhaltliche Tiefe; es ist ein Indikator, keine Reichweiten-Garantie.",
+        _ if en => "This module describes customer-facing quality beyond pure accessibility findings.",
+        _ => "Dieses Modul beschreibt kundennahe Qualität über reine Accessibility-Befunde hinaus.",
+    };
+    let mut parts = Vec::new();
+    if let Some(w) = weakness {
+        parts.push(w);
+    }
+    parts.push(module_text);
+    if !interpretation.trim().is_empty() {
+        parts.push(interpretation.trim());
+    }
+    Callout::info(parts.join(" ")).with_title(title)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::module_customer_context;
+    use crate::i18n::I18n;
+    use renderreport::components::Component;
+
+    #[test]
+    fn module_customer_context_explains_non_accessibility_modules() {
+        let i18n = I18n::new("de").expect("de locale");
+        let perf = module_customer_context(&i18n, "performance", 59, "Ladezeit ist ausbaufähig.")
+            .to_data();
+        let perf_text = perf.to_string();
+        assert!(perf_text.contains("Was das für Kunden bedeutet"));
+        assert!(perf_text.contains("Verzögerungen"));
+        assert!(perf_text.contains("Verbesserungspotenzial"));
+
+        let ai = module_customer_context(&i18n, "ai_visibility", 42, "").to_data();
+        let ai_text = ai.to_string();
+        assert!(ai_text.contains("KI-Sichtbarkeit"));
+        assert!(ai_text.contains("gelesen"));
+        assert!(ai_text.contains("zitiert"));
+    }
+}
+
 fn score_color(score: u32) -> &'static str {
     if score >= 75 {
         "#0f766e"
@@ -1551,6 +1673,12 @@ pub(super) fn render_source_quality(
         .add_component(PageBreak::new())
         .add_component(Section::new(i18n.t("pdf-sq-section-title")).with_level(2))
         .add_component(Callout::info(&sq.disclaimer).with_title(i18n.t("pdf-sq-overview-title")))
+        .add_component(module_customer_context(
+            i18n,
+            "source_quality",
+            sq.score,
+            &sq.disclaimer,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("pdf-sq-score-title"), sq.score)
                 .with_description(i18n.t_args(
@@ -1675,6 +1803,12 @@ pub(super) fn render_ai_visibility(
             Callout::info(&indicator_note_ai).with_title(i18n.t("pdf-seo-indicator-title")),
         )
         .add_component(Callout::info(&av.disclaimer).with_title(i18n.t("pdf-ai-overview-title")))
+        .add_component(module_customer_context(
+            i18n,
+            "ai_visibility",
+            av.score,
+            &av.disclaimer,
+        ))
         .add_component(
             ScoreCard::new(i18n.t("pdf-ai-score-title"), av.score)
                 .with_description(i18n.t_args(
@@ -1845,6 +1979,12 @@ pub(super) fn render_content_visibility(
             Callout::info(i18n.t("pdf-cv-overview-body"))
                 .with_title(i18n.t("pdf-cv-overview-title")),
         )
+        .add_component(module_customer_context(
+            i18n,
+            "content_visibility",
+            0,
+            &i18n.t("pdf-cv-overview-body"),
+        ))
         .add_component(TextBlock::new(i18n.t_args(
             "pdf-cv-signals-analyzed",
             &[

@@ -197,7 +197,7 @@ pub(super) fn build_executive_narrative(
                         )
                     } else {
                         format!(
-                            "Behebung des Hauptproblems reduziert ca. {}% der kritischen/hohen Befunde. Sofort spürbare Verbesserung der Nutzbarkeit.",
+                            "Behebung des Hauptproblems reduziert ca. {}% der kritischen/hohen Befunde. Die Nutzbarkeit verbessert sich dadurch an vielen betroffenen Stellen.",
                             share.min(99)
                         )
                     }
@@ -208,7 +208,7 @@ pub(super) fn build_executive_narrative(
             "No single issue dominates the audit picture; findings are distributed more broadly."
                 .to_string(),
             "The impact is spread across several smaller barriers.".to_string(),
-            "Actions should be bundled and prioritized by impact.".to_string(),
+            "Improvements should be grouped by recurring patterns and user impact.".to_string(),
             None,
         )
     } else {
@@ -216,7 +216,7 @@ pub(super) fn build_executive_narrative(
             "Kein einzelnes Problem dominiert das Auditbild; die Befunde sind breiter verteilt."
                 .to_string(),
             "Die Wirkung verteilt sich auf mehrere kleinere Barrieren.".to_string(),
-            "Die Maßnahmen sollten gebündelt und nach Hebel priorisiert umgesetzt werden."
+            "Die Verbesserungen sollten nach wiederkehrenden Mustern und Nutzerwirkung gebündelt werden."
                 .to_string(),
             None,
         )

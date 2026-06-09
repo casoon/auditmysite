@@ -90,12 +90,12 @@ pub(super) fn render_diagnosis_section(
 pub(super) fn output_scope_callout(i18n: &I18n) -> Callout {
     if i18n.locale() == "en" {
         Callout::info(
-            "This PDF is a condensed decision and prioritization report. It highlights the most important findings, risks and actions, but does not list every technical occurrence. Details and raw data are available in the technical appendix of this report.",
+            "This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details and raw data are available in the technical appendix of this report.",
         )
         .with_title("How to read this report")
     } else {
         Callout::info(
-            "Dieser PDF-Report ist eine verdichtete Entscheidungs- und Priorisierungshilfe. Er zeigt die wichtigsten Befunde, Risiken und Maßnahmen, enthält aber nicht jede technische Einzelstelle. Details und Rohdaten finden sich im technischen Anhang dieses Reports.",
+            "Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Details und Rohdaten finden sich im technischen Anhang dieses Reports.",
         )
         .with_title("Einordnung dieses Reports")
     }

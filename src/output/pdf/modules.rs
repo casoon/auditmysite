@@ -40,9 +40,8 @@ pub(super) enum WasJetztTunContent {
     Empty(Callout),
 }
 
-/// Build the "Was jetzt tun?" task table (max 5 actions)
+/// Build the improvement table (max 5 actions)
 pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunContent {
-    // Collect top items from action roadmap, prioritize by execution priority
     let all_items: Vec<&RoadmapItemData> = vm
         .actions
         .roadmap_columns
@@ -50,33 +49,20 @@ pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunCont
         .flat_map(|col| col.items.iter())
         .collect();
 
-    // Sort: Sofort beheben / Direkt angehen first
-    let mut sorted: Vec<&RoadmapItemData> = all_items;
-    sorted.sort_by_key(|i| {
-        let ep = i.execution_priority.as_str();
-        if ep.contains("Direkt") || ep.contains("Sofort") {
-            0u8
-        } else if ep.contains("Nächstes") || ep.contains("Wichtig") {
-            1
-        } else {
-            2
-        }
-    });
-
-    let selected: Vec<&RoadmapItemData> = sorted.into_iter().take(5).collect();
+    let selected: Vec<&RoadmapItemData> = all_items.into_iter().take(5).collect();
 
     if selected.is_empty() {
         return WasJetztTunContent::Empty(
             Callout::success(
-                "Keine priorisierten Maßnahmen identifiziert — Qualität sichern und regelmäßige Audits einplanen.",
+                "Keine offenen Verbesserungsfelder identifiziert — Qualität sichern und regelmäßige Audits einplanen.",
             )
-            .with_title("Aktuell keine offenen Maßnahmen"),
+            .with_title("Aktuell keine offenen Verbesserungsfelder"),
         );
     }
 
     let table_title = match selected.len() {
-        1 => "Maßnahmenplan (1 Maßnahme)".to_string(),
-        n => format!("Maßnahmenplan ({n} Maßnahmen)"),
+        1 => "Verbesserungsfelder (1 Punkt)".to_string(),
+        n => format!("Verbesserungsfelder ({n} Punkte)"),
     };
 
     let mut table = AuditTable::new(vec![
@@ -99,7 +85,7 @@ pub(super) fn build_was_jetzt_tun_table(vm: &ReportViewModel) -> WasJetztTunCont
     WasJetztTunContent::Table(table)
 }
 
-/// Closing section: recommended next steps
+/// Closing section: additional verification notes.
 pub(super) fn render_next_steps_single(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -114,7 +100,6 @@ pub(super) fn render_next_steps_single(
 
     let mut steps: Vec<String> = Vec::new();
 
-    // Highest priority from quick wins
     for col in &vm.actions.roadmap_columns {
         for item in &col.items {
             if steps.len() >= 3 {
