@@ -99,9 +99,9 @@ pub enum ExecutionPriority {
 impl ExecutionPriority {
     pub fn label(&self) -> &'static str {
         match self {
-            ExecutionPriority::Immediate => "Sofort beheben",
-            ExecutionPriority::Important => "Wichtig",
-            ExecutionPriority::Optional => "Optional",
+            ExecutionPriority::Immediate => "Dringend",
+            ExecutionPriority::Important => "Hoch",
+            ExecutionPriority::Optional => "Standard",
         }
     }
 }

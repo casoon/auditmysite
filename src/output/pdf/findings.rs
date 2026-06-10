@@ -1,7 +1,6 @@
 //! Finding renderers for PDF reports.
 
-use renderreport::components::advanced::WrongRightBlock;
-use renderreport::components::advanced::{KeyValueList, List};
+use renderreport::components::advanced::{Divider, KeyValueList, List, WrongRightBlock};
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::SummaryBox;
 use renderreport::prelude::*;
@@ -257,25 +256,48 @@ pub(super) fn render_finding_technical(
     group: &FindingGroup,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let (severity_prefix, color) = match group.severity {
+        crate::wcag::Severity::Critical => (
+            if en { "[Critical] " } else { "[Kritisch] " },
+            super::design::tokens::DANGER,
+        ),
+        crate::wcag::Severity::High => (
+            if en { "[High] " } else { "[Hoch] " },
+            super::design::tokens::DANGER,
+        ),
+        crate::wcag::Severity::Medium => (
+            if en { "[Medium] " } else { "[Mittel] " },
+            super::design::tokens::WARN_DEEP,
+        ),
+        crate::wcag::Severity::Low => (
+            if en { "[Low] " } else { "[Gering] " },
+            super::design::tokens::NEUTRAL,
+        ),
+    };
+
     let header = if !group.wcag_criterion.is_empty() {
         format!(
-            "{} — WCAG {} ({})",
-            group.title, group.wcag_criterion, group.wcag_level
+            "{}{} — WCAG {} ({})",
+            severity_prefix, group.title, group.wcag_criterion, group.wcag_level
         )
     } else {
-        format!("{} — {}", group.title, group.rule_id)
+        format!(
+            "{}{}{} — {}",
+            severity_prefix,
+            group.title,
+            if group.title.is_empty() { "" } else { " — " },
+            group.rule_id
+        )
     };
-    builder = builder.add_component(Label::new(&header).bold().with_size("14pt"));
+    builder = builder.add_component(
+        Label::new(&header)
+            .bold()
+            .with_size("14pt")
+            .with_color(color),
+    );
 
     let mut meta_kv = KeyValueList::new()
-        .add(
-            if i18n.locale() == "en" {
-                "Customer view"
-            } else {
-                "Kundensicht"
-            },
-            customer_perspective_title(group, i18n.locale() == "en"),
-        )
         .add(
             i18n.t("label-priority"),
             priority_label_i18n(group.priority, i18n),
@@ -453,7 +475,7 @@ pub(super) fn render_finding_technical(
                 i18n.t("finding-occurrence"),
                 truncate_url(&occ.selector, 60)
             ))
-            .add_item("Node", &occ.node_id)
+            .add_item("Node", truncate_url(&occ.node_id, 75))
             .add_item(i18n.t("finding-note"), first_sentence(&occ.message));
 
             if let Some(html) = occ
@@ -521,6 +543,14 @@ pub(super) fn render_finding_technical(
         };
         builder = builder.add_component(callout);
     }
+
+    builder = builder.add_component(Divider {
+        style: "solid".to_string(),
+        thickness: "0pt".to_string(),
+        color: Some("#ffffff".to_string()),
+        spacing_above: "15pt".to_string(),
+        spacing_below: "0pt".to_string(),
+    });
 
     builder
 }

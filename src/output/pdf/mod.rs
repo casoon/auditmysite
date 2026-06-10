@@ -19,7 +19,7 @@ mod wcag_coverage;
 pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DevicePreview, DominantIssueSpotlight, ImpactGrid,
+    ChecklistPanel, ChecklistRow, DevicePreview, Divider, DominantIssueSpotlight, ImpactGrid,
     ImpactGridCard, List, MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
     TableOfContents,
 };
@@ -32,13 +32,14 @@ use renderreport::components::SeverityOverview;
 use self::appendix::{build_module_strip, build_raw_audit_snapshot, impact_row, risk_status};
 // Re-export helpers used by sibling sub-modules via `super::`.
 use self::appendix::{cover_logo_asset, register_cover_logo_asset};
-use self::cover::{build_cover_score_row, certificate_badge_path};
+use self::cover::{build_cover_score_row_gauges, certificate_badge_path};
 use self::diagnosis::{business_relevance, format_word_count, output_scope_callout};
 use self::findings::render_key_finding_block;
 use self::helpers::{component_json, create_engine, extract_domain, soft_flow_group};
 use self::modules::{build_summary_overview, render_next_steps_single};
 use self::single_report::{
-    render_action_plan, render_part_divider, render_tech_details, render_tech_entry,
+    render_appendix_full, render_management_page, render_module_sections, render_part_divider,
+    render_root_cause_analysis, render_tech_details, render_timeframe_roadmap,
 };
 use crate::audit::{normalize, AuditReport};
 use crate::cli::ReportLevel;
@@ -104,6 +105,19 @@ fn build_single_report(
     builder = self::appendix::register_cover_logo_asset(builder, config, cover_logo_asset);
 
     // ── Cover Page ───────────────────────────────────────────────────
+    let en = i18n.locale() == "en";
+    let risk_summary_text = if en {
+        format!(
+            "Status: {}  ·  {} Total Issues ({} Critical/High)",
+            vm.cover.certificate, vm.cover.total_issues, vm.cover.critical_issues
+        )
+    } else {
+        format!(
+            "Status: {}  ·  {} Befunde gesamt ({} kritisch/hoch)",
+            vm.cover.certificate, vm.cover.total_issues, vm.cover.critical_issues
+        )
+    };
+
     builder = builder
         .add_component(Image::new(cover_logo_asset).with_width("120pt"))
         .add_component(
@@ -112,16 +126,22 @@ fn build_single_report(
                 .bold()
                 .with_color("#0f766e"),
         )
-        .add_component(Label::new(&vm.cover.title).with_size("22pt").bold())
+        .add_component(Label::new(&vm.cover.title).with_size("34pt").bold())
         .add_component(
             Label::new(format!(
-                "{}  ·  {}  ·  auditmysite v{}",
+                "{}  ·  {}",
                 extract_domain(&vm.cover.domain),
-                vm.cover.date,
-                vm.meta.version
+                vm.cover.date
             ))
-            .with_size("11pt")
+            .with_size("14pt")
+            .bold()
             .with_color("#0f766e"),
+        )
+        .add_component(
+            Label::new(&risk_summary_text)
+                .with_size("11pt")
+                .bold()
+                .with_color("#475569"),
         )
         .add_component(
             Label::new(&vm.executive.cover_kicker)
@@ -129,422 +149,127 @@ fn build_single_report(
                 .with_color("#475569"),
         );
 
-    let single_badge_asset = "/certificate-badge-single.svg";
-    let single_badge_enabled = if let Ok(path) = certificate_badge_path(&vm.cover.certificate) {
-        builder = builder.asset(single_badge_asset, path);
-        true
-    } else {
-        false
-    };
-
-    // ── Device Preview (desktop + mobile screenshots) — skip for executive
-    if vm.meta.report_level != ReportLevel::Executive {
-        if let Some(ref shots) = report.page_screenshots {
-            let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
-            let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
-            let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
-            if std::fs::write(&desktop_path, &shots.desktop).is_ok()
-                && std::fs::write(&mobile_path, &shots.mobile).is_ok()
-            {
-                let desktop_key = "/page-screenshot-desktop.png";
-                let mobile_key = "/page-screenshot-mobile.png";
-                builder = builder
-                    .asset(desktop_key, &desktop_path)
-                    .asset(mobile_key, &mobile_path)
-                    .add_component(DevicePreview::new(desktop_key, mobile_key));
-            }
-        } else {
-            // Differentiate between explicit failure and not-requested (issue #26).
-            let title = i18n.t("section-device-preview");
-            let en = i18n.locale() == "en";
-            let body = match &report.screenshot_status {
-                crate::audit::ScreenshotStatus::Failed(reason) => {
-                    if en {
-                        format!("Screenshots could not be captured: {reason}.")
-                    } else {
-                        format!("Screenshots konnten nicht erstellt werden: {reason}.")
-                    }
-                }
-                crate::audit::ScreenshotStatus::NotRequested => {
-                    if en {
-                        "Screenshots were not captured for this audit (batch mode or screenshot capture disabled)."
-                            .to_string()
-                    } else {
-                        "Screenshots wurden für dieses Audit nicht erfasst (Batch-Modus oder Screenshot-Erfassung deaktiviert)."
-                            .to_string()
-                    }
-                }
-                crate::audit::ScreenshotStatus::Captured => {
-                    i18n.t("section-device-preview-no-screenshots")
-                }
-            };
-            builder = builder.add_component(Callout::info(&body).with_title(&title));
-        }
-    }
-
-    builder = builder.add_component(build_cover_score_row(
+    builder = builder.add_component(build_cover_score_row_gauges(
         &vm.cover,
-        single_badge_enabled.then_some(single_badge_asset),
+        &vm.summary,
+        &vm.modules.dashboard,
         &i18n,
     ));
 
-    if !vm.summary.executive_lead.is_empty() {
+    let dominant_cause_text = if vm.severity.component_issues > 0 {
+        let comp_ch_occurrences: usize = vm
+            .findings
+            .all_findings
+            .iter()
+            .filter(|f| {
+                f.is_component_issue
+                    && (f.severity == crate::wcag::Severity::Critical
+                        || f.severity == crate::wcag::Severity::High)
+            })
+            .map(|f| f.occurrence_count)
+            .sum();
+        let total_ch_occurrences: usize = vm
+            .findings
+            .all_findings
+            .iter()
+            .filter(|f| {
+                f.severity == crate::wcag::Severity::Critical
+                    || f.severity == crate::wcag::Severity::High
+            })
+            .map(|f| f.occurrence_count)
+            .sum();
+        let share_pct = if total_ch_occurrences > 0 {
+            (comp_ch_occurrences * 100)
+                .checked_div(total_ch_occurrences)
+                .unwrap_or(0)
+        } else {
+            0
+        };
+        let is_en = i18n.locale() == "en";
+        if is_en {
+            if vm.severity.component_issues == 1 {
+                format!(
+                    "Main cause: 1 component error causes {}% of all critical/high findings.",
+                    share_pct
+                )
+            } else {
+                format!(
+                    "Main cause: {} component errors cause {}% of all critical/high findings.",
+                    vm.severity.component_issues, share_pct
+                )
+            }
+        } else {
+            if vm.severity.component_issues == 1 {
+                format!("Hauptursache: 1 Komponentenfehler verursacht {} % aller kritischen/hohen Befunde.", share_pct)
+            } else {
+                format!("Hauptursache: {} Komponentenfehler verursachen {} % aller kritischen/hohen Befunde.", vm.severity.component_issues, share_pct)
+            }
+        }
+    } else {
+        String::new()
+    };
+
+    if !dominant_cause_text.is_empty() {
+        builder = builder.add_component(Divider {
+            style: "solid".to_string(),
+            thickness: "0pt".to_string(),
+            color: Some("#ffffff".to_string()),
+            spacing_above: "40pt".to_string(),
+            spacing_below: "0pt".to_string(),
+        });
         builder = builder.add_component(
-            Label::new(&vm.summary.executive_lead)
-                .with_size("13pt")
+            Label::new(dominant_cause_text)
+                .with_size("11pt")
                 .bold()
-                .with_color("#0f4c42"),
+                .with_color("#b91c1c"),
         );
     }
 
-    builder = builder
-        .add_component(
-            TextBlock::new(&vm.summary.verdict)
-                .with_size("11pt")
-                .with_line_height("1.4em")
-                .with_max_width("100%"),
-        )
-        .add_component(output_scope_callout(&i18n))
-        .add_component(PageBreak::new());
+    // --- Page 2: Management Summary ---
+    builder = builder.add_component(PageBreak::new());
+    builder = render_management_page(builder, &vm, &i18n);
 
     if vm.meta.report_level != ReportLevel::Executive {
-        builder = builder.add_component(TableOfContents::new());
-        // Part 1 — Executive Summary (#246).
-        let en = i18n.locale() == "en";
-        let (title, intro, audience_title, audience_body, contents_title) = if en {
+        // --- Page 3: Table of Contents ---
+        builder = builder.add_component(PageBreak::new());
+        let toc_title = if en { "Contents" } else { "Inhalt" };
+        builder = builder.add_component(TableOfContents::new().with_title(toc_title));
+
+        // --- Part 1: Befunde nach Ursache (Divider) ---
+        let (p1_title, p1_intro, p1_audience_title, p1_audience_body) = if en {
             (
-                "Executive Summary",
-                "Risk classification, top issues, business impact, and recommended next steps — at a glance.",
+                "Findings by Root Cause",
+                "Distribution of identified template and component issues and prioritized roadmaps.",
                 "Audience",
-                "Decision makers and stakeholders. Read this part to understand the website's accessibility risk and the business consequences without diving into technical detail.",
-                "What's in this part",
+                "Developers and IT managers. Read this part to understand systemic issues and the remediation roadmap.",
             )
         } else {
             (
-                "Executive Summary",
-                "Risikoeinstufung, Top-Probleme, Geschäftsauswirkungen und empfohlene nächste Schritte — auf einen Blick.",
+                "Befunde nach Ursache",
+                "Verteilung der erkannten Template- und Komponentenfehler sowie der priorisierte Maßnahmenplan.",
                 "Zielgruppe",
-                "Entscheider und Stakeholder. Dieser Teil zeigt das Risiko der Website und die geschäftlichen Konsequenzen, ohne in technische Details einzusteigen.",
-                "Inhalt dieses Teils",
+                "Entwickler und IT-Verantwortliche. Dieser Teil zeigt die systemischen Ursachen und den Ablaufplan.",
             )
-        };
-        let contents: Vec<&str> = if en {
-            vec![
-                "Risk classification (BFSG relevance)",
-                "Top 5 critical and high-severity issues",
-                "Business impact and consequences",
-                "Customer-facing site diagnosis",
-                "Recommended improvements",
-            ]
-        } else {
-            vec![
-                "Risikoeinstufung (BFSG-Relevanz)",
-                "Top 5 kritische und hohe Probleme",
-                "Geschäftliche Auswirkungen und Konsequenzen",
-                "Kundensichtliche Diagnose",
-                "Empfohlene Verbesserungen",
-            ]
         };
         builder = render_part_divider(
             builder,
             1,
-            title,
-            intro,
-            audience_title,
-            audience_body,
-            contents_title,
-            &contents,
+            p1_title,
+            p1_intro,
+            p1_audience_title,
+            p1_audience_body,
             &i18n,
         );
-    }
 
-    // ─────────────────────────────────────────────────────────────────
-    // SECTION 1 — STATUS & BEWERTUNG
-    // ─────────────────────────────────────────────────────────────────
-    {
-        let risk_callout = match vm.summary.risk_level.as_str() {
-            "Kritisch" | "Critical" => {
-                Callout::error(&vm.summary.risk_summary).with_title(&vm.executive.risk_title)
-            }
-            "Hoch" | "High" => {
-                Callout::warning(&vm.summary.risk_summary).with_title(&vm.executive.risk_title)
-            }
-            _ => Callout::info(&vm.summary.risk_summary).with_title(&vm.executive.risk_title),
-        };
+        // Ursachenanalyse (Table, components list, leverage)
+        builder = render_root_cause_analysis(builder, &vm, &i18n);
 
-        builder = builder.add_component(soft_flow_group(
-            "180pt",
-            vec![
-                component_json(
-                    SectionHeaderSplit::new(
-                        &vm.executive.status_title,
-                        if i18n.locale() == "en" {
-                            "Classification, risk and the most important business consequences at a glance."
-                        } else {
-                            "Einordnung, Risiko und die geschäftlich wichtigsten Konsequenzen auf einen Blick."
-                        },
-                    )
-                    .with_eyebrow("EXECUTIVE SNAPSHOT")
-                    .with_level(2)
-                ),
-                component_json(risk_callout),
-            ],
-        ));
-
-        builder = builder.add_component(soft_flow_group(
-            "200pt",
-            vec![
-                component_json(build_summary_overview(&vm.summary)),
-                component_json(
-                    MetricStrip::new(vec![
-                        MetricStripItem::new(
-                            i18n.t("metric-score"),
-                            vm.summary.overall_score.to_string(),
-                        )
-                        .with_accent("#0f766e"),
-                        MetricStripItem::new(
-                            i18n.t("metric-issues-detected"),
-                            vm.severity.total.to_string(),
-                        ),
-                        MetricStripItem::new(
-                            i18n.t("metric-critical-high"),
-                            format!("{}", vm.severity.critical + vm.severity.high),
-                        )
-                        .with_status("bad")
-                        .with_accent("#dc2626"),
-                        MetricStripItem::new(i18n.t("metric-risk"), &vm.summary.risk_level)
-                            .with_status(risk_status(&vm.summary.risk_level)),
-                        MetricStripItem::new(i18n.t("metric-certificate"), &vm.summary.certificate)
-                            .with_accent("#7c3aed"),
-                    ])
-                    .compact(),
-                ),
-            ],
-        ));
-
-        builder = builder.add_component(build_customer_diagnosis_panel(&vm, &i18n));
+        // Maßnahmenplan (Roadmap) & confidence notes
+        builder = render_timeframe_roadmap(builder, &vm, &i18n);
         builder = render_audit_confidence_notes(builder, &normalized.audit_flags, &i18n);
-
-        if vm.meta.report_level != ReportLevel::Executive {
-            builder = builder.add_component(build_module_strip(&vm, &i18n));
-            builder = builder.add_component(build_raw_audit_snapshot(&vm, &i18n));
-            // Three-perspective scope blocks (#231)
-            {
-                let en = i18n.locale() == "en";
-                let user_impact = impact_row(
-                    &vm.executive.impact_rows,
-                    if en { "User" } else { "Nutzer" },
-                );
-                let risk_text = impact_row(
-                    &vm.executive.impact_rows,
-                    if en { "Risk" } else { "Risiko" },
-                );
-                let technical_text = if en {
-                    "Automated static analysis of the accessibility tree, DOM structure, and resource loading. Results reflect detectable patterns; manual verification required for context-dependent issues."
-                } else {
-                    "Automatisierte statische Analyse des Accessibility-Trees, der DOM-Struktur und des Ressourcen-Ladens. Ergebnisse spiegeln erkennbare Muster wider; kontextabhängige Probleme erfordern manuelle Prüfung."
-                };
-                if !user_impact.is_empty() {
-                    builder =
-                        builder.add_component(Callout::warning(user_impact).with_title(if en {
-                            "User impact"
-                        } else {
-                            "Auswirkungen auf Nutzer"
-                        }));
-                }
-                if !risk_text.is_empty() {
-                    builder = builder.add_component(Callout::error(risk_text).with_title(if en {
-                        "Legal risk"
-                    } else {
-                        "Rechtliches Risiko"
-                    }));
-                }
-                builder = builder.add_component(Callout::info(technical_text).with_title(if en {
-                    "Technical basis"
-                } else {
-                    "Technische Grundlage"
-                }));
-            }
-        }
-
-        {
-            let mut kp_list = List::new().with_title(&vm.executive.key_points_title);
-            for point in &vm.executive.key_points {
-                kp_list = kp_list.add_item(point);
-            }
-            builder = builder.add_component(kp_list);
-        }
-
-        {
-            let en = i18n.locale() == "en";
-            let (user_key, business_key, risk_key) = if en {
-                ("User", "Business", "Risk")
-            } else {
-                ("Nutzer", "Business", "Risiko")
-            };
-            let (usability_label, compliance_label, business_eff_label) = if en {
-                ("Usability", "Compliance", "Business effect")
-            } else {
-                ("Nutzbarkeit", "Compliance", "Geschäftswirkung")
-            };
-            let user = impact_row(&vm.executive.impact_rows, user_key);
-            let business = impact_row(&vm.executive.impact_rows, business_key);
-            let risk = impact_row(&vm.executive.impact_rows, risk_key);
-            builder = builder.add_component(
-                ImpactGrid::new(
-                    ImpactGridCard::new(user_key, usability_label, user).with_status("warn"),
-                    ImpactGridCard::new(risk_key, compliance_label, risk).with_status("bad"),
-                    ImpactGridCard::new(business_key, business_eff_label, business)
-                        .with_status("info"),
-                )
-                .with_title(&vm.executive.impact_title),
-            );
-        }
-
-        if !vm.executive.quick_actions.is_empty() {
-            let rows: Vec<ChecklistRow> = vm
-                .executive
-                .quick_actions
-                .iter()
-                .map(|action| ChecklistRow::new(action, "").with_status("warn"))
-                .collect();
-            builder = builder.add_component(
-                ChecklistPanel::new(rows).with_title(&vm.executive.quick_actions_title),
-            );
-        }
-
-        if vm.meta.report_level != ReportLevel::Executive && !vm.summary.positive_aspects.is_empty()
-        {
-            let strength_label = i18n.t("label-strength");
-            let rows: Vec<ChecklistRow> = vm
-                .summary
-                .positive_aspects
-                .iter()
-                .take(3)
-                .enumerate()
-                .map(|(i, item)| {
-                    ChecklistRow::new(format!("{} {}", strength_label, i + 1), item)
-                        .with_status("good")
-                })
-                .collect();
-            builder = builder
-                .add_component(ChecklistPanel::new(rows).with_title(i18n.t("panel-strengths")));
-        }
-
-        if vm.meta.report_level != ReportLevel::Executive && !vm.positive_signals.is_empty() {
-            let title = if vm.meta.report_level == ReportLevel::Standard && i18n.locale() == "en" {
-                "Recognized patterns"
-            } else if i18n.locale() == "en" {
-                "Recognized structural patterns"
-            } else {
-                "Erkannte strukturelle Patterns"
-            };
-            let rows: Vec<ChecklistRow> = vm
-                .positive_signals
-                .items
-                .iter()
-                .map(|signal| {
-                    ChecklistRow::new(&signal.title, &signal.description)
-                        .with_status(if signal.strong { "good" } else { "warning" })
-                })
-                .collect();
-            builder = builder.add_component(ChecklistPanel::new(rows).with_title(title));
-        }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // SECTION 2 — DOMINANT ISSUE
-    // ─────────────────────────────────────────────────────────────────
-    {
-        let total_ch = (vm.severity.critical + vm.severity.high) as usize;
-
-        if let Some(top) = vm.findings.top_findings.first() {
-            let total_occurrences: usize = vm
-                .findings
-                .top_findings
-                .iter()
-                .map(|f| f.occurrence_count)
-                .sum();
-            let share = if let Some(v) = (top.occurrence_count * 100).checked_div(total_occurrences)
-            {
-                v.max(1)
-            } else if let Some(v) = (top.occurrence_count * 100).checked_div(total_ch) {
-                v.max(1)
-            } else {
-                100
-            };
-            let spotlight = DominantIssueSpotlight::new(
-                &top.title,
-                format!("{:?}", top.severity).to_lowercase(),
-                &vm.executive.spotlight_body,
-                &vm.executive.spotlight_impact,
-                &vm.executive.spotlight_recommendation,
-            )
-            .with_eyebrow(&vm.executive.spotlight_eyebrow)
-            .with_affected_count(share as u32);
-            builder = builder.add_component(spotlight);
-        }
-
-        if vm.severity.has_issues {
-            builder = builder.add_component(
-                SeverityOverview::new(
-                    vm.severity.critical,
-                    vm.severity.high,
-                    vm.severity.medium,
-                    vm.severity.low,
-                )
-                .with_title(&i18n.t("section-issue-overview")),
-            );
-
-            if vm.severity.component_issues > 0 {
-                let en = i18n.locale() == "en";
-                let ci = vm.severity.component_issues;
-                let co = vm.severity.component_occurrences;
-                let msg = if en {
-                    format!(
-                        "{} of the {} occurrences above stem from {} component issue(s) \
-                         in shared templates. This is probably not a set of isolated defects, \
-                         but a recurring pattern in a component, template or design rule.",
-                        co, vm.severity.total, ci,
-                    )
-                } else {
-                    format!(
-                        "{} der {} Vorkommen oben stammen aus {} Komponentenproblem(en) \
-                         in gemeinsamen Templates. Das spricht eher für ein wiederkehrendes \
-                         Muster in Komponente, Template oder Designregel als für viele \
-                         unabhängige Einzelfehler.",
-                        co, vm.severity.total, ci,
-                    )
-                };
-                let label = if en {
-                    "Recurring pattern"
-                } else {
-                    "Wiederkehrendes Muster"
-                };
-                builder = builder.add_component(Callout::warning(&msg).with_title(label));
-                builder = builder.add_component(build_recurring_pattern_panel(&vm, &i18n));
-            }
-        }
-
-        if total_ch > 0 {
-            if let Some(leverage_text) = &vm.executive.leverage_text {
-                builder = builder.add_component(
-                    Callout::success(leverage_text).with_title(&vm.executive.leverage_title),
-                );
-            }
-        }
-
-        let findings_limit = if vm.meta.report_level == ReportLevel::Executive {
-            3
-        } else {
-            5
-        };
-        for group in vm.findings.top_findings.iter().take(findings_limit) {
-            builder = render_key_finding_block(builder, group, &i18n, false);
-        }
-    }
-
-    // Executive level stops here — slim methodology (limitations only)
+    // Executive level stops here
     if vm.meta.report_level == ReportLevel::Executive {
         builder = builder
             .add_component(
@@ -559,96 +284,69 @@ fn build_single_report(
         return Ok((engine, built_report));
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // SECTIONS 4 + 5 + 5b + 6+ (Standard / Technical only)
-    // ─────────────────────────────────────────────────────────────────
-    builder = render_action_plan(builder, &vm, &i18n);
-    // Recommended next steps belong with the action plan at the end of Part 1,
-    // not buried after the least actionable technical modules (#362).
-    builder = render_next_steps_single(builder, &vm);
-    builder = render_tech_entry(builder, &vm, &i18n);
+    // --- Part 2: Technische Details für Entwickler (Divider) ---
+    let (p2_title, p2_intro, p2_audience_title, p2_audience_body) = if en {
+        (
+            "Technical Details for Developers",
+            "Detailed WCAG violations, HTML evidence, and code examples grouped by systemic components vs. local instances.",
+            "Audience",
+            "Developers and QA teams. Read this part to implement fixes for all detected violations.",
+        )
+    } else {
+        (
+            "Technische Details für Entwickler",
+            "Detaillierte WCAG-Verstöße, HTML-Evidenzen und Code-Beispiele, gruppiert nach systemischen Komponenten vs. Einzelfällen.",
+            "Zielgruppe",
+            "Entwickler und QA-Teams. Dieser Teil liefert konkrete Code-Befunde zur Behebung aller Barrieren.",
+        )
+    };
+    builder = render_part_divider(
+        builder,
+        2,
+        p2_title,
+        p2_intro,
+        p2_audience_title,
+        p2_audience_body,
+        &i18n,
+    );
+
+    // Technical details findings list
     builder = render_tech_details(builder, &vm, report, &i18n);
+
+    // --- Part 3: Qualitäts-Analysen (Divider) ---
+    let (p3_title, p3_intro, p3_audience_title, p3_audience_body) = if en {
+        (
+            "Quality Analyses",
+            "Search engine optimization, load speed, mobile layout, and security header metrics.",
+            "Audience",
+            "Marketing, SEO specialists, and product owners. Read this part to optimize discoverability and performance.",
+        )
+    } else {
+        (
+            "Qualitäts-Analysen",
+            "Suchmaschinenoptimierung, Ladezeiten, mobiles Layout und Sicherheits-Metriken.",
+            "Zielgruppe",
+            "Marketing, SEO-Spezialisten und Product Owner. Dieser Teil ergänzt die Barrierefreiheit um Qualitäts-Indikatoren.",
+        )
+    };
+    builder = render_part_divider(
+        builder,
+        3,
+        p3_title,
+        p3_intro,
+        p3_audience_title,
+        p3_audience_body,
+        &i18n,
+    );
+
+    // SEO, performance, mobile, ux, journey etc.
+    builder = render_module_sections(builder, &vm, report, &i18n);
+
+    // --- Appendix: Rohdaten & Methodik ---
+    builder = render_appendix_full(builder, &vm, report, &i18n);
 
     let built_report = builder.build();
     Ok((engine, built_report))
-}
-
-fn build_customer_diagnosis_panel(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
-    let en = i18n.locale() == "en";
-    let mut rows = Vec::new();
-    let accessibility = if vm.severity.total > 0 {
-        if en {
-            format!(
-                "{} accessibility occurrence(s) affect operation, orientation or perception.",
-                vm.severity.total
-            )
-        } else {
-            format!(
-                "{} Accessibility-Vorkommen betreffen Bedienbarkeit, Orientierung oder Wahrnehmbarkeit.",
-                vm.severity.total
-            )
-        }
-    } else if en {
-        "No automatically confirmed accessibility barriers were detected in the tested scope."
-            .to_string()
-    } else {
-        "Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Barrieren erkannt."
-            .to_string()
-    };
-    rows.push(
-        ChecklistRow::new(
-            if en {
-                "Accessibility"
-            } else {
-                "Barrierefreiheit"
-            },
-            accessibility,
-        )
-        .with_status(if vm.severity.total > 0 {
-            "warn"
-        } else {
-            "good"
-        }),
-    );
-
-    for module in vm
-        .modules
-        .dashboard
-        .iter()
-        .filter(|m| m.name != "Accessibility")
-    {
-        if module.score >= 85 {
-            continue;
-        }
-        let status = if module.score < 50 { "bad" } else { "warn" };
-        let detail = if module.interpretation.is_empty() {
-            format!("{}/100", module.score)
-        } else {
-            format!("{}/100 — {}", module.score, module.interpretation)
-        };
-        rows.push(ChecklistRow::new(&module.name, detail).with_status(status));
-        if rows.len() >= 6 {
-            break;
-        }
-    }
-
-    if rows.len() == 1 && !vm.modules.dashboard.is_empty() {
-        let text = if en {
-            "The audited modules are mostly stable; the detailed sections document remaining quality signals."
-        } else {
-            "Die geprüften Module sind überwiegend stabil; die Detailkapitel zeigen verbleibende Qualitätssignale."
-        };
-        rows.push(
-            ChecklistRow::new(if en { "Overall picture" } else { "Gesamtbild" }, text)
-                .with_status("good"),
-        );
-    }
-
-    ChecklistPanel::new(rows).with_title(if en {
-        "What the audit says about the site"
-    } else {
-        "Was der Audit über die Seite aussagt"
-    })
 }
 
 fn build_recurring_pattern_panel(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
@@ -710,11 +408,13 @@ fn render_audit_confidence_notes(
     } else {
         "Automatisierte Befunde sind belastbar für erkennbare Muster, aber kontextabhängige WCAG-Kriterien, semantische Inhaltsqualität und Nutzerwege benötigen weiterhin manuelle Prüfung. Indikator-Module wie KI-Sichtbarkeit, Content Visibility und UX sind Hinweiswerte, keine Garantien."
     };
-    builder = builder.add_component(Callout::info(base).with_title(if en {
+    let title = if en {
         "Notes on report confidence"
     } else {
         "Hinweise zur Aussagekraft"
-    }));
+    };
+    let text = format!("{}: {}", title, base);
+    builder = builder.add_component(Label::new(&text).with_size("10.5pt").with_color("#475569"));
 
     if !audit_flags.is_empty() {
         let mut rows = Vec::new();

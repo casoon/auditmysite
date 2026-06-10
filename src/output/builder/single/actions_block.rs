@@ -96,42 +96,45 @@ pub(super) fn build_actions_block(
     // Bucket labels and colors
     let (blocker_label, blocker_desc) = if en {
         (
-            "Blocker — fix immediately",
-            "Acute barriers — highest risk, must be resolved before anything else",
+            "Priority 1: Critical Barriers",
+            "Acute barriers — highest risk, recommended to be addressed first",
         )
     } else {
         (
-            "Blocker — Sofort beheben",
-            "Akute Barrieren — höchstes Risiko, vor allen anderen Punkten beheben",
+            "Priorität 1: Kritische Hürden",
+            "Akute Barrieren — höchstes Risiko, empfohlene Behebung vor anderen Punkten",
         )
     };
     let (high_label, high_desc) = if en {
         (
-            "High priority",
+            "Priority 2: Usability & Compliance",
             "Significant barriers with direct usability impact",
         )
     } else {
         (
-            "Hohe Priorität",
+            "Priorität 2: Nutzbarkeit & Konformität",
             "Relevante Barrieren mit direktem Impact auf Nutzbarkeit",
         )
     };
     let (medium_label, medium_desc) = if en {
         (
-            "Medium priority",
+            "Priority 3: Structural Optimizations",
             "Quality improvements with moderate accessibility benefit",
         )
     } else {
         (
-            "Mittlere Priorität",
+            "Priorität 3: Strukturelle Optimierungen",
             "Qualitätsverbesserungen mit moderatem Barrierefreiheits-Nutzen",
         )
     };
     let (low_label, low_desc) = if en {
-        ("Low priority", "Fine-tuning and optional improvements")
+        (
+            "Priority 4: Recommended Optimizations",
+            "Fine-tuning and optional improvements",
+        )
     } else {
         (
-            "Niedrige Priorität",
+            "Priorität 4: Ergänzende Optimierungen",
             "Feinschliff und optionale Verbesserungen",
         )
     };
@@ -236,9 +239,9 @@ pub(super) fn build_actions_block(
             "Die Seite ist technisch stark aufgestellt. Die folgenden Punkte sind letzte Optimierungshebel ohne strukturellen Druck.".to_string()
         }
     } else if en {
-        "Blockers must be resolved first — they carry the highest risk. High and medium priority items follow. Low priority items are optional improvements.".to_string()
+        "Priority 1 issues carry the highest risk and should be addressed first. Priority 2 and 3 items follow. Priority 4 items are recommended improvements.".to_string()
     } else {
-        "Blocker zuerst beheben — sie tragen das höchste Risiko. Danach folgen hohe und mittlere Priorität. Niedrige Priorität sind optionale Verbesserungen.".to_string()
+        "Befunde der Priorität 1 tragen das höchste Risiko und sollten bevorzugt behandelt werden. Danach folgen Priorität 2 und 3. Priorität 4 sind ergänzende Empfehlungen.".to_string()
     };
 
     ActionsBlock {

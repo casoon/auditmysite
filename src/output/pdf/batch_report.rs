@@ -1501,7 +1501,7 @@ fn render_batch_crawl_links(
             table = table.add_row(vec![
                 truncate_url(&row.source_url, 30),
                 truncate_url(&row.target_url, 38),
-                format!("\x1b[{}m{}\x1b[0m", severity_color, row.status),
+                row.status.clone(),
                 typ_label,
             ]);
         }

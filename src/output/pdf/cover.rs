@@ -3,7 +3,8 @@
 use std::{env, fs, path::PathBuf};
 
 use renderreport::components::advanced::Grid;
-use renderreport::components::MetricCard;
+use renderreport::components::charts::{Gauge, GaugeThreshold};
+use renderreport::components::{MetricCard, ScoreCard};
 use renderreport::prelude::Image;
 use renderreport::prelude::*;
 
@@ -12,45 +13,130 @@ use crate::output::report_model::*;
 
 use super::design::{score_color, tokens};
 
-pub(super) fn build_cover_score_row(
-    cover: &CoverBlock,
-    badge_asset: Option<&str>,
+pub(super) fn build_cover_score_row_gauges(
+    _cover: &CoverBlock,
+    summary: &SummaryBlock,
+    modules: &[ModuleScore],
     i18n: &I18n,
 ) -> Grid {
-    let mut grid = Grid::new(3).with_item_min_height("142pt");
+    let en = i18n.locale() == "en";
 
-    if let Some(asset_name) = badge_asset {
+    // Overall Score and modules in a grid of 4 columns
+    let mut grid = Grid::new(4).with_item_min_height("130pt");
+
+    // Gauge 1: Gesamtscore (Overall Score)
+    let overall_label = if en { "Overall Score" } else { "Gesamtscore" };
+    let mut overall_gauge = Gauge::new(overall_label, summary.overall_score as f64);
+    overall_gauge.thresholds = vec![
+        GaugeThreshold {
+            value: 0.0,
+            color: tokens::DANGER.to_string(),
+        },
+        GaugeThreshold {
+            value: 50.0,
+            color: tokens::WARN_DEEP.to_string(),
+        },
+        GaugeThreshold {
+            value: 90.0,
+            color: tokens::SUCCESS.to_string(),
+        },
+    ];
+    grid = grid.add_item(serde_json::json!({
+        "type": "gauge",
+        "data": overall_gauge.to_data()
+    }));
+
+    // Gauges for each audited module
+    for module in modules {
+        let mut gauge = Gauge::new(&module.name, module.score as f64);
+        gauge.thresholds = vec![
+            GaugeThreshold {
+                value: 0.0,
+                color: tokens::DANGER.to_string(),
+            },
+            GaugeThreshold {
+                value: 50.0,
+                color: tokens::WARN_DEEP.to_string(),
+            },
+            GaugeThreshold {
+                value: 90.0,
+                color: tokens::SUCCESS.to_string(),
+            },
+        ];
         grid = grid.add_item(serde_json::json!({
-            "type": "image",
-            "data": Image::new(asset_name).with_width("68%").to_data()
-        }));
-    } else {
-        grid = grid.add_item(serde_json::json!({
-            "type": "metric-card",
-            "data": MetricCard::new(i18n.t("cover-card-certificate"), &cover.grade)
-                .with_subtitle(format!("{} • {} / 100", cover.certificate, cover.score))
-                .with_accent_color(certificate_accent_color(&cover.certificate))
-                .with_height("100%")
-                .to_data()
+            "type": "gauge",
+            "data": gauge.to_data()
         }));
     }
 
-    let accessibility_subtitle = cover.maturity_label.clone();
+    grid
+}
 
+pub(super) fn build_cover_score_row(
+    cover: &CoverBlock,
+    summary: &SummaryBlock,
+    i18n: &I18n,
+) -> Grid {
+    let mut grid = Grid::new(3).with_item_min_height("142pt");
+    let en = i18n.locale() == "en";
+
+    // Card 1: Gesamtbewertung (MetricCard)
+    let overall_title = if en { "Overall Score" } else { "Gesamtscore" };
+    let overall_subtitle = format!("{} • {} / 100", summary.certificate, summary.overall_score);
     grid = grid.add_item(serde_json::json!({
         "type": "metric-card",
-        "data": MetricCard::new(i18n.t("cover-card-accessibility"), format!("{}/100", cover.score))
-            .with_subtitle(accessibility_subtitle)
-            .with_accent_color(score_color(cover.score))
+        "data": MetricCard::new(overall_title, &summary.grade)
+            .with_subtitle(overall_subtitle)
+            .with_accent_color(certificate_accent_color(&summary.certificate))
             .with_height("100%")
             .to_data()
     }));
 
+    // Card 2: Barrierefreiheit (MetricCard)
+    let a11y_title = if en {
+        "Accessibility"
+    } else {
+        "Barrierefreiheit"
+    };
+    let a11y_subtitle = format!("{} • {} / 100", cover.certificate, cover.score);
+    grid = grid.add_item(serde_json::json!({
+        "type": "metric-card",
+        "data": MetricCard::new(a11y_title, &cover.grade)
+            .with_subtitle(a11y_subtitle)
+            .with_accent_color(certificate_accent_color(&cover.certificate))
+            .with_height("100%")
+            .to_data()
+    }));
+
+    // Card 3: Risiko & Befunde (MetricCard)
+    let status_title = if en {
+        "Risk & Issues"
+    } else {
+        "Risiko & Befunde"
+    };
+    let status_subtitle = if en {
+        format!(
+            "{} total issues / {} critical/high",
+            cover.total_issues, cover.critical_issues
+        )
+    } else {
+        format!(
+            "{} Befunde / {} kritisch/hoch",
+            cover.total_issues, cover.critical_issues
+        )
+    };
+    let risk_color = match cover.maturity_label.as_str() {
+        "Kritisch" | "Critical" => tokens::DANGER,
+        "Instabil" | "Unstable" | "Ausbaufähig" | "Eingeschränkt" | "Needs Improvement" => {
+            tokens::WARN_DEEP
+        }
+        _ => tokens::SUCCESS,
+    };
     grid.add_item(serde_json::json!({
         "type": "metric-card",
-        "data": MetricCard::new(i18n.t("cover-card-issues"), cover.total_issues.to_string())
-            .with_subtitle(format!("{} {}", cover.critical_issues, i18n.t("cover-card-critical-high-suffix")))
-            .with_accent_color(tokens::DANGER)
+        "data": MetricCard::new(status_title, &cover.maturity_label)
+            .with_subtitle(status_subtitle)
+            .with_accent_color(risk_color)
             .with_height("100%")
             .to_data()
     }))
@@ -141,11 +227,11 @@ pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String
 
 pub(super) fn certificate_accent_color(certificate: &str) -> &'static str {
     match certificate {
-        "SEHR GUT" => tokens::SUCCESS,
-        "GUT" => tokens::ACCENT_BRONZE,
-        "SOLIDE" => tokens::NEUTRAL,
-        "AUSBAUFÄHIG" | "EINGESCHRÄNKT" => "#9a3412",
-        "UNGENÜGEND" | "NICHT BESTANDEN" => tokens::DANGER,
+        "SEHR GUT" | "EXCELLENT" => tokens::SUCCESS,
+        "GUT" | "GOOD" => tokens::ACCENT_BRONZE,
+        "SOLIDE" | "SOLID" => tokens::NEUTRAL,
+        "AUSBAUFÄHIG" | "EINGESCHRÄNKT" | "NEEDS IMPROVEMENT" => "#9a3412",
+        "UNGENÜGEND" | "NICHT BESTANDEN" | "FAILED" => tokens::DANGER,
         _ => tokens::INFO,
     }
 }

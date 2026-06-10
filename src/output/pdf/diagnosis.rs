@@ -1,5 +1,6 @@
 //! Diagnosis section and scope helpers for PDF reports.
 
+use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
@@ -15,19 +16,23 @@ pub(super) fn render_diagnosis_section(
 
     builder = builder.add_component(Section::new(&diagnosis.section_title).with_level(2));
 
-    // Pattern overview — label is the callout title; the body carries only the
-    // description so the label is not repeated as a prefix in the body text.
+    // Pattern overview — render as clean Label
     let pattern_intro = diagnosis.pattern_description.clone();
-    let callout = if diagnosis.is_systematic {
-        Callout::warning(&pattern_intro).with_title(&diagnosis.pattern_label)
-    } else {
-        Callout::info(&pattern_intro).with_title(&diagnosis.pattern_label)
-    };
-    builder = builder.add_component(callout);
+    let pattern_text = format!("{}: {}", diagnosis.pattern_label, pattern_intro);
+    builder = builder.add_component(
+        Label::new(&pattern_text)
+            .with_size("10.5pt")
+            .with_color("#475569"),
+    );
 
     // Dominant issue spotlight
     if let Some(ref dominant) = diagnosis.dominant_issue {
-        let spotlight_text = if en {
+        let spotlight_title = if en {
+            "Single dominant issue"
+        } else {
+            "Einzelnes dominantes Problem"
+        };
+        let spotlight_body = if en {
             format!(
                 "\"{}\" accounts for the majority of critical/high findings.",
                 dominant
@@ -38,7 +43,13 @@ pub(super) fn render_diagnosis_section(
                 dominant
             )
         };
-        builder = builder.add_component(Callout::warning(&spotlight_text));
+        let spotlight_text = format!("{}: {}", spotlight_title, spotlight_body);
+        builder = builder.add_component(
+            Label::new(&spotlight_text)
+                .with_size("10.5pt")
+                .bold()
+                .with_color("#b91c1c"),
+        );
     }
 
     // Category breakdown table

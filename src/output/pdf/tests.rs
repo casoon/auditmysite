@@ -841,6 +841,8 @@ mod tests {
             format!(": \"{s}/"),
             format!(": {s},"),
             format!(": {s})"),
+            format!(": {s}.0,"),
+            format!(": {s}.0)"),
         ]
         .iter()
         .any(|needle| part.contains(needle))

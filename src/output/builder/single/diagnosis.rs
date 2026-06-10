@@ -109,30 +109,30 @@ pub(super) fn build_criticality_groups(
                 CriticalityTier::Mandatory => {
                     if en {
                         (
-                            "Mandatory — must be fixed".to_string(),
-                            "LEVEL 1 · MANDATORY".to_string(),
-                            "Accessibility violations under WCAG Level A/AA — legally relevant under the BFSG. These findings describe barriers that must be remediated for conformance.".to_string(),
+                            "Legally relevant barriers (WCAG A/AA)".to_string(),
+                            "SECTION 1 · WCAG COMPLIANCE".to_string(),
+                            "Accessibility issues under WCAG Level A/AA. Remediating these issues is recommended for compliance with legal standards (like BFSG).".to_string(),
                         )
                     } else {
                         (
-                            "Pflicht — muss behoben werden".to_string(),
-                            "EBENE 1 · PFLICHT".to_string(),
-                            "Barrierefreiheits-Verstöße nach WCAG Level A/AA — gesetzlich relevant nach BFSG. Diese Befunde beschreiben Barrieren, die für Konformität behoben werden müssen.".to_string(),
+                            "Gesetzlich relevante Barrieren (WCAG A/AA)".to_string(),
+                            "BEREICH 1 · WCAG-KONFORMITÄT".to_string(),
+                            "Barrierefreiheits-Verstöße nach WCAG Level A/AA. Diese Befunde beschreiben Barrieren, deren Behebung für die Erfüllung gesetzlicher Vorgaben (wie dem BFSG) empfohlen ist.".to_string(),
                         )
                     }
                 }
                 CriticalityTier::Optimization => {
                     if en {
                         (
-                            "Optimization — should/can be fixed".to_string(),
-                            "LEVEL 2 · OPTIMIZATION".to_string(),
-                            "SEO, AI visibility, UX heuristics, dark mode and other quality signals. These improve discoverability and experience but do not carry direct legal risk.".to_string(),
+                            "Additional quality & SEO recommendations".to_string(),
+                            "SECTION 2 · OPTIMIZATION".to_string(),
+                            "SEO, AI visibility, UX signals, dark mode and further quality benchmarks. These improve findability and user experience.".to_string(),
                         )
                     } else {
                         (
-                            "Optimierung — sollte / kann behoben werden".to_string(),
-                            "EBENE 2 · OPTIMIERUNG".to_string(),
-                            "SEO, KI-Sichtbarkeit, UX-Heuristiken, Dark Mode und weitere Qualitätssignale. Diese verbessern Auffindbarkeit und Nutzererlebnis, sind aber rechtlich nicht zwingend.".to_string(),
+                            "Ergänzende Qualitäts- & SEO-Empfehlungen".to_string(),
+                            "BEREICH 2 · OPTIMIERUNG".to_string(),
+                            "Suchmaschinenoptimierung (SEO), KI-Sichtbarkeit, UX-Signale, Dark-Mode-Unterstützung und weitere Qualitätskriterien. Diese verbessern die Auffindbarkeit und das allgemeine Nutzererlebnis.".to_string(),
                         )
                     }
                 }

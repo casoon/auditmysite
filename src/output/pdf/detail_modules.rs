@@ -3,7 +3,7 @@
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
 };
-use renderreport::components::text::TextBlock;
+use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
 use renderreport::prelude::*;
 
@@ -15,6 +15,7 @@ use super::helpers::{map_severity, score_quality_color, score_quality_label};
 pub(super) fn render_search_experience(
     mut builder: renderreport::engine::ReportBuilder,
     sx: &SearchExperiencePresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
@@ -29,25 +30,35 @@ pub(super) fn render_search_experience(
         "Dieser Gesamtwert verbindet klassisches technisches SEO mit Inhaltsverständlichkeit, Vertrauenssignalen, KI-Lesbarkeit, semantischer Struktur und mobiler Lesbarkeit. Das klassische SEO bleibt im nächsten Detailkapitel sichtbar."
     };
 
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(title).with_level(2))
-        .add_component(Callout::info(body).with_title(if en {
-            "Why this value exists"
-        } else {
-            "Warum dieser Wert vorne steht"
-        }))
+        .add_component(
+            ScoreCard::new(title, sx.score)
+                .with_description(&sx.interpretation)
+                .with_thresholds(75, 50),
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                if en {
+                    "Why this value stands first"
+                } else {
+                    "Warum dieser Wert vorne steht"
+                },
+                body
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
+        )
         .add_component(module_customer_context(
             i18n,
             "search_experience",
             sx.score,
             &sx.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(&sx.label, sx.score)
-                .with_description(&sx.interpretation)
-                .with_thresholds(75, 50),
-        );
+        ));
 
     if !sx.components.is_empty() {
         let mut table = AuditTable::new(vec![
@@ -150,6 +161,7 @@ pub(super) fn render_budget_violations(
 pub(super) fn render_performance(
     mut builder: renderreport::engine::ReportBuilder,
     perf: &PerformancePresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let perf_section_title = i18n.t("pdf-perf-section-title");
@@ -162,23 +174,33 @@ pub(super) fn render_performance(
             i18n.t("section-technical-complexity"),
             i18n.t("pdf-perf-intro-technical-complexity"),
         );
+
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
     builder = builder
-        .add_component(Section::new(&perf_section_title).with_level(2))
+        .add_component(
+            ScoreCard::new(&perf_section_title, perf.score)
+                .with_description(format!("Grade: {}", perf.grade))
+                .with_thresholds(75, 50),
+        )
         .add_component(perf_intro)
         .add_component(
-            Callout::info(&perf.interpretation).with_title(i18n.t("pdf-perf-overview-title")),
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-perf-overview-title"),
+                perf.interpretation
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
         )
         .add_component(module_customer_context(
             i18n,
             "performance",
             perf.score,
             &perf.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("perf-score-card"), perf.score)
-                .with_description(format!("Grade: {}", perf.grade))
-                .with_thresholds(75, 50),
-        );
+        ));
 
     // ── Subsection 1: Lade-Erfahrung & Vitals ──────────────────────────
     builder = builder.add_component(Section::new(i18n.t("pdf-perf-sub-vitals")).with_level(3));
@@ -554,29 +576,46 @@ pub(super) fn render_performance(
 pub(super) fn render_seo(
     mut builder: renderreport::engine::ReportBuilder,
     seo: &SeoPresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let indicator_note_seo = i18n.t("pdf-seo-indicator-note");
+    let seo_section_title = i18n.t("section-seo-analysis");
+
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-seo-analysis")).with_level(2))
         .add_component(
-            Callout::info(&indicator_note_seo).with_title(i18n.t("pdf-seo-indicator-title")),
+            ScoreCard::new(&seo_section_title, seo.score)
+                .with_description(i18n.t("seo-score-card-description"))
+                .with_thresholds(80, 50),
         )
         .add_component(
-            Callout::info(&seo.interpretation).with_title(i18n.t("pdf-seo-overview-title")),
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-seo-indicator-title"),
+                indicator_note_seo
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-seo-overview-title"),
+                seo.interpretation
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
         )
         .add_component(module_customer_context(
             i18n,
             "seo",
             seo.score,
             &seo.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("seo-score-card"), seo.score)
-                .with_description(i18n.t("seo-score-card-description"))
-                .with_thresholds(80, 50),
-        );
+        ));
 
     let mut seo_strip = Vec::new();
     if let Some((_, title)) = seo.meta_tags.iter().find(|(key, _)| key == "Titel") {
@@ -1136,23 +1175,32 @@ pub(super) fn render_seo_profile(
 pub(super) fn render_security(
     mut builder: renderreport::engine::ReportBuilder,
     sec: &SecurityPresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let security_title = i18n.t("section-security");
+
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-security")).with_level(2))
-        .add_component(TextBlock::new(&sec.interpretation))
+        .add_component(
+            ScoreCard::new(&security_title, sec.score)
+                .with_description(format!("Grade: {}", sec.grade))
+                .with_thresholds(70, 50),
+        )
+        .add_component(
+            Label::new(format!("ℹ: {}", sec.interpretation))
+                .with_size("10.5pt")
+                .with_color("#475569"),
+        )
         .add_component(module_customer_context(
             i18n,
             "security",
             sec.score,
             &sec.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("security-score-card"), sec.score)
-                .with_description(format!("Grade: {}", sec.grade))
-                .with_thresholds(70, 50),
-        );
+        ));
 
     let header_count = sec
         .headers
@@ -1227,21 +1275,26 @@ pub(super) fn render_security(
 pub(super) fn render_mobile(
     mut builder: renderreport::engine::ReportBuilder,
     mobile: &MobilePresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let mobile_title = i18n.t("section-mobile-usability");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-mobile-usability")).with_level(2))
-        .add_component(TextBlock::new(&mobile.interpretation))
+        .add_component(ScoreCard::new(&mobile_title, mobile.score).with_thresholds(80, 50))
+        .add_component(
+            Label::new(format!("ℹ: {}", mobile.interpretation))
+                .with_size("10.5pt")
+                .with_color("#475569"),
+        )
         .add_component(module_customer_context(
             i18n,
             "mobile",
             mobile.score,
             &mobile.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("mobile-score-card"), mobile.score).with_thresholds(80, 50),
-        );
+        ));
 
     let configured_label = i18n.t("mobile-configured");
     let viewport_status = mobile
@@ -1398,25 +1451,34 @@ fn mobile_category_label(category: &str, i18n: &I18n) -> String {
 pub(super) fn render_ux(
     mut builder: renderreport::engine::ReportBuilder,
     ux: &UxPresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let ux_title = i18n.t("section-ux");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-ux")).with_level(2))
         .add_component(
-            Callout::info(&ux.interpretation).with_title(i18n.t("pdf-ux-overview-title")),
+            ScoreCard::new(&ux_title, ux.score)
+                .with_description(i18n.t("label-heuristic-indicator"))
+                .with_thresholds(80, 50),
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-ux-overview-title"),
+                ux.interpretation
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
         )
         .add_component(module_customer_context(
             i18n,
             "ux",
             ux.score,
             &ux.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("ux-score-card"), ux.score)
-                .with_description(i18n.t("label-heuristic-indicator"))
-                .with_thresholds(80, 50),
-        );
+        ));
 
     // Dimension scores as KeyValueList
     let mut kv = KeyValueList::new().with_title(i18n.t("ux-dimensions"));
@@ -1449,25 +1511,34 @@ pub(super) fn render_ux(
 pub(super) fn render_journey(
     mut builder: renderreport::engine::ReportBuilder,
     journey: &JourneyPresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let journey_title = i18n.t("section-journey");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-journey")).with_level(2))
         .add_component(
-            Callout::info(&journey.interpretation).with_title(i18n.t("pdf-journey-overview-title")),
+            ScoreCard::new(&journey_title, journey.score)
+                .with_description(i18n.t("label-heuristic-indicator"))
+                .with_thresholds(80, 50),
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-journey-overview-title"),
+                journey.interpretation
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
         )
         .add_component(module_customer_context(
             i18n,
             "journey",
             journey.score,
             &journey.interpretation,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("journey-score-card"), journey.score)
-                .with_description(i18n.t("label-heuristic-indicator"))
-                .with_thresholds(80, 50),
-        );
+        ));
 
     // Page intent
     let mut kv = KeyValueList::new().with_title(i18n.t("journey-page-type-dimensions"));
@@ -1507,6 +1578,7 @@ pub(super) fn render_journey(
 pub(super) fn render_dark_mode(
     mut builder: renderreport::engine::ReportBuilder,
     dm: &DarkModePresentation,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let support_label = if dm.supported {
@@ -1514,12 +1586,11 @@ pub(super) fn render_dark_mode(
     } else {
         i18n.t("pdf-dm-status-not-supported")
     };
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("section-dark-mode")).with_level(2))
-        .add_component(
-            ScoreCard::new(i18n.t("pdf-dm-score-title"), dm.score).with_thresholds(80, 50),
-        );
+    let dm_title = i18n.t("section-dark-mode");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+    builder = builder.add_component(ScoreCard::new(&dm_title, dm.score).with_thresholds(80, 50));
 
     builder = builder.add_component(
         MetricStrip::new(vec![
@@ -1618,7 +1689,7 @@ fn module_customer_context(
     module_key: &str,
     score: u32,
     interpretation: &str,
-) -> Callout {
+) -> Label {
     let en = i18n.locale() == "en";
     let title = if en {
         "What this means for customers"
@@ -1674,7 +1745,8 @@ fn module_customer_context(
     if !interpretation.trim().is_empty() {
         parts.push(interpretation.trim());
     }
-    Callout::info(parts.join(" ")).with_title(title)
+    let text = format!("ℹ {}: {}", title, parts.join(" "));
+    Label::new(text).with_size("10.5pt").with_color("#475569")
 }
 
 fn score_color(score: u32) -> &'static str {
@@ -1720,20 +1792,16 @@ fn truncate(value: &str, max_chars: usize) -> String {
 pub(super) fn render_source_quality(
     mut builder: renderreport::engine::ReportBuilder,
     sq: &crate::source_quality::SourceQualityAnalysis,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let sq_title = i18n.t("pdf-sq-section-title");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("pdf-sq-section-title")).with_level(2))
-        .add_component(Callout::info(&sq.disclaimer).with_title(i18n.t("pdf-sq-overview-title")))
-        .add_component(module_customer_context(
-            i18n,
-            "source_quality",
-            sq.score,
-            &sq.disclaimer,
-        ))
         .add_component(
-            ScoreCard::new(i18n.t("pdf-sq-score-title"), sq.score)
+            ScoreCard::new(&sq_title, sq.score)
                 .with_description(i18n.t_args(
                     "pdf-sq-score-desc-format",
                     &[
@@ -1742,7 +1810,22 @@ pub(super) fn render_source_quality(
                     ],
                 ))
                 .with_thresholds(70, 50),
-        );
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-sq-overview-title"),
+                sq.disclaimer
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
+        )
+        .add_component(module_customer_context(
+            i18n,
+            "source_quality",
+            sq.score,
+            &sq.disclaimer,
+        ));
 
     if sq.score >= 80 {
         return builder.add_component(Callout::success(i18n.t("pdf-sq-success")));
@@ -1780,18 +1863,20 @@ pub(super) fn render_source_quality(
 pub(super) fn render_tech_stack(
     mut builder: renderreport::engine::ReportBuilder,
     ts: &crate::tech_stack::TechStackAnalysis,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::tech_stack::Confidence;
 
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("pdf-ts-section-title")).with_level(2))
-        .add_component(
-            ScoreCard::new(i18n.t("pdf-ts-score-title"), ts.score)
-                .with_description(format!("Grade: {}", ts.grade))
-                .with_thresholds(80, 50),
-        );
+    let ts_title = i18n.t("pdf-ts-section-title");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+    builder = builder.add_component(
+        ScoreCard::new(&ts_title, ts.score)
+            .with_description(format!("Grade: {}", ts.grade))
+            .with_thresholds(80, 50),
+    );
 
     if !ts.detected.is_empty() {
         let mut table = AuditTable::new(vec![
@@ -1846,24 +1931,17 @@ pub(super) fn render_tech_stack(
 pub(super) fn render_ai_visibility(
     mut builder: renderreport::engine::ReportBuilder,
     av: &crate::ai_visibility::AiVisibilityAnalysis,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let indicator_note_ai = i18n.t("pdf-ai-indicator-note");
+    let ai_title = i18n.t("pdf-ai-section-title");
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("pdf-ai-section-title")).with_level(2))
         .add_component(
-            Callout::info(&indicator_note_ai).with_title(i18n.t("pdf-seo-indicator-title")),
-        )
-        .add_component(Callout::info(&av.disclaimer).with_title(i18n.t("pdf-ai-overview-title")))
-        .add_component(module_customer_context(
-            i18n,
-            "ai_visibility",
-            av.score,
-            &av.disclaimer,
-        ))
-        .add_component(
-            ScoreCard::new(i18n.t("pdf-ai-score-title"), av.score)
+            ScoreCard::new(&ai_title, av.score)
                 .with_description(i18n.t_args(
                     "pdf-ai-score-desc-format",
                     &[
@@ -1872,7 +1950,31 @@ pub(super) fn render_ai_visibility(
                     ],
                 ))
                 .with_thresholds(70, 50),
-        );
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-seo-indicator-title"),
+                indicator_note_ai
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
+        )
+        .add_component(
+            Label::new(format!(
+                "ℹ {}: {}",
+                i18n.t("pdf-ai-overview-title"),
+                av.disclaimer
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
+        )
+        .add_component(module_customer_context(
+            i18n,
+            "ai_visibility",
+            av.score,
+            &av.disclaimer,
+        ));
 
     if av.score >= 80 {
         return builder.add_component(Callout::success(i18n.t("pdf-ai-success")));
@@ -2021,21 +2123,32 @@ pub(super) fn render_ai_visibility(
 pub(super) fn render_content_visibility(
     mut builder: renderreport::engine::ReportBuilder,
     cv: &crate::content_visibility::ContentVisibilityAnalysis,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::assessment::AssessmentLevel;
 
+    let cv_title = i18n.t("pdf-cv-section-title");
+    let score = if cv.signal_count > 0 {
+        ((cv.signal_count - cv.problem_count) * 100) / cv.signal_count
+    } else {
+        100
+    } as u32;
+
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
     builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new(i18n.t("pdf-cv-section-title")).with_level(2))
         .add_component(
-            Callout::info(i18n.t("pdf-cv-overview-body"))
-                .with_title(i18n.t("pdf-cv-overview-title")),
+            ScoreCard::new(&cv_title, score)
+                .with_description(i18n.t("pdf-cv-overview-body"))
+                .with_thresholds(75, 50),
         )
         .add_component(module_customer_context(
             i18n,
             "content_visibility",
-            0,
+            score,
             &i18n.t("pdf-cv-overview-body"),
         ))
         .add_component(TextBlock::new(i18n.t_args(
@@ -2137,14 +2250,14 @@ pub(super) fn render_content_visibility(
 pub(super) fn render_best_practices(
     mut builder: renderreport::engine::ReportBuilder,
     bp: &crate::best_practices::BestPracticesAnalysis,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder
-        .add_component(PageBreak::new())
-        .add_component(Section::new("Best Practices").with_level(2))
-        .add_component(
-            ScoreCard::new(i18n.t("pdf-bp-score-title"), bp.score).with_thresholds(80, 50),
-        );
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+    builder =
+        builder.add_component(ScoreCard::new("Best Practices", bp.score).with_thresholds(80, 50));
 
     if bp.score >= 90
         && bp.console_errors.error_count == 0
@@ -2333,6 +2446,66 @@ pub(super) fn render_a11y_journey_findings(
         "Diese Tests prüfen, ob Browser, DOM, Fokus und Accessibility Tree eine robuste Grundlage für Screenreader-Nutzung liefern. Sie simulieren nicht den exakten Output von NVDA, JAWS oder VoiceOver."
     };
     builder = builder.add_component(Callout::info(disclaimer));
+
+    builder
+}
+
+pub(super) fn render_quality_module_summary(
+    mut builder: renderreport::engine::ReportBuilder,
+    module_name: &str,
+    score: u32,
+    interpretation: &str,
+    findings: &[&FindingGroup],
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+
+    builder = builder
+        .add_component(Section::new(module_name).with_level(2))
+        .add_component(
+            ScoreCard::new(
+                if en {
+                    "Module Score"
+                } else {
+                    "Modul-Bewertung"
+                },
+                score,
+            )
+            .with_description(interpretation)
+            .with_thresholds(75, 50),
+        );
+
+    // Render findings list if there are any
+    if !findings.is_empty() {
+        let title = if en {
+            "Top Findings / Action Items"
+        } else {
+            "Wichtigste Befunde / Handlungsbedarf"
+        };
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("40%"),
+            TableColumn::new(if en { "Impact" } else { "Auswirkung" }).with_width("20%"),
+            TableColumn::new(if en { "Fix Suggestion" } else { "Lösung" }).with_width("40%"),
+        ])
+        .with_title(title);
+
+        for finding in findings.iter().take(5) {
+            let impact_label = super::helpers::severity_label_i18n(finding.severity, i18n);
+            table = table.add_row(vec![
+                finding.title.clone(),
+                impact_label,
+                finding.recommendation.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    } else {
+        let msg = if en {
+            "No significant issues or violations were detected in this area."
+        } else {
+            "Es wurden keine signifikanten Mängel oder Abweichungen in diesem Bereich festgestellt."
+        };
+        builder = builder.add_component(Callout::success(msg));
+    }
 
     builder
 }
