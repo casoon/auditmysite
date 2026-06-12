@@ -171,12 +171,23 @@ pub struct NormalizedFinding {
     /// WCAG-Level (z.B. "A", "AA")
     pub wcag_level: String,
 
-    /// Audit-Dimension
+    /// Audit-Dimension (kanonisch englischer Label-String, für JSON)
     pub dimension: String,
-    /// Subkategorie
+    /// Subkategorie (kanonisch englischer Label-String, für JSON)
     pub subcategory: String,
-    /// Issue-Klasse
+    /// Issue-Klasse (kanonisch englischer Label-String, für JSON)
     pub issue_class: String,
+    /// Canonical taxonomy key for the dimension — kept internal for PDF
+    /// re-derivation in the runtime locale. Not serialized (JSON uses the
+    /// English `dimension` label above).
+    #[serde(skip)]
+    pub dimension_kind: crate::taxonomy::Dimension,
+    /// Canonical taxonomy key for the subcategory (see `dimension_kind`).
+    #[serde(skip)]
+    pub subcategory_kind: crate::taxonomy::Subcategory,
+    /// Canonical taxonomy key for the issue class (see `dimension_kind`).
+    #[serde(skip)]
+    pub issue_class_kind: crate::taxonomy::IssueClass,
     /// Schweregrad
     pub severity: Severity,
     /// Auswirkung auf den Nutzer
@@ -573,8 +584,12 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             let first = violations[0];
             let taxonomy_rule = RuleLookup::by_legacy_wcag_id(rule_id);
 
+            use crate::taxonomy::{Dimension, IssueClass, Subcategory};
             let (
                 tax_id,
+                dimension_kind,
+                subcategory_kind,
+                issue_class_kind,
                 dimension,
                 subcategory,
                 issue_class,
@@ -585,9 +600,14 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             ) = if let Some(rule) = taxonomy_rule {
                 (
                     rule.id.to_string(),
-                    rule.dimension.label().to_string(),
-                    rule.subcategory.label().to_string(),
-                    rule.issue_class.label().to_string(),
+                    rule.dimension,
+                    rule.subcategory,
+                    rule.issue_class,
+                    // JSON carries the canonical English label; PDF re-derives
+                    // the runtime-locale label from the *_kind fields.
+                    rule.dimension.label(true).to_string(),
+                    rule.subcategory.label(true).to_string(),
+                    rule.issue_class.label(true).to_string(),
                     rule.user_impact.to_string(),
                     rule.technical_impact.to_string(),
                     ScoreImpactData {
@@ -604,9 +624,12 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             } else {
                 (
                     format!("unknown.{}", rule_id),
+                    Dimension::Accessibility,
+                    Subcategory::ContentAlternatives,
+                    IssueClass::Missing,
                     "Accessibility".to_string(),
-                    "Unbekannt".to_string(),
-                    "Unbekannt".to_string(),
+                    "Unknown".to_string(),
+                    "Unknown".to_string(),
                     String::new(),
                     String::new(),
                     ScoreImpactData {
@@ -664,12 +687,19 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .max()
                 .unwrap_or(first.severity);
             let priority_score = calculate_priority_score(severity, occurrence_count, &tax_id);
-            let confidence = derive_confidence(&tax_id, &subcategory, &issue_class);
+            // The confidence/risk/complexity heuristics match lowercased tokens that
+            // historically saw the German labels. Pass the German labels (label(false))
+            // so the classification stays byte-for-byte identical now that the stored
+            // string fields are canonical English (e.g. "Weak"/"Content" must not start
+            // matching the English "weak"/"content" token branches).
+            let subcategory_de = subcategory_kind.label(false);
+            let issue_class_de = issue_class_kind.label(false);
+            let confidence = derive_confidence(&tax_id, subcategory_de, issue_class_de);
             let false_positive_risk =
-                derive_false_positive_risk(&tax_id, &subcategory, &issue_class);
+                derive_false_positive_risk(&tax_id, subcategory_de, issue_class_de);
             let verification = derive_verification(&false_positive_risk);
             let (complexity, complexity_reason) =
-                derive_complexity(occurrence_count, &tax_id, &issue_class);
+                derive_complexity(occurrence_count, &tax_id, issue_class_de);
             let expected_impact = derive_expected_impact(
                 severity,
                 occurrence_count,
@@ -697,6 +727,9 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 dimension,
                 subcategory,
                 issue_class,
+                dimension_kind,
+                subcategory_kind,
+                issue_class_kind,
                 severity,
                 user_impact,
                 technical_impact,
@@ -791,6 +824,9 @@ fn aggregate_seo_findings(
             dimension: "SEO".to_string(),
             subcategory: "Content".to_string(),
             issue_class: "issue".to_string(),
+            dimension_kind: crate::taxonomy::Dimension::Seo,
+            subcategory_kind: crate::taxonomy::Subcategory::ContentStructure,
+            issue_class_kind: crate::taxonomy::IssueClass::Weak,
             severity: first.severity,
             user_impact: String::new(),
             technical_impact,
@@ -1923,8 +1959,8 @@ mod tests {
         let finding = &norm.findings[0];
         assert_eq!(finding.rule_id, "a11y.alt_text.missing");
         assert_eq!(finding.dimension, "Accessibility");
-        assert_eq!(finding.subcategory, "Inhalte & Alternativen");
-        assert_eq!(finding.issue_class, "Fehlend");
+        assert_eq!(finding.subcategory, "Content & Alternatives");
+        assert_eq!(finding.issue_class, "Missing");
         assert!(finding.score_impact.base_penalty > 0.0);
         assert!(finding.score_impact.max_penalty >= finding.score_impact.base_penalty);
         assert!(!finding.score_impact.scaling.is_empty());

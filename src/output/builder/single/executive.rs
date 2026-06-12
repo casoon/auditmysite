@@ -505,10 +505,12 @@ fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> Strin
 }
 
 fn score_area_for_key_point(finding: &crate::audit::normalized::NormalizedFinding) -> &'static str {
+    // Use the German subcategory label so the mixed DE/EN token matching below
+    // keeps the exact behavior it had before the JSON labels became English.
     let key = format!(
         "{} {} {} {}",
         finding.rule_id.to_ascii_lowercase(),
-        finding.subcategory.to_ascii_lowercase(),
+        finding.subcategory_kind.label(false).to_ascii_lowercase(),
         finding.title.to_ascii_lowercase(),
         finding.description.to_ascii_lowercase()
     );
