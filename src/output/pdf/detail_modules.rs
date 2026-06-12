@@ -2157,6 +2157,19 @@ pub(super) fn render_content_visibility(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::assessment::AssessmentLevel;
+    use crate::content_visibility::content_visibility_signal_text;
+
+    // The struct carries canonical English; re-derive title/detail in the run language.
+    let en = i18n.locale() == "en";
+
+    // Localize a signal's title/detail via its stored kind + values, falling back
+    // to the canonical-English struct strings for any signal without a kind.
+    let localized = |s: &crate::assessment::ContentSignal| -> (String, String) {
+        match s.cv_kind {
+            Some(kind) => content_visibility_signal_text(kind, &s.cv_values, en),
+            None => (s.title.clone(), s.detail.clone()),
+        }
+    };
 
     let cv_title = i18n.t("pdf-cv-section-title");
     let score = (cv.signal_count.saturating_sub(cv.problem_count) * 100)
@@ -2214,7 +2227,8 @@ pub(super) fn render_content_visibility(
             .iter()
             .filter(|s| s.level == AssessmentLevel::NotTestable)
         {
-            not_testable_rows.push(ChecklistRow::new(&s.title, &s.detail).with_status("info"));
+            let (title, detail) = localized(s);
+            not_testable_rows.push(ChecklistRow::new(&title, &detail).with_status("info"));
         }
 
         if visible.is_empty() {
@@ -2229,8 +2243,8 @@ pub(super) fn render_content_visibility(
                 crate::assessment::EvidenceConfidence::Medium => "◐ ",
                 crate::assessment::EvidenceConfidence::Low => "○ ",
             };
-            let body = format!("{}{}", conf_prefix, signal.detail);
-            let title = signal.title.clone();
+            let (title, detail) = localized(signal);
+            let body = format!("{}{}", conf_prefix, detail);
 
             builder = builder.add_component(match signal.level {
                 AssessmentLevel::Pass | AssessmentLevel::Positive => {

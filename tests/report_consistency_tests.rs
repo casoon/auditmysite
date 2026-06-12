@@ -1056,7 +1056,7 @@ fn test_json_report_includes_extra_module_keys() {
     let mut report = make_full_report();
     report.source_quality = Some(analyze_source_quality(&base));
     report.ai_visibility = Some(analyze_ai_visibility(&base, "de"));
-    report.content_visibility = Some(analyze_content_visibility(&base, "de"));
+    report.content_visibility = Some(analyze_content_visibility(&base));
     report.dark_mode = Some(DarkModeAnalysis {
         supported: false,
         score: 0,
