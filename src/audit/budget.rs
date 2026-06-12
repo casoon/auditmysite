@@ -78,16 +78,14 @@ impl BudgetViolation {
 
 /// Evaluate all configured budget limits against the report.
 /// Returns an empty vec if no budgets are configured or no performance data is available.
-pub fn evaluate_budgets(
-    report: &AuditReport,
-    config: &BudgetConfig,
-    locale: &str,
-) -> Vec<BudgetViolation> {
+/// Evaluate performance budgets. Metric names are baked in canonical English
+/// (so the stored report / JSON is language-independent); the PDF re-localizes
+/// the few translatable metric names at render time (#406).
+pub fn evaluate_budgets(report: &AuditReport, config: &BudgetConfig) -> Vec<BudgetViolation> {
     if config.is_empty() {
         return Vec::new();
     }
 
-    let en = locale == "en";
     let mut violations = Vec::new();
 
     let perf = match report.performance.as_ref() {
@@ -150,7 +148,7 @@ pub fn evaluate_budgets(
             let actual_kb = cw.breakdown.javascript.bytes as f64 / 1024.0;
             if actual_kb > limit_kb {
                 violations.push(BudgetViolation::new(
-                    if en { "JS size" } else { "JS-Größe" },
+                    "JS size",
                     format!("≤ {limit_kb:.0} KB"),
                     format!("{actual_kb:.0} KB"),
                     limit_kb,
@@ -163,7 +161,7 @@ pub fn evaluate_budgets(
             let actual_kb = cw.breakdown.css.bytes as f64 / 1024.0;
             if actual_kb > limit_kb {
                 violations.push(BudgetViolation::new(
-                    if en { "CSS size" } else { "CSS-Größe" },
+                    "CSS size",
                     format!("≤ {limit_kb:.0} KB"),
                     format!("{actual_kb:.0} KB"),
                     limit_kb,
@@ -176,7 +174,7 @@ pub fn evaluate_budgets(
             let actual_kb = cw.total_bytes as f64 / 1024.0;
             if actual_kb > limit_kb {
                 violations.push(BudgetViolation::new(
-                    if en { "Page size" } else { "Seitengröße" },
+                    "Page size",
                     format!("≤ {limit_kb:.0} KB"),
                     format!("{actual_kb:.0} KB"),
                     limit_kb,
@@ -258,7 +256,7 @@ mod tests {
     fn test_evaluate_empty_config_returns_no_violations() {
         let report = empty_report();
         let config = BudgetConfig::default();
-        assert!(evaluate_budgets(&report, &config, "de").is_empty());
+        assert!(evaluate_budgets(&report, &config).is_empty());
     }
 
     #[test]
@@ -268,7 +266,7 @@ mod tests {
             max_lcp_ms: Some(2500.0),
             ..Default::default()
         };
-        assert!(evaluate_budgets(&report, &config, "de").is_empty());
+        assert!(evaluate_budgets(&report, &config).is_empty());
     }
 
     #[test]

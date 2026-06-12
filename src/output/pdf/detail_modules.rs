@@ -144,9 +144,23 @@ pub(super) fn render_budget_violations(
     ])
     .with_title(i18n.t("budget-table-title"));
 
+    // Metric names are stored in canonical English; re-localize the few
+    // translatable ones for the PDF (#406). Acronyms (LCP, TBT, …) pass through.
+    let localize_metric = |metric: &str| -> String {
+        if i18n.locale() == "en" {
+            return metric.to_string();
+        }
+        match metric {
+            "JS size" => "JS-Größe".to_string(),
+            "CSS size" => "CSS-Größe".to_string(),
+            "Page size" => "Seitengröße".to_string(),
+            other => other.to_string(),
+        }
+    };
+
     for v in violations {
         table = table.add_row(vec![
-            v.metric.clone(),
+            localize_metric(&v.metric),
             v.budget_label.clone(),
             v.actual_label.clone(),
             format!("+{:.0}%", v.exceeded_by_pct),

@@ -152,8 +152,7 @@ pub async fn run_single_mode(
     // Evaluate performance budgets from config
     if let Some(ref cfg) = *config {
         if !cfg.budgets.is_empty() {
-            report.budget_violations =
-                auditmysite::audit::evaluate_budgets(&report, &cfg.budgets, &pipeline_config.lang);
+            report.budget_violations = auditmysite::audit::evaluate_budgets(&report, &cfg.budgets);
             if !report.budget_violations.is_empty() && !args.quiet {
                 use auditmysite::audit::BudgetSeverity;
                 let errors = report
