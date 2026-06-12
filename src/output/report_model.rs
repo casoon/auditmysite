@@ -938,17 +938,20 @@ pub struct UxPresentation {
 }
 
 pub struct UxDimensionPresentation {
+    pub kind: crate::ux::UxDimensionKind,
     pub name: String,
     pub score: u32,
     pub summary: String,
 }
 
 pub struct UxIssuePresentation {
+    pub kind: crate::ux::UxIssueKind,
     pub dimension: String,
     pub severity: String,
     pub problem: String,
     pub impact: String,
     pub recommendation: String,
+    pub values: crate::ux::UxIssueValues,
 }
 
 pub struct JourneyPresentation {
@@ -961,6 +964,7 @@ pub struct JourneyPresentation {
 }
 
 pub struct JourneyDimensionPresentation {
+    pub kind: crate::journey::JourneyDimensionKind,
     pub name: String,
     pub score: u32,
     pub weight_pct: u32,
@@ -968,11 +972,13 @@ pub struct JourneyDimensionPresentation {
 }
 
 pub struct FrictionPointPresentation {
+    pub kind: crate::journey::FrictionKind,
     pub step: String,
     pub severity: String,
     pub problem: String,
     pub impact: String,
     pub recommendation: String,
+    pub values: crate::journey::FrictionValues,
 }
 
 // ─── Shared Helper Types ────────────────────────────────────────────────────

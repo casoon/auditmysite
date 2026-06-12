@@ -209,8 +209,8 @@ mod tests {
             63,
             95,
         )
-        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new(), "de"))
-        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new(), "de"));
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
 
         let batch = BatchReport::from_reports(vec![report.clone()], vec![], 1400);
         let pres = build_batch_presentation(&batch);
@@ -412,7 +412,7 @@ mod tests {
             65,
             90,
         )
-        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new(), "de"));
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()));
 
         let normalized = normalize(&report);
         let config = ReportConfig {
@@ -470,30 +470,35 @@ mod tests {
             score: 62,
             grade: "D".into(),
             cta_clarity: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::CtaClarity,
                 name: "CTA Clarity".into(),
                 score: 70,
                 weight: 0.30,
                 summary: "CTA ausreichend".into(),
             },
             visual_hierarchy: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::VisualHierarchy,
                 name: "Visual Hierarchy".into(),
                 score: 60,
                 weight: 0.20,
                 summary: "Heading-Hierarchie lueckenhaft".into(),
             },
             content_clarity: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::ContentClarity,
                 name: "Content Clarity".into(),
                 score: 45,
                 weight: 0.20,
                 summary: "Wenig verwertbarer Inhalt".into(),
             },
             trust_signals: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::TrustSignals,
                 name: "Trust Signals".into(),
                 score: 35,
                 weight: 0.15,
                 summary: "Wichtige Vertrauenssignale fehlen".into(),
             },
             cognitive_load: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::CognitiveLoad,
                 name: "Cognitive Load".into(),
                 score: 100,
                 weight: 0.15,

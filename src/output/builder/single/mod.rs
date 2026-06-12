@@ -820,8 +820,8 @@ mod tests {
             content_sizing: ContentSizing::default(),
             issues: vec![],
         })
-        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new(), "de"))
-        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new(), "de"))
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
         .with_dark_mode(DarkModeAnalysis {
             supported: false,
             class_based_dark_mode: false,

@@ -92,7 +92,7 @@ fn report_with_seo(url: &str, seo: SeoAnalysis) -> AuditReport {
 #[test]
 fn ux_module_finds_friction_on_empty_page() {
     let tree = ax_tree_empty_page();
-    let ux = analyze_ux(&tree, "de");
+    let ux = analyze_ux(&tree);
     assert!(
         !ux.issues.is_empty(),
         "expected UX issues on an empty page, got none. score={}, dims=[{},{},{},{},{}]",
@@ -109,8 +109,8 @@ fn ux_module_finds_friction_on_empty_page() {
 
 #[test]
 fn ux_module_scores_rich_page_higher_than_empty() {
-    let empty = analyze_ux(&ax_tree_empty_page(), "de");
-    let rich = analyze_ux(&ax_tree_rich_page(), "de");
+    let empty = analyze_ux(&ax_tree_empty_page());
+    let rich = analyze_ux(&ax_tree_rich_page());
     assert!(
         rich.score > empty.score,
         "rich page (score={}) should beat empty page (score={})",
@@ -126,7 +126,7 @@ fn ux_module_scores_rich_page_higher_than_empty() {
 #[test]
 fn journey_module_flags_missing_main_landmark() {
     // dom_has_main = false matches our AX tree (no main in empty page).
-    let journey = analyze_journey_with_dom_check(&ax_tree_empty_page(), false, "de");
+    let journey = analyze_journey_with_dom_check(&ax_tree_empty_page(), false);
     assert!(
         journey.orientation.score < 70,
         "orientation should be weak without a main landmark, got {}",
@@ -137,8 +137,8 @@ fn journey_module_flags_missing_main_landmark() {
 
 #[test]
 fn journey_module_scores_rich_page_higher_than_empty() {
-    let empty = analyze_journey_with_dom_check(&ax_tree_empty_page(), false, "de");
-    let rich = analyze_journey_with_dom_check(&ax_tree_rich_page(), true, "de");
+    let empty = analyze_journey_with_dom_check(&ax_tree_empty_page(), false);
+    let rich = analyze_journey_with_dom_check(&ax_tree_rich_page(), true);
     assert!(
         rich.score > empty.score,
         "rich page (score={}) should beat empty page (score={})",

@@ -1286,26 +1286,31 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
             interpretation: module_interpretation(normalized, "ux", locale),
             dimensions: vec![
                 UxDimensionPresentation {
+                    kind: u.cta_clarity.kind,
                     name: u.cta_clarity.name.clone(),
                     score: u.cta_clarity.score,
                     summary: u.cta_clarity.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.visual_hierarchy.kind,
                     name: u.visual_hierarchy.name.clone(),
                     score: u.visual_hierarchy.score,
                     summary: u.visual_hierarchy.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.content_clarity.kind,
                     name: u.content_clarity.name.clone(),
                     score: u.content_clarity.score,
                     summary: u.content_clarity.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.trust_signals.kind,
                     name: u.trust_signals.name.clone(),
                     score: u.trust_signals.score,
                     summary: u.trust_signals.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.cognitive_load.kind,
                     name: u.cognitive_load.name.clone(),
                     score: u.cognitive_load.score,
                     summary: u.cognitive_load.summary.clone(),
@@ -1315,11 +1320,13 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
                 .issues
                 .iter()
                 .map(|i| UxIssuePresentation {
+                    kind: i.kind,
                     dimension: i.dimension.clone(),
                     severity: i.severity.clone(),
                     problem: i.problem.clone(),
                     impact: i.impact.clone(),
                     recommendation: i.recommendation.clone(),
+                    values: i.values.clone(),
                 })
                 .collect(),
         }
@@ -1368,30 +1375,35 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
             interpretation: journey_interpretation,
             dimensions: vec![
                 JourneyDimensionPresentation {
+                    kind: j.entry_clarity.kind,
                     name: j.entry_clarity.name.clone(),
                     score: j.entry_clarity.score,
                     weight_pct: (j.entry_clarity.weight * 100.0).round() as u32,
                     summary: j.entry_clarity.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.orientation.kind,
                     name: j.orientation.name.clone(),
                     score: j.orientation.score,
                     weight_pct: (j.orientation.weight * 100.0).round() as u32,
                     summary: j.orientation.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.navigation.kind,
                     name: j.navigation.name.clone(),
                     score: j.navigation.score,
                     weight_pct: (j.navigation.weight * 100.0).round() as u32,
                     summary: j.navigation.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.interaction.kind,
                     name: j.interaction.name.clone(),
                     score: j.interaction.score,
                     weight_pct: (j.interaction.weight * 100.0).round() as u32,
                     summary: j.interaction.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.conversion.kind,
                     name: j.conversion.name.clone(),
                     score: j.conversion.score,
                     weight_pct: (j.conversion.weight * 100.0).round() as u32,
@@ -1402,11 +1414,13 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
                 .friction_points
                 .iter()
                 .map(|fp| FrictionPointPresentation {
+                    kind: fp.kind,
                     step: fp.step.clone(),
                     severity: fp.severity.clone(),
                     problem: fp.problem.clone(),
                     impact: fp.impact.clone(),
                     recommendation: fp.recommendation.clone(),
+                    values: fp.values.clone(),
                 })
                 .collect(),
         }

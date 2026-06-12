@@ -1497,10 +1497,15 @@ pub(super) fn render_ux(
             &ux.interpretation,
         ));
 
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+
     // Dimension scores as KeyValueList
     let mut kv = KeyValueList::new().with_title(i18n.t("ux-dimensions"));
     for dim in &ux.dimensions {
-        kv = kv.add(&dim.name, format!("{}/100 — {}", dim.score, dim.summary));
+        let name = crate::ux::ux_dimension_name(dim.kind, en);
+        let summary = crate::ux::ux_dimension_summary(dim.kind, dim.score, en);
+        kv = kv.add(name, format!("{}/100 — {}", dim.score, summary));
     }
     builder = builder.add_component(kv);
 
@@ -1512,8 +1517,11 @@ pub(super) fn render_ux(
             "low" => crate::taxonomy::Severity::Low,
             _ => crate::taxonomy::Severity::Medium,
         });
-        let desc = format!("{} — {}", issue.impact, issue.recommendation);
-        builder = builder.add_component(Finding::new(&issue.dimension, sev, &desc));
+        let dimension = crate::ux::ux_dimension_name(issue.kind.dimension(), en);
+        let (_problem, impact, recommendation) =
+            crate::ux::ux_issue_text(issue.kind, &issue.values, en);
+        let desc = format!("{} — {}", impact, recommendation);
+        builder = builder.add_component(Finding::new(dimension, sev, &desc));
     }
     if ux.issues.len() > 3 {
         let more_note = i18n.t_args(
@@ -1557,6 +1565,9 @@ pub(super) fn render_journey(
             &journey.interpretation,
         ));
 
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+
     // Page intent
     let mut kv = KeyValueList::new().with_title(i18n.t("journey-page-type-dimensions"));
     kv = kv.add(
@@ -1564,9 +1575,11 @@ pub(super) fn render_journey(
         &journey.page_intent,
     );
     for dim in &journey.dimensions {
+        let name = crate::journey::journey_dimension_name(dim.kind, en);
+        let summary = crate::journey::journey_dimension_summary(dim.kind, dim.score, en);
         kv = kv.add(
-            format!("{} ({}%)", dim.name, dim.weight_pct),
-            format!("{}/100 — {}", dim.score, dim.summary),
+            format!("{} ({}%)", name, dim.weight_pct),
+            format!("{}/100 — {}", dim.score, summary),
         );
     }
     builder = builder.add_component(kv);
@@ -1579,8 +1592,10 @@ pub(super) fn render_journey(
             "low" => crate::taxonomy::Severity::Low,
             _ => crate::taxonomy::Severity::Medium,
         });
-        let desc = format!("[{}] {} — {}", fp.step, fp.impact, fp.recommendation);
-        builder = builder.add_component(Finding::new(&fp.problem, sev, &desc));
+        let (problem, impact, recommendation) =
+            crate::journey::journey_friction_text(fp.kind, &fp.values, en);
+        let desc = format!("[{}] {} — {}", fp.step, impact, recommendation);
+        builder = builder.add_component(Finding::new(&problem, sev, &desc));
     }
     if journey.friction_points.len() > 3 {
         let more_note = i18n.t_args(

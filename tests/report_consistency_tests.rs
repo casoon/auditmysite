@@ -123,12 +123,12 @@ fn make_mobile() -> MobileFriendliness {
 
 fn make_ux() -> UxAnalysis {
     let tree = AXTree::new();
-    analyze_ux(&tree, "de")
+    analyze_ux(&tree)
 }
 
 fn make_journey() -> JourneyAnalysis {
     let tree = AXTree::new();
-    analyze_journey(&tree, "de")
+    analyze_journey(&tree)
 }
 
 fn make_full_report() -> AuditReport {
@@ -920,7 +920,7 @@ fn test_batch_summary_uses_normalized_primary_score() {
 #[test]
 fn test_journey_has_page_intent() {
     let tree = AXTree::new();
-    let journey = analyze_journey(&tree, "de");
+    let journey = analyze_journey(&tree);
     // Empty tree should still return a valid intent
     assert!(!journey.grade.is_empty());
     assert!(journey.score <= 100);

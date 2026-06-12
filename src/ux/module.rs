@@ -28,7 +28,7 @@ impl AuditModule for UxModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        let ux = analyze_ux(ctx.ax_tree, &ctx.pipeline_config.lang);
+        let ux = analyze_ux(ctx.ax_tree);
         Ok(ModuleData::Ux(Box::new(ux)))
     }
 }
