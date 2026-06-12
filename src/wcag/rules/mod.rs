@@ -111,7 +111,7 @@ pub use info_relationships::check_info_relationships;
 pub use input_purpose::check_input_purpose;
 pub use instructions::check_instructions;
 pub use keyboard::check_keyboard;
-pub use label_in_name::{check_label_in_name, check_label_in_name_with_page};
+pub use label_in_name::check_label_in_name_with_page;
 pub use label_title_only::check_label_title_only;
 pub use labels::check_labels;
 pub use landmark_granular::{

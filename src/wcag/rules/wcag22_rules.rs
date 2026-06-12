@@ -191,10 +191,9 @@ pub fn check_wcag22_rules(tree: &AXTree) -> WcagResults {
         }
 
         // ── target-size ───────────────────────────────────────────────────
-        // Pixel dimensions are not available in the Chrome AX tree.
-        // This rule is registered for filter/reporting compatibility but
-        // cannot produce violations from tree data alone.
-        // (A future CDP layout pass could supply bounding rects.)
+        // 2.5.8 Target Size is checked separately via the DOM/layout pass
+        // `check_target_size_enhanced_with_page` (target_size_enhanced.rs),
+        // which measures real bounding rects. No tree-based check here.
     }
 
     results
