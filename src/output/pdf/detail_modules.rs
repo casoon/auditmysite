@@ -1812,6 +1812,15 @@ pub(super) fn render_source_quality(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    use crate::source_quality::{
+        source_quality_dimension_label, source_quality_dimension_name, source_quality_disclaimer,
+        source_quality_signal_text,
+    };
+
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+    let disclaimer = source_quality_disclaimer(en);
+
     let sq_title = i18n.t("pdf-sq-section-title");
     if !is_first {
         builder = builder.add_component(PageBreak::new());
@@ -1832,7 +1841,7 @@ pub(super) fn render_source_quality(
             Label::new(format!(
                 "ℹ {}: {}",
                 i18n.t("pdf-sq-overview-title"),
-                sq.disclaimer
+                disclaimer
             ))
             .with_size("10.5pt")
             .with_color("#475569"),
@@ -1841,7 +1850,7 @@ pub(super) fn render_source_quality(
             i18n,
             "source_quality",
             sq.score,
-            &sq.disclaimer,
+            &disclaimer,
         ));
 
     if sq.score >= 80 {
@@ -1849,11 +1858,13 @@ pub(super) fn render_source_quality(
     }
 
     for dim in [&sq.substance, &sq.consistency, &sq.authority] {
-        builder = builder.add_component(Section::new(&dim.name).with_level(3));
+        let dim_name = source_quality_dimension_name(dim.kind, en);
+        let dim_label = source_quality_dimension_label(dim.score, en);
+        builder = builder.add_component(Section::new(dim_name).with_level(3));
 
         builder = builder.add_component(
             ScoreCard::new(score_quality_label(dim.score), dim.score)
-                .with_description(&dim.label)
+                .with_description(&dim_label)
                 .with_thresholds(70, 50),
         );
 
@@ -1865,8 +1876,10 @@ pub(super) fn render_source_quality(
             ]);
 
             for signal in &dim.signals {
+                let (name, detail) =
+                    source_quality_signal_text(signal.kind, signal.present, &signal.values, en);
                 let status = if signal.present { "✓" } else { "✗" };
-                table = table.add_row(vec![&signal.name, status, &signal.detail]);
+                table = table.add_row(vec![name, status.to_string(), detail]);
             }
             builder = builder.add_component(table);
         }
