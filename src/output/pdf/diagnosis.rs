@@ -1,6 +1,6 @@
 //! Diagnosis section and scope helpers for PDF reports.
 
-use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 

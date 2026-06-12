@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audit::AuditReport;
 use crate::seo::schema::SchemaType;
+use crate::taxonomy::module_score_grade;
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -102,23 +103,32 @@ const DISCLAIMER_DE: &str = "Diese Bewertung basiert auf heuristischen Signalen 
     AI-Sichtbarkeit. Sie bewertet, wie gut Inhalte für die maschinelle Extraktion \
     und Zitierung durch KI-Systeme aufbereitet sind — nicht deren inhaltliche Qualität.";
 
+const DISCLAIMER_EN: &str = "This assessment is based on heuristic signals for \
+    AI visibility. It evaluates how well content is prepared for machine extraction \
+    and citation by AI systems — not its factual quality.";
+
+fn disclaimer(en: bool) -> String {
+    if en { DISCLAIMER_EN } else { DISCLAIMER_DE }.to_string()
+}
+
 // ─── Analysis entry points ──────────────────────────────────────────────────
 
 /// Derive AI visibility analysis from an existing audit report (single page).
-pub fn analyze_ai_visibility(report: &AuditReport) -> AiVisibilityAnalysis {
+pub fn analyze_ai_visibility(report: &AuditReport, locale: &str) -> AiVisibilityAnalysis {
+    let en = locale == "en";
     let readability_input = build_readability_input(report);
-    let readability = readability::analyze_readability(&readability_input);
+    let readability = readability::analyze_readability(&readability_input, en);
 
     let citation_input = build_citation_input(report);
-    let citation = citation::analyze_citation(&citation_input);
+    let citation = citation::analyze_citation(&citation_input, en);
 
     let chunk_input = build_chunk_input(report);
-    let chunks = chunks::analyze_chunks(&chunk_input);
+    let chunks = chunks::analyze_chunks(&chunk_input, en);
 
     let kg_input = build_knowledge_graph_input(report);
-    let knowledge_graph = knowledge_graph::analyze_knowledge_graph(&kg_input);
+    let knowledge_graph = knowledge_graph::analyze_knowledge_graph(&kg_input, en);
 
-    let policy = analyze_policy(report);
+    let policy = analyze_policy(report, en);
 
     let score = weighted_average(&[
         (readability.dimension.score, 25),
@@ -130,37 +140,41 @@ pub fn analyze_ai_visibility(report: &AuditReport) -> AiVisibilityAnalysis {
 
     AiVisibilityAnalysis {
         score,
-        grade: score_to_grade(score),
+        grade: module_score_grade(score).to_string(),
         readability,
         citation,
         chunks,
         knowledge_graph,
         policy,
-        disclaimer: DISCLAIMER_DE.to_string(),
+        disclaimer: disclaimer(en),
     }
 }
 
 /// Derive AI visibility for batch mode (average across pages).
-pub fn analyze_ai_visibility_batch(reports: &[AuditReport]) -> AiVisibilityAnalysis {
+pub fn analyze_ai_visibility_batch(reports: &[AuditReport], locale: &str) -> AiVisibilityAnalysis {
+    let en = locale == "en";
     if reports.is_empty() {
-        return empty_analysis();
+        return empty_analysis(en);
     }
 
-    let analyses: Vec<AiVisibilityAnalysis> = reports.iter().map(analyze_ai_visibility).collect();
+    let analyses: Vec<AiVisibilityAnalysis> = reports
+        .iter()
+        .map(|r| analyze_ai_visibility(r, locale))
+        .collect();
 
     let avg_score = analyses.iter().map(|a| a.score).sum::<u32>() / analyses.len() as u32;
 
     // Use the first report's detailed analysis as template, with averaged scores
     let mut result = analyses.into_iter().next().unwrap();
     result.score = avg_score;
-    result.grade = score_to_grade(avg_score);
+    result.grade = module_score_grade(avg_score).to_string();
 
     result
 }
 
 // ─── Policy analysis ────────────────────────────────────────────────────────
 
-fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
+fn analyze_policy(report: &AuditReport, en: bool) -> PolicyAnalysis {
     let mut signals = Vec::new();
 
     let (
@@ -203,7 +217,11 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
                 false,
                 0,
                 false,
-                "Keine robots.txt".to_string(),
+                if en {
+                    "No robots.txt".to_string()
+                } else {
+                    "Keine robots.txt".to_string()
+                },
             )
         }
     } else {
@@ -214,17 +232,31 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
             false,
             0,
             false,
-            "Keine robots.txt".to_string(),
+            if en {
+                "No robots.txt".to_string()
+            } else {
+                "Keine robots.txt".to_string()
+            },
         )
     };
 
     // 1. robots.txt accessible
     signals.push(AiSignal {
-        name: "robots.txt erreichbar".into(),
+        name: if en {
+            "robots.txt reachable".into()
+        } else {
+            "robots.txt erreichbar".into()
+        },
         present: has_robots,
         weight: 0.15,
         detail: if has_robots {
-            "robots.txt vorhanden und lesbar".into()
+            if en {
+                "robots.txt present and readable".into()
+            } else {
+                "robots.txt vorhanden und lesbar".into()
+            }
+        } else if en {
+            "robots.txt not reachable — AI crawlers have no policy info".into()
         } else {
             "robots.txt nicht erreichbar — AI-Crawler haben keine Policy-Info".into()
         },
@@ -232,11 +264,21 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
 
     // 2. Not blocking all crawlers
     signals.push(AiSignal {
-        name: "Kein Wildcard-Block".into(),
+        name: if en {
+            "No wildcard block".into()
+        } else {
+            "Kein Wildcard-Block".into()
+        },
         present: !blocks_all,
         weight: 0.20,
         detail: if blocks_all {
-            "Disallow: / für alle Crawler — blockiert auch AI-Systeme".into()
+            if en {
+                "Disallow: / for all crawlers — blocks AI systems too".into()
+            } else {
+                "Disallow: / für alle Crawler — blockiert auch AI-Systeme".into()
+            }
+        } else if en {
+            "No global block — crawlers generally have access".into()
         } else {
             "Kein globaler Block — Crawler haben grundsätzlich Zugang".into()
         },
@@ -245,13 +287,27 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
     // 3. Citation/search AI bots accessible — only citation bots matter for real-time AI visibility.
     //    Blocking training bots (GPTBot, Google-Extended etc.) is standard practice and not penalized.
     signals.push(AiSignal {
-        name: "KI-Suche erreichbar".into(),
+        name: if en {
+            "AI search reachable".into()
+        } else {
+            "KI-Suche erreichbar".into()
+        },
         present: !blocks_citation,
         weight: 0.25,
         detail: if blocks_all {
-            "Alle Crawler gesperrt (Disallow: *) — auch KI-Suche blockiert".into()
+            if en {
+                "All crawlers blocked (Disallow: *) — AI search blocked too".into()
+            } else {
+                "Alle Crawler gesperrt (Disallow: *) — auch KI-Suche blockiert".into()
+            }
         } else if blocks_citation {
-            "KI-Suchbots (PerplexityBot, Amazonbot etc.) blockiert — Inhalte erscheinen nicht in KI-Antworten".into()
+            if en {
+                "AI search bots (PerplexityBot, Amazonbot etc.) blocked — content does not appear in AI answers".into()
+            } else {
+                "KI-Suchbots (PerplexityBot, Amazonbot etc.) blockiert — Inhalte erscheinen nicht in KI-Antworten".into()
+            }
+        } else if en {
+            "AI search bots not blocked — content available for AI answers".into()
         } else {
             "KI-Suchbots nicht blockiert — Inhalte für KI-Antworten verfügbar".into()
         },
@@ -260,16 +316,33 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
     // 4. Explicit AI policy defined — having any policy is better than silence
     let has_explicit_policy = has_robots && blocked_count > 0;
     signals.push(AiSignal {
-        name: "Explizite AI-Policy".into(),
+        name: if en {
+            "Explicit AI policy".into()
+        } else {
+            "Explizite AI-Policy".into()
+        },
         present: has_explicit_policy,
         weight: 0.15,
         detail: if has_explicit_policy {
-            format!(
-                "Policy definiert: {} — {} AI-Bots adressiert",
-                inferred_policy, blocked_count
-            )
+            if en {
+                format!(
+                    "Policy defined: {} — {} AI bots addressed",
+                    inferred_policy, blocked_count
+                )
+            } else {
+                format!(
+                    "Policy definiert: {} — {} AI-Bots adressiert",
+                    inferred_policy, blocked_count
+                )
+            }
         } else if has_robots {
-            "Keine explizite AI-Crawler-Regelung in robots.txt".into()
+            if en {
+                "No explicit AI crawler rules in robots.txt".into()
+            } else {
+                "Keine explizite AI-Crawler-Regelung in robots.txt".into()
+            }
+        } else if en {
+            "No robots.txt — no AI policy definable".into()
         } else {
             "Keine robots.txt — keine AI-Policy definierbar".into()
         },
@@ -277,11 +350,21 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
 
     // 5. Sitemap in robots.txt (helps AI crawlers discover content)
     signals.push(AiSignal {
-        name: "Sitemap-Verweis".into(),
+        name: if en {
+            "Sitemap reference".into()
+        } else {
+            "Sitemap-Verweis".into()
+        },
         present: has_sitemap_in_robots,
         weight: 0.15,
         detail: if has_sitemap_in_robots {
-            "Sitemap in robots.txt verlinkt — erleichtert AI-Crawling".into()
+            if en {
+                "Sitemap linked in robots.txt — eases AI crawling".into()
+            } else {
+                "Sitemap in robots.txt verlinkt — erleichtert AI-Crawling".into()
+            }
+        } else if en {
+            "No sitemap in robots.txt — AI crawlers must discover pages themselves".into()
         } else {
             "Keine Sitemap in robots.txt — AI-Crawler müssen Seiten selbst entdecken".into()
         },
@@ -295,18 +378,28 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
             .any(|i| i.issue_type.contains("noindex") || i.issue_type.contains("nofollow"))
     });
     signals.push(AiSignal {
-        name: "Meta-Robots freigegeben".into(),
+        name: if en {
+            "Meta robots allowed".into()
+        } else {
+            "Meta-Robots freigegeben".into()
+        },
         present: !has_meta_robots_issue,
         weight: 0.10,
         detail: if has_meta_robots_issue {
-            "noindex/nofollow erkannt — Seite wird von AI-Crawlern gemieden".into()
+            if en {
+                "noindex/nofollow detected — page avoided by AI crawlers".into()
+            } else {
+                "noindex/nofollow erkannt — Seite wird von AI-Crawlern gemieden".into()
+            }
+        } else if en {
+            "No indexing block via meta tags".into()
         } else {
             "Keine Indexierungs-Blockade via Meta-Tags".into()
         },
     });
 
     PolicyAnalysis {
-        dimension: build_dimension("AI-Policy", &signals),
+        dimension: build_dimension(if en { "AI policy" } else { "AI-Policy" }, &signals, en),
         blocks_ai_citation: blocks_citation,
         blocks_ai_training: blocks_training,
         blocks_all,
@@ -594,12 +687,12 @@ fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::Knowled
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-fn build_dimension(name: &str, signals: &[AiSignal]) -> DimensionScore {
+fn build_dimension(name: &str, signals: &[AiSignal], en: bool) -> DimensionScore {
     if signals.is_empty() {
         return DimensionScore {
             name: name.to_string(),
             score: 0,
-            label: "Keine Daten".into(),
+            label: no_data_label(en),
             signals: vec![],
         };
     }
@@ -624,7 +717,7 @@ fn build_dimension(name: &str, signals: &[AiSignal]) -> DimensionScore {
     DimensionScore {
         name: name.to_string(),
         score,
-        label: score_to_label(score),
+        label: score_to_label(score, en),
         signals: signals.to_vec(),
     }
 }
@@ -638,33 +731,36 @@ fn weighted_average(items: &[(u32, u32)]) -> u32 {
     (sum as f64 / total_weight as f64).round() as u32
 }
 
-fn score_to_grade(score: u32) -> String {
-    match score {
-        90..=100 => "A",
-        75..=89 => "B",
-        60..=74 => "C",
-        40..=59 => "D",
-        _ => "F",
+fn no_data_label(en: bool) -> String {
+    if en { "No data" } else { "Keine Daten" }.to_string()
+}
+
+fn score_to_label(score: u32, en: bool) -> String {
+    if en {
+        match score {
+            90..=100 => "Excellent",
+            75..=89 => "Good",
+            60..=74 => "Needs improvement",
+            40..=59 => "Inadequate",
+            _ => "Critical",
+        }
+    } else {
+        match score {
+            90..=100 => "Sehr gut",
+            75..=89 => "Gut",
+            60..=74 => "Verbesserungswürdig",
+            40..=59 => "Ausbaufähig",
+            _ => "Kritisch",
+        }
     }
     .to_string()
 }
 
-fn score_to_label(score: u32) -> String {
-    match score {
-        90..=100 => "Sehr gut",
-        75..=89 => "Gut",
-        60..=74 => "Verbesserungswürdig",
-        40..=59 => "Ausbaufähig",
-        _ => "Kritisch",
-    }
-    .to_string()
-}
-
-fn empty_analysis() -> AiVisibilityAnalysis {
+fn empty_analysis(en: bool) -> AiVisibilityAnalysis {
     let empty_dim = DimensionScore {
         name: String::new(),
         score: 0,
-        label: "Keine Daten".into(),
+        label: no_data_label(en),
         signals: vec![],
     };
 
@@ -758,7 +854,7 @@ mod tests {
     #[test]
     fn test_minimal_report_produces_scores() {
         let report = minimal_report();
-        let analysis = analyze_ai_visibility(&report);
+        let analysis = analyze_ai_visibility(&report, "de");
         assert!(analysis.score <= 100);
         assert!(!analysis.disclaimer.is_empty());
         assert!(!analysis.grade.is_empty());
@@ -766,24 +862,24 @@ mod tests {
 
     #[test]
     fn test_empty_batch_returns_zero() {
-        let analysis = analyze_ai_visibility_batch(&[]);
+        let analysis = analyze_ai_visibility_batch(&[], "de");
         assert_eq!(analysis.score, 0);
     }
 
     #[test]
     fn test_batch_with_reports() {
         let reports = vec![minimal_report(), minimal_report()];
-        let analysis = analyze_ai_visibility_batch(&reports);
+        let analysis = analyze_ai_visibility_batch(&reports, "de");
         assert!(analysis.score <= 100);
     }
 
     #[test]
     fn test_grade_mapping() {
-        assert_eq!(score_to_grade(95), "A");
-        assert_eq!(score_to_grade(80), "B");
-        assert_eq!(score_to_grade(65), "C");
-        assert_eq!(score_to_grade(45), "D");
-        assert_eq!(score_to_grade(20), "F");
+        assert_eq!(module_score_grade(95), "A");
+        assert_eq!(module_score_grade(80), "B");
+        assert_eq!(module_score_grade(65), "C");
+        assert_eq!(module_score_grade(45), "D");
+        assert_eq!(module_score_grade(20), "F");
     }
 
     #[test]
@@ -791,5 +887,58 @@ mod tests {
         assert_eq!(weighted_average(&[(100, 50), (0, 50)]), 50);
         assert_eq!(weighted_average(&[(100, 100)]), 100);
         assert_eq!(weighted_average(&[]), 0);
+    }
+
+    fn contains_german(s: &str) -> bool {
+        s.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß'])
+    }
+
+    #[test]
+    fn english_locale_has_no_german_chars() {
+        use crate::seo::{
+            HeadingStructure, MetaTags, SeoAnalysis, SocialTags, StructuredData, TechnicalSeo,
+        };
+        // Bare SEO so every "missing"/"weak" branch contributes a string.
+        let mut report = minimal_report();
+        report.seo = Some(SeoAnalysis {
+            meta: MetaTags::default(),
+            headings: HeadingStructure::default(),
+            technical: TechnicalSeo::default(),
+            social: SocialTags::default(),
+            structured_data: StructuredData::default(),
+            score: 40,
+            content_profile: None,
+            robots: None,
+            page_health: None,
+            serp: None,
+            meta_issues: vec![],
+            image_efficiency: None,
+        });
+
+        let analysis = analyze_ai_visibility(&report, "en");
+        assert!(!contains_german(&analysis.disclaimer));
+
+        let dims = [
+            &analysis.readability.dimension,
+            &analysis.citation.dimension,
+            &analysis.chunks.dimension,
+            &analysis.knowledge_graph.dimension,
+            &analysis.policy.dimension,
+        ];
+        for dim in dims {
+            assert!(!contains_german(&dim.name), "dim name: {:?}", dim.name);
+            assert!(!contains_german(&dim.label), "dim label: {:?}", dim.label);
+            for s in &dim.signals {
+                assert!(!contains_german(&s.name), "signal name: {:?}", s.name);
+                assert!(!contains_german(&s.detail), "signal detail: {:?}", s.detail);
+            }
+        }
+        assert!(!contains_german(&analysis.chunks.recommendation));
+        for sec in &analysis.chunks.sections {
+            assert!(!contains_german(&sec.heading));
+        }
+        for s in &analysis.knowledge_graph.link_suggestions {
+            assert!(!contains_german(&s.reason));
+        }
     }
 }

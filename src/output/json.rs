@@ -259,6 +259,10 @@ pub struct PageEntry {
     /// Advisory (semantic / LLM) findings. Never affect score or risk.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub advisory_findings: Vec<crate::audit::normalized::AdvisoryFinding>,
+    /// Compact screen-reader audit (reading-order quality, issues, BFSG verdict).
+    /// The full reading sequence stays in the sidecar JSON.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen_reader: Option<crate::screen_reader::ScreenReaderSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
 }
@@ -292,6 +296,10 @@ pub struct PageDetail {
 pub struct ModuleBlob {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessibility: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dual_viewport: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_experience: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -778,6 +786,7 @@ fn build_page(
         interactive_findings: normalized.interactive_findings.clone(),
         accessibility_journey: normalized.accessibility_journey.clone(),
         advisory_findings: normalized.advisory_findings.clone(),
+        screen_reader: normalized.screen_reader.clone(),
         detail,
     }
 }
@@ -841,6 +850,31 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
                 })
             })
             .ok()
+    });
+
+    let search_experience = vm.module_details.search_experience.as_ref().map(|sx| {
+        serde_json::json!({
+            "score": sx.score,
+            "label": sx.label.clone(),
+            "interpretation": sx.interpretation.clone(),
+            "components": sx.components.iter().map(|component| {
+                serde_json::json!({
+                    "label": component.label.clone(),
+                    "score": component.score,
+                    "weight_pct": component.weight_pct,
+                    "explanation": component.explanation.clone(),
+                })
+            }).collect::<Vec<_>>(),
+            "warnings": sx.warnings.clone(),
+            "measurement_type": "composite",
+        })
+    });
+
+    let dual_viewport = ctx.raw_dual_viewport.as_ref().map(|dual| {
+        serde_json::json!({
+            "desktop": viewport_detail_summary(&dual.desktop),
+            "mobile": viewport_detail_summary(&dual.mobile),
+        })
     });
 
     let patterns = ctx.raw_patterns.as_ref().map(|m| {
@@ -916,6 +950,8 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
             "principle_coverage": normalized.principle_coverage,
             "findings": wcag_findings,
         })),
+        dual_viewport,
+        search_experience,
         performance: ctx.raw_performance.as_ref().map(|m| {
             inject_unused_js_bytes(
                 with_normalized_score(m.to_json(), normalized, "Performance"),
@@ -1009,6 +1045,27 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         screenshot_status: detail_ctx.screenshot_status,
         collection_errors: errors,
     }
+}
+
+fn viewport_detail_summary(data: &crate::audit::ViewportAuditData) -> serde_json::Value {
+    serde_json::json!({
+        "accessibility_score": data.accessibility_score.round().max(0.0) as u32,
+        "wcag": {
+            "violations": data.wcag_results.violations.len(),
+            "warnings": data.wcag_results.warnings.len(),
+            "positives": data.wcag_results.positives.len(),
+            "not_testables": data.wcag_results.not_testables.len(),
+            "nodes_checked": data.wcag_results.nodes_checked,
+        },
+        "modules": {
+            "performance": data.performance.as_ref().map(|p| p.score.overall),
+            "seo": data.seo.as_ref().map(|s| s.score),
+            "mobile": data.mobile.as_ref().map(|m| m.score),
+            "ux": data.ux.as_ref().map(|u| u.score),
+            "journey": data.journey.as_ref().map(|j| j.score),
+        },
+        "has_screenshot": data.screenshot.is_some(),
+    })
 }
 
 /// Build fix guidance entries from normalized findings + explanation database.
@@ -1870,8 +1927,8 @@ mod tests {
             recommendations: vec![],
             protection: Default::default(),
         })
-        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new(), "de"))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new(), "de"));
 
         let active_keys: Vec<&'static str> = active_modules(&report)
             .into_iter()
@@ -1953,8 +2010,8 @@ mod tests {
             content_sizing: ContentSizing::default(),
             issues: vec![],
         })
-        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new(), "de"))
+        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new(), "de"))
         .with_dark_mode(DarkModeAnalysis {
             supported: false,
             class_based_dark_mode: false,
@@ -1995,8 +2052,8 @@ mod tests {
             violations: vec![],
             journey_candidates: vec![],
         });
-        let sq = crate::source_quality::analyze_source_quality(&report);
-        let av = crate::ai_visibility::analyze_ai_visibility(&report);
+        let sq = crate::source_quality::analyze_source_quality(&report, "de");
+        let av = crate::ai_visibility::analyze_ai_visibility(&report, "de");
         report.source_quality = Some(sq);
         report.ai_visibility = Some(av);
         // content_visibility is set separately per test — its JSON emission
@@ -2037,6 +2094,67 @@ mod tests {
                 key
             );
         }
+    }
+
+    #[test]
+    fn test_search_experience_serialized_in_single_detail_modules() {
+        let report = all_active_modules_report();
+        let normalized = normalize(&report);
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let search_experience = &json_value["pages"][0]["detail"]["modules"]["search_experience"];
+
+        assert!(
+            search_experience.is_object(),
+            "search_experience must be serialized in single report detail modules"
+        );
+        assert_eq!(search_experience["measurement_type"], "composite");
+        assert!(search_experience["score"].as_u64().is_some());
+        assert!(
+            search_experience["components"]
+                .as_array()
+                .is_some_and(|components| !components.is_empty()),
+            "search_experience must include its component inputs"
+        );
+    }
+
+    #[test]
+    fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
+        let mut report = all_active_modules_report();
+        report.dual_viewport = Some(crate::audit::DualViewportResults {
+            desktop: crate::audit::ViewportAuditData {
+                wcag_results: WcagResults::new(),
+                accessibility_score: 92.0,
+                performance: None,
+                seo: None,
+                mobile: None,
+                ux: None,
+                journey: None,
+                screenshot: None,
+            },
+            mobile: crate::audit::ViewportAuditData {
+                wcag_results: WcagResults::new(),
+                accessibility_score: 71.0,
+                performance: None,
+                seo: None,
+                mobile: None,
+                ux: None,
+                journey: None,
+                screenshot: None,
+            },
+        });
+
+        let normalized = normalize(&report);
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).unwrap();
+        let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+        let dual = &json_value["pages"][0]["detail"]["modules"]["dual_viewport"];
+
+        assert!(dual.is_object(), "dual_viewport summary must be serialized");
+        assert_eq!(dual["desktop"]["accessibility_score"], 92);
+        assert_eq!(dual["mobile"]["accessibility_score"], 71);
+        assert_eq!(dual["desktop"]["wcag"]["violations"], 0);
     }
 
     #[test]

@@ -203,7 +203,9 @@ async fn test_full_audit_with_all_modules() {
     assert!(report.mobile.is_some(), "Mobile results should be present");
 
     // Overall score should be calculated
-    let overall = report.overall_score();
+    let overall = auditmysite::audit::normalize(&report)
+        .normalized
+        .overall_score;
     assert!(
         overall > 0 && overall <= 100,
         "Overall score {} out of range",

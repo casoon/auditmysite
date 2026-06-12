@@ -12,21 +12,38 @@ pub(super) fn build_batch_overview_grid(
     total_violations: u32,
     critical_and_high: u32,
     broken_internal_links: Option<u32>,
+    en: bool,
 ) -> Grid {
     let mut metrics = vec![
         (
-            "Durchschnitt",
+            if en { "Average" } else { "Durchschnitt" },
             format!("{average_score} / 100"),
             Some(score_quality_color(average_score)),
         ),
-        ("Geprüfte Websites", total_urls.to_string(), Some("#0f766e")),
         (
-            "Verstöße gesamt",
+            if en {
+                "Sites audited"
+            } else {
+                "Geprüfte Websites"
+            },
+            total_urls.to_string(),
+            Some("#0f766e"),
+        ),
+        (
+            if en {
+                "Violations total"
+            } else {
+                "Verstöße gesamt"
+            },
             total_violations.to_string(),
             Some("#b45309"),
         ),
         (
-            "Kritisch + Hoch",
+            if en {
+                "Critical + High"
+            } else {
+                "Kritisch + Hoch"
+            },
             critical_and_high.to_string(),
             Some("#dc2626"),
         ),

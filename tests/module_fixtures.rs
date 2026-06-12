@@ -92,7 +92,7 @@ fn report_with_seo(url: &str, seo: SeoAnalysis) -> AuditReport {
 #[test]
 fn ux_module_finds_friction_on_empty_page() {
     let tree = ax_tree_empty_page();
-    let ux = analyze_ux(&tree);
+    let ux = analyze_ux(&tree, "de");
     assert!(
         !ux.issues.is_empty(),
         "expected UX issues on an empty page, got none. score={}, dims=[{},{},{},{},{}]",
@@ -109,8 +109,8 @@ fn ux_module_finds_friction_on_empty_page() {
 
 #[test]
 fn ux_module_scores_rich_page_higher_than_empty() {
-    let empty = analyze_ux(&ax_tree_empty_page());
-    let rich = analyze_ux(&ax_tree_rich_page());
+    let empty = analyze_ux(&ax_tree_empty_page(), "de");
+    let rich = analyze_ux(&ax_tree_rich_page(), "de");
     assert!(
         rich.score > empty.score,
         "rich page (score={}) should beat empty page (score={})",
@@ -126,7 +126,7 @@ fn ux_module_scores_rich_page_higher_than_empty() {
 #[test]
 fn journey_module_flags_missing_main_landmark() {
     // dom_has_main = false matches our AX tree (no main in empty page).
-    let journey = analyze_journey_with_dom_check(&ax_tree_empty_page(), false);
+    let journey = analyze_journey_with_dom_check(&ax_tree_empty_page(), false, "de");
     assert!(
         journey.orientation.score < 70,
         "orientation should be weak without a main landmark, got {}",
@@ -137,8 +137,8 @@ fn journey_module_flags_missing_main_landmark() {
 
 #[test]
 fn journey_module_scores_rich_page_higher_than_empty() {
-    let empty = analyze_journey_with_dom_check(&ax_tree_empty_page(), false);
-    let rich = analyze_journey_with_dom_check(&ax_tree_rich_page(), true);
+    let empty = analyze_journey_with_dom_check(&ax_tree_empty_page(), false, "de");
+    let rich = analyze_journey_with_dom_check(&ax_tree_rich_page(), true, "de");
     assert!(
         rich.score > empty.score,
         "rich page (score={}) should beat empty page (score={})",
@@ -157,7 +157,7 @@ fn source_quality_module_populates_report_field() {
     assert!(report.source_quality.is_none(), "precondition");
 
     SourceQualityModule
-        .derive(&mut report)
+        .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let sq = report
@@ -175,8 +175,8 @@ fn source_quality_module_populates_report_field() {
 fn source_quality_module_rewards_https_over_http() {
     let mut https_report = empty_report("https://example.com");
     let mut http_report = empty_report("http://example.com");
-    SourceQualityModule.derive(&mut https_report).unwrap();
-    SourceQualityModule.derive(&mut http_report).unwrap();
+    SourceQualityModule.derive(&mut https_report, "de").unwrap();
+    SourceQualityModule.derive(&mut http_report, "de").unwrap();
 
     let https_score = https_report.source_quality.as_ref().unwrap().score;
     let http_score = http_report.source_quality.as_ref().unwrap().score;
@@ -198,7 +198,7 @@ fn ai_visibility_module_populates_report_field() {
     assert!(report.ai_visibility.is_none(), "precondition");
 
     AiVisibilityModule
-        .derive(&mut report)
+        .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let av = report
@@ -220,8 +220,8 @@ fn ai_visibility_module_uses_seo_signals() {
     let mut without_seo = empty_report("https://example.com");
     let mut with_seo = report_with_seo("https://example.com", SeoAnalysis::default());
 
-    AiVisibilityModule.derive(&mut without_seo).unwrap();
-    AiVisibilityModule.derive(&mut with_seo).unwrap();
+    AiVisibilityModule.derive(&mut without_seo, "de").unwrap();
+    AiVisibilityModule.derive(&mut with_seo, "de").unwrap();
 
     // Both must populate the field; the score field is well-defined in both.
     assert!(without_seo.ai_visibility.is_some());
@@ -238,7 +238,7 @@ fn content_visibility_module_returns_default_without_seo() {
     assert!(report.content_visibility.is_none(), "precondition");
 
     ContentVisibilityModule
-        .derive(&mut report)
+        .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let cv = report
@@ -256,7 +256,7 @@ fn content_visibility_module_returns_default_without_seo() {
 #[test]
 fn content_visibility_module_produces_signals_with_seo_present() {
     let mut report = report_with_seo("https://example.com", SeoAnalysis::default());
-    ContentVisibilityModule.derive(&mut report).unwrap();
+    ContentVisibilityModule.derive(&mut report, "de").unwrap();
     let cv = report.content_visibility.as_ref().unwrap();
     assert!(
         cv.signal_count > 0,

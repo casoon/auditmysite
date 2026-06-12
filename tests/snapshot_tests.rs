@@ -119,8 +119,8 @@ fn make_full_report() -> AuditReport {
         content_sizing: Default::default(),
         issues: vec![],
     })
-    .with_ux(analyze_ux(&tree))
-    .with_journey(analyze_journey(&tree))
+    .with_ux(analyze_ux(&tree, "de"))
+    .with_journey(analyze_journey(&tree, "de"))
 }
 
 // ─── Snapshot A: NormalizedReport key fields ────────────────────────────────

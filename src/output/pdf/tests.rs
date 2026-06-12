@@ -2,6 +2,7 @@
 #[cfg(all(test, feature = "pdf_test"))]
 mod tests {
     use super::super::*;
+    use crate::audit::normalized::AdvisoryFinding;
     use crate::audit::{AuditReport, BatchReport};
     use crate::cli::{ReportLevel, WcagLevel};
     use crate::util::truncate_url;
@@ -317,6 +318,73 @@ mod tests {
         assert!(
             text.contains("Skip-Link"),
             "Expected localized pattern title 'Skip-Link' in PDF text"
+        );
+    }
+
+    #[test]
+    fn test_single_pdf_renders_advisory_findings() {
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let mut report = pdf_fixture_report_rich();
+        report.advisory_findings = vec![AdvisoryFinding {
+            category: "heading_outline".to_string(),
+            message: "Heading order looks confusing in the main content.".to_string(),
+            source: "static_heuristic".to_string(),
+            confidence: 0.82,
+        }];
+
+        let pdf = generate_pdf(&report, &ReportConfig::default()).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("advisory-single.pdf");
+        let txt_path = temp_dir.path().join("advisory-single.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read text");
+
+        assert!(
+            text.contains("Heading order looks confusing"),
+            "Expected advisory finding message in single PDF text"
+        );
+    }
+
+    #[test]
+    fn test_batch_pdf_renders_advisory_findings() {
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let mut report = pdf_fixture_report_rich();
+        report.advisory_findings = vec![AdvisoryFinding {
+            category: "link_text".to_string(),
+            message: "Several link labels need editorial review.".to_string(),
+            source: "static_heuristic".to_string(),
+            confidence: 0.71,
+        }];
+        let batch = BatchReport::from_reports(vec![report], vec![], 3_800);
+
+        let pdf = generate_batch_pdf(&batch, &ReportConfig::default()).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("advisory-batch.pdf");
+        let txt_path = temp_dir.path().join("advisory-batch.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read text");
+
+        assert!(
+            text.contains("Several link labels need editorial review"),
+            "Expected advisory finding message in batch PDF text"
         );
     }
 

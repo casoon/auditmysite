@@ -409,8 +409,8 @@ pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
 
 /// Wait for LCP and TBT to stabilize before reading vitals.
 ///
-/// **Phase 1 – LCP**: polls `window.__ams_lcp` every 250 ms (initial 300 ms wait,
-/// up to ~3 s) until an LCP entry is captured.
+/// **Phase 1 – LCP**: polls `window.__ams_lcp` every 250 ms (up to ~3 s)
+/// until an LCP entry is captured.
 ///
 /// **Phase 2 – TBT settle**: JS bundles execute *after* LCP fires, so Long Tasks
 /// are not yet visible when LCP > 0. Polls `window.__ams_tbt` every 200 ms and
@@ -418,7 +418,6 @@ pub async fn finalize_lcp(page: &Page) -> Result<Option<f64>> {
 /// unchanged). Max 5 s — matches Lighthouse's quiet-window heuristic.
 async fn wait_for_vitals_stable(page: &Page) {
     // Phase 1: wait for first LCP entry
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     for _ in 0..11u8 {
         let lcp = page
             .evaluate("window.__ams_lcp || 0")
@@ -436,8 +435,6 @@ async fn wait_for_vitals_stable(page: &Page) {
     let mut last_tbt = -1.0_f64;
     let mut stable_ticks: u8 = 0;
     for _ in 0..25u8 {
-        // max 5 s (25 × 200 ms)
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         let tbt = page
             .evaluate("window.__ams_tbt || 0")
             .await
@@ -457,6 +454,7 @@ async fn wait_for_vitals_stable(page: &Page) {
             stable_ticks = 0;
         }
         last_tbt = tbt;
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }
 

@@ -31,6 +31,21 @@ pub struct UnminifiedAsset {
     pub savings_bytes: u64,
 }
 
+/// JavaScript resource that looks like legacy/polyfill payload for modern browsers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyJavascriptAsset {
+    /// Resource URL (truncated to 120 chars)
+    pub url: String,
+    /// Detected legacy/polyfill family.
+    pub signature: String,
+    /// Decoded size of the resource (bytes)
+    pub decoded_bytes: u64,
+    /// Compressed transfer size (0 if cached)
+    pub transfer_bytes: u64,
+    /// Conservative wasted-byte estimate for modern browser delivery.
+    pub wasted_bytes: u64,
+}
+
 /// Results of the unminified-asset analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinificationAnalysis {
@@ -42,6 +57,12 @@ pub struct MinificationAnalysis {
     pub total_savings_bytes: u64,
     /// Total number of unminified resources detected
     pub total_unminified_count: u32,
+    /// Script resources that look like legacy/polyfill payload.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub legacy_scripts: Vec<LegacyJavascriptAsset>,
+    /// Conservative estimated bytes wasted by legacy/polyfill payload.
+    #[serde(default)]
+    pub total_legacy_wasted_bytes: u64,
 }
 
 /// Detect unminified JS and CSS resources on the loaded page.
@@ -72,6 +93,7 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
 
     let mut unminified_scripts: Vec<UnminifiedAsset> = Vec::new();
     let mut unminified_styles: Vec<UnminifiedAsset> = Vec::new();
+    let mut legacy_scripts: Vec<LegacyJavascriptAsset> = Vec::new();
 
     for entry in entries {
         let kind = classify_kind(&entry.url, &entry.initiator_type);
@@ -86,6 +108,20 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
         }
         if entry.decoded_body_size < 10_000 {
             continue;
+        }
+
+        if kind == "script" {
+            if let Some(signature) = legacy_javascript_signature(&entry.url) {
+                let wasted_bytes =
+                    legacy_wasted_bytes(entry.decoded_body_size, entry.transfer_size);
+                legacy_scripts.push(LegacyJavascriptAsset {
+                    url: truncate(&entry.url, 120),
+                    signature: signature.to_string(),
+                    decoded_bytes: entry.decoded_body_size,
+                    transfer_bytes: entry.transfer_size,
+                    wasted_bytes,
+                });
+            }
         }
 
         // Skip explicitly named minified files
@@ -130,6 +166,7 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
     // Sort largest savings first
     unminified_scripts.sort_by_key(|a| std::cmp::Reverse(a.savings_bytes));
     unminified_styles.sort_by_key(|a| std::cmp::Reverse(a.savings_bytes));
+    legacy_scripts.sort_by_key(|a| std::cmp::Reverse(a.wasted_bytes));
 
     let total_savings_bytes: u64 = unminified_scripts
         .iter()
@@ -137,11 +174,13 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
         .map(|a| a.savings_bytes)
         .sum();
     let total_unminified_count = (unminified_scripts.len() + unminified_styles.len()) as u32;
+    let total_legacy_wasted_bytes = legacy_scripts.iter().map(|a| a.wasted_bytes).sum();
 
     info!(
-        "Minification: {} unminified resources, {:.1} KB estimated savings",
+        "Minification: {} unminified resources, {:.1} KB estimated savings, {} legacy/polyfill script(s)",
         total_unminified_count,
-        total_savings_bytes as f64 / 1024.0
+        total_savings_bytes as f64 / 1024.0,
+        legacy_scripts.len()
     );
 
     Ok(MinificationAnalysis {
@@ -149,6 +188,8 @@ pub async fn analyze_minification(page: &Page) -> Result<MinificationAnalysis> {
         unminified_styles,
         total_savings_bytes,
         total_unminified_count,
+        legacy_scripts,
+        total_legacy_wasted_bytes,
     })
 }
 
@@ -186,6 +227,39 @@ fn classify_kind(url: &str, initiator_type: &str) -> String {
         "other"
     }
     .to_string()
+}
+
+fn legacy_javascript_signature(url: &str) -> Option<&'static str> {
+    let lower = url.to_ascii_lowercase();
+    if lower.contains("core-js") || lower.contains("core.min.js") {
+        Some("core-js")
+    } else if lower.contains("regenerator-runtime") || lower.contains("regeneratorruntime") {
+        Some("regenerator-runtime")
+    } else if lower.contains("@babel/runtime")
+        || lower.contains("babel-polyfill")
+        || lower.contains("babel_runtime")
+        || lower.contains("babel-runtime")
+    {
+        Some("babel-runtime")
+    } else if lower.contains("polyfill.io")
+        || lower.contains("/polyfill")
+        || lower.contains("polyfills.")
+        || lower.contains("polyfills-")
+    {
+        Some("polyfill-bundle")
+    } else if lower.contains("es5-shim") || lower.contains("es6-shim") {
+        Some("es-shim")
+    } else {
+        None
+    }
+}
+
+fn legacy_wasted_bytes(decoded_bytes: u64, transfer_bytes: u64) -> u64 {
+    if decoded_bytes > 0 {
+        decoded_bytes
+    } else {
+        transfer_bytes
+    }
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -235,6 +309,32 @@ mod tests {
             classify_kind("https://cdn.example.com/image.png", "img"),
             "other"
         );
+    }
+
+    #[test]
+    fn test_legacy_javascript_signature() {
+        assert_eq!(
+            legacy_javascript_signature("https://cdn.example.com/core-js/3.37/index.min.js"),
+            Some("core-js")
+        );
+        assert_eq!(
+            legacy_javascript_signature("https://cdn.example.com/regenerator-runtime/runtime.js"),
+            Some("regenerator-runtime")
+        );
+        assert_eq!(
+            legacy_javascript_signature("https://polyfill.io/v3/polyfill.min.js"),
+            Some("polyfill-bundle")
+        );
+        assert_eq!(
+            legacy_javascript_signature("https://cdn.example.com/app.modern.js"),
+            None
+        );
+    }
+
+    #[test]
+    fn test_legacy_wasted_bytes_prefers_decoded_size() {
+        assert_eq!(legacy_wasted_bytes(120_000, 30_000), 120_000);
+        assert_eq!(legacy_wasted_bytes(0, 30_000), 30_000);
     }
 
     #[test]

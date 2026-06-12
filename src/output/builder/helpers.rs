@@ -194,7 +194,9 @@ pub(crate) fn extract_domain(url: &str) -> String {
 /// German display name for a module identifier used in prose (overall-score
 /// weights, indicator notes). English keeps the canonical identifier.
 pub(super) fn localized_module_name(name: &str, i18n: &I18n) -> String {
-    let key = format!("module-{}", name.to_lowercase());
+    // Fluent keys cannot contain spaces, so multi-word module names like
+    // "Best Practices" or "AI Visibility" map to hyphenated keys (#447).
+    let key = format!("module-{}", name.to_lowercase().replace(' ', "-"));
     let translated = i18n.t(&key);
     if translated == key {
         // Fallback to name if not found in Fluent

@@ -47,7 +47,8 @@ impl AuditModule for JourneyModule {
                 .and_then(|r| r.value().and_then(|v| v.as_bool()))
                 .unwrap_or(false)
         };
-        let journey = analyze_journey_with_dom_check(ctx.ax_tree, dom_has_main);
+        let journey =
+            analyze_journey_with_dom_check(ctx.ax_tree, dom_has_main, &ctx.pipeline_config.lang);
         Ok(ModuleData::Journey(Box::new(journey)))
     }
 }

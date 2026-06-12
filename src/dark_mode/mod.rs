@@ -18,6 +18,7 @@ use tracing::warn;
 
 use crate::cli::WcagLevel;
 use crate::error::{AuditError, Result};
+use crate::interaction::stability::settle;
 use crate::wcag::rules::ContrastRule;
 use crate::wcag::Violation;
 
@@ -535,7 +536,9 @@ async fn compare_contrast(page: &Page, level: WcagLevel) -> (Vec<Violation>, Vec
         return (light_violations, Vec::new());
     }
 
-    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    if let Err(e) = settle(page).await {
+        warn!("Could not wait for dark mode layout settle: {e}");
+    }
 
     let dark_violations =
         ContrastRule::check_with_page(page, &crate::accessibility::AXTree::default(), level, None)

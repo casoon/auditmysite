@@ -167,7 +167,7 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com", "--skip-performance"]);
         assert_eq!(
             active_modules_label(&args),
-            "Accessibility, Accessibility Journey, Dark Mode, AI Visibility, Source Quality"
+            "Accessibility, Accessibility Journey, Dark Mode, AI Visibility, Source Quality, Semantic Eval"
         );
     }
 
@@ -176,7 +176,7 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
         assert_eq!(
             active_modules_label(&args),
-            "Accessibility, Accessibility Journey, Best Practices, Dark Mode, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, UX, Source Quality, Content Visibility"
+            "Accessibility, Accessibility Journey, Best Practices, Dark Mode, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, UX, Source Quality, Content Visibility, Semantic Eval"
         );
     }
 

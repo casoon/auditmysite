@@ -41,12 +41,36 @@ pub enum Priority {
 }
 
 impl Priority {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
-            Priority::Critical => "Kritisch",
-            Priority::High => "Hoch",
-            Priority::Medium => "Mittel",
-            Priority::Low => "Niedrig",
+            Priority::Critical => {
+                if en {
+                    "Critical"
+                } else {
+                    "Kritisch"
+                }
+            }
+            Priority::High => {
+                if en {
+                    "High"
+                } else {
+                    "Hoch"
+                }
+            }
+            Priority::Medium => {
+                if en {
+                    "Medium"
+                } else {
+                    "Mittel"
+                }
+            }
+            Priority::Low => {
+                if en {
+                    "Low"
+                } else {
+                    "Niedrig"
+                }
+            }
         }
     }
 }
@@ -61,12 +85,30 @@ pub enum Role {
 }
 
 impl Role {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
-            Role::Development => "Entwicklung",
-            Role::Editorial => "Redaktion",
+            Role::Development => {
+                if en {
+                    "Development"
+                } else {
+                    "Entwicklung"
+                }
+            }
+            Role::Editorial => {
+                if en {
+                    "Content"
+                } else {
+                    "Redaktion"
+                }
+            }
             Role::DesignUx => "Design / UX",
-            Role::ProjectManagement => "Projektleitung",
+            Role::ProjectManagement => {
+                if en {
+                    "Project management"
+                } else {
+                    "Projektleitung"
+                }
+            }
         }
     }
 }
@@ -80,11 +122,29 @@ pub enum Effort {
 }
 
 impl Effort {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
-            Effort::Quick => "Geringe Komplexität",
-            Effort::Medium => "Mittlerer Aufwand",
-            Effort::Structural => "Hohe Komplexität",
+            Effort::Quick => {
+                if en {
+                    "Low complexity"
+                } else {
+                    "Geringe Komplexität"
+                }
+            }
+            Effort::Medium => {
+                if en {
+                    "Medium effort"
+                } else {
+                    "Mittlerer Aufwand"
+                }
+            }
+            Effort::Structural => {
+                if en {
+                    "High complexity"
+                } else {
+                    "Hohe Komplexität"
+                }
+            }
         }
     }
 }
@@ -97,10 +157,23 @@ pub enum ExecutionPriority {
 }
 
 impl ExecutionPriority {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
-            ExecutionPriority::Immediate => "Dringend",
-            ExecutionPriority::Important => "Hoch",
+            ExecutionPriority::Immediate => {
+                if en {
+                    "Urgent"
+                } else {
+                    "Dringend"
+                }
+            }
+            ExecutionPriority::Important => {
+                if en {
+                    "High"
+                } else {
+                    "Hoch"
+                }
+            }
+            // "Standard" is identical in both locales.
             ExecutionPriority::Optional => "Standard",
         }
     }
@@ -657,6 +730,9 @@ pub struct MinificationPresentation {
     pub total_count: usize,
     pub total_savings_kb: f64,
     pub top_assets: Vec<(String, String, String)>, // (url_truncated, kind, savings_kb_str)
+    pub legacy_count: usize,
+    pub legacy_wasted_kb: f64,
+    pub legacy_assets: Vec<(String, String, String)>, // (url_truncated, signature, wasted_kb_str)
 }
 
 /// JS/CSS coverage (unused code) summary

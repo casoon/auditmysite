@@ -262,8 +262,8 @@ pub struct FrictionPoint {
 
 /// Analyze user journey quality from the Accessibility Tree.
 /// Runs purely on already-extracted AXTree data — no CDP calls needed.
-pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
-    analyze_journey_inner(tree, false)
+pub fn analyze_journey(tree: &AXTree, locale: &str) -> JourneyAnalysis {
+    analyze_journey_inner(tree, false, locale)
 }
 
 /// Like [`analyze_journey`] but accepts a DOM-level hint for whether a `<main>`
@@ -271,11 +271,16 @@ pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
 /// confirms `<main>` is present but hidden from the AX tree (e.g. by an overlay
 /// on mobile viewport), so the severity is downgraded instead of flagged as
 /// missing structure.
-pub fn analyze_journey_with_dom_check(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
-    analyze_journey_inner(tree, dom_has_main)
+pub fn analyze_journey_with_dom_check(
+    tree: &AXTree,
+    dom_has_main: bool,
+    locale: &str,
+) -> JourneyAnalysis {
+    analyze_journey_inner(tree, dom_has_main, locale)
 }
 
-fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
+fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool, locale: &str) -> JourneyAnalysis {
+    let en = locale == "en";
     info!("Analyzing user journey...");
 
     let page_intent = detect_page_intent(tree);
@@ -283,11 +288,11 @@ fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
 
     let mut friction_points = Vec::new();
 
-    let entry_clarity = analyze_entry_clarity(tree, &mut friction_points);
-    let orientation = analyze_orientation(tree, &mut friction_points, dom_has_main);
-    let navigation = analyze_navigation(tree, &mut friction_points);
-    let interaction = analyze_interaction(tree, &mut friction_points);
-    let conversion = analyze_conversion(tree, &mut friction_points);
+    let entry_clarity = analyze_entry_clarity(tree, &mut friction_points, en);
+    let orientation = analyze_orientation(tree, &mut friction_points, dom_has_main, en);
+    let navigation = analyze_navigation(tree, &mut friction_points, en);
+    let interaction = analyze_interaction(tree, &mut friction_points, en);
+    let conversion = analyze_conversion(tree, &mut friction_points, en);
 
     let score = weighted_average_with_intent(&[
         (entry_clarity.score, w_entry),
@@ -341,7 +346,11 @@ fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
 // ── Dimension analyzers ─────────────────────────────────────────────
 
 /// Entry Clarity: Is the purpose of this page immediately clear?
-fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+fn analyze_entry_clarity(
+    tree: &AXTree,
+    friction: &mut Vec<FrictionPoint>,
+    en: bool,
+) -> JourneyDimension {
     let headings = tree.headings();
     let mut penalties = Vec::new();
 
@@ -356,18 +365,42 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         friction.push(FrictionPoint {
             step: "Entry".into(),
             severity: "high".into(),
-            problem: "Keine H1-Überschrift — Seitenzweck nicht sofort erkennbar".into(),
-            impact: "Nutzer verstehen nicht, worum es auf dieser Seite geht".into(),
-            recommendation: "Eine aussagekräftige H1-Überschrift setzen".into(),
+            problem: if en {
+                "No H1 heading — the page purpose is not immediately recognizable".into()
+            } else {
+                "Keine H1-Überschrift — Seitenzweck nicht sofort erkennbar".into()
+            },
+            impact: if en {
+                "Users do not understand what this page is about".into()
+            } else {
+                "Nutzer verstehen nicht, worum es auf dieser Seite geht".into()
+            },
+            recommendation: if en {
+                "Set a meaningful H1 heading".into()
+            } else {
+                "Eine aussagekräftige H1-Überschrift setzen".into()
+            },
         });
     } else if h1s.len() > 1 {
         penalties.push(15.0);
         friction.push(FrictionPoint {
             step: "Entry".into(),
             severity: "medium".into(),
-            problem: format!("{} H1-Überschriften — unklarer Seitenfokus", h1s.len()),
-            impact: "Nutzer wissen nicht, was der Hauptinhalt ist".into(),
-            recommendation: "Genau eine H1-Überschrift pro Seite verwenden".into(),
+            problem: if en {
+                format!("{} H1 headings — unclear page focus", h1s.len())
+            } else {
+                format!("{} H1-Überschriften — unklarer Seitenfokus", h1s.len())
+            },
+            impact: if en {
+                "Users cannot tell what the main content is".into()
+            } else {
+                "Nutzer wissen nicht, was der Hauptinhalt ist".into()
+            },
+            recommendation: if en {
+                "Use exactly one H1 heading per page".into()
+            } else {
+                "Genau eine H1-Überschrift pro Seite verwenden".into()
+            },
         });
     } else {
         // Check H1 quality: very short or generic?
@@ -387,9 +420,21 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         friction.push(FrictionPoint {
             step: "Entry".into(),
             severity: "medium".into(),
-            problem: "Kein Seitentitel erkannt".into(),
-            impact: "Tab-Titel ist leer — Nutzer verlieren den Kontext beim Tabwechsel".into(),
-            recommendation: "Aussagekräftigen <title> setzen".into(),
+            problem: if en {
+                "No page title detected".into()
+            } else {
+                "Kein Seitentitel erkannt".into()
+            },
+            impact: if en {
+                "The tab title is empty — users lose context when switching tabs".into()
+            } else {
+                "Tab-Titel ist leer — Nutzer verlieren den Kontext beim Tabwechsel".into()
+            },
+            recommendation: if en {
+                "Set a meaningful <title>".into()
+            } else {
+                "Aussagekräftigen <title> setzen".into()
+            },
         });
     }
 
@@ -407,17 +452,39 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         friction.push(FrictionPoint {
             step: "Entry".into(),
             severity: "medium".into(),
-            problem: "Wenig sichtbarer Text im oberen Seitenbereich".into(),
-            impact: "Nutzer erhalten keine sofortige Orientierung".into(),
-            recommendation: "Relevanten Einleitungstext above-the-fold platzieren".into(),
+            problem: if en {
+                "Little visible text in the upper area of the page".into()
+            } else {
+                "Wenig sichtbarer Text im oberen Seitenbereich".into()
+            },
+            impact: if en {
+                "Users get no immediate orientation".into()
+            } else {
+                "Nutzer erhalten keine sofortige Orientierung".into()
+            },
+            recommendation: if en {
+                "Place relevant introductory text above the fold".into()
+            } else {
+                "Relevanten Einleitungstext above-the-fold platzieren".into()
+            },
         });
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Seitenzweck ist sofort klar erkennbar".into()
+        if en {
+            "The page purpose is immediately clear".into()
+        } else {
+            "Seitenzweck ist sofort klar erkennbar".into()
+        }
     } else if score >= 60 {
-        "Einstieg grundsätzlich verständlich, aber verbesserungswürdig".into()
+        if en {
+            "The entry point is broadly understandable, but could be improved".into()
+        } else {
+            "Einstieg grundsätzlich verständlich, aber verbesserungswürdig".into()
+        }
+    } else if en {
+        "The page purpose is not recognizable at first glance".into()
     } else {
         "Seitenzweck ist nicht auf den ersten Blick erkennbar".into()
     };
@@ -439,6 +506,7 @@ fn analyze_orientation(
     tree: &AXTree,
     friction: &mut Vec<FrictionPoint>,
     dom_has_main: bool,
+    en: bool,
 ) -> JourneyDimension {
     let mut penalties = Vec::new();
 
@@ -449,9 +517,21 @@ fn analyze_orientation(
         friction.push(FrictionPoint {
             step: "Orientation".into(),
             severity: "high".into(),
-            problem: "Navigation-Landmark nicht im Accessibility-Tree erreichbar".into(),
-            impact: "Screenreader-Nutzer können die Hauptnavigation nicht als solche erkennen oder gezielt ansteuern — häufig durch aria-hidden auf dem <nav>-Element oder einem Vorfahren verursacht.".into(),
-            recommendation: "Prüfen, ob aria-hidden=\"true\" auf oder oberhalb des <nav>-Elements gesetzt ist. Das Navigation-Landmark muss im Accessibility-Tree sichtbar sein (role=\"navigation\").".into(),
+            problem: if en {
+                "Navigation landmark not reachable in the accessibility tree".into()
+            } else {
+                "Navigation-Landmark nicht im Accessibility-Tree erreichbar".into()
+            },
+            impact: if en {
+                "Screen reader users cannot recognize the main navigation as such or jump to it directly — often caused by aria-hidden on the <nav> element or an ancestor.".into()
+            } else {
+                "Screenreader-Nutzer können die Hauptnavigation nicht als solche erkennen oder gezielt ansteuern — häufig durch aria-hidden auf dem <nav>-Element oder einem Vorfahren verursacht.".into()
+            },
+            recommendation: if en {
+                "Check whether aria-hidden=\"true\" is set on or above the <nav> element. The navigation landmark must be visible in the accessibility tree (role=\"navigation\").".into()
+            } else {
+                "Prüfen, ob aria-hidden=\"true\" auf oder oberhalb des <nav>-Elements gesetzt ist. Das Navigation-Landmark muss im Accessibility-Tree sichtbar sein (role=\"navigation\").".into()
+            },
         });
     }
 
@@ -476,18 +556,42 @@ fn analyze_orientation(
             friction.push(FrictionPoint {
                 step: "Orientation".into(),
                 severity: "low".into(),
-                problem: "<main>-Element vorhanden, aber im Accessibility-Tree nicht sichtbar".into(),
-                impact: "Screenreader-Nutzer können den Hauptinhalt auf diesem Viewport möglicherweise nicht direkt anspringen".into(),
-                recommendation: "Prüfen, ob ein Overlay oder aria-hidden den <main>-Bereich auf diesem Viewport verbirgt".into(),
+                problem: if en {
+                    "<main> element present, but not visible in the accessibility tree".into()
+                } else {
+                    "<main>-Element vorhanden, aber im Accessibility-Tree nicht sichtbar".into()
+                },
+                impact: if en {
+                    "Screen reader users may not be able to jump to the main content directly on this viewport".into()
+                } else {
+                    "Screenreader-Nutzer können den Hauptinhalt auf diesem Viewport möglicherweise nicht direkt anspringen".into()
+                },
+                recommendation: if en {
+                    "Check whether an overlay or aria-hidden hides the <main> area on this viewport".into()
+                } else {
+                    "Prüfen, ob ein Overlay oder aria-hidden den <main>-Bereich auf diesem Viewport verbirgt".into()
+                },
             });
         } else {
             penalties.push(20.0);
             friction.push(FrictionPoint {
                 step: "Orientation".into(),
                 severity: "medium".into(),
-                problem: "Kein Hauptinhaltsbereich (<main>) erkannt".into(),
-                impact: "Screenreader-Nutzer können den Hauptinhalt nicht direkt anspringen".into(),
-                recommendation: "Hauptinhalt in ein <main>-Element einschließen".into(),
+                problem: if en {
+                    "No main content area (<main>) detected".into()
+                } else {
+                    "Kein Hauptinhaltsbereich (<main>) erkannt".into()
+                },
+                impact: if en {
+                    "Screen reader users cannot jump to the main content directly".into()
+                } else {
+                    "Screenreader-Nutzer können den Hauptinhalt nicht direkt anspringen".into()
+                },
+                recommendation: if en {
+                    "Wrap the main content in a <main> element".into()
+                } else {
+                    "Hauptinhalt in ein <main>-Element einschließen".into()
+                },
             });
         }
     }
@@ -507,17 +611,39 @@ fn analyze_orientation(
         friction.push(FrictionPoint {
             step: "Orientation".into(),
             severity: "low".into(),
-            problem: "Kaum Zwischenüberschriften zur Orientierung".into(),
-            impact: "Nutzer können Inhalte nicht scannen".into(),
-            recommendation: "Inhalte mit H2/H3-Überschriften gliedern".into(),
+            problem: if en {
+                "Hardly any subheadings for orientation".into()
+            } else {
+                "Kaum Zwischenüberschriften zur Orientierung".into()
+            },
+            impact: if en {
+                "Users cannot scan the content".into()
+            } else {
+                "Nutzer können Inhalte nicht scannen".into()
+            },
+            recommendation: if en {
+                "Structure the content with H2/H3 headings".into()
+            } else {
+                "Inhalte mit H2/H3-Überschriften gliedern".into()
+            },
         });
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Gute Orientierung durch Navigation, Landmarks und Struktur".into()
+        if en {
+            "Good orientation through navigation, landmarks and structure".into()
+        } else {
+            "Gute Orientierung durch Navigation, Landmarks und Struktur".into()
+        }
     } else if score >= 60 {
-        "Grundlegende Orientierung vorhanden, Struktur ausbaufähig".into()
+        if en {
+            "Basic orientation present, structure could be expanded".into()
+        } else {
+            "Grundlegende Orientierung vorhanden, Struktur ausbaufähig".into()
+        }
+    } else if en {
+        "Insufficient orientation — navigation or landmarks are missing".into()
     } else {
         "Mangelnde Orientierung — Navigation oder Landmarks fehlen".into()
     };
@@ -531,7 +657,11 @@ fn analyze_orientation(
 }
 
 /// Navigation: Are links clear, non-redundant, and well-structured?
-fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+fn analyze_navigation(
+    tree: &AXTree,
+    friction: &mut Vec<FrictionPoint>,
+    en: bool,
+) -> JourneyDimension {
     let links = tree.links();
     let mut penalties = Vec::new();
 
@@ -554,12 +684,27 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
             friction.push(FrictionPoint {
                 step: "Navigation".into(),
                 severity: "medium".into(),
-                problem: format!(
-                    "{} Links mit generischen Texten (\"mehr\", \"hier\")",
-                    generic_count
-                ),
-                impact: "Nutzer können nicht unterscheiden, wohin Links führen".into(),
-                recommendation: "Linktexte beschreibend formulieren, die das Ziel benennen".into(),
+                problem: if en {
+                    format!(
+                        "{} links with generic text (\"more\", \"here\")",
+                        generic_count
+                    )
+                } else {
+                    format!(
+                        "{} Links mit generischen Texten (\"mehr\", \"hier\")",
+                        generic_count
+                    )
+                },
+                impact: if en {
+                    "Users cannot distinguish where links lead".into()
+                } else {
+                    "Nutzer können nicht unterscheiden, wohin Links führen".into()
+                },
+                recommendation: if en {
+                    "Write descriptive link text that names the destination".into()
+                } else {
+                    "Linktexte beschreibend formulieren, die das Ziel benennen".into()
+                },
             });
         }
     }
@@ -577,10 +722,21 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
             friction.push(FrictionPoint {
                 step: "Navigation".into(),
                 severity: "high".into(),
-                problem: format!("{} Links ohne erkennbaren Text", empty_links),
-                impact: "Screenreader-Nutzer erfahren nicht, was der Link tut".into(),
-                recommendation: "Alle Links mit beschreibendem Text oder aria-label versehen"
-                    .into(),
+                problem: if en {
+                    format!("{} links without recognizable text", empty_links)
+                } else {
+                    format!("{} Links ohne erkennbaren Text", empty_links)
+                },
+                impact: if en {
+                    "Screen reader users do not learn what the link does".into()
+                } else {
+                    "Screenreader-Nutzer erfahren nicht, was der Link tut".into()
+                },
+                recommendation: if en {
+                    "Give every link descriptive text or an aria-label".into()
+                } else {
+                    "Alle Links mit beschreibendem Text oder aria-label versehen".into()
+                },
             });
         }
     }
@@ -604,10 +760,21 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
             friction.push(FrictionPoint {
                 step: "Navigation".into(),
                 severity: "low".into(),
-                problem: format!("{} doppelte Linktexte auf der Seite", duplicate_count),
-                impact: "Gleiche Beschriftung für unterschiedliche Ziele verwirrt Nutzer".into(),
-                recommendation:
-                    "Linktexte eindeutig formulieren oder mit aria-label differenzieren".into(),
+                problem: if en {
+                    format!("{} duplicate link texts on the page", duplicate_count)
+                } else {
+                    format!("{} doppelte Linktexte auf der Seite", duplicate_count)
+                },
+                impact: if en {
+                    "The same label for different destinations confuses users".into()
+                } else {
+                    "Gleiche Beschriftung für unterschiedliche Ziele verwirrt Nutzer".into()
+                },
+                recommendation: if en {
+                    "Make link texts unambiguous or differentiate them with aria-label".into()
+                } else {
+                    "Linktexte eindeutig formulieren oder mit aria-label differenzieren".into()
+                },
             });
         }
     }
@@ -621,9 +788,19 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
 
     let score = journey_dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Links sind verständlich, eindeutig und gut strukturiert".into()
+        if en {
+            "Links are understandable, unambiguous and well structured".into()
+        } else {
+            "Links sind verständlich, eindeutig und gut strukturiert".into()
+        }
     } else if score >= 60 {
-        "Navigation nutzbar, aber einige Links sind unklar oder redundant".into()
+        if en {
+            "Navigation is usable, but some links are unclear or redundant".into()
+        } else {
+            "Navigation nutzbar, aber einige Links sind unklar oder redundant".into()
+        }
+    } else if en {
+        "Navigation problems: unclear, empty or redundant links".into()
     } else {
         "Navigationsprobleme: unklare, leere oder redundante Links".into()
     };
@@ -637,7 +814,11 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
 }
 
 /// Interaction: Can users interact with controls effectively?
-fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+fn analyze_interaction(
+    tree: &AXTree,
+    friction: &mut Vec<FrictionPoint>,
+    en: bool,
+) -> JourneyDimension {
     let buttons = tree.nodes_with_role("button");
     let form_controls = tree.form_controls();
     let mut penalties = Vec::new();
@@ -654,9 +835,21 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
         friction.push(FrictionPoint {
             step: "Interaction".into(),
             severity: "high".into(),
-            problem: format!("{} Buttons ohne erkennbare Beschriftung", unnamed_buttons),
-            impact: "Nutzer wissen nicht, was ein Button auslöst".into(),
-            recommendation: "Alle Buttons mit beschreibendem Text oder aria-label versehen".into(),
+            problem: if en {
+                format!("{} buttons without a recognizable label", unnamed_buttons)
+            } else {
+                format!("{} Buttons ohne erkennbare Beschriftung", unnamed_buttons)
+            },
+            impact: if en {
+                "Users do not know what a button triggers".into()
+            } else {
+                "Nutzer wissen nicht, was ein Button auslöst".into()
+            },
+            recommendation: if en {
+                "Give every button descriptive text or an aria-label".into()
+            } else {
+                "Alle Buttons mit beschreibendem Text oder aria-label versehen".into()
+            },
         });
     }
 
@@ -673,10 +866,21 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
             friction.push(FrictionPoint {
                 step: "Interaction".into(),
                 severity: "high".into(),
-                problem: format!("{} Formularfelder ohne Label", unlabeled_forms),
-                impact: "Nutzer wissen nicht, welche Eingabe erwartet wird".into(),
-                recommendation:
-                    "Jedes Formularfeld mit sichtbarem <label> oder aria-label verbinden".into(),
+                problem: if en {
+                    format!("{} form fields without a label", unlabeled_forms)
+                } else {
+                    format!("{} Formularfelder ohne Label", unlabeled_forms)
+                },
+                impact: if en {
+                    "Users do not know what input is expected".into()
+                } else {
+                    "Nutzer wissen nicht, welche Eingabe erwartet wird".into()
+                },
+                recommendation: if en {
+                    "Connect every form field to a visible <label> or aria-label".into()
+                } else {
+                    "Jedes Formularfeld mit sichtbarem <label> oder aria-label verbinden".into()
+                },
             });
         }
     }
@@ -746,22 +950,46 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
         friction.push(FrictionPoint {
             step: "Interaction".into(),
             severity: "low".into(),
-            problem: format!(
-                "{} Buttons mit generischen Labels (\"OK\", \"Submit\")",
-                generic_buttons
-            ),
-            impact: "Kontext der Aktion ist nicht klar".into(),
-            recommendation:
+            problem: if en {
+                format!(
+                    "{} buttons with generic labels (\"OK\", \"Submit\")",
+                    generic_buttons
+                )
+            } else {
+                format!(
+                    "{} Buttons mit generischen Labels (\"OK\", \"Submit\")",
+                    generic_buttons
+                )
+            },
+            impact: if en {
+                "The context of the action is unclear".into()
+            } else {
+                "Kontext der Aktion ist nicht klar".into()
+            },
+            recommendation: if en {
+                "Label buttons with action-describing text (e.g. \"Send message\")".into()
+            } else {
                 "Buttons mit handlungsbeschreibenden Texten benennen (z. B. \"Nachricht senden\")"
-                    .into(),
+                    .into()
+            },
         });
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Interaktive Elemente sind klar beschriftet und bedienbar".into()
+        if en {
+            "Interactive elements are clearly labeled and operable".into()
+        } else {
+            "Interaktive Elemente sind klar beschriftet und bedienbar".into()
+        }
     } else if score >= 60 {
-        "Grundlegende Interaktion möglich, aber Beschriftungen teilweise unklar".into()
+        if en {
+            "Basic interaction is possible, but some labels are unclear".into()
+        } else {
+            "Grundlegende Interaktion möglich, aber Beschriftungen teilweise unklar".into()
+        }
+    } else if en {
+        "Significant interaction problems: unlabeled buttons or form fields".into()
     } else {
         "Erhebliche Interaktionsprobleme: unbeschriftete Buttons oder Formularfelder".into()
     };
@@ -775,7 +1003,11 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
 }
 
 /// Conversion: Can the user reach and complete the page's primary goal?
-fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+fn analyze_conversion(
+    tree: &AXTree,
+    friction: &mut Vec<FrictionPoint>,
+    en: bool,
+) -> JourneyDimension {
     let buttons = tree.nodes_with_role("button");
     let links = tree.links();
     let mut penalties = Vec::new();
@@ -791,9 +1023,21 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         friction.push(FrictionPoint {
             step: "Conversion".into(),
             severity: "high".into(),
-            problem: "Kein erkennbarer Call-to-Action auf der Seite".into(),
-            impact: "Nutzer haben keine klare Handlungsaufforderung".into(),
-            recommendation: "Einen primären CTA definieren und prominent platzieren".into(),
+            problem: if en {
+                "No recognizable call-to-action on the page".into()
+            } else {
+                "Kein erkennbarer Call-to-Action auf der Seite".into()
+            },
+            impact: if en {
+                "Users have no clear prompt to act".into()
+            } else {
+                "Nutzer haben keine klare Handlungsaufforderung".into()
+            },
+            recommendation: if en {
+                "Define a primary CTA and place it prominently".into()
+            } else {
+                "Einen primären CTA definieren und prominent platzieren".into()
+            },
         });
     }
 
@@ -806,11 +1050,22 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         friction.push(FrictionPoint {
             step: "Conversion".into(),
             severity: "medium".into(),
-            problem: "Dialog/Overlay erkannt, der den Nutzerpfad unterbrechen kann".into(),
-            impact: "Cookie-Banner oder Modals können den CTA verdecken".into(),
-            recommendation:
+            problem: if en {
+                "Dialog/overlay detected that can interrupt the user path".into()
+            } else {
+                "Dialog/Overlay erkannt, der den Nutzerpfad unterbrechen kann".into()
+            },
+            impact: if en {
+                "Cookie banners or modals can obscure the CTA".into()
+            } else {
+                "Cookie-Banner oder Modals können den CTA verdecken".into()
+            },
+            recommendation: if en {
+                "Ensure overlays are easy to close and do not block the CTA".into()
+            } else {
                 "Sicherstellen, dass Overlays einfach schließbar sind und den CTA nicht blockieren"
-                    .into(),
+                    .into()
+            },
         });
     }
 
@@ -824,10 +1079,21 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
             friction.push(FrictionPoint {
                 step: "Conversion".into(),
                 severity: "medium".into(),
-                problem: format!("{} Formularfelder — hohe Eingabehürde", form_controls.len()),
-                impact: "Komplexe Formulare reduzieren die Abschlussrate".into(),
-                recommendation:
-                    "Formular auf wesentliche Felder reduzieren oder in Schritte aufteilen".into(),
+                problem: if en {
+                    format!("{} form fields — high input barrier", form_controls.len())
+                } else {
+                    format!("{} Formularfelder — hohe Eingabehürde", form_controls.len())
+                },
+                impact: if en {
+                    "Complex forms reduce the completion rate".into()
+                } else {
+                    "Komplexe Formulare reduzieren die Abschlussrate".into()
+                },
+                recommendation: if en {
+                    "Reduce the form to essential fields or split it into steps".into()
+                } else {
+                    "Formular auf wesentliche Felder reduzieren oder in Schritte aufteilen".into()
+                },
             });
         }
     }
@@ -849,9 +1115,19 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
 
     let score = journey_dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Klarer Conversion-Pfad mit erreichbarem CTA".into()
+        if en {
+            "Clear conversion path with a reachable CTA".into()
+        } else {
+            "Klarer Conversion-Pfad mit erreichbarem CTA".into()
+        }
     } else if score >= 60 {
-        "Conversion-Pfad vorhanden, aber durch Hindernisse beeinträchtigt".into()
+        if en {
+            "Conversion path present, but impaired by obstacles".into()
+        } else {
+            "Conversion-Pfad vorhanden, aber durch Hindernisse beeinträchtigt".into()
+        }
+    } else if en {
+        "No clear conversion path detectable".into()
     } else {
         "Kein klarer Conversion-Pfad erkennbar".into()
     };
@@ -861,5 +1137,78 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         score,
         weight: 0.15,
         summary,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accessibility::AXNode;
+
+    fn node(id: &str, role: &str, name: Option<&str>) -> AXNode {
+        AXNode {
+            node_id: id.into(),
+            role: Some(role.into()),
+            name: name.map(|s| s.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Guard against German leaking into EN reports (#406): build a scenario that
+    /// triggers many friction-point detectors and assert that no visible result
+    /// text (dimension summaries, friction problems/impacts/recommendations)
+    /// contains German umlauts/ß when the locale is English.
+    #[test]
+    fn english_locale_carries_no_german_umlauts() {
+        // Sparse tree: missing H1, no navigation, no <main>, no CTA, plus
+        // unnamed links and buttons → triggers detectors across all dimensions.
+        let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+        for i in 0..4 {
+            nodes.push(node(&format!("link{i}"), "link", None));
+        }
+        for i in 0..3 {
+            nodes.push(node(&format!("btn{i}"), "button", None));
+        }
+        let tree = AXTree::from_nodes(nodes);
+
+        let analysis = analyze_journey(&tree, "en");
+        assert!(
+            !analysis.friction_points.is_empty(),
+            "scenario should produce friction points"
+        );
+
+        let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
+
+        for dim in [
+            &analysis.entry_clarity,
+            &analysis.orientation,
+            &analysis.navigation,
+            &analysis.interaction,
+            &analysis.conversion,
+        ] {
+            assert!(
+                !has_umlaut(&dim.summary),
+                "EN dimension summary contains German umlaut: {}",
+                dim.summary
+            );
+        }
+
+        for fp in &analysis.friction_points {
+            assert!(
+                !has_umlaut(&fp.problem),
+                "EN friction problem contains German umlaut: {}",
+                fp.problem
+            );
+            assert!(
+                !has_umlaut(&fp.impact),
+                "EN friction impact contains German umlaut: {}",
+                fp.impact
+            );
+            assert!(
+                !has_umlaut(&fp.recommendation),
+                "EN friction recommendation contains German umlaut: {}",
+                fp.recommendation
+            );
+        }
     }
 }

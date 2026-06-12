@@ -39,8 +39,8 @@ impl AuditModule for SourceQualityModule {
         Ok(ModuleData::None)
     }
 
-    fn derive(&self, report: &mut AuditReport) -> Result<()> {
-        report.source_quality = Some(analyze_source_quality(report));
+    fn derive(&self, report: &mut AuditReport, locale: &str) -> Result<()> {
+        report.source_quality = Some(analyze_source_quality(report, locale));
         Ok(())
     }
 }

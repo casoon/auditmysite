@@ -69,13 +69,13 @@ pub struct SeoAnalysis {
 }
 
 /// Run complete SEO analysis
-pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
+pub async fn analyze_seo(page: &Page, url: &str, locale: &str) -> Result<SeoAnalysis> {
     // Extract all SEO data in parallel where possible
     let meta = extract_meta_tags(page).await?;
     let meta_issues = meta.validate();
     let headings = analyze_heading_structure(page).await?;
     let social = extract_social_tags(page).await?;
-    let technical = analyze_technical_seo(page, url).await?;
+    let technical = analyze_technical_seo(page, url, locale).await?;
     let structured_data = detect_structured_data(page).await?;
 
     // robots.txt — HTTP fetch, independent of browser
@@ -84,10 +84,11 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         .as_deref()
         .map(|r| r.to_lowercase().contains("noindex"))
         .unwrap_or(false);
-    let robots = Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex).await);
+    let robots =
+        Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex, locale).await);
 
     // Page health analysis — HTTP probes + DOM inspection
-    let page_health = match analyze_page_health(page, url).await {
+    let page_health = match analyze_page_health(page, url, locale).await {
         Ok(ph) => Some(ph),
         Err(e) => {
             warn!("Page health analysis failed: {}", e);
@@ -130,10 +131,10 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     };
 
     // Build content profile from collected data
-    analysis.content_profile = Some(build_content_profile(&analysis));
+    analysis.content_profile = Some(build_content_profile(&analysis, locale));
 
     // SERP pass — pure aggregation, no additional CDP calls needed
-    analysis.serp = Some(build_serp_analysis(&analysis, url));
+    analysis.serp = Some(build_serp_analysis(&analysis, url, locale));
 
     Ok(analysis)
 }

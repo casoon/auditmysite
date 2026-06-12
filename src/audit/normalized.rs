@@ -88,6 +88,12 @@ pub struct NormalizedReport {
     /// risk — explicitly advisory.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub advisory_findings: Vec<AdvisoryFinding>,
+    /// Compact screen-reader audit (reading-order quality scores, issues, BFSG
+    /// verdict). Kept separate from `findings[]` so WCAG severity counts stay
+    /// rechtsrelevant; the full reading sequence stays in the sidecar JSON.
+    /// Contributes to the risk score (#411).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screen_reader: Option<crate::screen_reader::ScreenReaderSummary>,
 
     /// Pre-computed interpretation (evaluation texts, score bands). Always
     /// present after `normalize()`. Skipped in the `#[serde(skip)]` raw fields
@@ -104,6 +110,7 @@ pub struct NormalizedReport {
 /// `AuditContext` always carries live module results alongside it.
 pub struct AuditContext {
     pub normalized: NormalizedReport,
+    pub raw_dual_viewport: Option<crate::audit::report::DualViewportResults>,
     pub raw_performance: Option<PerformanceResults>,
     pub raw_performance_desktop: Option<PerformanceResults>,
     pub raw_seo: Option<SeoAnalysis>,
@@ -414,7 +421,7 @@ impl RiskAssessment {
 fn gate_certificate_by_risk(certificate: String, risk_level: &RiskLevel) -> String {
     match risk_level {
         RiskLevel::Critical => "NICHT BESTANDEN".to_string(),
-        RiskLevel::High if matches!(certificate.as_str(), "SOLIDE" | "GUT" | "SEHR GUT") => {
+        RiskLevel::High if matches!(certificate.as_str(), "STABIL" | "GUT" | "SEHR GUT") => {
             "EINGESCHRÄNKT".to_string()
         }
         _ => certificate,
@@ -1026,7 +1033,10 @@ fn build_module_scores(
             name: "UX".to_string(),
             score: adjusted_ux,
             grade: adjusted_grade.to_string(),
-            weight_pct: 15,
+            // Indicator module: does not feed the overall score, so its weight is
+            // 0 — a non-zero weight on a non-contributing module made the weight
+            // column sum to >100% (#447).
+            weight_pct: 0,
             contributes_to_overall: false,
             measurement_type: "heuristic".to_string(),
         });
@@ -1058,7 +1068,8 @@ fn build_module_scores(
             name: "Journey".to_string(),
             score: adjusted_journey,
             grade: adjusted_grade.to_string(),
-            weight_pct: 10,
+            // Indicator module — weight 0, see UX note above (#447).
+            weight_pct: 0,
             contributes_to_overall: false,
             measurement_type: "heuristic".to_string(),
         });
@@ -1074,6 +1085,34 @@ fn build_module_scores(
         });
     }
 
+    // Indicator modules that compute a 0–100 score but do not feed the overall
+    // score. Previously their score was serialized raw with no grade and no
+    // entry here, so the report showed a bare number with no relation to the
+    // rest (#447). They now appear consistently as graded, non-contributing
+    // indicators (weight 0).
+    let mut push_indicator = |name: &str, score: u32, measurement_type: &str| {
+        module_scores.push(ModuleScoreEntry {
+            name: name.to_string(),
+            score,
+            grade: AccessibilityScorer::calculate_grade(score as f32).to_string(),
+            weight_pct: 0,
+            contributes_to_overall: false,
+            measurement_type: measurement_type.to_string(),
+        });
+    };
+    if let Some(ref dm) = report.dark_mode {
+        push_indicator("Dark Mode", dm.score, "measured");
+    }
+    if let Some(ref ai) = report.ai_visibility {
+        push_indicator("AI Visibility", ai.score, "heuristic");
+    }
+    if let Some(ref sq) = report.source_quality {
+        push_indicator("Source Quality", sq.score, "heuristic");
+    }
+    if let Some(ref ts) = report.tech_stack {
+        push_indicator("Tech Stack", ts.score, "heuristic");
+    }
+
     module_scores
 }
 
@@ -1081,6 +1120,7 @@ fn compute_risk_assessment(
     findings: &[NormalizedFinding],
     occurrence_counts: &SeverityCounts,
     interactive_findings: &[InteractiveFinding],
+    screen_reader: Option<&crate::screen_reader::ScreenReaderSummary>,
     score: u32,
     overall_score: u32,
 ) -> RiskAssessment {
@@ -1121,12 +1161,22 @@ fn compute_risk_assessment(
         .filter(|f| f.severity == Severity::High)
         .count();
 
+    // Screen-reader audit issues are heuristic quality signals (reading order,
+    // landmark/heading quality). They contribute to the risk score but never to
+    // the legally-relevant severity_counts/legal_flags (#411). SR emits no
+    // Critical severity — only low/medium/high strings.
+    let (sr_high_issues, sr_medium_issues) = screen_reader
+        .map(|sr| (sr.count_severity("high"), sr.count_severity("medium")))
+        .unwrap_or((0, 0));
+
     let risk_score = (legal_flags as u32 * 20
         + critical_issues as u32 * 10
         + high_issues as u32 * 3
         + blocking_issues as u32 * 2
         + interactive_critical_issues as u32 * 10
-        + interactive_high_issues as u32 * 5)
+        + interactive_high_issues as u32 * 5
+        + sr_high_issues as u32 * 3
+        + sr_medium_issues as u32)
         .min(100);
 
     // Risk level — explicit precedence; legal_flags and blocking_issues both
@@ -1537,11 +1587,17 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
         });
     }
 
+    let screen_reader = report
+        .screen_reader_audit
+        .as_ref()
+        .map(crate::screen_reader::ScreenReaderSummary::from_report);
+
     // ── Risk Assessment (independent from score) ──────────────────
     let risk = compute_risk_assessment(
         &findings,
         &occurrence_counts,
         &interactive_findings,
+        screen_reader.as_ref(),
         score,
         overall_score,
     );
@@ -1571,10 +1627,12 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
         interactive_findings,
         accessibility_journey: report.accessibility_journey.clone(),
         advisory_findings: report.advisory_findings.clone(),
+        screen_reader,
         interpretation: None,
     };
     let mut ctx = AuditContext {
         normalized: normalized_data,
+        raw_dual_viewport: report.dual_viewport.clone(),
         raw_performance: report.performance.clone(),
         raw_performance_desktop: report
             .dual_viewport
@@ -2047,7 +2105,7 @@ mod tests {
     #[test]
     fn high_risk_vetoes_positive_certificate() {
         assert_eq!(
-            gate_certificate_by_risk("SOLIDE".to_string(), &RiskLevel::High),
+            gate_certificate_by_risk("STABIL".to_string(), &RiskLevel::High),
             "EINGESCHRÄNKT"
         );
         assert_eq!(

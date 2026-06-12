@@ -240,10 +240,12 @@ impl Config {
             }
         }
 
-        // Semantic evaluation — enable via TOML if CLI flag not set
-        if !args.semantic_eval {
-            if let Some(true) = self.semantic_eval.enabled {
-                args.semantic_eval = true;
+        // Semantic evaluation is on by default. TOML may disable it, but an
+        // explicit `--no-semantic-eval` on the CLI (which already set the field
+        // to false) always wins.
+        if args.semantic_eval {
+            if let Some(false) = self.semantic_eval.enabled {
+                args.semantic_eval = false;
             }
         }
 

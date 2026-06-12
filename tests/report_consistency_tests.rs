@@ -123,12 +123,12 @@ fn make_mobile() -> MobileFriendliness {
 
 fn make_ux() -> UxAnalysis {
     let tree = AXTree::new();
-    analyze_ux(&tree)
+    analyze_ux(&tree, "de")
 }
 
 fn make_journey() -> JourneyAnalysis {
     let tree = AXTree::new();
-    analyze_journey(&tree)
+    analyze_journey(&tree, "de")
 }
 
 fn make_full_report() -> AuditReport {
@@ -609,10 +609,12 @@ fn test_module_weights_correct() {
             "Accessibility" => 40,
             "Performance" => 20,
             "SEO" => 20,
-            "UX" => 15,
-            "Journey" => 10,
             "Security" => 10,
             "Mobile" => 10,
+            // Indicator modules do not contribute to the overall score, so their
+            // displayed weight is 0 (#447).
+            "UX" | "Journey" | "Best Practices" | "Dark Mode" | "AI Visibility"
+            | "Source Quality" | "Tech Stack" => 0,
             _ => panic!("Unknown module: {}", m.name),
         };
         assert_eq!(
@@ -889,8 +891,8 @@ fn test_journey_module_weight() {
     assert!(journey_entry.is_some(), "Journey must be in module_scores");
     assert_eq!(
         journey_entry.unwrap().weight_pct,
-        10,
-        "Journey weight must be 10%"
+        0,
+        "Journey is an indicator module — weight must be 0% (#447)"
     );
 }
 
@@ -918,7 +920,7 @@ fn test_batch_summary_uses_normalized_primary_score() {
 #[test]
 fn test_journey_has_page_intent() {
     let tree = AXTree::new();
-    let journey = analyze_journey(&tree);
+    let journey = analyze_journey(&tree, "de");
     // Empty tree should still return a valid intent
     assert!(!journey.grade.is_empty());
     assert!(journey.score <= 100);
@@ -1052,9 +1054,9 @@ fn test_json_report_includes_extra_module_keys() {
 
     let base = make_full_report();
     let mut report = make_full_report();
-    report.source_quality = Some(analyze_source_quality(&base));
-    report.ai_visibility = Some(analyze_ai_visibility(&base));
-    report.content_visibility = Some(analyze_content_visibility(&base));
+    report.source_quality = Some(analyze_source_quality(&base, "de"));
+    report.ai_visibility = Some(analyze_ai_visibility(&base, "de"));
+    report.content_visibility = Some(analyze_content_visibility(&base, "de"));
     report.dark_mode = Some(DarkModeAnalysis {
         supported: false,
         score: 0,

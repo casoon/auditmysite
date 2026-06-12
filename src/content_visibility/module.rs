@@ -41,8 +41,8 @@ impl AuditModule for ContentVisibilityModule {
         Ok(ModuleData::None)
     }
 
-    fn derive(&self, report: &mut AuditReport) -> Result<()> {
-        report.content_visibility = Some(analyze_content_visibility(report));
+    fn derive(&self, report: &mut AuditReport, locale: &str) -> Result<()> {
+        report.content_visibility = Some(analyze_content_visibility(report, locale));
         Ok(())
     }
 }

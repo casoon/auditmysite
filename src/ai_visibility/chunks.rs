@@ -73,9 +73,9 @@ pub(crate) struct HeadingInfo {
     pub word_count_after: u32,
 }
 
-pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
+pub(crate) fn analyze_chunks(input: &ChunkInput, en: bool) -> ChunkAnalysis {
     // Build sections from headings
-    let sections = build_sections(input);
+    let sections = build_sections(input, en);
     let section_count = sections.len();
 
     let optimal_count = sections
@@ -96,19 +96,39 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     // 1. Section count — enough sections for meaningful chunks
     let good_section_count = (3..=30).contains(&section_count);
     signals.push(AiSignal {
-        name: "Abschnittszahl".into(),
+        name: if en {
+            "Section count".into()
+        } else {
+            "Abschnittszahl".into()
+        },
         present: good_section_count,
         weight: 0.15,
         detail: if section_count < 3 {
-            format!(
-                "Nur {} Abschnitte — zu wenig für granulare Chunk-Bildung",
-                section_count
-            )
+            if en {
+                format!(
+                    "Only {} sections — too few for granular chunk formation",
+                    section_count
+                )
+            } else {
+                format!(
+                    "Nur {} Abschnitte — zu wenig für granulare Chunk-Bildung",
+                    section_count
+                )
+            }
         } else if section_count > 30 {
-            format!(
-                "{} Abschnitte — sehr fragmentiert, kann Kontext verteilen",
-                section_count
-            )
+            if en {
+                format!(
+                    "{} sections — very fragmented, may scatter context",
+                    section_count
+                )
+            } else {
+                format!(
+                    "{} Abschnitte — sehr fragmentiert, kann Kontext verteilen",
+                    section_count
+                )
+            }
+        } else if en {
+            format!("{} sections — good granularity for chunks", section_count)
         } else {
             format!(
                 "{} Abschnitte — gute Granularität für Chunks",
@@ -124,26 +144,53 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
         0.0
     };
     signals.push(AiSignal {
-        name: "Heuristik: Abschnittslänge".into(),
+        name: if en {
+            "Heuristic: section length".into()
+        } else {
+            "Heuristik: Abschnittslänge".into()
+        },
         present: optimal_ratio >= 0.5,
         weight: 0.20,
-        detail: format!(
-            "Heuristik: {} von {} Abschnitten liegen im Bereich 100–800 Wörter ({:.0}%). \
-             Richtwert, keine standardisierte Metrik.",
-            optimal_count,
-            section_count,
-            optimal_ratio * 100.0
-        ),
+        detail: if en {
+            format!(
+                "Heuristic: {} of {} sections fall in the 100–800 word range ({:.0}%). \
+                 A guideline, not a standardized metric.",
+                optimal_count,
+                section_count,
+                optimal_ratio * 100.0
+            )
+        } else {
+            format!(
+                "Heuristik: {} von {} Abschnitten liegen im Bereich 100–800 Wörter ({:.0}%). \
+                 Richtwert, keine standardisierte Metrik.",
+                optimal_count,
+                section_count,
+                optimal_ratio * 100.0
+            )
+        },
     });
 
     // 3. No oversized sections
     let no_oversized = too_long_count == 0;
     signals.push(AiSignal {
-        name: "Keine Übergroßen Abschnitte".into(),
+        name: if en {
+            "No oversized sections".into()
+        } else {
+            "Keine Übergroßen Abschnitte".into()
+        },
         present: no_oversized,
         weight: 0.15,
         detail: if no_oversized {
-            "Kein Abschnitt über 800 Wörter — gut für Token-Limits".into()
+            if en {
+                "No section over 800 words — good for token limits".into()
+            } else {
+                "Kein Abschnitt über 800 Wörter — gut für Token-Limits".into()
+            }
+        } else if en {
+            format!(
+                "{} sections over 800 words — should be split",
+                too_long_count
+            )
         } else {
             format!(
                 "{} Abschnitte über 800 Wörter — sollten aufgeteilt werden",
@@ -155,12 +202,28 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     // 4. Minimal fragment ratio
     let low_fragment = too_short_count as f32 / (section_count.max(1) as f32) < 0.3;
     signals.push(AiSignal {
-        name: "Wenig Fragmente".into(),
+        name: if en {
+            "Few fragments".into()
+        } else {
+            "Wenig Fragmente".into()
+        },
         present: low_fragment,
         weight: 0.10,
         detail: if low_fragment {
+            if en {
+                format!(
+                    "Only {} short sections (<100 words) — little information loss",
+                    too_short_count
+                )
+            } else {
+                format!(
+                    "Nur {} Kurzabschnitte (<100 Wörter) — wenig Informationsverlust",
+                    too_short_count
+                )
+            }
+        } else if en {
             format!(
-                "Nur {} Kurzabschnitte (<100 Wörter) — wenig Informationsverlust",
+                "{} short sections — many fragments may lose context",
                 too_short_count
             )
         } else {
@@ -175,11 +238,21 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     let has_hierarchy =
         input.headings.iter().any(|h| h.level >= 2) && input.headings.iter().any(|h| h.level >= 3);
     signals.push(AiSignal {
-        name: "Hierarchische Gliederung".into(),
+        name: if en {
+            "Hierarchical structure".into()
+        } else {
+            "Hierarchische Gliederung".into()
+        },
         present: has_hierarchy,
         weight: 0.10,
         detail: if has_hierarchy {
-            "Mehrstufige Heading-Hierarchie — rekursive Chunk-Strategien möglich".into()
+            if en {
+                "Multi-level heading hierarchy — recursive chunk strategies possible".into()
+            } else {
+                "Mehrstufige Heading-Hierarchie — rekursive Chunk-Strategien möglich".into()
+            }
+        } else if en {
+            "Flat heading structure — only sequential chunking possible".into()
         } else {
             "Flache Heading-Struktur — nur sequenzielles Chunking möglich".into()
         },
@@ -187,11 +260,22 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
 
     // 6. Semantic HTML usage
     signals.push(AiSignal {
-        name: "Semantisches HTML".into(),
+        name: if en {
+            "Semantic HTML".into()
+        } else {
+            "Semantisches HTML".into()
+        },
         present: input.has_semantic_html,
         weight: 0.10,
         detail: if input.has_semantic_html {
-            "Semantische Elemente (article, section, nav) — erleichtert Bereichs-Erkennung".into()
+            if en {
+                "Semantic elements (article, section, nav) — eases region detection".into()
+            } else {
+                "Semantische Elemente (article, section, nav) — erleichtert Bereichs-Erkennung"
+                    .into()
+            }
+        } else if en {
+            "Hardly any semantic HTML — chunks only heading-based".into()
         } else {
             "Kaum semantisches HTML — Chunks nur heading-basiert möglich".into()
         },
@@ -205,30 +289,58 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     };
     let good_density = (100..=500).contains(&avg_words);
     signals.push(AiSignal {
-        name: "Abschnittsdichte".into(),
+        name: if en {
+            "Section density".into()
+        } else {
+            "Abschnittsdichte".into()
+        },
         present: good_density,
         weight: 0.10,
-        detail: format!(
-            "Ø {} Wörter/Abschnitt — {}",
-            avg_words,
-            if good_density {
-                "optimaler Bereich für Embeddings"
-            } else if avg_words < 100 {
-                "zu dünn für gehaltvolle Embeddings"
-            } else {
-                "zu dicht, Split empfohlen"
-            }
-        ),
+        detail: if en {
+            format!(
+                "Avg {} words/section — {}",
+                avg_words,
+                if good_density {
+                    "optimal range for embeddings"
+                } else if avg_words < 100 {
+                    "too thin for substantial embeddings"
+                } else {
+                    "too dense, split recommended"
+                }
+            )
+        } else {
+            format!(
+                "Ø {} Wörter/Abschnitt — {}",
+                avg_words,
+                if good_density {
+                    "optimaler Bereich für Embeddings"
+                } else if avg_words < 100 {
+                    "zu dünn für gehaltvolle Embeddings"
+                } else {
+                    "zu dicht, Split empfohlen"
+                }
+            )
+        },
     });
 
     // 8. Article/section tags
     let has_article = input.has_article_tag || input.has_section_tags;
     signals.push(AiSignal {
-        name: "Content-Begrenzung".into(),
+        name: if en {
+            "Content boundary".into()
+        } else {
+            "Content-Begrenzung".into()
+        },
         present: has_article,
         weight: 0.10,
         detail: if has_article {
-            "article/section-Tags vorhanden — Hauptinhalt abgrenzbar".into()
+            if en {
+                "article/section tags present — main content delimitable".into()
+            } else {
+                "article/section-Tags vorhanden — Hauptinhalt abgrenzbar".into()
+            }
+        } else if en {
+            "No article/section — main content not clearly delimited".into()
         } else {
             "Kein article/section — Hauptinhalt nicht klar abgegrenzt".into()
         },
@@ -236,18 +348,43 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
 
     // Build recommendation
     let recommendation = if optimal_ratio >= 0.7 && no_oversized {
-        "Content ist gut für RAG/Embedding-Pipelines geeignet. Heading-basiertes Chunking empfohlen."
-            .to_string()
+        if en {
+            "Content is well suited for RAG/embedding pipelines. Heading-based chunking recommended."
+                .to_string()
+        } else {
+            "Content ist gut für RAG/Embedding-Pipelines geeignet. Heading-basiertes Chunking empfohlen."
+                .to_string()
+        }
     } else if too_long_count > 0 && has_hierarchy {
-        format!(
-            "{} übergroße Abschnitte sollten an H3/H4-Grenzen aufgeteilt werden. \
-             Rekursives Splitting nach Heading-Level empfohlen.",
-            too_long_count
-        )
+        if en {
+            format!(
+                "{} oversized sections should be split at H3/H4 boundaries. \
+                 Recursive splitting by heading level recommended.",
+                too_long_count
+            )
+        } else {
+            format!(
+                "{} übergroße Abschnitte sollten an H3/H4-Grenzen aufgeteilt werden. \
+                 Rekursives Splitting nach Heading-Level empfohlen.",
+                too_long_count
+            )
+        }
     } else if section_count < 3 {
-        "Zu wenig Gliederung für effektives Chunking. \
-         Zusätzliche Zwischenüberschriften würden die Extrahierbarkeit verbessern."
-            .to_string()
+        if en {
+            "Too little structure for effective chunking. \
+             Additional subheadings would improve extractability."
+                .to_string()
+        } else {
+            "Zu wenig Gliederung für effektives Chunking. \
+             Zusätzliche Zwischenüberschriften würden die Extrahierbarkeit verbessern."
+                .to_string()
+        }
+    } else if en {
+        format!(
+            "Mixed content structure: {} sections optimal, {} too short, {} too long. \
+             More subheadings improve readability for AI systems.",
+            optimal_count, too_short_count, too_long_count
+        )
     } else {
         format!(
             "Gemischte Inhaltsstruktur: {} Abschnitte optimal, {} zu kurz, {} zu lang. \
@@ -257,19 +394,31 @@ pub(crate) fn analyze_chunks(input: &ChunkInput) -> ChunkAnalysis {
     };
 
     ChunkAnalysis {
-        dimension: build_dimension("Technische KI-Lesbarkeit", &signals),
+        dimension: build_dimension(
+            if en {
+                "Technical AI readability"
+            } else {
+                "Technische KI-Lesbarkeit"
+            },
+            &signals,
+            en,
+        ),
         sections,
         recommendation,
     }
 }
 
-fn build_sections(input: &ChunkInput) -> Vec<ContentSection> {
+fn build_sections(input: &ChunkInput, en: bool) -> Vec<ContentSection> {
     let mut sections = Vec::new();
 
     if input.headings.is_empty() {
         // No headings: the entire content is one chunk
         sections.push(ContentSection {
-            heading: "Gesamter Inhalt".into(),
+            heading: if en {
+                "Entire content".into()
+            } else {
+                "Gesamter Inhalt".into()
+            },
             level: 0,
             word_count: input.total_word_count,
             quality: classify_chunk_size(input.total_word_count),
@@ -288,7 +437,11 @@ fn build_sections(input: &ChunkInput) -> Vec<ContentSection> {
         );
         if intro_words > 20 {
             sections.push(ContentSection {
-                heading: "Einleitung".into(),
+                heading: if en {
+                    "Introduction".into()
+                } else {
+                    "Einleitung".into()
+                },
                 level: 0,
                 word_count: intro_words,
                 quality: classify_chunk_size(intro_words),
@@ -372,7 +525,7 @@ mod tests {
 
     #[test]
     fn rich_input_produces_high_score() {
-        let result = analyze_chunks(&rich_input());
+        let result = analyze_chunks(&rich_input(), false);
         assert!(result.dimension.score >= 60);
         assert_eq!(result.dimension.name, "Technische KI-Lesbarkeit");
         assert!(!result.sections.is_empty());
@@ -380,7 +533,7 @@ mod tests {
 
     #[test]
     fn minimal_input_produces_single_section_low_score() {
-        let result = analyze_chunks(&minimal_input());
+        let result = analyze_chunks(&minimal_input(), false);
         // No headings → one section covering all 0 words
         assert_eq!(result.sections.len(), 1);
         assert_eq!(result.sections[0].heading, "Gesamter Inhalt");
@@ -436,8 +589,8 @@ mod tests {
             has_article_tag: true,
             has_section_tags: true,
         };
-        let small_score = analyze_chunks(&small_input).dimension.score;
-        let large_score = analyze_chunks(&large_input).dimension.score;
+        let small_score = analyze_chunks(&small_input, false).dimension.score;
+        let large_score = analyze_chunks(&large_input, false).dimension.score;
         assert!(small_score > large_score);
     }
 
@@ -478,7 +631,7 @@ mod tests {
             has_article_tag: false,
             has_section_tags: false,
         };
-        let result = analyze_chunks(&flat_input);
+        let result = analyze_chunks(&flat_input, false);
         let hier_signal = result
             .dimension
             .signals

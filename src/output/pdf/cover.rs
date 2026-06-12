@@ -11,7 +11,7 @@ use renderreport::prelude::*;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
-use super::design::{score_color, tokens};
+use super::design::tokens;
 
 pub(super) fn build_cover_score_row_gauges(
     _cover: &CoverBlock,
@@ -72,76 +72,6 @@ pub(super) fn build_cover_score_row_gauges(
     grid
 }
 
-pub(super) fn build_cover_score_row(
-    cover: &CoverBlock,
-    summary: &SummaryBlock,
-    i18n: &I18n,
-) -> Grid {
-    let mut grid = Grid::new(3).with_item_min_height("142pt");
-    let en = i18n.locale() == "en";
-
-    // Card 1: Gesamtbewertung (MetricCard)
-    let overall_title = if en { "Overall Score" } else { "Gesamtscore" };
-    let overall_subtitle = format!("{} • {} / 100", summary.certificate, summary.overall_score);
-    grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new(overall_title, &summary.grade)
-            .with_subtitle(overall_subtitle)
-            .with_accent_color(certificate_accent_color(&summary.certificate))
-            .with_height("100%")
-            .to_data()
-    }));
-
-    // Card 2: Barrierefreiheit (MetricCard)
-    let a11y_title = if en {
-        "Accessibility"
-    } else {
-        "Barrierefreiheit"
-    };
-    let a11y_subtitle = format!("{} • {} / 100", cover.certificate, cover.score);
-    grid = grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new(a11y_title, &cover.grade)
-            .with_subtitle(a11y_subtitle)
-            .with_accent_color(certificate_accent_color(&cover.certificate))
-            .with_height("100%")
-            .to_data()
-    }));
-
-    // Card 3: Risiko & Befunde (MetricCard)
-    let status_title = if en {
-        "Risk & Issues"
-    } else {
-        "Risiko & Befunde"
-    };
-    let status_subtitle = if en {
-        format!(
-            "{} total issues / {} critical/high",
-            cover.total_issues, cover.critical_issues
-        )
-    } else {
-        format!(
-            "{} Befunde / {} kritisch/hoch",
-            cover.total_issues, cover.critical_issues
-        )
-    };
-    let risk_color = match cover.maturity_label.as_str() {
-        "Kritisch" | "Critical" => tokens::DANGER,
-        "Instabil" | "Unstable" | "Ausbaufähig" | "Eingeschränkt" | "Needs Improvement" => {
-            tokens::WARN_DEEP
-        }
-        _ => tokens::SUCCESS,
-    };
-    grid.add_item(serde_json::json!({
-        "type": "metric-card",
-        "data": MetricCard::new(status_title, &cover.maturity_label)
-            .with_subtitle(status_subtitle)
-            .with_accent_color(risk_color)
-            .with_height("100%")
-            .to_data()
-    }))
-}
-
 pub(super) fn build_batch_cover_score_row(
     avg_score: u32,
     total_urls: u32,
@@ -160,7 +90,7 @@ pub(super) fn build_batch_cover_score_row(
         grid = grid.add_item(serde_json::json!({
             "type": "metric-card",
             "data": MetricCard::new(i18n.t("cover-card-certificate"), batch_grade_label(avg_score))
-                .with_subtitle(format!("{} • {} / 100", batch_certificate_label(avg_score), avg_score))
+                .with_subtitle(format!("{} • {} / 100", certificate_label_localized(batch_certificate_label(avg_score), i18n.locale()), avg_score))
                 .with_accent_color(certificate_accent_color(batch_certificate_label(avg_score)))
                 .with_height("100%")
                 .to_data()
@@ -194,6 +124,26 @@ pub(super) fn auditmysite_wordmark_path() -> anyhow::Result<String> {
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Localize the canonical (German) certificate token for display. The token
+/// stays German internally so badge/colour lookups remain locale-independent;
+/// only the rendered label is translated (#449).
+pub(super) fn certificate_label_localized(canonical: &str, locale: &str) -> String {
+    if locale != "en" {
+        return canonical.to_string();
+    }
+    match canonical {
+        "SEHR GUT" => "EXCELLENT",
+        "GUT" => "GOOD",
+        "STABIL" => "STABLE",
+        "AUSBAUFÄHIG" => "INADEQUATE",
+        "UNGENÜGEND" => "FAILED",
+        "EINGESCHRÄNKT" => "RESTRICTED",
+        "NICHT BESTANDEN" => "NOT PASSED",
+        other => other,
+    }
+    .to_string()
+}
+
 pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String> {
     let (filename, svg) = match certificate {
         "SEHR GUT" => (
@@ -204,7 +154,7 @@ pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String
             "auditmysite-certificate-gold.svg",
             include_str!("../../../assets/certificates/gold.svg"),
         ),
-        "SOLIDE" => (
+        "STABIL" => (
             "auditmysite-certificate-silver.svg",
             include_str!("../../../assets/certificates/silver.svg"),
         ),
@@ -227,11 +177,11 @@ pub(super) fn certificate_badge_path(certificate: &str) -> anyhow::Result<String
 
 pub(super) fn certificate_accent_color(certificate: &str) -> &'static str {
     match certificate {
-        "SEHR GUT" | "EXCELLENT" => tokens::SUCCESS,
-        "GUT" | "GOOD" => tokens::ACCENT_BRONZE,
-        "SOLIDE" | "SOLID" => tokens::NEUTRAL,
-        "AUSBAUFÄHIG" | "EINGESCHRÄNKT" | "NEEDS IMPROVEMENT" => "#9a3412",
-        "UNGENÜGEND" | "NICHT BESTANDEN" | "FAILED" => tokens::DANGER,
+        "SEHR GUT" => tokens::SUCCESS,
+        "GUT" => tokens::ACCENT_BRONZE,
+        "STABIL" => tokens::NEUTRAL,
+        "AUSBAUFÄHIG" | "EINGESCHRÄNKT" => "#9a3412",
+        "UNGENÜGEND" | "NICHT BESTANDEN" => tokens::DANGER,
         _ => tokens::INFO,
     }
 }
@@ -249,10 +199,10 @@ pub(super) fn batch_grade_label(score: u32) -> &'static str {
 
 pub(super) fn batch_certificate_label(score: u32) -> &'static str {
     match score {
-        95..=100 => "SEHR GUT",
-        85..=94 => "GUT",
-        75..=84 => "SOLIDE",
-        65..=74 => "AUSBAUFÄHIG",
+        90..=100 => "SEHR GUT",
+        75..=89 => "GUT",
+        60..=74 => "STABIL",
+        40..=59 => "AUSBAUFÄHIG",
         _ => "UNGENÜGEND",
     }
 }

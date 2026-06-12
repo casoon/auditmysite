@@ -202,7 +202,18 @@ impl ContrastRule {
     ) -> SampledVerdicts {
         let mut verdicts = SampledVerdicts::new();
         let base64_data = to_base64(&shot.bytes);
-        let tasks_json = serde_json::to_string(&tasks).unwrap();
+        let tasks_json = match serde_json::to_string(&tasks) {
+            Ok(json) => json,
+            Err(e) => {
+                warn!("Pixel sampling task serialization failed: {}", e);
+                for task in tasks {
+                    if let Some(sel) = task.get("selector").and_then(|v| v.as_str()) {
+                        verdicts.insert(sel.to_string(), ("NeedsReview".to_string(), None, None));
+                    }
+                }
+                return verdicts;
+            }
+        };
         let js = Self::pixel_sampling_script(&tasks_json, &base64_data, shot);
 
         match page.evaluate(js.as_str()).await {

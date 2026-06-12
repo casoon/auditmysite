@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::error::Result;
-use crate::taxonomy::Severity;
+use crate::taxonomy::{module_score_grade, Severity};
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -545,17 +545,6 @@ fn calculate_score(findings: &[StackFinding]) -> u32 {
     100u32.saturating_sub(deduction)
 }
 
-fn score_to_grade(score: u32) -> String {
-    match score {
-        90..=100 => "A",
-        75..=89 => "B",
-        60..=74 => "C",
-        45..=59 => "D",
-        _ => "F",
-    }
-    .to_string()
-}
-
 // ── Public entry point ────────────────────────────────────────────────────────
 
 /// Detect the technology stack of the loaded page and run stack-specific audits.
@@ -565,7 +554,7 @@ pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStack
     let detected = detect_technologies(page).await;
     let findings = run_stack_audits(&detected, base_url).await;
     let score = calculate_score(&findings);
-    let grade = score_to_grade(score);
+    let grade = module_score_grade(score).to_string();
 
     info!(
         "Tech stack: {} technologies detected, {} findings (score {})",

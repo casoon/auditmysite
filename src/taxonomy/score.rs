@@ -105,6 +105,17 @@ pub fn score_grade(score: u32) -> &'static str {
     }
 }
 
+/// Letter grade for module-level quality indicators.
+pub fn module_score_grade(score: u32) -> &'static str {
+    match score {
+        90..=100 => "A",
+        75..=89 => "B",
+        60..=74 => "C",
+        40..=59 => "D",
+        _ => "F",
+    }
+}
+
 /// Status-Farbe für Score
 pub fn score_status(score: u32) -> &'static str {
     match score {
@@ -185,6 +196,19 @@ mod tests {
         assert_eq!(score_label(65), "Verbesserungswürdig");
         assert_eq!(score_label(45), "Ausbaufähig");
         assert_eq!(score_label(20), "Kritisch");
+    }
+
+    #[test]
+    fn test_module_score_grade_edges() {
+        assert_eq!(module_score_grade(100), "A");
+        assert_eq!(module_score_grade(90), "A");
+        assert_eq!(module_score_grade(89), "B");
+        assert_eq!(module_score_grade(75), "B");
+        assert_eq!(module_score_grade(74), "C");
+        assert_eq!(module_score_grade(60), "C");
+        assert_eq!(module_score_grade(59), "D");
+        assert_eq!(module_score_grade(40), "D");
+        assert_eq!(module_score_grade(39), "F");
     }
 
     #[test]

@@ -31,7 +31,7 @@ impl AuditModule for SeoModule {
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
-        match analyze_seo(ctx.page, ctx.url).await {
+        match analyze_seo(ctx.page, ctx.url, &ctx.pipeline_config.lang).await {
             Ok(seo) => Ok(ModuleData::Seo(Box::new(seo))),
             Err(e) => {
                 warn!("SEO analysis failed: {}", e);

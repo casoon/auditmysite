@@ -231,6 +231,15 @@ fn build_performance_details(
         if let Some(dcl) = p.vitals.dom_content_loaded {
             additional.push(("DOM Content Loaded".to_string(), format!("{:.0}ms", dcl)));
         }
+        if let Some(ref cw) = p.content_weight {
+            additional.push((
+                "CO2e pro View".to_string(),
+                format!(
+                    "{:.2} g ({})",
+                    cw.carbon.grams_co2e_per_view, cw.carbon.rating
+                ),
+            ));
+        }
 
         let recommendations = derive_performance_recommendations(i18n, p);
 
@@ -485,7 +494,7 @@ fn build_performance_details(
         let minification = p
             .minification
             .as_ref()
-            .filter(|m| m.total_unminified_count > 0)
+            .filter(|m| m.total_unminified_count > 0 || !m.legacy_scripts.is_empty())
             .map(|m| {
                 let top_assets: Vec<(String, String, String)> = m
                     .unminified_scripts
@@ -500,10 +509,25 @@ fn build_performance_details(
                         )
                     })
                     .collect();
+                let legacy_assets: Vec<(String, String, String)> = m
+                    .legacy_scripts
+                    .iter()
+                    .take(5)
+                    .map(|a| {
+                        (
+                            truncate_url(&a.url, 60),
+                            a.signature.clone(),
+                            format!("{:.1} KB", a.wasted_bytes as f64 / 1024.0),
+                        )
+                    })
+                    .collect();
                 MinificationPresentation {
                     total_count: m.total_unminified_count as usize,
                     total_savings_kb: m.total_savings_bytes as f64 / 1024.0,
                     top_assets,
+                    legacy_count: m.legacy_scripts.len(),
+                    legacy_wasted_kb: m.total_legacy_wasted_bytes as f64 / 1024.0,
+                    legacy_assets,
                 }
             });
 
@@ -565,6 +589,7 @@ fn build_performance_details(
 
 fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresentation> {
     let locale = i18n.locale();
+    let en = locale == "en";
     normalized.raw_seo.as_ref().map(|s| {
         let seo_score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
@@ -772,7 +797,7 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                         },
                     ),
                 ],
-                page_type: cp.page_classification.primary_type.label().to_string(),
+                page_type: cp.page_classification.primary_type.label(en).to_string(),
                 page_attributes: cp.page_classification.attributes.clone(),
                 content_depth_score: cp.page_classification.content_depth_score,
                 structural_richness_score: cp.page_classification.structural_richness_score,
@@ -783,7 +808,7 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 page_profile_facts: vec![
                     (
                         "Seitentyp".to_string(),
-                        cp.page_classification.primary_type.label().to_string(),
+                        cp.page_classification.primary_type.label(en).to_string(),
                     ),
                     (
                         "Merkmale".to_string(),
@@ -804,8 +829,8 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 signal_rows,
                 signal_overall_pct: cp.signal_strength.overall_pct,
                 signal_details,
-                maturity_level: cp.maturity.label().to_string(),
-                maturity_description: cp.maturity.description().to_string(),
+                maturity_level: cp.maturity.label(en).to_string(),
+                maturity_description: cp.maturity.description(en).to_string(),
                 maturity_techniques_used: cp.maturity_techniques,
                 maturity_techniques_total: 13,
             }
@@ -916,7 +941,10 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 .page_health
                 .as_ref()
                 .map(|p| build_page_health_presentation(locale, p)),
-            serp: s.serp.as_ref().map(build_serp_presentation),
+            serp: s
+                .serp
+                .as_ref()
+                .map(|serp| build_serp_presentation(locale, serp)),
             robots: s.robots.as_ref().map(|r| {
                 use crate::seo::BotClass;
                 let bot_rows: Vec<(String, String, usize, usize, bool)> = r
@@ -926,7 +954,7 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                         let fully_blocked = g.disallows.iter().any(|d| d == "/");
                         (
                             g.user_agent.clone(),
-                            g.bot_class.to_string(),
+                            g.bot_class.label(en).to_string(),
                             g.allows.len(),
                             g.disallows.len(),
                             fully_blocked,
@@ -1293,6 +1321,7 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
 
 fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<JourneyPresentation> {
     let locale = i18n.locale();
+    let en = locale == "en";
     normalized.raw_journey.as_ref().map(|j| {
         let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
         // Detect page type mismatch between SEO profile and Journey module
@@ -1300,8 +1329,8 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
             .raw_seo
             .as_ref()
             .and_then(|s| s.content_profile.as_ref())
-            .map(|cp| cp.page_classification.primary_type.label().to_lowercase());
-        let journey_type = j.page_intent.label().to_lowercase();
+            .map(|cp| cp.page_classification.primary_type.label(en).to_lowercase());
+        let journey_type = j.page_intent.label(en).to_lowercase();
         let type_note = match seo_type {
             Some(ref st) if !st.is_empty() && !journey_type.is_empty() && st != &journey_type => {
                 if locale == "en" {
@@ -1328,7 +1357,7 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
             score: journey_score,
             grade: normalized_module_grade(normalized, "Journey")
                 .unwrap_or_else(|| j.grade.clone()),
-            page_intent: j.page_intent.label().to_string(),
+            page_intent: j.page_intent.label(en).to_string(),
             interpretation: journey_interpretation,
             dimensions: vec![
                 JourneyDimensionPresentation {

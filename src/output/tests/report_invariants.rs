@@ -53,7 +53,7 @@ fn ux_score_propagated_to_summary() {
     use crate::ux::analyze_ux;
 
     let mut report = make_report(WcagResults::new());
-    report.ux = Some(analyze_ux(&AXTree::new()));
+    report.ux = Some(analyze_ux(&AXTree::new(), "de"));
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
 
@@ -75,7 +75,7 @@ fn journey_score_propagated_to_summary() {
     use crate::journey::analyze_journey;
 
     let mut report = make_report(WcagResults::new());
-    report.journey = Some(analyze_journey(&AXTree::new()));
+    report.journey = Some(analyze_journey(&AXTree::new(), "de"));
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
 

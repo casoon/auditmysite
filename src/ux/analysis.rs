@@ -147,25 +147,26 @@ pub struct UxIssue {
 
 /// Analyze UX quality from the Accessibility Tree.
 /// This runs purely on already-extracted AXTree data — no CDP calls needed.
-pub fn analyze_ux(tree: &AXTree) -> UxAnalysis {
+pub fn analyze_ux(tree: &AXTree, locale: &str) -> UxAnalysis {
     info!("Analyzing UX heuristics...");
 
+    let en = locale == "en";
     let mut issues = Vec::new();
 
     // ── 1. CTA Clarity ──────────────────────────────────────────────
-    let cta_clarity = analyze_cta_clarity(tree, &mut issues);
+    let cta_clarity = analyze_cta_clarity(tree, &mut issues, en);
 
     // ── 2. Visual Hierarchy ─────────────────────────────────────────
-    let visual_hierarchy = analyze_visual_hierarchy(tree, &mut issues);
+    let visual_hierarchy = analyze_visual_hierarchy(tree, &mut issues, en);
 
     // ── 3. Content Clarity ──────────────────────────────────────────
-    let content_clarity = analyze_content_clarity(tree, &mut issues);
+    let content_clarity = analyze_content_clarity(tree, &mut issues, en);
 
     // ── 4. Trust Signals ────────────────────────────────────────────
-    let trust_signals = analyze_trust_signals(tree, &mut issues);
+    let trust_signals = analyze_trust_signals(tree, &mut issues, en);
 
     // ── 5. Cognitive Load ───────────────────────────────────────────
-    let cognitive_load = analyze_cognitive_load(tree, &mut issues);
+    let cognitive_load = analyze_cognitive_load(tree, &mut issues, en);
 
     // ── Overall score ───────────────────────────────────────────────
     let score = weighted_average(&[
@@ -201,7 +202,7 @@ pub fn analyze_ux(tree: &AXTree) -> UxAnalysis {
 
 // ── Dimension analyzers ─────────────────────────────────────────────
 
-fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension {
+fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>, en: bool) -> UxDimension {
     let buttons = tree.nodes_with_role("button");
     let links = tree.links();
 
@@ -240,9 +241,21 @@ fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension 
         issues.push(UxIssue {
             dimension: "CTA Clarity".into(),
             severity: "high".into(),
-            problem: "Kein erkennbarer Call-to-Action gefunden".into(),
-            impact: "Nutzer wissen nicht, was der nächste Schritt ist".into(),
-            recommendation: "Primären CTA klar hervorheben und eindeutig benennen".into(),
+            problem: if en {
+                "No recognizable call-to-action found".into()
+            } else {
+                "Kein erkennbarer Call-to-Action gefunden".into()
+            },
+            impact: if en {
+                "Users cannot tell what the next step is".into()
+            } else {
+                "Nutzer wissen nicht, was der nächste Schritt ist".into()
+            },
+            recommendation: if en {
+                "Clearly emphasize the primary CTA and give it an unambiguous label".into()
+            } else {
+                "Primären CTA klar hervorheben und eindeutig benennen".into()
+            },
         });
     } else if cta_count > 5 {
         let p = saturating_penalty((cta_count - 5) as f64, 15.0, 5.0);
@@ -250,10 +263,21 @@ fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension 
         issues.push(UxIssue {
             dimension: "CTA Clarity".into(),
             severity: "medium".into(),
-            problem: format!("{} konkurrierende Call-to-Actions gefunden", cta_count),
-            impact: "Zu viele gleichwertige Handlungsaufforderungen verwirren Nutzer".into(),
-            recommendation: "Einen primären CTA priorisieren, sekundäre visuell zurücknehmen"
-                .into(),
+            problem: if en {
+                format!("{} competing call-to-actions found", cta_count)
+            } else {
+                format!("{} konkurrierende Call-to-Actions gefunden", cta_count)
+            },
+            impact: if en {
+                "Too many equally weighted calls to action confuse users".into()
+            } else {
+                "Zu viele gleichwertige Handlungsaufforderungen verwirren Nutzer".into()
+            },
+            recommendation: if en {
+                "Prioritize one primary CTA and visually de-emphasize secondary ones".into()
+            } else {
+                "Einen primären CTA priorisieren, sekundäre visuell zurücknehmen".into()
+            },
         });
     }
 
@@ -264,22 +288,46 @@ fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension 
             issues.push(UxIssue {
                 dimension: "CTA Clarity".into(),
                 severity: "medium".into(),
-                problem: format!(
-                    "{} generische Linktexte (\"mehr\", \"hier\", \"klicken\")",
-                    generic_count
-                ),
-                impact: "Nutzer können Ziele nicht unterscheiden".into(),
-                recommendation: "Links mit beschreibenden Texten versehen, die das Ziel benennen"
-                    .into(),
+                problem: if en {
+                    format!(
+                        "{} generic link texts (\"more\", \"here\", \"click\")",
+                        generic_count
+                    )
+                } else {
+                    format!(
+                        "{} generische Linktexte (\"mehr\", \"hier\", \"klicken\")",
+                        generic_count
+                    )
+                },
+                impact: if en {
+                    "Users cannot distinguish link targets".into()
+                } else {
+                    "Nutzer können Ziele nicht unterscheiden".into()
+                },
+                recommendation: if en {
+                    "Give links descriptive texts that name their target".into()
+                } else {
+                    "Links mit beschreibenden Texten versehen, die das Ziel benennen".into()
+                },
             });
         }
     }
 
     let score = dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Call-to-Actions sind klar und verständlich".into()
+        if en {
+            "Call-to-actions are clear and understandable".into()
+        } else {
+            "Call-to-Actions sind klar und verständlich".into()
+        }
     } else if score >= 60 {
-        "CTAs vorhanden, aber teilweise unklar oder konkurrierend".into()
+        if en {
+            "CTAs present, but partly unclear or competing".into()
+        } else {
+            "CTAs vorhanden, aber teilweise unklar oder konkurrierend".into()
+        }
+    } else if en {
+        "CTAs are missing or not recognizable".into()
     } else {
         "CTAs fehlen oder sind nicht erkennbar".into()
     };
@@ -292,7 +340,7 @@ fn analyze_cta_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension 
     }
 }
 
-fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension {
+fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>, en: bool) -> UxDimension {
     let headings = tree.headings();
     let mut penalties = Vec::new();
 
@@ -307,18 +355,42 @@ fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimen
         issues.push(UxIssue {
             dimension: "Visual Hierarchy".into(),
             severity: "high".into(),
-            problem: "Keine H1-Überschrift vorhanden".into(),
-            impact: "Seitenthema ist für Nutzer und Suchmaschinen nicht erkennbar".into(),
-            recommendation: "Genau eine H1-Überschrift mit dem Hauptthema der Seite setzen".into(),
+            problem: if en {
+                "No H1 heading present".into()
+            } else {
+                "Keine H1-Überschrift vorhanden".into()
+            },
+            impact: if en {
+                "The page topic is not recognizable for users and search engines".into()
+            } else {
+                "Seitenthema ist für Nutzer und Suchmaschinen nicht erkennbar".into()
+            },
+            recommendation: if en {
+                "Set exactly one H1 heading with the page's main topic".into()
+            } else {
+                "Genau eine H1-Überschrift mit dem Hauptthema der Seite setzen".into()
+            },
         });
     } else if h1_count > 1 {
         penalties.push(15.0);
         issues.push(UxIssue {
             dimension: "Visual Hierarchy".into(),
             severity: "medium".into(),
-            problem: format!("{} H1-Überschriften gefunden", h1_count),
-            impact: "Seite hat keinen klaren Hauptfokus".into(),
-            recommendation: "Nur eine H1-Überschrift pro Seite verwenden".into(),
+            problem: if en {
+                format!("{} H1 headings found", h1_count)
+            } else {
+                format!("{} H1-Überschriften gefunden", h1_count)
+            },
+            impact: if en {
+                "The page has no clear primary focus".into()
+            } else {
+                "Seite hat keinen klaren Hauptfokus".into()
+            },
+            recommendation: if en {
+                "Use only one H1 heading per page".into()
+            } else {
+                "Nur eine H1-Überschrift pro Seite verwenden".into()
+            },
         });
     }
 
@@ -340,12 +412,27 @@ fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimen
             issues.push(UxIssue {
                 dimension: "Visual Hierarchy".into(),
                 severity: "medium".into(),
-                problem: format!(
-                    "Heading-Hierarchie {} mal übersprungen (z. B. H2 → H4)",
-                    skip_count
-                ),
-                impact: "Seitenstruktur ist für Screenreader und Nutzer unklar".into(),
-                recommendation: "Heading-Ebenen lückenlos aufbauen (H1 → H2 → H3)".into(),
+                problem: if en {
+                    format!(
+                        "Heading hierarchy skipped {} times (e.g. H2 → H4)",
+                        skip_count
+                    )
+                } else {
+                    format!(
+                        "Heading-Hierarchie {} mal übersprungen (z. B. H2 → H4)",
+                        skip_count
+                    )
+                },
+                impact: if en {
+                    "The page structure is unclear for screen readers and users".into()
+                } else {
+                    "Seitenstruktur ist für Screenreader und Nutzer unklar".into()
+                },
+                recommendation: if en {
+                    "Build heading levels without gaps (H1 → H2 → H3)".into()
+                } else {
+                    "Heading-Ebenen lückenlos aufbauen (H1 → H2 → H3)".into()
+                },
             });
         }
     }
@@ -360,19 +447,40 @@ fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimen
             issues.push(UxIssue {
                 dimension: "Visual Hierarchy".into(),
                 severity: "low".into(),
-                problem: format!("Sehr großer DOM mit {} Knoten", dom_size),
-                impact: "Hohe visuelle Komplexität kann Nutzer überfordern".into(),
-                recommendation: "Seitenstruktur vereinfachen, weniger verschachtelte Elemente"
-                    .into(),
+                problem: if en {
+                    format!("Very large DOM with {} nodes", dom_size)
+                } else {
+                    format!("Sehr großer DOM mit {} Knoten", dom_size)
+                },
+                impact: if en {
+                    "High visual complexity can overwhelm users".into()
+                } else {
+                    "Hohe visuelle Komplexität kann Nutzer überfordern".into()
+                },
+                recommendation: if en {
+                    "Simplify the page structure, fewer nested elements".into()
+                } else {
+                    "Seitenstruktur vereinfachen, weniger verschachtelte Elemente".into()
+                },
             });
         }
     }
 
     let score = dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Klare visuelle Hierarchie mit logischer Heading-Struktur".into()
+        if en {
+            "Clear visual hierarchy with a logical heading structure".into()
+        } else {
+            "Klare visuelle Hierarchie mit logischer Heading-Struktur".into()
+        }
     } else if score >= 60 {
-        "Grundstruktur vorhanden, aber Heading-Hierarchie lückenhaft".into()
+        if en {
+            "Basic structure present, but heading hierarchy has gaps".into()
+        } else {
+            "Grundstruktur vorhanden, aber Heading-Hierarchie lückenhaft".into()
+        }
+    } else if en {
+        "Weak visual structure — page focus not recognizable".into()
     } else {
         "Schwache visuelle Struktur — Seitenfokus nicht erkennbar".into()
     };
@@ -385,7 +493,7 @@ fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimen
     }
 }
 
-fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension {
+fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>, en: bool) -> UxDimension {
     let headings = tree.headings();
     let mut penalties = Vec::new();
 
@@ -414,13 +522,27 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
         issues.push(UxIssue {
             dimension: "Content Clarity".into(),
             severity: "high".into(),
-            problem: format!(
-                "Sehr wenig Textinhalt im Accessibility Tree (~{} Wörter, ohne rein visuelle oder nicht zugängliche Inhalte)",
-                word_count
-            ),
-            impact: "Nutzer erhalten nicht genügend Information für eine Entscheidung".into(),
-            recommendation: "Relevanten Inhalt ergänzen, der den Seitenzweck klar vermittelt"
-                .into(),
+            problem: if en {
+                format!(
+                    "Very little text content in the accessibility tree (~{} words, excluding purely visual or inaccessible content)",
+                    word_count
+                )
+            } else {
+                format!(
+                    "Sehr wenig Textinhalt im Accessibility Tree (~{} Wörter, ohne rein visuelle oder nicht zugängliche Inhalte)",
+                    word_count
+                )
+            },
+            impact: if en {
+                "Users do not receive enough information to make a decision".into()
+            } else {
+                "Nutzer erhalten nicht genügend Information für eine Entscheidung".into()
+            },
+            recommendation: if en {
+                "Add relevant content that clearly conveys the page's purpose".into()
+            } else {
+                "Relevanten Inhalt ergänzen, der den Seitenzweck klar vermittelt".into()
+            },
         });
     } else if word_count < 100 {
         penalties.push(20.0);
@@ -432,9 +554,21 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
         issues.push(UxIssue {
             dimension: "Content Clarity".into(),
             severity: "medium".into(),
-            problem: "Viel Text ohne ausreichende Zwischenüberschriften".into(),
-            impact: "Nutzer können Inhalte nicht scannen und finden relevante Stellen nicht".into(),
-            recommendation: "Text mit Zwischenüberschriften (H2, H3) gliedern".into(),
+            problem: if en {
+                "A lot of text without sufficient subheadings".into()
+            } else {
+                "Viel Text ohne ausreichende Zwischenüberschriften".into()
+            },
+            impact: if en {
+                "Users cannot scan the content and fail to find relevant passages".into()
+            } else {
+                "Nutzer können Inhalte nicht scannen und finden relevante Stellen nicht".into()
+            },
+            recommendation: if en {
+                "Structure the text with subheadings (H2, H3)".into()
+            } else {
+                "Text mit Zwischenüberschriften (H2, H3) gliedern".into()
+            },
         });
     }
 
@@ -445,9 +579,19 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
 
     let score = dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Inhalte sind klar strukturiert und in angemessenem Umfang vorhanden".into()
+        if en {
+            "Content is clearly structured and present in adequate volume".into()
+        } else {
+            "Inhalte sind klar strukturiert und in angemessenem Umfang vorhanden".into()
+        }
     } else if score >= 60 {
-        "Inhalte vorhanden, aber Struktur oder Umfang verbesserungswürdig".into()
+        if en {
+            "Content present, but structure or volume needs improvement".into()
+        } else {
+            "Inhalte vorhanden, aber Struktur oder Umfang verbesserungswürdig".into()
+        }
+    } else if en {
+        "Insufficient content or missing text structure".into()
     } else {
         "Unzureichende Inhalte oder fehlende Textstruktur".into()
     };
@@ -460,7 +604,7 @@ fn analyze_content_clarity(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimens
     }
 }
 
-fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension {
+fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>, en: bool) -> UxDimension {
     let links = tree.links();
     let mut penalties = Vec::new();
 
@@ -513,9 +657,21 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
         issues.push(UxIssue {
             dimension: "Trust Signals".into(),
             severity: "high".into(),
-            problem: "Kein Kontakt-Link erkennbar".into(),
-            impact: "Kein Kontakt-Link auf dieser Seite erkennbar (heuristisch — Kontakt könnte bewusst ausgelagert sein).".into(),
-            recommendation: "Kontaktseite oder Kontaktinformationen gut sichtbar verlinken".into(),
+            problem: if en {
+                "No contact link recognizable".into()
+            } else {
+                "Kein Kontakt-Link erkennbar".into()
+            },
+            impact: if en {
+                "No contact link recognizable on this page (heuristic — contact may be intentionally placed elsewhere).".into()
+            } else {
+                "Kein Kontakt-Link auf dieser Seite erkennbar (heuristisch — Kontakt könnte bewusst ausgelagert sein).".into()
+            },
+            recommendation: if en {
+                "Link the contact page or contact information clearly visible".into()
+            } else {
+                "Kontaktseite oder Kontaktinformationen gut sichtbar verlinken".into()
+            },
         });
     }
 
@@ -524,9 +680,21 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
         issues.push(UxIssue {
             dimension: "Trust Signals".into(),
             severity: "medium".into(),
-            problem: "Kein Impressum-Link erkennbar".into(),
-            impact: "Rechtlich erforderlich in DACH — signalisiert mangelnde Seriosität".into(),
-            recommendation: "Impressum im Footer verlinken".into(),
+            problem: if en {
+                "No imprint link recognizable".into()
+            } else {
+                "Kein Impressum-Link erkennbar".into()
+            },
+            impact: if en {
+                "Legally required in DACH — signals a lack of credibility".into()
+            } else {
+                "Rechtlich erforderlich in DACH — signalisiert mangelnde Seriosität".into()
+            },
+            recommendation: if en {
+                "Link the imprint in the footer".into()
+            } else {
+                "Impressum im Footer verlinken".into()
+            },
         });
     }
 
@@ -535,9 +703,21 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
         issues.push(UxIssue {
             dimension: "Trust Signals".into(),
             severity: "medium".into(),
-            problem: "Kein Datenschutz-Link erkennbar".into(),
-            impact: "DSGVO-Pflicht, stärkt Nutzervertrauen".into(),
-            recommendation: "Datenschutzerklärung im Footer verlinken".into(),
+            problem: if en {
+                "No privacy policy link recognizable".into()
+            } else {
+                "Kein Datenschutz-Link erkennbar".into()
+            },
+            impact: if en {
+                "Required under GDPR, strengthens user trust".into()
+            } else {
+                "DSGVO-Pflicht, stärkt Nutzervertrauen".into()
+            },
+            recommendation: if en {
+                "Link the privacy policy in the footer".into()
+            } else {
+                "Datenschutzerklärung im Footer verlinken".into()
+            },
         });
     }
 
@@ -548,9 +728,19 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
 
     let score = dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Vertrauenssignale vorhanden (Kontakt, Impressum, Datenschutz)".into()
+        if en {
+            "Trust signals present (contact, imprint, privacy policy)".into()
+        } else {
+            "Vertrauenssignale vorhanden (Kontakt, Impressum, Datenschutz)".into()
+        }
     } else if score >= 60 {
-        "Grundlegende Vertrauenssignale teilweise vorhanden".into()
+        if en {
+            "Basic trust signals partially present".into()
+        } else {
+            "Grundlegende Vertrauenssignale teilweise vorhanden".into()
+        }
+    } else if en {
+        "Important trust signals are missing".into()
     } else {
         "Wichtige Vertrauenssignale fehlen".into()
     };
@@ -563,7 +753,7 @@ fn analyze_trust_signals(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensio
     }
 }
 
-fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimension {
+fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>, en: bool) -> UxDimension {
     let link_count = tree.links().len();
     let interactive_count = tree.iter().filter(|n| n.is_interactive()).count();
     let dom_size = tree.len();
@@ -579,9 +769,21 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
             issues.push(UxIssue {
                 dimension: "Cognitive Load".into(),
                 severity: "medium".into(),
-                problem: format!("{} Links auf der Seite", link_count),
-                impact: "Hohe Linkdichte überfordert Nutzer bei der Orientierung".into(),
-                recommendation: "Navigation vereinfachen, Links priorisieren und gruppieren".into(),
+                problem: if en {
+                    format!("{} links on the page", link_count)
+                } else {
+                    format!("{} Links auf der Seite", link_count)
+                },
+                impact: if en {
+                    "High link density overwhelms users when orienting themselves".into()
+                } else {
+                    "Hohe Linkdichte überfordert Nutzer bei der Orientierung".into()
+                },
+                recommendation: if en {
+                    "Simplify navigation, prioritize and group links".into()
+                } else {
+                    "Navigation vereinfachen, Links priorisieren und gruppieren".into()
+                },
             });
         }
     }
@@ -595,10 +797,21 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
             issues.push(UxIssue {
                 dimension: "Cognitive Load".into(),
                 severity: "medium".into(),
-                problem: format!("{} interaktive Elemente auf der Seite", interactive_count),
-                impact: "Zu viele Interaktionsmöglichkeiten erschweren die Orientierung".into(),
-                recommendation: "Interaktive Elemente reduzieren oder in Abschnitte gruppieren"
-                    .into(),
+                problem: if en {
+                    format!("{} interactive elements on the page", interactive_count)
+                } else {
+                    format!("{} interaktive Elemente auf der Seite", interactive_count)
+                },
+                impact: if en {
+                    "Too many interaction options make orientation harder".into()
+                } else {
+                    "Zu viele Interaktionsmöglichkeiten erschweren die Orientierung".into()
+                },
+                recommendation: if en {
+                    "Reduce interactive elements or group them into sections".into()
+                } else {
+                    "Interaktive Elemente reduzieren oder in Abschnitte gruppieren".into()
+                },
             });
         }
     }
@@ -612,9 +825,19 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
 
     let score = dimension_score(&penalties, 100.0);
     let summary = if score >= 85 {
-        "Angemessene Komplexität — Seite ist übersichtlich".into()
+        if en {
+            "Appropriate complexity — the page is well-organized".into()
+        } else {
+            "Angemessene Komplexität — Seite ist übersichtlich".into()
+        }
     } else if score >= 60 {
-        "Leicht erhöhte Komplexität — Navigation noch handhabbar".into()
+        if en {
+            "Slightly elevated complexity — navigation still manageable".into()
+        } else {
+            "Leicht erhöhte Komplexität — Navigation noch handhabbar".into()
+        }
+    } else if en {
+        "High complexity — the page feels cluttered".into()
     } else {
         "Hohe Komplexität — Seite wirkt überladen".into()
     };
@@ -624,5 +847,83 @@ fn analyze_cognitive_load(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimensi
         score,
         weight: W_COGNITIVE,
         summary,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accessibility::AXNode;
+
+    fn node(id: &str, role: &str, name: Option<&str>) -> AXNode {
+        AXNode {
+            node_id: id.into(),
+            role: Some(role.into()),
+            name: name.map(|s| s.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Guard against German leaking into EN reports (#406): build a scenario that
+    /// triggers issue detectors across all UX dimensions and assert that no
+    /// visible result text (dimension summaries, issue problem/impact/
+    /// recommendation) contains German umlauts/ß when the locale is English.
+    #[test]
+    fn english_locale_carries_no_german_umlauts() {
+        // Sparse tree: no H1, no contact/imprint/privacy links, no CTA, plus
+        // generic and unnamed links → triggers detectors across all dimensions.
+        let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+        // Generic link texts (triggers CTA-clarity generic-label issue).
+        for (i, label) in ["mehr", "hier", "klicken", "weiter", "more"]
+            .iter()
+            .enumerate()
+        {
+            nodes.push(node(&format!("glink{i}"), "link", Some(label)));
+        }
+        // Filler links without trust/CTA keywords (no contact/imprint/privacy).
+        for i in 0..6 {
+            nodes.push(node(&format!("link{i}"), "link", Some("Page")));
+        }
+        let tree = AXTree::from_nodes(nodes);
+
+        let analysis = analyze_ux(&tree, "en");
+        assert!(
+            !analysis.issues.is_empty(),
+            "scenario should produce UX issues"
+        );
+
+        let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
+
+        for dim in [
+            &analysis.cta_clarity,
+            &analysis.visual_hierarchy,
+            &analysis.content_clarity,
+            &analysis.trust_signals,
+            &analysis.cognitive_load,
+        ] {
+            assert!(
+                !has_umlaut(&dim.summary),
+                "EN dimension summary contains German umlaut: {}",
+                dim.summary
+            );
+        }
+
+        for issue in &analysis.issues {
+            assert!(
+                !has_umlaut(&issue.problem),
+                "EN issue problem contains German umlaut: {}",
+                issue.problem
+            );
+            assert!(
+                !has_umlaut(&issue.impact),
+                "EN issue impact contains German umlaut: {}",
+                issue.impact
+            );
+            assert!(
+                !has_umlaut(&issue.recommendation),
+                "EN issue recommendation contains German umlaut: {}",
+                issue.recommendation
+            );
+        }
     }
 }

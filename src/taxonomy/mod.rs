@@ -14,5 +14,5 @@ pub use criteria::{criterion_for_rule, principle_for_criterion, WcagPrinciple};
 pub use dimensions::{Dimension, Subcategory};
 pub use issue_class::IssueClass;
 pub use rules::{ReportVisibility, Rule, RuleLookup};
-pub use score::{Scaling, ScoreImpact};
+pub use score::{module_score_grade, Scaling, ScoreImpact};
 pub use severity::Severity;

@@ -16,19 +16,20 @@ pub fn analyze_reading_sequence(
     locale: &str,
 ) -> Vec<SrAuditIssue> {
     let stopwords = localized_stopwords(locale);
+    let en = locale == "en";
     let mut issues = Vec::new();
 
-    detect_non_descriptive_interactive_names(items, &stopwords, &mut issues);
-    detect_icon_font_contamination(items, &mut issues);
-    detect_duplicate_link_texts(views, &mut issues);
-    detect_announcement_deserts(items, &mut issues);
-    detect_skipped_heading_levels(views, &mut issues);
-    detect_heading_order_issues(views, &mut issues);
-    detect_missing_required_landmarks(views, &mut issues);
-    detect_unlabeled_duplicate_landmarks(views, &mut issues);
-    detect_tab_stop_count(items, &mut issues);
-    detect_empty_interactive_elements(items, &mut issues);
-    detect_empty_form_labels(views, &mut issues);
+    detect_non_descriptive_interactive_names(items, &stopwords, en, &mut issues);
+    detect_icon_font_contamination(items, en, &mut issues);
+    detect_duplicate_link_texts(views, en, &mut issues);
+    detect_announcement_deserts(items, en, &mut issues);
+    detect_skipped_heading_levels(views, en, &mut issues);
+    detect_heading_order_issues(views, en, &mut issues);
+    detect_missing_required_landmarks(views, en, &mut issues);
+    detect_unlabeled_duplicate_landmarks(views, en, &mut issues);
+    detect_tab_stop_count(items, en, &mut issues);
+    detect_empty_interactive_elements(items, en, &mut issues);
+    detect_empty_form_labels(views, en, &mut issues);
 
     issues
 }
@@ -49,6 +50,7 @@ fn localized_stopwords(locale: &str) -> HashSet<String> {
 fn detect_non_descriptive_interactive_names(
     items: &[ReadingItem],
     stopwords: &HashSet<String>,
+    en: bool,
     issues: &mut Vec<SrAuditIssue>,
 ) {
     for item in items.iter().filter(|item| {
@@ -63,37 +65,49 @@ fn detect_non_descriptive_interactive_names(
                 wcag_criterion: Some("2.4.4".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![item.node_id.clone()],
-                message: format!(
-                    "Interaktiver Name \"{}\" ist ohne Kontext nicht aussagekräftig.",
-                    name
-                ),
+                message: if en {
+                    format!("Interactive name \"{name}\" is not meaningful without context.")
+                } else {
+                    format!("Interaktiver Name \"{name}\" ist ohne Kontext nicht aussagekräftig.")
+                },
             });
         }
     }
 }
 
-fn detect_duplicate_link_texts(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+fn detect_duplicate_link_texts(views: &NavigationViews, en: bool, issues: &mut Vec<SrAuditIssue>) {
     for link in views.links.iter().filter(|link| link.count > 1) {
-        let quality = match link.quality {
-            LinkQuality::Empty => "leeren Linktext",
-            LinkQuality::NonDescriptive | LinkQuality::ContextDependent => {
-                "kontextabhängigen Linktext"
+        let quality = match (link.quality, en) {
+            (LinkQuality::Empty, true) => "Empty link text",
+            (LinkQuality::Empty, false) => "Leerer Linktext",
+            (LinkQuality::NonDescriptive | LinkQuality::ContextDependent, true) => {
+                "Context-dependent link text"
             }
-            LinkQuality::Good => continue,
+            (LinkQuality::NonDescriptive | LinkQuality::ContextDependent, false) => {
+                "Kontextabhängiger Linktext"
+            }
+            (LinkQuality::Good, _) => continue,
         };
         issues.push(SrAuditIssue {
             wcag_criterion: Some("2.4.4".into()),
             severity: "low".into(),
             affected_node_ids: link.node_ids.clone(),
-            message: format!(
-                "{} kommt {} mal vor und erschwert die Linkliste im Screenreader.",
-                quality, link.count
-            ),
+            message: if en {
+                format!(
+                    "{} occurs {} times and clutters the screen reader's link list.",
+                    quality, link.count
+                )
+            } else {
+                format!(
+                    "{} kommt {} mal vor und erschwert die Linkliste im Screenreader.",
+                    quality, link.count
+                )
+            },
         });
     }
 }
 
-fn detect_announcement_deserts(items: &[ReadingItem], issues: &mut Vec<SrAuditIssue>) {
+fn detect_announcement_deserts(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAuditIssue>) {
     let mut segment_start = 0usize;
     let mut count = 0usize;
     let mut node_ids = Vec::new();
@@ -101,7 +115,7 @@ fn detect_announcement_deserts(items: &[ReadingItem], issues: &mut Vec<SrAuditIs
     for item in items {
         if is_orientation_item(item) {
             if count > ANNOUNCEMENT_DESERT_THRESHOLD {
-                push_desert_issue(segment_start, count, &node_ids, issues);
+                push_desert_issue(segment_start, count, &node_ids, en, issues);
             }
             segment_start = item.seq + 1;
             count = 0;
@@ -113,7 +127,7 @@ fn detect_announcement_deserts(items: &[ReadingItem], issues: &mut Vec<SrAuditIs
     }
 
     if count > ANNOUNCEMENT_DESERT_THRESHOLD {
-        push_desert_issue(segment_start, count, &node_ids, issues);
+        push_desert_issue(segment_start, count, &node_ids, en, issues);
     }
 }
 
@@ -121,20 +135,32 @@ fn push_desert_issue(
     segment_start: usize,
     count: usize,
     node_ids: &[String],
+    en: bool,
     issues: &mut Vec<SrAuditIssue>,
 ) {
     issues.push(SrAuditIssue {
         wcag_criterion: None,
         severity: "low".into(),
         affected_node_ids: node_ids.to_vec(),
-        message: format!(
-            "Langer Abschnitt ab Sequenzposition {} ohne Landmark, Überschrift oder Fokusziel ({} Einträge).",
-            segment_start, count
-        ),
+        message: if en {
+            format!(
+                "Long section from sequence position {} without a landmark, heading or focus target ({} entries).",
+                segment_start, count
+            )
+        } else {
+            format!(
+                "Langer Abschnitt ab Sequenzposition {} ohne Landmark, Überschrift oder Fokusziel ({} Einträge).",
+                segment_start, count
+            )
+        },
     });
 }
 
-fn detect_skipped_heading_levels(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+fn detect_skipped_heading_levels(
+    views: &NavigationViews,
+    en: bool,
+    issues: &mut Vec<SrAuditIssue>,
+) {
     for heading in views
         .headings
         .iter()
@@ -144,15 +170,26 @@ fn detect_skipped_heading_levels(views: &NavigationViews, issues: &mut Vec<SrAud
             wcag_criterion: Some("2.4.6".into()),
             severity: "medium".into(),
             affected_node_ids: vec![heading.node_id.clone()],
-            message: format!(
-                "Überschriftenebene wird übersprungen: {:?} an Sequenzposition {}.",
-                heading.level, heading.seq
-            ),
+            message: if en {
+                format!(
+                    "Heading level is skipped: {:?} at sequence position {}.",
+                    heading.level, heading.seq
+                )
+            } else {
+                format!(
+                    "Überschriftenebene wird übersprungen: {:?} an Sequenzposition {}.",
+                    heading.level, heading.seq
+                )
+            },
         });
     }
 }
 
-fn detect_unlabeled_duplicate_landmarks(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+fn detect_unlabeled_duplicate_landmarks(
+    views: &NavigationViews,
+    en: bool,
+    issues: &mut Vec<SrAuditIssue>,
+) {
     let affected: Vec<String> = views
         .landmarks
         .iter()
@@ -165,9 +202,11 @@ fn detect_unlabeled_duplicate_landmarks(views: &NavigationViews, issues: &mut Ve
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: affected,
-            message:
-                "Mehrere gleichartige Landmarken ohne Namen sind in der Screenreader-Landmarkliste nicht unterscheidbar."
-                    .into(),
+            message: if en {
+                "Several landmarks of the same type without a name are indistinguishable in the screen reader's landmark list.".into()
+            } else {
+                "Mehrere gleichartige Landmarken ohne Namen sind in der Screenreader-Landmarkliste nicht unterscheidbar.".into()
+            },
         });
     }
 
@@ -180,13 +219,35 @@ fn detect_unlabeled_duplicate_landmarks(views: &NavigationViews, issues: &mut Ve
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: vec![landmark.node_id.clone()],
-            message: "Kein Main-Landmark in der Screenreader-Landmarkliste erkennbar.".into(),
+            message: if en {
+                "No main landmark detectable in the screen reader's landmark list.".into()
+            } else {
+                "Kein Main-Landmark in der Screenreader-Landmarkliste erkennbar.".into()
+            },
         });
     }
 }
 
-fn detect_missing_required_landmarks(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
-    const REQUIRED: &[(&str, &str)] = &[
+fn detect_missing_required_landmarks(
+    views: &NavigationViews,
+    en: bool,
+    issues: &mut Vec<SrAuditIssue>,
+) {
+    const REQUIRED_EN: &[(&str, &str)] = &[
+        (
+            "banner",
+            "No header area (banner landmark) present. Screen readers cannot fully navigate the page structure.",
+        ),
+        (
+            "navigation",
+            "No navigation landmark present. Keyboard users cannot jump directly to the navigation.",
+        ),
+        (
+            "contentinfo",
+            "No footer landmark (contentinfo) present. The page structure is incomplete for screen readers.",
+        ),
+    ];
+    const REQUIRED_DE: &[(&str, &str)] = &[
         (
             "banner",
             "Kein Header-Bereich (banner-Landmark) vorhanden. Screen Reader können die Seitenstruktur nicht vollständig navigieren.",
@@ -201,7 +262,8 @@ fn detect_missing_required_landmarks(views: &NavigationViews, issues: &mut Vec<S
         ),
     ];
 
-    for (role, message) in REQUIRED {
+    let required = if en { REQUIRED_EN } else { REQUIRED_DE };
+    for (role, message) in required {
         let present = views
             .landmarks
             .iter()
@@ -217,7 +279,7 @@ fn detect_missing_required_landmarks(views: &NavigationViews, issues: &mut Vec<S
     }
 }
 
-fn detect_icon_font_contamination(items: &[ReadingItem], issues: &mut Vec<SrAuditIssue>) {
+fn detect_icon_font_contamination(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAuditIssue>) {
     let affected: Vec<String> = items
         .iter()
         .filter(|item| {
@@ -232,9 +294,11 @@ fn detect_icon_font_contamination(items: &[ReadingItem], issues: &mut Vec<SrAudi
             wcag_criterion: Some("2.4.4".into()),
             severity: "medium".into(),
             affected_node_ids: affected,
-            message:
-                "Link- oder Button-Name enthält Icon-Font-Zeichen (Unicode Private Use Area). Screen Reader lesen diese als kryptische Zeichencodes vor."
-                    .into(),
+            message: if en {
+                "Link or button name contains icon-font characters (Unicode Private Use Area). Screen readers read these out as cryptic character codes.".into()
+            } else {
+                "Link- oder Button-Name enthält Icon-Font-Zeichen (Unicode Private Use Area). Screen Reader lesen diese als kryptische Zeichencodes vor.".into()
+            },
         });
     }
 }
@@ -243,7 +307,7 @@ fn contains_pua(text: &str) -> bool {
     text.chars().any(|c| ('\u{E000}'..='\u{F8FF}').contains(&c))
 }
 
-fn detect_heading_order_issues(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+fn detect_heading_order_issues(views: &NavigationViews, en: bool, issues: &mut Vec<SrAuditIssue>) {
     let headings = &views.headings;
 
     // First non-empty heading must be H1.
@@ -253,11 +317,19 @@ fn detect_heading_order_issues(views: &NavigationViews, issues: &mut Vec<SrAudit
                 wcag_criterion: Some("1.3.1".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![first.node_id.clone()],
-                message: format!(
-                    "Erste Überschrift im Dokument ist H{} statt H1 (Sequenzposition {}).",
-                    first.level.unwrap_or(0),
-                    first.seq
-                ),
+                message: if en {
+                    format!(
+                        "First heading in the document is H{} instead of H1 (sequence position {}).",
+                        first.level.unwrap_or(0),
+                        first.seq
+                    )
+                } else {
+                    format!(
+                        "Erste Überschrift im Dokument ist H{} statt H1 (Sequenzposition {}).",
+                        first.level.unwrap_or(0),
+                        first.seq
+                    )
+                },
             });
         }
     }
@@ -275,16 +347,23 @@ fn detect_heading_order_issues(views: &NavigationViews, issues: &mut Vec<SrAudit
                 wcag_criterion: Some("1.3.1".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![h1.node_id.clone()],
-                message: format!(
-                    "H1 erscheint erst an Sequenzposition {} — nach einer H2/H3-Überschrift.",
-                    h1.seq
-                ),
+                message: if en {
+                    format!(
+                        "H1 first appears at sequence position {} — after an H2/H3 heading.",
+                        h1.seq
+                    )
+                } else {
+                    format!(
+                        "H1 erscheint erst an Sequenzposition {} — nach einer H2/H3-Überschrift.",
+                        h1.seq
+                    )
+                },
             });
         }
     }
 }
 
-fn detect_tab_stop_count(items: &[ReadingItem], issues: &mut Vec<SrAuditIssue>) {
+fn detect_tab_stop_count(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAuditIssue>) {
     let tab_stop_count = items.iter().filter(|item| item.tab_stop).count();
     let has_skip_link = items.iter().any(|item| {
         item.role.as_deref() == Some("link")
@@ -302,15 +381,26 @@ fn detect_tab_stop_count(items: &[ReadingItem], issues: &mut Vec<SrAuditIssue>) 
                 .filter(|item| item.tab_stop)
                 .map(|item| item.node_id.clone())
                 .collect(),
-            message: format!(
-                "{} Tab-Stops ohne erkennbaren Skip-Link erschweren Tastatur- und Screenreader-Navigation.",
-                tab_stop_count
-            ),
+            message: if en {
+                format!(
+                    "{} tab stops without a detectable skip link hamper keyboard and screen reader navigation.",
+                    tab_stop_count
+                )
+            } else {
+                format!(
+                    "{} Tab-Stops ohne erkennbaren Skip-Link erschweren Tastatur- und Screenreader-Navigation.",
+                    tab_stop_count
+                )
+            },
         });
     }
 }
 
-fn detect_empty_interactive_elements(items: &[ReadingItem], issues: &mut Vec<SrAuditIssue>) {
+fn detect_empty_interactive_elements(
+    items: &[ReadingItem],
+    en: bool,
+    issues: &mut Vec<SrAuditIssue>,
+) {
     let affected: Vec<String> = items
         .iter()
         .filter(|item| {
@@ -324,14 +414,16 @@ fn detect_empty_interactive_elements(items: &[ReadingItem], issues: &mut Vec<SrA
             wcag_criterion: Some("4.1.2".into()),
             severity: "high".into(),
             affected_node_ids: affected,
-            message:
-                "Interaktive Elemente ohne zugänglichen Namen werden im Screenreader nicht verständlich angekündigt."
-                    .into(),
+            message: if en {
+                "Interactive elements without an accessible name are not announced intelligibly by a screen reader.".into()
+            } else {
+                "Interaktive Elemente ohne zugänglichen Namen werden im Screenreader nicht verständlich angekündigt.".into()
+            },
         });
     }
 }
 
-fn detect_empty_form_labels(views: &NavigationViews, issues: &mut Vec<SrAuditIssue>) {
+fn detect_empty_form_labels(views: &NavigationViews, en: bool, issues: &mut Vec<SrAuditIssue>) {
     let affected: Vec<String> = views
         .form_controls
         .iter()
@@ -344,7 +436,11 @@ fn detect_empty_form_labels(views: &NavigationViews, issues: &mut Vec<SrAuditIss
             wcag_criterion: Some("3.3.2".into()),
             severity: "high".into(),
             affected_node_ids: affected,
-            message: "Formularfelder ohne Label sind in der Screenreader-Formularliste nicht verständlich.".into(),
+            message: if en {
+                "Form fields without a label are not intelligible in the screen reader's form list.".into()
+            } else {
+                "Formularfelder ohne Label sind in der Screenreader-Formularliste nicht verständlich.".into()
+            },
         });
     }
 }
@@ -482,6 +578,39 @@ mod tests {
         let issues = analyze_reading_sequence(&items, &views, "de");
 
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn english_locale_messages_carry_no_german_umlauts() {
+        // Guard against German leaking into EN reports (#406): build a scenario
+        // that triggers many detectors and assert the English messages contain
+        // no German umlauts/ß.
+        let mut items = vec![
+            item(0, "link", Some("Hier"), true, vec![]),
+            item(1, "button", None, true, vec![]),
+            item(2, "main", Some("Content"), false, vec!["level=3"]),
+            item(3, "heading", Some("Deep"), false, vec!["level=3"]),
+        ];
+        // Many tab stops without a skip link → tab-stop warning.
+        for seq in 4..40 {
+            items.push(item(
+                seq,
+                "link",
+                Some(&format!("Link {seq}")),
+                true,
+                vec![],
+            ));
+        }
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "en");
+        assert!(!issues.is_empty(), "scenario should produce issues");
+        for issue in &issues {
+            assert!(
+                !issue.message.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "EN message contains German umlaut: {}",
+                issue.message
+            );
+        }
     }
 
     #[test]

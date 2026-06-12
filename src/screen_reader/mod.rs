@@ -14,7 +14,7 @@ pub use linearizer::{linearize, linearize_with_ignored};
 pub use navigator::{navigation_views, NavigationViews};
 pub use types::{
     AnnouncedReadingItem, BfsgCompliance, BfsgVerdict, BfsgViolation, IgnoredReadingNode,
-    ReadingItem, SrAuditIssue, SrAuditReport, SrAuditSummary,
+    ReadingItem, ScreenReaderSummary, SrAuditIssue, SrAuditReport, SrAuditSummary,
 };
 
 use crate::accessibility::AXTree;

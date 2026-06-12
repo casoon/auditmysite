@@ -100,7 +100,10 @@ pub(crate) struct SchemaEntity {
     pub properties: Vec<(String, String)>,
 }
 
-pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeGraphAnalysis {
+pub(crate) fn analyze_knowledge_graph(
+    input: &KnowledgeGraphInput,
+    en: bool,
+) -> KnowledgeGraphAnalysis {
     let mut entities = Vec::new();
     let mut relationships = Vec::new();
     let mut link_suggestions = Vec::new();
@@ -170,11 +173,18 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
     // Generate link suggestions for entities without rich schema
     if entities.len() > 1 && input.internal_links < 5 {
         link_suggestions.push(LinkSuggestion {
-            entity: "Seite".into(),
-            reason: format!(
-                "Nur {} interne Links — Entitäten sollten untereinander verlinkt werden",
-                input.internal_links
-            ),
+            entity: if en { "Page".into() } else { "Seite".into() },
+            reason: if en {
+                format!(
+                    "Only {} internal links — entities should be linked to each other",
+                    input.internal_links
+                )
+            } else {
+                format!(
+                    "Nur {} interne Links — Entitäten sollten untereinander verlinkt werden",
+                    input.internal_links
+                )
+            },
         });
     }
 
@@ -182,10 +192,17 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
         if entity.source == EntitySource::Heading && entity.entity_type == "Topic" {
             link_suggestions.push(LinkSuggestion {
                 entity: entity.name.clone(),
-                reason: format!(
-                    "Thema '{}' nur als Überschrift erkannt — Schema.org-Markup oder interne Verlinkung empfohlen",
-                    entity.name
-                ),
+                reason: if en {
+                    format!(
+                        "Topic '{}' only recognized as a heading — Schema.org markup or internal linking recommended",
+                        entity.name
+                    )
+                } else {
+                    format!(
+                        "Thema '{}' nur als Überschrift erkannt — Schema.org-Markup oder interne Verlinkung empfohlen",
+                        entity.name
+                    )
+                },
             });
         }
     }
@@ -196,18 +213,34 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
     // 1. Entity count
     let good_entity_count = entities.len() >= 3;
     signals.push(AiSignal {
-        name: "Entitäten erkannt".into(),
+        name: if en {
+            "Entities detected".into()
+        } else {
+            "Entitäten erkannt".into()
+        },
         present: good_entity_count,
         weight: 0.20,
-        detail: format!(
-            "{} Entitäten extrahiert — {}",
-            entities.len(),
-            if good_entity_count {
-                "reichhaltiges Wissensmodell"
-            } else {
-                "wenig maschinenlesbare Entitäten"
-            }
-        ),
+        detail: if en {
+            format!(
+                "{} entities extracted — {}",
+                entities.len(),
+                if good_entity_count {
+                    "rich knowledge model"
+                } else {
+                    "few machine-readable entities"
+                }
+            )
+        } else {
+            format!(
+                "{} Entitäten extrahiert — {}",
+                entities.len(),
+                if good_entity_count {
+                    "reichhaltiges Wissensmodell"
+                } else {
+                    "wenig maschinenlesbare Entitäten"
+                }
+            )
+        },
     });
 
     // 2. Schema.org entity ratio
@@ -217,35 +250,67 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
         .count();
     let good_schema_ratio = schema_entities >= 2;
     signals.push(AiSignal {
-        name: "Schema.org-Entitäten".into(),
+        name: if en {
+            "Schema.org entities".into()
+        } else {
+            "Schema.org-Entitäten".into()
+        },
         present: good_schema_ratio,
         weight: 0.20,
-        detail: format!(
-            "{} Entitäten aus Schema.org — {}",
-            schema_entities,
-            if good_schema_ratio {
-                "gute Maschinenlesbarkeit"
-            } else {
-                "wenig strukturierte Entitäten"
-            }
-        ),
+        detail: if en {
+            format!(
+                "{} entities from Schema.org — {}",
+                schema_entities,
+                if good_schema_ratio {
+                    "good machine readability"
+                } else {
+                    "few structured entities"
+                }
+            )
+        } else {
+            format!(
+                "{} Entitäten aus Schema.org — {}",
+                schema_entities,
+                if good_schema_ratio {
+                    "gute Maschinenlesbarkeit"
+                } else {
+                    "wenig strukturierte Entitäten"
+                }
+            )
+        },
     });
 
     // 3. Relationship count
     let good_relationships = relationships.len() >= 2;
     signals.push(AiSignal {
-        name: "Beziehungen".into(),
+        name: if en {
+            "Relationships".into()
+        } else {
+            "Beziehungen".into()
+        },
         present: good_relationships,
         weight: 0.20,
-        detail: format!(
-            "{} Beziehungen zwischen Entitäten — {}",
-            relationships.len(),
-            if good_relationships {
-                "Wissensnetz erkennbar"
-            } else {
-                "isolierte Entitäten, kein Netz"
-            }
-        ),
+        detail: if en {
+            format!(
+                "{} relationships between entities — {}",
+                relationships.len(),
+                if good_relationships {
+                    "knowledge network recognizable"
+                } else {
+                    "isolated entities, no network"
+                }
+            )
+        } else {
+            format!(
+                "{} Beziehungen zwischen Entitäten — {}",
+                relationships.len(),
+                if good_relationships {
+                    "Wissensnetz erkennbar"
+                } else {
+                    "isolierte Entitäten, kein Netz"
+                }
+            )
+        },
     });
 
     // 4. Entity types diversity
@@ -253,27 +318,53 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
         entities.iter().map(|e| e.entity_type.as_str()).collect();
     let diverse = unique_types.len() >= 3;
     signals.push(AiSignal {
-        name: "Typen-Vielfalt".into(),
+        name: if en {
+            "Type diversity".into()
+        } else {
+            "Typen-Vielfalt".into()
+        },
         present: diverse,
         weight: 0.10,
-        detail: format!(
-            "{} verschiedene Entitätstypen — {}",
-            unique_types.len(),
-            if diverse {
-                "vielfältiges Wissensmodell"
-            } else {
-                "wenig Typen-Diversität"
-            }
-        ),
+        detail: if en {
+            format!(
+                "{} different entity types — {}",
+                unique_types.len(),
+                if diverse {
+                    "diverse knowledge model"
+                } else {
+                    "little type diversity"
+                }
+            )
+        } else {
+            format!(
+                "{} verschiedene Entitätstypen — {}",
+                unique_types.len(),
+                if diverse {
+                    "vielfältiges Wissensmodell"
+                } else {
+                    "wenig Typen-Diversität"
+                }
+            )
+        },
     });
 
     // 5. Breadcrumb hierarchy
     signals.push(AiSignal {
-        name: "Breadcrumb-Hierarchie".into(),
+        name: if en {
+            "Breadcrumb hierarchy".into()
+        } else {
+            "Breadcrumb-Hierarchie".into()
+        },
         present: input.has_breadcrumb,
         weight: 0.10,
         detail: if input.has_breadcrumb {
-            "Breadcrumb vorhanden — thematische Einordnung im Graph möglich".into()
+            if en {
+                "Breadcrumb present — thematic classification in the graph possible".into()
+            } else {
+                "Breadcrumb vorhanden — thematische Einordnung im Graph möglich".into()
+            }
+        } else if en {
+            "No breadcrumb — thematic classification missing".into()
         } else {
             "Kein Breadcrumb — thematische Einordnung fehlt".into()
         },
@@ -282,41 +373,82 @@ pub(crate) fn analyze_knowledge_graph(input: &KnowledgeGraphInput) -> KnowledgeG
     // 6. Internal linking density (for graph connectivity)
     let good_linking = input.internal_links >= 5;
     signals.push(AiSignal {
-        name: "Verlinkungsdichte".into(),
+        name: if en {
+            "Linking density".into()
+        } else {
+            "Verlinkungsdichte".into()
+        },
         present: good_linking,
         weight: 0.10,
-        detail: format!(
-            "{} interne Links — {}",
-            input.internal_links,
-            if good_linking {
-                "gute Vernetzung im Graph"
-            } else {
-                "schwache Vernetzung"
-            }
-        ),
+        detail: if en {
+            format!(
+                "{} internal links — {}",
+                input.internal_links,
+                if good_linking {
+                    "good connectivity in the graph"
+                } else {
+                    "weak connectivity"
+                }
+            )
+        } else {
+            format!(
+                "{} interne Links — {}",
+                input.internal_links,
+                if good_linking {
+                    "gute Vernetzung im Graph"
+                } else {
+                    "schwache Vernetzung"
+                }
+            )
+        },
     });
 
     // 7. Properties completeness
     let entities_with_props = entities.iter().filter(|e| !e.properties.is_empty()).count();
     let good_props = entities_with_props >= 1 && schema_entities >= 1;
     signals.push(AiSignal {
-        name: "Eigenschafts-Vollständigkeit".into(),
+        name: if en {
+            "Property completeness".into()
+        } else {
+            "Eigenschafts-Vollständigkeit".into()
+        },
         present: good_props,
         weight: 0.10,
-        detail: format!(
-            "{}/{} Entitäten mit Eigenschaften — {}",
-            entities_with_props,
-            entities.len(),
-            if good_props {
-                "Entitäten sind beschrieben"
-            } else {
-                "Entitäten ohne Details"
-            }
-        ),
+        detail: if en {
+            format!(
+                "{}/{} entities with properties — {}",
+                entities_with_props,
+                entities.len(),
+                if good_props {
+                    "entities are described"
+                } else {
+                    "entities without details"
+                }
+            )
+        } else {
+            format!(
+                "{}/{} Entitäten mit Eigenschaften — {}",
+                entities_with_props,
+                entities.len(),
+                if good_props {
+                    "Entitäten sind beschrieben"
+                } else {
+                    "Entitäten ohne Details"
+                }
+            )
+        },
     });
 
     KnowledgeGraphAnalysis {
-        dimension: build_dimension("Strukturierte Daten", &signals),
+        dimension: build_dimension(
+            if en {
+                "Structured data"
+            } else {
+                "Strukturierte Daten"
+            },
+            &signals,
+            en,
+        ),
         entities,
         relationships,
         link_suggestions,
@@ -444,7 +576,7 @@ mod tests {
 
     #[test]
     fn rich_input_produces_high_score() {
-        let result = analyze_knowledge_graph(&rich_input());
+        let result = analyze_knowledge_graph(&rich_input(), false);
         // Should score well with 3 schemas + breadcrumb + many links
         assert!(result.dimension.score >= 60);
         assert!(!result.entities.is_empty());
@@ -453,7 +585,7 @@ mod tests {
 
     #[test]
     fn minimal_input_produces_low_score() {
-        let result = analyze_knowledge_graph(&minimal_input());
+        let result = analyze_knowledge_graph(&minimal_input(), false);
         assert_eq!(result.dimension.score, 0);
         assert!(result.entities.is_empty());
         assert!(result.relationships.is_empty());
@@ -469,7 +601,7 @@ mod tests {
             internal_links: 0,
             has_breadcrumb: false,
         };
-        let result = analyze_knowledge_graph(&input);
+        let result = analyze_knowledge_graph(&input, false);
         let names: Vec<&str> = result.entities.iter().map(|e| e.name.as_str()).collect();
         assert!(names.contains(&"My Page"));
         assert!(names.contains(&"My Site"));
@@ -494,7 +626,7 @@ mod tests {
             internal_links: 2,
             has_breadcrumb: false,
         };
-        let result = analyze_knowledge_graph(&input);
+        let result = analyze_knowledge_graph(&input, false);
         assert!(!result.link_suggestions.is_empty());
     }
 
@@ -507,7 +639,7 @@ mod tests {
             internal_links: 5,
             has_breadcrumb: true,
         };
-        let result = analyze_knowledge_graph(&input);
+        let result = analyze_knowledge_graph(&input, false);
         assert!(result
             .relationships
             .iter()

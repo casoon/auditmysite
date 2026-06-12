@@ -10,16 +10,192 @@ use renderreport::prelude::*;
 use crate::audit::BatchReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
-use crate::output::builder::build_batch_presentation;
+use crate::output::builder::build_batch_presentation_with_locale;
 use crate::output::report_model::*;
 use crate::util::truncate_url;
 
 use super::batch::build_batch_overview_grid;
 use super::cover::{batch_certificate_label, build_batch_cover_score_row, certificate_badge_path};
 use super::findings::first_sentence;
-use super::helpers::{priority_label_i18n, role_label_i18n, severity_label_i18n};
+use super::helpers::{
+    effort_label_i18n, priority_label_i18n, role_label_i18n, severity_label_i18n,
+};
 
 // ─── Helper: Batch Report Assessment & Key Points ──────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+struct BatchAdvisoryFindingSummary {
+    url: String,
+    category: String,
+    source: String,
+    confidence: f32,
+    message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BatchAuditFlagSummary {
+    kind: String,
+    affected_pages: usize,
+    example: String,
+}
+
+fn aggregate_audit_flags(reports: &[crate::audit::AuditReport]) -> Vec<BatchAuditFlagSummary> {
+    let mut by_kind: std::collections::BTreeMap<String, (usize, String)> =
+        std::collections::BTreeMap::new();
+
+    for report in reports {
+        let normalized = crate::audit::normalize(report);
+        let mut seen_on_page = std::collections::BTreeSet::new();
+        for flag in &normalized.audit_flags {
+            if !seen_on_page.insert(flag.kind.clone()) {
+                continue;
+            }
+            by_kind
+                .entry(flag.kind.clone())
+                .and_modify(|(count, _)| *count += 1)
+                .or_insert((1, flag.message.clone()));
+        }
+    }
+
+    let mut summaries: Vec<_> = by_kind
+        .into_iter()
+        .map(|(kind, (affected_pages, example))| BatchAuditFlagSummary {
+            kind,
+            affected_pages,
+            example,
+        })
+        .collect();
+    summaries.sort_by(|a, b| {
+        b.affected_pages
+            .cmp(&a.affected_pages)
+            .then_with(|| a.kind.cmp(&b.kind))
+    });
+    summaries
+}
+
+fn collect_batch_advisory_findings(
+    reports: &[crate::audit::AuditReport],
+) -> Vec<BatchAdvisoryFindingSummary> {
+    reports
+        .iter()
+        .flat_map(|report| {
+            report
+                .advisory_findings
+                .iter()
+                .map(move |finding| BatchAdvisoryFindingSummary {
+                    url: report.url.clone(),
+                    category: finding.category.clone(),
+                    source: finding.source.clone(),
+                    confidence: finding.confidence,
+                    message: finding.message.clone(),
+                })
+        })
+        .collect()
+}
+
+fn audit_flag_batch_title(kind: &str, en: bool) -> &'static str {
+    match (kind, en) {
+        ("consent_banner", true) => "Consent banner",
+        ("consent_banner", false) => "Consent-Banner",
+        ("bypass_blocks_untested", true) => "Skip link verification",
+        ("bypass_blocks_untested", false) => "Skip-Link-Prüfung",
+        ("conflicting_signal", true) => "Conflicting signal",
+        ("conflicting_signal", false) => "Widersprüchliches Signal",
+        ("viewport_gap", true) => "Desktop/mobile difference",
+        ("viewport_gap", false) => "Desktop-/Mobile-Unterschied",
+        ("consent_wall_artifact", true) => "Consent wall artifact",
+        ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
+        (_, true) => "Audit note",
+        (_, false) => "Audit-Hinweis",
+    }
+}
+
+fn render_batch_audit_flags(
+    builder: renderreport::engine::ReportBuilder,
+    batch: &BatchReport,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let summaries = aggregate_audit_flags(&batch.reports);
+    if summaries.is_empty() {
+        return builder;
+    }
+
+    let en = i18n.locale() == "en";
+    let mut rows = Vec::new();
+    for summary in summaries {
+        let pages = if en {
+            format!(
+                "{} affected page{}",
+                summary.affected_pages,
+                if summary.affected_pages == 1 { "" } else { "s" }
+            )
+        } else {
+            format!(
+                "{} betroffene Seite{}",
+                summary.affected_pages,
+                if summary.affected_pages == 1 { "" } else { "n" }
+            )
+        };
+        rows.push(
+            ChecklistRow::new(
+                audit_flag_batch_title(&summary.kind, en),
+                format!("{} — {}", pages, summary.example),
+            )
+            .with_status("warn"),
+        );
+    }
+
+    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+        "Recurring audit caveats"
+    } else {
+        "Wiederkehrende Audit-Hinweise"
+    }))
+}
+
+fn render_batch_advisory_findings(
+    builder: renderreport::engine::ReportBuilder,
+    batch: &BatchReport,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let findings = collect_batch_advisory_findings(&batch.reports);
+    if findings.is_empty() {
+        return builder;
+    }
+
+    let en = i18n.locale() == "en";
+    let mut table = AuditTable::new(vec![
+        TableColumn::new("URL").with_width("24%"),
+        TableColumn::new(if en { "Category" } else { "Kategorie" }).with_width("16%"),
+        TableColumn::new(if en { "Confidence" } else { "Vertrauen" }).with_width("12%"),
+        TableColumn::new(if en { "Finding" } else { "Hinweis" }).with_width("48%"),
+    ])
+    .with_title(if en {
+        "Advisory semantic findings"
+    } else {
+        "Semantische Hinweise"
+    });
+
+    for finding in findings {
+        table = table.add_row(vec![
+            truncate_url(&finding.url, 60),
+            format!("{} / {}", finding.category, finding.source),
+            advisory_confidence_label(finding.confidence),
+            finding.message,
+        ]);
+    }
+
+    builder
+        .add_component(Callout::info(if en {
+            "These advisory findings are included for context only and do not influence the audit score or risk level."
+        } else {
+            "Diese Hinweise dienen nur der Einordnung und beeinflussen weder Audit-Score noch Risikostufe."
+        }))
+        .add_component(table)
+}
+
+fn advisory_confidence_label(confidence: f32) -> String {
+    format!("{:.0} %", (confidence.clamp(0.0, 1.0) * 100.0).round())
+}
 
 /// Clear batch assessment — no score, just interpretation
 pub(super) fn build_batch_assessment(
@@ -229,6 +405,25 @@ fn render_batch_internal_comparison(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
+
+    // The internal comparison and outlier detection only carry meaning across a
+    // real sample. With one or two URLs "best vs weakest" is identical or
+    // trivial, so we show a caveat instead of a misleading table (#450).
+    if pres.url_details.len() < 3 {
+        let note = if en {
+            format!(
+                "Cross-page comparison needs at least 3 URLs for meaningful domain-wide averages; this report covers {}. See the per-URL detail instead.",
+                pres.url_details.len()
+            )
+        } else {
+            format!(
+                "Der seitenübergreifende Vergleich benötigt mindestens 3 URLs für aussagekräftige domainweite Durchschnitte; dieser Report umfasst {}. Maßgeblich ist hier die Einzel-URL-Auswertung.",
+                pres.url_details.len()
+            )
+        };
+        return builder.add_component(Callout::info(note));
+    }
+
     let mut rows = Vec::new();
     let mut module_names = std::collections::BTreeSet::new();
     for detail in &pres.url_details {
@@ -284,12 +479,21 @@ fn render_batch_internal_comparison(
         .filter_map(|url| {
             let delta = url.score.round() as i32 - avg;
             (delta <= -15).then(|| {
-                format!(
-                    "{}: {} / 100 ({} Punkte unter Durchschnitt)",
-                    truncate_url(&url.url, 70),
-                    url.score.round() as u32,
-                    delta.abs()
-                )
+                if en {
+                    format!(
+                        "{}: {} / 100 ({} points below average)",
+                        truncate_url(&url.url, 70),
+                        url.score.round() as u32,
+                        delta.abs()
+                    )
+                } else {
+                    format!(
+                        "{}: {} / 100 ({} Punkte unter Durchschnitt)",
+                        truncate_url(&url.url, 70),
+                        url.score.round() as u32,
+                        delta.abs()
+                    )
+                }
             })
         })
         .take(6)
@@ -350,7 +554,7 @@ fn render_batch_decision_actions(
             format!("{} — {}", group.title, root),
             severity_label_i18n(group.severity, i18n),
             group.expected_impact.clone(),
-            group.effort.label().to_string(),
+            effort_label_i18n(group.effort, i18n),
             format!(
                 "{} occurrences / {} URLs",
                 group.occurrence_count,
@@ -526,7 +730,7 @@ pub(super) fn render_batch_action_plan_enhanced(
             };
             table = table.add_row(vec![
                 item.action.clone(),
-                item.effort.label().to_string(),
+                effort_label_i18n(item.effort, i18n),
                 scope.to_string(),
                 role_label_i18n(item.role, i18n),
                 priority_label_i18n(item.priority, i18n),
@@ -1055,6 +1259,7 @@ fn render_batch_status_section(
         pres.portfolio_summary.crawl_links.as_ref().map(|links| {
             (links.broken_internal_links.len() + links.broken_external_links.len()) as u32
         }),
+        i18n.locale() == "en",
     ));
 
     // Key points
@@ -1281,7 +1486,7 @@ fn render_batch_top_issues(
         } else {
             &scope_individual
         };
-        let effort_label = group.effort.label();
+        let effort_label = effort_label_i18n(group.effort, i18n);
         let meta_line = format!(
             "{} {} · {} {} · {}: {} · {}: {}",
             group.occurrence_count,
@@ -1488,11 +1693,6 @@ fn render_batch_crawl_links(
         .with_title(i18n.t("batch-table-broken-internal"));
 
         for row in &crawl_links.broken_internal_links {
-            let severity_color = match row.severity.as_str() {
-                "high" => "#dc2626",
-                "medium" => "#ea580c",
-                _ => "#ca8a04",
-            };
             let typ_label = if row.redirect_hops > 0 {
                 format!("→{} {}", row.redirect_hops, hops_label)
             } else {
@@ -1854,7 +2054,9 @@ fn build_batch_report(
 ) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
     let engine = super::helpers::create_engine()?;
     let i18n = I18n::new(&config.locale)?;
-    let pres = build_batch_presentation(batch);
+    // Use the locale-aware presentation builder — `build_batch_presentation`
+    // hardcodes German and would override `--lang` (#406).
+    let pres = build_batch_presentation_with_locale(batch, &i18n);
 
     let domain = &pres.portfolio_summary.domain;
     let score = pres.portfolio_summary.average_score.round() as u32;
@@ -1875,6 +2077,8 @@ fn build_batch_report(
 
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
     builder = render_batch_status_section(builder, &pres, &i18n);
+    builder = render_batch_audit_flags(builder, batch, &i18n);
+    builder = render_batch_advisory_findings(builder, batch, &i18n);
     builder = render_batch_url_ranking(builder, &pres, &i18n);
 
     if let Some(ref interactive) = pres.interactive_summary {
@@ -1905,4 +2109,52 @@ fn build_batch_report(
 
     let built_report = builder.build();
     Ok((engine, built_report))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::{AuditReport, ViewportScoreSet, ViewportScores};
+    use crate::cli::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    fn report(url: &str) -> AuditReport {
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100)
+    }
+
+    #[test]
+    fn audit_flag_aggregation_counts_each_kind_once_per_page() {
+        let mut first = report("https://example.com/a");
+        first.consent_banner_detected = true;
+        first.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 95,
+                performance: None,
+                overall: 95,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 60,
+                performance: None,
+                overall: 60,
+            },
+            weighted_overall: 71,
+        });
+
+        let mut second = report("https://example.com/b");
+        second.consent_banner_detected = true;
+
+        let summaries = aggregate_audit_flags(&[first, second]);
+
+        let consent = summaries
+            .iter()
+            .find(|summary| summary.kind == "consent_banner")
+            .expect("consent banner summary");
+        assert_eq!(consent.affected_pages, 2);
+
+        let viewport = summaries
+            .iter()
+            .find(|summary| summary.kind == "viewport_gap")
+            .expect("viewport gap summary");
+        assert_eq!(viewport.affected_pages, 1);
+    }
 }

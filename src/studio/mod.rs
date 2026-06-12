@@ -40,7 +40,7 @@ pub struct StudioAuditResponse {
     pub overall_score: u32,
     /// Grade (A–F)
     pub grade: String,
-    /// Certificate level (SEHR GUT / GUT / SOLIDE / AUSBAUFÄHIG / UNGENÜGEND)
+    /// Certificate level (SEHR GUT / GUT / STABIL / AUSBAUFÄHIG / UNGENÜGEND)
     pub certificate: String,
 
     // ── Risk (independent from score) ───────────────────────────────

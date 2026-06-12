@@ -43,15 +43,39 @@ impl PageIntent {
         }
     }
 
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
             PageIntent::Shop => "Shop / E-Commerce",
-            PageIntent::LeadGen => "Lead-Generierung",
-            PageIntent::Editorial => "Redaktionell / Blog",
+            PageIntent::LeadGen => {
+                if en {
+                    "Lead generation"
+                } else {
+                    "Lead-Generierung"
+                }
+            }
+            PageIntent::Editorial => {
+                if en {
+                    "Editorial / Blog"
+                } else {
+                    "Redaktionell / Blog"
+                }
+            }
             PageIntent::Marketing => "Marketing / Landing Page",
-            PageIntent::Corporate => "Unternehmensseite",
+            PageIntent::Corporate => {
+                if en {
+                    "Corporate page"
+                } else {
+                    "Unternehmensseite"
+                }
+            }
             PageIntent::Hub => "Hub / Portal",
-            PageIntent::Unknown => "Nicht erkannt",
+            PageIntent::Unknown => {
+                if en {
+                    "Not detected"
+                } else {
+                    "Nicht erkannt"
+                }
+            }
         }
     }
 }
@@ -642,6 +666,26 @@ mod tests {
             intent,
             PageIntent::Unknown | PageIntent::Marketing
         ));
+    }
+
+    #[test]
+    fn test_labels_have_no_german_chars_in_en() {
+        let has_german = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
+        for intent in &[
+            PageIntent::Shop,
+            PageIntent::LeadGen,
+            PageIntent::Editorial,
+            PageIntent::Marketing,
+            PageIntent::Corporate,
+            PageIntent::Hub,
+            PageIntent::Unknown,
+        ] {
+            assert!(
+                !has_german(intent.label(true)),
+                "German chars in label: {}",
+                intent.label(true)
+            );
+        }
     }
 
     #[test]

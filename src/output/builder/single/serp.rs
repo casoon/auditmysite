@@ -2,7 +2,11 @@ use crate::output::report_model::{PageHealthPresentation, SerpPresentation};
 
 use super::super::helpers::yes_no;
 
-pub(super) fn build_serp_presentation(s: &crate::seo::SerpAnalysis) -> SerpPresentation {
+pub(super) fn build_serp_presentation(
+    locale: &str,
+    s: &crate::seo::SerpAnalysis,
+) -> SerpPresentation {
+    let en = locale == "en";
     let signals = s
         .signals
         .iter()
@@ -10,7 +14,7 @@ pub(super) fn build_serp_presentation(s: &crate::seo::SerpAnalysis) -> SerpPrese
             (
                 sig.category.clone(),
                 sig.label.clone(),
-                sig.status.label().to_string(),
+                sig.status.label(en).to_string(),
                 sig.detail.clone(),
             )
         })
