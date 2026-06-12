@@ -256,11 +256,7 @@ pub struct PageHealthIssue {
 }
 
 /// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.
-pub async fn analyze_page_health(
-    page: &Page,
-    url: &str,
-    locale: &str,
-) -> Result<PageHealthAnalysis> {
+pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAnalysis> {
     let mut analysis = PageHealthAnalysis {
         html_validator_status: "skipped".to_string(),
         ..Default::default()
@@ -284,8 +280,9 @@ pub async fn analyze_page_health(
         warn!("W3C HTML validation failed: {}", e);
     }
 
-    // Aggregate issues
-    analysis.issues = collect_issues(&analysis, locale == "en");
+    // Aggregate issues — the stored report (and thus JSON) is always canonical
+    // English; the PDF re-derives localized issues at presentation time (#406).
+    analysis.issues = collect_issues(&analysis, true);
 
     Ok(analysis)
 }
@@ -1234,7 +1231,12 @@ async fn check_www_consolidation(url: &str) -> Option<WwwConsolidation> {
 
 // ─── Issue aggregation ───────────────────────────────────────────────────────
 
-fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> {
+/// Build the page-health issue list in the requested language.
+///
+/// Pure function of the analysis struct — called with English at analysis time
+/// (canonical, for JSON) and re-called with the report locale by the PDF
+/// presentation builder (#406).
+pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> {
     let mut issues = Vec::new();
 
     if !a.has_doctype && a.dom_node_count > 0 {

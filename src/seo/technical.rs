@@ -171,10 +171,9 @@ pub struct TechnicalIssue {
 }
 
 /// Analyze technical SEO aspects
-pub async fn analyze_technical_seo(page: &Page, url: &str, locale: &str) -> Result<TechnicalSeo> {
+pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSeo> {
     info!("Analyzing technical SEO...");
 
-    let en = locale == "en";
     let https = url.starts_with("https://");
 
     let js_code = r#"
@@ -488,175 +487,6 @@ pub async fn analyze_technical_seo(page: &Page, url: &str, locale: &str) -> Resu
     )
     .await;
 
-    // Generate issues
-    let mut issues = Vec::new();
-
-    if !https {
-        issues.push(TechnicalIssue {
-            issue_type: "no_https".to_string(),
-            message: "Page is not served over HTTPS".to_string(),
-            severity: Severity::High,
-        });
-    }
-
-    if canonical_url.is_none() {
-        issues.push(TechnicalIssue {
-            issue_type: "no_canonical".to_string(),
-            message: "Missing canonical URL".to_string(),
-            severity: Severity::Medium,
-        });
-    }
-
-    if lang.is_none() {
-        issues.push(TechnicalIssue {
-            issue_type: "no_lang".to_string(),
-            message: "Missing lang attribute on html element".to_string(),
-            severity: Severity::Medium,
-        });
-    }
-
-    if word_count < 300 {
-        issues.push(TechnicalIssue {
-            issue_type: "thin_content".to_string(),
-            message: format!(
-                "Page has thin content ({} words, recommended: 300+)",
-                word_count
-            ),
-            severity: Severity::Medium,
-        });
-    }
-
-    if internal_links == 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "no_internal_links".to_string(),
-            message: "Page has no internal links".to_string(),
-            severity: Severity::Medium,
-        });
-    }
-
-    if !google_fonts_sources.is_empty() {
-        issues.push(TechnicalIssue {
-            issue_type: "remote_google_fonts".to_string(),
-            message: if en {
-                "Externally hosted Google Fonts detected".to_string()
-            } else {
-                "Extern gehostete Google Fonts erkannt".to_string()
-            },
-            severity: Severity::Low,
-        });
-    }
-
-    if let Some(ref robots) = robots_meta {
-        if robots.to_lowercase().contains("noindex") {
-            issues.push(TechnicalIssue {
-                issue_type: "noindex".to_string(),
-                message: if en {
-                    "Page has a noindex directive — it is not indexed by search engines".to_string()
-                } else {
-                    "Seite hat noindex-Direktive — wird von Suchmaschinen nicht indexiert"
-                        .to_string()
-                },
-                severity: Severity::High,
-            });
-        }
-    }
-
-    if !hreflang.is_empty() && !hreflang_has_x_default {
-        issues.push(TechnicalIssue {
-            issue_type: "hreflang_no_x_default".to_string(),
-            message: if en {
-                "hreflang annotations without an x-default entry".to_string()
-            } else {
-                "hreflang-Annotierungen ohne x-default-Eintrag".to_string()
-            },
-            severity: Severity::Low,
-        });
-    }
-
-    if hreflang_missing_self_reference {
-        issues.push(TechnicalIssue {
-            issue_type: "hreflang_no_self_reference".to_string(),
-            message: if en {
-                "hreflang set contains no self-reference for the current page".to_string()
-            } else {
-                "hreflang-Set enthält keine Self-Reference für die aktuelle Seite".to_string()
-            },
-            severity: Severity::Low,
-        });
-    }
-
-    if internal_links_with_query_params > 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "internal_links_with_query_params".to_string(),
-            message: if en {
-                format!(
-                    "{} internal link(s) with query parameters — can dilute crawl budget",
-                    internal_links_with_query_params
-                )
-            } else {
-                format!(
-                    "{} interne Link(s) mit Query-Parametern — können Crawl-Budget verwässern",
-                    internal_links_with_query_params
-                )
-            },
-            severity: Severity::Low,
-        });
-    }
-
-    collect_pagination_issues(
-        url,
-        pagination_detected,
-        pagination_prev.as_deref(),
-        pagination_next.as_deref(),
-        &mut issues,
-    );
-
-    if !broken_links.is_empty() {
-        issues.push(TechnicalIssue {
-            issue_type: "broken_internal_links".to_string(),
-            message: format!(
-                "{} broken internal link(s) detected: {}",
-                broken_links.len(),
-                broken_links
-                    .iter()
-                    .take(3)
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            ),
-            severity: Severity::High,
-        });
-    }
-
-    if !mixed_content.is_empty() {
-        let blockable_count = mixed_content
-            .iter()
-            .filter(|resource| resource.blockable)
-            .count();
-        issues.push(TechnicalIssue {
-            issue_type: "mixed_content".to_string(),
-            message: format!(
-                "{} HTTP subresource(s) referenced from HTTPS page ({} blockable): {}",
-                mixed_content.len(),
-                blockable_count,
-                mixed_content
-                    .iter()
-                    .take(3)
-                    .map(|resource| resource.url.clone())
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            ),
-            severity: if blockable_count > 0 {
-                Severity::High
-            } else {
-                Severity::Medium
-            },
-        });
-    }
-
-    collect_pwa_issues(&pwa, &mut issues);
-    collect_form_security_issues(&form_security, &mut issues);
-
     info!(
         "Technical SEO: HTTPS={}, canonical={}, lang={}, words={}, favicon={}, google_fonts={}, tracking_cookies={}, zaraz={}, pagination={}",
         https,
@@ -672,37 +502,8 @@ pub async fn analyze_technical_seo(page: &Page, url: &str, locale: &str) -> Resu
 
     // www / non-www redirect check
     let www_redirect = check_www_redirect(url, canonical_url.as_deref()).await;
-    if let Some(ref check) = www_redirect {
-        if !check.redirects_to_primary && check.alternative_status == 200 {
-            let canonical_note = match check.canonical_matches_primary {
-                Some(true) => " Canonical tag is set correctly, but a 301 is still recommended — canonicals are hints, not directives.",
-                Some(false) => " Additionally, canonical does not point to the primary domain.",
-                None => " No canonical tag found.",
-            };
-            issues.push(TechnicalIssue {
-                issue_type: "www_no_redirect".to_string(),
-                message: format!(
-                    "Both {} and {} serve content (HTTP 200). Add a 301 redirect from the alternative to the primary to prevent duplicate content.{}",
-                    check.primary, check.alternative, canonical_note
-                ),
-                severity: Severity::Medium,
-            });
-        } else if !check.redirects_to_primary && check.alternative_status == 0 {
-            // alternative unreachable — no issue, just informational
-        }
-        if let Some(false) = check.canonical_matches_primary {
-            issues.push(TechnicalIssue {
-                issue_type: "canonical_domain_mismatch".to_string(),
-                message: format!(
-                    "Canonical URL points to a different domain variant than the audited URL ({} vs canonical).",
-                    check.primary
-                ),
-                severity: Severity::Medium,
-            });
-        }
-    }
 
-    Ok(TechnicalSeo {
+    let mut technical = TechnicalSeo {
         https,
         has_canonical: canonical_url.is_some(),
         canonical_url,
@@ -736,8 +537,285 @@ pub async fn analyze_technical_seo(page: &Page, url: &str, locale: &str) -> Resu
         zaraz,
         has_favicon,
         www_redirect,
-        issues,
-    })
+        issues: Vec::new(),
+    };
+
+    // Issues are baked in canonical English (for JSON); the PDF re-derives
+    // localized issues via collect_technical_issues at presentation time (#406).
+    technical.issues = collect_technical_issues(&technical, true);
+
+    Ok(technical)
+}
+
+/// Build the technical-SEO issue list in the requested language.
+///
+/// Pure function of the analysis struct — called with English at analysis time
+/// (canonical, for JSON) and re-called with the report locale by the PDF
+/// presentation builder (#406).
+pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssue> {
+    let mut issues = Vec::new();
+
+    if !t.https {
+        issues.push(TechnicalIssue {
+            issue_type: "no_https".to_string(),
+            message: if en {
+                "Page is not served over HTTPS".to_string()
+            } else {
+                "Seite wird nicht über HTTPS ausgeliefert".to_string()
+            },
+            severity: Severity::High,
+        });
+    }
+
+    if t.canonical_url.is_none() {
+        issues.push(TechnicalIssue {
+            issue_type: "no_canonical".to_string(),
+            message: if en {
+                "Missing canonical URL".to_string()
+            } else {
+                "Fehlende Canonical-URL".to_string()
+            },
+            severity: Severity::Medium,
+        });
+    }
+
+    if t.lang.is_none() {
+        issues.push(TechnicalIssue {
+            issue_type: "no_lang".to_string(),
+            message: if en {
+                "Missing lang attribute on html element".to_string()
+            } else {
+                "Fehlendes lang-Attribut am html-Element".to_string()
+            },
+            severity: Severity::Medium,
+        });
+    }
+
+    if t.word_count < 300 {
+        issues.push(TechnicalIssue {
+            issue_type: "thin_content".to_string(),
+            message: if en {
+                format!(
+                    "Page has thin content ({} words, recommended: 300+)",
+                    t.word_count
+                )
+            } else {
+                format!(
+                    "Seite hat dünnen Inhalt ({} Wörter, empfohlen: 300+)",
+                    t.word_count
+                )
+            },
+            severity: Severity::Medium,
+        });
+    }
+
+    if t.internal_links == 0 {
+        issues.push(TechnicalIssue {
+            issue_type: "no_internal_links".to_string(),
+            message: if en {
+                "Page has no internal links".to_string()
+            } else {
+                "Seite hat keine internen Links".to_string()
+            },
+            severity: Severity::Medium,
+        });
+    }
+
+    if !t.google_fonts_sources.is_empty() {
+        issues.push(TechnicalIssue {
+            issue_type: "remote_google_fonts".to_string(),
+            message: if en {
+                "Externally hosted Google Fonts detected".to_string()
+            } else {
+                "Extern gehostete Google Fonts erkannt".to_string()
+            },
+            severity: Severity::Low,
+        });
+    }
+
+    if let Some(ref robots) = t.robots_meta {
+        if robots.to_lowercase().contains("noindex") {
+            issues.push(TechnicalIssue {
+                issue_type: "noindex".to_string(),
+                message: if en {
+                    "Page has a noindex directive — it is not indexed by search engines".to_string()
+                } else {
+                    "Seite hat noindex-Direktive — wird von Suchmaschinen nicht indexiert"
+                        .to_string()
+                },
+                severity: Severity::High,
+            });
+        }
+    }
+
+    if !t.hreflang.is_empty() && !t.hreflang_has_x_default {
+        issues.push(TechnicalIssue {
+            issue_type: "hreflang_no_x_default".to_string(),
+            message: if en {
+                "hreflang annotations without an x-default entry".to_string()
+            } else {
+                "hreflang-Annotierungen ohne x-default-Eintrag".to_string()
+            },
+            severity: Severity::Low,
+        });
+    }
+
+    if t.hreflang_missing_self_reference {
+        issues.push(TechnicalIssue {
+            issue_type: "hreflang_no_self_reference".to_string(),
+            message: if en {
+                "hreflang set contains no self-reference for the current page".to_string()
+            } else {
+                "hreflang-Set enthält keine Self-Reference für die aktuelle Seite".to_string()
+            },
+            severity: Severity::Low,
+        });
+    }
+
+    if t.internal_links_with_query_params > 0 {
+        issues.push(TechnicalIssue {
+            issue_type: "internal_links_with_query_params".to_string(),
+            message: if en {
+                format!(
+                    "{} internal link(s) with query parameters — can dilute crawl budget",
+                    t.internal_links_with_query_params
+                )
+            } else {
+                format!(
+                    "{} interne Link(s) mit Query-Parametern — können Crawl-Budget verwässern",
+                    t.internal_links_with_query_params
+                )
+            },
+            severity: Severity::Low,
+        });
+    }
+
+    collect_pagination_issues(
+        t.pagination_detected,
+        t.pagination_prev.as_deref(),
+        t.pagination_next.as_deref(),
+        t.www_redirect.as_ref().map(|c| c.primary.as_str()),
+        en,
+        &mut issues,
+    );
+
+    if !t.broken_links.is_empty() {
+        issues.push(TechnicalIssue {
+            issue_type: "broken_internal_links".to_string(),
+            message: if en {
+                format!(
+                    "{} broken internal link(s) detected: {}",
+                    t.broken_links.len(),
+                    t.broken_links
+                        .iter()
+                        .take(3)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                )
+            } else {
+                format!(
+                    "{} defekte interne Link(s) erkannt: {}",
+                    t.broken_links.len(),
+                    t.broken_links
+                        .iter()
+                        .take(3)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                )
+            },
+            severity: Severity::High,
+        });
+    }
+
+    if !t.mixed_content.is_empty() {
+        let blockable_count = t
+            .mixed_content
+            .iter()
+            .filter(|resource| resource.blockable)
+            .count();
+        let samples = t
+            .mixed_content
+            .iter()
+            .take(3)
+            .map(|resource| resource.url.clone())
+            .collect::<Vec<_>>()
+            .join("; ");
+        issues.push(TechnicalIssue {
+            issue_type: "mixed_content".to_string(),
+            message: if en {
+                format!(
+                    "{} HTTP subresource(s) referenced from HTTPS page ({} blockable): {}",
+                    t.mixed_content.len(),
+                    blockable_count,
+                    samples
+                )
+            } else {
+                format!(
+                    "{} HTTP-Subressource(n) auf HTTPS-Seite referenziert ({} blockierbar): {}",
+                    t.mixed_content.len(),
+                    blockable_count,
+                    samples
+                )
+            },
+            severity: if blockable_count > 0 {
+                Severity::High
+            } else {
+                Severity::Medium
+            },
+        });
+    }
+
+    collect_pwa_issues(&t.pwa, en, &mut issues);
+    collect_form_security_issues(&t.form_security, en, &mut issues);
+
+    if let Some(ref check) = t.www_redirect {
+        if !check.redirects_to_primary && check.alternative_status == 200 {
+            let canonical_note = match (check.canonical_matches_primary, en) {
+                (Some(true), true) => " Canonical tag is set correctly, but a 301 is still recommended — canonicals are hints, not directives.",
+                (Some(true), false) => " Canonical-Tag ist korrekt gesetzt, ein 301 wird dennoch empfohlen — Canonicals sind Hinweise, keine Direktiven.",
+                (Some(false), true) => " Additionally, canonical does not point to the primary domain.",
+                (Some(false), false) => " Zusätzlich zeigt das Canonical nicht auf die primäre Domain.",
+                (None, true) => " No canonical tag found.",
+                (None, false) => " Kein Canonical-Tag gefunden.",
+            };
+            issues.push(TechnicalIssue {
+                issue_type: "www_no_redirect".to_string(),
+                message: if en {
+                    format!(
+                        "Both {} and {} serve content (HTTP 200). Add a 301 redirect from the alternative to the primary to prevent duplicate content.{}",
+                        check.primary, check.alternative, canonical_note
+                    )
+                } else {
+                    format!(
+                        "Sowohl {} als auch {} liefern Inhalt (HTTP 200). Richte eine 301-Weiterleitung von der Alternative auf die primäre Variante ein, um Duplicate Content zu vermeiden.{}",
+                        check.primary, check.alternative, canonical_note
+                    )
+                },
+                severity: Severity::Medium,
+            });
+        }
+        if let Some(false) = check.canonical_matches_primary {
+            issues.push(TechnicalIssue {
+                issue_type: "canonical_domain_mismatch".to_string(),
+                message: if en {
+                    format!(
+                        "Canonical URL points to a different domain variant than the audited URL ({} vs canonical).",
+                        check.primary
+                    )
+                } else {
+                    format!(
+                        "Canonical-URL zeigt auf eine andere Domain-Variante als die geprüfte URL ({} vs. Canonical).",
+                        check.primary
+                    )
+                },
+                severity: Severity::Medium,
+            });
+        }
+    }
+
+    issues
 }
 
 /// Check whether the www ↔ non-www counterpart of `url` redirects to `url`
@@ -989,11 +1067,15 @@ async fn read_service_worker_registration_count(page: &Page) -> u32 {
         .unwrap_or(0) as u32
 }
 
-fn collect_pwa_issues(pwa: &PwaAnalysis, issues: &mut Vec<TechnicalIssue>) {
+fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
     if pwa.manifest_url.is_none() {
         issues.push(TechnicalIssue {
             issue_type: "pwa_missing_manifest".to_string(),
-            message: "Missing web app manifest".to_string(),
+            message: if en {
+                "Missing web app manifest".to_string()
+            } else {
+                "Fehlendes Web-App-Manifest".to_string()
+            },
             severity: Severity::Low,
         });
         return;
@@ -1002,7 +1084,11 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, issues: &mut Vec<TechnicalIssue>) {
     if !pwa.manifest_valid {
         issues.push(TechnicalIssue {
             issue_type: "pwa_invalid_manifest".to_string(),
-            message: "Web app manifest is missing required PWA fields".to_string(),
+            message: if en {
+                "Web app manifest is missing required PWA fields".to_string()
+            } else {
+                "Web-App-Manifest fehlen erforderliche PWA-Felder".to_string()
+            },
             severity: Severity::Medium,
         });
     }
@@ -1010,7 +1096,11 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, issues: &mut Vec<TechnicalIssue>) {
     if pwa.service_worker_supported && pwa.service_worker_registrations == 0 {
         issues.push(TechnicalIssue {
             issue_type: "pwa_missing_service_worker".to_string(),
-            message: "No service worker registration detected".to_string(),
+            message: if en {
+                "No service worker registration detected".to_string()
+            } else {
+                "Keine Service-Worker-Registrierung erkannt".to_string()
+            },
             severity: Severity::Low,
         });
     }
@@ -1018,15 +1108,23 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, issues: &mut Vec<TechnicalIssue>) {
 
 fn collect_form_security_issues(
     form_security: &FormSecurityAnalysis,
+    en: bool,
     issues: &mut Vec<TechnicalIssue>,
 ) {
     if form_security.insecure_transport_forms > 0 {
         issues.push(TechnicalIssue {
             issue_type: "form_insecure_transport".to_string(),
-            message: format!(
-                "{} sensitive form(s) submit to HTTP or are hosted on HTTP",
-                form_security.insecure_transport_forms
-            ),
+            message: if en {
+                format!(
+                    "{} sensitive form(s) submit to HTTP or are hosted on HTTP",
+                    form_security.insecure_transport_forms
+                )
+            } else {
+                format!(
+                    "{} sensible Formular(e) senden an HTTP oder werden über HTTP ausgeliefert",
+                    form_security.insecure_transport_forms
+                )
+            },
             severity: Severity::High,
         });
     }
@@ -1034,10 +1132,17 @@ fn collect_form_security_issues(
     if form_security.get_sensitive_forms > 0 {
         issues.push(TechnicalIssue {
             issue_type: "form_sensitive_get".to_string(),
-            message: format!(
-                "{} sensitive form(s) use GET and can leak values into URLs and logs",
-                form_security.get_sensitive_forms
-            ),
+            message: if en {
+                format!(
+                    "{} sensitive form(s) use GET and can leak values into URLs and logs",
+                    form_security.get_sensitive_forms
+                )
+            } else {
+                format!(
+                    "{} sensible Formular(e) verwenden GET und können Werte in URLs und Logs preisgeben",
+                    form_security.get_sensitive_forms
+                )
+            },
             severity: Severity::High,
         });
     }
@@ -1045,10 +1150,17 @@ fn collect_form_security_issues(
     if form_security.password_autocomplete_issues > 0 {
         issues.push(TechnicalIssue {
             issue_type: "form_password_autocomplete".to_string(),
-            message: format!(
-                "{} password field(s) have autocomplete disabled or misconfigured",
-                form_security.password_autocomplete_issues
-            ),
+            message: if en {
+                format!(
+                    "{} password field(s) have autocomplete disabled or misconfigured",
+                    form_security.password_autocomplete_issues
+                )
+            } else {
+                format!(
+                    "{} Passwortfeld(er) haben autocomplete deaktiviert oder fehlkonfiguriert",
+                    form_security.password_autocomplete_issues
+                )
+            },
             severity: Severity::Medium,
         });
     }
@@ -1166,10 +1278,11 @@ fn detect_pagination(
 }
 
 fn collect_pagination_issues(
-    url: &str,
     pagination_detected: bool,
     prev: Option<&str>,
     next: Option<&str>,
+    url: Option<&str>,
+    en: bool,
     issues: &mut Vec<TechnicalIssue>,
 ) {
     if !pagination_detected {
@@ -1179,29 +1292,45 @@ fn collect_pagination_issues(
     if prev.is_none() && next.is_none() {
         issues.push(TechnicalIssue {
             issue_type: "pagination_missing_rel_links".to_string(),
-            message: "Paginated page detected without rel=\"prev\" or rel=\"next\" link markup"
-                .to_string(),
+            message: if en {
+                "Paginated page detected without rel=\"prev\" or rel=\"next\" link markup"
+                    .to_string()
+            } else {
+                "Paginierte Seite erkannt ohne rel=\"prev\"- oder rel=\"next\"-Link-Markup"
+                    .to_string()
+            },
             severity: Severity::Low,
         });
         return;
     }
 
-    if prev.is_some_and(|href| same_url(href, url)) || next.is_some_and(|href| same_url(href, url))
-    {
-        issues.push(TechnicalIssue {
-            issue_type: "pagination_self_referential_rel_link".to_string(),
-            message: "Pagination rel link points to the current page instead of an adjacent page"
-                .to_string(),
-            severity: Severity::Low,
-        });
+    if let Some(url) = url {
+        if prev.is_some_and(|href| same_url(href, url))
+            || next.is_some_and(|href| same_url(href, url))
+        {
+            issues.push(TechnicalIssue {
+                issue_type: "pagination_self_referential_rel_link".to_string(),
+                message: if en {
+                    "Pagination rel link points to the current page instead of an adjacent page"
+                        .to_string()
+                } else {
+                    "Pagination-rel-Link zeigt auf die aktuelle Seite statt auf eine Nachbarseite"
+                        .to_string()
+                },
+                severity: Severity::Low,
+            });
+        }
     }
 
     if let (Some(prev), Some(next)) = (prev, next) {
         if same_url(prev, next) {
             issues.push(TechnicalIssue {
                 issue_type: "pagination_duplicate_prev_next".to_string(),
-                message: "Pagination rel=\"prev\" and rel=\"next\" point to the same URL"
-                    .to_string(),
+                message: if en {
+                    "Pagination rel=\"prev\" and rel=\"next\" point to the same URL".to_string()
+                } else {
+                    "Pagination rel=\"prev\" und rel=\"next\" zeigen auf dieselbe URL".to_string()
+                },
                 severity: Severity::Low,
             });
         }
@@ -1418,7 +1547,7 @@ mod tests {
     #[test]
     fn test_collect_pwa_issues_missing_manifest() {
         let mut issues = Vec::new();
-        collect_pwa_issues(&PwaAnalysis::default(), &mut issues);
+        collect_pwa_issues(&PwaAnalysis::default(), true, &mut issues);
 
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].issue_type, "pwa_missing_manifest");
@@ -1435,7 +1564,7 @@ mod tests {
             ..PwaAnalysis::default()
         };
         let mut issues = Vec::new();
-        collect_pwa_issues(&pwa, &mut issues);
+        collect_pwa_issues(&pwa, true, &mut issues);
 
         assert!(issues
             .iter()
@@ -1455,7 +1584,7 @@ mod tests {
         };
         let mut issues = Vec::new();
 
-        collect_form_security_issues(&form_security, &mut issues);
+        collect_form_security_issues(&form_security, true, &mut issues);
 
         assert!(issues
             .iter()
@@ -1475,7 +1604,7 @@ mod tests {
         };
         let mut issues = Vec::new();
 
-        collect_form_security_issues(&form_security, &mut issues);
+        collect_form_security_issues(&form_security, true, &mut issues);
 
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].issue_type, "form_password_autocomplete");
@@ -1496,10 +1625,11 @@ mod tests {
     fn test_collect_pagination_issues_missing_rel_links() {
         let mut issues = Vec::new();
         collect_pagination_issues(
-            "https://example.com/blog/page/2/",
             true,
             None,
             None,
+            Some("https://example.com/blog/page/2/"),
+            true,
             &mut issues,
         );
 
@@ -1512,10 +1642,11 @@ mod tests {
     fn test_collect_pagination_issues_self_reference_and_duplicate() {
         let mut issues = Vec::new();
         collect_pagination_issues(
-            "https://example.com/blog/page/2/",
             true,
             Some("https://example.com/blog/page/2/#top"),
             Some("https://example.com/blog/page/2/"),
+            Some("https://example.com/blog/page/2/"),
+            true,
             &mut issues,
         );
 

@@ -10,13 +10,22 @@ use super::types::{ReadingItem, SrAuditIssue};
 const ANNOUNCEMENT_DESERT_THRESHOLD: usize = 15;
 const TAB_STOP_WARNING_THRESHOLD: usize = 50;
 
+/// Analyzes the reading sequence for screen-reader issues.
+///
+/// Two locales are threaded independently (#406):
+/// - `detect_locale` drives *which* issues are produced — it loads the
+///   page-language stopword list used to spot generic link/button names.
+///   Using the run/output language here would silently stop detecting
+///   generic names like "Hier" on German pages.
+/// - `message_en` only controls the *language* of the produced messages.
 pub fn analyze_reading_sequence(
     items: &[ReadingItem],
     views: &NavigationViews,
-    locale: &str,
+    detect_locale: &str,
+    message_en: bool,
 ) -> Vec<SrAuditIssue> {
-    let stopwords = localized_stopwords(locale);
-    let en = locale == "en";
+    let stopwords = localized_stopwords(detect_locale);
+    let en = message_en;
     let mut issues = Vec::new();
 
     detect_non_descriptive_interactive_names(items, &stopwords, en, &mut issues);
@@ -469,8 +478,8 @@ fn normalize_text(text: &str) -> String {
     text.trim().to_lowercase()
 }
 
-pub fn name_quality_score(items: &[ReadingItem], locale: &str) -> u32 {
-    let stopwords = localized_stopwords(locale);
+pub fn name_quality_score(items: &[ReadingItem], detect_locale: &str) -> u32 {
+    let stopwords = localized_stopwords(detect_locale);
     let interactive: Vec<_> = items
         .iter()
         .filter(|item| item.tab_stop || matches!(item.role.as_deref(), Some("button" | "link")))
@@ -534,7 +543,7 @@ mod tests {
             item(2, "button", Some("Menü öffnen"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(issues
             .iter()
@@ -555,7 +564,7 @@ mod tests {
             item(4, "heading", Some("Deep"), false, vec!["level=3"]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(issues
             .iter()
@@ -575,7 +584,7 @@ mod tests {
             item(4, "button", Some("Suche öffnen"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(issues.is_empty());
     }
@@ -602,7 +611,7 @@ mod tests {
             ));
         }
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "en");
+        let issues = analyze_reading_sequence(&items, &views, "en", true);
         assert!(!issues.is_empty(), "scenario should produce issues");
         for issue in &issues {
             assert!(
@@ -617,7 +626,7 @@ mod tests {
     fn detects_missing_required_landmarks() {
         let items = vec![item(0, "main", Some("Inhalt"), false, vec![])];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         let landmark_issues: Vec<_> = issues
             .iter()
@@ -639,7 +648,7 @@ mod tests {
             item(3, "contentinfo", Some("Footer"), false, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(!issues
             .iter()
@@ -653,7 +662,7 @@ mod tests {
             item(1, "link", Some("\u{E003}"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(issues.iter().any(|i| i.message.contains("Icon-Font")));
     }
@@ -665,7 +674,7 @@ mod tests {
             item(1, "link", Some("Kontakt"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(!issues.iter().any(|i| i.message.contains("Icon-Font")));
     }
@@ -681,7 +690,7 @@ mod tests {
             item(128, "heading", Some("Title"), false, vec!["level=1"]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         let order_issues: Vec<_> = issues
             .iter()
@@ -706,7 +715,7 @@ mod tests {
             item(20, "heading", Some("Sub"), false, vec!["level=2"]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de");
+        let issues = analyze_reading_sequence(&items, &views, "de", false);
 
         assert!(!issues.iter().any(|i| {
             i.wcag_criterion.as_deref() == Some("1.3.1")

@@ -2557,10 +2557,22 @@ pub(super) fn render_screen_reader_section(
     };
     builder = builder.add_component(bfsg_note);
 
-    if !sr.issues.is_empty() {
+    // Re-derive issues in the run language. The stored `sr.issues` are baked in
+    // canonical English (#406); the PDF localizes them by recomputing from the
+    // reading sequence and navigation views.
+    let items: Vec<crate::screen_reader::ReadingItem> =
+        sr.reading_sequence.iter().map(|a| a.item.clone()).collect();
+    let localized_issues = crate::screen_reader::analyze_reading_sequence(
+        &items,
+        &sr.navigation_views,
+        i18n.locale(),
+        i18n.locale() == "en",
+    );
+
+    if !localized_issues.is_empty() {
         // Collapse identical messages into one row with an occurrence count.
         let mut deduped: Vec<(&crate::screen_reader::SrAuditIssue, usize)> = Vec::new();
-        for issue in &sr.issues {
+        for issue in &localized_issues {
             if let Some(entry) = deduped
                 .iter_mut()
                 .find(|(g, _)| g.message == issue.message && g.severity == issue.severity)

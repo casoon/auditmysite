@@ -609,7 +609,10 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
             .map(|i| (i.field.clone(), i.severity, i.message.clone()))
             .collect();
 
-        let profile = s.content_profile.as_ref().map(|cp| {
+        // Re-derive the content profile in the report locale. `s.content_profile`
+        // is stored in canonical English (for JSON); the PDF localizes here (#406).
+        let localized_profile = crate::seo::build_content_profile(s, locale);
+        let profile = Some(&localized_profile).map(|cp| {
             use crate::seo::profile::SchemaExtracted;
 
             let schema_rows: Vec<(String, String, String)> = cp
@@ -941,10 +944,12 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 .page_health
                 .as_ref()
                 .map(|p| build_page_health_presentation(locale, p)),
-            serp: s
-                .serp
-                .as_ref()
-                .map(|serp| build_serp_presentation(locale, serp)),
+            // Re-derive SERP signals in the report locale; `s.serp` is canonical
+            // English for JSON, the PDF localizes here (#406).
+            serp: s.serp.as_ref().map(|_| {
+                let localized = crate::seo::build_serp_analysis(s, &normalized.url, locale);
+                build_serp_presentation(locale, &localized)
+            }),
             robots: s.robots.as_ref().map(|r| {
                 use crate::seo::BotClass;
                 let bot_rows: Vec<(String, String, usize, usize, bool)> = r
@@ -982,7 +987,9 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                     has_wildcard_disallow_all: r.has_wildcard_disallow_all,
                     blocks_ai_crawlers: r.blocks_ai_crawlers,
                     blocks_ai_citation: r.blocks_ai_citation,
-                    inferred_policy: r.inferred_policy.clone(),
+                    // Re-derive the policy label in the report locale; the stored
+                    // value is canonical English for JSON (#406).
+                    inferred_policy: crate::seo::infer_robots_policy(r, en),
                     sitemaps: r.sitemaps.clone(),
                     crawl_delays: r.crawl_delays.clone(),
                     bot_rows,
@@ -1009,9 +1016,9 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                         })
                         .collect(),
                 }),
-            technical_issues: s
-                .technical
-                .issues
+            // Re-derive technical issues in the report locale; `s.technical.issues`
+            // is canonical English for JSON, the PDF localizes here (#406).
+            technical_issues: crate::seo::collect_technical_issues(&s.technical, en)
                 .iter()
                 .map(|i| {
                     (

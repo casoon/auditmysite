@@ -20,17 +20,27 @@ pub use types::{
 use crate::accessibility::AXTree;
 use crate::i18n::I18n;
 
+/// Builds the screen-reader audit report. All issue messages and announcements
+/// are baked in canonical English so the stored struct, JSON envelope and
+/// sidecar file are language-neutral (#406). The PDF presentation layer
+/// re-derives localized issues from the reading sequence.
+///
+/// `detect_locale` is the page/run language used only for *detection* (loading
+/// the generic-link-text stopword list and scoring name quality), independent
+/// of the English message language — so German pages keep flagging generic
+/// German link texts even though messages are stored in English.
 pub fn build_sr_audit_report(
     url: &str,
     timestamp: chrono::DateTime<chrono::Utc>,
     tree: &AXTree,
-    locale: &str,
+    detect_locale: &str,
 ) -> SrAuditReport {
-    let i18n =
-        I18n::new(locale).unwrap_or_else(|_| I18n::new("de").expect("default locale parses"));
+    let i18n = I18n::new("en").expect("english locale parses");
     let reading_items = linearize(tree);
     let navigation_views = navigation_views(&reading_items);
-    let issues = analyze_reading_sequence(&reading_items, &navigation_views, locale);
+    // Detection uses the page/run language so generic link-text stopwords match;
+    // messages are baked in canonical English for the language-neutral struct.
+    let issues = analyze_reading_sequence(&reading_items, &navigation_views, detect_locale, true);
     let bfsg_compliance = bfsg_compliance(&issues);
     let reading_sequence = reading_items
         .iter()
@@ -51,7 +61,7 @@ pub fn build_sr_audit_report(
             total_announced_nodes: reading_items.len(),
             tab_stops: reading_items.iter().filter(|item| item.tab_stop).count(),
             bfsg_violations: bfsg_compliance.violations.len(),
-            name_quality_score: name_quality_score(&reading_items, locale),
+            name_quality_score: name_quality_score(&reading_items, detect_locale),
             landmark_quality_score: landmark_quality_score(&navigation_views),
             heading_quality_score: heading_quality_score(&navigation_views),
         },

@@ -454,32 +454,65 @@ fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
             .iter()
             .any(|g| g.bot_class == BotClass::UnknownAi && is_fully_blocked(g));
 
-    let has_any_ai_rule = groups.iter().any(|g| {
+    let mut audit = RobotsAudit {
+        fetched: false, // set by caller after network step
+        error: None,
+        groups,
+        sitemaps,
+        crawl_delays,
+        has_wildcard_disallow_all,
+        blocks_ai_crawlers,
+        blocks_ai_training,
+        blocks_ai_citation,
+        inferred_policy: String::new(),
+        noindex_in_sitemap: None,
+    };
+
+    // Bake the policy label in the requested language. The PDF re-derives a
+    // localized label from the same pure function at presentation time (#406).
+    audit.inferred_policy = infer_robots_policy(&audit, en);
+    audit
+}
+
+/// Re-derive the human-readable robots policy label in the requested language.
+///
+/// Pure function of the stored audit fields — used both at analysis time
+/// (canonical English, for JSON) and by the PDF to localize without re-fetching
+/// robots.txt (#406).
+pub fn infer_robots_policy(audit: &RobotsAudit, en: bool) -> String {
+    let is_fully_blocked = |g: &RobotsGroup| g.disallows.iter().any(|d| d == "/");
+
+    let blocks_ai_mixed = audit
+        .groups
+        .iter()
+        .any(|g| g.bot_class == BotClass::AiMixed && is_fully_blocked(g));
+
+    let has_any_ai_rule = audit.groups.iter().any(|g| {
         matches!(
             g.bot_class,
             BotClass::AiTraining | BotClass::AiCitation | BotClass::AiMixed
         )
     });
 
-    let inferred_policy = if has_wildcard_disallow_all {
+    if audit.has_wildcard_disallow_all {
         if en {
             "Everything blocked (Disallow: *)".to_string()
         } else {
             "Alles gesperrt (Disallow: *)".to_string()
         }
-    } else if blocks_ai_citation {
+    } else if audit.blocks_ai_citation {
         if en {
             "AI fully blocked".to_string()
         } else {
             "KI vollständig blockiert".to_string()
         }
-    } else if blocks_ai_mixed && blocks_ai_training {
+    } else if blocks_ai_mixed && audit.blocks_ai_training {
         if en {
             "AI training blocked (conservative)".to_string()
         } else {
             "KI-Training blockiert (konservativ)".to_string()
         }
-    } else if blocks_ai_training {
+    } else if audit.blocks_ai_training {
         if en {
             "AI training blocked, AI search allowed".to_string()
         } else {
@@ -495,20 +528,6 @@ fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
         "No explicit AI rule".to_string()
     } else {
         "Keine explizite KI-Regel".to_string()
-    };
-
-    RobotsAudit {
-        fetched: false, // set by caller after network step
-        error: None,
-        groups,
-        sitemaps,
-        crawl_delays,
-        has_wildcard_disallow_all,
-        blocks_ai_crawlers,
-        blocks_ai_training,
-        blocks_ai_citation,
-        inferred_policy,
-        noindex_in_sitemap: None,
     }
 }
 
