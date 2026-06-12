@@ -863,7 +863,7 @@ mod tests {
             journey_candidates: vec![],
         });
         let sq = crate::source_quality::analyze_source_quality(&report);
-        let av = crate::ai_visibility::analyze_ai_visibility(&report, "de");
+        let av = crate::ai_visibility::analyze_ai_visibility(&report);
         report.source_quality = Some(sq);
         report.ai_visibility = Some(av);
         report.content_visibility =

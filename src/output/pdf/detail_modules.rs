@@ -1964,6 +1964,15 @@ pub(super) fn render_ai_visibility(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    use crate::ai_visibility::{
+        ai_chunk_recommendation, ai_chunk_section_heading, ai_dimension_label, ai_disclaimer,
+        ai_kg_link_suggestion_reason, ai_signal_text,
+    };
+
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+    let disclaimer = ai_disclaimer(en);
+
     let indicator_note_ai = i18n.t("pdf-ai-indicator-note");
     let ai_title = i18n.t("pdf-ai-section-title");
     if !is_first {
@@ -1994,7 +2003,7 @@ pub(super) fn render_ai_visibility(
             Label::new(format!(
                 "ℹ {}: {}",
                 i18n.t("pdf-ai-overview-title"),
-                av.disclaimer
+                disclaimer
             ))
             .with_size("10.5pt")
             .with_color("#475569"),
@@ -2003,7 +2012,7 @@ pub(super) fn render_ai_visibility(
             i18n,
             "ai_visibility",
             av.score,
-            &av.disclaimer,
+            &disclaimer,
         ));
 
     if av.score >= 80 {
@@ -2022,12 +2031,13 @@ pub(super) fn render_ai_visibility(
         (&av.policy.dimension, i18n.t("pdf-ai-policy")),
     ] {
         builder = builder.add_component(Section::new(title).with_level(3));
+        let dim_label = ai_dimension_label(dim.score, en);
         let mut dim_kv = KeyValueList::new().add(
             i18n.t("label-heuristic-indicator"),
             format!("~{}/100 — {}", dim.score, score_quality_label(dim.score)),
         );
-        if !dim.label.is_empty() {
-            dim_kv = dim_kv.add("Basis", &dim.label);
+        if !dim_label.is_empty() {
+            dim_kv = dim_kv.add("Basis", &dim_label);
         }
         builder = builder.add_component(dim_kv);
 
@@ -2039,8 +2049,10 @@ pub(super) fn render_ai_visibility(
             ]);
 
             for signal in dim.signals.iter().take(5) {
+                let (name, detail) =
+                    ai_signal_text(signal.kind, signal.present, &signal.values, en);
                 let status = if signal.present { "✓" } else { "✗" };
-                table = table.add_row(vec![&signal.name, status, &signal.detail]);
+                table = table.add_row(vec![name, status.to_string(), detail]);
             }
             builder = builder.add_component(table);
             if dim.signals.len() > 5 {
@@ -2066,16 +2078,25 @@ pub(super) fn render_ai_visibility(
         .with_title(i18n.t("pdf-ai-sections-title"));
 
         for section in &av.chunks.sections {
+            // Synthetic headings re-derive in the run language; real headings pass through.
+            let heading = match section.heading_kind {
+                Some(kind) => ai_chunk_section_heading(kind, en),
+                None => section.heading.clone(),
+            };
             table = table.add_row(vec![
-                &section.heading,
-                &format!("H{}", section.level),
-                &section.word_count.to_string(),
+                heading,
+                format!("H{}", section.level),
+                section.word_count.to_string(),
             ]);
         }
         builder = builder.add_component(table);
-        builder = builder.add_component(
-            Callout::info(&av.chunks.recommendation).with_title(i18n.t("pdf-ai-rec-title")),
+        let recommendation = ai_chunk_recommendation(
+            av.chunks.recommendation_kind,
+            av.chunks.recommendation_counts,
+            en,
         );
+        builder = builder
+            .add_component(Callout::info(&recommendation).with_title(i18n.t("pdf-ai-rec-title")));
     }
 
     // Knowledge graph entities
@@ -2120,9 +2141,27 @@ pub(super) fn render_ai_visibility(
         builder =
             builder.add_component(Section::new(i18n.t("section-link-suggestions")).with_level(3));
 
+        use crate::ai_visibility::KgSuggestionKind;
         let mut list = List::new();
         for suggestion in &av.knowledge_graph.link_suggestions {
-            list = list.add_item(format!("{}: {}", suggestion.entity, suggestion.reason));
+            // Re-derive the reason (and synthetic entity label) in the run language.
+            let reason = ai_kg_link_suggestion_reason(
+                suggestion.kind,
+                &suggestion.entity,
+                suggestion.internal_links.unwrap_or(0),
+                en,
+            );
+            let entity = match suggestion.kind {
+                KgSuggestionKind::FewInternalLinks => {
+                    if en {
+                        "Page".to_string()
+                    } else {
+                        "Seite".to_string()
+                    }
+                }
+                KgSuggestionKind::TopicOnlyHeading => suggestion.entity.clone(),
+            };
+            list = list.add_item(format!("{}: {}", entity, reason));
         }
         builder = builder.add_component(list);
     }

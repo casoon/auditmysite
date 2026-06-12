@@ -724,7 +724,7 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
             word_count >= 300,
             0.15,
             SignalValues {
-                word_count: Some(word_count as u32),
+                word_count: Some(word_count),
                 ..Default::default()
             },
         ));

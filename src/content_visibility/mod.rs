@@ -852,7 +852,7 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
                 AssessmentLevel::Warning,
                 EvidenceConfidence::High,
                 H1Multiple,
-                ContentSignalValues::count(n as usize),
+                ContentSignalValues::count(n),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::High)

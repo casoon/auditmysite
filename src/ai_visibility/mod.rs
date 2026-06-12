@@ -12,6 +12,17 @@
 //!
 //! This module derives its analysis from existing audit data (SEO, Security,
 //! WCAG) — it does not make additional network or CDP requests.
+//!
+//! ## Localization (#406)
+//!
+//! Analysis bakes **canonical English** text into the struct (and thus JSON):
+//! every dimension `name`/`label`, signal `name`/`detail`, chunk
+//! `recommendation`/section heading and knowledge-graph link suggestion is
+//! produced with `en = true`. Each [`AiSignal`] additionally carries a stable
+//! [`AiSignalKind`] plus the raw interpolated [`AiSignalValues`], so the PDF
+//! layer can re-derive localized text via [`ai_signal_text`] /
+//! [`ai_dimension_name`] / [`ai_dimension_label`] / [`ai_disclaimer`] in the
+//! run language.
 
 mod chunks;
 mod citation;
@@ -19,10 +30,14 @@ mod knowledge_graph;
 pub mod module;
 mod readability;
 
-pub use chunks::{ChunkAnalysis, ChunkQuality, ContentSection};
+pub use chunks::{
+    ai_chunk_recommendation, ai_chunk_section_heading, ChunkAnalysis, ChunkQuality,
+    ChunkRecommendationKind, ChunkSectionKind, ContentSection,
+};
 pub use citation::CitationAnalysis;
 pub use knowledge_graph::{
-    EntityRelationship, EntitySource, GraphEntity, KnowledgeGraphAnalysis, LinkSuggestion,
+    ai_kg_link_suggestion_reason, EntityRelationship, EntitySource, GraphEntity, KgSuggestionKind,
+    KnowledgeGraphAnalysis, LinkSuggestion,
 };
 pub use module::AiVisibilityModule;
 pub use readability::ReadabilityAnalysis;
@@ -73,30 +88,239 @@ pub struct PolicyAnalysis {
     pub inferred_policy: String,
 }
 
+/// Stable identifier for which AI visibility dimension a [`DimensionScore`]
+/// represents.
+///
+/// Lets the PDF layer re-derive a localized dimension name without parsing the
+/// canonical-English `name` field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DimensionKind {
+    Readability,
+    Citability,
+    Chunks,
+    KnowledgeGraph,
+    Policy,
+}
+
 /// Score for a single AI visibility dimension
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DimensionScore {
-    /// Dimension name
+    /// Which dimension this is (for localized re-derivation)
+    pub kind: DimensionKind,
+    /// Dimension name (canonical English)
     pub name: String,
     /// Score (0–100)
     pub score: u32,
-    /// Short assessment
+    /// Short assessment (canonical English; derived from `score`)
     pub label: String,
     /// Individual signals evaluated
     pub signals: Vec<AiSignal>,
 }
 
+/// Stable identifier for a concrete AI visibility signal.
+///
+/// One variant per distinct signal text/detail shape across all sub-analyses.
+/// Together with the raw values stored on [`AiSignal`] this fully reproduces
+/// the human-readable `name`/`detail` strings in any language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AiSignalKind {
+    // Readability
+    HeadingStructure,
+    ContentVolume,
+    ParagraphStructure,
+    Lists,
+    Tables,
+    SchemaCoverage,
+    ExtractableAnswers,
+    SummaryMeta,
+    LanguageDeclaration,
+    DefinitionPatterns,
+    // Citation
+    Encryption,
+    PublisherIdentity,
+    ArticleStructure,
+    PublicationDate,
+    CanonicalUrl,
+    SnippetQuality,
+    QuestionAnswerPattern,
+    ContentDepth,
+    SharingMetadata,
+    ThematicContext,
+    TechnicalTrust,
+    // Chunks
+    SectionCount,
+    SectionLength,
+    NoOversizedSections,
+    FewFragments,
+    HierarchicalStructure,
+    SemanticHtml,
+    SectionDensity,
+    ContentBoundary,
+    // Knowledge graph
+    EntitiesDetected,
+    SchemaOrgEntities,
+    Relationships,
+    TypeDiversity,
+    BreadcrumbHierarchy,
+    LinkingDensity,
+    PropertyCompleteness,
+    // Policy
+    RobotsReachable,
+    NoWildcardBlock,
+    AiSearchReachable,
+    ExplicitAiPolicy,
+    SitemapReference,
+    MetaRobotsAllowed,
+}
+
+/// The interpolated values a signal text may reference.
+///
+/// Stored on every [`AiSignal`] alongside `present` so that [`ai_signal_text`]
+/// can reproduce the detail string for any locale. Only the fields relevant to
+/// the signal's `kind` are populated.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AiSignalValues {
+    /// Heading count (HeadingStructure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heading_count: Option<u32>,
+    /// Max heading depth (HeadingStructure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_heading_depth: Option<u32>,
+    /// Word count (ContentVolume, ContentDepth)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub word_count: Option<u32>,
+    /// Paragraph count (ParagraphStructure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub paragraph_count: Option<u32>,
+    /// Average paragraph length (ParagraphStructure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_paragraph_len: Option<u32>,
+    /// List count (Lists)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub list_count: Option<u32>,
+    /// Schema type count (SchemaCoverage)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_type_count: Option<u32>,
+    /// Whether FAQ schema is present (ExtractableAnswers, QuestionAnswerPattern)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_faq: Option<bool>,
+    /// Whether HowTo schema is present (ExtractableAnswers)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_howto: Option<bool>,
+    /// Whether basic schema is present (SchemaCoverage)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_schema: Option<bool>,
+    /// Meta description length (SummaryMeta)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta_desc_len: Option<u32>,
+    /// Whether a meta description exists (SummaryMeta)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_meta_description: Option<bool>,
+    /// Heading / section count (ContentDepth, SectionCount)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section_count: Option<u32>,
+    /// Whether the author schema is present (PublisherIdentity)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_author: Option<bool>,
+    /// Whether the org schema is present (PublisherIdentity)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_org: Option<bool>,
+    /// Short paragraph ratio (SnippetQuality)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_paragraph_ratio: Option<f32>,
+    /// Whether lists are present (SnippetQuality)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_lists: Option<bool>,
+    /// Security score (TechnicalTrust)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security_score: Option<u32>,
+    /// Accessibility score (TechnicalTrust)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub a11y_score: Option<f32>,
+    /// Count of optimal-sized sections (SectionLength)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub optimal_count: Option<u32>,
+    /// Count of too-long sections (NoOversizedSections)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub too_long_count: Option<u32>,
+    /// Count of too-short sections (FewFragments)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub too_short_count: Option<u32>,
+    /// Average words per section (SectionDensity)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_words: Option<u32>,
+    /// Entity count (EntitiesDetected, PropertyCompleteness)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_count: Option<u32>,
+    /// Schema.org entity count (SchemaOrgEntities)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema_entity_count: Option<u32>,
+    /// Relationship count (Relationships)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relationship_count: Option<u32>,
+    /// Unique entity type count (TypeDiversity)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_type_count: Option<u32>,
+    /// Internal link count (LinkingDensity)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_links: Option<u32>,
+    /// Entities with properties count (PropertyCompleteness)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entities_with_props: Option<u32>,
+    /// Inferred policy label (ExplicitAiPolicy) — already canonical/neutral
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inferred_policy: Option<String>,
+    /// Blocked AI bot count (ExplicitAiPolicy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_count: Option<u32>,
+    /// Whether all crawlers are blocked (AiSearchReachable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocks_all: Option<bool>,
+    /// Whether citation bots are blocked (AiSearchReachable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocks_citation: Option<bool>,
+    /// Whether robots.txt is reachable (ExplicitAiPolicy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_robots: Option<bool>,
+}
+
 /// A single measurable signal contributing to a dimension score
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiSignal {
-    /// What was checked
+    /// Stable signal identifier (for localized re-derivation)
+    pub kind: AiSignalKind,
+    /// What was checked (canonical English)
     pub name: String,
     /// Whether the signal is positive
     pub present: bool,
     /// Weight of this signal within its dimension (0.0–1.0)
     pub weight: f32,
-    /// Human-readable detail
+    /// Human-readable detail (canonical English)
     pub detail: String,
+    /// Interpolated values needed to reproduce `detail` in another language
+    #[serde(default)]
+    pub values: AiSignalValues,
+}
+
+impl AiSignal {
+    /// Build a signal, baking canonical-English `name`/`detail` from its kind +
+    /// values via [`ai_signal_text`].
+    pub(crate) fn new(
+        kind: AiSignalKind,
+        present: bool,
+        weight: f32,
+        values: AiSignalValues,
+    ) -> Self {
+        let (name, detail) = ai_signal_text(kind, present, &values, true);
+        AiSignal {
+            kind,
+            name,
+            present,
+            weight,
+            detail,
+            values,
+        }
+    }
 }
 
 const DISCLAIMER_DE: &str = "Diese Bewertung basiert auf heuristischen Signalen zur \
@@ -107,28 +331,234 @@ const DISCLAIMER_EN: &str = "This assessment is based on heuristic signals for \
     AI visibility. It evaluates how well content is prepared for machine extraction \
     and citation by AI systems — not its factual quality.";
 
-fn disclaimer(en: bool) -> String {
+/// The always-present disclaimer in the requested language.
+pub fn ai_disclaimer(en: bool) -> String {
     if en { DISCLAIMER_EN } else { DISCLAIMER_DE }.to_string()
+}
+
+// ─── Localized text (single source of truth) ─────────────────────────────────
+
+/// Localized dimension name for a [`DimensionKind`].
+pub fn ai_dimension_name(kind: DimensionKind, en: bool) -> &'static str {
+    match (kind, en) {
+        (DimensionKind::Readability, true) => "AI readability",
+        (DimensionKind::Readability, false) => "KI-Lesbarkeit",
+        (DimensionKind::Citability, true) => "Citability",
+        (DimensionKind::Citability, false) => "Zitierbarkeit",
+        (DimensionKind::Chunks, true) => "Technical AI readability",
+        (DimensionKind::Chunks, false) => "Technische KI-Lesbarkeit",
+        (DimensionKind::KnowledgeGraph, true) => "Structured data",
+        (DimensionKind::KnowledgeGraph, false) => "Strukturierte Daten",
+        (DimensionKind::Policy, true) => "AI policy",
+        (DimensionKind::Policy, false) => "AI-Policy",
+    }
+}
+
+/// Localized "no data" label used when a dimension has no signals.
+pub fn ai_no_data_label(en: bool) -> String {
+    if en { "No data" } else { "Keine Daten" }.to_string()
+}
+
+/// Localized band label for a dimension score (single source of truth).
+pub fn ai_dimension_label(score: u32, en: bool) -> String {
+    if en {
+        match score {
+            90..=100 => "Excellent",
+            75..=89 => "Good",
+            60..=74 => "Needs improvement",
+            40..=59 => "Inadequate",
+            _ => "Critical",
+        }
+    } else {
+        match score {
+            90..=100 => "Sehr gut",
+            75..=89 => "Gut",
+            60..=74 => "Verbesserungswürdig",
+            40..=59 => "Ausbaufähig",
+            _ => "Kritisch",
+        }
+    }
+    .to_string()
+}
+
+/// The single source of truth for signal `name`/`detail` text.
+///
+/// Returns `(name, detail)` in German or English for the given `kind`,
+/// `present` flag, and interpolated `values`. Analysis calls it with
+/// `en = true` to bake canonical English; the PDF layer calls it with the run
+/// language to re-derive localized text.
+pub fn ai_signal_text(
+    kind: AiSignalKind,
+    present: bool,
+    values: &AiSignalValues,
+    en: bool,
+) -> (String, String) {
+    use AiSignalKind::*;
+
+    let name: String = match (kind, en) {
+        (HeadingStructure, true) => "Heading structure".into(),
+        (HeadingStructure, false) => "Überschriftenstruktur".into(),
+        (ContentVolume, true) => "Content volume".into(),
+        (ContentVolume, false) => "Inhaltsumfang".into(),
+        (ParagraphStructure, true) => "Paragraph structure".into(),
+        (ParagraphStructure, false) => "Absatzstruktur".into(),
+        (Lists, true) => "Lists / bullet points".into(),
+        (Lists, false) => "Listen / Aufzählungen".into(),
+        (Tables, true) => "Tables".into(),
+        (Tables, false) => "Tabellen".into(),
+        (SchemaCoverage, true) => "Schema coverage".into(),
+        (SchemaCoverage, false) => "Schema-Abdeckung".into(),
+        (ExtractableAnswers, true) => "Extractable answers".into(),
+        (ExtractableAnswers, false) => "Extrahierbare Antworten".into(),
+        (SummaryMeta, true) => "Summary (meta)".into(),
+        (SummaryMeta, false) => "Zusammenfassung (Meta)".into(),
+        (LanguageDeclaration, true) => "Language declaration".into(),
+        (LanguageDeclaration, false) => "Sprachdeklaration".into(),
+        (DefinitionPatterns, true) => "Definition patterns".into(),
+        (DefinitionPatterns, false) => "Definitionsmuster".into(),
+        (Encryption, true) => "Encryption".into(),
+        (Encryption, false) => "Verschlüsselung".into(),
+        (PublisherIdentity, true) => "Publisher identity".into(),
+        (PublisherIdentity, false) => "Herausgeber-Identität".into(),
+        (ArticleStructure, true) => "Article structure".into(),
+        (ArticleStructure, false) => "Artikelstruktur".into(),
+        (PublicationDate, true) => "Publication date".into(),
+        (PublicationDate, false) => "Publikationsdatum".into(),
+        (CanonicalUrl, true) => "Canonical URL".into(),
+        (CanonicalUrl, false) => "Kanonische URL".into(),
+        (SnippetQuality, true) => "Snippet quality".into(),
+        (SnippetQuality, false) => "Snippet-Qualität".into(),
+        (QuestionAnswerPattern, true) => "Question-answer pattern".into(),
+        (QuestionAnswerPattern, false) => "Frage-Antwort-Muster".into(),
+        (ContentDepth, true) => "Content depth".into(),
+        (ContentDepth, false) => "Inhaltliche Tiefe".into(),
+        (SharingMetadata, true) => "Sharing metadata".into(),
+        (SharingMetadata, false) => "Teilen-Metadaten".into(),
+        (ThematicContext, true) => "Thematic context".into(),
+        (ThematicContext, false) => "Thematische Einordnung".into(),
+        (TechnicalTrust, true) => "Technical trust".into(),
+        (TechnicalTrust, false) => "Technisches Vertrauen".into(),
+        (SectionCount, true) => "Section count".into(),
+        (SectionCount, false) => "Abschnittszahl".into(),
+        (SectionLength, true) => "Heuristic: section length".into(),
+        (SectionLength, false) => "Heuristik: Abschnittslänge".into(),
+        (NoOversizedSections, true) => "No oversized sections".into(),
+        (NoOversizedSections, false) => "Keine Übergroßen Abschnitte".into(),
+        (FewFragments, true) => "Few fragments".into(),
+        (FewFragments, false) => "Wenig Fragmente".into(),
+        (HierarchicalStructure, true) => "Hierarchical structure".into(),
+        (HierarchicalStructure, false) => "Hierarchische Gliederung".into(),
+        (SemanticHtml, true) => "Semantic HTML".into(),
+        (SemanticHtml, false) => "Semantisches HTML".into(),
+        (SectionDensity, true) => "Section density".into(),
+        (SectionDensity, false) => "Abschnittsdichte".into(),
+        (ContentBoundary, true) => "Content boundary".into(),
+        (ContentBoundary, false) => "Content-Begrenzung".into(),
+        (EntitiesDetected, true) => "Entities detected".into(),
+        (EntitiesDetected, false) => "Entitäten erkannt".into(),
+        (SchemaOrgEntities, true) => "Schema.org entities".into(),
+        (SchemaOrgEntities, false) => "Schema.org-Entitäten".into(),
+        (Relationships, true) => "Relationships".into(),
+        (Relationships, false) => "Beziehungen".into(),
+        (TypeDiversity, true) => "Type diversity".into(),
+        (TypeDiversity, false) => "Typen-Vielfalt".into(),
+        (BreadcrumbHierarchy, true) => "Breadcrumb hierarchy".into(),
+        (BreadcrumbHierarchy, false) => "Breadcrumb-Hierarchie".into(),
+        (LinkingDensity, true) => "Linking density".into(),
+        (LinkingDensity, false) => "Verlinkungsdichte".into(),
+        (PropertyCompleteness, true) => "Property completeness".into(),
+        (PropertyCompleteness, false) => "Eigenschafts-Vollständigkeit".into(),
+        (RobotsReachable, true) => "robots.txt reachable".into(),
+        (RobotsReachable, false) => "robots.txt erreichbar".into(),
+        (NoWildcardBlock, true) => "No wildcard block".into(),
+        (NoWildcardBlock, false) => "Kein Wildcard-Block".into(),
+        (AiSearchReachable, true) => "AI search reachable".into(),
+        (AiSearchReachable, false) => "KI-Suche erreichbar".into(),
+        (ExplicitAiPolicy, true) => "Explicit AI policy".into(),
+        (ExplicitAiPolicy, false) => "Explizite AI-Policy".into(),
+        (SitemapReference, true) => "Sitemap reference".into(),
+        (SitemapReference, false) => "Sitemap-Verweis".into(),
+        (MetaRobotsAllowed, true) => "Meta robots allowed".into(),
+        (MetaRobotsAllowed, false) => "Meta-Robots freigegeben".into(),
+    };
+
+    let detail = ai_signal_detail(kind, present, values, en);
+    (name, detail)
+}
+
+fn ai_signal_detail(
+    kind: AiSignalKind,
+    present: bool,
+    values: &AiSignalValues,
+    en: bool,
+) -> String {
+    use AiSignalKind::*;
+    match kind {
+        HeadingStructure => readability::detail_heading_structure(present, values, en),
+        ContentVolume => readability::detail_content_volume(present, values, en),
+        ParagraphStructure => readability::detail_paragraph_structure(values, en),
+        Lists => readability::detail_lists(present, values, en),
+        Tables => readability::detail_tables(present, en),
+        SchemaCoverage => readability::detail_schema_coverage(values, en),
+        ExtractableAnswers => readability::detail_extractable_answers(values, en),
+        SummaryMeta => readability::detail_summary_meta(present, values, en),
+        LanguageDeclaration => readability::detail_language_declaration(present, en),
+        DefinitionPatterns => readability::detail_definition_patterns(present, en),
+        Encryption => citation::detail_encryption(present, en),
+        PublisherIdentity => citation::detail_publisher_identity(values, en),
+        ArticleStructure => citation::detail_article_structure(present, en),
+        PublicationDate => citation::detail_publication_date(present, en),
+        CanonicalUrl => citation::detail_canonical_url(present, en),
+        SnippetQuality => citation::detail_snippet_quality(values, en),
+        QuestionAnswerPattern => citation::detail_question_answer(present, en),
+        ContentDepth => citation::detail_content_depth(present, values, en),
+        SharingMetadata => citation::detail_sharing_metadata(present, en),
+        ThematicContext => citation::detail_thematic_context(present, en),
+        TechnicalTrust => citation::detail_technical_trust(present, values, en),
+        SectionCount => chunks::detail_section_count(values, en),
+        SectionLength => chunks::detail_section_length(values, en),
+        NoOversizedSections => chunks::detail_no_oversized(present, values, en),
+        FewFragments => chunks::detail_few_fragments(present, values, en),
+        HierarchicalStructure => chunks::detail_hierarchical(present, en),
+        SemanticHtml => chunks::detail_semantic_html(present, en),
+        SectionDensity => chunks::detail_section_density(present, values, en),
+        ContentBoundary => chunks::detail_content_boundary(present, en),
+        EntitiesDetected => knowledge_graph::detail_entities_detected(present, values, en),
+        SchemaOrgEntities => knowledge_graph::detail_schema_entities(present, values, en),
+        Relationships => knowledge_graph::detail_relationships(present, values, en),
+        TypeDiversity => knowledge_graph::detail_type_diversity(present, values, en),
+        BreadcrumbHierarchy => knowledge_graph::detail_breadcrumb(present, en),
+        LinkingDensity => knowledge_graph::detail_linking_density(present, values, en),
+        PropertyCompleteness => knowledge_graph::detail_property_completeness(present, values, en),
+        RobotsReachable => detail_robots_reachable(present, en),
+        NoWildcardBlock => detail_no_wildcard_block(present, en),
+        AiSearchReachable => detail_ai_search_reachable(values, en),
+        ExplicitAiPolicy => detail_explicit_ai_policy(present, values, en),
+        SitemapReference => detail_sitemap_reference(present, en),
+        MetaRobotsAllowed => detail_meta_robots_allowed(present, en),
+    }
 }
 
 // ─── Analysis entry points ──────────────────────────────────────────────────
 
 /// Derive AI visibility analysis from an existing audit report (single page).
-pub fn analyze_ai_visibility(report: &AuditReport, locale: &str) -> AiVisibilityAnalysis {
-    let en = locale == "en";
+///
+/// Bakes canonical English into the struct (JSON canonical). The PDF layer
+/// re-derives localized text from each signal's stored `kind` + `values`.
+pub fn analyze_ai_visibility(report: &AuditReport) -> AiVisibilityAnalysis {
     let readability_input = build_readability_input(report);
-    let readability = readability::analyze_readability(&readability_input, en);
+    let readability = readability::analyze_readability(&readability_input);
 
     let citation_input = build_citation_input(report);
-    let citation = citation::analyze_citation(&citation_input, en);
+    let citation = citation::analyze_citation(&citation_input);
 
     let chunk_input = build_chunk_input(report);
-    let chunks = chunks::analyze_chunks(&chunk_input, en);
+    let chunks = chunks::analyze_chunks(&chunk_input);
 
     let kg_input = build_knowledge_graph_input(report);
-    let knowledge_graph = knowledge_graph::analyze_knowledge_graph(&kg_input, en);
+    let knowledge_graph = knowledge_graph::analyze_knowledge_graph(&kg_input);
 
-    let policy = analyze_policy(report, en);
+    let policy = analyze_policy(report);
 
     let score = weighted_average(&[
         (readability.dimension.score, 25),
@@ -146,21 +576,17 @@ pub fn analyze_ai_visibility(report: &AuditReport, locale: &str) -> AiVisibility
         chunks,
         knowledge_graph,
         policy,
-        disclaimer: disclaimer(en),
+        disclaimer: ai_disclaimer(true),
     }
 }
 
 /// Derive AI visibility for batch mode (average across pages).
-pub fn analyze_ai_visibility_batch(reports: &[AuditReport], locale: &str) -> AiVisibilityAnalysis {
-    let en = locale == "en";
+pub fn analyze_ai_visibility_batch(reports: &[AuditReport]) -> AiVisibilityAnalysis {
     if reports.is_empty() {
-        return empty_analysis(en);
+        return empty_analysis();
     }
 
-    let analyses: Vec<AiVisibilityAnalysis> = reports
-        .iter()
-        .map(|r| analyze_ai_visibility(r, locale))
-        .collect();
+    let analyses: Vec<AiVisibilityAnalysis> = reports.iter().map(analyze_ai_visibility).collect();
 
     let avg_score = analyses.iter().map(|a| a.score).sum::<u32>() / analyses.len() as u32;
 
@@ -174,7 +600,7 @@ pub fn analyze_ai_visibility_batch(reports: &[AuditReport], locale: &str) -> AiV
 
 // ─── Policy analysis ────────────────────────────────────────────────────────
 
-fn analyze_policy(report: &AuditReport, en: bool) -> PolicyAnalysis {
+fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
     let mut signals = Vec::new();
 
     let (
@@ -217,158 +643,63 @@ fn analyze_policy(report: &AuditReport, en: bool) -> PolicyAnalysis {
                 false,
                 0,
                 false,
-                if en {
-                    "No robots.txt".to_string()
-                } else {
-                    "Keine robots.txt".to_string()
-                },
+                "No robots.txt".to_string(),
             )
         }
     } else {
-        (
-            false,
-            false,
-            false,
-            false,
-            0,
-            false,
-            if en {
-                "No robots.txt".to_string()
-            } else {
-                "Keine robots.txt".to_string()
-            },
-        )
+        (false, false, false, false, 0, false, String::new())
     };
 
     // 1. robots.txt accessible
-    signals.push(AiSignal {
-        name: if en {
-            "robots.txt reachable".into()
-        } else {
-            "robots.txt erreichbar".into()
-        },
-        present: has_robots,
-        weight: 0.15,
-        detail: if has_robots {
-            if en {
-                "robots.txt present and readable".into()
-            } else {
-                "robots.txt vorhanden und lesbar".into()
-            }
-        } else if en {
-            "robots.txt not reachable — AI crawlers have no policy info".into()
-        } else {
-            "robots.txt nicht erreichbar — AI-Crawler haben keine Policy-Info".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::RobotsReachable,
+        has_robots,
+        0.15,
+        AiSignalValues::default(),
+    ));
 
     // 2. Not blocking all crawlers
-    signals.push(AiSignal {
-        name: if en {
-            "No wildcard block".into()
-        } else {
-            "Kein Wildcard-Block".into()
-        },
-        present: !blocks_all,
-        weight: 0.20,
-        detail: if blocks_all {
-            if en {
-                "Disallow: / for all crawlers — blocks AI systems too".into()
-            } else {
-                "Disallow: / für alle Crawler — blockiert auch AI-Systeme".into()
-            }
-        } else if en {
-            "No global block — crawlers generally have access".into()
-        } else {
-            "Kein globaler Block — Crawler haben grundsätzlich Zugang".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::NoWildcardBlock,
+        !blocks_all,
+        0.20,
+        AiSignalValues::default(),
+    ));
 
     // 3. Citation/search AI bots accessible — only citation bots matter for real-time AI visibility.
     //    Blocking training bots (GPTBot, Google-Extended etc.) is standard practice and not penalized.
-    signals.push(AiSignal {
-        name: if en {
-            "AI search reachable".into()
-        } else {
-            "KI-Suche erreichbar".into()
+    signals.push(AiSignal::new(
+        AiSignalKind::AiSearchReachable,
+        !blocks_citation,
+        0.25,
+        AiSignalValues {
+            blocks_all: Some(blocks_all),
+            blocks_citation: Some(blocks_citation),
+            ..Default::default()
         },
-        present: !blocks_citation,
-        weight: 0.25,
-        detail: if blocks_all {
-            if en {
-                "All crawlers blocked (Disallow: *) — AI search blocked too".into()
-            } else {
-                "Alle Crawler gesperrt (Disallow: *) — auch KI-Suche blockiert".into()
-            }
-        } else if blocks_citation {
-            if en {
-                "AI search bots (PerplexityBot, Amazonbot etc.) blocked — content does not appear in AI answers".into()
-            } else {
-                "KI-Suchbots (PerplexityBot, Amazonbot etc.) blockiert — Inhalte erscheinen nicht in KI-Antworten".into()
-            }
-        } else if en {
-            "AI search bots not blocked — content available for AI answers".into()
-        } else {
-            "KI-Suchbots nicht blockiert — Inhalte für KI-Antworten verfügbar".into()
-        },
-    });
+    ));
 
     // 4. Explicit AI policy defined — having any policy is better than silence
     let has_explicit_policy = has_robots && blocked_count > 0;
-    signals.push(AiSignal {
-        name: if en {
-            "Explicit AI policy".into()
-        } else {
-            "Explizite AI-Policy".into()
+    signals.push(AiSignal::new(
+        AiSignalKind::ExplicitAiPolicy,
+        has_explicit_policy,
+        0.15,
+        AiSignalValues {
+            has_robots: Some(has_robots),
+            blocked_count: Some(blocked_count as u32),
+            inferred_policy: Some(inferred_policy.clone()),
+            ..Default::default()
         },
-        present: has_explicit_policy,
-        weight: 0.15,
-        detail: if has_explicit_policy {
-            if en {
-                format!(
-                    "Policy defined: {} — {} AI bots addressed",
-                    inferred_policy, blocked_count
-                )
-            } else {
-                format!(
-                    "Policy definiert: {} — {} AI-Bots adressiert",
-                    inferred_policy, blocked_count
-                )
-            }
-        } else if has_robots {
-            if en {
-                "No explicit AI crawler rules in robots.txt".into()
-            } else {
-                "Keine explizite AI-Crawler-Regelung in robots.txt".into()
-            }
-        } else if en {
-            "No robots.txt — no AI policy definable".into()
-        } else {
-            "Keine robots.txt — keine AI-Policy definierbar".into()
-        },
-    });
+    ));
 
     // 5. Sitemap in robots.txt (helps AI crawlers discover content)
-    signals.push(AiSignal {
-        name: if en {
-            "Sitemap reference".into()
-        } else {
-            "Sitemap-Verweis".into()
-        },
-        present: has_sitemap_in_robots,
-        weight: 0.15,
-        detail: if has_sitemap_in_robots {
-            if en {
-                "Sitemap linked in robots.txt — eases AI crawling".into()
-            } else {
-                "Sitemap in robots.txt verlinkt — erleichtert AI-Crawling".into()
-            }
-        } else if en {
-            "No sitemap in robots.txt — AI crawlers must discover pages themselves".into()
-        } else {
-            "Keine Sitemap in robots.txt — AI-Crawler müssen Seiten selbst entdecken".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::SitemapReference,
+        has_sitemap_in_robots,
+        0.15,
+        AiSignalValues::default(),
+    ));
 
     // 6. Meta robots (check for noindex/nofollow which affects AI visibility)
     let has_meta_robots_issue = report.seo.as_ref().is_some_and(|seo| {
@@ -377,34 +708,131 @@ fn analyze_policy(report: &AuditReport, en: bool) -> PolicyAnalysis {
             .iter()
             .any(|i| i.issue_type.contains("noindex") || i.issue_type.contains("nofollow"))
     });
-    signals.push(AiSignal {
-        name: if en {
-            "Meta robots allowed".into()
-        } else {
-            "Meta-Robots freigegeben".into()
-        },
-        present: !has_meta_robots_issue,
-        weight: 0.10,
-        detail: if has_meta_robots_issue {
-            if en {
-                "noindex/nofollow detected — page avoided by AI crawlers".into()
-            } else {
-                "noindex/nofollow erkannt — Seite wird von AI-Crawlern gemieden".into()
-            }
-        } else if en {
-            "No indexing block via meta tags".into()
-        } else {
-            "Keine Indexierungs-Blockade via Meta-Tags".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::MetaRobotsAllowed,
+        !has_meta_robots_issue,
+        0.10,
+        AiSignalValues::default(),
+    ));
 
     PolicyAnalysis {
-        dimension: build_dimension(if en { "AI policy" } else { "AI-Policy" }, &signals, en),
+        dimension: build_dimension(DimensionKind::Policy, &signals),
         blocks_ai_citation: blocks_citation,
         blocks_ai_training: blocks_training,
         blocks_all,
         blocked_ai_bot_count: blocked_count,
         inferred_policy,
+    }
+}
+
+// ─── Policy signal detail text ───────────────────────────────────────────────
+
+fn detail_robots_reachable(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "robots.txt present and readable".into()
+        } else {
+            "robots.txt vorhanden und lesbar".into()
+        }
+    } else if en {
+        "robots.txt not reachable — AI crawlers have no policy info".into()
+    } else {
+        "robots.txt nicht erreichbar — AI-Crawler haben keine Policy-Info".into()
+    }
+}
+
+fn detail_no_wildcard_block(present: bool, en: bool) -> String {
+    // present == !blocks_all
+    if !present {
+        if en {
+            "Disallow: / for all crawlers — blocks AI systems too".into()
+        } else {
+            "Disallow: / für alle Crawler — blockiert auch AI-Systeme".into()
+        }
+    } else if en {
+        "No global block — crawlers generally have access".into()
+    } else {
+        "Kein globaler Block — Crawler haben grundsätzlich Zugang".into()
+    }
+}
+
+fn detail_ai_search_reachable(values: &AiSignalValues, en: bool) -> String {
+    let blocks_all = values.blocks_all.unwrap_or(false);
+    let blocks_citation = values.blocks_citation.unwrap_or(false);
+    if blocks_all {
+        if en {
+            "All crawlers blocked (Disallow: *) — AI search blocked too".into()
+        } else {
+            "Alle Crawler gesperrt (Disallow: *) — auch KI-Suche blockiert".into()
+        }
+    } else if blocks_citation {
+        if en {
+            "AI search bots (PerplexityBot, Amazonbot etc.) blocked — content does not appear in AI answers".into()
+        } else {
+            "KI-Suchbots (PerplexityBot, Amazonbot etc.) blockiert — Inhalte erscheinen nicht in KI-Antworten".into()
+        }
+    } else if en {
+        "AI search bots not blocked — content available for AI answers".into()
+    } else {
+        "KI-Suchbots nicht blockiert — Inhalte für KI-Antworten verfügbar".into()
+    }
+}
+
+fn detail_explicit_ai_policy(present: bool, values: &AiSignalValues, en: bool) -> String {
+    let has_robots = values.has_robots.unwrap_or(false);
+    let blocked_count = values.blocked_count.unwrap_or(0);
+    let inferred_policy = values.inferred_policy.as_deref().unwrap_or("");
+    if present {
+        if en {
+            format!(
+                "Policy defined: {} — {} AI bots addressed",
+                inferred_policy, blocked_count
+            )
+        } else {
+            format!(
+                "Policy definiert: {} — {} AI-Bots adressiert",
+                inferred_policy, blocked_count
+            )
+        }
+    } else if has_robots {
+        if en {
+            "No explicit AI crawler rules in robots.txt".into()
+        } else {
+            "Keine explizite AI-Crawler-Regelung in robots.txt".into()
+        }
+    } else if en {
+        "No robots.txt — no AI policy definable".into()
+    } else {
+        "Keine robots.txt — keine AI-Policy definierbar".into()
+    }
+}
+
+fn detail_sitemap_reference(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "Sitemap linked in robots.txt — eases AI crawling".into()
+        } else {
+            "Sitemap in robots.txt verlinkt — erleichtert AI-Crawling".into()
+        }
+    } else if en {
+        "No sitemap in robots.txt — AI crawlers must discover pages themselves".into()
+    } else {
+        "Keine Sitemap in robots.txt — AI-Crawler müssen Seiten selbst entdecken".into()
+    }
+}
+
+fn detail_meta_robots_allowed(present: bool, en: bool) -> String {
+    // present == !has_meta_robots_issue
+    if !present {
+        if en {
+            "noindex/nofollow detected — page avoided by AI crawlers".into()
+        } else {
+            "noindex/nofollow erkannt — Seite wird von AI-Crawlern gemieden".into()
+        }
+    } else if en {
+        "No indexing block via meta tags".into()
+    } else {
+        "Keine Indexierungs-Blockade via Meta-Tags".into()
     }
 }
 
@@ -687,12 +1115,15 @@ fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::Knowled
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-fn build_dimension(name: &str, signals: &[AiSignal], en: bool) -> DimensionScore {
+/// Build a dimension, baking canonical-English name/label.
+pub(crate) fn build_dimension(kind: DimensionKind, signals: &[AiSignal]) -> DimensionScore {
+    let name = ai_dimension_name(kind, true).to_string();
     if signals.is_empty() {
         return DimensionScore {
-            name: name.to_string(),
+            kind,
+            name,
             score: 0,
-            label: no_data_label(en),
+            label: ai_no_data_label(true),
             signals: vec![],
         };
     }
@@ -715,9 +1146,10 @@ fn build_dimension(name: &str, signals: &[AiSignal], en: bool) -> DimensionScore
     };
 
     DimensionScore {
-        name: name.to_string(),
+        kind,
+        name,
         score,
-        label: score_to_label(score, en),
+        label: ai_dimension_label(score, true),
         signals: signals.to_vec(),
     }
 }
@@ -731,36 +1163,12 @@ fn weighted_average(items: &[(u32, u32)]) -> u32 {
     (sum as f64 / total_weight as f64).round() as u32
 }
 
-fn no_data_label(en: bool) -> String {
-    if en { "No data" } else { "Keine Daten" }.to_string()
-}
-
-fn score_to_label(score: u32, en: bool) -> String {
-    if en {
-        match score {
-            90..=100 => "Excellent",
-            75..=89 => "Good",
-            60..=74 => "Needs improvement",
-            40..=59 => "Inadequate",
-            _ => "Critical",
-        }
-    } else {
-        match score {
-            90..=100 => "Sehr gut",
-            75..=89 => "Gut",
-            60..=74 => "Verbesserungswürdig",
-            40..=59 => "Ausbaufähig",
-            _ => "Kritisch",
-        }
-    }
-    .to_string()
-}
-
-fn empty_analysis(en: bool) -> AiVisibilityAnalysis {
-    let empty_dim = DimensionScore {
+fn empty_analysis() -> AiVisibilityAnalysis {
+    let empty_dim = |kind: DimensionKind| DimensionScore {
+        kind,
         name: String::new(),
         score: 0,
-        label: no_data_label(en),
+        label: ai_no_data_label(true),
         signals: vec![],
     };
 
@@ -768,31 +1176,33 @@ fn empty_analysis(en: bool) -> AiVisibilityAnalysis {
         score: 0,
         grade: "F".into(),
         readability: ReadabilityAnalysis {
-            dimension: empty_dim.clone(),
+            dimension: empty_dim(DimensionKind::Readability),
         },
         citation: CitationAnalysis {
-            dimension: empty_dim.clone(),
+            dimension: empty_dim(DimensionKind::Citability),
         },
         chunks: ChunkAnalysis {
-            dimension: empty_dim.clone(),
+            dimension: empty_dim(DimensionKind::Chunks),
             sections: vec![],
+            recommendation_kind: chunks::ChunkRecommendationKind::TooLittleStructure,
+            recommendation_counts: (0, 0, 0),
             recommendation: String::new(),
         },
         knowledge_graph: KnowledgeGraphAnalysis {
-            dimension: empty_dim.clone(),
+            dimension: empty_dim(DimensionKind::KnowledgeGraph),
             entities: vec![],
             relationships: vec![],
             link_suggestions: vec![],
         },
         policy: PolicyAnalysis {
-            dimension: empty_dim,
+            dimension: empty_dim(DimensionKind::Policy),
             blocks_ai_citation: false,
             blocks_ai_training: false,
             blocks_all: false,
             blocked_ai_bot_count: 0,
             inferred_policy: String::new(),
         },
-        disclaimer: DISCLAIMER_DE.to_string(),
+        disclaimer: DISCLAIMER_EN.to_string(),
     }
 }
 
@@ -854,7 +1264,7 @@ mod tests {
     #[test]
     fn test_minimal_report_produces_scores() {
         let report = minimal_report();
-        let analysis = analyze_ai_visibility(&report, "de");
+        let analysis = analyze_ai_visibility(&report);
         assert!(analysis.score <= 100);
         assert!(!analysis.disclaimer.is_empty());
         assert!(!analysis.grade.is_empty());
@@ -862,14 +1272,14 @@ mod tests {
 
     #[test]
     fn test_empty_batch_returns_zero() {
-        let analysis = analyze_ai_visibility_batch(&[], "de");
+        let analysis = analyze_ai_visibility_batch(&[]);
         assert_eq!(analysis.score, 0);
     }
 
     #[test]
     fn test_batch_with_reports() {
         let reports = vec![minimal_report(), minimal_report()];
-        let analysis = analyze_ai_visibility_batch(&reports, "de");
+        let analysis = analyze_ai_visibility_batch(&reports);
         assert!(analysis.score <= 100);
     }
 
@@ -894,7 +1304,7 @@ mod tests {
     }
 
     #[test]
-    fn english_locale_has_no_german_chars() {
+    fn struct_is_canonical_english() {
         use crate::seo::{
             HeadingStructure, MetaTags, SeoAnalysis, SocialTags, StructuredData, TechnicalSeo,
         };
@@ -915,7 +1325,8 @@ mod tests {
             image_efficiency: None,
         });
 
-        let analysis = analyze_ai_visibility(&report, "en");
+        // Analysis bakes canonical English regardless of run locale.
+        let analysis = analyze_ai_visibility(&report);
         assert!(!contains_german(&analysis.disclaimer));
 
         let dims = [
@@ -940,5 +1351,29 @@ mod tests {
         for s in &analysis.knowledge_graph.link_suggestions {
             assert!(!contains_german(&s.reason));
         }
+    }
+
+    #[test]
+    fn pdf_layer_re_derives_german() {
+        // Dimension name + label + disclaimer + signal text all localize.
+        assert_eq!(
+            ai_dimension_name(DimensionKind::Readability, false),
+            "KI-Lesbarkeit"
+        );
+        assert_eq!(ai_dimension_label(95, false), "Sehr gut");
+        assert!(ai_disclaimer(false).contains("heuristischen"));
+
+        let (name, detail) = ai_signal_text(
+            AiSignalKind::AiSearchReachable,
+            false,
+            &AiSignalValues {
+                blocks_all: Some(false),
+                blocks_citation: Some(true),
+                ..Default::default()
+            },
+            false,
+        );
+        assert_eq!(name, "KI-Suche erreichbar");
+        assert!(detail.contains("KI-Suchbots"));
     }
 }
