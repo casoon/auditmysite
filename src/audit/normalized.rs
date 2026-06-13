@@ -759,6 +759,43 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
     findings
 }
 
+/// (title, technical_impact) for an SEO heading-issue type, in the requested
+/// language. Single source of truth: the analysis bakes English (canonical JSON),
+/// the PDF presentation re-derives German at render time (#406).
+pub fn seo_heading_finding_text(
+    issue_type: &str,
+    en: bool,
+    fallback_message: &str,
+) -> (String, String) {
+    let title = match (issue_type, en) {
+        ("long_heading", true) => "Heading too long".to_string(),
+        ("long_heading", false) => "Überschrift zu lang".to_string(),
+        ("missing_h1", true) => "Missing H1 heading".to_string(),
+        ("missing_h1", false) => "Fehlende H1-Überschrift".to_string(),
+        ("multiple_h1", true) => "Multiple H1 headings".to_string(),
+        ("multiple_h1", false) => "Mehrere H1-Überschriften".to_string(),
+        ("skipped_level", true) => "Skipped heading level".to_string(),
+        ("skipped_level", false) => "Übersprungene Überschriftenebene".to_string(),
+        ("empty_heading", true) => "Empty heading".to_string(),
+        ("empty_heading", false) => "Leere Überschrift".to_string(),
+        (other, _) => other.replace('_', " "),
+    };
+    let technical_impact = match (issue_type, en) {
+        ("skipped_level", true) => "Skipped heading levels break the tree structure for screen readers and SEO crawlers — keep a logical H1→H2→H3 hierarchy.".to_string(),
+        ("skipped_level", false) => "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten.".to_string(),
+        ("missing_h1", true) => "Missing H1 heading — page purpose not recognizable for search engines and screen readers.".to_string(),
+        ("missing_h1", false) => "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader nicht erkennbar.".to_string(),
+        ("multiple_h1", true) => "Multiple H1 headings undermine the content hierarchy; search engines cannot derive a single main focus.".to_string(),
+        ("multiple_h1", false) => "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; Suchmaschinen können keinen eindeutigen Hauptfokus ableiten.".to_string(),
+        ("long_heading", true) => "Overly long headings are truncated in SERPs and make quick scanning harder for users.".to_string(),
+        ("long_heading", false) => "Überlange Überschriften werden in SERPs abgeschnitten und erschweren das schnelle Scannen für Nutzer.".to_string(),
+        ("empty_heading", true) => "Empty headings cause navigation problems for screen readers and are treated as a poor signal by SEO crawlers.".to_string(),
+        ("empty_heading", false) => "Leere Überschriften erzeugen Navigationsprobleme für Screenreader und werden von SEO-Crawlern als schlechtes Signal gewertet.".to_string(),
+        _ => fallback_message.to_string(),
+    };
+    (title, technical_impact)
+}
+
 fn aggregate_seo_findings(
     seo: &crate::seo::SeoAnalysis,
     max_occurrences: usize,
@@ -775,38 +812,9 @@ fn aggregate_seo_findings(
         let first = issues[0];
         let occurrence_count = issues.len();
         let rule_id = format!("seo.headings.{}", issue_type);
-        let title = match issue_type {
-            "long_heading" => "Überschrift zu lang".to_string(),
-            "missing_h1" => "Fehlende H1-Überschrift".to_string(),
-            "multiple_h1" => "Mehrere H1-Überschriften".to_string(),
-            "skipped_level" => "Übersprungene Überschriftenebene".to_string(),
-            "empty_heading" => "Leere Überschrift".to_string(),
-            other => other.replace('_', " "),
-        };
-        let technical_impact = match issue_type {
-            "skipped_level" => {
-                "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader \
-                 und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten."
-                    .to_string()
-            }
-            "missing_h1" => {
-                "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader \
-                 nicht erkennbar."
-                    .to_string()
-            }
-            "multiple_h1" => "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; \
-                 Suchmaschinen können keinen eindeutigen Hauptfokus ableiten."
-                .to_string(),
-            "long_heading" => {
-                "Überlange Überschriften werden in SERPs abgeschnitten und erschweren \
-                 das schnelle Scannen für Nutzer."
-                    .to_string()
-            }
-            "empty_heading" => "Leere Überschriften erzeugen Navigationsprobleme für Screenreader \
-                 und werden von SEO-Crawlern als schlechtes Signal gewertet."
-                .to_string(),
-            _ => first.message.clone(),
-        };
+        // Canonical English is baked into the finding (→ JSON); the PDF re-derives
+        // German via `seo_heading_finding_text(.., false)` at render time (#406).
+        let (title, technical_impact) = seo_heading_finding_text(issue_type, true, &first.message);
         let priority_score = calculate_priority_score(first.severity, occurrence_count, &rule_id);
         let confidence = derive_confidence(&rule_id, "Content", "issue");
         let false_positive_risk = derive_false_positive_risk(&rule_id, "Content", "issue");

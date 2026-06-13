@@ -22,14 +22,8 @@ pub(super) fn build_appendix_block_from_normalized(
                 .collect();
 
             // Stored title is canonical English (#406); re-derive the localized
-            // taxonomy title for non-English reports.
-            let rule_name = if locale == "en" {
-                f.title.clone()
-            } else {
-                crate::taxonomy::RuleLookup::by_id(&f.rule_id)
-                    .map(|r| r.title.to_string())
-                    .unwrap_or_else(|| f.title.clone())
-            };
+            // title (taxonomy + SEO headings) for non-English reports.
+            let rule_name = crate::output::builder::actions::localized_finding_text(locale, f).0;
 
             AppendixViolation {
                 rule: f.wcag_criterion.clone(),

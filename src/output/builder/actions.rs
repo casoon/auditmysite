@@ -27,6 +27,16 @@ pub(super) fn localized_finding_text(
             finding.technical_impact.clone(),
         );
     }
+    // SEO heading findings are not in the WCAG taxonomy; re-derive German from
+    // their own single-source text function (#406).
+    if let Some(issue_type) = finding.rule_id.strip_prefix("seo.headings.") {
+        let (title, technical_impact) = crate::audit::normalized::seo_heading_finding_text(
+            issue_type,
+            false,
+            &finding.technical_impact,
+        );
+        return (title, finding.user_impact.clone(), technical_impact);
+    }
     use crate::taxonomy::RuleLookup;
     let rule = RuleLookup::by_id(&finding.rule_id)
         .or_else(|| RuleLookup::by_wcag(&finding.wcag_criterion))
