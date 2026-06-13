@@ -24,6 +24,10 @@ pub struct AccessibilityScorer;
 /// remain distinguishable instead of collapsing onto a single value.
 const SOFT_FLOOR_START: f32 = 15.0;
 
+/// Penalty above which the square-root compression curve engages. Below it the
+/// raw `100 - penalty` passes through unchanged (scores ≥30 are untouched).
+const COMPRESSION_KNEE: f32 = 70.0;
+
 /// Diversity factor for `unique_criteria` violated WCAG success criteria.
 ///
 /// A focused failure (≤3 criteria) gets no surcharge; broad, systemic
@@ -113,12 +117,15 @@ impl AccessibilityScorer {
             .collect();
         total_penalty *= diversity_factor(unique_criteria.len());
 
-        // Logarithmic compression for extreme penalties: leaves scores with
-        // total_penalty ≤ 85 unchanged, but compresses runaway penalties so
-        // that sites with 100 violations differ meaningfully from 1 379.
-        let effective_penalty = if total_penalty > 85.0 {
-            let excess = total_penalty - 85.0;
-            85.0 + excess.ln_1p() * 2.0
+        // Compression for high penalties: scores with total_penalty ≤ 70 (i.e.
+        // ≥30) pass through unchanged. Above the knee a square-root curve grows
+        // the effective penalty — slower than linear (so a few thousand
+        // violations don't all hit absolute zero) but far faster than the
+        // previous logarithmic curve, which crushed every large site into a
+        // 4–9 cluster. A site failing 30 distinct critical criteria now scores
+        // visibly lower than one failing 8, instead of being indistinguishable.
+        let effective_penalty = if total_penalty > COMPRESSION_KNEE {
+            COMPRESSION_KNEE + (total_penalty - COMPRESSION_KNEE).sqrt() * 2.0
         } else {
             total_penalty
         };
@@ -410,6 +417,58 @@ mod tests {
             AccessibilityScorer::calculate_certificate(score),
             "UNGENÜGEND"
         );
+    }
+
+    #[test]
+    fn test_catastrophic_band_stays_discriminating() {
+        use crate::cli::WcagLevel;
+
+        let rules = [
+            ("1.1.1", "Non-text Content"),
+            ("1.3.1", "Info and Relationships"),
+            ("1.4.3", "Contrast"),
+            ("2.1.1", "Keyboard"),
+            ("2.4.1", "Bypass Blocks"),
+            ("2.4.2", "Page Titled"),
+            ("2.4.6", "Headings"),
+            ("2.4.7", "Focus Visible"),
+            ("3.1.1", "Language"),
+            ("3.3.2", "Labels"),
+            ("4.1.2", "Name Role Value"),
+            ("2.4.4", "Link Purpose"),
+            ("2.4.3", "Focus Order"),
+            ("1.4.4", "Resize Text"),
+        ];
+        let build = |criteria: usize, occ: usize| -> Vec<Violation> {
+            let mut v = Vec::new();
+            for (rule, name) in rules.iter().take(criteria) {
+                for i in 0..occ {
+                    v.push(Violation::new(
+                        *rule,
+                        *name,
+                        WcagLevel::A,
+                        Severity::Critical,
+                        "Error",
+                        format!("n{}", i),
+                    ));
+                }
+            }
+            v
+        };
+
+        // A moderately failing site (4 critical criteria) and a catastrophic one
+        // (14 critical criteria, many occurrences each). Both score below the
+        // critical cap, but the catastrophic site must score meaningfully lower
+        // rather than collapsing into the same 4–9 cluster.
+        let moderate = AccessibilityScorer::calculate_score(&build(4, 3));
+        let catastrophic = AccessibilityScorer::calculate_score(&build(14, 30));
+        assert!(
+            moderate - catastrophic >= 8.0,
+            "moderate {} should outscore catastrophic {} by a clear margin",
+            moderate,
+            catastrophic
+        );
+        assert!(catastrophic > 0.0);
     }
 
     #[test]
