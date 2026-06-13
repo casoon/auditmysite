@@ -369,6 +369,42 @@ fn parse_cls_shifts(val: &serde_json::Value) -> Vec<ClsShift> {
         .unwrap_or_default()
 }
 
+/// Cumulative Layout Shift per the current Core Web Vitals definition: the
+/// **maximum session window**, not the cumulative sum of every shift.
+///
+/// A session window groups consecutive layout shifts that are at most 1 s apart
+/// and span at most 5 s in total; CLS is the largest window's summed value.
+/// Summing every shift over the whole observation window (the pre-2020
+/// definition) badly overcounts long-lived pages that shift repeatedly during
+/// lazy-loading — which is exactly what a headless audit observes. This matches
+/// Chrome's `web-vitals` library and Lighthouse.
+pub fn session_window_cls(shifts: &[ClsShift]) -> f64 {
+    let mut ordered: Vec<&ClsShift> = shifts.iter().collect();
+    ordered.sort_by(|a, b| a.start_time_ms.total_cmp(&b.start_time_ms));
+
+    let mut max_window = 0.0_f64;
+    let mut window_sum = 0.0_f64;
+    let mut window_start = 0.0_f64;
+    let mut prev_ts = 0.0_f64;
+    let mut in_window = false;
+
+    for shift in ordered {
+        let ts = shift.start_time_ms;
+        if !in_window || ts - prev_ts > 1000.0 || ts - window_start > 5000.0 {
+            window_sum = shift.value;
+            window_start = ts;
+            in_window = true;
+        } else {
+            window_sum += shift.value;
+        }
+        prev_ts = ts;
+        if window_sum > max_window {
+            max_window = window_sum;
+        }
+    }
+    max_window
+}
+
 fn parse_shift_rect(val: &serde_json::Value) -> Option<ShiftRect> {
     if val.is_null() {
         return None;
@@ -499,9 +535,16 @@ pub async fn extract_web_vitals(page: &Page) -> Result<WebVitals> {
     // TBT: 0 ms is a valid perfect score (no long tasks), always include like CLS.
     vitals.tbt = Some(VitalMetric::new(preinjected.tbt, 200.0, 600.0));
     debug!("TBT (preinjected): {:.0}ms", preinjected.tbt);
-    // CLS: 0.0 is a valid perfect score, always apply
-    vitals.cls = Some(VitalMetric::new(preinjected.cls, 0.1, 0.25));
-    debug!("CLS (preinjected): {:.4}", preinjected.cls);
+    // CLS: 0.0 is a valid perfect score, always apply. Use the session-window
+    // maximum (the current CWV definition) computed from the per-shift list,
+    // not the cumulative sum the observer accumulates — the latter overcounts
+    // pages that shift repeatedly during lazy-loading.
+    let cls_session = session_window_cls(&preinjected.cls_shifts);
+    vitals.cls = Some(VitalMetric::new(cls_session, 0.1, 0.25));
+    debug!(
+        "CLS session-window: {:.4} (cumulative was {:.4})",
+        cls_session, preinjected.cls
+    );
 
     // CLS attribution (#135)
     vitals.cls_attribution = preinjected.cls_shifts;
@@ -782,6 +825,43 @@ mod tests {
 
         assert_eq!(vitals.good_count(), 3);
         assert_eq!(vitals.available_count(), 3);
+    }
+
+    fn shift(value: f64, start_time_ms: f64) -> ClsShift {
+        ClsShift {
+            value,
+            start_time_ms,
+            sources: vec![],
+        }
+    }
+
+    #[test]
+    fn session_window_cls_matches_cwv_definition() {
+        // No shifts -> 0.
+        assert_eq!(session_window_cls(&[]), 0.0);
+
+        // Shifts within one 5 s window, <1 s apart -> summed.
+        let one_window = [shift(0.1, 500.0), shift(0.2, 1000.0), shift(0.05, 1500.0)];
+        assert!((session_window_cls(&one_window) - 0.35).abs() < 1e-9);
+
+        // A >1 s gap splits windows; CLS is the MAX window, not the sum.
+        // Window A = 0.1+0.1 = 0.2; gap; Window B = 0.4 -> max 0.4 (cumulative
+        // sum would be 0.6).
+        let two_windows = [
+            shift(0.1, 0.0),
+            shift(0.1, 500.0),
+            shift(0.4, 3000.0), // 2.5 s after previous shift -> new window
+        ];
+        assert!((session_window_cls(&two_windows) - 0.4).abs() < 1e-9);
+
+        // Shifts spaced <1 s apart but spanning >5 s start a fresh window once
+        // the 5 s cap is exceeded.
+        let long_run: Vec<ClsShift> = (0..10).map(|i| shift(0.1, i as f64 * 800.0)).collect();
+        // Window 1 covers 0..5000ms = 7 shifts (0,800,..,4800) = 0.7; the cap
+        // resets at 5600ms, so a single window never sums all ten.
+        let cls = session_window_cls(&long_run);
+        assert!(cls < 1.0, "expected windowed value <1.0, got {cls}");
+        assert!(cls >= 0.7 - 1e-9, "first window should sum ~0.7, got {cls}");
     }
 
     #[test]
