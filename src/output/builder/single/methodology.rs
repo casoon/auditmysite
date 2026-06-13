@@ -4,7 +4,10 @@ use crate::output::report_model::{
     AffectedElement, AppendixBlock, AppendixViolation, CapabilitySignal, MethodologyBlock,
 };
 
-pub(super) fn build_appendix_block_from_normalized(normalized: &NormalizedReport) -> AppendixBlock {
+pub(super) fn build_appendix_block_from_normalized(
+    locale: &str,
+    normalized: &NormalizedReport,
+) -> AppendixBlock {
     let violations: Vec<AppendixViolation> = normalized
         .findings
         .iter()
@@ -18,9 +21,13 @@ pub(super) fn build_appendix_block_from_normalized(normalized: &NormalizedReport
                 })
                 .collect();
 
+            // Stored title is canonical English (#406); re-derive the localized
+            // title (taxonomy + SEO headings) for non-English reports.
+            let rule_name = crate::output::builder::actions::localized_finding_text(locale, f).0;
+
             AppendixViolation {
                 rule: f.wcag_criterion.clone(),
-                rule_name: f.title.clone(),
+                rule_name,
                 severity: f.severity,
                 message: f.description.clone(),
                 fix_suggestion: f.occurrences.first().and_then(|o| o.fix_suggestion.clone()),

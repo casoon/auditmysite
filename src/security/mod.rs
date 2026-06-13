@@ -629,15 +629,30 @@ pub(crate) fn calculate_security_score(
 ) -> u32 {
     let mut score = 100u32;
 
-    // Deduct for issues (includes missing HTTPS as a critical issue)
+    // A *present* CSP (even a permissive one) provides partial protection, so its
+    // cumulative quality penalty must never exceed the penalty for a *missing*
+    // CSP — otherwise a site with an imperfect CSP scores worse than one with no
+    // CSP at all, which is backwards. We therefore bucket CSP-quality issues and
+    // cap their combined deduction at the missing-CSP penalty (High = 15).
+    const MISSING_CSP_PENALTY: u32 = 15;
+    let deduction = |sev: &Severity| match sev {
+        Severity::Critical => 25,
+        Severity::High => 15,
+        Severity::Medium => 10,
+        Severity::Low => 5,
+    };
+    let mut csp_quality_penalty = 0u32;
     for issue in issues {
-        score = score.saturating_sub(match issue.severity {
-            Severity::Critical => 25,
-            Severity::High => 15,
-            Severity::Medium => 10,
-            Severity::Low => 5,
-        });
+        let is_csp_quality =
+            issue.header == "Content-Security-Policy" && issue.issue_type != "missing_header";
+        if is_csp_quality {
+            csp_quality_penalty += deduction(&issue.severity);
+        } else {
+            // Deduct for issues (includes missing HTTPS as a critical issue)
+            score = score.saturating_sub(deduction(&issue.severity));
+        }
     }
+    score = score.saturating_sub(csp_quality_penalty.min(MISSING_CSP_PENALTY));
 
     // Bonus for HSTS
     if ssl.has_hsts {
@@ -704,6 +719,41 @@ mod tests {
         assert!(issues
             .iter()
             .any(|i| i.header.contains("Cross-Origin") && i.severity == Severity::Low));
+    }
+
+    #[test]
+    fn permissive_csp_scores_at_least_as_high_as_missing_csp() {
+        let ssl = SslInfo::default();
+        // Same baseline issue set; one variant has no CSP, the other has a
+        // present-but-permissive CSP that fires several quality issues.
+        let missing_csp = vec![SecurityIssue {
+            header: "Content-Security-Policy".into(),
+            issue_type: "missing_header".into(),
+            message: "Missing Content-Security-Policy header".into(),
+            severity: Severity::High,
+        }];
+        let permissive_csp: Vec<SecurityIssue> = [
+            "unsafe_inline_script",
+            "unsafe_eval_script",
+            "wildcard_script_source",
+            "unsafe_inline_style",
+            "wildcard_source",
+        ]
+        .iter()
+        .map(|t| SecurityIssue {
+            header: "Content-Security-Policy".into(),
+            issue_type: (*t).into(),
+            message: "csp quality".into(),
+            severity: Severity::High,
+        })
+        .collect();
+        let s_missing = calculate_security_score(&SecurityHeaders::default(), &ssl, &missing_csp);
+        let s_permissive =
+            calculate_security_score(&SecurityHeaders::default(), &ssl, &permissive_csp);
+        assert!(
+            s_permissive >= s_missing,
+            "a present (permissive) CSP must not score worse than no CSP: permissive={s_permissive} missing={s_missing}"
+        );
     }
 
     #[test]

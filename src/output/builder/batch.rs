@@ -14,7 +14,7 @@ use crate::wcag::Severity;
 
 use super::actions::{
     build_narrative_arc, derive_action_plan, derive_business_impact, derive_execution_priority,
-    impact_score, score_to_priority, severity_to_priority,
+    impact_score, localized_finding_text, score_to_priority, severity_to_priority,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
 use super::seo::{
@@ -713,7 +713,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         url_ranking,
         url_details,
         url_matrix: build_url_matrix(batch),
-        appendix: build_batch_appendix(batch),
+        appendix: build_batch_appendix(i18n.locale(), batch),
         interactive_summary,
     }
 }
@@ -867,13 +867,16 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
             derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),
         )
     } else {
+        // JSON-stored title/user_impact/technical_impact are canonical English
+        // (#406); re-derive the runtime-locale text from the taxonomy.
+        let (title_loc, user_impact_loc, technical_loc) = localized_finding_text(locale, finding);
         (
-            finding.title.clone(),
+            title_loc,
             finding.description.clone(),
-            finding.user_impact.clone(),
+            user_impact_loc.clone(),
             derive_business_impact(
                 i18n,
-                &finding.user_impact,
+                &user_impact_loc,
                 dimension_label,
                 acc.severity,
                 Some(finding.subcategory_kind.label(false)),
@@ -885,7 +888,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
                 .iter()
                 .find_map(|o| o.fix_suggestion.clone())
                 .unwrap_or_default(),
-            finding.technical_impact.clone(),
+            technical_loc,
             Role::Development,
             Effort::Medium,
             derive_execution_priority(acc.severity, Effort::Medium, dimension_label),

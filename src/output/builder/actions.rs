@@ -10,6 +10,51 @@ use crate::wcag::Severity;
 
 use crate::i18n::I18n;
 
+/// Re-derive the locale-specific title / user impact / technical impact for a
+/// finding. The stored `NormalizedFinding` fields are canonical English (#406);
+/// for non-English locales we look the rule up in the taxonomy and return the
+/// German strings. Falls back to the (English) stored values when no taxonomy
+/// entry matches. Used only by the fallback branch — when an explanation exists
+/// the localized text comes from the explanation system instead.
+pub(super) fn localized_finding_text(
+    locale: &str,
+    finding: &crate::audit::normalized::NormalizedFinding,
+) -> (String, String, String) {
+    if locale == "en" {
+        return (
+            finding.title.clone(),
+            finding.user_impact.clone(),
+            finding.technical_impact.clone(),
+        );
+    }
+    // SEO heading findings are not in the WCAG taxonomy; re-derive German from
+    // their own single-source text function (#406).
+    if let Some(issue_type) = finding.rule_id.strip_prefix("seo.headings.") {
+        let (title, technical_impact) = crate::audit::normalized::seo_heading_finding_text(
+            issue_type,
+            false,
+            &finding.technical_impact,
+        );
+        return (title, finding.user_impact.clone(), technical_impact);
+    }
+    use crate::taxonomy::RuleLookup;
+    let rule = RuleLookup::by_id(&finding.rule_id)
+        .or_else(|| RuleLookup::by_wcag(&finding.wcag_criterion))
+        .or_else(|| RuleLookup::by_legacy_wcag_id(&finding.wcag_criterion));
+    match rule {
+        Some(r) => (
+            r.title.to_string(),
+            r.user_impact.to_string(),
+            r.technical_impact.to_string(),
+        ),
+        None => (
+            finding.title.clone(),
+            finding.user_impact.clone(),
+            finding.technical_impact.clone(),
+        ),
+    }
+}
+
 pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -> ActionPlan {
     let mut quick_wins = Vec::new();
     let mut medium_term = Vec::new();

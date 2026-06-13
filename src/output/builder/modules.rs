@@ -13,9 +13,18 @@ pub(super) fn derive_accessibility_lever(i18n: &I18n, normalized: &NormalizedRep
         .iter()
         .max_by_key(|f| f.occurrence_count)
     {
+        // Stored title is canonical English (#406); re-derive the localized
+        // taxonomy title for non-English reports.
+        let title = if i18n.locale() == "en" {
+            finding.title.clone()
+        } else {
+            crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
+                .map(|r| r.title.to_string())
+                .unwrap_or_else(|| finding.title.clone())
+        };
         i18n.t_args(
             "lever-accessibility-biggest",
-            &[("finding", finding.title.as_str())],
+            &[("finding", title.as_str())],
         )
     } else {
         i18n.t("lever-accessibility-default")

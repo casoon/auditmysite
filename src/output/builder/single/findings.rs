@@ -7,7 +7,8 @@ use crate::output::report_model::{
 };
 
 use super::super::actions::{
-    build_narrative_arc, derive_business_impact, derive_execution_priority, severity_to_priority,
+    build_narrative_arc, derive_business_impact, derive_execution_priority, localized_finding_text,
+    severity_to_priority,
 };
 
 pub(super) fn finding_group_from_normalized(
@@ -53,13 +54,16 @@ pub(super) fn finding_group_from_normalized(
             derive_execution_priority(f.severity, expl.effort_estimate, f.dimension.as_str()),
         )
     } else {
+        // JSON-stored title/user_impact are canonical English (#406); re-derive
+        // the runtime-locale text from the taxonomy for the report.
+        let (title_loc, user_impact_loc, _technical_loc) = localized_finding_text(locale, f);
         (
-            f.title.clone(),
+            title_loc,
             f.description.clone(),
-            f.user_impact.clone(),
+            user_impact_loc.clone(),
             derive_business_impact(
                 i18n,
-                &f.user_impact,
+                &user_impact_loc,
                 f.dimension.as_str(),
                 f.severity,
                 Some(f.subcategory_kind.label(false)),

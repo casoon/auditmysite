@@ -114,6 +114,25 @@ pub struct MobileIssue {
 }
 
 /// Analyze mobile friendliness of a page
+/// Convert the summed issue penalty into a mobile-friendliness score.
+///
+/// Penalties up to the knee pass through unchanged (scores ≥ 40, so typical
+/// one- or two-issue pages are unaffected). Above the knee a square-root curve
+/// compresses growth, so a comprehensively mobile-hostile page (no viewport,
+/// tiny targets, horizontal scroll, …) stays distinguishable from a merely
+/// poor one instead of all collapsing toward zero under linear subtraction.
+/// This mirrors the accessibility soft floor; the score never hard-zeros.
+fn mobile_score_from_penalty(raw_penalty: u32) -> u32 {
+    const KNEE: f32 = 60.0;
+    let p = raw_penalty as f32;
+    let effective = if p > KNEE {
+        KNEE + (p - KNEE).sqrt() * 2.0
+    } else {
+        p
+    };
+    (100.0 - effective).round().clamp(5.0, 100.0) as u32
+}
+
 pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendliness> {
     info!("Analyzing mobile friendliness...");
 
@@ -467,15 +486,16 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     }
 
     // Calculate score
-    let mut score = 100u32;
-    for issue in &issues {
-        score = score.saturating_sub(match issue.severity {
+    let raw_penalty: u32 = issues
+        .iter()
+        .map(|issue| match issue.severity {
             Severity::Critical => 20,
             Severity::High => 20,
             Severity::Medium => 10,
             Severity::Low => 5,
-        });
-    }
+        })
+        .sum();
+    let score = mobile_score_from_penalty(raw_penalty);
 
     info!(
         "Mobile friendliness: score={}, issues={}",
@@ -502,5 +522,23 @@ mod tests {
         let viewport = ViewportAnalysis::default();
         assert!(!viewport.has_viewport);
         assert!(!viewport.is_properly_configured);
+    }
+
+    #[test]
+    fn test_mobile_score_softens_without_collapsing() {
+        // No issues -> perfect.
+        assert_eq!(mobile_score_from_penalty(0), 100);
+        // Typical small penalties pass through unchanged (score >= 40).
+        assert_eq!(mobile_score_from_penalty(20), 80);
+        assert_eq!(mobile_score_from_penalty(40), 60);
+        assert_eq!(mobile_score_from_penalty(60), 40);
+        // Heavy penalties are compressed and stay distinguishable instead of
+        // collapsing to zero: monotonically decreasing, but never a hard 0.
+        let p70 = mobile_score_from_penalty(70);
+        let p90 = mobile_score_from_penalty(90);
+        let p140 = mobile_score_from_penalty(140);
+        assert!(p70 < 40 && p70 > p90, "70->{p70} 90->{p90}");
+        assert!(p90 > p140, "90->{p90} 140->{p140}");
+        assert!(p140 >= 5, "worst case must not hard-zero: {p140}");
     }
 }

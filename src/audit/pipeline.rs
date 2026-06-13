@@ -1033,7 +1033,11 @@ async fn collect_throttled_performance(
                     adopted_score.overall = final_score;
                     adopted_score.grade =
                         crate::performance::PerformanceGrade::from_score(final_score);
-                    canonical = Some((vitals.clone(), adopted_score));
+                    // The canonical report vitals come from this throttled pass;
+                    // tag the direct metrics so the JSON reflects that (#406).
+                    let mut throttled_vitals = vitals.clone();
+                    crate::performance::mark_throttled_mobile(&mut throttled_vitals);
+                    canonical = Some((throttled_vitals, adopted_score));
                 }
                 let _ = throttle::enable_cache(page).await;
             }

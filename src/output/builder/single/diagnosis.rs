@@ -348,8 +348,11 @@ pub(super) fn build_diagnosis_block(
         let mut by_dim: BTreeMap<String, Vec<(String, usize, crate::wcag::Severity)>> =
             BTreeMap::new();
         for f in &normalized.findings {
+            // Stored title is canonical English (#406); re-derive the localized
+            // title (taxonomy + SEO headings) for non-English reports.
+            let title = crate::output::builder::actions::localized_finding_text(locale, f).0;
             by_dim.entry(f.dimension.clone()).or_default().push((
-                f.title.clone(),
+                title,
                 f.occurrence_count,
                 f.severity,
             ));

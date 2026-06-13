@@ -505,13 +505,17 @@ fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> Strin
 }
 
 fn score_area_for_key_point(finding: &crate::audit::normalized::NormalizedFinding) -> &'static str {
-    // Use the German subcategory label so the mixed DE/EN token matching below
-    // keeps the exact behavior it had before the JSON labels became English.
+    // Use the German subcategory label and German taxonomy title so the mixed
+    // DE/EN token matching below keeps the exact behavior it had before the
+    // stored JSON title became canonical English (#406).
+    let title_de = crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
+        .map(|r| r.title)
+        .unwrap_or(finding.title.as_str());
     let key = format!(
         "{} {} {} {}",
         finding.rule_id.to_ascii_lowercase(),
         finding.subcategory_kind.label(false).to_ascii_lowercase(),
-        finding.title.to_ascii_lowercase(),
+        title_de.to_ascii_lowercase(),
         finding.description.to_ascii_lowercase()
     );
     if key.contains("form") || key.contains("label") || key.contains("input") {
