@@ -157,6 +157,23 @@ renderreport = { version = "0.2.19", optional = true }
 - Never use HTML export for reports
 - PDF reports use the `renderreport` Typst engine with full module detail sections
 
+## Lokalisierungs-Architektur (#406 — PFLICHT bei neuen report-sichtbaren Texten)
+**JSON ist kanonisch Englisch, nur das PDF ist mehrsprachig.** Regel:
+- Die **Analyse-/Derive-Schicht backt kanonisches Englisch** in die gespeicherten Structs
+  (`AuditReport`/`NormalizedReport` → JSON). Niemals die Lauf-Sprache in die Analyse-Ergebnisse
+  backen — das JSON muss sprach-unabhängig englisch bleiben.
+- Die **PDF-Präsentationsschicht leitet lokalisierte Texte zur Laufzeit ab** (`i18n.locale()`),
+  über reine Funktionen/`build_*_presentation`/`render_*`.
+- **Muster für message-baked Structs:** das Struct trägt ein kanonisches `kind`-Enum (+ Rohwerte
+  in einem `#[serde(skip)]`/`skip_serializing_if`-Feld); eine reine `pub fn *_text(kind, .., en)`
+  ist die EINZIGE Textquelle — die Analyse ruft sie mit `en=true`, der PDF-Builder mit der
+  Lauf-Sprache. Beispiele: `source_quality`, `content_visibility`, `ai_visibility`, `journey`, `ux`,
+  `seo/page_health` (`collect_issues`), `screen_reader`.
+- **Erkennungs-Sprache ≠ Message-Sprache:** sprachabhängige DETEKTION (z. B. Stopword-Matching für
+  generische Linktexte) folgt der **Seiten-Sprache**, nicht der Ausgabe-Sprache. Beide getrennt
+  durchreichen (siehe `screen_reader::analyze_reading_sequence(detect_locale, message_en)`).
+- Guard-Test pro lokalisiertem Modul: EN-Ausgabe enthält keine deutschen Umlaute/ß.
+
 ## Report Wording Style
 Gilt für alle Interpretations-/Erklärungstexte (`interpret_score`, `build_seo_interpretation`,
 Overall-Erklärung, Modul-Dashboard). Quelle: `src/output/builder/helpers.rs` (`interpret_score`),
