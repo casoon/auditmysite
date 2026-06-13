@@ -31,6 +31,6 @@ pub use render_blocking::{analyze_render_blocking, BlockingResource, RenderBlock
 pub use scoring::{calculate_performance_score, PerformanceGrade, PerformanceScore};
 pub use third_party::{analyze_third_party_attribution, ThirdPartyAttribution, ThirdPartyOrigin};
 pub use vitals::{
-    extract_web_vitals, finalize_lcp, prepare_vitals_collection, validate_metrics, ClsShift,
-    ClsSource, MeasurementContext, ShiftRect, VitalMetric, WebVitals,
+    extract_web_vitals, finalize_lcp, mark_throttled_mobile, prepare_vitals_collection,
+    validate_metrics, ClsShift, ClsSource, MeasurementContext, ShiftRect, VitalMetric, WebVitals,
 };

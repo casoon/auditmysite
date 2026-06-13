@@ -93,6 +93,10 @@ pub enum MeasurementContext {
     LabHeadless,
     /// Derived or estimated from other lab signals (heuristic proxy), still local lab.
     EstimatedLab,
+    /// Directly measured, but under the Lighthouse mobile throttle (slow 4G +
+    /// 4x CPU). The value is intentionally more conservative than an
+    /// unthrottled load — a heavy site legitimately shows a double-digit LCP.
+    LabThrottledMobile,
 }
 
 /// Individual vital metric with value and rating
@@ -142,6 +146,15 @@ impl VitalMetric {
     /// Whether this value was estimated rather than directly measured.
     pub fn is_estimated(&self) -> bool {
         self.measurement == MeasurementContext::EstimatedLab
+    }
+
+    /// Re-tag a directly-measured metric as captured under mobile throttling.
+    /// No-op for estimated metrics — their estimation is the stronger caveat.
+    pub fn into_throttled_mobile(mut self) -> Self {
+        if self.measurement == MeasurementContext::LabHeadless {
+            self.measurement = MeasurementContext::LabThrottledMobile;
+        }
+        self
     }
 }
 
@@ -429,6 +442,23 @@ pub fn session_window_cls(shifts: &[ClsShift]) -> f64 {
         }
     }
     max_window
+}
+
+/// Re-tag a vitals set's directly-measured metrics (LCP, FCP, CLS, TBT) as
+/// captured under the Lighthouse mobile throttle. Estimated metrics (TTI,
+/// Speed Index, INP) keep their `estimated_lab` provenance. Applied when the
+/// throttled LhMobile pass is adopted as the canonical report measurement, so
+/// the JSON honestly reflects that the headline vitals are throttled.
+pub fn mark_throttled_mobile(vitals: &mut WebVitals) {
+    fn tag(slot: &mut Option<VitalMetric>) {
+        if let Some(metric) = slot.take() {
+            *slot = Some(metric.into_throttled_mobile());
+        }
+    }
+    tag(&mut vitals.lcp);
+    tag(&mut vitals.fcp);
+    tag(&mut vitals.cls);
+    tag(&mut vitals.tbt);
 }
 
 fn parse_shift_rect(val: &serde_json::Value) -> Option<ShiftRect> {
@@ -888,6 +918,36 @@ mod tests {
         let cls = session_window_cls(&long_run);
         assert!(cls < 1.0, "expected windowed value <1.0, got {cls}");
         assert!(cls >= 0.7 - 1e-9, "first window should sum ~0.7, got {cls}");
+    }
+
+    #[test]
+    fn mark_throttled_mobile_tags_direct_metrics_only() {
+        let mut v = WebVitals {
+            lcp: Some(VitalMetric::new(3800.0, 2500.0, 4000.0)),
+            cls: Some(VitalMetric::new(0.05, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(450.0, 200.0, 600.0)),
+            // Estimated metric: must keep its estimated provenance.
+            speed_index: Some(VitalMetric::new(4200.0, 3400.0, 5800.0).estimated()),
+            ..Default::default()
+        };
+        mark_throttled_mobile(&mut v);
+        assert_eq!(
+            v.lcp.unwrap().measurement,
+            MeasurementContext::LabThrottledMobile
+        );
+        assert_eq!(
+            v.cls.unwrap().measurement,
+            MeasurementContext::LabThrottledMobile
+        );
+        assert_eq!(
+            v.tbt.unwrap().measurement,
+            MeasurementContext::LabThrottledMobile
+        );
+        // Estimated stays estimated.
+        assert_eq!(
+            v.speed_index.unwrap().measurement,
+            MeasurementContext::EstimatedLab
+        );
     }
 
     #[test]
