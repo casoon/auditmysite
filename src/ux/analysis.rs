@@ -847,15 +847,16 @@ fn analyze_visual_hierarchy(tree: &AXTree, issues: &mut Vec<UxIssue>) -> UxDimen
         let excess = (dom_size - 2000) as f64;
         let p = saturating_penalty(excess, 20.0, 2000.0);
         penalties.push(p);
-        if dom_size > 4000 {
-            issues.push(UxIssue::new(
-                LargeDom,
-                UxIssueValues {
-                    count: Some(dom_size as u32),
-                    ..Default::default()
-                },
-            ));
-        }
+        // Emit the finding whenever the penalty applies, so the Visual
+        // Hierarchy score never drops without a stated reason (the penalty
+        // already reaches ~8 points by 3000 nodes). Severity is "low".
+        issues.push(UxIssue::new(
+            LargeDom,
+            UxIssueValues {
+                count: Some(dom_size as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     let score = dimension_score(&penalties, 100.0);

@@ -71,8 +71,19 @@ pub async fn analyze_best_practices(page: &Page) -> Result<BestPracticesAnalysis
 fn calculate_score(console: &ConsoleErrorsAnalysis, libs: &VulnerableLibrariesAnalysis) -> u32 {
     let mut score = 100u32;
 
-    // Console errors: each error costs 5 points, capped at 30
-    let error_penalty = (console.error_count as u32 * 5).min(30);
+    // Console errors: penalise *distinct* error messages, not raw occurrences.
+    // A single error logged on every render or poll cycle is one problem, not
+    // many — counting occurrences over-penalises noisy-but-singular bugs. 5
+    // points each, capped at 30.
+    let distinct_errors = {
+        let mut seen = std::collections::HashSet::new();
+        console
+            .errors
+            .iter()
+            .filter(|e| seen.insert(e.message.as_str()))
+            .count()
+    };
+    let error_penalty = (distinct_errors as u32 * 5).min(30);
     score = score.saturating_sub(error_penalty);
 
     // Vulnerable libraries: high = 20, medium = 10, low = 5 per lib, capped at 40
