@@ -782,10 +782,14 @@ fn test_risk_independent_from_score() {
         "Critical violations cap the score at 49 (got {})",
         normalized.score
     );
+    // A single distinct legal flag (3× the same rule) is High, not Critical —
+    // Critical is reserved for systemic exposure (≥3 distinct WCAG-A barriers
+    // or ≥5 critical occurrences). The point of this test is that risk is
+    // elevated even though the score is low: score != risk.
     assert_eq!(
         normalized.risk.level,
-        auditmysite::audit::normalized::RiskLevel::Critical,
-        "Risk should be Critical — score != risk"
+        auditmysite::audit::normalized::RiskLevel::High,
+        "Risk should be elevated (High) — score != risk"
     );
 }
 

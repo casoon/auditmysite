@@ -1227,9 +1227,20 @@ fn compute_risk_assessment(
 
     // Risk level — explicit precedence; legal_flags and blocking_issues both
     // raise the floor even when critical_issues is zero (see issue #250).
-    let level = if legal_flags > 0 && critical_issues > 0 {
+    //
+    // "Critical" is reserved for *systemic* legal exposure: multiple distinct
+    // WCAG Level A barriers (breadth) or a high volume of critical violations.
+    // A single isolated legal flag with a few critical occurrences is serious
+    // but not critical — it falls through to High. Previously any
+    // `legal_flags > 0 && critical_issues > 0` was Critical, which labelled
+    // almost every audited site as critical legal risk.
+    let level = if (legal_flags >= 3 && critical_issues > 0) || critical_issues >= 5 {
         RiskLevel::Critical
-    } else if critical_issues >= 3 || blocking_issues >= 5 || risk_score >= 80 {
+    } else if (legal_flags > 0 && critical_issues > 0)
+        || critical_issues >= 3
+        || blocking_issues >= 5
+        || risk_score >= 80
+    {
         RiskLevel::High
     } else if (high_issues >= 3 && score < 80)
         || critical_issues >= 1
