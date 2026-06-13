@@ -1227,26 +1227,28 @@ mod tests {
     fn active_module_labels_follow_pipeline_flags() {
         let config =
             PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
-        assert_eq!(
-            config.active_module_labels(),
-            vec![
-                "Accessibility",
-                "Accessibility Journey",
-                "Best Practices",
-                "Dark Mode",
-                "Journey",
-                "Mobile",
-                "Performance",
-                "Security",
-                "SEO",
-                "AI Visibility",
-                "Tech Stack",
-                "UX",
-                "Source Quality",
-                "Content Visibility",
-                "Semantic Eval",
-            ]
-        );
+        let mut expected = vec![
+            "Accessibility",
+            "Accessibility Journey",
+            "Best Practices",
+            "Dark Mode",
+            "Journey",
+            "Mobile",
+            "Performance",
+            "Security",
+            "SEO",
+            "AI Visibility",
+            "Tech Stack",
+            "UX",
+            "Source Quality",
+            "Content Visibility",
+        ];
+        // Semantic Eval is on by default but only counts as active when it can
+        // actually run — i.e. the `semantic-eval` build feature is compiled.
+        if cfg!(feature = "semantic-eval") {
+            expected.push("Semantic Eval");
+        }
+        assert_eq!(config.active_module_labels(), expected);
     }
 
     #[test]
@@ -1257,17 +1259,17 @@ mod tests {
             "--skip-performance",
             "--skip-mobile",
         ]));
-        assert_eq!(
-            config.active_module_labels(),
-            vec![
-                "Accessibility",
-                "Accessibility Journey",
-                "Dark Mode",
-                "AI Visibility",
-                "Source Quality",
-                "Semantic Eval",
-            ]
-        );
+        let mut expected = vec![
+            "Accessibility",
+            "Accessibility Journey",
+            "Dark Mode",
+            "AI Visibility",
+            "Source Quality",
+        ];
+        if cfg!(feature = "semantic-eval") {
+            expected.push("Semantic Eval");
+        }
+        assert_eq!(config.active_module_labels(), expected);
     }
 
     fn test_pipeline_config() -> PipelineConfig {
