@@ -171,13 +171,30 @@ impl WebVitals {
 pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
     let script = r#"
 (function() {
-    // LCP observer — captures the largest contentful paint before load
+    // Load-window boundary: LCP candidates and long tasks are only counted up
+    // to (load event + 100ms grace), mirroring how Lighthouse bounds these
+    // metrics to the load phase. A headless audit fires no user-input or
+    // visibility-change event — the signals that normally stop LCP growth — so
+    // without this boundary the observers keep absorbing post-load paints
+    // (carousels, lazy hero swaps) and idle long tasks (analytics, late
+    // hydration), inflating LCP/TBT/TTI. Until load fires the boundary is
+    // +Infinity, so everything during loading is counted.
+    if (typeof window.__ams_load_ts === 'undefined') window.__ams_load_ts = Infinity;
+    window.addEventListener('load', function() {
+        window.__ams_load_ts = performance.now() + 100;
+    }, { once: true });
+
+    // LCP observer — keep the latest contentful paint within the load window.
     window.__ams_lcp = window.__ams_lcp || 0;
     try {
         var _lcpObs = new PerformanceObserver(function(list) {
             var entries = list.getEntries();
-            if (entries.length > 0) {
-                window.__ams_lcp = entries[entries.length - 1].startTime;
+            for (var i = 0; i < entries.length; i++) {
+                // LCP candidates grow monotonically in size; the last one that
+                // rendered within the load window is the LCP.
+                if (entries[i].startTime <= window.__ams_load_ts) {
+                    window.__ams_lcp = entries[i].startTime;
+                }
             }
         });
         _lcpObs.observe({ type: 'largest-contentful-paint', buffered: true });
@@ -195,6 +212,10 @@ pub async fn prepare_vitals_collection(page: &Page) -> Result<()> {
                 var e = entries[i];
                 if (window.__ams_tbt_seen.has(e.startTime)) continue;
                 window.__ams_tbt_seen.add(e.startTime);
+                // Only count long tasks that began within the load window; TBT
+                // is the blocking time during load (FCP→TTI), not the total
+                // over the whole time we keep the page open.
+                if (e.startTime > window.__ams_load_ts) continue;
                 if (e.duration > 50) {
                     window.__ams_tbt += e.duration - 50;
                 }
@@ -294,8 +315,13 @@ async fn collect_preinjected_vitals(page: &Page) -> Result<PreinjectedVitals> {
     try {
         if (window.__ams_lcp_obs) {
             var recs = window.__ams_lcp_obs.takeRecords();
-            if (recs.length > 0) {
-                window.__ams_lcp = recs[recs.length - 1].startTime;
+            var bound = window.__ams_load_ts || Infinity;
+            for (var i = 0; i < recs.length; i++) {
+                // Honor the load-window boundary here too, so a buffered
+                // post-load paint can't override the in-window LCP.
+                if (recs[i].startTime <= bound) {
+                    window.__ams_lcp = recs[i].startTime;
+                }
             }
             window.__ams_lcp_obs.disconnect();
         }
