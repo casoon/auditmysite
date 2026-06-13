@@ -371,7 +371,7 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
         diagnosis: build_diagnosis_block(&config.locale, normalized, &audit_summary),
         module_details,
         actions,
-        appendix: build_appendix_block_from_normalized(normalized),
+        appendix: build_appendix_block_from_normalized(&config.locale, normalized),
         positive_signals: build_positive_signals(&config.locale, normalized),
     }
 }

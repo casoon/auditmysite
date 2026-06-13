@@ -108,7 +108,7 @@ pub(super) fn build_batch_verdict(i18n: &I18n, batch: &crate::audit::BatchReport
     )
 }
 
-pub(super) fn build_batch_appendix(batch: &BatchReport) -> BatchAppendixData {
+pub(super) fn build_batch_appendix(locale: &str, batch: &BatchReport) -> BatchAppendixData {
     BatchAppendixData {
         per_url: batch
             .reports
@@ -123,7 +123,15 @@ pub(super) fn build_batch_appendix(batch: &BatchReport) -> BatchAppendixData {
                         .iter()
                         .map(|finding| AppendixViolation {
                             rule: finding.rule_id.clone(),
-                            rule_name: finding.title.clone(),
+                            // Stored title is canonical English (#406); re-derive
+                            // the localized taxonomy title for non-English reports.
+                            rule_name: if locale == "en" {
+                                finding.title.clone()
+                            } else {
+                                crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
+                                    .map(|r| r.title.to_string())
+                                    .unwrap_or_else(|| finding.title.clone())
+                            },
                             severity: finding.severity,
                             message: finding.description.clone(),
                             fix_suggestion: finding

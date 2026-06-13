@@ -608,8 +608,8 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                     rule.dimension.label(true).to_string(),
                     rule.subcategory.label(true).to_string(),
                     rule.issue_class.label(true).to_string(),
-                    rule.user_impact.to_string(),
-                    rule.technical_impact.to_string(),
+                    rule.user_impact_en.to_string(),
+                    rule.technical_impact_en.to_string(),
                     ScoreImpactData {
                         base_penalty: rule.score_impact.base_penalty,
                         max_penalty: rule.score_impact.max_penalty,
@@ -711,11 +711,13 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             let remediation_priority =
                 derive_remediation_priority(severity, occurrence_count, &complexity);
 
-            // Prefer the taxonomy title (customer-facing, localized) over the
-            // raw rule_name from the WCAG engine — ensures JSON `title` and PDF
-            // narrative refer to the same name (see issue #252).
+            // Prefer the taxonomy title (canonical English) over the raw
+            // rule_name from the WCAG engine — ensures JSON `title` and PDF
+            // narrative refer to the same name (see issue #252). JSON stays
+            // canonical English (#406); the PDF re-derives the localized title
+            // from the taxonomy at render time.
             let display_title = taxonomy_rule
-                .map(|r| r.title.to_string())
+                .map(|r| r.title_en.to_string())
                 .unwrap_or_else(|| first.rule_name.clone());
 
             NormalizedFinding {
@@ -1965,6 +1967,24 @@ mod tests {
         assert!(finding.score_impact.max_penalty >= finding.score_impact.base_penalty);
         assert!(!finding.score_impact.scaling.is_empty());
         assert!(!finding.user_impact.is_empty());
+        // JSON-stored finding text must be canonical English (#406).
+        assert_eq!(finding.title, "Missing alternative text on images");
+        assert_eq!(
+            finding.user_impact,
+            "Screen reader users receive no image information."
+        );
+        assert_eq!(finding.technical_impact, "Non-conformant image markup.");
+        // Guard: no German diacritics leak into the canonical-English JSON.
+        for field in [
+            &finding.title,
+            &finding.user_impact,
+            &finding.technical_impact,
+        ] {
+            assert!(
+                !field.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "canonical-English JSON field contains German diacritics: {field}"
+            );
+        }
     }
 
     #[test]
