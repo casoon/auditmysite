@@ -11,9 +11,13 @@
 //! 4. **Content Depth** — word count, internal links, language
 //! 5. **Topical Authority** — schema coverage, breadcrumb, FAQ, heuristic note
 //!
-//! # Language note
-//! Signal titles are intentionally hedged ("Hinweis auf …", "erkennbar",
-//! "im Single-Durchlauf") to avoid overstating what automated analysis can prove.
+//! # Localization (#406)
+//!
+//! Analysis bakes **canonical English** text into every signal `title`/`detail`
+//! (and thus JSON). Each signal additionally carries a stable
+//! [`ContentVisibilitySignalKind`] plus the raw interpolated
+//! [`ContentSignalValues`], so the PDF layer can re-derive localized text via
+//! [`content_visibility_signal_text`] in the run language.
 
 pub mod module;
 pub use module::ContentVisibilityModule;
@@ -21,7 +25,8 @@ pub use module::ContentVisibilityModule;
 use serde::{Deserialize, Serialize};
 
 use crate::assessment::{
-    ContentArea, ContentEvidence, ContentSignal, EvidenceConfidence, EvidenceSource,
+    AssessmentLevel, ContentArea, ContentEvidence, ContentSignal, EvidenceConfidence,
+    EvidenceSource,
 };
 use crate::audit::AuditReport;
 use crate::seo::profile::SchemaExtracted;
@@ -63,8 +68,633 @@ impl ContentVisibilityAnalysis {
     }
 }
 
+// ─── Signal kind + values ────────────────────────────────────────────────────
+
+/// Stable identifier for a concrete content-visibility signal.
+///
+/// One variant per distinct `title`/`detail` shape. Together with the raw
+/// [`ContentSignalValues`] stored on the signal this fully reproduces the
+/// human-readable strings in any language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ContentVisibilitySignalKind {
+    // Organic visibility
+    TitleMissing,
+    TitleTooShort,
+    TitleTooLong,
+    TitleOptimal,
+    DescriptionMissing,
+    DescriptionLength,
+    DescriptionOptimal,
+    H1Missing,
+    H1Exactly,
+    H1Multiple,
+    HttpsActive,
+    HttpsMissing,
+    CanonicalSet,
+    CanonicalMissing,
+    RichSnippetPotential,
+    // Local business
+    LocalBusinessNotFound,
+    NapComplete,
+    NapIncomplete,
+    GeoPresent,
+    GeoMissing,
+    SameAsPresent,
+    SameAsMissing,
+    AggregateRating,
+    // E-E-A-T
+    OrganizationSchema,
+    OrganizationSchemaMissing,
+    ArticleAuthor,
+    ArticleAuthorMissing,
+    PublicationDate,
+    PublicationDateMissing,
+    AuthorityStrong,
+    AuthorityWeak,
+    AuthorityHardlyAny,
+    // Content depth
+    WordCountGood,
+    WordCountSufficient,
+    WordCountLow,
+    InternalLinksGood,
+    InternalLinksPresent,
+    InternalLinksFew,
+    LanguageDefined,
+    LanguageNotDefined,
+    SubstanceGood,
+    SubstanceWeak,
+    // Topical authority
+    SchemaBroad,
+    SchemaPresent,
+    FaqPage,
+    BreadcrumbList,
+    Hreflang,
+    LlmChunkQuality,
+    LinkMesh,
+    LinkClusterPresent,
+    LinkClusterNone,
+    HeadingDiversityBroad,
+    HeadingDiversityBasic,
+    HeadingDiversityFlat,
+    ContentTypeSchema,
+    StructuredContentSections,
+    TrueTopicalAuthorityNotTestable,
+}
+
+/// The interpolated values a content-visibility signal text may reference.
+///
+/// Stored on every content-visibility [`ContentSignal`] so that
+/// [`content_visibility_signal_text`] can reproduce the strings for any locale.
+/// Only the fields relevant to the signal's kind are populated.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ContentSignalValues {
+    /// A character/word/element/link count.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<usize>,
+    /// A 0–100 sub-score (authority, substance, AI chunk).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<u32>,
+    /// A free-form text fragment (missing-field list, author name, schema label).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+impl ContentSignalValues {
+    pub fn is_empty(&self) -> bool {
+        self.count.is_none() && self.score.is_none() && self.text.is_none()
+    }
+
+    fn count(count: usize) -> Self {
+        Self {
+            count: Some(count),
+            ..Default::default()
+        }
+    }
+
+    fn score(score: u32) -> Self {
+        Self {
+            score: Some(score),
+            ..Default::default()
+        }
+    }
+
+    fn text(text: impl Into<String>) -> Self {
+        Self {
+            text: Some(text.into()),
+            ..Default::default()
+        }
+    }
+}
+
+// ─── Localized text (single source of truth) ─────────────────────────────────
+
+/// The single source of truth for content-visibility signal `title`/`detail`.
+///
+/// Returns `(title, detail)` in German or English for the given `kind` and
+/// interpolated `values`. Analysis calls it with `en = true` to bake canonical
+/// English; the PDF layer calls it with the run language to re-derive localized
+/// text.
+pub fn content_visibility_signal_text(
+    kind: ContentVisibilitySignalKind,
+    values: &ContentSignalValues,
+    en: bool,
+) -> (String, String) {
+    use ContentVisibilitySignalKind::*;
+
+    let count = values.count.unwrap_or(0);
+    let score = values.score.unwrap_or(0);
+    let text = values.text.as_deref().unwrap_or("");
+
+    match (kind, en) {
+        // ── Organic visibility ───────────────────────────────────────────
+        (TitleMissing, true) => (
+            "Title missing".into(),
+            "No <title> element found — the page appears in SERPs without a title.".into(),
+        ),
+        (TitleMissing, false) => (
+            "Title fehlt".into(),
+            "Kein <title>-Element gefunden — Seite wird in SERPs ohne Titel angezeigt.".into(),
+        ),
+        (TitleTooShort, true) => (
+            "Title too short".into(),
+            format!("Title has {count} characters (recommended: 30–60)."),
+        ),
+        (TitleTooShort, false) => (
+            "Title zu kurz".into(),
+            format!("Title hat {count} Zeichen (empfohlen: 30–60)."),
+        ),
+        (TitleTooLong, true) => (
+            "Title too long".into(),
+            format!("Title has {count} characters — may be truncated in SERPs."),
+        ),
+        (TitleTooLong, false) => (
+            "Title zu lang".into(),
+            format!("Title hat {count} Zeichen — wird in SERPs möglicherweise abgeschnitten."),
+        ),
+        (TitleOptimal, true) => ("Title present & optimal".into(), format!("{count} characters.")),
+        (TitleOptimal, false) => ("Title vorhanden & optimal".into(), format!("{count} Zeichen.")),
+        (DescriptionMissing, true) => (
+            "Description missing".into(),
+            "No meta description — Google may auto-generate a snippet.".into(),
+        ),
+        (DescriptionMissing, false) => (
+            "Description fehlt".into(),
+            "Keine Meta-Description — Google generiert ggf. automatisch einen Snippet.".into(),
+        ),
+        (DescriptionLength, true) => (
+            "Description outside optimal length".into(),
+            format!("{count} characters (recommended: 120–160)."),
+        ),
+        (DescriptionLength, false) => (
+            "Description außerhalb optimaler Länge".into(),
+            format!("{count} Zeichen (empfohlen: 120–160)."),
+        ),
+        (DescriptionOptimal, true) => {
+            ("Description present & optimal".into(), format!("{count} characters."))
+        }
+        (DescriptionOptimal, false) => {
+            ("Description vorhanden & optimal".into(), format!("{count} Zeichen."))
+        }
+        (H1Missing, true) => (
+            "H1 missing".into(),
+            "No H1 heading — the page's primary topic is not structurally marked up.".into(),
+        ),
+        (H1Missing, false) => (
+            "H1 fehlt".into(),
+            "Keine H1-Überschrift — primäres Thema der Seite nicht strukturell ausgezeichnet."
+                .into(),
+        ),
+        (H1Exactly, true) => ("Exactly one H1".into(), text.to_string()),
+        (H1Exactly, false) => ("Genau eine H1".into(), text.to_string()),
+        (H1Multiple, true) => (
+            "Multiple H1 elements".into(),
+            format!("{count} H1 tags found — exactly one H1 per page is recommended."),
+        ),
+        (H1Multiple, false) => (
+            "Mehrere H1-Elemente".into(),
+            format!("{count} H1-Tags gefunden — empfohlen ist genau eine H1 pro Seite."),
+        ),
+        (HttpsActive, true) => (
+            "HTTPS active".into(),
+            "The page is served over an encrypted connection.".into(),
+        ),
+        (HttpsActive, false) => (
+            "HTTPS aktiv".into(),
+            "Seite wird über eine verschlüsselte Verbindung ausgeliefert.".into(),
+        ),
+        (HttpsMissing, true) => (
+            "No HTTPS".into(),
+            "Page not encrypted — ranking disadvantage and a browser warning for users.".into(),
+        ),
+        (HttpsMissing, false) => (
+            "Kein HTTPS".into(),
+            "Seite nicht verschlüsselt — Ranking-Nachteil, Browser-Warnung für Nutzer.".into(),
+        ),
+        (CanonicalSet, true) => ("Canonical URL set".into(), text.to_string()),
+        (CanonicalSet, false) => ("Canonical URL gesetzt".into(), text.to_string()),
+        (CanonicalMissing, true) => (
+            "Canonical missing".into(),
+            "No <link rel=\"canonical\"> — duplicate-content risk across URL variants.".into(),
+        ),
+        (CanonicalMissing, false) => (
+            "Canonical fehlt".into(),
+            "Kein <link rel=\"canonical\"> — Duplicate-Content-Risiko bei URL-Varianten.".into(),
+        ),
+        (RichSnippetPotential, true) => (
+            "Rich snippet potential detected".into(),
+            format!("Structured data enables rich snippets: {text}."),
+        ),
+        (RichSnippetPotential, false) => (
+            "Rich-Snippet-Potenzial erkannt".into(),
+            format!("Strukturierte Daten ermöglichen Rich Snippets: {text}."),
+        ),
+        // ── Local business ───────────────────────────────────────────────
+        (LocalBusinessNotFound, true) => (
+            "LocalBusiness schema not found".into(),
+            "No LocalBusiness JSON-LD on this page — local search signals cannot be checked."
+                .into(),
+        ),
+        (LocalBusinessNotFound, false) => (
+            "LocalBusiness-Schema nicht gefunden".into(),
+            "Kein LocalBusiness JSON-LD auf dieser Seite — lokale Suchsignale nicht prüfbar."
+                .into(),
+        ),
+        (NapComplete, true) => (
+            "NAP complete (name, address, phone)".into(),
+            "LocalBusiness contains name, street, postal code, city and phone number.".into(),
+        ),
+        (NapComplete, false) => (
+            "NAP vollständig (Name, Adresse, Telefon)".into(),
+            "LocalBusiness enthält Name, Straße, PLZ, Ort und Telefonnummer.".into(),
+        ),
+        (NapIncomplete, true) => {
+            ("NAP incomplete".into(), format!("Missing fields: {text}."))
+        }
+        (NapIncomplete, false) => {
+            ("NAP unvollständig".into(), format!("Fehlende Felder: {text}."))
+        }
+        (GeoPresent, true) => (
+            "Geo coordinates present".into(),
+            "latitude and longitude set in LocalBusiness.geo.".into(),
+        ),
+        (GeoPresent, false) => (
+            "Geo-Koordinaten vorhanden".into(),
+            "latitude und longitude in LocalBusiness.geo gesetzt.".into(),
+        ),
+        (GeoMissing, true) => (
+            "Geo coordinates missing".into(),
+            "LocalBusiness.geo.latitude/longitude not set — maps integration limited.".into(),
+        ),
+        (GeoMissing, false) => (
+            "Geo-Koordinaten fehlen".into(),
+            "LocalBusiness.geo.latitude/longitude nicht gesetzt — Maps-Integration eingeschränkt."
+                .into(),
+        ),
+        (SameAsPresent, true) => (
+            "sameAs authority links present".into(),
+            "LocalBusiness references external authority sources (Wikidata, social, etc.).".into(),
+        ),
+        (SameAsPresent, false) => (
+            "sameAs-Autoritätslinks vorhanden".into(),
+            "LocalBusiness verweist auf externe Autoritätsquellen (Wikidata, Social, etc.).".into(),
+        ),
+        (SameAsMissing, true) => (
+            "sameAs missing".into(),
+            "No sameAs links — knowledge panel linking to external sources is not possible.".into(),
+        ),
+        (SameAsMissing, false) => (
+            "sameAs fehlt".into(),
+            "Keine sameAs-Links — Knowledge-Panel-Verknüpfung mit externen Quellen nicht möglich."
+                .into(),
+        ),
+        (AggregateRating, true) => (
+            "aggregateRating present".into(),
+            "Rating data in schema — enables a star snippet in SERPs.".into(),
+        ),
+        (AggregateRating, false) => (
+            "aggregateRating vorhanden".into(),
+            "Bewertungsdaten in Schema — ermöglicht Sterne-Snippet in SERPs.".into(),
+        ),
+        // ── E-E-A-T ──────────────────────────────────────────────────────
+        (OrganizationSchema, true) => (
+            "Organization schema detected".into(),
+            "E-E-A-T indicator: the entity is identified as an organization.".into(),
+        ),
+        (OrganizationSchema, false) => (
+            "Organization-Schema erkannt".into(),
+            "Hinweis auf E-E-A-T: Entität ist als Organisation ausgewiesen.".into(),
+        ),
+        (OrganizationSchemaMissing, true) => (
+            "No Organization schema".into(),
+            "No indicator of institutional authority.".into(),
+        ),
+        (OrganizationSchemaMissing, false) => (
+            "Kein Organization-Schema".into(),
+            "Fehlender Hinweis auf institutionelle Autorität.".into(),
+        ),
+        (ArticleAuthor, true) => (
+            "Author in Article schema".into(),
+            format!(
+                "E-E-A-T indicator: the author is identified{}",
+                if text.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({text})")
+                }
+            ),
+        ),
+        (ArticleAuthor, false) => (
+            "Autor in Article-Schema".into(),
+            format!(
+                "Hinweis auf E-E-A-T: Autor ist ausgewiesen{}",
+                if text.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({text})")
+                }
+            ),
+        ),
+        (ArticleAuthorMissing, true) => (
+            "No author in Article schema".into(),
+            "Article schema without an author field — E-E-A-T signal missing.".into(),
+        ),
+        (ArticleAuthorMissing, false) => (
+            "Kein Autor in Article-Schema".into(),
+            "Article-Schema ohne author-Feld — E-E-A-T-Signal fehlt.".into(),
+        ),
+        (PublicationDate, true) => (
+            "Publication date present".into(),
+            "datePublished set in Article schema — recency can be signaled.".into(),
+        ),
+        (PublicationDate, false) => (
+            "Veröffentlichungsdatum vorhanden".into(),
+            "datePublished in Article-Schema gesetzt — Aktualität signalisierbar.".into(),
+        ),
+        (PublicationDateMissing, true) => (
+            "No publication date".into(),
+            "datePublished missing — Google cannot derive recency from the schema.".into(),
+        ),
+        (PublicationDateMissing, false) => (
+            "Kein Veröffentlichungsdatum".into(),
+            "datePublished fehlt — Google kann Aktualität nicht aus Schema ableiten.".into(),
+        ),
+        (AuthorityStrong, true) => (
+            "Strong authority signals".into(),
+            format!("Source quality authority: {score}/100."),
+        ),
+        (AuthorityStrong, false) => (
+            "Starke Autoritätssignale".into(),
+            format!("Source-Quality-Autorität: {score}/100."),
+        ),
+        (AuthorityWeak, true) => (
+            "Weak authority signals".into(),
+            format!("Source quality authority: {score}/100 — review imprint, linking or schema."),
+        ),
+        (AuthorityWeak, false) => (
+            "Schwache Autoritätssignale".into(),
+            format!(
+                "Source-Quality-Autorität: {score}/100 — Impressum, Verlinkung oder Schema prüfen."
+            ),
+        ),
+        (AuthorityHardlyAny, true) => (
+            "Hardly any authority signals detected".into(),
+            format!("Source quality authority: {score}/100."),
+        ),
+        (AuthorityHardlyAny, false) => (
+            "Kaum Autoritätssignale erkannt".into(),
+            format!("Source-Quality-Autorität: {score}/100."),
+        ),
+        // ── Content depth ────────────────────────────────────────────────
+        (WordCountGood, true) => (
+            "Good content depth".into(),
+            format!("{count} words — in-depth content recognizable."),
+        ),
+        (WordCountGood, false) => (
+            "Gute Inhaltstiefe".into(),
+            format!("{count} Wörter — tiefergehender Inhalt erkennbar."),
+        ),
+        (WordCountSufficient, true) => {
+            ("Sufficient word count".into(), format!("{count} words."))
+        }
+        (WordCountSufficient, false) => {
+            ("Ausreichende Wortanzahl".into(), format!("{count} Wörter."))
+        }
+        (WordCountLow, true) => (
+            "Little content".into(),
+            format!("{count} words — thin-content risk (recommended: ≥ 300)."),
+        ),
+        (WordCountLow, false) => (
+            "Wenig Inhalt".into(),
+            format!("{count} Wörter — Thin-Content-Risiko (empfohlen: ≥ 300)."),
+        ),
+        (InternalLinksGood, true) => (
+            "Good internal linking".into(),
+            format!("{count} internal links — helps crawlers discover related pages."),
+        ),
+        (InternalLinksGood, false) => (
+            "Gute interne Verlinkung".into(),
+            format!("{count} interne Links — hilft Crawlern beim Entdecken verwandter Seiten."),
+        ),
+        (InternalLinksPresent, true) => {
+            ("Internal linking present".into(), format!("{count} internal links."))
+        }
+        (InternalLinksPresent, false) => {
+            ("Interne Verlinkung vorhanden".into(), format!("{count} interne Links."))
+        }
+        (InternalLinksFew, true) => (
+            "Hardly any internal links".into(),
+            format!("{count} internal link(s) — the page appears isolated."),
+        ),
+        (InternalLinksFew, false) => (
+            "Kaum interne Links".into(),
+            format!("{count} interne Link(s) — Seite wirkt isoliert."),
+        ),
+        (LanguageDefined, true) => ("Language defined".into(), text.to_string()),
+        (LanguageDefined, false) => ("Sprache definiert".into(), text.to_string()),
+        (LanguageNotDefined, true) => (
+            "Language not defined".into(),
+            "No lang attribute on the <html> element — internationalization issue.".into(),
+        ),
+        (LanguageNotDefined, false) => (
+            "Sprache nicht definiert".into(),
+            "Kein lang-Attribut am <html>-Element — Internationalisierungsproblem.".into(),
+        ),
+        (SubstanceGood, true) => (
+            "Good content substance".into(),
+            format!("Substance score: {score}/100."),
+        ),
+        (SubstanceGood, false) => (
+            "Gute inhaltliche Substanz".into(),
+            format!("Substanz-Score: {score}/100."),
+        ),
+        (SubstanceWeak, true) => (
+            "Weak content substance".into(),
+            format!("Substance score: {score}/100 — review content, structure or sources."),
+        ),
+        (SubstanceWeak, false) => (
+            "Schwache inhaltliche Substanz".into(),
+            format!("Substanz-Score: {score}/100 — Inhalt, Struktur oder Quellen prüfen."),
+        ),
+        // ── Topical authority ────────────────────────────────────────────
+        (SchemaBroad, true) => (
+            "Broad schema coverage".into(),
+            format!("{count} schemas — thematic diversity recognizable."),
+        ),
+        (SchemaBroad, false) => (
+            "Breite Schema-Abdeckung".into(),
+            format!("{count} Schemas — thematische Vielfalt erkennbar."),
+        ),
+        (SchemaPresent, true) => {
+            ("Schema data present".into(), format!("{count} schema(s) found."))
+        }
+        (SchemaPresent, false) => {
+            ("Schema-Daten vorhanden".into(), format!("{count} Schema(s) gefunden."))
+        }
+        (FaqPage, true) => (
+            "FAQPage schema present".into(),
+            "Topic coverage signaled by FAQ questions — good for featured snippets.".into(),
+        ),
+        (FaqPage, false) => (
+            "FAQPage-Schema vorhanden".into(),
+            "Themenabdeckung durch FAQ-Fragen signalisiert — gut für Featured Snippets.".into(),
+        ),
+        (BreadcrumbList, true) => (
+            "BreadcrumbList detected".into(),
+            "Page is embedded in a content cluster — indicator of thematic structure.".into(),
+        ),
+        (BreadcrumbList, false) => (
+            "BreadcrumbList erkannt".into(),
+            "Seite ist in einem Inhalts-Cluster eingebettet — Hinweis auf thematische Struktur."
+                .into(),
+        ),
+        (Hreflang, true) => (
+            "Multilingual content (hreflang)".into(),
+            format!("{count} language variants linked."),
+        ),
+        (Hreflang, false) => (
+            "Mehrsprachige Inhalte (hreflang)".into(),
+            format!("{count} Sprachvarianten verknüpft."),
+        ),
+        (LlmChunkQuality, true) => (
+            "Good LLM chunk quality".into(),
+            format!(
+                "AI chunk score: {score}/100 — content well structured for AI citability."
+            ),
+        ),
+        (LlmChunkQuality, false) => (
+            "Gute LLM-Chunk-Qualität".into(),
+            format!(
+                "AI-Chunk-Score: {score}/100 — Inhalt für KI-Zitierbarkeit gut strukturiert."
+            ),
+        ),
+        (LinkMesh, true) => (
+            "Internal link mesh recognizable".into(),
+            format!("{count} internal links — the page is embedded in a topic cluster."),
+        ),
+        (LinkMesh, false) => (
+            "Internes Linkgeflecht erkennbar".into(),
+            format!("{count} interne Links — Seite ist in ein Themencluster eingebettet."),
+        ),
+        (LinkClusterPresent, true) => (
+            "Internal linking present".into(),
+            format!("{count} internal links found."),
+        ),
+        (LinkClusterPresent, false) => (
+            "Interne Verlinkung vorhanden".into(),
+            format!("{count} interne Links gefunden."),
+        ),
+        (LinkClusterNone, true) => (
+            "No internal links".into(),
+            "Page appears isolated — missing cluster embedding weakens topical authority.".into(),
+        ),
+        (LinkClusterNone, false) => (
+            "Keine internen Links".into(),
+            "Seite wirkt isoliert — fehlende Cluster-Einbettung schwächt topische Autorität.".into(),
+        ),
+        (HeadingDiversityBroad, true) => (
+            "Thematic structure recognizable".into(),
+            format!(
+                "{count} subheadings (H2+) — broad topic coverage visible in the single run."
+            ),
+        ),
+        (HeadingDiversityBroad, false) => (
+            "Thematische Gliederung erkennbar".into(),
+            format!(
+                "{count} Unterüberschriften (H2+) — breite Themenabdeckung im Single-Durchlauf sichtbar."
+            ),
+        ),
+        (HeadingDiversityBasic, true) => (
+            "Basic structure via headings present".into(),
+            format!("{count} subheadings (H2+) found."),
+        ),
+        (HeadingDiversityBasic, false) => (
+            "Grundstruktur durch Überschriften vorhanden".into(),
+            format!("{count} Unterüberschriften (H2+) gefunden."),
+        ),
+        (HeadingDiversityFlat, true) => (
+            "Flat content structure".into(),
+            "Fewer than 2 subheadings — topic coverage not recognizable in the single run.".into(),
+        ),
+        (HeadingDiversityFlat, false) => (
+            "Flache Inhaltsstruktur".into(),
+            "Weniger als 2 Unterüberschriften — Themenabdeckung im Single-Durchlauf nicht erkennbar."
+                .into(),
+        ),
+        (ContentTypeSchema, true) => (
+            "Content type identified via schema".into(),
+            format!(
+                "{text} schema present — page type clearly recognizable for search engines."
+            ),
+        ),
+        (ContentTypeSchema, false) => (
+            "Inhaltstyp durch Schema identifiziert".into(),
+            format!(
+                "{text}-Schema vorhanden — Seitentyp für Suchmaschinen eindeutig erkennbar."
+            ),
+        ),
+        (StructuredContentSections, true) => (
+            "Structured content sections detected".into(),
+            "Accordion or disclosure pattern found — indicator of thematically structured content."
+                .into(),
+        ),
+        (StructuredContentSections, false) => (
+            "Strukturierte Inhaltsabschnitte erkannt".into(),
+            "Accordion oder Disclosure-Pattern gefunden — Hinweis auf thematisch gegliederte Inhalte."
+                .into(),
+        ),
+        (TrueTopicalAuthorityNotTestable, true) => (
+            "True topical authority (not testable in the single run)".into(),
+            "Backlinks, SERP positions, historical performance and domain age \
+             cannot be assessed automatically."
+                .into(),
+        ),
+        (TrueTopicalAuthorityNotTestable, false) => (
+            "Echte Topical Authority (nicht prüfbar im Single-Durchlauf)".into(),
+            "Backlinks, SERP-Positionen, historische Performance und Domain-Alter \
+             können automatisiert nicht bewertet werden."
+                .into(),
+        ),
+    }
+}
+
+/// Build a content-visibility signal, baking canonical-English
+/// `title`/`detail` from its kind + values via [`content_visibility_signal_text`].
+fn signal(
+    area: ContentArea,
+    level: AssessmentLevel,
+    confidence: EvidenceConfidence,
+    kind: ContentVisibilitySignalKind,
+    values: ContentSignalValues,
+) -> ContentSignal {
+    let (title, detail) = content_visibility_signal_text(kind, &values, true);
+    ContentSignal::new(area, level, confidence, title, detail).with_cv(kind, values)
+}
+
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
+/// Derive content visibility from an existing audit report (single page).
+///
+/// Produces canonical-English text in every signal (and thus JSON).
 pub fn analyze_content_visibility(report: &AuditReport) -> ContentVisibilityAnalysis {
     let mut out = ContentVisibilityAnalysis::default();
 
@@ -86,6 +716,7 @@ pub fn analyze_content_visibility(report: &AuditReport) -> ContentVisibilityAnal
 // ─── Area builders ───────────────────────────────────────────────────────────
 
 fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
+    use ContentVisibilitySignalKind::*;
     let mut signals = Vec::new();
     let meta = &seo.meta;
     let tech = &seo.technical;
@@ -93,11 +724,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
     // Title
     match meta.title.as_deref() {
         None => signals.push(
-            ContentSignal::violation(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Violation,
                 EvidenceConfidence::High,
-                "Title fehlt",
-                "Kein <title>-Element gefunden — Seite wird in SERPs ohne Titel angezeigt.",
+                TitleMissing,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -105,11 +737,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
             ),
         ),
         Some(t) if t.len() < 30 => signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Title zu kurz",
-                format!("Title hat {} Zeichen (empfohlen: 30–60).", t.len()),
+                TitleTooShort,
+                ContentSignalValues::count(t.len()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -118,14 +751,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
             ),
         ),
         Some(t) if t.len() > 60 => signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Title zu lang",
-                format!(
-                    "Title hat {} Zeichen — wird in SERPs möglicherweise abgeschnitten.",
-                    t.len()
-                ),
+                TitleTooLong,
+                ContentSignalValues::count(t.len()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -134,11 +765,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
             ),
         ),
         Some(t) => signals.push(
-            ContentSignal::pass(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Pass,
                 EvidenceConfidence::High,
-                "Title vorhanden & optimal",
-                format!("{} Zeichen.", t.len()),
+                TitleOptimal,
+                ContentSignalValues::count(t.len()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -151,11 +783,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
     // Description
     match meta.description.as_deref() {
         None => signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Description fehlt",
-                "Keine Meta-Description — Google generiert ggf. automatisch einen Snippet.",
+                DescriptionMissing,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -163,36 +796,36 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
             ),
         ),
         Some(d) if d.len() < 120 || d.len() > 160 => signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Description außerhalb optimaler Länge",
-                format!("{} Zeichen (empfohlen: 120–160).", d.len()),
+                DescriptionLength,
+                ContentSignalValues::count(d.len()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
                     .with_field("meta.description"),
             ),
         ),
-        Some(_) => signals.push(ContentSignal::pass(
+        Some(d) => signals.push(signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "Description vorhanden & optimal",
-            format!(
-                "{} Zeichen.",
-                meta.description.as_ref().map(|d| d.len()).unwrap_or(0)
-            ),
+            DescriptionOptimal,
+            ContentSignalValues::count(d.len()),
         )),
     }
 
     // H1
     match seo.headings.h1_count {
         0 => signals.push(
-            ContentSignal::violation(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Violation,
                 EvidenceConfidence::High,
-                "H1 fehlt",
-                "Keine H1-Überschrift — primäres Thema der Seite nicht strukturell ausgezeichnet.",
+                H1Missing,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::High)
@@ -200,11 +833,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
             ),
         ),
         1 => signals.push(
-            ContentSignal::pass(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Pass,
                 EvidenceConfidence::High,
-                "Genau eine H1",
-                seo.headings.h1_text.clone().unwrap_or_default(),
+                H1Exactly,
+                ContentSignalValues::text(seo.headings.h1_text.clone().unwrap_or_default()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::High)
@@ -213,11 +847,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
             ),
         ),
         n => signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Mehrere H1-Elemente",
-                format!("{n} H1-Tags gefunden — empfohlen ist genau eine H1 pro Seite."),
+                H1Multiple,
+                ContentSignalValues::count(n),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::High)
@@ -228,22 +863,24 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
 
     // HTTPS
     signals.push(if tech.https {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "HTTPS aktiv",
-            "Seite wird über eine verschlüsselte Verbindung ausgeliefert.",
+            HttpsActive,
+            ContentSignalValues::default(),
         )
         .with_evidence(ContentEvidence::new(
             EvidenceSource::HttpHeader,
             EvidenceConfidence::High,
         ))
     } else {
-        ContentSignal::violation(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Violation,
             EvidenceConfidence::High,
-            "Kein HTTPS",
-            "Seite nicht verschlüsselt — Ranking-Nachteil, Browser-Warnung für Nutzer.",
+            HttpsMissing,
+            ContentSignalValues::default(),
         )
         .with_evidence(ContentEvidence::new(
             EvidenceSource::HttpHeader,
@@ -253,11 +890,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
 
     // Canonical
     signals.push(if tech.has_canonical {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "Canonical URL gesetzt",
-            tech.canonical_url.clone().unwrap_or_default(),
+            CanonicalSet,
+            ContentSignalValues::text(tech.canonical_url.clone().unwrap_or_default()),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -265,11 +903,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
                 .with_value(tech.canonical_url.as_deref().unwrap_or("")),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::High,
-            "Canonical fehlt",
-            "Kein <link rel=\"canonical\"> — Duplicate-Content-Risiko bei URL-Varianten.",
+            CanonicalMissing,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -280,14 +919,12 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
     // Rich snippets
     if !seo.structured_data.rich_snippets_potential.is_empty() {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::Medium,
-                "Rich-Snippet-Potenzial erkannt",
-                format!(
-                    "Strukturierte Daten ermöglichen Rich Snippets: {}.",
-                    seo.structured_data.rich_snippets_potential.join(", ")
-                ),
+                RichSnippetPotential,
+                ContentSignalValues::text(seo.structured_data.rich_snippets_potential.join(", ")),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -300,7 +937,7 @@ fn build_organic_visibility(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal>
 }
 
 fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
-    use crate::assessment::AssessmentLevel;
+    use ContentVisibilitySignalKind::*;
 
     let lb_schema = seo.content_profile.as_ref().and_then(|cp| {
         cp.schema_inventory
@@ -322,12 +959,12 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
             .types
             .contains(&SchemaType::LocalBusiness)
     {
-        return vec![ContentSignal::new(
+        return vec![signal(
             ContentArea::Seo,
             AssessmentLevel::NotTestable,
             EvidenceConfidence::High,
-            "LocalBusiness-Schema nicht gefunden",
-            "Kein LocalBusiness JSON-LD auf dieser Seite — lokale Suchsignale nicht prüfbar.",
+            LocalBusinessNotFound,
+            ContentSignalValues::default(),
         )];
     }
 
@@ -385,11 +1022,12 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     let nap_complete = has_name && has_street && postal_ok && locality_ok && phone_ok;
 
     signals.push(if nap_complete {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "NAP vollständig (Name, Adresse, Telefon)",
-            "LocalBusiness enthält Name, Straße, PLZ, Ort und Telefonnummer.",
+            NapComplete,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -406,11 +1044,12 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
         .into_iter()
         .flatten()
         .collect();
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::High,
-            "NAP unvollständig",
-            format!("Fehlende Felder: {}.", missing.join(", ")),
+            NapIncomplete,
+            ContentSignalValues::text(missing.join(", ")),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -419,22 +1058,24 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     });
 
     signals.push(if has_geo {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "Geo-Koordinaten vorhanden",
-            "latitude und longitude in LocalBusiness.geo gesetzt.",
+            GeoPresent,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
                 .with_field("LocalBusiness.geo"),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::Medium,
-            "Geo-Koordinaten fehlen",
-            "LocalBusiness.geo.latitude/longitude nicht gesetzt — Maps-Integration eingeschränkt.",
+            GeoMissing,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::Medium)
@@ -443,22 +1084,24 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     });
 
     signals.push(if has_same_as {
-        ContentSignal::positive(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Positive,
             EvidenceConfidence::High,
-            "sameAs-Autoritätslinks vorhanden",
-            "LocalBusiness verweist auf externe Autoritätsquellen (Wikidata, Social, etc.).",
+            SameAsPresent,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
                 .with_field("LocalBusiness.sameAs"),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::Medium,
-            "sameAs fehlt",
-            "Keine sameAs-Links — Knowledge-Panel-Verknüpfung mit externen Quellen nicht möglich.",
+            SameAsMissing,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::Medium)
@@ -468,11 +1111,12 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
 
     if has_rating {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "aggregateRating vorhanden",
-                "Bewertungsdaten in Schema — ermöglicht Sterne-Snippet in SERPs.",
+                AggregateRating,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -488,6 +1132,7 @@ fn build_eeat(
     seo: &crate::seo::SeoAnalysis,
     source_quality: Option<&crate::source_quality::SourceQualityAnalysis>,
 ) -> Vec<ContentSignal> {
+    use ContentVisibilitySignalKind::*;
     let mut signals = Vec::new();
 
     // Organization schema
@@ -497,22 +1142,24 @@ fn build_eeat(
         .iter()
         .any(SchemaType::is_organization_like);
     signals.push(if has_org {
-        ContentSignal::positive(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Positive,
             EvidenceConfidence::High,
-            "Organization-Schema erkannt",
-            "Hinweis auf E-E-A-T: Entität ist als Organisation ausgewiesen.",
+            OrganizationSchema,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
                 .with_field("Organization"),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::Medium,
-            "Kein Organization-Schema",
-            "Fehlender Hinweis auf institutionelle Autorität.",
+            OrganizationSchemaMissing,
+            ContentSignalValues::default(),
         )
         .with_evidence(ContentEvidence::new(
             EvidenceSource::JsonLd,
@@ -536,18 +1183,12 @@ fn build_eeat(
                 .as_str()
                 .or_else(|| article.content["author"].as_str())
                 .unwrap_or("");
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "Autor in Article-Schema",
-                format!(
-                    "Hinweis auf E-E-A-T: Autor ist ausgewiesen{}",
-                    if author_name.is_empty() {
-                        String::new()
-                    } else {
-                        format!(" ({})", author_name)
-                    }
-                ),
+                ArticleAuthor,
+                ContentSignalValues::text(author_name),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -555,11 +1196,12 @@ fn build_eeat(
                     .with_value(author_name),
             )
         } else {
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Kein Autor in Article-Schema",
-                "Article-Schema ohne author-Feld — E-E-A-T-Signal fehlt.",
+                ArticleAuthorMissing,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -568,11 +1210,12 @@ fn build_eeat(
         });
 
         signals.push(if has_date {
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "Veröffentlichungsdatum vorhanden",
-                "datePublished in Article-Schema gesetzt — Aktualität signalisierbar.",
+                PublicationDate,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -580,15 +1223,16 @@ fn build_eeat(
                     .with_value(
                         article.content["datePublished"]
                             .as_str()
-                            .unwrap_or("(vorhanden)"),
+                            .unwrap_or("(present)"),
                     ),
             )
         } else {
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::High,
-                "Kein Veröffentlichungsdatum",
-                "datePublished fehlt — Google kann Aktualität nicht aus Schema ableiten.",
+                PublicationDateMissing,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -601,36 +1245,36 @@ fn build_eeat(
     if let Some(sq) = source_quality {
         let auth_score = sq.authority.score;
         signals.push(if auth_score >= 70 {
-            ContentSignal::positive(
+            signal(
                 ContentArea::SourceQuality,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::Medium,
-                "Starke Autoritätssignale",
-                format!("Source-Quality-Autorität: {}/100.", auth_score),
+                AuthorityStrong,
+                ContentSignalValues::score(auth_score),
             )
             .with_evidence(ContentEvidence::new(
                 EvidenceSource::Computed,
                 EvidenceConfidence::Medium,
             ))
         } else if auth_score >= 40 {
-            ContentSignal::warning(
+            signal(
                 ContentArea::SourceQuality,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::Medium,
-                "Schwache Autoritätssignale",
-                format!(
-                    "Source-Quality-Autorität: {}/100 — Impressum, Verlinkung oder Schema prüfen.",
-                    auth_score
-                ),
+                AuthorityWeak,
+                ContentSignalValues::score(auth_score),
             )
             .with_evidence(ContentEvidence::new(
                 EvidenceSource::Computed,
                 EvidenceConfidence::Medium,
             ))
         } else {
-            ContentSignal::violation(
+            signal(
                 ContentArea::SourceQuality,
+                AssessmentLevel::Violation,
                 EvidenceConfidence::Medium,
-                "Kaum Autoritätssignale erkannt",
-                format!("Source-Quality-Autorität: {}/100.", auth_score),
+                AuthorityHardlyAny,
+                ContentSignalValues::score(auth_score),
             )
             .with_evidence(ContentEvidence::new(
                 EvidenceSource::Computed,
@@ -646,17 +1290,19 @@ fn build_content_depth(
     seo: &crate::seo::SeoAnalysis,
     source_quality: Option<&crate::source_quality::SourceQualityAnalysis>,
 ) -> Vec<ContentSignal> {
+    use ContentVisibilitySignalKind::*;
     let mut signals = Vec::new();
     let tech = &seo.technical;
 
     // Word count
-    let wc = tech.word_count;
+    let wc = tech.word_count as usize;
     signals.push(if wc >= 600 {
-        ContentSignal::positive(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Positive,
             EvidenceConfidence::High,
-            "Gute Inhaltstiefe",
-            format!("{wc} Wörter — tiefergehender Inhalt erkennbar."),
+            WordCountGood,
+            ContentSignalValues::count(wc),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::High)
@@ -664,11 +1310,12 @@ fn build_content_depth(
                 .with_value(wc.to_string()),
         )
     } else if wc >= 300 {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "Ausreichende Wortanzahl",
-            format!("{wc} Wörter."),
+            WordCountSufficient,
+            ContentSignalValues::count(wc),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::High)
@@ -676,11 +1323,12 @@ fn build_content_depth(
                 .with_value(wc.to_string()),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::High,
-            "Wenig Inhalt",
-            format!("{wc} Wörter — Thin-Content-Risiko (empfohlen: ≥ 300)."),
+            WordCountLow,
+            ContentSignalValues::count(wc),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::High)
@@ -690,13 +1338,14 @@ fn build_content_depth(
     });
 
     // Internal links
-    let il = tech.internal_links;
+    let il = tech.internal_links as usize;
     signals.push(if il >= 5 {
-        ContentSignal::positive(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Positive,
             EvidenceConfidence::High,
-            "Gute interne Verlinkung",
-            format!("{il} interne Links — hilft Crawlern beim Entdecken verwandter Seiten."),
+            InternalLinksGood,
+            ContentSignalValues::count(il),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
@@ -704,22 +1353,24 @@ fn build_content_depth(
                 .with_value(il.to_string()),
         )
     } else if il >= 2 {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "Interne Verlinkung vorhanden",
-            format!("{il} interne Links."),
+            InternalLinksPresent,
+            ContentSignalValues::count(il),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
                 .with_field("internal_links"),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::High,
-            "Kaum interne Links",
-            format!("{il} interne Link(s) — Seite wirkt isoliert."),
+            InternalLinksFew,
+            ContentSignalValues::count(il),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
@@ -729,11 +1380,12 @@ fn build_content_depth(
 
     // Language
     signals.push(if tech.has_lang {
-        ContentSignal::pass(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Pass,
             EvidenceConfidence::High,
-            "Sprache definiert",
-            tech.lang.clone().unwrap_or_default(),
+            LanguageDefined,
+            ContentSignalValues::text(tech.lang.clone().unwrap_or_default()),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::DomAttribute, EvidenceConfidence::High)
@@ -741,11 +1393,12 @@ fn build_content_depth(
                 .with_value(tech.lang.as_deref().unwrap_or("")),
         )
     } else {
-        ContentSignal::warning(
+        signal(
             ContentArea::Seo,
+            AssessmentLevel::Warning,
             EvidenceConfidence::High,
-            "Sprache nicht definiert",
-            "Kein lang-Attribut am <html>-Element — Internationalisierungsproblem.",
+            LanguageNotDefined,
+            ContentSignalValues::default(),
         )
         .with_evidence(
             ContentEvidence::new(EvidenceSource::DomAttribute, EvidenceConfidence::High)
@@ -757,22 +1410,24 @@ fn build_content_depth(
     if let Some(sq) = source_quality {
         let sub_score = sq.substance.score;
         signals.push(if sub_score >= 70 {
-            ContentSignal::positive(
+            signal(
                 ContentArea::SourceQuality,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::Medium,
-                "Gute inhaltliche Substanz",
-                format!("Substanz-Score: {sub_score}/100."),
+                SubstanceGood,
+                ContentSignalValues::score(sub_score),
             )
             .with_evidence(ContentEvidence::new(
                 EvidenceSource::Computed,
                 EvidenceConfidence::Medium,
             ))
         } else {
-            ContentSignal::warning(
+            signal(
                 ContentArea::SourceQuality,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::Medium,
-                "Schwache inhaltliche Substanz",
-                format!("Substanz-Score: {sub_score}/100 — Inhalt, Struktur oder Quellen prüfen."),
+                SubstanceWeak,
+                ContentSignalValues::score(sub_score),
             )
             .with_evidence(ContentEvidence::new(
                 EvidenceSource::Computed,
@@ -789,7 +1444,7 @@ fn build_topical_authority(
     ai_visibility: Option<&crate::ai_visibility::AiVisibilityAnalysis>,
     patterns: Option<&crate::patterns::PatternAnalysis>,
 ) -> Vec<ContentSignal> {
-    use crate::assessment::AssessmentLevel;
+    use ContentVisibilitySignalKind::*;
 
     let mut signals = Vec::new();
 
@@ -797,11 +1452,12 @@ fn build_topical_authority(
     let schema_count = seo.structured_data.json_ld.len();
     if schema_count >= 3 {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::Medium,
-                "Breite Schema-Abdeckung",
-                format!("{schema_count} Schemas — thematische Vielfalt erkennbar."),
+                SchemaBroad,
+                ContentSignalValues::count(schema_count),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -811,11 +1467,12 @@ fn build_topical_authority(
         );
     } else if schema_count > 0 {
         signals.push(
-            ContentSignal::pass(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Pass,
                 EvidenceConfidence::Medium,
-                "Schema-Daten vorhanden",
-                format!("{schema_count} Schema(s) gefunden."),
+                SchemaPresent,
+                ContentSignalValues::count(schema_count),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -828,11 +1485,12 @@ fn build_topical_authority(
     let has_faq = seo.structured_data.types.contains(&SchemaType::FAQPage);
     if has_faq {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "FAQPage-Schema vorhanden",
-                "Themenabdeckung durch FAQ-Fragen signalisiert — gut für Featured Snippets.",
+                FaqPage,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -848,11 +1506,12 @@ fn build_topical_authority(
         .contains(&SchemaType::BreadcrumbList);
     if has_breadcrumb {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "BreadcrumbList erkannt",
-                "Seite ist in einem Inhalts-Cluster eingebettet — Hinweis auf thematische Struktur.",
+                BreadcrumbList,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -864,14 +1523,12 @@ fn build_topical_authority(
     // Hreflang → multilingual content authority
     if seo.technical.has_hreflang {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "Mehrsprachige Inhalte (hreflang)",
-                format!(
-                    "{} Sprachvarianten verknüpft.",
-                    seo.technical.hreflang.len()
-                ),
+                Hreflang,
+                ContentSignalValues::count(seo.technical.hreflang.len()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Meta, EvidenceConfidence::High)
@@ -885,11 +1542,12 @@ fn build_topical_authority(
         let chunk_score = ai.chunks.dimension.score;
         if chunk_score >= 70 {
             signals.push(
-                ContentSignal::positive(
+                signal(
                     ContentArea::AiVisibility,
+                    AssessmentLevel::Positive,
                     EvidenceConfidence::Medium,
-                    "Gute LLM-Chunk-Qualität",
-                    format!("AI-Chunk-Score: {chunk_score}/100 — Inhalt für KI-Zitierbarkeit gut strukturiert."),
+                    LlmChunkQuality,
+                    ContentSignalValues::score(chunk_score),
                 )
                 .with_evidence(ContentEvidence::new(
                     EvidenceSource::Computed,
@@ -900,16 +1558,15 @@ fn build_topical_authority(
     }
 
     // Internal link cluster — proxy for site embeddedness
-    let internal_links = seo.technical.internal_links;
+    let internal_links = seo.technical.internal_links as usize;
     if internal_links >= 10 {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::Medium,
-                "Internes Linkgeflecht erkennbar",
-                format!(
-                    "{internal_links} interne Links — Seite ist in ein Themencluster eingebettet."
-                ),
+                LinkMesh,
+                ContentSignalValues::count(internal_links),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
@@ -919,11 +1576,12 @@ fn build_topical_authority(
         );
     } else if internal_links >= 3 {
         signals.push(
-            ContentSignal::pass(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Pass,
                 EvidenceConfidence::Medium,
-                "Interne Verlinkung vorhanden",
-                format!("{internal_links} interne Links gefunden."),
+                LinkClusterPresent,
+                ContentSignalValues::count(internal_links),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
@@ -933,11 +1591,12 @@ fn build_topical_authority(
         );
     } else if internal_links == 0 {
         signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::Medium,
-                "Keine internen Links",
-                "Seite wirkt isoliert — fehlende Cluster-Einbettung schwächt topische Autorität.",
+                LinkClusterNone,
+                ContentSignalValues::default(),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::Link, EvidenceConfidence::High)
@@ -956,11 +1615,12 @@ fn build_topical_authority(
         .count();
     if h2_plus_count >= 5 {
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Content,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::Medium,
-                "Thematische Gliederung erkennbar",
-                format!("{h2_plus_count} Unterüberschriften (H2+) — breite Themenabdeckung im Single-Durchlauf sichtbar."),
+                HeadingDiversityBroad,
+                ContentSignalValues::count(h2_plus_count),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::Medium)
@@ -970,11 +1630,12 @@ fn build_topical_authority(
         );
     } else if h2_plus_count >= 2 {
         signals.push(
-            ContentSignal::pass(
+            signal(
                 ContentArea::Content,
+                AssessmentLevel::Pass,
                 EvidenceConfidence::Medium,
-                "Grundstruktur durch Überschriften vorhanden",
-                format!("{h2_plus_count} Unterüberschriften (H2+) gefunden."),
+                HeadingDiversityBasic,
+                ContentSignalValues::count(h2_plus_count),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::Medium)
@@ -984,11 +1645,12 @@ fn build_topical_authority(
         );
     } else {
         signals.push(
-            ContentSignal::warning(
+            signal(
                 ContentArea::Content,
+                AssessmentLevel::Warning,
                 EvidenceConfidence::Low,
-                "Flache Inhaltsstruktur",
-                "Weniger als 2 Unterüberschriften — Themenabdeckung im Single-Durchlauf nicht erkennbar.",
+                HeadingDiversityFlat,
+                ContentSignalValues::count(h2_plus_count),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::VisibleText, EvidenceConfidence::Medium)
@@ -1035,11 +1697,12 @@ fn build_topical_authority(
             .map(|t| format!("{t:?}"))
             .unwrap_or_default();
         signals.push(
-            ContentSignal::positive(
+            signal(
                 ContentArea::Seo,
+                AssessmentLevel::Positive,
                 EvidenceConfidence::High,
-                "Inhaltstyp durch Schema identifiziert",
-                format!("{schema_label}-Schema vorhanden — Seitentyp für Suchmaschinen eindeutig erkennbar."),
+                ContentTypeSchema,
+                ContentSignalValues::text(schema_label.clone()),
             )
             .with_evidence(
                 ContentEvidence::new(EvidenceSource::JsonLd, EvidenceConfidence::High)
@@ -1057,11 +1720,12 @@ fn build_topical_authority(
             .any(|p| p.pattern == "Accordion" || p.pattern == "DisclosureMenu");
         if has_structured_content {
             signals.push(
-                ContentSignal::pass(
+                signal(
                     ContentArea::Content,
+                    AssessmentLevel::Pass,
                     EvidenceConfidence::Medium,
-                    "Strukturierte Inhaltsabschnitte erkannt",
-                    "Accordion oder Disclosure-Pattern gefunden — Hinweis auf thematisch gegliederte Inhalte.",
+                    StructuredContentSections,
+                    ContentSignalValues::default(),
                 )
                 .with_evidence(
                     ContentEvidence::new(EvidenceSource::AxTree, EvidenceConfidence::Medium)
@@ -1072,13 +1736,12 @@ fn build_topical_authority(
     }
 
     // Always: not-testable for true authority
-    signals.push(ContentSignal::new(
+    signals.push(signal(
         ContentArea::Content,
         AssessmentLevel::NotTestable,
         EvidenceConfidence::High,
-        "Echte Topical Authority (nicht prüfbar im Single-Durchlauf)",
-        "Backlinks, SERP-Positionen, historische Performance und Domain-Alter \
-         können automatisiert nicht bewertet werden.",
+        TrueTopicalAuthorityNotTestable,
+        ContentSignalValues::default(),
     ));
 
     signals
@@ -1145,9 +1808,8 @@ mod tests {
         let mut seo = minimal_seo();
         seo.meta.title = None;
         let signals = build_organic_visibility(&seo);
-        assert!(signals
-            .iter()
-            .any(|s| s.level == AssessmentLevel::Violation && s.title.contains("Title fehlt")));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Violation
+            && s.cv_kind == Some(ContentVisibilitySignalKind::TitleMissing)));
     }
 
     #[test]
@@ -1194,9 +1856,8 @@ mod tests {
         let mut seo = minimal_seo();
         seo.meta.title = Some("Short".to_string()); // 5 chars < 30
         let signals = build_organic_visibility(&seo);
-        assert!(signals
-            .iter()
-            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("Title zu kurz")));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
+            && s.cv_kind == Some(ContentVisibilitySignalKind::TitleTooShort)));
     }
 
     #[test]
@@ -1204,9 +1865,8 @@ mod tests {
         let mut seo = minimal_seo();
         seo.meta.title = Some("A".repeat(61)); // 61 chars > 60
         let signals = build_organic_visibility(&seo);
-        assert!(signals
-            .iter()
-            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("Title zu lang")));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
+            && s.cv_kind == Some(ContentVisibilitySignalKind::TitleTooLong)));
     }
 
     #[test]
@@ -1214,10 +1874,8 @@ mod tests {
         let mut seo = minimal_seo();
         seo.meta.description = Some("Too short".to_string()); // < 120
         let signals = build_organic_visibility(&seo);
-        assert!(signals.iter().any(|s| {
-            s.level == AssessmentLevel::Warning
-                && s.title.contains("Description außerhalb optimaler Länge")
-        }));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
+            && s.cv_kind == Some(ContentVisibilitySignalKind::DescriptionLength)));
     }
 
     #[test]
@@ -1225,19 +1883,16 @@ mod tests {
         let mut seo = minimal_seo();
         seo.meta.description = Some("A".repeat(161)); // > 160
         let signals = build_organic_visibility(&seo);
-        assert!(signals.iter().any(|s| {
-            s.level == AssessmentLevel::Warning
-                && s.title.contains("Description außerhalb optimaler Länge")
-        }));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
+            && s.cv_kind == Some(ContentVisibilitySignalKind::DescriptionLength)));
     }
 
     #[test]
     fn eeat_no_organization_schema_is_warning() {
         let seo = minimal_seo();
         let signals = build_eeat(&seo, None);
-        assert!(signals
-            .iter()
-            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("Kein Organization")));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
+            && s.cv_kind == Some(ContentVisibilitySignalKind::OrganizationSchemaMissing)));
     }
 
     fn make_json_ld(
@@ -1266,9 +1921,8 @@ mod tests {
             ..Default::default()
         };
         let signals = build_eeat(&seo, None);
-        assert!(signals.iter().any(|s| {
-            s.level == AssessmentLevel::Positive && s.title.contains("Organization-Schema")
-        }));
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Positive
+            && s.cv_kind == Some(ContentVisibilitySignalKind::OrganizationSchema)));
     }
 
     #[test]
@@ -1285,8 +1939,112 @@ mod tests {
             ..Default::default()
         };
         let signals = build_local_business(&seo);
-        assert!(signals
+        assert!(signals.iter().any(|s| s.level == AssessmentLevel::Warning
+            && s.cv_kind == Some(ContentVisibilitySignalKind::NapIncomplete)));
+    }
+
+    fn report_with_seo(seo: crate::seo::SeoAnalysis) -> AuditReport {
+        use crate::audit::ViolationStatistics;
+        use crate::cli::WcagLevel;
+        use crate::wcag::WcagResults;
+        AuditReport {
+            url: "https://example.com".into(),
+            wcag_level: WcagLevel::AA,
+            timestamp: chrono::Utc::now(),
+            wcag_results: WcagResults::new(),
+            score: 95.0,
+            grade: "A".into(),
+            certificate: "SEHR GUT".into(),
+            statistics: ViolationStatistics {
+                critical: 0,
+                high: 0,
+                medium: 0,
+                low: 0,
+                total: 0,
+            },
+            nodes_analyzed: 100,
+            duration_ms: 1000,
+            performance: None,
+            seo: Some(seo),
+            security: None,
+            mobile: None,
+            budget_violations: vec![],
+            ux: None,
+            journey: None,
+            dark_mode: None,
+            source_quality: None,
+            ai_visibility: None,
+            content_visibility: None,
+            tech_stack: None,
+            page_screenshots: None,
+            dual_viewport: None,
+            viewport_scores: None,
+            throttled_performance: vec![],
+            patterns: None,
+            screenshot_status: Default::default(),
+            best_practices: None,
+            consent_banner_detected: false,
+            consent_banner_cmp: None,
+            consent_banner_dismissed: false,
+            accessibility_journey: None,
+            interactive_findings: Vec::new(),
+            advisory_findings: Vec::new(),
+            screen_reader_audit: None,
+        }
+    }
+
+    #[test]
+    fn canonical_struct_has_no_german_chars() {
+        // Use a deliberately problematic SEO profile so every code path
+        // (violations, warnings, passes) contributes visible strings.
+        let mut seo = minimal_seo();
+        seo.meta.title = None;
+        seo.meta.description = None;
+        seo.headings.h1_count = 0;
+        seo.technical.https = false;
+        seo.technical.has_canonical = false;
+        seo.technical.has_lang = false;
+        seo.technical.word_count = 50;
+        seo.technical.internal_links = 0;
+        let report = report_with_seo(seo);
+
+        // The struct (and thus JSON) is always canonical English now.
+        let analysis = analyze_content_visibility(&report);
+        let all = analysis
+            .organic_visibility
             .iter()
-            .any(|s| s.level == AssessmentLevel::Warning && s.title.contains("NAP unvollständig")));
+            .chain(&analysis.local_business)
+            .chain(&analysis.eeat)
+            .chain(&analysis.content_depth)
+            .chain(&analysis.topical_authority);
+        for sig in all {
+            let combined = format!("{}{}", sig.title, sig.detail);
+            assert!(
+                !combined.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
+                "German characters in canonical struct: {combined:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn signal_text_german_for_pdf_derivation() {
+        // PDF re-derivation must yield real German for at least one variant.
+        let (title, detail) = content_visibility_signal_text(
+            ContentVisibilitySignalKind::WordCountLow,
+            &ContentSignalValues::count(120),
+            false,
+        );
+        assert_eq!(title, "Wenig Inhalt");
+        assert!(detail.contains("Wörter"));
+        assert!(detail.contains("Thin-Content"));
+
+        // English is the canonical baked variant.
+        let (title_en, detail_en) = content_visibility_signal_text(
+            ContentVisibilitySignalKind::WordCountLow,
+            &ContentSignalValues::count(120),
+            true,
+        );
+        assert_eq!(title_en, "Little content");
+        assert!(detail_en.contains("words"));
     }
 }

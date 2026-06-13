@@ -37,9 +37,9 @@ pub use normalized::{normalize, AuditContext, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_recurring_rules, compute_worst_risk, AuditReport, BatchError, BatchReport,
-    BatchSummary, BrokenLink, BrokenLinkSeverity, CrawlDiagnostics, PerformanceResults,
-    RecurringRule, RedirectChain, SampleMetadata, ScreenshotStatus, ThrottledPerfResult,
-    ViewportScoreSet, ViewportScores, ViewportScreenshot,
+    BatchSummary, BrokenLink, BrokenLinkSeverity, CrawlDiagnostics, DualViewportResults,
+    PerformanceResults, RecurringRule, RedirectChain, SampleMetadata, ScreenshotStatus,
+    ThrottledPerfResult, ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

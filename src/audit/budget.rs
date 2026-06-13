@@ -78,6 +78,9 @@ impl BudgetViolation {
 
 /// Evaluate all configured budget limits against the report.
 /// Returns an empty vec if no budgets are configured or no performance data is available.
+/// Evaluate performance budgets. Metric names are baked in canonical English
+/// (so the stored report / JSON is language-independent); the PDF re-localizes
+/// the few translatable metric names at render time (#406).
 pub fn evaluate_budgets(report: &AuditReport, config: &BudgetConfig) -> Vec<BudgetViolation> {
     if config.is_empty() {
         return Vec::new();
@@ -145,7 +148,7 @@ pub fn evaluate_budgets(report: &AuditReport, config: &BudgetConfig) -> Vec<Budg
             let actual_kb = cw.breakdown.javascript.bytes as f64 / 1024.0;
             if actual_kb > limit_kb {
                 violations.push(BudgetViolation::new(
-                    "JS-Größe",
+                    "JS size",
                     format!("≤ {limit_kb:.0} KB"),
                     format!("{actual_kb:.0} KB"),
                     limit_kb,
@@ -158,7 +161,7 @@ pub fn evaluate_budgets(report: &AuditReport, config: &BudgetConfig) -> Vec<Budg
             let actual_kb = cw.breakdown.css.bytes as f64 / 1024.0;
             if actual_kb > limit_kb {
                 violations.push(BudgetViolation::new(
-                    "CSS-Größe",
+                    "CSS size",
                     format!("≤ {limit_kb:.0} KB"),
                     format!("{actual_kb:.0} KB"),
                     limit_kb,
@@ -171,7 +174,7 @@ pub fn evaluate_budgets(report: &AuditReport, config: &BudgetConfig) -> Vec<Budg
             let actual_kb = cw.total_bytes as f64 / 1024.0;
             if actual_kb > limit_kb {
                 violations.push(BudgetViolation::new(
-                    "Seitengröße",
+                    "Page size",
                     format!("≤ {limit_kb:.0} KB"),
                     format!("{actual_kb:.0} KB"),
                     limit_kb,

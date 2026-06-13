@@ -609,10 +609,12 @@ fn test_module_weights_correct() {
             "Accessibility" => 40,
             "Performance" => 20,
             "SEO" => 20,
-            "UX" => 15,
-            "Journey" => 10,
             "Security" => 10,
             "Mobile" => 10,
+            // Indicator modules do not contribute to the overall score, so their
+            // displayed weight is 0 (#447).
+            "UX" | "Journey" | "Best Practices" | "Dark Mode" | "AI Visibility"
+            | "Source Quality" | "Tech Stack" => 0,
             _ => panic!("Unknown module: {}", m.name),
         };
         assert_eq!(
@@ -889,8 +891,8 @@ fn test_journey_module_weight() {
     assert!(journey_entry.is_some(), "Journey must be in module_scores");
     assert_eq!(
         journey_entry.unwrap().weight_pct,
-        10,
-        "Journey weight must be 10%"
+        0,
+        "Journey is an indicator module — weight must be 0% (#447)"
     );
 }
 

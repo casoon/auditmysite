@@ -6,11 +6,12 @@
 use serde::{Deserialize, Serialize};
 
 /// 6 Standard-Issue-Klassen
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IssueClass {
     /// Etwas fehlt, das vorhanden sein sollte
     /// z.B. fehlender Alt-Text, fehlendes lang-Attribut, fehlender HSTS Header
+    #[default]
     Missing,
 
     /// Vorhanden, aber falsch oder ungültig
@@ -40,21 +41,32 @@ impl IssueClass {
         !matches!(self, IssueClass::Opportunity | IssueClass::Informational)
     }
 
-    /// Nutzerfreundlicher Label (deutsch)
-    pub fn label(&self) -> &'static str {
-        match self {
-            IssueClass::Missing => "Fehlend",
-            IssueClass::Invalid => "Ungültig",
-            IssueClass::Weak => "Schwach",
-            IssueClass::Risk => "Risiko",
-            IssueClass::Opportunity => "Optimierungspotenzial",
-            IssueClass::Informational => "Hinweis",
+    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch).
+    pub fn label(&self, en: bool) -> &'static str {
+        if en {
+            match self {
+                IssueClass::Missing => "Missing",
+                IssueClass::Invalid => "Invalid",
+                IssueClass::Weak => "Weak",
+                IssueClass::Risk => "Risk",
+                IssueClass::Opportunity => "Opportunity",
+                IssueClass::Informational => "Informational",
+            }
+        } else {
+            match self {
+                IssueClass::Missing => "Fehlend",
+                IssueClass::Invalid => "Ungültig",
+                IssueClass::Weak => "Schwach",
+                IssueClass::Risk => "Risiko",
+                IssueClass::Opportunity => "Optimierungspotenzial",
+                IssueClass::Informational => "Hinweis",
+            }
         }
     }
 }
 
 impl std::fmt::Display for IssueClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.label())
+        write!(f, "{}", self.label(false))
     }
 }

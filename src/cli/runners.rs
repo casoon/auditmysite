@@ -75,7 +75,7 @@ pub async fn run_single_mode(
                     OutputFormat::Json => {
                         let output = format_json_cached(&cached.audit, true)?;
                         output_text(&output, &args.output, "JSON", args.quiet)?;
-                        let report = to_audit_report(&cached);
+                        let report = to_audit_report(&cached, &args.lang);
                         output_screen_reader_sidecar(&report, args)?;
                         let verdict_cfg = config
                             .as_ref()
@@ -89,7 +89,7 @@ pub async fn run_single_mode(
                     | OutputFormat::Pdf
                     | OutputFormat::Ai
                     | OutputFormat::Summary => {
-                        let report = to_audit_report(&cached);
+                        let report = to_audit_report(&cached, &args.lang);
                         output_single_report(&report, args, None)?;
                         let normalized = normalize(&report).normalized;
                         let verdict_cfg = config

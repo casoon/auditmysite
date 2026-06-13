@@ -39,6 +39,16 @@ async fn eval_int(page: &Page, js: &str) -> Option<i64> {
     result.result.result.value?.as_i64()
 }
 
+async fn eval_string(page: &Page, js: &str) -> Option<String> {
+    let params = EvaluateParams::builder()
+        .expression(js.to_string())
+        .return_by_value(true)
+        .build()
+        .ok()?;
+    let result = page.execute(params).await.ok()?;
+    result.result.result.value?.as_str().map(|s| s.to_string())
+}
+
 /// Check whether a live announcement appeared after submit.
 ///
 /// Returns (live_announcement_present, aria_invalid_count, linked_to_error_count).
@@ -107,6 +117,11 @@ pub async fn test(
         snapshot_label: Some("before_submit".to_string()),
     });
 
+    // Capture the URL before submit so we can later distinguish a silently
+    // swallowed error from a navigation (HTML5 native validation / server-side
+    // validation page both change the URL).
+    let initial_href = eval_string(page, "window.location.href").await;
+
     // Click submit trigger without filling required fields.
     let Some(trigger_id) = candidate.trigger_backend_id else {
         return Ok((trace, findings));
@@ -159,23 +174,27 @@ pub async fn test(
     // If neither live region nor aria-invalid appeared, the form submits
     // silently — errors are not announced at all.
     if !new_live && !new_invalid {
-        // Could be: (a) form performs HTML5 native validation (OK), or
-        // (b) form silently swallows the error (bad). We check whether
-        // the page URL changed (navigation = possible success / HTML5 validation).
-        let url_changed = eval_bool(
-            page,
-            &format!(
-                "window.location.href !== {:?}",
-                // initial_url not available here; use a heuristic: if hash/path changed.
-                "#PLACEHOLDER"
-            ),
-        )
-        .await
-        .unwrap_or(false);
-        let _ = url_changed; // informational only
+        // Could be: (a) form performs HTML5 native validation or navigates to a
+        // server-side validation/success page (OK — the error is not silently
+        // swallowed), or (b) the form silently swallows the error (bad). We
+        // distinguish the two by comparing the URL against the pre-submit value:
+        // a changed URL means a navigation happened, so we do not flag it.
+        let url_changed = match (
+            &initial_href,
+            eval_string(page, "window.location.href").await,
+        ) {
+            (Some(before), Some(after)) => before != &after,
+            // If we could not read the URL on either side, fall back to treating
+            // it as "no navigation" so a genuinely silent form is still caught.
+            _ => false,
+        };
 
-        // Emit violation only when errors actually should have appeared.
-        // Heuristic: if no aria-invalid AND no live region, it's silent.
+        if url_changed {
+            return Ok((trace, findings));
+        }
+
+        // No navigation and neither aria-invalid nor a live region appeared:
+        // the form swallowed the error silently.
         findings.push(InteractiveFinding {
             category: "FormError".to_string(),
             maps_to_finding: None,

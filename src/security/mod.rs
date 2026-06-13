@@ -7,6 +7,7 @@ pub use module::SecurityModule;
 
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tracing::info;
 
 use crate::error::{AuditError, Result};
@@ -342,6 +343,8 @@ pub(crate) fn generate_security_issues(
             message: "Missing Content-Security-Policy header".to_string(),
             severity: Severity::High,
         });
+    } else if let Some(ref csp) = headers.content_security_policy {
+        issues.extend(collect_csp_quality_issues(csp));
     }
 
     if headers.x_content_type_options.is_none() {
@@ -410,6 +413,160 @@ pub(crate) fn generate_security_issues(
     issues
 }
 
+fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
+    let directives = parse_csp_directives(policy);
+    let mut issues = Vec::new();
+
+    let effective_script = directive_values(&directives, "script-src")
+        .or_else(|| directive_values(&directives, "default-src"))
+        .unwrap_or_default();
+    if effective_script.contains(&"'unsafe-inline'") && !has_nonce_or_hash(effective_script) {
+        issues.push(csp_issue(
+            "unsafe_inline_script",
+            "CSP allows unsafe-inline scripts without nonce/hash protection",
+            Severity::High,
+        ));
+    }
+    if effective_script.contains(&"'unsafe-eval'") {
+        issues.push(csp_issue(
+            "unsafe_eval_script",
+            "CSP allows unsafe-eval in script sources",
+            Severity::High,
+        ));
+    }
+    if has_wildcard_source(effective_script) {
+        issues.push(csp_issue(
+            "wildcard_script_source",
+            "CSP allows wildcard script sources",
+            Severity::High,
+        ));
+    }
+
+    let effective_style = directive_values(&directives, "style-src")
+        .or_else(|| directive_values(&directives, "default-src"))
+        .unwrap_or_default();
+    if effective_style.contains(&"'unsafe-inline'") && !has_nonce_or_hash(effective_style) {
+        issues.push(csp_issue(
+            "unsafe_inline_style",
+            "CSP allows unsafe-inline styles without nonce/hash protection",
+            Severity::Medium,
+        ));
+    }
+
+    if has_wildcard_source(
+        directives
+            .values()
+            .flatten()
+            .copied()
+            .collect::<Vec<_>>()
+            .as_slice(),
+    ) {
+        issues.push(csp_issue(
+            "wildcard_source",
+            "CSP contains wildcard source expressions",
+            Severity::Medium,
+        ));
+    }
+
+    for (directive, severity) in [
+        ("object-src", Severity::Medium),
+        ("base-uri", Severity::Medium),
+        ("frame-ancestors", Severity::Medium),
+    ] {
+        if !directives.contains_key(directive) {
+            issues.push(csp_issue(
+                &format!("missing_{directive}"),
+                &format!("CSP missing {directive} directive"),
+                severity,
+            ));
+        }
+    }
+
+    issues
+}
+
+fn generate_csp_recommendations(policy: &str) -> Vec<String> {
+    let issue_types: std::collections::BTreeSet<_> = collect_csp_quality_issues(policy)
+        .into_iter()
+        .map(|issue| issue.issue_type)
+        .collect();
+    let mut recommendations = Vec::new();
+
+    if issue_types.contains("unsafe_inline_script") || issue_types.contains("unsafe_inline_style") {
+        recommendations.push(
+            "Remove unsafe-inline from CSP or replace it with nonces/hashes for approved inline code"
+                .to_string(),
+        );
+    }
+    if issue_types.contains("unsafe_eval_script") {
+        recommendations.push(
+            "Remove unsafe-eval from script-src; avoid runtime string evaluation in production"
+                .to_string(),
+        );
+    }
+    if issue_types.contains("wildcard_script_source") || issue_types.contains("wildcard_source") {
+        recommendations
+            .push("Replace wildcard CSP sources with explicit trusted origins".to_string());
+    }
+    if issue_types
+        .iter()
+        .any(|issue| issue.starts_with("missing_"))
+    {
+        recommendations.push(
+            "Harden CSP with object-src 'none', base-uri 'self', and frame-ancestors 'none' or a trusted origin"
+                .to_string(),
+        );
+    }
+
+    recommendations
+}
+
+fn csp_issue(issue_type: &str, message: &str, severity: Severity) -> SecurityIssue {
+    SecurityIssue {
+        header: "Content-Security-Policy".to_string(),
+        issue_type: issue_type.to_string(),
+        message: message.to_string(),
+        severity,
+    }
+}
+
+fn parse_csp_directives(policy: &str) -> BTreeMap<String, Vec<&str>> {
+    let mut directives = BTreeMap::new();
+    for directive in policy.split(';') {
+        let mut parts = directive.split_whitespace();
+        let Some(name) = parts.next() else {
+            continue;
+        };
+        directives.insert(name.to_ascii_lowercase(), parts.collect());
+    }
+    directives
+}
+
+fn directive_values<'a>(
+    directives: &'a BTreeMap<String, Vec<&'a str>>,
+    name: &str,
+) -> Option<&'a [&'a str]> {
+    directives.get(name).map(Vec::as_slice)
+}
+
+fn has_nonce_or_hash(values: &[&str]) -> bool {
+    values.iter().any(|value| {
+        value.starts_with("'nonce-")
+            || value.starts_with("'sha256-")
+            || value.starts_with("'sha384-")
+            || value.starts_with("'sha512-")
+    })
+}
+
+fn has_wildcard_source(values: &[&str]) -> bool {
+    values.iter().any(|value| {
+        *value == "*"
+            || value.starts_with("*.")
+            || value.starts_with("https://*")
+            || value.starts_with("http://*")
+    })
+}
+
 fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<String> {
     let mut recommendations = Vec::new();
 
@@ -421,6 +578,8 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
         recommendations.push(
             "Add Content-Security-Policy header to prevent XSS and data injection".to_string(),
         );
+    } else if let Some(ref csp) = headers.content_security_policy {
+        recommendations.extend(generate_csp_recommendations(csp));
     }
 
     if headers.x_content_type_options.is_none() {
@@ -512,7 +671,7 @@ mod tests {
     #[test]
     fn test_security_headers_count() {
         let headers = SecurityHeaders {
-            content_security_policy: Some("default-src 'self'".to_string()),
+            content_security_policy: Some(strong_csp()),
             x_content_type_options: Some("nosniff".to_string()),
             x_frame_options: Some("DENY".to_string()),
             ..Default::default()
@@ -613,7 +772,7 @@ mod tests {
     #[test]
     fn test_generate_security_issues_all_headers_present() {
         let headers = SecurityHeaders {
-            content_security_policy: Some("default-src 'self'".to_string()),
+            content_security_policy: Some(strong_csp()),
             x_content_type_options: Some("nosniff".to_string()),
             x_frame_options: Some("DENY".to_string()),
             strict_transport_security: Some("max-age=31536000".to_string()),
@@ -624,6 +783,51 @@ mod tests {
         };
         let issues = generate_security_issues(&headers, true);
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_csp_quality_flags_unsafe_and_wildcards() {
+        let issues = collect_csp_quality_issues(
+            "default-src *; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*",
+        );
+
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "unsafe_inline_script"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "unsafe_eval_script"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "wildcard_script_source"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "missing_object-src"));
+    }
+
+    #[test]
+    fn test_csp_quality_accepts_nonce_hardened_policy() {
+        let issues = collect_csp_quality_issues(
+            "default-src 'self'; script-src 'self' 'nonce-abc123'; style-src 'self' 'sha256-abc'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+        );
+
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_csp_recommendations_explain_quality_findings() {
+        let recommendations =
+            generate_csp_recommendations("default-src *; script-src 'unsafe-inline' 'unsafe-eval'");
+
+        assert!(recommendations
+            .iter()
+            .any(|recommendation| recommendation.contains("unsafe-inline")));
+        assert!(recommendations
+            .iter()
+            .any(|recommendation| recommendation.contains("unsafe-eval")));
+        assert!(recommendations
+            .iter()
+            .any(|recommendation| recommendation.contains("wildcard")));
     }
 
     #[test]
@@ -661,5 +865,9 @@ mod tests {
         let score = calculate_security_score(&headers, &ssl, &issues);
         // Should lose points for critical (HTTPS) + high (CSP) + medium (XCT, XFO) + low (referrer)
         assert!(score < 50);
+    }
+
+    fn strong_csp() -> String {
+        "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'".to_string()
     }
 }

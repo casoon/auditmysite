@@ -219,6 +219,18 @@ pub struct ContentSignal {
     pub detail: String,
     /// Machine-readable provenance (may be empty for derived signals).
     pub evidence: Vec<ContentEvidence>,
+    /// Stable kind for content-visibility signals, enabling localized
+    /// re-derivation of `title`/`detail` from `cv_values` in the PDF layer.
+    /// `None` for signals produced outside content-visibility analysis.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cv_kind: Option<crate::content_visibility::ContentVisibilitySignalKind>,
+    /// Interpolated values needed to reproduce `title`/`detail` in another
+    /// language. Only meaningful when `cv_kind` is set.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::content_visibility::ContentSignalValues::is_empty"
+    )]
+    pub cv_values: crate::content_visibility::ContentSignalValues,
 }
 
 impl ContentSignal {
@@ -236,7 +248,21 @@ impl ContentSignal {
             title: title.into(),
             detail: detail.into(),
             evidence: vec![],
+            cv_kind: None,
+            cv_values: crate::content_visibility::ContentSignalValues::default(),
         }
+    }
+
+    /// Attach a content-visibility kind and its interpolated values so the PDF
+    /// layer can re-derive localized `title`/`detail`.
+    pub fn with_cv(
+        mut self,
+        kind: crate::content_visibility::ContentVisibilitySignalKind,
+        values: crate::content_visibility::ContentSignalValues,
+    ) -> Self {
+        self.cv_kind = Some(kind);
+        self.cv_values = values;
+        self
     }
 
     pub fn with_evidence(mut self, ev: ContentEvidence) -> Self {

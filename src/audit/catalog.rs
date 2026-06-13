@@ -8,11 +8,8 @@
 //!   (called from `aggregate_report` for post-processing modules).
 //!
 //! Design notes:
-//! - Cycles are configuration bugs that must surface in development. They
-//!   panic with a message naming the involved IDs — not an `Err` the caller
-//!   could route around.
-//! - Unknown dependencies and duplicate IDs are recoverable misconfigurations
-//!   and return `AuditError::ConfigError`.
+//! - Cycles, unknown dependencies and duplicate IDs are catalog configuration
+//!   errors and return `AuditError::ConfigError`.
 //! - Among modules whose dependencies are satisfied at the same Kahn step,
 //!   the lexicographically smallest `id()` wins. That makes the result
 //!   invariant to the order modules were registered in, which keeps cache
@@ -106,12 +103,8 @@ impl AuditCatalog {
     /// Every module in dependency order via Kahn's algorithm.
     ///
     /// # Errors
-    /// `AuditError::ConfigError` if a module declares an unknown dependency
-    /// or if duplicate IDs are registered.
-    ///
-    /// # Panics
-    /// Panics on cycle. The message lists the IDs that remained with unmet
-    /// dependencies — those form the cycle (plus anything downstream of it).
+    /// `AuditError::ConfigError` if a module declares an unknown dependency,
+    /// if duplicate IDs are registered, or if a dependency cycle is detected.
     pub fn topo_sorted(&self) -> Result<Vec<&dyn AuditModule>> {
         let mut idx_of: BTreeMap<&'static str, usize> = BTreeMap::new();
         for (i, m) in self.modules.iter().enumerate() {
@@ -175,7 +168,10 @@ impl AuditCatalog {
                 .iter()
                 .filter_map(|(id, &deg)| if deg > 0 { Some(*id) } else { None })
                 .collect();
-            panic!("cycle detected in audit catalog among modules: {:?}", cycle);
+            return Err(AuditError::ConfigError(format!(
+                "cycle detected in audit catalog among modules: {:?}",
+                cycle
+            )));
         }
 
         Ok(sorted)
@@ -227,7 +223,7 @@ impl AuditCatalog {
         let ordered = self.topo_sorted()?;
         for module in ordered {
             if module.is_enabled(cfg) {
-                module.derive(report)?;
+                module.derive(report, &cfg.lang)?;
             }
         }
         Ok(())
@@ -421,13 +417,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "cycle detected in audit catalog")]
-    fn cycle_panics() {
+    fn cycle_is_a_config_error() {
         // a -> b -> a
         let cat = AuditCatalog::empty()
             .with_module(boxed(StubModule::new("a").with_deps(&["b"])))
             .with_module(boxed(StubModule::new("b").with_deps(&["a"])));
-        let _ = cat.topo_sorted();
+        let msg = expect_config_error(cat.topo_sorted());
+        assert!(msg.contains("cycle detected"), "got: {msg}");
+        assert!(msg.contains("a"), "got: {msg}");
+        assert!(msg.contains("b"), "got: {msg}");
     }
 
     #[test]

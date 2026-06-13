@@ -14,11 +14,23 @@ pub enum SerpSignalStatus {
 }
 
 impl SerpSignalStatus {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
             SerpSignalStatus::Ok => "OK",
-            SerpSignalStatus::Warning => "Warnung",
-            SerpSignalStatus::Fail => "Fehler",
+            SerpSignalStatus::Warning => {
+                if en {
+                    "Warning"
+                } else {
+                    "Warnung"
+                }
+            }
+            SerpSignalStatus::Fail => {
+                if en {
+                    "Error"
+                } else {
+                    "Fehler"
+                }
+            }
         }
     }
 }
@@ -42,7 +54,8 @@ pub struct SerpAnalysis {
     pub rich_result_types: Vec<String>,
 }
 
-pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
+pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str, locale: &str) -> SerpAnalysis {
+    let en = locale == "en";
     let mut signals = Vec::new();
 
     // --- robots: noindex / nosnippet ---
@@ -50,21 +63,32 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
         let lower = robots_meta.to_ascii_lowercase();
         if lower.contains("noindex") {
             signals.push(sig(
-                "Indexierung",
+                if en { "Indexing" } else { "Indexierung" },
                 "robots noindex",
                 SerpSignalStatus::Fail,
-                format!(
-                    "Seite ist als noindex markiert und wird nicht indexiert ({})",
-                    robots_meta
-                ),
+                if en {
+                    format!(
+                        "Page is marked as noindex and is not indexed ({})",
+                        robots_meta
+                    )
+                } else {
+                    format!(
+                        "Seite ist als noindex markiert und wird nicht indexiert ({})",
+                        robots_meta
+                    )
+                },
             ));
         }
         if lower.contains("nosnippet") {
             signals.push(sig(
-                "Indexierung",
+                if en { "Indexing" } else { "Indexierung" },
                 "robots nosnippet",
                 SerpSignalStatus::Warning,
-                "nosnippet verhindert die Meta-Description im SERP-Eintrag.",
+                if en {
+                    "nosnippet prevents the meta description from appearing in the SERP entry."
+                } else {
+                    "nosnippet verhindert die Meta-Description im SERP-Eintrag."
+                },
             ));
         }
     }
@@ -72,10 +96,18 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
     // --- Title ---
     match &seo.meta.title {
         None => signals.push(sig(
-            "Titel",
-            "Titel vorhanden",
+            if en { "Title" } else { "Titel" },
+            if en {
+                "Title present"
+            } else {
+                "Titel vorhanden"
+            },
             SerpSignalStatus::Fail,
-            "Kein <title>-Tag gefunden — Pflichtfeld für Google-Listeneinträge.",
+            if en {
+                "No <title> tag found — required field for Google listings."
+            } else {
+                "Kein <title>-Tag gefunden — Pflichtfeld für Google-Listeneinträge."
+            },
         )),
         Some(title) => {
             let len = title.len();
@@ -85,20 +117,35 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
                 SerpSignalStatus::Ok
             };
             signals.push(sig(
-                "Titel",
-                "Titellänge",
+                if en { "Title" } else { "Titel" },
+                if en { "Title length" } else { "Titellänge" },
                 status,
-                format!("{} Zeichen (empfohlen 30–60)", len),
+                if en {
+                    format!("{} characters (recommended 30–60)", len)
+                } else {
+                    format!("{} Zeichen (empfohlen 30–60)", len)
+                },
             ));
             if len > 55 {
                 signals.push(sig(
-                    "Titel",
-                    "Abschneidungsrisiko",
+                    if en { "Title" } else { "Titel" },
+                    if en {
+                        "Truncation risk"
+                    } else {
+                        "Abschneidungsrisiko"
+                    },
                     SerpSignalStatus::Warning,
-                    format!(
-                        "{} Zeichen — Titel wird in schmalen SERPs abgeschnitten (ca. 55 Zeichen sicher).",
-                        len
-                    ),
+                    if en {
+                        format!(
+                            "{} characters — title gets truncated in narrow SERPs (about 55 characters is safe).",
+                            len
+                        )
+                    } else {
+                        format!(
+                            "{} Zeichen — Titel wird in schmalen SERPs abgeschnitten (ca. 55 Zeichen sicher).",
+                            len
+                        )
+                    },
                 ));
             }
         }
@@ -108,9 +155,17 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
     match &seo.meta.description {
         None => signals.push(sig(
             "Description",
-            "Description vorhanden",
+            if en {
+                "Description present"
+            } else {
+                "Description vorhanden"
+            },
             SerpSignalStatus::Fail,
-            "Keine Meta-Description — Google zeigt unkontrollierten Seitentext.",
+            if en {
+                "No meta description — Google shows uncontrolled page text."
+            } else {
+                "Keine Meta-Description — Google zeigt unkontrollierten Seitentext."
+            },
         )),
         Some(desc) => {
             let len = desc.len();
@@ -121,9 +176,17 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
             };
             signals.push(sig(
                 "Description",
-                "Description-Länge",
+                if en {
+                    "Description length"
+                } else {
+                    "Description-Länge"
+                },
                 status,
-                format!("{} Zeichen (empfohlen 120–160)", len),
+                if en {
+                    format!("{} characters (recommended 120–160)", len)
+                } else {
+                    format!("{} Zeichen (empfohlen 120–160)", len)
+                },
             ));
         }
     }
@@ -131,7 +194,7 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
     // --- Canonical ---
     signals.push(sig(
         "Canonical",
-        "Canonical-Tag",
+        if en { "Canonical tag" } else { "Canonical-Tag" },
         if seo.technical.has_canonical {
             SerpSignalStatus::Ok
         } else {
@@ -139,6 +202,8 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
         },
         if seo.technical.has_canonical {
             seo.technical.canonical_url.clone().unwrap_or_default()
+        } else if en {
+            "No canonical tag — Google picks the canonical URL itself.".to_string()
         } else {
             "Kein Canonical-Tag — Google wählt selbst die kanonische URL.".to_string()
         },
@@ -150,16 +215,24 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
         if !canon_clean.is_empty() && !canon_clean.eq_ignore_ascii_case(url_clean) {
             signals.push(sig(
                 "Canonical",
-                "Canonical-Selbstreferenz",
+                if en {
+                    "Canonical self-reference"
+                } else {
+                    "Canonical-Selbstreferenz"
+                },
                 SerpSignalStatus::Warning,
-                format!("Canonical zeigt auf eine andere URL: {}", canon),
+                if en {
+                    format!("Canonical points to a different URL: {}", canon)
+                } else {
+                    format!("Canonical zeigt auf eine andere URL: {}", canon)
+                },
             ));
         }
     }
 
     // --- Favicon ---
     signals.push(sig(
-        "Erscheinungsbild",
+        if en { "Appearance" } else { "Erscheinungsbild" },
         "Favicon",
         if seo.technical.has_favicon {
             SerpSignalStatus::Ok
@@ -167,7 +240,13 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
             SerpSignalStatus::Warning
         },
         if seo.technical.has_favicon {
-            "Favicon vorhanden (erscheint in mobilen SERPs und Browser-Tabs)."
+            if en {
+                "Favicon present (appears in mobile SERPs and browser tabs)."
+            } else {
+                "Favicon vorhanden (erscheint in mobilen SERPs und Browser-Tabs)."
+            }
+        } else if en {
+            "No favicon found — Google shows a generic icon in mobile SERPs."
         } else {
             "Kein Favicon gefunden — Google zeigt in mobilen SERPs ein generisches Icon."
         },
@@ -177,7 +256,11 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
     if seo.technical.has_hreflang {
         let has_x_default = seo.technical.hreflang.iter().any(|h| h.lang == "x-default");
         signals.push(sig(
-            "Internationalisierung",
+            if en {
+                "Internationalisation"
+            } else {
+                "Internationalisierung"
+            },
             "hreflang x-default",
             if has_x_default {
                 SerpSignalStatus::Ok
@@ -185,8 +268,20 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
                 SerpSignalStatus::Warning
             },
             if has_x_default {
+                if en {
+                    format!(
+                        "{} hreflang tags incl. x-default",
+                        seo.technical.hreflang.len()
+                    )
+                } else {
+                    format!(
+                        "{} hreflang-Tags inkl. x-default",
+                        seo.technical.hreflang.len()
+                    )
+                }
+            } else if en {
                 format!(
-                    "{} hreflang-Tags inkl. x-default",
+                    "{} hreflang tags, no x-default — Google recommendation for multilingual pages.",
                     seo.technical.hreflang.len()
                 )
             } else {
@@ -207,14 +302,24 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str) -> SerpAnalysis {
             .contains(&SchemaType::BreadcrumbList);
         signals.push(sig(
             "Rich Result",
-            "Breadcrumb-Schema",
+            if en {
+                "Breadcrumb schema"
+            } else {
+                "Breadcrumb-Schema"
+            },
             if has_breadcrumb {
                 SerpSignalStatus::Ok
             } else {
                 SerpSignalStatus::Warning
             },
             if has_breadcrumb {
-                "BreadcrumbList erkannt — Google zeigt Pfadangabe im Listeneintrag."
+                if en {
+                    "BreadcrumbList detected — Google shows the path in the listing."
+                } else {
+                    "BreadcrumbList erkannt — Google zeigt Pfadangabe im Listeneintrag."
+                }
+            } else if en {
+                "No BreadcrumbList schema — path display in the SERP entry not possible."
             } else {
                 "Kein BreadcrumbList-Schema — Pfadangabe im SERP-Eintrag nicht möglich."
             },
@@ -261,5 +366,55 @@ fn sig(
         label: label.into(),
         status,
         detail: detail.into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::seo::technical::HreflangTag;
+    use crate::seo::SchemaType;
+
+    fn has_german_chars(s: &str) -> bool {
+        s.chars().any(|c| "äöüÄÖÜß".contains(c))
+    }
+
+    #[test]
+    fn test_serp_signals_have_no_german_chars_in_en() {
+        // Populate technical + meta so every conditional branch that produces a
+        // visible label/detail string is exercised.
+        let mut seo = SeoAnalysis::default();
+        seo.meta.title =
+            Some("A title long enough to trip the truncation risk branch here".to_string());
+        seo.meta.description = Some("short".to_string());
+        seo.technical.robots_meta = Some("noindex, nosnippet".to_string());
+        seo.technical.has_canonical = true;
+        seo.technical.canonical_url = Some("https://example.com/other".to_string());
+        seo.technical.has_favicon = false;
+        seo.technical.has_hreflang = true;
+        seo.technical.hreflang = vec![HreflangTag {
+            lang: "de".to_string(),
+            url: "https://example.com/de".to_string(),
+        }];
+        seo.structured_data.types = vec![SchemaType::Article];
+
+        let analysis = build_serp_analysis(&seo, "https://example.com/", "en");
+        for signal in &analysis.signals {
+            assert!(
+                !has_german_chars(&signal.category),
+                "German chars in category: {}",
+                signal.category
+            );
+            assert!(
+                !has_german_chars(&signal.label),
+                "German chars in label: {}",
+                signal.label
+            );
+            assert!(
+                !has_german_chars(&signal.detail),
+                "German chars in detail: {}",
+                signal.detail
+            );
+        }
     }
 }

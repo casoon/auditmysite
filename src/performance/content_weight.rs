@@ -19,8 +19,22 @@ pub struct ContentWeight {
     pub breakdown: ResourceBreakdown,
     /// Number of requests
     pub request_count: u32,
+    /// Estimated carbon footprint for one page view based on transfer bytes.
+    #[serde(default)]
+    pub carbon: CarbonEstimate,
     /// Optimization recommendations
     pub recommendations: Vec<String>,
+}
+
+/// Sustainable Web Design-style transfer-byte carbon estimate.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CarbonEstimate {
+    /// Estimated grams CO₂e for one page view.
+    pub grams_co2e_per_view: f64,
+    /// Human-readable efficiency rating.
+    pub rating: String,
+    /// Model description used for the estimate.
+    pub model: String,
 }
 
 /// Resource breakdown by type
@@ -176,7 +190,9 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
     }
 
     // Generate recommendations
-    let recommendations = generate_recommendations(&breakdown, total_bytes, transfer_bytes);
+    let carbon = estimate_carbon(transfer_bytes);
+    let recommendations =
+        generate_recommendations(&breakdown, total_bytes, transfer_bytes, &carbon);
 
     info!(
         "Content weight: {} total, {} transfer, {} requests",
@@ -190,6 +206,7 @@ pub async fn analyze_content_weight(page: &Page) -> Result<ContentWeight> {
         transfer_bytes,
         breakdown,
         request_count,
+        carbon,
         recommendations,
     })
 }
@@ -266,6 +283,7 @@ fn generate_recommendations(
     breakdown: &ResourceBreakdown,
     total_bytes: u64,
     transfer_bytes: u64,
+    carbon: &CarbonEstimate,
 ) -> Vec<String> {
     let mut recommendations = Vec::new();
 
@@ -328,7 +346,45 @@ fn generate_recommendations(
             .push("Many JS/CSS files. Consider bundling to reduce HTTP requests.".to_string());
     }
 
+    if carbon.grams_co2e_per_view > 1.0 {
+        recommendations.push(format!(
+            "Estimated carbon footprint is {:.2} g CO2e per view ({}). Reduce transfer bytes to improve sustainability.",
+            carbon.grams_co2e_per_view, carbon.rating
+        ));
+    }
+
     recommendations
+}
+
+pub fn estimate_carbon(transfer_bytes: u64) -> CarbonEstimate {
+    // Conservative Sustainable Web Design-style transfer estimate:
+    // 0.81 kWh / GB transfer × 442 gCO2e / kWh = 358.02 gCO2e / GB.
+    const GRAMS_PER_GB: f64 = 0.81 * 442.0;
+    let gb = transfer_bytes as f64 / 1_000_000_000.0;
+    let grams = gb * GRAMS_PER_GB;
+    CarbonEstimate {
+        grams_co2e_per_view: grams,
+        rating: carbon_rating(grams).to_string(),
+        model: "transfer_bytes * 0.81 kWh/GB * 442 gCO2e/kWh".to_string(),
+    }
+}
+
+fn carbon_rating(grams: f64) -> &'static str {
+    if grams <= 0.095 {
+        "A+"
+    } else if grams <= 0.186 {
+        "A"
+    } else if grams <= 0.341 {
+        "B"
+    } else if grams <= 0.493 {
+        "C"
+    } else if grams <= 0.656 {
+        "D"
+    } else if grams <= 0.846 {
+        "E"
+    } else {
+        "F"
+    }
 }
 
 #[cfg(test)]
@@ -365,10 +421,27 @@ mod tests {
             transfer_bytes: 300,
             breakdown: ResourceBreakdown::default(),
             request_count: 5,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
 
         assert!((weight.compression_ratio() - 0.3).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_estimate_carbon_from_transfer_bytes() {
+        let estimate = estimate_carbon(1_000_000_000);
+
+        assert!((estimate.grams_co2e_per_view - 358.02).abs() < 0.01);
+        assert_eq!(estimate.rating, "F");
+    }
+
+    #[test]
+    fn test_carbon_rating_for_light_page() {
+        let estimate = estimate_carbon(100_000);
+
+        assert_eq!(estimate.rating, "A+");
+        assert!(estimate.grams_co2e_per_view < 0.1);
     }
 
     #[test]
@@ -378,6 +451,7 @@ mod tests {
             transfer_bytes: 500_000,
             breakdown: ResourceBreakdown::default(),
             request_count: 10,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
         assert!(!light.is_heavy());
@@ -387,6 +461,7 @@ mod tests {
             transfer_bytes: 3_000_000,
             breakdown: ResourceBreakdown::default(),
             request_count: 50,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
         assert!(heavy.is_heavy());

@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 /// Die 5 Audit-Dimensionen (Top-Level Produktkategorien)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Dimension {
+    #[default]
     Accessibility,
     Performance,
     Seo,
@@ -14,8 +15,9 @@ pub enum Dimension {
 }
 
 impl Dimension {
-    /// Nutzerfreundlicher Label (deutsch)
-    pub fn label(&self) -> &'static str {
+    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch).
+    /// Die Dimensions-Namen sind in beiden Sprachen identisch.
+    pub fn label(&self, _en: bool) -> &'static str {
         match self {
             Dimension::Accessibility => "Accessibility",
             Dimension::Performance => "Performance",
@@ -28,16 +30,17 @@ impl Dimension {
 
 impl std::fmt::Display for Dimension {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.label())
+        write!(f, "{}", self.label(false))
     }
 }
 
 /// Subkategorien innerhalb jeder Dimension
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Subcategory {
     // ── Accessibility ──
     /// Inhalte & Alternativen (WCAG 1.1.x, 1.2.x)
+    #[default]
     ContentAlternatives,
     /// Struktur & Semantik (WCAG 1.3.x)
     StructureSemantics,
@@ -141,39 +144,74 @@ impl Subcategory {
         }
     }
 
-    /// Nutzerfreundlicher Label (deutsch)
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::ContentAlternatives => "Inhalte & Alternativen",
-            Self::StructureSemantics => "Struktur & Semantik",
-            Self::NavigationInteraction => "Navigation & Bedienung",
-            Self::FormsInteraction => "Formulare & Interaktion",
-            Self::LanguageClarity => "Sprache & Verständlichkeit",
-            Self::TechnicalRobustness => "Technische Robustheit",
-            Self::VisualPresentation => "Visuelle Darstellung",
+    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch).
+    pub fn label(&self, en: bool) -> &'static str {
+        if en {
+            match self {
+                Self::ContentAlternatives => "Content & Alternatives",
+                Self::StructureSemantics => "Structure & Semantics",
+                Self::NavigationInteraction => "Navigation & Operation",
+                Self::FormsInteraction => "Forms & Interaction",
+                Self::LanguageClarity => "Language & Clarity",
+                Self::TechnicalRobustness => "Technical Robustness",
+                Self::VisualPresentation => "Visual Presentation",
 
-            Self::LoadBehavior => "Ladeverhalten",
-            Self::Interactivity => "Interaktivität",
-            Self::VisualStability => "Stabilität",
-            Self::ResourceUsage => "Ressourcenverbrauch",
-            Self::TechnicalComplexity => "Technische Komplexität",
+                Self::LoadBehavior => "Load Behavior",
+                Self::Interactivity => "Interactivity",
+                Self::VisualStability => "Stability",
+                Self::ResourceUsage => "Resource Usage",
+                Self::TechnicalComplexity => "Technical Complexity",
 
-            Self::SnippetMetadata => "Snippet & Metadaten",
-            Self::ContentStructure => "Inhaltsstruktur",
-            Self::Indexability => "Indexierbarkeit",
-            Self::Linking => "Verlinkung",
-            Self::SemanticSignals => "Semantische Signale",
+                Self::SnippetMetadata => "Snippet & Metadata",
+                Self::ContentStructure => "Content Structure",
+                Self::Indexability => "Indexability",
+                Self::Linking => "Linking",
+                Self::SemanticSignals => "Semantic Signals",
 
-            Self::Transport => "Transport",
-            Self::Headers => "Security Headers",
-            Self::BrowserProtection => "Browser-Schutz",
-            Self::ServerConfiguration => "Server-Konfiguration",
+                Self::Transport => "Transport",
+                Self::Headers => "Security Headers",
+                Self::BrowserProtection => "Browser Protection",
+                Self::ServerConfiguration => "Server Configuration",
 
-            Self::Viewport => "Viewport",
-            Self::TouchUsability => "Touch & Bedienbarkeit",
-            Self::Readability => "Lesbarkeit",
-            Self::ResponsiveLayout => "Responsive Layout",
-            Self::ContentSizing => "Content Sizing",
+                Self::Viewport => "Viewport",
+                Self::TouchUsability => "Touch & Usability",
+                Self::Readability => "Readability",
+                Self::ResponsiveLayout => "Responsive Layout",
+                Self::ContentSizing => "Content Sizing",
+            }
+        } else {
+            match self {
+                Self::ContentAlternatives => "Inhalte & Alternativen",
+                Self::StructureSemantics => "Struktur & Semantik",
+                Self::NavigationInteraction => "Navigation & Bedienung",
+                Self::FormsInteraction => "Formulare & Interaktion",
+                Self::LanguageClarity => "Sprache & Verständlichkeit",
+                Self::TechnicalRobustness => "Technische Robustheit",
+                Self::VisualPresentation => "Visuelle Darstellung",
+
+                Self::LoadBehavior => "Ladeverhalten",
+                Self::Interactivity => "Interaktivität",
+                Self::VisualStability => "Stabilität",
+                Self::ResourceUsage => "Ressourcenverbrauch",
+                Self::TechnicalComplexity => "Technische Komplexität",
+
+                Self::SnippetMetadata => "Snippet & Metadaten",
+                Self::ContentStructure => "Inhaltsstruktur",
+                Self::Indexability => "Indexierbarkeit",
+                Self::Linking => "Verlinkung",
+                Self::SemanticSignals => "Semantische Signale",
+
+                Self::Transport => "Transport",
+                Self::Headers => "Security Headers",
+                Self::BrowserProtection => "Browser-Schutz",
+                Self::ServerConfiguration => "Server-Konfiguration",
+
+                Self::Viewport => "Viewport",
+                Self::TouchUsability => "Touch & Bedienbarkeit",
+                Self::Readability => "Lesbarkeit",
+                Self::ResponsiveLayout => "Responsive Layout",
+                Self::ContentSizing => "Content Sizing",
+            }
         }
     }
 }

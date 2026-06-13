@@ -1,11 +1,11 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 268
+assertion_line: 273
 expression: value
 ---
 {
   "average_score": 49.0,
-  "certificate": "UNGENÜGEND",
+  "certificate": "AUSBAUFÄHIG",
   "grade": "F",
   "module_averages": [
     {

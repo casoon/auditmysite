@@ -1,8 +1,7 @@
 //! Finding renderers for PDF reports.
 
 use renderreport::components::advanced::{Divider, KeyValueList, List, WrongRightBlock};
-use renderreport::components::text::{Label, TextBlock};
-use renderreport::components::SummaryBox;
+use renderreport::components::text::Label;
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -10,91 +9,6 @@ use crate::output::report_model::*;
 use crate::util::truncate_url;
 
 use super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
-
-pub(super) fn render_key_finding_block(
-    mut builder: renderreport::engine::ReportBuilder,
-    group: &FindingGroup,
-    i18n: &I18n,
-    include_technical_context: bool,
-) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
-    let sev_label = match (group.severity, en) {
-        (crate::wcag::Severity::Critical, true) => "CRITICAL",
-        (crate::wcag::Severity::Critical, false) => "KRITISCH",
-        (crate::wcag::Severity::High, true) => "HIGH",
-        (crate::wcag::Severity::High, false) => "HOCH",
-        (crate::wcag::Severity::Medium, true) => "MEDIUM",
-        (crate::wcag::Severity::Medium, false) => "MITTEL",
-        (crate::wcag::Severity::Low, true) => "LOW",
-        (crate::wcag::Severity::Low, false) => "GERING",
-    };
-    let title = format!("{} — {}", sev_label, group.title);
-
-    let arc = &group.narrative;
-    let en = i18n.locale() == "en";
-    let recommendation_label = if en { "Recommendation" } else { "Empfehlung" };
-
-    builder = builder
-        .add_component(Label::new(&title).bold().with_size("11pt"))
-        .add_component(
-            Callout::info(customer_perspective_body(group, en))
-                .with_title(customer_perspective_title(group, en)),
-        );
-
-    if let Some(ref cause) = group.structural_cause {
-        if group.is_component_issue {
-            builder = builder.add_component(Callout::warning(cause).with_title(if en {
-                "Recurring pattern"
-            } else {
-                "Wiederkehrendes Muster"
-            }));
-        }
-    }
-
-    builder = builder
-        .add_component(
-            TextBlock::new(first_sentence(&arc.wirkung))
-                .with_size("10.5pt")
-                .with_line_height("1.4em"),
-        )
-        .add_component(
-            Callout::success(first_sentence(&arc.umsetzung)).with_title(recommendation_label),
-        );
-
-    if include_technical_context {
-        let tech_context_title = if !group.wcag_criterion.is_empty() {
-            format!(
-                "{} — WCAG {}",
-                i18n.t("finding-tech-context"),
-                group.wcag_criterion
-            )
-        } else {
-            i18n.t("finding-tech-context")
-        };
-        builder = builder.add_component(
-            SummaryBox::new(tech_context_title)
-                .add_item(i18n.t("finding-tech-rule"), &group.rule_id)
-                .add_item("WCAG", &group.wcag_criterion)
-                .add_item(
-                    i18n.t("finding-tech-instances"),
-                    group.occurrence_count.to_string(),
-                )
-                .add_item(
-                    i18n.t("finding-tech-affected-elements"),
-                    group.affected_elements.to_string(),
-                )
-                .add_item(
-                    i18n.t("finding-tech-other-occurrences"),
-                    group.additional_occurrences.to_string(),
-                )
-                .add_item(
-                    i18n.t("finding-tech-affected-urls"),
-                    group.affected_urls.len().to_string(),
-                ),
-        );
-    }
-    builder
-}
 
 /// Extract the first sentence from a text (up to first period + space, or full text).
 /// Skips common German abbreviations like "z. B.", "d. h.", "u. a.".
@@ -117,6 +31,7 @@ pub(super) fn first_sentence(text: &str) -> &str {
     text
 }
 
+#[cfg(test)]
 fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
     let rule = group.rule_id.as_str();
     let dimension = group.dimension.as_deref().unwrap_or_default();
@@ -193,34 +108,6 @@ fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
         "Customer impact"
     } else {
         "Kundenauswirkung"
-    }
-}
-
-fn customer_perspective_body(group: &FindingGroup, en: bool) -> String {
-    let impact = first_sentence(&group.user_impact);
-    let base = match customer_perspective_title(group, en) {
-        "Operability" => "This finding affects whether visitors can reliably use controls, links, forms or keyboard focus.",
-        "Bedienbarkeit" => "Dieser Befund betrifft, ob Besucher Bedienelemente, Links, Formulare oder Tastaturfokus zuverlässig nutzen können.",
-        "Orientation and structure" => "This finding affects whether people, assistive technologies, search engines and AI systems can understand the page structure.",
-        "Orientierung und Struktur" => "Dieser Befund betrifft, ob Menschen, assistive Technologien, Suchmaschinen und KI-Systeme die Seitenstruktur verstehen.",
-        "Perception and readability" => "This finding affects whether content is visible, distinguishable or readable for all visitors.",
-        "Wahrnehmbarkeit und Lesbarkeit" => "Dieser Befund betrifft, ob Inhalte für alle Besucher sichtbar, unterscheidbar oder lesbar sind.",
-        "Discoverability and AI understanding" => "This finding affects whether the page can be found, summarized and cited reliably by search engines or AI systems.",
-        "Auffindbarkeit und KI-Verständnis" => "Dieser Befund betrifft, ob die Seite von Suchmaschinen oder KI-Systemen zuverlässig gefunden, zusammengefasst und zitiert werden kann.",
-        "Trust and technical quality" => "This finding affects visible trust signals and the technical reliability of the checked page.",
-        "Vertrauen und technische Qualität" => "Dieser Befund betrifft sichtbare Vertrauenssignale und die technische Verlässlichkeit der geprüften Seite.",
-        "Loading and mobile experience" => "This finding affects how the page feels while loading, especially on constrained devices or networks.",
-        "Lade- und Mobile-Erlebnis" => "Dieser Befund betrifft, wie sich die Seite beim Laden anfühlt, besonders auf eingeschränkten Geräten oder Netzwerken.",
-        _ if en => "This finding affects the customer-facing quality of the checked page.",
-        _ => "Dieser Befund betrifft die kundennahe Qualität der geprüften Seite.",
-    };
-
-    if impact.is_empty() {
-        base.to_string()
-    } else if en {
-        format!("{base} Audit impact: {impact}")
-    } else {
-        format!("{base} Auswirkung im Audit: {impact}")
     }
 }
 

@@ -135,7 +135,7 @@ pub(super) fn build_modules_block_from_normalized(
         let journey_context = format!(
             "{}: {} · Entry {}/100, Orientation {}/100, Navigation {}/100, Interaction {}/100, Conversion {}/100",
             i18n.t("journey-intent-label"),
-            j.page_intent.label(),
+            j.page_intent.label(locale == "en"),
             j.entry_clarity.score,
             j.orientation.score,
             j.navigation.score,

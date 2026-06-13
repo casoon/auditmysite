@@ -231,6 +231,15 @@ fn build_performance_details(
         if let Some(dcl) = p.vitals.dom_content_loaded {
             additional.push(("DOM Content Loaded".to_string(), format!("{:.0}ms", dcl)));
         }
+        if let Some(ref cw) = p.content_weight {
+            additional.push((
+                "CO2e pro View".to_string(),
+                format!(
+                    "{:.2} g ({})",
+                    cw.carbon.grams_co2e_per_view, cw.carbon.rating
+                ),
+            ));
+        }
 
         let recommendations = derive_performance_recommendations(i18n, p);
 
@@ -485,7 +494,7 @@ fn build_performance_details(
         let minification = p
             .minification
             .as_ref()
-            .filter(|m| m.total_unminified_count > 0)
+            .filter(|m| m.total_unminified_count > 0 || !m.legacy_scripts.is_empty())
             .map(|m| {
                 let top_assets: Vec<(String, String, String)> = m
                     .unminified_scripts
@@ -500,10 +509,25 @@ fn build_performance_details(
                         )
                     })
                     .collect();
+                let legacy_assets: Vec<(String, String, String)> = m
+                    .legacy_scripts
+                    .iter()
+                    .take(5)
+                    .map(|a| {
+                        (
+                            truncate_url(&a.url, 60),
+                            a.signature.clone(),
+                            format!("{:.1} KB", a.wasted_bytes as f64 / 1024.0),
+                        )
+                    })
+                    .collect();
                 MinificationPresentation {
                     total_count: m.total_unminified_count as usize,
                     total_savings_kb: m.total_savings_bytes as f64 / 1024.0,
                     top_assets,
+                    legacy_count: m.legacy_scripts.len(),
+                    legacy_wasted_kb: m.total_legacy_wasted_bytes as f64 / 1024.0,
+                    legacy_assets,
                 }
             });
 
@@ -565,6 +589,7 @@ fn build_performance_details(
 
 fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresentation> {
     let locale = i18n.locale();
+    let en = locale == "en";
     normalized.raw_seo.as_ref().map(|s| {
         let seo_score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
@@ -584,7 +609,10 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
             .map(|i| (i.field.clone(), i.severity, i.message.clone()))
             .collect();
 
-        let profile = s.content_profile.as_ref().map(|cp| {
+        // Re-derive the content profile in the report locale. `s.content_profile`
+        // is stored in canonical English (for JSON); the PDF localizes here (#406).
+        let localized_profile = crate::seo::build_content_profile(s, locale);
+        let profile = Some(&localized_profile).map(|cp| {
             use crate::seo::profile::SchemaExtracted;
 
             let schema_rows: Vec<(String, String, String)> = cp
@@ -772,7 +800,7 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                         },
                     ),
                 ],
-                page_type: cp.page_classification.primary_type.label().to_string(),
+                page_type: cp.page_classification.primary_type.label(en).to_string(),
                 page_attributes: cp.page_classification.attributes.clone(),
                 content_depth_score: cp.page_classification.content_depth_score,
                 structural_richness_score: cp.page_classification.structural_richness_score,
@@ -783,7 +811,7 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 page_profile_facts: vec![
                     (
                         "Seitentyp".to_string(),
-                        cp.page_classification.primary_type.label().to_string(),
+                        cp.page_classification.primary_type.label(en).to_string(),
                     ),
                     (
                         "Merkmale".to_string(),
@@ -804,8 +832,8 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 signal_rows,
                 signal_overall_pct: cp.signal_strength.overall_pct,
                 signal_details,
-                maturity_level: cp.maturity.label().to_string(),
-                maturity_description: cp.maturity.description().to_string(),
+                maturity_level: cp.maturity.label(en).to_string(),
+                maturity_description: cp.maturity.description(en).to_string(),
                 maturity_techniques_used: cp.maturity_techniques,
                 maturity_techniques_total: 13,
             }
@@ -916,7 +944,12 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                 .page_health
                 .as_ref()
                 .map(|p| build_page_health_presentation(locale, p)),
-            serp: s.serp.as_ref().map(build_serp_presentation),
+            // Re-derive SERP signals in the report locale; `s.serp` is canonical
+            // English for JSON, the PDF localizes here (#406).
+            serp: s.serp.as_ref().map(|_| {
+                let localized = crate::seo::build_serp_analysis(s, &normalized.url, locale);
+                build_serp_presentation(locale, &localized)
+            }),
             robots: s.robots.as_ref().map(|r| {
                 use crate::seo::BotClass;
                 let bot_rows: Vec<(String, String, usize, usize, bool)> = r
@@ -926,7 +959,7 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                         let fully_blocked = g.disallows.iter().any(|d| d == "/");
                         (
                             g.user_agent.clone(),
-                            g.bot_class.to_string(),
+                            g.bot_class.label(en).to_string(),
                             g.allows.len(),
                             g.disallows.len(),
                             fully_blocked,
@@ -954,7 +987,9 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                     has_wildcard_disallow_all: r.has_wildcard_disallow_all,
                     blocks_ai_crawlers: r.blocks_ai_crawlers,
                     blocks_ai_citation: r.blocks_ai_citation,
-                    inferred_policy: r.inferred_policy.clone(),
+                    // Re-derive the policy label in the report locale; the stored
+                    // value is canonical English for JSON (#406).
+                    inferred_policy: crate::seo::infer_robots_policy(r, en),
                     sitemaps: r.sitemaps.clone(),
                     crawl_delays: r.crawl_delays.clone(),
                     bot_rows,
@@ -981,9 +1016,9 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
                         })
                         .collect(),
                 }),
-            technical_issues: s
-                .technical
-                .issues
+            // Re-derive technical issues in the report locale; `s.technical.issues`
+            // is canonical English for JSON, the PDF localizes here (#406).
+            technical_issues: crate::seo::collect_technical_issues(&s.technical, en)
                 .iter()
                 .map(|i| {
                     (
@@ -1251,26 +1286,31 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
             interpretation: module_interpretation(normalized, "ux", locale),
             dimensions: vec![
                 UxDimensionPresentation {
+                    kind: u.cta_clarity.kind,
                     name: u.cta_clarity.name.clone(),
                     score: u.cta_clarity.score,
                     summary: u.cta_clarity.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.visual_hierarchy.kind,
                     name: u.visual_hierarchy.name.clone(),
                     score: u.visual_hierarchy.score,
                     summary: u.visual_hierarchy.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.content_clarity.kind,
                     name: u.content_clarity.name.clone(),
                     score: u.content_clarity.score,
                     summary: u.content_clarity.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.trust_signals.kind,
                     name: u.trust_signals.name.clone(),
                     score: u.trust_signals.score,
                     summary: u.trust_signals.summary.clone(),
                 },
                 UxDimensionPresentation {
+                    kind: u.cognitive_load.kind,
                     name: u.cognitive_load.name.clone(),
                     score: u.cognitive_load.score,
                     summary: u.cognitive_load.summary.clone(),
@@ -1280,11 +1320,13 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
                 .issues
                 .iter()
                 .map(|i| UxIssuePresentation {
+                    kind: i.kind,
                     dimension: i.dimension.clone(),
                     severity: i.severity.clone(),
                     problem: i.problem.clone(),
                     impact: i.impact.clone(),
                     recommendation: i.recommendation.clone(),
+                    values: i.values.clone(),
                 })
                 .collect(),
         }
@@ -1293,6 +1335,7 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
 
 fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<JourneyPresentation> {
     let locale = i18n.locale();
+    let en = locale == "en";
     normalized.raw_journey.as_ref().map(|j| {
         let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
         // Detect page type mismatch between SEO profile and Journey module
@@ -1300,8 +1343,8 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
             .raw_seo
             .as_ref()
             .and_then(|s| s.content_profile.as_ref())
-            .map(|cp| cp.page_classification.primary_type.label().to_lowercase());
-        let journey_type = j.page_intent.label().to_lowercase();
+            .map(|cp| cp.page_classification.primary_type.label(en).to_lowercase());
+        let journey_type = j.page_intent.label(en).to_lowercase();
         let type_note = match seo_type {
             Some(ref st) if !st.is_empty() && !journey_type.is_empty() && st != &journey_type => {
                 if locale == "en" {
@@ -1328,34 +1371,39 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
             score: journey_score,
             grade: normalized_module_grade(normalized, "Journey")
                 .unwrap_or_else(|| j.grade.clone()),
-            page_intent: j.page_intent.label().to_string(),
+            page_intent: j.page_intent.label(en).to_string(),
             interpretation: journey_interpretation,
             dimensions: vec![
                 JourneyDimensionPresentation {
+                    kind: j.entry_clarity.kind,
                     name: j.entry_clarity.name.clone(),
                     score: j.entry_clarity.score,
                     weight_pct: (j.entry_clarity.weight * 100.0).round() as u32,
                     summary: j.entry_clarity.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.orientation.kind,
                     name: j.orientation.name.clone(),
                     score: j.orientation.score,
                     weight_pct: (j.orientation.weight * 100.0).round() as u32,
                     summary: j.orientation.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.navigation.kind,
                     name: j.navigation.name.clone(),
                     score: j.navigation.score,
                     weight_pct: (j.navigation.weight * 100.0).round() as u32,
                     summary: j.navigation.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.interaction.kind,
                     name: j.interaction.name.clone(),
                     score: j.interaction.score,
                     weight_pct: (j.interaction.weight * 100.0).round() as u32,
                     summary: j.interaction.summary.clone(),
                 },
                 JourneyDimensionPresentation {
+                    kind: j.conversion.kind,
                     name: j.conversion.name.clone(),
                     score: j.conversion.score,
                     weight_pct: (j.conversion.weight * 100.0).round() as u32,
@@ -1366,11 +1414,13 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
                 .friction_points
                 .iter()
                 .map(|fp| FrictionPointPresentation {
+                    kind: fp.kind,
                     step: fp.step.clone(),
                     severity: fp.severity.clone(),
                     problem: fp.problem.clone(),
                     impact: fp.impact.clone(),
                     recommendation: fp.recommendation.clone(),
+                    values: fp.values.clone(),
                 })
                 .collect(),
         }

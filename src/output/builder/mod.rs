@@ -11,7 +11,7 @@ mod modules;
 mod seo;
 mod single;
 
-pub use batch::build_batch_presentation;
+pub use batch::{build_batch_presentation, build_batch_presentation_with_locale};
 pub use single::build_view_model;
 
 #[cfg(test)]
@@ -325,6 +325,9 @@ mod tests {
                     robots_meta: None,
                     has_hreflang: false,
                     hreflang: vec![],
+                    pagination_detected: false,
+                    pagination_prev: None,
+                    pagination_next: None,
                     word_count: 650,
                     internal_links: 12,
                     external_links: 1,
@@ -332,6 +335,9 @@ mod tests {
                     nofollow_links: 1,
                     internal_link_targets: vec![],
                     broken_links: vec![],
+                    mixed_content: vec![],
+                    pwa: crate::seo::technical::PwaAnalysis::default(),
+                    form_security: crate::seo::technical::FormSecurityAnalysis::default(),
                     text_excerpt: text_excerpt.to_string(),
                     uses_remote_google_fonts: false,
                     google_fonts_sources: vec![],
@@ -345,7 +351,7 @@ mod tests {
                     hreflang_missing_self_reference: false,
                     internal_links_with_query_params: 0,
                 };
-                seo.content_profile = Some(crate::seo::build_content_profile(&seo));
+                seo.content_profile = Some(crate::seo::build_content_profile(&seo, "de"));
                 seo.score = seo_score;
                 seo
             })
@@ -464,30 +470,35 @@ mod tests {
             score: 62,
             grade: "D".into(),
             cta_clarity: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::CtaClarity,
                 name: "CTA Clarity".into(),
                 score: 70,
                 weight: 0.30,
                 summary: "CTA ausreichend".into(),
             },
             visual_hierarchy: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::VisualHierarchy,
                 name: "Visual Hierarchy".into(),
                 score: 60,
                 weight: 0.20,
                 summary: "Heading-Hierarchie lueckenhaft".into(),
             },
             content_clarity: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::ContentClarity,
                 name: "Content Clarity".into(),
                 score: 45,
                 weight: 0.20,
                 summary: "Wenig verwertbarer Inhalt".into(),
             },
             trust_signals: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::TrustSignals,
                 name: "Trust Signals".into(),
                 score: 35,
                 weight: 0.15,
                 summary: "Wichtige Vertrauenssignale fehlen".into(),
             },
             cognitive_load: crate::ux::UxDimension {
+                kind: crate::ux::UxDimensionKind::CognitiveLoad,
                 name: "Cognitive Load".into(),
                 score: 100,
                 weight: 0.15,
@@ -548,6 +559,9 @@ mod tests {
             robots_meta: None,
             has_hreflang: false,
             hreflang: vec![],
+            pagination_detected: false,
+            pagination_prev: None,
+            pagination_next: None,
             word_count: 650,
             internal_links: 12,
             external_links: 1,
@@ -555,6 +569,9 @@ mod tests {
             nofollow_links: 1,
             internal_link_targets: vec![],
             broken_links: vec![],
+            mixed_content: vec![],
+            pwa: crate::seo::technical::PwaAnalysis::default(),
+            form_security: crate::seo::technical::FormSecurityAnalysis::default(),
             text_excerpt: text_excerpt.to_string(),
             uses_remote_google_fonts: false,
             google_fonts_sources: vec![],
@@ -568,7 +585,7 @@ mod tests {
             hreflang_missing_self_reference: false,
             internal_links_with_query_params: 0,
         };
-        seo.content_profile = Some(crate::seo::build_content_profile(&seo));
+        seo.content_profile = Some(crate::seo::build_content_profile(&seo, "de"));
         seo.score = 92;
 
         let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 1500)
@@ -774,12 +791,15 @@ mod tests {
             "source_map_fixture_dependent": source_map,
         });
 
+        let out_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("reports")
+            .join("interpretations.json");
         let out = serde_json::to_string_pretty(&doc).expect("serialize interpretations");
-        std::fs::write("reports/interpretations.json", out)
-            .expect("write reports/interpretations.json");
+        std::fs::write(&out_path, out).expect("write reports/interpretations.json");
         eprintln!(
-            "Wrote {} interpretation records to reports/interpretations.json",
-            records.len()
+            "Wrote {} interpretation records to {}",
+            records.len(),
+            out_path.display()
         );
     }
 }

@@ -80,10 +80,10 @@ pub(super) fn build_actions_block(
                     derive_conversion_effect_from_action(i18n, &i.action, i.effort);
                 RoadmapItemData {
                     action: i.action.clone(),
-                    role: i.role.label().to_string(),
-                    priority: i.priority.label().to_string(),
-                    execution_priority: i.execution_priority.label().to_string(),
-                    effort: i.effort.label().to_string(),
+                    role: i.role.label(en).to_string(),
+                    priority: i.priority.label(en).to_string(),
+                    execution_priority: i.execution_priority.label(en).to_string(),
+                    effort: i.effort.label(en).to_string(),
                     benefit: i.benefit.clone(),
                     user_effect,
                     risk_effect,
@@ -202,7 +202,7 @@ pub(super) fn build_actions_block(
         let mut role_counts: std::collections::HashMap<&str, usize> =
             std::collections::HashMap::new();
         for r in &plan.role_assignments {
-            *role_counts.entry(r.role.label()).or_default() += r.responsibilities.len();
+            *role_counts.entry(r.role.label(en)).or_default() += r.responsibilities.len();
         }
         role_counts
             .into_iter()

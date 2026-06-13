@@ -21,22 +21,62 @@ pub enum SeoMaturityLevel {
 }
 
 impl SeoMaturityLevel {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
-            Self::Basic => "Basis",
+            Self::Basic => {
+                if en {
+                    "Basic"
+                } else {
+                    "Basis"
+                }
+            }
             Self::Standard => "Standard",
-            Self::Advanced => "Fortgeschritten",
-            Self::Professional => "Professionell",
+            Self::Advanced => {
+                if en {
+                    "Advanced"
+                } else {
+                    "Fortgeschritten"
+                }
+            }
+            Self::Professional => {
+                if en {
+                    "Professional"
+                } else {
+                    "Professionell"
+                }
+            }
         }
     }
 
-    pub fn description(&self) -> &'static str {
+    pub fn description(&self, en: bool) -> &'static str {
         match self {
-            Self::Basic => "Grundlegende SEO-Maßnahmen fehlen weitgehend.",
-            Self::Standard => "Basis-SEO ist vorhanden, fortgeschrittene Techniken fehlen.",
-            Self::Advanced => "Gute SEO-Abdeckung mit strukturierten Daten und Social Tags.",
+            Self::Basic => {
+                if en {
+                    "Fundamental SEO measures are largely absent."
+                } else {
+                    "Grundlegende SEO-Maßnahmen fehlen weitgehend."
+                }
+            }
+            Self::Standard => {
+                if en {
+                    "Basic SEO is in place; advanced techniques are missing."
+                } else {
+                    "Basis-SEO ist vorhanden, fortgeschrittene Techniken fehlen."
+                }
+            }
+            Self::Advanced => {
+                if en {
+                    "Good SEO coverage with structured data and social tags."
+                } else {
+                    "Gute SEO-Abdeckung mit strukturierten Daten und Social Tags."
+                }
+            }
             Self::Professional => {
-                "Sehr breite technische SEO-Abdeckung; keine Aussage zur strategischen Content-Qualität."
+                if en {
+                    "Very broad technical SEO coverage; no statement on strategic content quality."
+                } else {
+                    "Sehr breite technische SEO-Abdeckung; keine Aussage zur strategischen Content-Qualität."
+                }
             }
         }
     }
@@ -76,14 +116,44 @@ pub enum PageType {
 }
 
 impl PageType {
-    pub fn label(&self) -> &'static str {
+    pub fn label(&self, en: bool) -> &'static str {
         match self {
-            Self::Editorial => "Editorial / Artikel",
-            Self::StructuredContent => "Strukturierter Wissensinhalt",
+            Self::Editorial => {
+                if en {
+                    "Editorial / Article"
+                } else {
+                    "Editorial / Artikel"
+                }
+            }
+            Self::StructuredContent => {
+                if en {
+                    "Structured knowledge content"
+                } else {
+                    "Strukturierter Wissensinhalt"
+                }
+            }
             Self::MarketingLanding => "Marketing / Landing Page",
-            Self::MediaHeavy => "Medienorientierte Seite",
-            Self::Utility => "Transaktional / Utility",
-            Self::NavigationHub => "Navigations- / Hub-Seite",
+            Self::MediaHeavy => {
+                if en {
+                    "Media-oriented page"
+                } else {
+                    "Medienorientierte Seite"
+                }
+            }
+            Self::Utility => {
+                if en {
+                    "Transactional / Utility"
+                } else {
+                    "Transaktional / Utility"
+                }
+            }
+            Self::NavigationHub => {
+                if en {
+                    "Navigation / Hub page"
+                } else {
+                    "Navigations- / Hub-Seite"
+                }
+            }
             Self::ThinContent => "Thin / Minimal Content",
         }
     }
@@ -228,11 +298,12 @@ pub struct SignalCheck {
 
 // ─── Builder ────────────────────────────────────────────────────────────────
 
-pub fn build_content_profile(seo: &SeoAnalysis) -> SeoContentProfile {
-    let content_identity = build_identity(seo);
-    let page_classification = classify_page(seo);
-    let schema_inventory = build_schema_inventory(seo);
-    let signal_strength = build_signal_strength(seo);
+pub fn build_content_profile(seo: &SeoAnalysis, locale: &str) -> SeoContentProfile {
+    let en = locale == "en";
+    let content_identity = build_identity(seo, en);
+    let page_classification = classify_page(seo, en);
+    let schema_inventory = build_schema_inventory(seo, en);
+    let signal_strength = build_signal_strength(seo, en);
     let maturity_techniques = count_techniques(seo);
     let maturity = SeoMaturityLevel::from_count(maturity_techniques);
 
@@ -246,7 +317,7 @@ pub fn build_content_profile(seo: &SeoAnalysis) -> SeoContentProfile {
     }
 }
 
-fn classify_page(seo: &SeoAnalysis) -> PageClassification {
+fn classify_page(seo: &SeoAnalysis, en: bool) -> PageClassification {
     let word_count = seo.technical.word_count;
     let heading_count = seo.headings.total_count as u32;
     let h2_plus_count = seo
@@ -310,30 +381,58 @@ fn classify_page(seo: &SeoAnalysis) -> PageClassification {
         score_intent_fit(&primary_type, word_count, h2_plus_count, internal_links);
     let mut attributes = Vec::new();
     if word_count >= 1200 {
-        attributes.push("textstark".to_string());
+        attributes.push(if en { "text-rich" } else { "textstark" }.to_string());
     } else if word_count < 300 {
-        attributes.push("sehr kurz".to_string());
+        attributes.push(if en { "very short" } else { "sehr kurz" }.to_string());
     }
     if h2_plus_count >= 3 {
-        attributes.push("strukturiert".to_string());
+        attributes.push(if en { "structured" } else { "strukturiert" }.to_string());
     }
     if internal_links >= 30 {
-        attributes.push("navigationslastig".to_string());
+        attributes.push(
+            if en {
+                "navigation-heavy"
+            } else {
+                "navigationslastig"
+            }
+            .to_string(),
+        );
     }
     if seo.social.open_graph.is_some() {
-        attributes.push("visuell geprägt".to_string());
+        attributes.push(
+            if en {
+                "visually oriented"
+            } else {
+                "visuell geprägt"
+            }
+            .to_string(),
+        );
     }
     if has_faq {
-        attributes.push("wissensorientiert".to_string());
+        attributes.push(
+            if en {
+                "knowledge-oriented"
+            } else {
+                "wissensorientiert"
+            }
+            .to_string(),
+        );
     }
     if matches!(primary_type, PageType::MarketingLanding) {
-        attributes.push("conversionorientiert".to_string());
+        attributes.push(
+            if en {
+                "conversion-oriented"
+            } else {
+                "conversionorientiert"
+            }
+            .to_string(),
+        );
     }
     if matches!(primary_type, PageType::Utility) {
-        attributes.push("zweckgebunden".to_string());
+        attributes.push(if en { "purpose-bound" } else { "zweckgebunden" }.to_string());
     }
     if matches!(primary_type, PageType::ThinContent) {
-        attributes.push("dünn".to_string());
+        attributes.push(if en { "thin" } else { "dünn" }.to_string());
     }
     attributes.sort();
     attributes.dedup();
@@ -433,7 +532,7 @@ fn score_intent_fit(
 
 // ─── Content Identity Builder ───────────────────────────────────────────────
 
-fn build_identity(seo: &SeoAnalysis) -> ContentIdentity {
+fn build_identity(seo: &SeoAnalysis, en: bool) -> ContentIdentity {
     // Site name: OG site_name → JSON-LD Organization name → None
     let site_name = seo
         .social
@@ -443,10 +542,10 @@ fn build_identity(seo: &SeoAnalysis) -> ContentIdentity {
         .or_else(|| find_org_name(&seo.structured_data.json_ld));
 
     // Content type from OG type → JSON-LD @type → default
-    let content_type = derive_content_type(seo);
+    let content_type = derive_content_type(seo, en);
 
     // Summary from title + description
-    let summary = build_summary(seo);
+    let summary = build_summary(seo, en);
 
     // Category hints from all schema types
     let category_hints: Vec<String> = seo
@@ -494,14 +593,14 @@ fn find_org_name(json_ld: &[crate::seo::schema::JsonLdSchema]) -> Option<String>
     None
 }
 
-fn derive_content_type(seo: &SeoAnalysis) -> String {
+fn derive_content_type(seo: &SeoAnalysis, en: bool) -> String {
     // Check OG type first
     if let Some(ref og) = seo.social.open_graph {
         if let Some(ref og_type) = og.og_type {
             match og_type.as_str() {
-                "article" => return "Artikel".to_string(),
-                "product" => return "Produkt".to_string(),
-                "profile" => return "Profil".to_string(),
+                "article" => return if en { "Article" } else { "Artikel" }.to_string(),
+                "product" => return if en { "Product" } else { "Produkt" }.to_string(),
+                "profile" => return if en { "Profile" } else { "Profil" }.to_string(),
                 "website" => {} // generic, check schema types
                 _ => {}
             }
@@ -512,13 +611,39 @@ fn derive_content_type(seo: &SeoAnalysis) -> String {
     for t in &seo.structured_data.types {
         match t {
             SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle => {
-                return "Artikel / Blog".to_string()
+                return if en {
+                    "Article / Blog"
+                } else {
+                    "Artikel / Blog"
+                }
+                .to_string()
             }
-            SchemaType::Product => return "E-Commerce / Produkt".to_string(),
-            SchemaType::LocalBusiness => return "Lokales Unternehmen".to_string(),
-            SchemaType::Event => return "Veranstaltung".to_string(),
-            SchemaType::Recipe => return "Rezept".to_string(),
-            SchemaType::FAQPage => return "FAQ / Informationsseite".to_string(),
+            SchemaType::Product => {
+                return if en {
+                    "E-Commerce / Product"
+                } else {
+                    "E-Commerce / Produkt"
+                }
+                .to_string()
+            }
+            SchemaType::LocalBusiness => {
+                return if en {
+                    "Local business"
+                } else {
+                    "Lokales Unternehmen"
+                }
+                .to_string()
+            }
+            SchemaType::Event => return if en { "Event" } else { "Veranstaltung" }.to_string(),
+            SchemaType::Recipe => return if en { "Recipe" } else { "Rezept" }.to_string(),
+            SchemaType::FAQPage => {
+                return if en {
+                    "FAQ / Information page"
+                } else {
+                    "FAQ / Informationsseite"
+                }
+                .to_string()
+            }
             _ => {}
         }
     }
@@ -526,7 +651,7 @@ fn derive_content_type(seo: &SeoAnalysis) -> String {
     "Website".to_string()
 }
 
-fn build_summary(seo: &SeoAnalysis) -> String {
+fn build_summary(seo: &SeoAnalysis, en: bool) -> String {
     let title = seo.meta.title.as_deref().unwrap_or("");
     let desc = seo.meta.description.as_deref().unwrap_or("");
 
@@ -547,6 +672,8 @@ fn build_summary(seo: &SeoAnalysis) -> String {
         title.to_string()
     } else if !desc.is_empty() {
         desc.to_string()
+    } else if en {
+        "No meta information found.".to_string()
     } else {
         "Keine Meta-Informationen gefunden.".to_string()
     }
@@ -554,7 +681,7 @@ fn build_summary(seo: &SeoAnalysis) -> String {
 
 // ─── Schema Inventory Builder ───────────────────────────────────────────────
 
-fn build_schema_inventory(seo: &SeoAnalysis) -> SchemaInventory {
+fn build_schema_inventory(seo: &SeoAnalysis, en: bool) -> SchemaInventory {
     let mut schemas = Vec::new();
 
     for json_ld in &seo.structured_data.json_ld {
@@ -568,7 +695,7 @@ fn build_schema_inventory(seo: &SeoAnalysis) -> SchemaInventory {
         };
 
         for schema_type in root_types {
-            if let Some(d) = analyze_schema(&schema_type, &json_ld.content) {
+            if let Some(d) = analyze_schema(&schema_type, &json_ld.content, en) {
                 schemas.push(d);
                 break;
             }
@@ -585,7 +712,7 @@ fn build_schema_inventory(seo: &SeoAnalysis) -> SchemaInventory {
                 }
 
                 for item_type in item_types {
-                    if let Some(d) = analyze_schema(&item_type, item) {
+                    if let Some(d) = analyze_schema(&item_type, item, en) {
                         schemas.push(d);
                         break;
                     }
@@ -601,7 +728,11 @@ fn build_schema_inventory(seo: &SeoAnalysis) -> SchemaInventory {
     }
 }
 
-fn analyze_schema(schema_type: &str, content: &serde_json::Value) -> Option<SchemaDetail> {
+fn analyze_schema(
+    schema_type: &str,
+    content: &serde_json::Value,
+    en: bool,
+) -> Option<SchemaDetail> {
     let (expected, extracted) = match schema_type {
         "Organization" => analyze_organization(content),
         "LocalBusiness" => analyze_local_business(content),
@@ -621,7 +752,7 @@ fn analyze_schema(schema_type: &str, content: &serde_json::Value) -> Option<Sche
         "WebSite" => analyze_website(content),
         "WebPage" => analyze_webpage(content),
         "BreadcrumbList" => analyze_breadcrumb(content),
-        _ => analyze_generic(content),
+        _ => analyze_generic(content, en),
     };
 
     let mut present = Vec::new();
@@ -931,7 +1062,7 @@ fn analyze_breadcrumb(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtrac
     (expected, extracted)
 }
 
-fn analyze_generic(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_generic(v: &serde_json::Value, en: bool) -> (Vec<&'static str>, SchemaExtracted) {
     let mut key_fields = Vec::new();
     if let Some(obj) = v.as_object() {
         for (key, val) in obj {
@@ -954,7 +1085,13 @@ fn analyze_generic(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted
                 }
                 serde_json::Value::Number(n) => n.to_string(),
                 serde_json::Value::Bool(b) => b.to_string(),
-                serde_json::Value::Array(a) => format!("[{} Einträge]", a.len()),
+                serde_json::Value::Array(a) => {
+                    if en {
+                        format!("[{} entries]", a.len())
+                    } else {
+                        format!("[{} Einträge]", a.len())
+                    }
+                }
                 serde_json::Value::Object(_) => "{...}".to_string(),
                 serde_json::Value::Null => continue,
             };
@@ -970,13 +1107,13 @@ fn analyze_generic(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted
 
 // ─── Signal Strength Builder ────────────────────────────────────────────────
 
-fn build_signal_strength(seo: &SeoAnalysis) -> SeoSignalStrength {
-    let meta = build_meta_signals(seo);
-    let headings = build_heading_signals(seo);
-    let social = build_social_signals(seo);
-    let technical = build_technical_signals(seo);
-    let structured = build_structured_data_signals(seo);
-    let content = build_content_signals(seo);
+fn build_signal_strength(seo: &SeoAnalysis, en: bool) -> SeoSignalStrength {
+    let meta = build_meta_signals(seo, en);
+    let headings = build_heading_signals(seo, en);
+    let social = build_social_signals(seo, en);
+    let technical = build_technical_signals(seo, en);
+    let structured = build_structured_data_signals(seo, en);
+    let content = build_content_signals(seo, en);
 
     // Gewichteter Durchschnitt
     let overall_pct = (meta.score_pct as f32 * 0.20
@@ -1008,7 +1145,7 @@ fn check(label: &str, passed: bool, detail: Option<String>) -> SignalCheck {
     }
 }
 
-fn build_meta_signals(seo: &SeoAnalysis) -> SignalCategory {
+fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let title_ok = seo
         .meta
         .title
@@ -1022,45 +1159,58 @@ fn build_meta_signals(seo: &SeoAnalysis) -> SignalCategory {
         .map(|d| d.len() >= 120 && d.len() <= 160)
         .unwrap_or(false);
 
+    let chars = |n: usize| {
+        if en {
+            format!("{} characters", n)
+        } else {
+            format!("{} Zeichen", n)
+        }
+    };
+    let missing = || if en { "missing" } else { "fehlt" }.to_string();
+
     let checks = vec![
         check(
-            "Title vorhanden & Länge optimal",
+            if en {
+                "Title present & length optimal"
+            } else {
+                "Title vorhanden & Länge optimal"
+            },
             title_ok,
-            seo.meta
-                .title
-                .as_ref()
-                .map(|t| format!("{} Zeichen", t.len())),
+            seo.meta.title.as_ref().map(|t| chars(t.len())),
         ),
         check(
-            "Description vorhanden & Länge optimal",
+            if en {
+                "Description present & length optimal"
+            } else {
+                "Description vorhanden & Länge optimal"
+            },
             desc_ok,
-            seo.meta
-                .description
-                .as_ref()
-                .map(|d| format!("{} Zeichen", d.len())),
+            seo.meta.description.as_ref().map(|d| chars(d.len())),
         ),
         check(
-            "Viewport konfiguriert",
+            if en {
+                "Viewport configured"
+            } else {
+                "Viewport konfiguriert"
+            },
             seo.meta.viewport.is_some(),
-            Some(
-                seo.meta
-                    .viewport
-                    .clone()
-                    .unwrap_or_else(|| "fehlt".to_string()),
-            ),
+            Some(seo.meta.viewport.clone().unwrap_or_else(missing)),
         ),
         check(
-            "Charset definiert",
+            if en {
+                "Charset defined"
+            } else {
+                "Charset definiert"
+            },
             seo.meta.charset.is_some(),
-            Some(
-                seo.meta
-                    .charset
-                    .clone()
-                    .unwrap_or_else(|| "fehlt".to_string()),
-            ),
+            Some(seo.meta.charset.clone().unwrap_or_else(missing)),
         ),
         check(
-            "Sprache (lang) gesetzt",
+            if en {
+                "Language (lang) set"
+            } else {
+                "Sprache (lang) gesetzt"
+            },
             seo.meta.lang.is_some(),
             seo.meta.lang.clone(),
         ),
@@ -1073,7 +1223,7 @@ fn build_meta_signals(seo: &SeoAnalysis) -> SignalCategory {
     }
 }
 
-fn build_heading_signals(seo: &SeoAnalysis) -> SignalCategory {
+fn build_heading_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let h1_ok = seo.headings.h1_count == 1;
     let h1_not_empty = seo
         .headings
@@ -1091,26 +1241,44 @@ fn build_heading_signals(seo: &SeoAnalysis) -> SignalCategory {
 
     let checks = vec![
         check(
-            "Genau ein H1",
+            if en { "Exactly one H1" } else { "Genau ein H1" },
             h1_ok,
-            Some(format!("{} H1-Tags gefunden", seo.headings.h1_count)),
+            Some(if en {
+                format!("{} H1 tags found", seo.headings.h1_count)
+            } else {
+                format!("{} H1-Tags gefunden", seo.headings.h1_count)
+            }),
         ),
         check(
-            "H1-Text vorhanden",
+            if en {
+                "H1 text present"
+            } else {
+                "H1-Text vorhanden"
+            },
             h1_not_empty,
             Some(
                 seo.headings
                     .h1_text
                     .clone()
-                    .unwrap_or_else(|| "kein H1-Text".to_string()),
+                    .unwrap_or_else(|| if en { "no H1 text" } else { "kein H1-Text" }.to_string()),
             ),
         ),
         check(
-            "Keine übersprungenen Ebenen",
+            if en {
+                "No skipped levels"
+            } else {
+                "Keine übersprungenen Ebenen"
+            },
             no_skipped,
             Some(
                 if no_skipped {
-                    "keine Lücken"
+                    if en {
+                        "no gaps"
+                    } else {
+                        "keine Lücken"
+                    }
+                } else if en {
+                    "levels skipped"
                 } else {
                     "Ebenen übersprungen"
                 }
@@ -1118,10 +1286,16 @@ fn build_heading_signals(seo: &SeoAnalysis) -> SignalCategory {
             ),
         ),
         check(
-            "Logische Hierarchie",
+            if en {
+                "Logical hierarchy"
+            } else {
+                "Logische Hierarchie"
+            },
             no_issues,
             Some(if no_issues {
-                "keine Probleme".to_string()
+                if en { "no issues" } else { "keine Probleme" }.to_string()
+            } else if en {
+                format!("{} issues", seo.headings.issues.len())
             } else {
                 format!("{} Probleme", seo.headings.issues.len())
             }),
@@ -1129,13 +1303,13 @@ fn build_heading_signals(seo: &SeoAnalysis) -> SignalCategory {
     ];
     let score_pct = category_score(&checks);
     SignalCategory {
-        name: "Überschriften".to_string(),
+        name: if en { "Headings" } else { "Überschriften" }.to_string(),
         score_pct,
         checks,
     }
 }
 
-fn build_social_signals(seo: &SeoAnalysis) -> SignalCategory {
+fn build_social_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let og_present = seo.social.open_graph.is_some();
     let og_complete = seo
         .social
@@ -1151,14 +1325,37 @@ fn build_social_signals(seo: &SeoAnalysis) -> SignalCategory {
         .map(|tc| tc.completeness() >= 75)
         .unwrap_or(false);
 
+    let present_or_missing = |present: bool| {
+        if present {
+            if en {
+                "present"
+            } else {
+                "vorhanden"
+            }
+        } else if en {
+            "missing"
+        } else {
+            "fehlt"
+        }
+        .to_string()
+    };
+
     let checks = vec![
         check(
-            "OpenGraph-Tags vorhanden",
+            if en {
+                "OpenGraph tags present"
+            } else {
+                "OpenGraph-Tags vorhanden"
+            },
             og_present,
-            Some(if og_present { "vorhanden" } else { "fehlt" }.to_string()),
+            Some(present_or_missing(og_present)),
         ),
         check(
-            "OpenGraph ≥ 80% vollständig",
+            if en {
+                "OpenGraph ≥ 80% complete"
+            } else {
+                "OpenGraph ≥ 80% vollständig"
+            },
             og_complete,
             seo.social
                 .open_graph
@@ -1166,12 +1363,20 @@ fn build_social_signals(seo: &SeoAnalysis) -> SignalCategory {
                 .map(|og| format!("{}%", og.completeness())),
         ),
         check(
-            "Twitter Card vorhanden",
+            if en {
+                "Twitter Card present"
+            } else {
+                "Twitter Card vorhanden"
+            },
             tw_present,
-            Some(if tw_present { "vorhanden" } else { "fehlt" }.to_string()),
+            Some(present_or_missing(tw_present)),
         ),
         check(
-            "Twitter Card ≥ 75% vollständig",
+            if en {
+                "Twitter Card ≥ 75% complete"
+            } else {
+                "Twitter Card ≥ 75% vollständig"
+            },
             tw_complete,
             seo.social
                 .twitter_card
@@ -1187,7 +1392,7 @@ fn build_social_signals(seo: &SeoAnalysis) -> SignalCategory {
     }
 }
 
-fn build_technical_signals(seo: &SeoAnalysis) -> SignalCategory {
+fn build_technical_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let robots_ok = seo
         .technical
         .robots_meta
@@ -1195,13 +1400,21 @@ fn build_technical_signals(seo: &SeoAnalysis) -> SignalCategory {
         .map(|r| !r.contains("noindex"))
         .unwrap_or(true); // No robots meta = ok (default is index)
 
+    let missing = || if en { "missing" } else { "fehlt" }.to_string();
+
     let checks = vec![
         check(
             "HTTPS",
             seo.technical.https,
             Some(
                 if seo.technical.https {
-                    "aktiv"
+                    if en {
+                        "active"
+                    } else {
+                        "aktiv"
+                    }
+                } else if en {
+                    "missing"
                 } else {
                     "fehlt"
                 }
@@ -1211,47 +1424,55 @@ fn build_technical_signals(seo: &SeoAnalysis) -> SignalCategory {
         check(
             "Canonical URL",
             seo.technical.has_canonical,
-            Some(
-                seo.technical
-                    .canonical_url
-                    .clone()
-                    .unwrap_or_else(|| "fehlt".to_string()),
-            ),
+            Some(seo.technical.canonical_url.clone().unwrap_or_else(missing)),
         ),
         check(
-            "Sprache (lang)",
+            if en {
+                "Language (lang)"
+            } else {
+                "Sprache (lang)"
+            },
             seo.technical.has_lang,
-            Some(
-                seo.technical
-                    .lang
-                    .clone()
-                    .unwrap_or_else(|| "fehlt".to_string()),
-            ),
+            Some(seo.technical.lang.clone().unwrap_or_else(missing)),
         ),
         check(
-            "Hreflang (Mehrsprachigkeit)",
+            if en {
+                "Hreflang (multilingual)"
+            } else {
+                "Hreflang (Mehrsprachigkeit)"
+            },
             true,
             Some(if seo.technical.has_hreflang {
-                format!("{} Sprachen", seo.technical.hreflang.len())
+                if en {
+                    format!("{} languages", seo.technical.hreflang.len())
+                } else {
+                    format!("{} Sprachen", seo.technical.hreflang.len())
+                }
+            } else if en {
+                "no hreflang tags".to_string()
             } else {
                 "keine Hreflang-Tags".to_string()
             }),
         ),
         check(
-            "Robots erlaubt Indexierung",
+            if en {
+                "Robots allows indexing"
+            } else {
+                "Robots erlaubt Indexierung"
+            },
             robots_ok,
             seo.technical.robots_meta.clone(),
         ),
     ];
     let score_pct = category_score(&checks);
     SignalCategory {
-        name: "Technisch".to_string(),
+        name: if en { "Technical" } else { "Technisch" }.to_string(),
         score_pct,
         checks,
     }
 }
 
-fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
+fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let has_any = seo.structured_data.has_structured_data;
     let has_rich = !seo.structured_data.rich_snippets_potential.is_empty();
     let has_org = seo.structured_data.types.iter().any(|t| {
@@ -1263,19 +1484,31 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
 
     let mut checks = vec![
         check(
-            "Strukturierte Daten vorhanden",
+            if en {
+                "Structured data present"
+            } else {
+                "Strukturierte Daten vorhanden"
+            },
             has_any,
             Some(if has_any {
                 format!("{} Schema(s)", seo.structured_data.json_ld.len())
+            } else if en {
+                "no structured data".to_string()
             } else {
                 "keine strukturierten Daten".to_string()
             }),
         ),
         check(
-            "Rich-Snippet-fähig",
+            if en {
+                "Rich-snippet eligible"
+            } else {
+                "Rich-Snippet-fähig"
+            },
             has_rich,
             Some(if has_rich {
                 seo.structured_data.rich_snippets_potential.join(", ")
+            } else if en {
+                "no rich-snippet types detected".to_string()
             } else {
                 "keine Rich-Snippet-Typen erkannt".to_string()
             }),
@@ -1283,7 +1516,20 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         check(
             "Organization/WebSite Schema",
             has_org,
-            Some(if has_org { "vorhanden" } else { "fehlt" }.to_string()),
+            Some(
+                if has_org {
+                    if en {
+                        "present"
+                    } else {
+                        "vorhanden"
+                    }
+                } else if en {
+                    "missing"
+                } else {
+                    "fehlt"
+                }
+                .to_string(),
+            ),
         ),
     ];
 
@@ -1321,10 +1567,18 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
             .into_iter()
             .flatten()
             .collect();
-            Some(format!("Fehlt: {}", missing.join(", ")))
+            Some(if en {
+                format!("Missing: {}", missing.join(", "))
+            } else {
+                format!("Fehlt: {}", missing.join(", "))
+            })
         };
         checks.push(check(
-            "LocalBusiness NAP vollständig",
+            if en {
+                "LocalBusiness NAP complete"
+            } else {
+                "LocalBusiness NAP vollständig"
+            },
             nap_complete,
             nap_detail,
         ));
@@ -1333,10 +1587,16 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         let has_geo = !lb["geo"].is_null()
             && (!lb["geo"]["latitude"].is_null() || !lb["geo"]["longitude"].is_null());
         checks.push(check(
-            "LocalBusiness Geo-Koordinaten",
+            if en {
+                "LocalBusiness geo coordinates"
+            } else {
+                "LocalBusiness Geo-Koordinaten"
+            },
             has_geo,
             if has_geo {
                 None
+            } else if en {
+                Some("geo.latitude/longitude missing".to_string())
             } else {
                 Some("geo.latitude/longitude fehlt".to_string())
             },
@@ -1345,10 +1605,16 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         // Trust signals: sameAs (authority links to social profiles / Wikidata)
         let has_same_as = !lb["sameAs"].is_null();
         checks.push(check(
-            "LocalBusiness sameAs (Autoritätslinks)",
+            if en {
+                "LocalBusiness sameAs (authority links)"
+            } else {
+                "LocalBusiness sameAs (Autoritätslinks)"
+            },
             has_same_as,
             if has_same_as {
                 None
+            } else if en {
+                Some("sameAs missing — prevents a knowledge panel".to_string())
             } else {
                 Some("sameAs fehlt — verhindert Knowledge-Panel".to_string())
             },
@@ -1361,6 +1627,8 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
             has_rating,
             if has_rating {
                 None
+            } else if en {
+                Some("aggregateRating missing — no stars in the SERP".to_string())
             } else {
                 Some("aggregateRating fehlt — keine Sterne im SERP".to_string())
             },
@@ -1373,11 +1641,27 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
                 .iter()
                 .all(|s| s.content["name"].as_str().unwrap_or("") == first_name);
             checks.push(check(
-                "LocalBusiness-Schemas konsistent",
+                if en {
+                    "LocalBusiness schemas consistent"
+                } else {
+                    "LocalBusiness-Schemas konsistent"
+                },
                 consistent,
                 if consistent {
+                    if en {
+                        Some(format!(
+                            "{} schemas, name consistent",
+                            local_businesses.len()
+                        ))
+                    } else {
+                        Some(format!(
+                            "{} Schemas, Name einheitlich",
+                            local_businesses.len()
+                        ))
+                    }
+                } else if en {
                     Some(format!(
-                        "{} Schemas, Name einheitlich",
+                        "{} schemas with conflicting name",
                         local_businesses.len()
                     ))
                 } else {
@@ -1403,46 +1687,84 @@ fn build_structured_data_signals(seo: &SeoAnalysis) -> SignalCategory {
         }
         for (type_name, fields) in &by_type {
             checks.push(check(
-                &format!("{} Pflichtfelder vollständig", type_name),
+                &if en {
+                    format!("{} required fields complete", type_name)
+                } else {
+                    format!("{} Pflichtfelder vollständig", type_name)
+                },
                 false,
-                Some(format!("Fehlt: {}", fields.join(", "))),
+                Some(if en {
+                    format!("Missing: {}", fields.join(", "))
+                } else {
+                    format!("Fehlt: {}", fields.join(", "))
+                }),
             ));
         }
     }
 
     let score_pct = category_score(&checks);
     SignalCategory {
-        name: "Strukturierte Daten".to_string(),
+        name: if en {
+            "Structured data"
+        } else {
+            "Strukturierte Daten"
+        }
+        .to_string(),
         score_pct,
         checks,
     }
 }
 
-fn build_content_signals(seo: &SeoAnalysis) -> SignalCategory {
+fn build_content_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let wc = seo.technical.word_count;
     let il = seo.technical.internal_links;
     let link_density = if wc > 0 { il as f32 / wc as f32 } else { 0.0 };
 
     let checks = vec![
         check(
-            "Lesbarer Textumfang (≥ 300 Wörter, Richtwert)",
+            if en {
+                "Readable text volume (≥ 300 words, guideline)"
+            } else {
+                "Lesbarer Textumfang (≥ 300 Wörter, Richtwert)"
+            },
             wc >= 300,
-            Some(format!("{} Wörter", wc)),
+            Some(if en {
+                format!("{} words", wc)
+            } else {
+                format!("{} Wörter", wc)
+            }),
         ),
         check(
-            "Interne Verlinkung (≥ 3 Links)",
+            if en {
+                "Internal linking (≥ 3 links)"
+            } else {
+                "Interne Verlinkung (≥ 3 Links)"
+            },
             il >= 3,
-            Some(format!("{} interne Links", il)),
+            Some(if en {
+                format!("{} internal links", il)
+            } else {
+                format!("{} interne Links", il)
+            }),
         ),
         check(
-            "Linkdichte > 0,5%",
+            if en {
+                "Link density > 0.5%"
+            } else {
+                "Linkdichte > 0,5%"
+            },
             link_density > 0.005,
             Some(format!("{:.2}%", link_density * 100.0)),
         ),
     ];
     let score_pct = category_score(&checks);
     SignalCategory {
-        name: "Technische Inhaltsbasis".to_string(),
+        name: if en {
+            "Technical content base"
+        } else {
+            "Technische Inhaltsbasis"
+        }
+        .to_string(),
         score_pct,
         checks,
     }
@@ -1571,7 +1893,7 @@ mod tests {
     #[test]
     fn test_maturity_basic_with_no_data() {
         let seo = minimal_seo();
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
         assert_eq!(profile.maturity, SeoMaturityLevel::Basic);
         assert_eq!(profile.maturity_techniques, 0);
     }
@@ -1583,7 +1905,7 @@ mod tests {
         seo.meta.description = Some("Casoon bietet ein modernes CSS Framework.".to_string());
         seo.technical.lang = Some("de".to_string());
 
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
         assert!(profile.content_identity.summary.contains("Casoon"));
         assert_eq!(profile.content_identity.language, Some("de".to_string()));
         assert_eq!(profile.content_identity.content_type, "Website");
@@ -1608,7 +1930,7 @@ mod tests {
         seo.structured_data.types.push(SchemaType::FAQPage);
         seo.structured_data.has_structured_data = true;
 
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
         assert_eq!(profile.schema_inventory.total_count, 1);
 
         let faq = &profile.schema_inventory.schemas[0];
@@ -1664,7 +1986,7 @@ mod tests {
             .rich_snippets_potential
             .push("Test".to_string());
 
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
 
         // All signal categories should be high
         for cat in &profile.signal_strength.categories {
@@ -1726,7 +2048,7 @@ mod tests {
         seo.structured_data.types.push(SchemaType::LocalBusiness);
         seo.structured_data.has_structured_data = true;
 
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
         assert_eq!(profile.schema_inventory.total_count, 2);
 
         let webpage_detail = profile
@@ -1795,7 +2117,7 @@ mod tests {
         seo.headings.total_count = seo.headings.headings.len();
         seo.structured_data.types.push(SchemaType::Article);
 
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
         assert_eq!(
             profile.page_classification.primary_type,
             PageType::Editorial
@@ -1810,11 +2132,115 @@ mod tests {
     fn test_classify_thin_page() {
         let mut seo = minimal_seo();
         seo.technical.word_count = 120;
-        let profile = build_content_profile(&seo);
+        let profile = build_content_profile(&seo, "de");
         assert_eq!(
             profile.page_classification.primary_type,
             PageType::ThinContent
         );
         assert!(profile.page_classification.content_depth_score < 40);
+    }
+
+    fn has_german_chars(s: &str) -> bool {
+        s.chars().any(|c| "äöüÄÖÜß".contains(c))
+    }
+
+    #[test]
+    fn test_enum_labels_have_no_german_chars_in_en() {
+        for level in [
+            SeoMaturityLevel::Basic,
+            SeoMaturityLevel::Standard,
+            SeoMaturityLevel::Advanced,
+            SeoMaturityLevel::Professional,
+        ] {
+            assert!(
+                !has_german_chars(level.label(true)),
+                "German chars in maturity label: {}",
+                level.label(true)
+            );
+            assert!(
+                !has_german_chars(level.description(true)),
+                "German chars in maturity description: {}",
+                level.description(true)
+            );
+        }
+        for pt in [
+            PageType::Editorial,
+            PageType::StructuredContent,
+            PageType::MarketingLanding,
+            PageType::MediaHeavy,
+            PageType::Utility,
+            PageType::NavigationHub,
+            PageType::ThinContent,
+        ] {
+            assert!(
+                !has_german_chars(pt.label(true)),
+                "German chars in page type label: {}",
+                pt.label(true)
+            );
+        }
+    }
+
+    #[test]
+    fn test_profile_strings_have_no_german_chars_in_en() {
+        // Populate enough signals to exercise most string-producing branches,
+        // including the LocalBusiness-specific checks and a thin/short page so
+        // both passed and failed details are covered.
+        let mut seo = minimal_seo();
+        seo.technical.word_count = 120; // thin → "very short", failed content checks
+        seo.technical.https = false;
+        seo.technical.has_hreflang = false;
+        let lb = serde_json::json!({
+            "@type": "LocalBusiness",
+            "name": "Example",
+        });
+        seo.structured_data.json_ld.push(schema::JsonLdSchema {
+            schema_type: "LocalBusiness".to_string(),
+            schema_types: vec!["LocalBusiness".to_string()],
+            content: lb,
+            is_valid: true,
+        });
+        seo.structured_data.types.push(SchemaType::LocalBusiness);
+        seo.structured_data.has_structured_data = true;
+
+        let profile = build_content_profile(&seo, "en");
+
+        assert!(
+            !has_german_chars(&profile.content_identity.content_type),
+            "German chars in content_type: {}",
+            profile.content_identity.content_type
+        );
+        assert!(
+            !has_german_chars(&profile.content_identity.summary),
+            "German chars in summary: {}",
+            profile.content_identity.summary
+        );
+        for attr in &profile.page_classification.attributes {
+            assert!(
+                !has_german_chars(attr),
+                "German chars in attribute: {}",
+                attr
+            );
+        }
+        for category in &profile.signal_strength.categories {
+            assert!(
+                !has_german_chars(&category.name),
+                "German chars in category name: {}",
+                category.name
+            );
+            for chk in &category.checks {
+                assert!(
+                    !has_german_chars(&chk.label),
+                    "German chars in check label: {}",
+                    chk.label
+                );
+                if let Some(detail) = &chk.detail {
+                    assert!(
+                        !has_german_chars(detail),
+                        "German chars in check detail: {}",
+                        detail
+                    );
+                }
+            }
+        }
     }
 }

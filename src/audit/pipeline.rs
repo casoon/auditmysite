@@ -4,7 +4,7 @@
 //! and report generation. Every audit runs two viewport passes (desktop 1280×800,
 //! mobile 390×844) and blends results with 70 % mobile / 30 % desktop weighting.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
 use chromiumoxide::Page;
@@ -28,6 +28,7 @@ use crate::browser::{
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::DarkModeAnalysis;
 use crate::error::Result;
+use crate::interaction::stability::settle;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
@@ -51,14 +52,14 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
             .height(800_i64)
             .device_scale_factor(1.0_f64)
             .build()
-            .unwrap(),
+            .expect("static desktop viewport params are valid"),
         Viewport::Mobile => SetDeviceMetricsOverrideParams::builder()
             .mobile(true)
             .width(390_i64)
             .height(844_i64)
             .device_scale_factor(2.0_f64)
             .build()
-            .unwrap(),
+            .expect("static mobile viewport params are valid"),
     };
 
     page.execute(params)
@@ -67,8 +68,7 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
             url: "viewport-set".to_string(),
             reason: e.to_string(),
         })?;
-    // Wait for layout reflow
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    settle(page).await?;
     Ok(())
 }
 
@@ -208,7 +208,7 @@ impl PipelineConfig {
     /// Return a viewport-specific copy with the correct module on/off pattern.
     ///
     /// Desktop: SEO, security, mobile and stack detection are off (run on mobile pass).
-    ///          Dark-mode analysis runs here because it needs the desktop layout.
+    ///          Dark-mode analysis keeps the configured value.
     /// Mobile:  Security and dark-mode are off.  All other user flags are respected.
     pub fn for_viewport(&self, viewport: Viewport) -> Self {
         match viewport {
@@ -216,7 +216,6 @@ impl PipelineConfig {
                 check_seo: false,
                 check_security: false,
                 check_mobile: false,
-                check_dark_mode: true,
                 check_stack: false,
                 ..self.clone()
             },
@@ -264,8 +263,14 @@ impl PipelineConfig {
                     .mistral_model
                     .unwrap_or_else(|| "mistral-small-latest".to_string());
                 let similarity_threshold = toml_cfg.similarity_threshold.unwrap_or(0.62);
+                // Semantic eval is on by default (#451), but only counts as
+                // active when it can actually produce something: the fastembed
+                // link-text evaluator needs the `semantic-eval` build feature,
+                // and the Mistral check needs an API key. Otherwise it stays
+                // inert and must not be listed in the report scope.
+                let capable = cfg!(feature = "semantic-eval") || mistral_api_key.is_some();
                 crate::semantic_eval::SemanticEvalConfig {
-                    enabled: true,
+                    enabled: capable,
                     mistral_api_key,
                     mistral_model,
                     similarity_threshold,
@@ -691,8 +696,7 @@ async fn capture_screenshot_with_metadata(page: &Page) -> crate::error::Result<V
         )
         .await;
 
-    // Give a short moment for scroll/layout to settle
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    settle(page).await?;
 
     // Query viewport metadata
     let eval_res = page
@@ -1046,8 +1050,9 @@ async fn collect_throttled_performance(
             warn!("CPU throttle disable failed for {:?}: {}", profile, e);
         }
 
-        // Brief pause between passes to let the browser stabilise.
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        if let Err(e) = settle(page).await {
+            warn!("Browser settle failed after {:?}: {}", profile, e);
+        }
     }
 
     // Restore mobile viewport for screenshot capture that follows.
@@ -1222,25 +1227,28 @@ mod tests {
     fn active_module_labels_follow_pipeline_flags() {
         let config =
             PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
-        assert_eq!(
-            config.active_module_labels(),
-            vec![
-                "Accessibility",
-                "Accessibility Journey",
-                "Best Practices",
-                "Dark Mode",
-                "Journey",
-                "Mobile",
-                "Performance",
-                "Security",
-                "SEO",
-                "AI Visibility",
-                "Tech Stack",
-                "UX",
-                "Source Quality",
-                "Content Visibility",
-            ]
-        );
+        let mut expected = vec![
+            "Accessibility",
+            "Accessibility Journey",
+            "Best Practices",
+            "Dark Mode",
+            "Journey",
+            "Mobile",
+            "Performance",
+            "Security",
+            "SEO",
+            "AI Visibility",
+            "Tech Stack",
+            "UX",
+            "Source Quality",
+            "Content Visibility",
+        ];
+        // Semantic Eval is on by default but only counts as active when it can
+        // actually run — i.e. the `semantic-eval` build feature is compiled.
+        if cfg!(feature = "semantic-eval") {
+            expected.push("Semantic Eval");
+        }
+        assert_eq!(config.active_module_labels(), expected);
     }
 
     #[test]
@@ -1251,16 +1259,17 @@ mod tests {
             "--skip-performance",
             "--skip-mobile",
         ]));
-        assert_eq!(
-            config.active_module_labels(),
-            vec![
-                "Accessibility",
-                "Accessibility Journey",
-                "Dark Mode",
-                "AI Visibility",
-                "Source Quality",
-            ]
-        );
+        let mut expected = vec![
+            "Accessibility",
+            "Accessibility Journey",
+            "Dark Mode",
+            "AI Visibility",
+            "Source Quality",
+        ];
+        if cfg!(feature = "semantic-eval") {
+            expected.push("Semantic Eval");
+        }
+        assert_eq!(config.active_module_labels(), expected);
     }
 
     fn test_pipeline_config() -> PipelineConfig {
@@ -1350,8 +1359,19 @@ journey_budget_ms = 1234
         assert!(!desktop.check_security);
         assert!(!desktop.check_mobile);
         assert!(!desktop.check_stack);
-        assert!(desktop.check_dark_mode);
+        assert_eq!(desktop.check_dark_mode, config.check_dark_mode);
         assert_eq!(desktop.check_performance, config.check_performance);
+    }
+
+    #[test]
+    fn for_viewport_desktop_respects_disabled_dark_mode() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        let mut config = PipelineConfig::from_args_and_config(&args, None);
+        config.check_dark_mode = false;
+
+        let desktop = config.for_viewport(Viewport::Desktop);
+
+        assert!(!desktop.check_dark_mode);
     }
 
     #[test]

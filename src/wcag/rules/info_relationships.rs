@@ -180,18 +180,22 @@ fn check_form_grouping(node: &AXNode, tree: &AXTree, results: &mut WcagResults) 
     results.passes += 1;
 }
 
-/// Check data cells have associated headers
+/// Check data cells for an explicit header association.
+///
+/// Whether the enclosing data table exposes header cells at all is validated in
+/// `check_table_structure`. Here we only credit an *explicit* cell→header
+/// association via the `headers` IDREF attribute (what complex tables need). A
+/// content cell without it is governed by the table-level verdict and must not
+/// be counted as a pass on its own — previously every content cell passed,
+/// inflating the pass count (#444).
 fn check_cell_headers(node: &AXNode, _tree: &AXTree, results: &mut WcagResults) {
-    // Check if cell has any text content
     let has_content = node
         .name
         .as_ref()
         .map(|n| !n.trim().is_empty())
         .unwrap_or(false);
 
-    if has_content {
-        // Data cells should ideally have headers associated
-        // This is a simplified check - full implementation would trace header associations
+    if has_content && !node.get_property_idrefs("headers").is_empty() {
         results.passes += 1;
     }
 }

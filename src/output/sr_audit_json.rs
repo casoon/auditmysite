@@ -143,25 +143,25 @@ mod tests {
               "affected_node_ids": [
                 "3"
               ],
-              "message": "Interaktiver Name \"Hier\" ist ohne Kontext nicht aussagekräftig.",
+              "message": "Interactive name \"Hier\" is not meaningful without context.",
               "severity": "medium",
               "wcag_criterion": "2.4.4"
             },
             {
               "affected_node_ids": [],
-              "message": "Kein Header-Bereich (banner-Landmark) vorhanden. Screen Reader können die Seitenstruktur nicht vollständig navigieren.",
+              "message": "No header area (banner landmark) present. Screen readers cannot fully navigate the page structure.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             },
             {
               "affected_node_ids": [],
-              "message": "Keine Navigations-Landmark vorhanden. Tastaturnutzer können nicht direkt zur Navigation springen.",
+              "message": "No navigation landmark present. Keyboard users cannot jump directly to the navigation.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             },
             {
               "affected_node_ids": [],
-              "message": "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Die Seitenstruktur ist für Screen Reader unvollständig.",
+              "message": "No footer landmark (contentinfo) present. The page structure is incomplete for screen readers.",
               "severity": "medium",
               "wcag_criterion": "1.3.6"
             }
@@ -207,7 +207,7 @@ mod tests {
               "value": null
             },
             {
-              "announcement": "Inhalt, Hauptbereich",
+              "announcement": "Inhalt, main",
               "depth": 1,
               "description": null,
               "name": "Inhalt",
@@ -219,7 +219,7 @@ mod tests {
               "value": null
             },
             {
-              "announcement": "Hier, Link",
+              "announcement": "Hier, link",
               "depth": 1,
               "description": null,
               "name": "Hier",

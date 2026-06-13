@@ -1,8 +1,8 @@
 //! TabList pattern (issue #30).
 //!
-//! Detects tab-list/tab/tabpanel structures and validates that:
+//! Detects tab-list/tab/tabpanel structures and reports that:
 //! - each tab declares aria-selected
-//! - each tab has aria-controls pointing to a tabpanel that exists
+//! - each tab declares aria-controls (target resolution needs a DOM pass, #444)
 //!
 //! Required-children violations (tablist without tabs) are already covered
 //! by the widget_rules check — this pattern adds semantic validation.
@@ -21,7 +21,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
 
     let mut tabs_total = 0usize;
     let mut tabs_with_selected = 0usize;
-    let mut tabs_with_valid_controls = 0usize;
+    let mut tabs_with_controls = 0usize;
 
     for tablist in &tablists {
         let tabs: Vec<_> = tablist
@@ -55,9 +55,13 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
                 );
             }
 
-            // aria-controls → tabpanel (id_matches is a stub; just count presence)
+            // aria-controls presence. We only report that it is declared, not
+            // that the target resolves: inactive tabpanels are frequently hidden
+            // and absent from the AX tree, so a tree-level existence check would
+            // be false-negative. Validating the IDREF target needs a DOM pass
+            // (#444).
             if tab.has_property("controls") {
-                tabs_with_valid_controls += 1;
+                tabs_with_controls += 1;
             }
         }
     }
@@ -70,11 +74,11 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     out.add_recognized(
         "TabList",
         format!(
-            "{} tablist(s) with {} tab(s); {} have aria-selected, {} reference a valid tabpanel.",
+            "{} tablist(s) with {} tab(s); {} have aria-selected, {} declare aria-controls.",
             tablists.len(),
             tabs_total,
             tabs_with_selected,
-            tabs_with_valid_controls
+            tabs_with_controls
         ),
         confidence,
     );

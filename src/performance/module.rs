@@ -61,6 +61,18 @@ impl AuditModule for PerformanceModule {
 
         let score = calculate_performance_score(&vitals, content_weight.as_ref());
 
+        // If not a single Web Vital could be measured, the 0 the scorer returns is
+        // not a genuine result — it would otherwise enter the weighted overall at
+        // 20% and silently deflate the score by ~15-20 points. Treat it like a
+        // failed measurement and yield `None` so performance is excluded rather
+        // than scored as 0 (#448).
+        if score.metrics_available == 0 {
+            warn!(
+                "Performance analysis produced no measurable Web Vitals; treating as not measured"
+            );
+            return Ok(ModuleData::None);
+        }
+
         let render_blocking = match analyze_render_blocking(page, url).await {
             Ok(rb) => Some(rb),
             Err(e) => {

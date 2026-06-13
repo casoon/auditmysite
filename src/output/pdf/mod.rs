@@ -12,31 +12,23 @@ mod detail_modules;
 mod diagnosis;
 mod findings;
 mod helpers;
-mod modules;
 mod single_report;
 mod wcag_coverage;
 
 pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DevicePreview, Divider, DominantIssueSpotlight, ImpactGrid,
-    ImpactGridCard, List, MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
-    TableOfContents,
+    ChecklistPanel, ChecklistRow, Divider, PageBreak, TableOfContents,
 };
-use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::text::Label;
 use renderreport::prelude::Image;
 use renderreport::prelude::*;
 
-use renderreport::components::SeverityOverview;
-
-use self::appendix::{build_module_strip, build_raw_audit_snapshot, impact_row, risk_status};
 // Re-export helpers used by sibling sub-modules via `super::`.
 use self::appendix::{cover_logo_asset, register_cover_logo_asset};
-use self::cover::{build_cover_score_row_gauges, certificate_badge_path};
+use self::cover::build_cover_score_row_gauges;
 use self::diagnosis::{business_relevance, format_word_count, output_scope_callout};
-use self::findings::render_key_finding_block;
-use self::helpers::{component_json, create_engine, extract_domain, soft_flow_group};
-use self::modules::{build_summary_overview, render_next_steps_single};
+use self::helpers::{create_engine, extract_domain};
 use self::single_report::{
     render_appendix_full, render_management_page, render_module_sections, render_part_divider,
     render_root_cause_analysis, render_tech_details, render_timeframe_roadmap,
@@ -106,15 +98,17 @@ fn build_single_report(
 
     // ── Cover Page ───────────────────────────────────────────────────
     let en = i18n.locale() == "en";
+    let certificate_label =
+        self::cover::certificate_label_localized(&vm.cover.certificate, i18n.locale());
     let risk_summary_text = if en {
         format!(
             "Status: {}  ·  {} Total Issues ({} Critical/High)",
-            vm.cover.certificate, vm.cover.total_issues, vm.cover.critical_issues
+            certificate_label, vm.cover.total_issues, vm.cover.critical_issues
         )
     } else {
         format!(
             "Status: {}  ·  {} Befunde gesamt ({} kritisch/hoch)",
-            vm.cover.certificate, vm.cover.total_issues, vm.cover.critical_issues
+            certificate_label, vm.cover.total_issues, vm.cover.critical_issues
         )
     };
 
@@ -349,54 +343,6 @@ fn build_single_report(
     Ok((engine, built_report))
 }
 
-fn build_recurring_pattern_panel(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
-    let en = i18n.locale() == "en";
-    let rows: Vec<ChecklistRow> = vm
-        .findings
-        .top_findings
-        .iter()
-        .filter(|f| f.is_component_issue)
-        .take(4)
-        .map(|f| {
-            let scope = if f.occurrence_count >= 25 {
-                if en {
-                    "component/template pattern"
-                } else {
-                    "Komponenten-/Template-Muster"
-                }
-            } else {
-                if en {
-                    "repeated pattern"
-                } else {
-                    "wiederholtes Muster"
-                }
-            };
-            let detail = if en {
-                format!(
-                    "{} occurrence(s) — likely a {}. Customer effect: {}",
-                    f.occurrence_count,
-                    scope,
-                    first_customer_sentence(&f.user_impact)
-                )
-            } else {
-                format!(
-                    "{} Vorkommen — wahrscheinlich ein {}. Kundenauswirkung: {}",
-                    f.occurrence_count,
-                    scope,
-                    first_customer_sentence(&f.user_impact)
-                )
-            };
-            ChecklistRow::new(&f.title, detail).with_status("warn")
-        })
-        .collect();
-
-    ChecklistPanel::new(rows).with_title(if en {
-        "Recurring issue patterns"
-    } else {
-        "Wiederkehrende Fehlerbilder"
-    })
-}
-
 fn render_audit_confidence_notes(
     mut builder: renderreport::engine::ReportBuilder,
     audit_flags: &[crate::audit::normalized::AuditFlag],
@@ -418,7 +364,7 @@ fn render_audit_confidence_notes(
 
     if !audit_flags.is_empty() {
         let mut rows = Vec::new();
-        for flag in audit_flags.iter().take(4) {
+        for flag in audit_flags {
             rows.push(
                 ChecklistRow::new(
                     audit_flag_title(&flag.kind, en),
@@ -465,10 +411,6 @@ fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool
         ("viewport_gap", false) => "Desktop- und Mobile-Ergebnis unterscheiden sich deutlich. Die Nutzung sollte für beide Ansichten getrennt geprüft werden.".to_string(),
         _ => flag.message.clone(),
     }
-}
-
-fn first_customer_sentence(text: &str) -> &str {
-    text.split(". ").next().unwrap_or(text)
 }
 
 fn cleanup_screenshot_temps(report: &AuditReport) {

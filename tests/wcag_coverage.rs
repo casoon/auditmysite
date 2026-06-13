@@ -17,7 +17,7 @@ use auditmysite::wcag::rules::{
     check_accessible_name, check_aria_naming_rules, check_aria_relationships, check_aria_roles,
     check_bypass_blocks, check_dialog_rules, check_focus_order, check_focus_visible,
     check_form_rules, check_headings, check_image_input_rules, check_info_relationships,
-    check_input_purpose, check_instructions, check_keyboard, check_label_in_name, check_labels,
+    check_input_purpose, check_instructions, check_keyboard, check_labels,
     check_landmark_banner_is_top_level, check_landmark_contentinfo_is_top_level,
     check_landmark_main_is_top_level, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
@@ -88,7 +88,6 @@ rule_smoke_test!(smoke_check_language, check_language);
 rule_smoke_test!(smoke_check_language_extended, check_language_extended);
 rule_smoke_test!(smoke_check_instructions, check_instructions);
 rule_smoke_test!(smoke_check_focus_order, check_focus_order);
-rule_smoke_test!(smoke_check_label_in_name, check_label_in_name);
 rule_smoke_test!(smoke_check_on_focus, check_on_focus);
 rule_smoke_test!(smoke_check_on_input, check_on_input);
 rule_smoke_test!(smoke_check_labels, check_labels);

@@ -181,7 +181,13 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
                     .seo
                     .as_ref()
                     .and_then(|seo| seo.content_profile.as_ref())
-                    .map(|profile| profile.page_classification.primary_type.label().to_string()),
+                    .map(|profile| {
+                        profile
+                            .page_classification
+                            .primary_type
+                            .label(i18n.locale() == "en")
+                            .to_string()
+                    }),
                 page_attributes: r
                     .seo
                     .as_ref()
@@ -275,12 +281,21 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
             .as_ref()
             .and_then(|seo| seo.content_profile.as_ref())
         {
-            let label = profile.page_classification.primary_type.label().to_string();
+            let en = i18n.locale() == "en";
+            let label = profile
+                .page_classification
+                .primary_type
+                .label(en)
+                .to_string();
             *page_type_counts.entry(label).or_default() += 1;
             let semantic_score = average_page_semantic_score(&profile.page_classification);
             page_semantic_scores.push((
                 report.url.clone(),
-                profile.page_classification.primary_type.label().to_string(),
+                profile
+                    .page_classification
+                    .primary_type
+                    .label(en)
+                    .to_string(),
                 semantic_score,
             ));
             match profile.page_classification.primary_type {
@@ -619,11 +634,12 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         .unwrap_or_default();
 
     // Certificate and grade are based on the primary WCAG/accessibility score.
+    // Thresholds mirror `AccessibilityScorer::calculate_certificate` (#449).
     let certificate = match average_score {
-        95.. => "SEHR GUT",
-        85.. => "GUT",
-        70.. => "SOLIDE",
-        50.. => "AUSBAUFÄHIG",
+        90.. => "SEHR GUT",
+        75.. => "GUT",
+        60.. => "STABIL",
+        40.. => "AUSBAUFÄHIG",
         _ => "UNGENÜGEND",
     }
     .to_string();
@@ -840,7 +856,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
                 expl.user_impact_for(locale),
                 dimension_label,
                 acc.severity,
-                Some(finding.subcategory.as_str()),
+                Some(finding.subcategory_kind.label(false)),
                 acc.count,
             ),
             expl.typical_cause_for(locale).to_string(),
@@ -860,7 +876,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
                 &finding.user_impact,
                 dimension_label,
                 acc.severity,
-                Some(finding.subcategory.as_str()),
+                Some(finding.subcategory_kind.label(false)),
                 acc.count,
             ),
             String::new(),

@@ -4,24 +4,24 @@
 //! components, and returns the builder for further chaining.
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, Grid, List, PageBreak,
-    SectionHeaderSplit,
+    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, List, PageBreak, SectionHeaderSplit,
 };
-use renderreport::components::text::{Label, TextBlock};
-use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
+use renderreport::components::text::Label;
+use renderreport::components::{AuditTable, Finding, TableColumn};
 use renderreport::prelude::*;
 
 use super::appendix::build_cli_snapshot_table;
 use super::detail_modules::{
     render_a11y_journey_findings, render_ai_visibility, render_best_practices,
     render_budget_violations, render_content_visibility, render_dark_mode, render_journey,
-    render_mobile, render_performance, render_quality_module_summary, render_search_experience,
+    render_mobile, render_performance, render_screen_reader_section, render_search_experience,
     render_security, render_seo, render_source_quality, render_tech_stack, render_ux,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::findings::render_finding_technical;
 use super::helpers::map_severity;
 use super::wcag_coverage::render_wcag_coverage_section;
+use crate::audit::normalized::AdvisoryFinding;
 use crate::audit::AuditReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
@@ -451,24 +451,6 @@ pub(super) fn render_management_page(
     builder
 }
 
-fn dashboard_status_label(score: u32, _is_a11y_or_security: bool, en: bool) -> &'static str {
-    if en {
-        match score {
-            80..=100 => "Good",
-            55..=79 => "Needs improvement",
-            40..=54 => "Weak",
-            _ => "Critical",
-        }
-    } else {
-        match score {
-            80..=100 => "Gut",
-            55..=79 => "Verbesserungswürdig",
-            40..=54 => "Schwach",
-            _ => "Kritisch",
-        }
-    }
-}
-
 /// Sections 5b + 6+ — diagnosis, findings by severity tier, module metrics, appendix.
 pub(super) fn render_tech_details(
     mut builder: renderreport::engine::ReportBuilder,
@@ -524,6 +506,11 @@ pub(super) fn render_tech_details(
             report.accessibility_journey.as_ref(),
             i18n,
         );
+    }
+
+    // Screen-reader reading-order audit (#411)
+    if let Some(sr) = report.screen_reader_audit.as_ref() {
+        builder = render_screen_reader_section(builder, sr, i18n);
     }
 
     builder
@@ -831,56 +818,138 @@ fn render_appendix_section(
     builder
 }
 
-pub(super) fn render_quality_entry(
+fn render_positive_signals_section(
     mut builder: renderreport::engine::ReportBuilder,
-    vm: &ReportViewModel,
-    report: &AuditReport,
+    signals: &PositiveSignalsBlock,
+    is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = i18n.locale() == "en";
-    // Part 2 — SEO, AI & Quality (optional). Only render if any module is present (#246).
-    let has_part3 = vm.module_details.search_experience.is_some()
-        || vm.module_details.seo.is_some()
-        || vm.module_details.ai_visibility.is_some()
-        || vm.module_details.content_visibility.is_some()
-        || vm.module_details.performance.is_some()
-        || !report.budget_violations.is_empty()
-        || vm.module_details.security.is_some()
-        || vm.module_details.mobile.is_some()
-        || vm.module_details.ux.is_some()
-        || vm.module_details.journey.is_some()
-        || vm.module_details.dark_mode.is_some()
-        || vm.module_details.source_quality.is_some()
-        || vm.module_details.tech_stack.is_some()
-        || vm.module_details.best_practices.is_some();
+    if signals.is_empty() {
+        return builder;
+    }
 
-    if has_part3 {
-        let (p3_title, p3_intro, p3_audience_title, p3_audience_body) = if en {
-            (
-                "SEO, AI & Quality",
-                "Search engine optimization, AI discoverability, and technical quality signals.",
-                "Audience",
-                "Marketing, SEO specialists, and engineering teams. This part is optional and complements the accessibility findings with discoverability and technical quality metrics.",
-            )
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
+    let en = i18n.locale() == "en";
+    let mut rows = Vec::new();
+    for signal in &signals.items {
+        let status = if signal.strong {
+            if en {
+                "Strong"
+            } else {
+                "Stark"
+            }
+        } else if en {
+            "Present"
         } else {
-            (
-                "SEO, KI & Qualität",
-                "Suchmaschinenoptimierung, KI-Auffindbarkeit und technische Qualitätssignale.",
-                "Zielgruppe",
-                "Marketing, SEO-Spezialisten und Engineering-Teams. Dieser Teil ist optional und ergänzt die Accessibility-Befunde um Auffindbarkeits- und Qualitätsmetriken.",
-            )
+            "Vorhanden"
         };
-        builder = render_part_divider(
-            builder,
-            3,
-            p3_title,
-            p3_intro,
-            p3_audience_title,
-            p3_audience_body,
-            i18n,
+        rows.push(
+            ChecklistRow::new(&signal.title, format!("{}: {}", status, signal.description))
+                .with_status(if signal.strong { "good" } else { "info" }),
         );
     }
-    builder
+
+    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+        "Recognized structural patterns"
+    } else {
+        "Erkannte Strukturmuster"
+    }))
+}
+
+fn render_dual_viewport_summary_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    is_first: bool,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let (Some(desktop), Some(mobile)) = (vm.cover.desktop_score, vm.cover.mobile_score) else {
+        return builder;
+    };
+
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
+    let en = i18n.locale() == "en";
+    let rows = vec![
+        ChecklistRow::new(
+            if en { "Desktop viewport" } else { "Desktop-Viewport" },
+            format!("{desktop}/100"),
+        )
+        .with_status(if desktop >= 75 { "good" } else { "warn" }),
+        ChecklistRow::new(
+            if en { "Mobile viewport" } else { "Mobile-Viewport" },
+            format!("{mobile}/100"),
+        )
+        .with_status(if mobile >= 75 { "good" } else { "warn" }),
+        ChecklistRow::new(
+            if en { "Interpretation" } else { "Einordnung" },
+            if en {
+                "JSON detail includes a compact dual_viewport summary with per-viewport finding counts and module availability."
+            } else {
+                "Das JSON-Detail enthält eine kompakte dual_viewport-Zusammenfassung mit Befundzahlen und Modulverfügbarkeit je Viewport."
+            },
+        )
+        .with_status("info"),
+    ];
+
+    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+        "Dual viewport summary"
+    } else {
+        "Dual-Viewport-Zusammenfassung"
+    }))
+}
+
+fn render_advisory_findings_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    findings: &[AdvisoryFinding],
+    is_first: bool,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if findings.is_empty() {
+        return builder;
+    }
+
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+
+    let en = i18n.locale() == "en";
+    builder = builder.add_component(Callout::info(if en {
+        "These advisory findings are included for context only and do not influence the audit score or risk level."
+    } else {
+        "Diese Hinweise dienen nur der Einordnung und beeinflussen weder Audit-Score noch Risikostufe."
+    }));
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new(if en { "Category" } else { "Kategorie" }).with_width("20%"),
+        TableColumn::new(if en { "Source" } else { "Quelle" }).with_width("14%"),
+        TableColumn::new(if en { "Confidence" } else { "Vertrauen" }).with_width("14%"),
+        TableColumn::new(if en { "Finding" } else { "Hinweis" }).with_width("52%"),
+    ])
+    .with_title(if en {
+        "Advisory semantic findings"
+    } else {
+        "Semantische Hinweise"
+    });
+
+    for finding in findings {
+        table = table.add_row(vec![
+            finding.category.clone(),
+            finding.source.clone(),
+            advisory_confidence_label(finding.confidence),
+            finding.message.clone(),
+        ]);
+    }
+
+    builder.add_component(table)
+}
+
+fn advisory_confidence_label(confidence: f32) -> String {
+    format!("{:.0} %", (confidence.clamp(0.0, 1.0) * 100.0).round())
 }
 
 pub(super) fn render_module_sections(
@@ -890,6 +959,10 @@ pub(super) fn render_module_sections(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let mut is_first = true;
+    if vm.cover.desktop_score.is_some() && vm.cover.mobile_score.is_some() {
+        builder = render_dual_viewport_summary_section(builder, vm, is_first, i18n);
+        is_first = false;
+    }
     if let Some(ref sx) = vm.module_details.search_experience {
         builder = render_search_experience(builder, sx, is_first, i18n);
         is_first = false;
@@ -943,6 +1016,15 @@ pub(super) fn render_module_sections(
     }
     if let Some(ref bp) = vm.module_details.best_practices {
         builder = render_best_practices(builder, bp, is_first, i18n);
+        is_first = false;
+    }
+    if !vm.positive_signals.is_empty() {
+        builder = render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n);
+        is_first = false;
+    }
+    if !report.advisory_findings.is_empty() {
+        builder =
+            render_advisory_findings_section(builder, &report.advisory_findings, is_first, i18n);
     }
     builder
 }

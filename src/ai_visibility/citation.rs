@@ -6,7 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{build_dimension, AiSignal, DimensionScore};
+use super::{
+    build_dimension, AiSignal, AiSignalKind, AiSignalValues, DimensionKind, DimensionScore,
+};
 
 /// Citation likelihood analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,173 +40,335 @@ pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {
     let mut signals = Vec::new();
 
     // 1. Authority: HTTPS
-    signals.push(AiSignal {
-        name: "Verschlüsselung".into(),
-        present: input.has_https,
-        weight: 0.08,
-        detail: if input.has_https {
-            "HTTPS — Vertrauenssignal für Zitierwürdigkeit".into()
-        } else {
-            "Kein HTTPS — mindert Vertrauen in die Quelle".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::Encryption,
+        input.has_https,
+        0.08,
+        AiSignalValues::default(),
+    ));
 
     // 2. Author / Organization identity
     let has_identity = input.has_author_schema || input.has_org_schema;
-    signals.push(AiSignal {
-        name: "Herausgeber-Identität".into(),
-        present: has_identity,
-        weight: 0.15,
-        detail: if input.has_author_schema && input.has_org_schema {
-            "Autor + Organisation per Schema.org identifiziert — starkes Autoritätssignal".into()
-        } else if input.has_author_schema {
-            "Autor per Schema.org identifiziert".into()
-        } else if input.has_org_schema {
-            "Organisation per Schema.org identifiziert".into()
-        } else {
-            "Kein Herausgeber-Markup — Autorität nicht maschinell prüfbar".into()
+    signals.push(AiSignal::new(
+        AiSignalKind::PublisherIdentity,
+        has_identity,
+        0.15,
+        AiSignalValues {
+            has_author: Some(input.has_author_schema),
+            has_org: Some(input.has_org_schema),
+            ..Default::default()
         },
-    });
+    ));
 
     // 3. Article structured data
-    signals.push(AiSignal {
-        name: "Artikelstruktur".into(),
-        present: input.has_article_schema,
-        weight: 0.10,
-        detail: if input.has_article_schema {
-            "Article/BlogPosting-Schema — als zitierfähiger Inhalt markiert".into()
-        } else {
-            "Kein Artikel-Schema — Content-Typ nicht maschinenlesbar".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::ArticleStructure,
+        input.has_article_schema,
+        0.10,
+        AiSignalValues::default(),
+    ));
 
     // 4. Publication date
-    signals.push(AiSignal {
-        name: "Publikationsdatum".into(),
-        present: input.has_date_published,
-        weight: 0.08,
-        detail: if input.has_date_published {
-            "Veröffentlichungsdatum vorhanden — Aktualität prüfbar".into()
-        } else {
-            "Kein Publikationsdatum — Aktualität nicht einschätzbar".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::PublicationDate,
+        input.has_date_published,
+        0.08,
+        AiSignalValues::default(),
+    ));
 
     // 5. Canonical URL
-    signals.push(AiSignal {
-        name: "Kanonische URL".into(),
-        present: input.has_canonical,
-        weight: 0.07,
-        detail: if input.has_canonical {
-            "Canonical URL gesetzt — eindeutige Quellenreferenz".into()
-        } else {
-            "Keine Canonical-URL — Duplikate möglich".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::CanonicalUrl,
+        input.has_canonical,
+        0.07,
+        AiSignalValues::default(),
+    ));
 
     // 6. Snippet quality — short paragraphs and lists = quotable chunks
     let good_snippet_structure = input.short_paragraph_ratio >= 0.4 || input.has_lists;
-    signals.push(AiSignal {
-        name: "Snippet-Qualität".into(),
-        present: good_snippet_structure,
-        weight: 0.15,
-        detail: if input.short_paragraph_ratio >= 0.4 && input.has_lists {
-            format!(
-                "{:.0}% kurze Absätze + Listen — viele zitierfähige Textblöcke",
-                input.short_paragraph_ratio * 100.0
-            )
-        } else if input.short_paragraph_ratio >= 0.4 {
-            format!(
-                "{:.0}% kurze, prägnante Absätze — gute Snippet-Eignung",
-                input.short_paragraph_ratio * 100.0
-            )
-        } else if input.has_lists {
-            "Listen vorhanden — zitierfähige Aufzählungen".into()
-        } else {
-            "Wenig kurze Absätze, keine Listen — geringe Snippet-Eignung".into()
+    signals.push(AiSignal::new(
+        AiSignalKind::SnippetQuality,
+        good_snippet_structure,
+        0.15,
+        AiSignalValues {
+            short_paragraph_ratio: Some(input.short_paragraph_ratio),
+            has_lists: Some(input.has_lists),
+            ..Default::default()
         },
-    });
+    ));
 
     // 7. FAQ patterns — directly quotable Q&A
-    signals.push(AiSignal {
-        name: "Frage-Antwort-Muster".into(),
-        present: input.has_faq_schema,
-        weight: 0.10,
-        detail: if input.has_faq_schema {
-            "FAQ-Schema — Antworten direkt als Zitat nutzbar".into()
-        } else {
-            "Keine FAQ-Struktur — kein direktes Zitat-Potenzial".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::QuestionAnswerPattern,
+        input.has_faq_schema,
+        0.10,
+        AiSignalValues::default(),
+    ));
 
     // 8. Content substance
     let substantial = input.word_count >= 500 && input.heading_count >= 3;
-    signals.push(AiSignal {
-        name: "Inhaltliche Tiefe".into(),
-        present: substantial,
-        weight: 0.10,
-        detail: if substantial {
-            format!(
-                "{} Wörter, {} Abschnitte — ausreichend Substanz für Zitate",
-                input.word_count, input.heading_count
-            )
-        } else {
-            format!(
-                "{} Wörter, {} Überschriften — wenig Substanz",
-                input.word_count, input.heading_count
-            )
+    signals.push(AiSignal::new(
+        AiSignalKind::ContentDepth,
+        substantial,
+        0.10,
+        AiSignalValues {
+            word_count: Some(input.word_count),
+            section_count: Some(input.heading_count as u32),
+            ..Default::default()
         },
-    });
+    ));
 
     // 9. Social / sharing metadata
-    signals.push(AiSignal {
-        name: "Teilen-Metadaten".into(),
-        present: input.has_og_meta,
-        weight: 0.07,
-        detail: if input.has_og_meta {
-            "Open Graph vorhanden — Vorschau und Referenzierung möglich".into()
-        } else {
-            "Keine Open-Graph-Daten — eingeschränkte Vorschau".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::SharingMetadata,
+        input.has_og_meta,
+        0.07,
+        AiSignalValues::default(),
+    ));
 
     // 10. Breadcrumb — provides topical context
-    signals.push(AiSignal {
-        name: "Thematische Einordnung".into(),
-        present: input.has_breadcrumb,
-        weight: 0.05,
-        detail: if input.has_breadcrumb {
-            "Breadcrumb-Schema — thematischer Kontext maschinell verfügbar".into()
-        } else {
-            "Kein Breadcrumb — thematische Einordnung fehlt".into()
-        },
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::ThematicContext,
+        input.has_breadcrumb,
+        0.05,
+        AiSignalValues::default(),
+    ));
 
     // 11. Technical trust
     let sec_good = input.security_score.is_none_or(|s| s >= 70);
     let a11y_good = input.a11y_score >= 80.0;
     let tech_trust = sec_good && a11y_good;
-    signals.push(AiSignal {
-        name: "Technisches Vertrauen".into(),
-        present: tech_trust,
-        weight: 0.05,
-        detail: format!(
-            "Security: {}, Accessibility: {:.0} — {}",
-            input
-                .security_score
-                .map_or("n/a".to_string(), |s| format!("{}", s)),
-            input.a11y_score,
-            if tech_trust {
-                "stabile technische Basis"
-            } else {
-                "technische Schwächen mindern Vertrauen"
-            }
-        ),
-    });
+    signals.push(AiSignal::new(
+        AiSignalKind::TechnicalTrust,
+        tech_trust,
+        0.05,
+        AiSignalValues {
+            security_score: input.security_score,
+            a11y_score: Some(input.a11y_score),
+            ..Default::default()
+        },
+    ));
 
     CitationAnalysis {
-        dimension: build_dimension("Zitierbarkeit", &signals),
+        dimension: build_dimension(DimensionKind::Citability, &signals),
     }
+}
+
+// ─── Signal detail text (single source of truth) ─────────────────────────────
+
+pub(crate) fn detail_encryption(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "HTTPS — trust signal for citation-worthiness".into()
+        } else {
+            "HTTPS — Vertrauenssignal für Zitierwürdigkeit".into()
+        }
+    } else if en {
+        "No HTTPS — reduces trust in the source".into()
+    } else {
+        "Kein HTTPS — mindert Vertrauen in die Quelle".into()
+    }
+}
+
+pub(crate) fn detail_publisher_identity(v: &AiSignalValues, en: bool) -> String {
+    let has_author = v.has_author.unwrap_or(false);
+    let has_org = v.has_org.unwrap_or(false);
+    if has_author && has_org {
+        if en {
+            "Author + organization identified via Schema.org — strong authority signal".into()
+        } else {
+            "Autor + Organisation per Schema.org identifiziert — starkes Autoritätssignal".into()
+        }
+    } else if has_author {
+        if en {
+            "Author identified via Schema.org".into()
+        } else {
+            "Autor per Schema.org identifiziert".into()
+        }
+    } else if has_org {
+        if en {
+            "Organization identified via Schema.org".into()
+        } else {
+            "Organisation per Schema.org identifiziert".into()
+        }
+    } else if en {
+        "No publisher markup — authority not machine-verifiable".into()
+    } else {
+        "Kein Herausgeber-Markup — Autorität nicht maschinell prüfbar".into()
+    }
+}
+
+pub(crate) fn detail_article_structure(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "Article/BlogPosting schema — marked as citable content".into()
+        } else {
+            "Article/BlogPosting-Schema — als zitierfähiger Inhalt markiert".into()
+        }
+    } else if en {
+        "No article schema — content type not machine-readable".into()
+    } else {
+        "Kein Artikel-Schema — Content-Typ nicht maschinenlesbar".into()
+    }
+}
+
+pub(crate) fn detail_publication_date(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "Publication date present — recency verifiable".into()
+        } else {
+            "Veröffentlichungsdatum vorhanden — Aktualität prüfbar".into()
+        }
+    } else if en {
+        "No publication date — recency not assessable".into()
+    } else {
+        "Kein Publikationsdatum — Aktualität nicht einschätzbar".into()
+    }
+}
+
+pub(crate) fn detail_canonical_url(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "Canonical URL set — unambiguous source reference".into()
+        } else {
+            "Canonical URL gesetzt — eindeutige Quellenreferenz".into()
+        }
+    } else if en {
+        "No canonical URL — duplicates possible".into()
+    } else {
+        "Keine Canonical-URL — Duplikate möglich".into()
+    }
+}
+
+pub(crate) fn detail_snippet_quality(v: &AiSignalValues, en: bool) -> String {
+    let ratio = v.short_paragraph_ratio.unwrap_or(0.0);
+    let has_lists = v.has_lists.unwrap_or(false);
+    if ratio >= 0.4 && has_lists {
+        if en {
+            format!(
+                "{:.0}% short paragraphs + lists — many citable text blocks",
+                ratio * 100.0
+            )
+        } else {
+            format!(
+                "{:.0}% kurze Absätze + Listen — viele zitierfähige Textblöcke",
+                ratio * 100.0
+            )
+        }
+    } else if ratio >= 0.4 {
+        if en {
+            format!(
+                "{:.0}% short, concise paragraphs — good snippet suitability",
+                ratio * 100.0
+            )
+        } else {
+            format!(
+                "{:.0}% kurze, prägnante Absätze — gute Snippet-Eignung",
+                ratio * 100.0
+            )
+        }
+    } else if has_lists {
+        if en {
+            "Lists present — citable bullet points".into()
+        } else {
+            "Listen vorhanden — zitierfähige Aufzählungen".into()
+        }
+    } else if en {
+        "Few short paragraphs, no lists — low snippet suitability".into()
+    } else {
+        "Wenig kurze Absätze, keine Listen — geringe Snippet-Eignung".into()
+    }
+}
+
+pub(crate) fn detail_question_answer(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "FAQ schema — answers directly usable as quotes".into()
+        } else {
+            "FAQ-Schema — Antworten direkt als Zitat nutzbar".into()
+        }
+    } else if en {
+        "No FAQ structure — no direct quote potential".into()
+    } else {
+        "Keine FAQ-Struktur — kein direktes Zitat-Potenzial".into()
+    }
+}
+
+pub(crate) fn detail_content_depth(present: bool, v: &AiSignalValues, en: bool) -> String {
+    let word_count = v.word_count.unwrap_or(0);
+    let section_count = v.section_count.unwrap_or(0);
+    if present {
+        if en {
+            format!(
+                "{} words, {} sections — sufficient substance for quotes",
+                word_count, section_count
+            )
+        } else {
+            format!(
+                "{} Wörter, {} Abschnitte — ausreichend Substanz für Zitate",
+                word_count, section_count
+            )
+        }
+    } else if en {
+        format!(
+            "{} words, {} headings — little substance",
+            word_count, section_count
+        )
+    } else {
+        format!(
+            "{} Wörter, {} Überschriften — wenig Substanz",
+            word_count, section_count
+        )
+    }
+}
+
+pub(crate) fn detail_sharing_metadata(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "Open Graph present — preview and referencing possible".into()
+        } else {
+            "Open Graph vorhanden — Vorschau und Referenzierung möglich".into()
+        }
+    } else if en {
+        "No Open Graph data — limited preview".into()
+    } else {
+        "Keine Open-Graph-Daten — eingeschränkte Vorschau".into()
+    }
+}
+
+pub(crate) fn detail_thematic_context(present: bool, en: bool) -> String {
+    if present {
+        if en {
+            "Breadcrumb schema — thematic context machine-available".into()
+        } else {
+            "Breadcrumb-Schema — thematischer Kontext maschinell verfügbar".into()
+        }
+    } else if en {
+        "No breadcrumb — thematic context missing".into()
+    } else {
+        "Kein Breadcrumb — thematische Einordnung fehlt".into()
+    }
+}
+
+pub(crate) fn detail_technical_trust(present: bool, v: &AiSignalValues, en: bool) -> String {
+    let security_score = v.security_score;
+    let a11y_score = v.a11y_score.unwrap_or(0.0);
+    format!(
+        "Security: {}, Accessibility: {:.0} — {}",
+        security_score.map_or("n/a".to_string(), |s| format!("{}", s)),
+        a11y_score,
+        if present {
+            if en {
+                "stable technical foundation"
+            } else {
+                "stabile technische Basis"
+            }
+        } else if en {
+            "technical weaknesses reduce trust"
+        } else {
+            "technische Schwächen mindern Vertrauen"
+        }
+    )
 }
 
 #[cfg(test)]
@@ -255,7 +419,9 @@ mod tests {
     fn rich_input_produces_high_score() {
         let result = analyze_citation(&rich_input());
         assert!(result.dimension.score >= 80);
-        assert_eq!(result.dimension.name, "Zitierbarkeit");
+        // Struct carries canonical English.
+        assert_eq!(result.dimension.name, "Citability");
+        assert_eq!(result.dimension.kind, DimensionKind::Citability);
     }
 
     #[test]
@@ -272,12 +438,13 @@ mod tests {
             .dimension
             .signals
             .iter()
-            .find(|s| s.name == "Herausgeber-Identität")
+            .find(|s| s.kind == AiSignalKind::PublisherIdentity)
             .expect("signal must exist");
         assert!(identity_signal.present);
+        // Canonical English detail.
         assert!(
-            identity_signal.detail.contains("Autor")
-                && identity_signal.detail.contains("Organisation")
+            identity_signal.detail.contains("Author")
+                && identity_signal.detail.contains("organization")
         );
     }
 
@@ -293,7 +460,7 @@ mod tests {
             .dimension
             .signals
             .iter()
-            .find(|s| s.name == "Snippet-Qualität")
+            .find(|s| s.kind == AiSignalKind::SnippetQuality)
             .expect("signal must exist");
         assert!(snippet_signal.present);
     }
@@ -310,7 +477,7 @@ mod tests {
             .dimension
             .signals
             .iter()
-            .find(|s| s.name == "Technisches Vertrauen")
+            .find(|s| s.kind == AiSignalKind::TechnicalTrust)
             .expect("signal must exist");
         assert!(!trust_signal.present);
     }

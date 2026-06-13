@@ -157,7 +157,7 @@ fn source_quality_module_populates_report_field() {
     assert!(report.source_quality.is_none(), "precondition");
 
     SourceQualityModule
-        .derive(&mut report)
+        .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let sq = report
@@ -175,8 +175,8 @@ fn source_quality_module_populates_report_field() {
 fn source_quality_module_rewards_https_over_http() {
     let mut https_report = empty_report("https://example.com");
     let mut http_report = empty_report("http://example.com");
-    SourceQualityModule.derive(&mut https_report).unwrap();
-    SourceQualityModule.derive(&mut http_report).unwrap();
+    SourceQualityModule.derive(&mut https_report, "de").unwrap();
+    SourceQualityModule.derive(&mut http_report, "de").unwrap();
 
     let https_score = https_report.source_quality.as_ref().unwrap().score;
     let http_score = http_report.source_quality.as_ref().unwrap().score;
@@ -198,7 +198,7 @@ fn ai_visibility_module_populates_report_field() {
     assert!(report.ai_visibility.is_none(), "precondition");
 
     AiVisibilityModule
-        .derive(&mut report)
+        .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let av = report
@@ -220,8 +220,8 @@ fn ai_visibility_module_uses_seo_signals() {
     let mut without_seo = empty_report("https://example.com");
     let mut with_seo = report_with_seo("https://example.com", SeoAnalysis::default());
 
-    AiVisibilityModule.derive(&mut without_seo).unwrap();
-    AiVisibilityModule.derive(&mut with_seo).unwrap();
+    AiVisibilityModule.derive(&mut without_seo, "de").unwrap();
+    AiVisibilityModule.derive(&mut with_seo, "de").unwrap();
 
     // Both must populate the field; the score field is well-defined in both.
     assert!(without_seo.ai_visibility.is_some());
@@ -238,7 +238,7 @@ fn content_visibility_module_returns_default_without_seo() {
     assert!(report.content_visibility.is_none(), "precondition");
 
     ContentVisibilityModule
-        .derive(&mut report)
+        .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let cv = report
@@ -256,7 +256,7 @@ fn content_visibility_module_returns_default_without_seo() {
 #[test]
 fn content_visibility_module_produces_signals_with_seo_present() {
     let mut report = report_with_seo("https://example.com", SeoAnalysis::default());
-    ContentVisibilityModule.derive(&mut report).unwrap();
+    ContentVisibilityModule.derive(&mut report, "de").unwrap();
     let cv = report.content_visibility.as_ref().unwrap();
     assert!(
         cv.signal_count > 0,

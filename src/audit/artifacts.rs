@@ -205,7 +205,7 @@ pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
     format!("{:016x}", fnv1a(input.as_bytes()))
 }
 
-pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
+pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport {
     let mut wcag_results = WcagResults::new();
     wcag_results.nodes_checked = artifacts.snapshot.ax_tree.len();
 
@@ -271,7 +271,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts) -> AuditReport {
             &artifacts.audit.url,
             artifacts.audit.timestamp,
             &artifacts.snapshot.ax_tree,
-            "de",
+            locale,
         )),
     };
 

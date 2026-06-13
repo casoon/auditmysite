@@ -19,6 +19,9 @@ pub struct PageHealthAnalysis {
     pub soft_404_status: Option<u16>,
     /// True when the server returns 200 for non-existent URLs
     pub is_soft_404: bool,
+    /// Detailed custom 404 probe result for a known non-existent URL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_404: Option<Custom404Check>,
 
     /// Page uses <meta http-equiv="refresh">
     pub has_meta_refresh: bool,
@@ -130,6 +133,12 @@ pub struct PageHealthAnalysis {
     pub cache_control: Option<String>,
     /// True when Cache-Control includes a positive max-age or s-maxage
     pub has_efficient_cache: bool,
+    /// Static-resource cache policy audit.
+    #[serde(default)]
+    pub resource_cache: ResourceCacheAudit,
+    /// Resource URLs collected from browser timing for cache probing.
+    #[serde(skip)]
+    pub resource_cache_probe_urls: Vec<String>,
     /// Number of Server-Timing header entries on the main page response
     pub server_timing_count: u32,
     /// hreflang link elements present (count of rel="alternate" hreflang)
@@ -178,6 +187,38 @@ pub struct PageHealthAnalysis {
 pub struct RedirectHop {
     pub status: u16,
     pub url: String,
+}
+
+/// Custom 404 probe result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Custom404Check {
+    pub probe_url: String,
+    pub status: u16,
+    pub proper_status: bool,
+    pub custom_page: bool,
+}
+
+/// Cache-policy summary for static subresources.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ResourceCacheAudit {
+    pub checked_resources: u32,
+    pub cacheable_resources: u32,
+    pub inefficient_resources: u32,
+    pub immutable_resources: u32,
+    pub etag_resources: u32,
+    pub expires_resources: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub samples: Vec<ResourceCacheFinding>,
+}
+
+/// Single inefficient static-resource cache finding.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceCacheFinding {
+    pub url: String,
+    pub cache_control: Option<String>,
+    pub has_etag: bool,
+    pub has_expires: bool,
+    pub reason: String,
 }
 
 /// www ↔ non-www redirect configuration
@@ -239,8 +280,9 @@ pub async fn analyze_page_health(page: &Page, url: &str) -> Result<PageHealthAna
         warn!("W3C HTML validation failed: {}", e);
     }
 
-    // Aggregate issues
-    analysis.issues = collect_issues(&analysis);
+    // Aggregate issues — the stored report (and thus JSON) is always canonical
+    // English; the PDF re-derives localized issues at presentation time (#406).
+    analysis.issues = collect_issues(&analysis, true);
 
     Ok(analysis)
 }
@@ -447,6 +489,16 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
         const nav = performance.getEntriesByType('navigation')[0];
         r.documentDecodedBytes = nav ? Math.round(nav.decodedBodySize || 0) : 0;
         r.documentTransferBytes = nav ? Math.round(nav.transferSize || 0) : 0;
+        r.cacheProbeUrls = Array.from(new Set(
+            performance.getEntriesByType('resource')
+                .filter(entry => {
+                    const type = entry.initiatorType || '';
+                    if (['script', 'link', 'css', 'img', 'font'].includes(type)) return true;
+                    return /\.(js|css|mjs|woff2?|ttf|otf|png|jpe?g|gif|webp|avif|svg)(\?|$)/i.test(entry.name || '');
+                })
+                .map(entry => entry.name)
+                .filter(Boolean)
+        )).slice(0, 30);
 
         // LCP image candidate: largest visible img by display area
         let lcpImg = null, lcpArea = 0;
@@ -601,6 +653,14 @@ async fn run_dom_inspection(page: &Page, url: &str, a: &mut PageHealthAnalysis) 
     a.orphaned_preload_count = parsed["orphanedPreloadCount"].as_u64().unwrap_or(0) as u32;
     a.document_decoded_bytes = nonzero_u64(&parsed["documentDecodedBytes"]);
     a.document_transfer_bytes = nonzero_u64(&parsed["documentTransferBytes"]);
+    a.resource_cache_probe_urls = parsed["cacheProbeUrls"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     a.lcp_image_without_preload = parsed["lcpImageWithoutPreload"].as_bool().unwrap_or(false);
     a.lcp_image_without_fetchpriority = parsed["lcpImageWithoutFetchpriority"]
         .as_bool()
@@ -776,23 +836,26 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
 
     // Run all probes concurrently
     let probe_url = format!("{}/auditmysite-404-probe-xyz123", origin);
-    let (soft_404_result, www_result, header_result, redirect_chain) = tokio::join!(
-        probe_status(&probe_url),
+    let cache_probe_urls = a.resource_cache_probe_urls.clone();
+    let (custom_404_result, www_result, header_result, redirect_chain, resource_cache) = tokio::join!(
+        probe_custom_404(&probe_url),
         check_www_consolidation(url),
         probe_headers(url),
-        follow_redirect_chain(url)
+        follow_redirect_chain(url),
+        audit_resource_cache(&cache_probe_urls)
     );
 
     // Soft 404: only record the probe status when the server actually returns
     // 200 for a non-existent URL (= soft 404 confirmed). A proper 404/301/etc.
     // response means everything is fine — leave soft_404_status as None so the
     // JSON field stays absent rather than showing a confusing non-200 code.
-    if let Some(status) = soft_404_result {
-        a.is_soft_404 = status == 200;
+    if let Some(check) = custom_404_result {
+        a.is_soft_404 = check.status == 200;
         if a.is_soft_404 {
-            a.soft_404_status = Some(status);
+            a.soft_404_status = Some(check.status);
         }
-        debug!("Soft-404 probe: {} → {}", probe_url, status);
+        debug!("Custom-404 probe: {} → {}", probe_url, check.status);
+        a.custom_404 = Some(check);
     }
 
     // www consolidation
@@ -813,11 +876,7 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
         a.has_compression = compression || document_timing_indicates_compression(a);
         a.has_efficient_cache = cache_control
             .as_deref()
-            .map(|cc| {
-                cc.contains("max-age=") && !cc.contains("max-age=0")
-                    || cc.contains("s-maxage=") && !cc.contains("s-maxage=0")
-                    || cc.contains("immutable")
-            })
+            .map(is_cache_policy_efficient)
             .unwrap_or(false);
         a.cache_control = cache_control;
         a.server_timing_count = server_timing_count;
@@ -825,6 +884,7 @@ async fn run_http_probes(url: &str, a: &mut PageHealthAnalysis) {
     if document_timing_indicates_compression(a) {
         a.has_compression = true;
     }
+    a.resource_cache = resource_cache;
 }
 
 /// Probe main page headers: HTTP version, compression, Cache-Control, Server-Timing.
@@ -903,8 +963,8 @@ async fn follow_redirect_chain(url: &str) -> Vec<(u16, String)> {
     chain
 }
 
-/// Probe a URL and return its HTTP status (no redirect following).
-async fn probe_status(url: &str) -> Option<u16> {
+/// Probe a known non-existent URL and classify status plus page customization.
+async fn probe_custom_404(url: &str) -> Option<Custom404Check> {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(8))
@@ -912,12 +972,182 @@ async fn probe_status(url: &str) -> Option<u16> {
         .build()
         .ok()?;
 
-    client
-        .get(url)
-        .send()
-        .await
+    let response = client.get(url).send().await.ok()?;
+    let status = response.status().as_u16();
+    let body = response.text().await.unwrap_or_default();
+
+    Some(Custom404Check {
+        probe_url: url.to_string(),
+        status,
+        proper_status: matches!(status, 404 | 410),
+        custom_page: looks_like_custom_404_page(&body),
+    })
+}
+
+async fn audit_resource_cache(urls: &[String]) -> ResourceCacheAudit {
+    if urls.is_empty() {
+        return ResourceCacheAudit::default();
+    }
+
+    let Ok(client) = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::limited(3))
+        .timeout(std::time::Duration::from_secs(5))
+        .user_agent("auditmysite-cache-probe/1.0")
+        .build()
+    else {
+        return ResourceCacheAudit::default();
+    };
+
+    let mut audit = ResourceCacheAudit::default();
+    let mut seen = std::collections::BTreeSet::new();
+
+    for url in urls
+        .iter()
+        .filter(|url| seen.insert((*url).clone()))
+        .take(30)
+    {
+        let Ok(response) = client.head(url).send().await else {
+            continue;
+        };
+        if !response.status().is_success() {
+            continue;
+        }
+
+        audit.checked_resources += 1;
+        let headers = response.headers();
+        let cache_control = headers
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from);
+        let has_etag = headers.get("etag").is_some();
+        let has_expires = headers.get("expires").is_some();
+        let immutable = cache_control
+            .as_deref()
+            .map(|cc| cc.to_ascii_lowercase().contains("immutable"))
+            .unwrap_or(false);
+
+        if has_etag {
+            audit.etag_resources += 1;
+        }
+        if has_expires {
+            audit.expires_resources += 1;
+        }
+        if immutable {
+            audit.immutable_resources += 1;
+        }
+
+        if !is_static_cache_candidate(url) {
+            continue;
+        }
+
+        audit.cacheable_resources += 1;
+        let efficient = cache_control
+            .as_deref()
+            .map(is_cache_policy_efficient)
+            .unwrap_or(false)
+            || (has_expires && cache_control.is_none());
+
+        if !efficient {
+            audit.inefficient_resources += 1;
+            if audit.samples.len() < 5 {
+                audit.samples.push(ResourceCacheFinding {
+                    url: url.clone(),
+                    cache_control,
+                    has_etag,
+                    has_expires,
+                    reason: cache_policy_reason(headers),
+                });
+            }
+        }
+    }
+
+    audit
+}
+
+fn looks_like_custom_404_page(body: &str) -> bool {
+    let normalized = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.len() < 400 {
+        return false;
+    }
+
+    let lower = normalized.to_ascii_lowercase();
+    let generic_markers = [
+        "nginx",
+        "apache",
+        "iis",
+        "not found",
+        "the requested url was not found",
+        "404 not found",
+    ];
+    let looks_generic =
+        normalized.len() < 800 && generic_markers.iter().any(|marker| lower.contains(marker));
+
+    !looks_generic
+}
+
+fn is_static_cache_candidate(url: &str) -> bool {
+    url::Url::parse(url)
         .ok()
-        .map(|r| r.status().as_u16())
+        .and_then(|parsed| {
+            parsed
+                .path_segments()
+                .and_then(|mut segments| segments.next_back().map(str::to_ascii_lowercase))
+        })
+        .map(|filename| {
+            filename.ends_with(".js")
+                || filename.ends_with(".mjs")
+                || filename.ends_with(".css")
+                || filename.ends_with(".woff")
+                || filename.ends_with(".woff2")
+                || filename.ends_with(".ttf")
+                || filename.ends_with(".otf")
+                || filename.ends_with(".png")
+                || filename.ends_with(".jpg")
+                || filename.ends_with(".jpeg")
+                || filename.ends_with(".gif")
+                || filename.ends_with(".webp")
+                || filename.ends_with(".avif")
+                || filename.ends_with(".svg")
+        })
+        .unwrap_or(false)
+}
+
+fn is_cache_policy_efficient(cache_control: &str) -> bool {
+    let lower = cache_control.to_ascii_lowercase();
+    if lower.contains("no-store") || lower.contains("no-cache") || lower.contains("max-age=0") {
+        return false;
+    }
+    lower.contains("immutable")
+        || max_cache_age_seconds(&lower).is_some_and(|seconds| seconds >= 86_400)
+}
+
+fn max_cache_age_seconds(cache_control: &str) -> Option<u64> {
+    cache_control
+        .split(',')
+        .filter_map(|part| {
+            let part = part.trim();
+            let value = part
+                .strip_prefix("max-age=")
+                .or_else(|| part.strip_prefix("s-maxage="))?;
+            value.parse::<u64>().ok()
+        })
+        .max()
+}
+
+fn cache_policy_reason(headers: &reqwest::header::HeaderMap) -> String {
+    let cache_control = headers
+        .get("cache-control")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if cache_control.is_empty() {
+        return "missing Cache-Control".to_string();
+    }
+    if cache_control.to_ascii_lowercase().contains("no-store")
+        || cache_control.to_ascii_lowercase().contains("no-cache")
+    {
+        return "explicitly disables caching".to_string();
+    }
+    "short or missing max-age/s-maxage".to_string()
 }
 
 /// Check www ↔ non-www redirect configuration.
@@ -1001,14 +1231,22 @@ async fn check_www_consolidation(url: &str) -> Option<WwwConsolidation> {
 
 // ─── Issue aggregation ───────────────────────────────────────────────────────
 
-fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
+/// Build the page-health issue list in the requested language.
+///
+/// Pure function of the analysis struct — called with English at analysis time
+/// (canonical, for JSON) and re-called with the report locale by the PDF
+/// presentation builder (#406).
+pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> {
     let mut issues = Vec::new();
 
     if !a.has_doctype && a.dom_node_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "missing_doctype".to_string(),
-            message: "Fehlende HTML5-Doctype-Deklaration — Browser rendert im Quirks-Mode"
-                .to_string(),
+            message: if en {
+                "Missing HTML5 doctype declaration — browser renders in quirks mode".to_string()
+            } else {
+                "Fehlende HTML5-Doctype-Deklaration — Browser rendert im Quirks-Mode".to_string()
+            },
             severity: "high".to_string(),
         });
     }
@@ -1016,10 +1254,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.document_write_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "document_write".to_string(),
-            message: format!(
-                "{} Inline-Script(s) verwenden document.write() — blockiert HTML-Parsing",
-                a.document_write_count
-            ),
+            message: if en {
+                format!(
+                    "{} inline script(s) use document.write() — blocks HTML parsing",
+                    a.document_write_count
+                )
+            } else {
+                format!(
+                    "{} Inline-Script(s) verwenden document.write() — blockiert HTML-Parsing",
+                    a.document_write_count
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1027,19 +1272,33 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.dom_node_count >= 1500 {
         issues.push(PageHealthIssue {
             issue_type: "excessive_dom".to_string(),
-            message: format!(
-                "DOM-Größe kritisch: {} Elemente (Empfehlung: <1500, max Tiefe: {})",
-                a.dom_node_count, a.dom_max_depth
-            ),
+            message: if en {
+                format!(
+                    "DOM size critical: {} elements (recommended: <1500, max depth: {})",
+                    a.dom_node_count, a.dom_max_depth
+                )
+            } else {
+                format!(
+                    "DOM-Größe kritisch: {} Elemente (Empfehlung: <1500, max Tiefe: {})",
+                    a.dom_node_count, a.dom_max_depth
+                )
+            },
             severity: "high".to_string(),
         });
     } else if a.dom_node_count >= 800 {
         issues.push(PageHealthIssue {
             issue_type: "large_dom".to_string(),
-            message: format!(
-                "DOM-Größe erhöht: {} Elemente (Empfehlung: <800, max Tiefe: {})",
-                a.dom_node_count, a.dom_max_depth
-            ),
+            message: if en {
+                format!(
+                    "DOM size elevated: {} elements (recommended: <800, max depth: {})",
+                    a.dom_node_count, a.dom_max_depth
+                )
+            } else {
+                format!(
+                    "DOM-Größe erhöht: {} Elemente (Empfehlung: <800, max Tiefe: {})",
+                    a.dom_node_count, a.dom_max_depth
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1047,10 +1306,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.images_without_dimensions > 0 {
         issues.push(PageHealthIssue {
             issue_type: "images_without_dimensions".to_string(),
-            message: format!(
-                "{} <img>-Elemente ohne explizite width/height — CLS-Risiko",
-                a.images_without_dimensions
-            ),
+            message: if en {
+                format!(
+                    "{} <img> elements without explicit width/height — CLS risk",
+                    a.images_without_dimensions
+                )
+            } else {
+                format!(
+                    "{} <img>-Elemente ohne explizite width/height — CLS-Risiko",
+                    a.images_without_dimensions
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1058,10 +1324,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.paste_blocking_password_fields > 0 {
         issues.push(PageHealthIssue {
             issue_type: "paste_blocked_password".to_string(),
-            message: format!(
-                "{} Passwortfeld(er) blockieren Einfügen (onpaste-Handler) — beeinträchtigt Passwort-Manager",
-                a.paste_blocking_password_fields
-            ),
+            message: if en {
+                format!(
+                    "{} password field(s) block pasting (onpaste handler) — interferes with password managers",
+                    a.paste_blocking_password_fields
+                )
+            } else {
+                format!(
+                    "{} Passwortfeld(er) blockieren Einfügen (onpaste-Handler) — beeinträchtigt Passwort-Manager",
+                    a.paste_blocking_password_fields
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1069,10 +1342,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.offscreen_images_without_lazy > 0 {
         issues.push(PageHealthIssue {
             issue_type: "offscreen_images_without_lazy".to_string(),
-            message: format!(
-                "{} Bilder unterhalb des Viewports ohne loading=\"lazy\" — verzögern ersten Seitenaufbau",
-                a.offscreen_images_without_lazy
-            ),
+            message: if en {
+                format!(
+                    "{} images below the viewport without loading=\"lazy\" — delay initial page render",
+                    a.offscreen_images_without_lazy
+                )
+            } else {
+                format!(
+                    "{} Bilder unterhalb des Viewports ohne loading=\"lazy\" — verzögern ersten Seitenaufbau",
+                    a.offscreen_images_without_lazy
+                )
+            },
             severity: if a.offscreen_images_without_lazy >= 5 {
                 "medium"
             } else {
@@ -1085,10 +1365,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.images_without_srcset > 0 {
         issues.push(PageHealthIssue {
             issue_type: "images_without_srcset".to_string(),
-            message: format!(
-                "{} <img>-Elemente ohne srcset — keine responsiven Bildvarianten für verschiedene Auflösungen",
-                a.images_without_srcset
-            ),
+            message: if en {
+                format!(
+                    "{} <img> elements without srcset — no responsive image variants for different resolutions",
+                    a.images_without_srcset
+                )
+            } else {
+                format!(
+                    "{} <img>-Elemente ohne srcset — keine responsiven Bildvarianten für verschiedene Auflösungen",
+                    a.images_without_srcset
+                )
+            },
             severity: if a.images_without_srcset >= 5 {
                 "medium"
             } else {
@@ -1101,15 +1388,24 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.missing_preconnect_count > 0 {
         let sample = if a.missing_preconnect_origins.is_empty() {
             String::new()
+        } else if en {
+            format!(" (e.g. {})", a.missing_preconnect_origins.join(", "))
         } else {
             format!(" (z.B. {})", a.missing_preconnect_origins.join(", "))
         };
         issues.push(PageHealthIssue {
             issue_type: "missing_preconnect".to_string(),
-            message: format!(
-                "{} externe Origins ohne <link rel=\"preconnect\">{}",
-                a.missing_preconnect_count, sample
-            ),
+            message: if en {
+                format!(
+                    "{} external origins without <link rel=\"preconnect\">{}",
+                    a.missing_preconnect_count, sample
+                )
+            } else {
+                format!(
+                    "{} externe Origins ohne <link rel=\"preconnect\">{}",
+                    a.missing_preconnect_count, sample
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1117,10 +1413,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.non_crawlable_links > 0 {
         issues.push(PageHealthIssue {
             issue_type: "non_crawlable_links".to_string(),
-            message: format!(
-                "{} Links nicht crawlbar (javascript:, leer, kein href) — PageRank-Verlust",
-                a.non_crawlable_links
-            ),
+            message: if en {
+                format!(
+                    "{} links not crawlable (javascript:, empty, no href) — loss of PageRank",
+                    a.non_crawlable_links
+                )
+            } else {
+                format!(
+                    "{} Links nicht crawlbar (javascript:, leer, kein href) — PageRank-Verlust",
+                    a.non_crawlable_links
+                )
+            },
             severity: if a.non_crawlable_links >= 5 {
                 "medium"
             } else {
@@ -1133,10 +1436,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.images_without_modern_format > 0 {
         issues.push(PageHealthIssue {
             issue_type: "images_without_modern_format".to_string(),
-            message: format!(
-                "{} Bilder als JPEG/PNG ohne WebP/AVIF-Alternative — erhöhte Ladezeit",
-                a.images_without_modern_format
-            ),
+            message: if en {
+                format!(
+                    "{} images as JPEG/PNG without a WebP/AVIF alternative — increased load time",
+                    a.images_without_modern_format
+                )
+            } else {
+                format!(
+                    "{} Bilder als JPEG/PNG ohne WebP/AVIF-Alternative — erhöhte Ladezeit",
+                    a.images_without_modern_format
+                )
+            },
             severity: if a.images_without_modern_format >= 5 {
                 "medium"
             } else {
@@ -1149,10 +1459,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.oversized_images > 0 {
         issues.push(PageHealthIssue {
             issue_type: "oversized_images".to_string(),
-            message: format!(
-                "{} Bilder werden deutlich kleiner dargestellt als ihre natürliche Auflösung",
-                a.oversized_images
-            ),
+            message: if en {
+                format!(
+                    "{} images are displayed significantly smaller than their natural resolution",
+                    a.oversized_images
+                )
+            } else {
+                format!(
+                    "{} Bilder werden deutlich kleiner dargestellt als ihre natürliche Auflösung",
+                    a.oversized_images
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1160,10 +1477,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.gif_images > 0 {
         issues.push(PageHealthIssue {
             issue_type: "gif_images".to_string(),
-            message: format!(
-                "{} GIF-Bild(er) gefunden — ggf. als MP4/WebM ersetzen (80–95 % kleiner)",
-                a.gif_images
-            ),
+            message: if en {
+                format!(
+                    "{} GIF image(s) found — consider replacing with MP4/WebM (80–95% smaller)",
+                    a.gif_images
+                )
+            } else {
+                format!(
+                    "{} GIF-Bild(er) gefunden — ggf. als MP4/WebM ersetzen (80–95 % kleiner)",
+                    a.gif_images
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1171,10 +1495,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.font_display_issues > 0 {
         issues.push(PageHealthIssue {
             issue_type: "font_display_missing".to_string(),
-            message: format!(
-                "{} @font-face-Regeln ohne font-display: swap/fallback/optional — FOIT-Risiko",
-                a.font_display_issues
-            ),
+            message: if en {
+                format!(
+                    "{} @font-face rules without font-display: swap/fallback/optional — FOIT risk",
+                    a.font_display_issues
+                )
+            } else {
+                format!(
+                    "{} @font-face-Regeln ohne font-display: swap/fallback/optional — FOIT-Risiko",
+                    a.font_display_issues
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1182,10 +1513,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.orphaned_preload_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "orphaned_preload".to_string(),
-            message: format!(
-                "{} <link rel=\"preload\">-Hinweise auf nicht geladene Ressourcen (orphaned)",
-                a.orphaned_preload_count
-            ),
+            message: if en {
+                format!(
+                    "{} <link rel=\"preload\"> hints point to resources that were never loaded (orphaned)",
+                    a.orphaned_preload_count
+                )
+            } else {
+                format!(
+                    "{} <link rel=\"preload\">-Hinweise auf nicht geladene Ressourcen (orphaned)",
+                    a.orphaned_preload_count
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1193,9 +1531,13 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.lcp_image_lazy_loaded {
         issues.push(PageHealthIssue {
             issue_type: "lcp_image_lazy_loaded".to_string(),
-            message:
+            message: if en {
+                "LCP image candidate has loading=\"lazy\" — delays the Largest Contentful Paint"
+                    .to_string()
+            } else {
                 "LCP-Bildkandidat hat loading=\"lazy\" — verzögert den Largest Contentful Paint"
-                    .to_string(),
+                    .to_string()
+            },
             severity: "high".to_string(),
         });
     }
@@ -1208,10 +1550,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
             .unwrap_or_default();
         issues.push(PageHealthIssue {
             issue_type: "lcp_image_without_preload".to_string(),
-            message: format!(
-                "Größtes sichtbares Bild{} hat keinen <link rel=\"preload\" as=\"image\">-Hint",
-                url_hint
-            ),
+            message: if en {
+                format!(
+                    "Largest visible image{} has no <link rel=\"preload\" as=\"image\"> hint",
+                    url_hint
+                )
+            } else {
+                format!(
+                    "Größtes sichtbares Bild{} hat keinen <link rel=\"preload\" as=\"image\">-Hint",
+                    url_hint
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1219,9 +1568,13 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.lcp_image_without_fetchpriority && !a.lcp_image_lazy_loaded {
         issues.push(PageHealthIssue {
             issue_type: "lcp_image_without_fetchpriority".to_string(),
-            message:
+            message: if en {
+                "LCP image candidate is missing fetchpriority=\"high\" — load priority not signaled"
+                    .to_string()
+            } else {
                 "LCP-Bildkandidat fehlt fetchpriority=\"high\" — Ladepriorität nicht signalisiert"
-                    .to_string(),
+                    .to_string()
+            },
             severity: "low".to_string(),
         });
     }
@@ -1229,10 +1582,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.deprecated_api_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "deprecated_apis".to_string(),
-            message: format!(
-                "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
-                a.deprecated_api_count
-            ),
+            message: if en {
+                format!(
+                    "{} deprecated browser API(s) detected in inline scripts",
+                    a.deprecated_api_count
+                )
+            } else {
+                format!(
+                    "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
+                    a.deprecated_api_count
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1240,7 +1600,11 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if !a.uses_http2 {
         issues.push(PageHealthIssue {
             issue_type: "http1_only".to_string(),
-            message: "Seite wird über HTTP/1.1 ausgeliefert — HTTP/2 ermöglicht Multiplexing und Header-Komprimierung".to_string(),
+            message: if en {
+                "Page is served over HTTP/1.1 — HTTP/2 enables multiplexing and header compression".to_string()
+            } else {
+                "Seite wird über HTTP/1.1 ausgeliefert — HTTP/2 ermöglicht Multiplexing und Header-Komprimierung".to_string()
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1248,8 +1612,11 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if !a.has_compression {
         issues.push(PageHealthIssue {
             issue_type: "missing_compression".to_string(),
-            message: "Seiteninhalt wird ohne Komprimierung übertragen (kein gzip/brotli)"
-                .to_string(),
+            message: if en {
+                "Page content is transferred without compression (no gzip/brotli)".to_string()
+            } else {
+                "Seiteninhalt wird ohne Komprimierung übertragen (kein gzip/brotli)".to_string()
+            },
             severity: "high".to_string(),
         });
     }
@@ -1257,21 +1624,74 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if !a.has_efficient_cache && a.cache_control.is_some() {
         issues.push(PageHealthIssue {
             issue_type: "inefficient_cache".to_string(),
-            message: format!(
-                "Cache-Control ohne effektive Caching-Dauer: {}",
-                a.cache_control.as_deref().unwrap_or("")
-            ),
+            message: if en {
+                format!(
+                    "Cache-Control without an effective caching lifetime: {}",
+                    a.cache_control.as_deref().unwrap_or("")
+                )
+            } else {
+                format!(
+                    "Cache-Control ohne effektive Caching-Dauer: {}",
+                    a.cache_control.as_deref().unwrap_or("")
+                )
+            },
             severity: "medium".to_string(),
+        });
+    }
+
+    if a.resource_cache.inefficient_resources > 0 {
+        let sample = a
+            .resource_cache
+            .samples
+            .first()
+            .map(|finding| {
+                if en {
+                    format!(" (e.g. {}: {})", finding.url, finding.reason)
+                } else {
+                    format!(" (z.B. {}: {})", finding.url, finding.reason)
+                }
+            })
+            .unwrap_or_default();
+        issues.push(PageHealthIssue {
+            issue_type: "inefficient_resource_cache".to_string(),
+            message: if en {
+                format!(
+                    "{} of {} static resource(s) without an efficient cache policy{}",
+                    a.resource_cache.inefficient_resources,
+                    a.resource_cache.cacheable_resources,
+                    sample
+                )
+            } else {
+                format!(
+                    "{} von {} statischen Ressource(n) ohne effiziente Cache-Policy{}",
+                    a.resource_cache.inefficient_resources,
+                    a.resource_cache.cacheable_resources,
+                    sample
+                )
+            },
+            severity: if a.resource_cache.inefficient_resources >= 5 {
+                "medium"
+            } else {
+                "low"
+            }
+            .to_string(),
         });
     }
 
     if a.hreflang_invalid_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "hreflang_invalid".to_string(),
-            message: format!(
-                "{} hreflang-Einträge mit ungültigem Sprachcode",
-                a.hreflang_invalid_count
-            ),
+            message: if en {
+                format!(
+                    "{} hreflang entries with an invalid language code",
+                    a.hreflang_invalid_count
+                )
+            } else {
+                format!(
+                    "{} hreflang-Einträge mit ungültigem Sprachcode",
+                    a.hreflang_invalid_count
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1279,10 +1699,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.jsonld_invalid_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "jsonld_invalid".to_string(),
-            message: format!(
-                "{} JSON-LD-Blöcke ohne @context oder @type",
-                a.jsonld_invalid_count
-            ),
+            message: if en {
+                format!(
+                    "{} JSON-LD blocks without @context or @type",
+                    a.jsonld_invalid_count
+                )
+            } else {
+                format!(
+                    "{} JSON-LD-Blöcke ohne @context oder @type",
+                    a.jsonld_invalid_count
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1290,10 +1717,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.sync_head_scripts > 0 {
         issues.push(PageHealthIssue {
             issue_type: "sync_head_scripts".to_string(),
-            message: format!(
-                "{} Script(s) im <head> ohne defer/async/module sind syntaktisch render-blockierend; ob sie messbar verzögern, zeigt die Render-Blocking-Analyse.",
-                a.sync_head_scripts
-            ),
+            message: if en {
+                format!(
+                    "{} script(s) in <head> without defer/async/module are syntactically render-blocking; whether they delay measurably is shown by the render-blocking analysis.",
+                    a.sync_head_scripts
+                )
+            } else {
+                format!(
+                    "{} Script(s) im <head> ohne defer/async/module sind syntaktisch render-blockierend; ob sie messbar verzögern, zeigt die Render-Blocking-Analyse.",
+                    a.sync_head_scripts
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1302,10 +1736,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if sri_total > 0 {
         issues.push(PageHealthIssue {
             issue_type: "missing_sri".to_string(),
-            message: format!(
-                "{} externe Ressource(n) ohne Subresource Integrity (integrity-Attribut fehlt)",
-                sri_total
-            ),
+            message: if en {
+                format!(
+                    "{} external resource(s) without Subresource Integrity (integrity attribute missing)",
+                    sri_total
+                )
+            } else {
+                format!(
+                    "{} externe Ressource(n) ohne Subresource Integrity (integrity-Attribut fehlt)",
+                    sri_total
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1313,15 +1754,24 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.broken_fragment_links > 0 {
         let sample = if a.broken_fragment_samples.is_empty() {
             String::new()
+        } else if en {
+            format!(" (e.g. {})", a.broken_fragment_samples.join(", "))
         } else {
             format!(" (z.B. {})", a.broken_fragment_samples.join(", "))
         };
         issues.push(PageHealthIssue {
             issue_type: "broken_fragment_links".to_string(),
-            message: format!(
-                "{} Anker-Link(s) verweisen auf nicht existierende IDs{}",
-                a.broken_fragment_links, sample
-            ),
+            message: if en {
+                format!(
+                    "{} anchor link(s) point to non-existent IDs{}",
+                    a.broken_fragment_links, sample
+                )
+            } else {
+                format!(
+                    "{} Anker-Link(s) verweisen auf nicht existierende IDs{}",
+                    a.broken_fragment_links, sample
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1329,10 +1779,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.generic_link_text_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "generic_link_text".to_string(),
-            message: format!(
-                "{} Link(s) mit nicht-beschreibendem Text (\"hier\", \"mehr\", \"click here\" u.ä.)",
-                a.generic_link_text_count
-            ),
+            message: if en {
+                format!(
+                    "{} link(s) with non-descriptive text (\"here\", \"more\", \"click here\" and similar)",
+                    a.generic_link_text_count
+                )
+            } else {
+                format!(
+                    "{} Link(s) mit nicht-beschreibendem Text (\"hier\", \"mehr\", \"click here\" u.ä.)",
+                    a.generic_link_text_count
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1340,12 +1797,49 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.is_soft_404 {
         issues.push(PageHealthIssue {
             issue_type: "soft_404".to_string(),
-            message: format!(
-                "Server gibt HTTP {} für nicht-existierende URLs zurück (Soft 404)",
-                a.soft_404_status.unwrap_or(200)
-            ),
+            message: if en {
+                format!(
+                    "Server returns HTTP {} for non-existent URLs (soft 404)",
+                    a.soft_404_status.unwrap_or(200)
+                )
+            } else {
+                format!(
+                    "Server gibt HTTP {} für nicht-existierende URLs zurück (Soft 404)",
+                    a.soft_404_status.unwrap_or(200)
+                )
+            },
             severity: "high".to_string(),
         });
+    }
+
+    if let Some(custom_404) = &a.custom_404 {
+        if !custom_404.proper_status {
+            issues.push(PageHealthIssue {
+                issue_type: "custom_404_invalid_status".to_string(),
+                message: if en {
+                    format!(
+                        "Non-existent URL returns HTTP {} instead of 404/410",
+                        custom_404.status
+                    )
+                } else {
+                    format!(
+                        "Nicht-existente URL liefert HTTP {} statt 404/410",
+                        custom_404.status
+                    )
+                },
+                severity: "high".to_string(),
+            });
+        } else if !custom_404.custom_page {
+            issues.push(PageHealthIssue {
+                issue_type: "generic_404_page".to_string(),
+                message: if en {
+                    "404 page looks generic or very sparse; a helpful custom 404 page improves orientation and crawling signals".to_string()
+                } else {
+                    "404-Seite wirkt generisch oder sehr knapp; eine hilfreiche Custom-404-Seite verbessert Orientierung und Crawling-Signale".to_string()
+                },
+                severity: "low".to_string(),
+            });
+        }
     }
 
     if a.has_meta_refresh {
@@ -1357,11 +1851,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
             .unwrap_or(0);
         issues.push(PageHealthIssue {
             issue_type: "meta_refresh".to_string(),
-            message: if delay == 0 {
-                "Sofort-Weiterleitung via meta-refresh (SEO-schädlich, nutze 301-Redirect)"
-                    .to_string()
-            } else {
-                format!("meta-refresh mit {}s Verzögerung gefunden", delay)
+            message: match (en, delay == 0) {
+                (true, true) => {
+                    "Immediate redirect via meta-refresh (harmful for SEO, use a 301 redirect)"
+                        .to_string()
+                }
+                (true, false) => format!("meta-refresh with {}s delay found", delay),
+                (false, true) => {
+                    "Sofort-Weiterleitung via meta-refresh (SEO-schädlich, nutze 301-Redirect)"
+                        .to_string()
+                }
+                (false, false) => format!("meta-refresh mit {}s Verzögerung gefunden", delay),
             },
             severity: if delay == 0 { "high" } else { "medium" }.to_string(),
         });
@@ -1370,7 +1870,11 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.frame_count > 0 {
         issues.push(PageHealthIssue {
             issue_type: "frames".to_string(),
-            message: format!("{} veraltete <frame>-Elemente gefunden", a.frame_count),
+            message: if en {
+                format!("{} deprecated <frame> elements found", a.frame_count)
+            } else {
+                format!("{} veraltete <frame>-Elemente gefunden", a.frame_count)
+            },
             severity: "high".to_string(),
         });
     }
@@ -1378,10 +1882,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.url_is_too_long {
         issues.push(PageHealthIssue {
             issue_type: "url_too_long".to_string(),
-            message: format!(
-                "URL mit {} Zeichen überschreitet Empfehlung (>115)",
-                a.url_length
-            ),
+            message: if en {
+                format!(
+                    "URL with {} characters exceeds the recommendation (>115)",
+                    a.url_length
+                )
+            } else {
+                format!(
+                    "URL mit {} Zeichen überschreitet Empfehlung (>115)",
+                    a.url_length
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1389,10 +1900,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.url_is_too_deep {
         issues.push(PageHealthIssue {
             issue_type: "url_too_deep".to_string(),
-            message: format!(
-                "URL-Pfadtiefe {} überschreitet Empfehlung (>5 Ebenen)",
-                a.url_path_depth
-            ),
+            message: if en {
+                format!(
+                    "URL path depth {} exceeds the recommendation (>5 levels)",
+                    a.url_path_depth
+                )
+            } else {
+                format!(
+                    "URL-Pfadtiefe {} überschreitet Empfehlung (>5 Ebenen)",
+                    a.url_path_depth
+                )
+            },
             severity: "low".to_string(),
         });
     }
@@ -1400,7 +1918,11 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.url_has_query_params {
         issues.push(PageHealthIssue {
             issue_type: "dynamic_url".to_string(),
-            message: "URL enthält Query-Parameter (dynamische URL)".to_string(),
+            message: if en {
+                "URL contains query parameters (dynamic URL)".to_string()
+            } else {
+                "URL enthält Query-Parameter (dynamische URL)".to_string()
+            },
             severity: "low".to_string(),
         });
     }
@@ -1408,10 +1930,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     if a.redirect_count >= 2 {
         issues.push(PageHealthIssue {
             issue_type: "multiple_redirects".to_string(),
-            message: format!(
-                "{} HTTP-Weiterleitungen vor der finalen Seite — jeder Hop kostet ~100–300 ms",
-                a.redirect_count
-            ),
+            message: if en {
+                format!(
+                    "{} HTTP redirects before the final page — each hop costs ~100–300 ms",
+                    a.redirect_count
+                )
+            } else {
+                format!(
+                    "{} HTTP-Weiterleitungen vor der finalen Seite — jeder Hop kostet ~100–300 ms",
+                    a.redirect_count
+                )
+            },
             severity: if a.redirect_count >= 3 {
                 "high"
             } else {
@@ -1422,10 +1951,17 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
     } else if a.own_redirect_detected {
         issues.push(PageHealthIssue {
             issue_type: "redirect".to_string(),
-            message: format!(
-                "Seite leitet weiter zu: {}",
-                a.own_final_url.as_deref().unwrap_or("(unbekannt)")
-            ),
+            message: if en {
+                format!(
+                    "Page redirects to: {}",
+                    a.own_final_url.as_deref().unwrap_or("(unknown)")
+                )
+            } else {
+                format!(
+                    "Seite leitet weiter zu: {}",
+                    a.own_final_url.as_deref().unwrap_or("(unbekannt)")
+                )
+            },
             severity: "medium".to_string(),
         });
     }
@@ -1434,8 +1970,12 @@ fn collect_issues(a: &PageHealthAnalysis) -> Vec<PageHealthIssue> {
         if !www.is_consolidated {
             issues.push(PageHealthIssue {
                 issue_type: "www_not_consolidated".to_string(),
-                message: "www und non-www Version sind nicht konsolidiert (kein 301-Redirect)"
-                    .to_string(),
+                message: if en {
+                    "www and non-www versions are not consolidated (no 301 redirect)".to_string()
+                } else {
+                    "www und non-www Version sind nicht konsolidiert (kein 301-Redirect)"
+                        .to_string()
+                },
                 severity: "medium".to_string(),
             });
         }
@@ -1494,10 +2034,113 @@ mod tests {
         let a = PageHealthAnalysis {
             is_soft_404: true,
             soft_404_status: Some(200),
+            custom_404: Some(Custom404Check {
+                probe_url: "https://example.com/auditmysite-404-probe-xyz123".to_string(),
+                status: 200,
+                proper_status: false,
+                custom_page: true,
+            }),
             ..Default::default()
         };
-        let issues = collect_issues(&a);
+        let issues = collect_issues(&a, false);
         assert!(issues.iter().any(|i| i.issue_type == "soft_404"));
+        assert!(issues
+            .iter()
+            .any(|i| i.issue_type == "custom_404_invalid_status"));
+    }
+
+    #[test]
+    fn collect_issues_english_messages_have_no_german_characters() {
+        let a = PageHealthAnalysis {
+            has_doctype: false,
+            dom_node_count: 1600,
+            dom_max_depth: 20,
+            document_write_count: 2,
+            images_without_dimensions: 4,
+            paste_blocking_password_fields: 1,
+            offscreen_images_without_lazy: 6,
+            images_without_srcset: 7,
+            missing_preconnect_count: 2,
+            missing_preconnect_origins: vec![
+                "https://cdn.example.com".to_string(),
+                "https://fonts.example.com".to_string(),
+            ],
+            non_crawlable_links: 6,
+            images_without_modern_format: 6,
+            oversized_images: 3,
+            gif_images: 2,
+            font_display_issues: 3,
+            orphaned_preload_count: 1,
+            lcp_image_lazy_loaded: true,
+            lcp_image_without_preload: true,
+            lcp_image_url: Some("https://example.com/hero.jpg".to_string()),
+            deprecated_api_count: 2,
+            uses_http2: false,
+            has_compression: false,
+            has_efficient_cache: false,
+            cache_control: Some("max-age=60".to_string()),
+            resource_cache: ResourceCacheAudit {
+                checked_resources: 3,
+                cacheable_resources: 3,
+                inefficient_resources: 2,
+                samples: vec![ResourceCacheFinding {
+                    url: "https://example.com/app.js".to_string(),
+                    cache_control: Some("max-age=60".to_string()),
+                    has_etag: true,
+                    has_expires: false,
+                    reason: "short or missing max-age/s-maxage".to_string(),
+                }],
+                ..Default::default()
+            },
+            hreflang_invalid_count: 1,
+            jsonld_invalid_count: 1,
+            sync_head_scripts: 2,
+            external_scripts_without_sri: 1,
+            external_styles_without_sri: 1,
+            broken_fragment_links: 2,
+            broken_fragment_samples: vec!["#missing".to_string()],
+            generic_link_text_count: 3,
+            is_soft_404: true,
+            soft_404_status: Some(200),
+            has_meta_refresh: true,
+            meta_refresh_content: Some("0; url=https://example.com".to_string()),
+            frame_count: 1,
+            url_is_too_long: true,
+            url_length: 200,
+            url_is_too_deep: true,
+            url_path_depth: 8,
+            url_has_query_params: true,
+            redirect_count: 3,
+            www_consolidation: Some(WwwConsolidation {
+                www_status: None,
+                non_www_status: None,
+                www_redirects_to_non_www: false,
+                non_www_redirects_to_www: false,
+                canonical_variant: "inconsistent".to_string(),
+                is_consolidated: false,
+            }),
+            custom_404: Some(Custom404Check {
+                probe_url: "https://example.com/auditmysite-404-probe-xyz123".to_string(),
+                status: 200,
+                proper_status: false,
+                custom_page: false,
+            }),
+            ..Default::default()
+        };
+
+        let issues = collect_issues(&a, true);
+        assert!(
+            issues.len() >= 10,
+            "expected many issues, got {}",
+            issues.len()
+        );
+        for issue in &issues {
+            assert!(
+                !issue.message.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "English message contains German characters: {}",
+                issue.message
+            );
+        }
     }
 
     #[test]
@@ -1507,7 +2150,7 @@ mod tests {
             meta_refresh_content: Some("0; url=https://example.com".to_string()),
             ..Default::default()
         };
-        let issues = collect_issues(&a);
+        let issues = collect_issues(&a, false);
         assert!(issues.iter().any(|i| i.issue_type == "meta_refresh"));
         assert_eq!(
             issues
@@ -1536,8 +2179,83 @@ mod tests {
             document_decoded_bytes: Some(1_233_280),
             ..Default::default()
         };
-        let issues = collect_issues(&a);
+        let issues = collect_issues(&a, false);
         assert!(!issues.iter().any(|i| i.issue_type == "missing_compression"));
+    }
+
+    #[test]
+    fn cache_policy_requires_meaningful_lifetime_or_immutable() {
+        assert!(is_cache_policy_efficient(
+            "public, max-age=31536000, immutable"
+        ));
+        assert!(is_cache_policy_efficient("public, s-maxage=86400"));
+        assert!(!is_cache_policy_efficient("public, max-age=60"));
+        assert!(!is_cache_policy_efficient("no-cache, max-age=31536000"));
+    }
+
+    #[test]
+    fn static_cache_candidate_detects_asset_extensions() {
+        assert!(is_static_cache_candidate("https://example.com/app.css"));
+        assert!(is_static_cache_candidate(
+            "https://example.com/fonts/inter.woff2?v=1"
+        ));
+        assert!(!is_static_cache_candidate("https://example.com/page/"));
+    }
+
+    #[test]
+    fn custom_404_heuristic_rejects_generic_short_pages() {
+        assert!(!looks_like_custom_404_page(
+            "<html><title>404 Not Found</title><body>nginx 404 not found</body></html>"
+        ));
+        assert!(looks_like_custom_404_page(&format!(
+            "<html><body><nav>Home</nav><main>{}</main></body></html>",
+            "Helpful not-found guidance. ".repeat(30)
+        )));
+    }
+
+    #[test]
+    fn collect_issues_reports_resource_cache_findings() {
+        let a = PageHealthAnalysis {
+            resource_cache: ResourceCacheAudit {
+                checked_resources: 3,
+                cacheable_resources: 3,
+                inefficient_resources: 2,
+                samples: vec![ResourceCacheFinding {
+                    url: "https://example.com/app.js".to_string(),
+                    cache_control: Some("max-age=60".to_string()),
+                    has_etag: true,
+                    has_expires: false,
+                    reason: "short or missing max-age/s-maxage".to_string(),
+                }],
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let issues = collect_issues(&a, false);
+
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "inefficient_resource_cache"));
+    }
+
+    #[test]
+    fn collect_issues_reports_generic_custom_404() {
+        let a = PageHealthAnalysis {
+            custom_404: Some(Custom404Check {
+                probe_url: "https://example.com/auditmysite-404-probe-xyz123".to_string(),
+                status: 404,
+                proper_status: true,
+                custom_page: false,
+            }),
+            ..Default::default()
+        };
+
+        let issues = collect_issues(&a, false);
+
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "generic_404_page"));
     }
 
     #[test]
@@ -1574,5 +2292,17 @@ mod tests {
         assert!(issues
             .iter()
             .any(|i| i.check == "Verschachtelte interaktive Elemente" && i.count == 1));
+    }
+
+    #[test]
+    fn html5ever_parse_errors_are_structured_findings() {
+        let issues = validate_html_locally("<!doctype html><html><head><p></head></html>");
+
+        assert!(issues.iter().any(|issue| {
+            issue.check == "HTML5-Parsing-Fehler"
+                && issue.count > 0
+                && issue.severity == "high"
+                && !issue.detail.is_empty()
+        }));
     }
 }

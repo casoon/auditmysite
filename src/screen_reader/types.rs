@@ -65,6 +65,36 @@ pub struct SrAuditIssue {
     pub message: String,
 }
 
+/// Compact screen-reader audit view for the unified report envelope and PDF.
+///
+/// Carries the actionable parts — quality scores, issues and the BFSG verdict —
+/// while the full `reading_sequence` / `navigation_views` trace stays in the
+/// separate sidecar JSON to keep the envelope lean (#411).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScreenReaderSummary {
+    pub summary: SrAuditSummary,
+    pub issues: Vec<SrAuditIssue>,
+    pub bfsg_compliance: BfsgCompliance,
+}
+
+impl ScreenReaderSummary {
+    pub fn from_report(report: &SrAuditReport) -> Self {
+        Self {
+            summary: report.summary.clone(),
+            issues: report.issues.clone(),
+            bfsg_compliance: report.bfsg_compliance.clone(),
+        }
+    }
+
+    /// Number of issues at a given severity string (`"low"`/`"medium"`/`"high"`).
+    pub fn count_severity(&self, severity: &str) -> usize {
+        self.issues
+            .iter()
+            .filter(|i| i.severity.eq_ignore_ascii_case(severity))
+            .count()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BfsgCompliance {
     pub verdict: BfsgVerdict,
@@ -88,4 +118,42 @@ pub struct BfsgViolation {
     pub fix_required: bool,
     pub deadline: Option<String>,
     pub affected_node_ids: Vec<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn issue(severity: &str) -> SrAuditIssue {
+        SrAuditIssue {
+            wcag_criterion: None,
+            severity: severity.to_string(),
+            affected_node_ids: vec![],
+            message: "x".to_string(),
+        }
+    }
+
+    #[test]
+    fn count_severity_is_case_insensitive_and_per_level() {
+        let summary = ScreenReaderSummary {
+            summary: SrAuditSummary {
+                total_announced_nodes: 0,
+                tab_stops: 0,
+                bfsg_violations: 0,
+                name_quality_score: 100,
+                landmark_quality_score: 100,
+                heading_quality_score: 100,
+            },
+            issues: vec![issue("high"), issue("High"), issue("medium"), issue("low")],
+            bfsg_compliance: BfsgCompliance {
+                verdict: BfsgVerdict::NotEvaluated,
+                violations: vec![],
+                passed_criteria: vec![],
+            },
+        };
+        assert_eq!(summary.count_severity("high"), 2);
+        assert_eq!(summary.count_severity("medium"), 1);
+        assert_eq!(summary.count_severity("low"), 1);
+        assert_eq!(summary.count_severity("critical"), 0);
+    }
 }

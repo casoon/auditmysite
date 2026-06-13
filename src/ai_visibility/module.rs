@@ -38,7 +38,7 @@ impl AuditModule for AiVisibilityModule {
         Ok(ModuleData::None)
     }
 
-    fn derive(&self, report: &mut AuditReport) -> Result<()> {
+    fn derive(&self, report: &mut AuditReport, _locale: &str) -> Result<()> {
         report.ai_visibility = Some(analyze_ai_visibility(report));
         Ok(())
     }

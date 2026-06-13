@@ -587,6 +587,9 @@ mod tests {
             dimension: "Accessibility".into(),
             subcategory: "Images".into(),
             issue_class: "Missing".into(),
+            dimension_kind: crate::taxonomy::Dimension::Accessibility,
+            subcategory_kind: crate::taxonomy::Subcategory::ContentAlternatives,
+            issue_class_kind: crate::taxonomy::IssueClass::Missing,
             severity,
             user_impact: String::new(),
             technical_impact: String::new(),
@@ -688,6 +691,7 @@ mod tests {
             interactive_findings: Vec::new(),
             accessibility_journey: None,
             advisory_findings: Vec::new(),
+            screen_reader: None,
             interpretation: None,
             risk: crate::audit::normalized::RiskAssessment {
                 level: crate::audit::normalized::RiskLevel::Low,

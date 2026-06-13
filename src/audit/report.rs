@@ -121,7 +121,7 @@ pub struct AuditReport {
     pub score: f32,
     /// Letter grade (A-F)
     pub grade: String,
-    /// Certificate level (SEHR GUT, GUT, SOLIDE, AUSBAUFÄHIG, UNGENÜGEND)
+    /// Certificate level (SEHR GUT, GUT, STABIL, AUSBAUFÄHIG, UNGENÜGEND)
     pub certificate: String,
     /// Detailed violation statistics
     pub statistics: ViolationStatistics,
@@ -373,55 +373,12 @@ impl AuditReport {
                 .iter()
                 .any(|v| v.severity == crate::wcag::Severity::Critical)
     }
-
-    /// Calculate weighted overall score across all active modules.
-    ///
-    /// When dual-viewport data is present the score is weighted 70 % mobile /
-    /// 30 % desktop, matching Google PageSpeed Insights priorities.  Security
-    /// (viewport-independent) is blended in afterwards (10 % slot).
-    ///
-    /// Fallback weights when no dual-viewport data exists (single-pass):
-    /// - WCAG Accessibility: 40 %
-    /// - Performance: 20 %
-    /// - SEO: 20 %
-    /// - Security: 10 %
-    /// - Mobile: 10 %
-    pub fn overall_score(&self) -> u32 {
-        if let Some(ref vs) = self.viewport_scores {
-            // 70/30 viewport base, then blend in security (10 %)
-            let mut weighted = vs.weighted_overall as f64 * 90.0;
-            let mut total = 90.0;
-            if let Some(ref security) = self.security {
-                weighted += security.score as f64 * 10.0;
-                total += 10.0;
-            }
-            return (weighted / total).round() as u32;
-        }
-
-        // Single-pass fallback
-        let mut weighted_sum = self.score as f64 * 40.0;
-        let mut total_weight = 40.0;
-
-        if let Some(ref perf) = self.performance {
-            weighted_sum += perf.score.overall as f64 * 20.0;
-            total_weight += 20.0;
-        }
-        if let Some(ref seo) = self.seo {
-            weighted_sum += seo.score as f64 * 20.0;
-            total_weight += 20.0;
-        }
-        if let Some(ref security) = self.security {
-            weighted_sum += security.score as f64 * 10.0;
-            total_weight += 10.0;
-        }
-        if let Some(ref mobile) = self.mobile {
-            weighted_sum += mobile.score as f64 * 10.0;
-            total_weight += 10.0;
-        }
-
-        (weighted_sum / total_weight).round() as u32
-    }
 }
+
+// The weighted overall score is computed canonically in `audit::normalized`
+// (see `NormalizedReport.overall_score` and `build_module_scores`). A second,
+// divergent `AuditReport::overall_score()` previously lived here but was only
+// reachable from tests; it was removed to keep a single source of truth (#447).
 
 /// Batch audit report for multiple URLs
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -880,40 +837,6 @@ mod tests {
             100,
         );
         assert!(!report.passed());
-    }
-
-    #[test]
-    fn test_overall_score_wcag_only() {
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagLevel::AA,
-            WcagResults::new(),
-            100,
-        );
-        // WCAG only: overall = WCAG score
-        assert_eq!(report.overall_score(), 100);
-    }
-
-    #[test]
-    fn test_overall_score_weighted() {
-        let mut report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagLevel::AA,
-            WcagResults::new(),
-            100,
-        );
-        // WCAG = 100 (weight 40), Security = 50 (weight 10)
-        report.security = Some(crate::security::SecurityAnalysis {
-            score: 50,
-            grade: "D".to_string(),
-            headers: Default::default(),
-            ssl: Default::default(),
-            issues: vec![],
-            recommendations: vec![],
-            protection: Default::default(),
-        });
-        // Weighted: (100*40 + 50*10) / (40+10) = 4500/50 = 90
-        assert_eq!(report.overall_score(), 90);
     }
 
     #[test]

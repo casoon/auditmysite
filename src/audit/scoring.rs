@@ -160,20 +160,24 @@ impl AccessibilityScorer {
         }
     }
 
-    /// Calculate certificate level based on score
+    /// Calculate certificate level based on score.
     ///
-    /// Certificate levels:
-    /// - SEHR GUT: ≥95% (exemplary accessibility)
-    /// - GUT: ≥85% (high accessibility)
-    /// - SOLIDE: ≥75% (good accessibility)
-    /// - AUSBAUFÄHIG: ≥65% (acceptable accessibility)
-    /// - UNGENÜGEND: <65% (significant issues)
+    /// Thresholds follow the official grade bands (#449). The returned value is
+    /// the canonical German token used as the lookup key for badge/colour; the
+    /// display label is localized at render time (see
+    /// `cover::certificate_label_localized`).
+    ///
+    /// - SEHR GUT: ≥90 (platinum)
+    /// - GUT: ≥75 (gold)
+    /// - STABIL: ≥60 (silver)
+    /// - AUSBAUFÄHIG: ≥40 (bronze)
+    /// - UNGENÜGEND: <40 (failed)
     pub fn calculate_certificate(score: f32) -> &'static str {
         match score.round() as u32 {
-            95..=100 => "SEHR GUT",
-            85..=94 => "GUT",
-            75..=84 => "SOLIDE",
-            65..=74 => "AUSBAUFÄHIG",
+            90..=100 => "SEHR GUT",
+            75..=89 => "GUT",
+            60..=74 => "STABIL",
+            40..=59 => "AUSBAUFÄHIG",
             _ => "UNGENÜGEND",
         }
     }
@@ -360,7 +364,7 @@ mod tests {
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 80.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "B");
-        assert_eq!(AccessibilityScorer::calculate_certificate(score), "SOLIDE");
+        assert_eq!(AccessibilityScorer::calculate_certificate(score), "GUT");
     }
 
     #[test]

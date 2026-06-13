@@ -1,8 +1,5 @@
 //! Shared helper functions for PDF rendering.
 
-use renderreport::components::advanced::FlowGroup;
-use renderreport::components::Component;
-
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
@@ -78,21 +75,6 @@ pub(super) fn effort_label_i18n(effort: Effort, i18n: &I18n) -> String {
         Effort::Medium => i18n.t("effort-medium"),
         Effort::Structural => i18n.t("effort-structural"),
     }
-}
-
-pub(super) fn component_json<C: Component>(component: C) -> serde_json::Value {
-    serde_json::json!({
-        "type": component.component_id(),
-        "data": component.to_data()
-    })
-}
-
-pub(super) fn soft_flow_group(threshold: &str, items: Vec<serde_json::Value>) -> FlowGroup {
-    let mut group = FlowGroup::new().with_spacing("12pt");
-    for item in items {
-        group = group.add_item(item);
-    }
-    group.with_keep_together_if_under(threshold)
 }
 
 pub(super) fn score_quality_label(score: u32) -> &'static str {

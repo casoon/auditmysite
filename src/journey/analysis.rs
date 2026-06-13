@@ -239,29 +239,581 @@ pub struct JourneyAnalysis {
     pub friction_points: Vec<FrictionPoint>,
 }
 
+/// Stable identifier for which journey dimension a [`JourneyDimension`] is.
+///
+/// Lets the PDF layer re-derive a localized `name`/`summary` without parsing
+/// the canonical-English text fields.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum JourneyDimensionKind {
+    EntryClarity,
+    Orientation,
+    Navigation,
+    Interaction,
+    Conversion,
+}
+
 /// A scored journey dimension
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JourneyDimension {
+    /// Which dimension this is (for localized re-derivation)
+    pub kind: JourneyDimensionKind,
+    /// Dimension name (canonical English)
     pub name: String,
     pub score: u32,
     pub weight: f64,
+    /// Score-band summary (canonical English; derived from `kind` + `score`)
     pub summary: String,
+}
+
+/// Stable identifier for a concrete friction point.
+///
+/// One variant per distinct problem/impact/recommendation shape. Together with
+/// the raw values stored on [`FrictionPoint`] this fully reproduces the
+/// human-readable strings in any language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FrictionKind {
+    // Entry
+    NoH1,
+    MultipleH1,
+    NoPageTitle,
+    LittleEarlyText,
+    // Orientation
+    NavigationMissing,
+    MainHiddenFromAx,
+    MainMissing,
+    FewSubheadings,
+    // Navigation
+    GenericLinks,
+    EmptyLinks,
+    DuplicateLinks,
+    // Interaction
+    UnnamedButtons,
+    UnlabeledForms,
+    GenericButtons,
+    // Conversion
+    NoCallToAction,
+    BlockingDialog,
+    ComplexForm,
+}
+
+/// The interpolated values a friction text may reference.
+///
+/// Stored on every [`FrictionPoint`] so that [`journey_friction_text`] can
+/// reproduce the strings in any locale. Only the field relevant to the
+/// friction's `kind` is populated.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FrictionValues {
+    /// A generic count (MultipleH1, GenericLinks, EmptyLinks, DuplicateLinks,
+    /// UnnamedButtons, UnlabeledForms, GenericButtons, ComplexForm).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<u32>,
 }
 
 /// A point of friction in the user journey
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrictionPoint {
+    /// Stable friction identifier (for localized re-derivation)
+    pub kind: FrictionKind,
     pub step: String,
     pub severity: String,
+    /// Problem statement (canonical English)
     pub problem: String,
+    /// Impact statement (canonical English)
     pub impact: String,
+    /// Recommendation (canonical English)
     pub recommendation: String,
+    /// Interpolated values needed to reproduce the text in another language
+    #[serde(default)]
+    pub values: FrictionValues,
+}
+
+impl FrictionPoint {
+    /// Build a friction point, baking canonical-English `problem`/`impact`/
+    /// `recommendation` from its kind + values via [`journey_friction_text`].
+    fn new(kind: FrictionKind, values: FrictionValues) -> Self {
+        let (problem, impact, recommendation) = journey_friction_text(kind, &values, true);
+        FrictionPoint {
+            kind,
+            step: friction_step(kind).to_string(),
+            severity: friction_severity(kind).to_string(),
+            problem,
+            impact,
+            recommendation,
+            values,
+        }
+    }
+}
+
+// ── Localized text (single source of truth) ─────────────────────────
+
+/// Journey step the friction belongs to (stable, locale-independent).
+fn friction_step(kind: FrictionKind) -> &'static str {
+    use FrictionKind::*;
+    match kind {
+        NoH1 | MultipleH1 | NoPageTitle | LittleEarlyText => "Entry",
+        NavigationMissing | MainHiddenFromAx | MainMissing | FewSubheadings => "Orientation",
+        GenericLinks | EmptyLinks | DuplicateLinks => "Navigation",
+        UnnamedButtons | UnlabeledForms | GenericButtons => "Interaction",
+        NoCallToAction | BlockingDialog | ComplexForm => "Conversion",
+    }
+}
+
+/// Severity of a friction point (stable, locale-independent).
+fn friction_severity(kind: FrictionKind) -> &'static str {
+    use FrictionKind::*;
+    match kind {
+        NoH1 | NavigationMissing | EmptyLinks | UnnamedButtons | UnlabeledForms
+        | NoCallToAction => "high",
+        MultipleH1 | NoPageTitle | LittleEarlyText | MainMissing | BlockingDialog | ComplexForm => {
+            "medium"
+        }
+        MainHiddenFromAx | FewSubheadings | DuplicateLinks | GenericLinks | GenericButtons => "low",
+    }
+}
+
+/// Localized dimension name for a [`JourneyDimensionKind`].
+pub fn journey_dimension_name(kind: JourneyDimensionKind, en: bool) -> &'static str {
+    match (kind, en) {
+        (JourneyDimensionKind::EntryClarity, _) => "Entry Clarity",
+        (JourneyDimensionKind::Orientation, _) => "Orientation",
+        (JourneyDimensionKind::Navigation, _) => "Navigation",
+        (JourneyDimensionKind::Interaction, _) => "Interaction",
+        (JourneyDimensionKind::Conversion, _) => "Conversion",
+    }
+}
+
+/// Localized score-band summary for a journey dimension.
+///
+/// The single source of truth for dimension `summary` text. Analysis calls it
+/// with `en = true` to bake canonical English; the PDF layer re-derives in the
+/// run language.
+pub fn journey_dimension_summary(kind: JourneyDimensionKind, score: u32, en: bool) -> String {
+    use JourneyDimensionKind::*;
+    let high = score >= 85;
+    let mid = score >= 60;
+    match kind {
+        EntryClarity => {
+            if high {
+                if en {
+                    "The page purpose is immediately clear"
+                } else {
+                    "Seitenzweck ist sofort klar erkennbar"
+                }
+            } else if mid {
+                if en {
+                    "The entry point is broadly understandable, but could be improved"
+                } else {
+                    "Einstieg grundsätzlich verständlich, aber verbesserungswürdig"
+                }
+            } else if en {
+                "The page purpose is not recognizable at first glance"
+            } else {
+                "Seitenzweck ist nicht auf den ersten Blick erkennbar"
+            }
+        }
+        Orientation => {
+            if high {
+                if en {
+                    "Good orientation through navigation, landmarks and structure"
+                } else {
+                    "Gute Orientierung durch Navigation, Landmarks und Struktur"
+                }
+            } else if mid {
+                if en {
+                    "Basic orientation present, structure could be expanded"
+                } else {
+                    "Grundlegende Orientierung vorhanden, Struktur ausbaufähig"
+                }
+            } else if en {
+                "Insufficient orientation — navigation or landmarks are missing"
+            } else {
+                "Mangelnde Orientierung — Navigation oder Landmarks fehlen"
+            }
+        }
+        Navigation => {
+            if high {
+                if en {
+                    "Links are understandable, unambiguous and well structured"
+                } else {
+                    "Links sind verständlich, eindeutig und gut strukturiert"
+                }
+            } else if mid {
+                if en {
+                    "Navigation is usable, but some links are unclear or redundant"
+                } else {
+                    "Navigation nutzbar, aber einige Links sind unklar oder redundant"
+                }
+            } else if en {
+                "Navigation problems: unclear, empty or redundant links"
+            } else {
+                "Navigationsprobleme: unklare, leere oder redundante Links"
+            }
+        }
+        Interaction => {
+            if high {
+                if en {
+                    "Interactive elements are clearly labeled and operable"
+                } else {
+                    "Interaktive Elemente sind klar beschriftet und bedienbar"
+                }
+            } else if mid {
+                if en {
+                    "Basic interaction is possible, but some labels are unclear"
+                } else {
+                    "Grundlegende Interaktion möglich, aber Beschriftungen teilweise unklar"
+                }
+            } else if en {
+                "Significant interaction problems: unlabeled buttons or form fields"
+            } else {
+                "Erhebliche Interaktionsprobleme: unbeschriftete Buttons oder Formularfelder"
+            }
+        }
+        Conversion => {
+            if high {
+                if en {
+                    "Clear conversion path with a reachable CTA"
+                } else {
+                    "Klarer Conversion-Pfad mit erreichbarem CTA"
+                }
+            } else if mid {
+                if en {
+                    "Conversion path present, but impaired by obstacles"
+                } else {
+                    "Conversion-Pfad vorhanden, aber durch Hindernisse beeinträchtigt"
+                }
+            } else if en {
+                "No clear conversion path detectable"
+            } else {
+                "Kein klarer Conversion-Pfad erkennbar"
+            }
+        }
+    }
+    .to_string()
+}
+
+/// The single source of truth for friction `problem`/`impact`/`recommendation`.
+///
+/// Returns `(problem, impact, recommendation)` in German or English for the
+/// given `kind` and interpolated `values`. Analysis calls it with `en = true`
+/// to bake canonical English; the PDF layer re-derives in the run language.
+pub fn journey_friction_text(
+    kind: FrictionKind,
+    values: &FrictionValues,
+    en: bool,
+) -> (String, String, String) {
+    use FrictionKind::*;
+    let count = values.count.unwrap_or(0);
+
+    let (problem, impact, recommendation): (String, String, String) = match kind {
+        NoH1 => (
+            if en {
+                "No H1 heading — the page purpose is not immediately recognizable".into()
+            } else {
+                "Keine H1-Überschrift — Seitenzweck nicht sofort erkennbar".into()
+            },
+            if en {
+                "Users do not understand what this page is about".into()
+            } else {
+                "Nutzer verstehen nicht, worum es auf dieser Seite geht".into()
+            },
+            if en {
+                "Set a meaningful H1 heading".into()
+            } else {
+                "Eine aussagekräftige H1-Überschrift setzen".into()
+            },
+        ),
+        MultipleH1 => (
+            if en {
+                format!("{} H1 headings — unclear page focus", count)
+            } else {
+                format!("{} H1-Überschriften — unklarer Seitenfokus", count)
+            },
+            if en {
+                "Users cannot tell what the main content is".into()
+            } else {
+                "Nutzer wissen nicht, was der Hauptinhalt ist".into()
+            },
+            if en {
+                "Use exactly one H1 heading per page".into()
+            } else {
+                "Genau eine H1-Überschrift pro Seite verwenden".into()
+            },
+        ),
+        NoPageTitle => (
+            if en {
+                "No page title detected".into()
+            } else {
+                "Kein Seitentitel erkannt".into()
+            },
+            if en {
+                "The tab title is empty — users lose context when switching tabs".into()
+            } else {
+                "Tab-Titel ist leer — Nutzer verlieren den Kontext beim Tabwechsel".into()
+            },
+            if en {
+                "Set a meaningful <title>".into()
+            } else {
+                "Aussagekräftigen <title> setzen".into()
+            },
+        ),
+        LittleEarlyText => (
+            if en {
+                "Little visible text in the upper area of the page".into()
+            } else {
+                "Wenig sichtbarer Text im oberen Seitenbereich".into()
+            },
+            if en {
+                "Users get no immediate orientation".into()
+            } else {
+                "Nutzer erhalten keine sofortige Orientierung".into()
+            },
+            if en {
+                "Place relevant introductory text above the fold".into()
+            } else {
+                "Relevanten Einleitungstext above-the-fold platzieren".into()
+            },
+        ),
+        NavigationMissing => (
+            if en {
+                "Navigation landmark not reachable in the accessibility tree".into()
+            } else {
+                "Navigation-Landmark nicht im Accessibility-Tree erreichbar".into()
+            },
+            if en {
+                "Screen reader users cannot recognize the main navigation as such or jump to it directly — often caused by aria-hidden on the <nav> element or an ancestor.".into()
+            } else {
+                "Screenreader-Nutzer können die Hauptnavigation nicht als solche erkennen oder gezielt ansteuern — häufig durch aria-hidden auf dem <nav>-Element oder einem Vorfahren verursacht.".into()
+            },
+            if en {
+                "Check whether aria-hidden=\"true\" is set on or above the <nav> element. The navigation landmark must be visible in the accessibility tree (role=\"navigation\").".into()
+            } else {
+                "Prüfen, ob aria-hidden=\"true\" auf oder oberhalb des <nav>-Elements gesetzt ist. Das Navigation-Landmark muss im Accessibility-Tree sichtbar sein (role=\"navigation\").".into()
+            },
+        ),
+        MainHiddenFromAx => (
+            if en {
+                "<main> element present, but not visible in the accessibility tree".into()
+            } else {
+                "<main>-Element vorhanden, aber im Accessibility-Tree nicht sichtbar".into()
+            },
+            if en {
+                "Screen reader users may not be able to jump to the main content directly on this viewport".into()
+            } else {
+                "Screenreader-Nutzer können den Hauptinhalt auf diesem Viewport möglicherweise nicht direkt anspringen".into()
+            },
+            if en {
+                "Check whether an overlay or aria-hidden hides the <main> area on this viewport"
+                    .into()
+            } else {
+                "Prüfen, ob ein Overlay oder aria-hidden den <main>-Bereich auf diesem Viewport verbirgt".into()
+            },
+        ),
+        MainMissing => (
+            if en {
+                "No main content area (<main>) detected".into()
+            } else {
+                "Kein Hauptinhaltsbereich (<main>) erkannt".into()
+            },
+            if en {
+                "Screen reader users cannot jump to the main content directly".into()
+            } else {
+                "Screenreader-Nutzer können den Hauptinhalt nicht direkt anspringen".into()
+            },
+            if en {
+                "Wrap the main content in a <main> element".into()
+            } else {
+                "Hauptinhalt in ein <main>-Element einschließen".into()
+            },
+        ),
+        FewSubheadings => (
+            if en {
+                "Hardly any subheadings for orientation".into()
+            } else {
+                "Kaum Zwischenüberschriften zur Orientierung".into()
+            },
+            if en {
+                "Users cannot scan the content".into()
+            } else {
+                "Nutzer können Inhalte nicht scannen".into()
+            },
+            if en {
+                "Structure the content with H2/H3 headings".into()
+            } else {
+                "Inhalte mit H2/H3-Überschriften gliedern".into()
+            },
+        ),
+        GenericLinks => (
+            if en {
+                format!("{} links with generic text (\"more\", \"here\")", count)
+            } else {
+                format!(
+                    "{} Links mit generischen Texten (\"mehr\", \"hier\")",
+                    count
+                )
+            },
+            if en {
+                "Users cannot distinguish where links lead".into()
+            } else {
+                "Nutzer können nicht unterscheiden, wohin Links führen".into()
+            },
+            if en {
+                "Write descriptive link text that names the destination".into()
+            } else {
+                "Linktexte beschreibend formulieren, die das Ziel benennen".into()
+            },
+        ),
+        EmptyLinks => (
+            if en {
+                format!("{} links without recognizable text", count)
+            } else {
+                format!("{} Links ohne erkennbaren Text", count)
+            },
+            if en {
+                "Screen reader users do not learn what the link does".into()
+            } else {
+                "Screenreader-Nutzer erfahren nicht, was der Link tut".into()
+            },
+            if en {
+                "Give every link descriptive text or an aria-label".into()
+            } else {
+                "Alle Links mit beschreibendem Text oder aria-label versehen".into()
+            },
+        ),
+        DuplicateLinks => (
+            if en {
+                format!("{} duplicate link texts on the page", count)
+            } else {
+                format!("{} doppelte Linktexte auf der Seite", count)
+            },
+            if en {
+                "The same label for different destinations confuses users".into()
+            } else {
+                "Gleiche Beschriftung für unterschiedliche Ziele verwirrt Nutzer".into()
+            },
+            if en {
+                "Make link texts unambiguous or differentiate them with aria-label".into()
+            } else {
+                "Linktexte eindeutig formulieren oder mit aria-label differenzieren".into()
+            },
+        ),
+        UnnamedButtons => (
+            if en {
+                format!("{} buttons without a recognizable label", count)
+            } else {
+                format!("{} Buttons ohne erkennbare Beschriftung", count)
+            },
+            if en {
+                "Users do not know what a button triggers".into()
+            } else {
+                "Nutzer wissen nicht, was ein Button auslöst".into()
+            },
+            if en {
+                "Give every button descriptive text or an aria-label".into()
+            } else {
+                "Alle Buttons mit beschreibendem Text oder aria-label versehen".into()
+            },
+        ),
+        UnlabeledForms => (
+            if en {
+                format!("{} form fields without a label", count)
+            } else {
+                format!("{} Formularfelder ohne Label", count)
+            },
+            if en {
+                "Users do not know what input is expected".into()
+            } else {
+                "Nutzer wissen nicht, welche Eingabe erwartet wird".into()
+            },
+            if en {
+                "Connect every form field to a visible <label> or aria-label".into()
+            } else {
+                "Jedes Formularfeld mit sichtbarem <label> oder aria-label verbinden".into()
+            },
+        ),
+        GenericButtons => (
+            if en {
+                format!("{} buttons with generic labels (\"OK\", \"Submit\")", count)
+            } else {
+                format!(
+                    "{} Buttons mit generischen Labels (\"OK\", \"Submit\")",
+                    count
+                )
+            },
+            if en {
+                "The context of the action is unclear".into()
+            } else {
+                "Kontext der Aktion ist nicht klar".into()
+            },
+            if en {
+                "Label buttons with action-describing text (e.g. \"Send message\")".into()
+            } else {
+                "Buttons mit handlungsbeschreibenden Texten benennen (z. B. \"Nachricht senden\")"
+                    .into()
+            },
+        ),
+        NoCallToAction => (
+            if en {
+                "No recognizable call-to-action on the page".into()
+            } else {
+                "Kein erkennbarer Call-to-Action auf der Seite".into()
+            },
+            if en {
+                "Users have no clear prompt to act".into()
+            } else {
+                "Nutzer haben keine klare Handlungsaufforderung".into()
+            },
+            if en {
+                "Define a primary CTA and place it prominently".into()
+            } else {
+                "Einen primären CTA definieren und prominent platzieren".into()
+            },
+        ),
+        BlockingDialog => (
+            if en {
+                "Dialog/overlay detected that can interrupt the user path".into()
+            } else {
+                "Dialog/Overlay erkannt, der den Nutzerpfad unterbrechen kann".into()
+            },
+            if en {
+                "Cookie banners or modals can obscure the CTA".into()
+            } else {
+                "Cookie-Banner oder Modals können den CTA verdecken".into()
+            },
+            if en {
+                "Ensure overlays are easy to close and do not block the CTA".into()
+            } else {
+                "Sicherstellen, dass Overlays einfach schließbar sind und den CTA nicht blockieren"
+                    .into()
+            },
+        ),
+        ComplexForm => (
+            if en {
+                format!("{} form fields — high input barrier", count)
+            } else {
+                format!("{} Formularfelder — hohe Eingabehürde", count)
+            },
+            if en {
+                "Complex forms reduce the completion rate".into()
+            } else {
+                "Komplexe Formulare reduzieren die Abschlussrate".into()
+            },
+            if en {
+                "Reduce the form to essential fields or split it into steps".into()
+            } else {
+                "Formular auf wesentliche Felder reduzieren oder in Schritte aufteilen".into()
+            },
+        ),
+    };
+
+    (problem, impact, recommendation)
 }
 
 // ── Analysis entry point ────────────────────────────────────────────
 
 /// Analyze user journey quality from the Accessibility Tree.
 /// Runs purely on already-extracted AXTree data — no CDP calls needed.
+///
+/// Produces canonical-English text in the struct (and thus JSON).
 pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
     analyze_journey_inner(tree, false)
 }
@@ -271,6 +823,8 @@ pub fn analyze_journey(tree: &AXTree) -> JourneyAnalysis {
 /// confirms `<main>` is present but hidden from the AX tree (e.g. by an overlay
 /// on mobile viewport), so the severity is downgraded instead of flagged as
 /// missing structure.
+///
+/// Produces canonical-English text in the struct (and thus JSON).
 pub fn analyze_journey_with_dom_check(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
     analyze_journey_inner(tree, dom_has_main)
 }
@@ -342,6 +896,7 @@ fn analyze_journey_inner(tree: &AXTree, dom_has_main: bool) -> JourneyAnalysis {
 
 /// Entry Clarity: Is the purpose of this page immediately clear?
 fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+    use FrictionKind::*;
     let headings = tree.headings();
     let mut penalties = Vec::new();
 
@@ -353,22 +908,15 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
 
     if h1s.is_empty() {
         penalties.push(45.0);
-        friction.push(FrictionPoint {
-            step: "Entry".into(),
-            severity: "high".into(),
-            problem: "Keine H1-Überschrift — Seitenzweck nicht sofort erkennbar".into(),
-            impact: "Nutzer verstehen nicht, worum es auf dieser Seite geht".into(),
-            recommendation: "Eine aussagekräftige H1-Überschrift setzen".into(),
-        });
+        friction.push(FrictionPoint::new(NoH1, FrictionValues::default()));
     } else if h1s.len() > 1 {
         penalties.push(15.0);
-        friction.push(FrictionPoint {
-            step: "Entry".into(),
-            severity: "medium".into(),
-            problem: format!("{} H1-Überschriften — unklarer Seitenfokus", h1s.len()),
-            impact: "Nutzer wissen nicht, was der Hauptinhalt ist".into(),
-            recommendation: "Genau eine H1-Überschrift pro Seite verwenden".into(),
-        });
+        friction.push(FrictionPoint::new(
+            MultipleH1,
+            FrictionValues {
+                count: Some(h1s.len() as u32),
+            },
+        ));
     } else {
         // Check H1 quality: very short or generic?
         if let Some(name) = h1s[0].name.as_deref() {
@@ -384,13 +932,7 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
         .any(|n| n.role.as_deref() == Some("RootWebArea") && n.name.is_some());
     if !has_title {
         penalties.push(20.0);
-        friction.push(FrictionPoint {
-            step: "Entry".into(),
-            severity: "medium".into(),
-            problem: "Kein Seitentitel erkannt".into(),
-            impact: "Tab-Titel ist leer — Nutzer verlieren den Kontext beim Tabwechsel".into(),
-            recommendation: "Aussagekräftigen <title> setzen".into(),
-        });
+        friction.push(FrictionPoint::new(NoPageTitle, FrictionValues::default()));
     }
 
     // Early content: check if there's substantial text in the first portion of the tree
@@ -404,30 +946,14 @@ fn analyze_entry_clarity(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jo
 
     if early_text_len < 30 {
         penalties.push(20.0);
-        friction.push(FrictionPoint {
-            step: "Entry".into(),
-            severity: "medium".into(),
-            problem: "Wenig sichtbarer Text im oberen Seitenbereich".into(),
-            impact: "Nutzer erhalten keine sofortige Orientierung".into(),
-            recommendation: "Relevanten Einleitungstext above-the-fold platzieren".into(),
-        });
+        friction.push(FrictionPoint::new(
+            LittleEarlyText,
+            FrictionValues::default(),
+        ));
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
-    let summary = if score >= 85 {
-        "Seitenzweck ist sofort klar erkennbar".into()
-    } else if score >= 60 {
-        "Einstieg grundsätzlich verständlich, aber verbesserungswürdig".into()
-    } else {
-        "Seitenzweck ist nicht auf den ersten Blick erkennbar".into()
-    };
-
-    JourneyDimension {
-        name: "Entry Clarity".into(),
-        score,
-        weight: 0.20,
-        summary,
-    }
+    build_dimension(JourneyDimensionKind::EntryClarity, score, 0.20)
 }
 
 /// Orientation: Can the user tell where they are and where they can go?
@@ -440,19 +966,17 @@ fn analyze_orientation(
     friction: &mut Vec<FrictionPoint>,
     dom_has_main: bool,
 ) -> JourneyDimension {
+    use FrictionKind::*;
     let mut penalties = Vec::new();
 
     // Navigation landmark
     let has_nav = tree.iter().any(|n| n.role.as_deref() == Some("navigation"));
     if !has_nav {
         penalties.push(40.0);
-        friction.push(FrictionPoint {
-            step: "Orientation".into(),
-            severity: "high".into(),
-            problem: "Navigation-Landmark nicht im Accessibility-Tree erreichbar".into(),
-            impact: "Screenreader-Nutzer können die Hauptnavigation nicht als solche erkennen oder gezielt ansteuern — häufig durch aria-hidden auf dem <nav>-Element oder einem Vorfahren verursacht.".into(),
-            recommendation: "Prüfen, ob aria-hidden=\"true\" auf oder oberhalb des <nav>-Elements gesetzt ist. Das Navigation-Landmark muss im Accessibility-Tree sichtbar sein (role=\"navigation\").".into(),
-        });
+        friction.push(FrictionPoint::new(
+            NavigationMissing,
+            FrictionValues::default(),
+        ));
     }
 
     // Breadcrumbs or secondary nav hint
@@ -473,22 +997,13 @@ fn analyze_orientation(
             // <main> exists in HTML but is hidden from the AX tree (overlay / display:none on
             // this viewport). Score impact is small — structure exists, but AT access is impaired.
             penalties.push(8.0);
-            friction.push(FrictionPoint {
-                step: "Orientation".into(),
-                severity: "low".into(),
-                problem: "<main>-Element vorhanden, aber im Accessibility-Tree nicht sichtbar".into(),
-                impact: "Screenreader-Nutzer können den Hauptinhalt auf diesem Viewport möglicherweise nicht direkt anspringen".into(),
-                recommendation: "Prüfen, ob ein Overlay oder aria-hidden den <main>-Bereich auf diesem Viewport verbirgt".into(),
-            });
+            friction.push(FrictionPoint::new(
+                MainHiddenFromAx,
+                FrictionValues::default(),
+            ));
         } else {
             penalties.push(20.0);
-            friction.push(FrictionPoint {
-                step: "Orientation".into(),
-                severity: "medium".into(),
-                problem: "Kein Hauptinhaltsbereich (<main>) erkannt".into(),
-                impact: "Screenreader-Nutzer können den Hauptinhalt nicht direkt anspringen".into(),
-                recommendation: "Hauptinhalt in ein <main>-Element einschließen".into(),
-            });
+            friction.push(FrictionPoint::new(MainMissing, FrictionValues::default()));
         }
     }
 
@@ -504,34 +1019,19 @@ fn analyze_orientation(
     let heading_count = tree.headings().len();
     if heading_count < 2 {
         penalties.push(15.0);
-        friction.push(FrictionPoint {
-            step: "Orientation".into(),
-            severity: "low".into(),
-            problem: "Kaum Zwischenüberschriften zur Orientierung".into(),
-            impact: "Nutzer können Inhalte nicht scannen".into(),
-            recommendation: "Inhalte mit H2/H3-Überschriften gliedern".into(),
-        });
+        friction.push(FrictionPoint::new(
+            FewSubheadings,
+            FrictionValues::default(),
+        ));
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
-    let summary = if score >= 85 {
-        "Gute Orientierung durch Navigation, Landmarks und Struktur".into()
-    } else if score >= 60 {
-        "Grundlegende Orientierung vorhanden, Struktur ausbaufähig".into()
-    } else {
-        "Mangelnde Orientierung — Navigation oder Landmarks fehlen".into()
-    };
-
-    JourneyDimension {
-        name: "Orientation".into(),
-        score,
-        weight: 0.20,
-        summary,
-    }
+    build_dimension(JourneyDimensionKind::Orientation, score, 0.20)
 }
 
 /// Navigation: Are links clear, non-redundant, and well-structured?
 fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+    use FrictionKind::*;
     let links = tree.links();
     let mut penalties = Vec::new();
 
@@ -551,16 +1051,12 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         let p = saturating_penalty(generic_count as f64, 30.0, 8.0);
         penalties.push(p);
         if generic_count >= 3 {
-            friction.push(FrictionPoint {
-                step: "Navigation".into(),
-                severity: "medium".into(),
-                problem: format!(
-                    "{} Links mit generischen Texten (\"mehr\", \"hier\")",
-                    generic_count
-                ),
-                impact: "Nutzer können nicht unterscheiden, wohin Links führen".into(),
-                recommendation: "Linktexte beschreibend formulieren, die das Ziel benennen".into(),
-            });
+            friction.push(FrictionPoint::new(
+                GenericLinks,
+                FrictionValues {
+                    count: Some(generic_count as u32),
+                },
+            ));
         }
     }
 
@@ -574,14 +1070,12 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         let p = saturating_penalty(empty_links as f64, 35.0, 5.0);
         penalties.push(p);
         if empty_links >= 2 {
-            friction.push(FrictionPoint {
-                step: "Navigation".into(),
-                severity: "high".into(),
-                problem: format!("{} Links ohne erkennbaren Text", empty_links),
-                impact: "Screenreader-Nutzer erfahren nicht, was der Link tut".into(),
-                recommendation: "Alle Links mit beschreibendem Text oder aria-label versehen"
-                    .into(),
-            });
+            friction.push(FrictionPoint::new(
+                EmptyLinks,
+                FrictionValues {
+                    count: Some(empty_links as u32),
+                },
+            ));
         }
     }
 
@@ -601,14 +1095,12 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         let p = saturating_penalty((duplicate_count - 5) as f64, 20.0, 10.0);
         penalties.push(p);
         if duplicate_count > 10 {
-            friction.push(FrictionPoint {
-                step: "Navigation".into(),
-                severity: "low".into(),
-                problem: format!("{} doppelte Linktexte auf der Seite", duplicate_count),
-                impact: "Gleiche Beschriftung für unterschiedliche Ziele verwirrt Nutzer".into(),
-                recommendation:
-                    "Linktexte eindeutig formulieren oder mit aria-label differenzieren".into(),
-            });
+            friction.push(FrictionPoint::new(
+                DuplicateLinks,
+                FrictionValues {
+                    count: Some(duplicate_count as u32),
+                },
+            ));
         }
     }
 
@@ -620,24 +1112,12 @@ fn analyze_navigation(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
-    let summary = if score >= 85 {
-        "Links sind verständlich, eindeutig und gut strukturiert".into()
-    } else if score >= 60 {
-        "Navigation nutzbar, aber einige Links sind unklar oder redundant".into()
-    } else {
-        "Navigationsprobleme: unklare, leere oder redundante Links".into()
-    };
-
-    JourneyDimension {
-        name: "Navigation".into(),
-        score,
-        weight: 0.25,
-        summary,
-    }
+    build_dimension(JourneyDimensionKind::Navigation, score, 0.25)
 }
 
 /// Interaction: Can users interact with controls effectively?
 fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+    use FrictionKind::*;
     let buttons = tree.nodes_with_role("button");
     let form_controls = tree.form_controls();
     let mut penalties = Vec::new();
@@ -651,13 +1131,12 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     if unnamed_buttons > 0 {
         let p = saturating_penalty(unnamed_buttons as f64, 40.0, 3.0);
         penalties.push(p);
-        friction.push(FrictionPoint {
-            step: "Interaction".into(),
-            severity: "high".into(),
-            problem: format!("{} Buttons ohne erkennbare Beschriftung", unnamed_buttons),
-            impact: "Nutzer wissen nicht, was ein Button auslöst".into(),
-            recommendation: "Alle Buttons mit beschreibendem Text oder aria-label versehen".into(),
-        });
+        friction.push(FrictionPoint::new(
+            UnnamedButtons,
+            FrictionValues {
+                count: Some(unnamed_buttons as u32),
+            },
+        ));
     }
 
     // Form controls without labels
@@ -670,14 +1149,12 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
         let p = saturating_penalty(unlabeled_forms as f64, 35.0, 3.0);
         penalties.push(p);
         if unlabeled_forms >= 2 {
-            friction.push(FrictionPoint {
-                step: "Interaction".into(),
-                severity: "high".into(),
-                problem: format!("{} Formularfelder ohne Label", unlabeled_forms),
-                impact: "Nutzer wissen nicht, welche Eingabe erwartet wird".into(),
-                recommendation:
-                    "Jedes Formularfeld mit sichtbarem <label> oder aria-label verbinden".into(),
-            });
+            friction.push(FrictionPoint::new(
+                UnlabeledForms,
+                FrictionValues {
+                    count: Some(unlabeled_forms as u32),
+                },
+            ));
         }
     }
 
@@ -743,39 +1220,21 @@ fn analyze_interaction(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Jour
     if generic_buttons >= 2 {
         let p = saturating_penalty(generic_buttons as f64, 20.0, 5.0);
         penalties.push(p);
-        friction.push(FrictionPoint {
-            step: "Interaction".into(),
-            severity: "low".into(),
-            problem: format!(
-                "{} Buttons mit generischen Labels (\"OK\", \"Submit\")",
-                generic_buttons
-            ),
-            impact: "Kontext der Aktion ist nicht klar".into(),
-            recommendation:
-                "Buttons mit handlungsbeschreibenden Texten benennen (z. B. \"Nachricht senden\")"
-                    .into(),
-        });
+        friction.push(FrictionPoint::new(
+            GenericButtons,
+            FrictionValues {
+                count: Some(generic_buttons as u32),
+            },
+        ));
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
-    let summary = if score >= 85 {
-        "Interaktive Elemente sind klar beschriftet und bedienbar".into()
-    } else if score >= 60 {
-        "Grundlegende Interaktion möglich, aber Beschriftungen teilweise unklar".into()
-    } else {
-        "Erhebliche Interaktionsprobleme: unbeschriftete Buttons oder Formularfelder".into()
-    };
-
-    JourneyDimension {
-        name: "Interaction".into(),
-        score,
-        weight: 0.20,
-        summary,
-    }
+    build_dimension(JourneyDimensionKind::Interaction, score, 0.20)
 }
 
 /// Conversion: Can the user reach and complete the page's primary goal?
 fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> JourneyDimension {
+    use FrictionKind::*;
     let buttons = tree.nodes_with_role("button");
     let links = tree.links();
     let mut penalties = Vec::new();
@@ -788,13 +1247,10 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
 
     if !cta_found {
         penalties.push(40.0);
-        friction.push(FrictionPoint {
-            step: "Conversion".into(),
-            severity: "high".into(),
-            problem: "Kein erkennbarer Call-to-Action auf der Seite".into(),
-            impact: "Nutzer haben keine klare Handlungsaufforderung".into(),
-            recommendation: "Einen primären CTA definieren und prominent platzieren".into(),
-        });
+        friction.push(FrictionPoint::new(
+            NoCallToAction,
+            FrictionValues::default(),
+        ));
     }
 
     // Are there interactive blockers before CTA? (modals, cookie banners hinted by roles)
@@ -803,15 +1259,10 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         .any(|n| matches!(n.role.as_deref(), Some("dialog" | "alertdialog")));
     if has_dialog {
         penalties.push(15.0);
-        friction.push(FrictionPoint {
-            step: "Conversion".into(),
-            severity: "medium".into(),
-            problem: "Dialog/Overlay erkannt, der den Nutzerpfad unterbrechen kann".into(),
-            impact: "Cookie-Banner oder Modals können den CTA verdecken".into(),
-            recommendation:
-                "Sicherstellen, dass Overlays einfach schließbar sind und den CTA nicht blockieren"
-                    .into(),
-        });
+        friction.push(FrictionPoint::new(
+            BlockingDialog,
+            FrictionValues::default(),
+        ));
     }
 
     // Form complexity: too many fields can reduce conversion
@@ -821,14 +1272,12 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
         let p = saturating_penalty(excess, 20.0, 10.0);
         penalties.push(p);
         if form_controls.len() > 15 {
-            friction.push(FrictionPoint {
-                step: "Conversion".into(),
-                severity: "medium".into(),
-                problem: format!("{} Formularfelder — hohe Eingabehürde", form_controls.len()),
-                impact: "Komplexe Formulare reduzieren die Abschlussrate".into(),
-                recommendation:
-                    "Formular auf wesentliche Felder reduzieren oder in Schritte aufteilen".into(),
-            });
+            friction.push(FrictionPoint::new(
+                ComplexForm,
+                FrictionValues {
+                    count: Some(form_controls.len() as u32),
+                },
+            ));
         }
     }
 
@@ -848,18 +1297,122 @@ fn analyze_conversion(tree: &AXTree, friction: &mut Vec<FrictionPoint>) -> Journ
     }
 
     let score = journey_dimension_score(&penalties, 100.0);
-    let summary = if score >= 85 {
-        "Klarer Conversion-Pfad mit erreichbarem CTA".into()
-    } else if score >= 60 {
-        "Conversion-Pfad vorhanden, aber durch Hindernisse beeinträchtigt".into()
-    } else {
-        "Kein klarer Conversion-Pfad erkennbar".into()
-    };
+    build_dimension(JourneyDimensionKind::Conversion, score, 0.15)
+}
 
+// ── Helpers ─────────────────────────────────────────────────────────
+
+/// Build a dimension, baking canonical-English `name`/`summary`.
+fn build_dimension(kind: JourneyDimensionKind, score: u32, weight: f64) -> JourneyDimension {
     JourneyDimension {
-        name: "Conversion".into(),
+        kind,
+        name: journey_dimension_name(kind, true).to_string(),
         score,
-        weight: 0.15,
-        summary,
+        weight,
+        summary: journey_dimension_summary(kind, score, true),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::accessibility::AXNode;
+
+    fn node(id: &str, role: &str, name: Option<&str>) -> AXNode {
+        AXNode {
+            node_id: id.into(),
+            role: Some(role.into()),
+            name: name.map(|s| s.into()),
+            ..Default::default()
+        }
+    }
+
+    /// Guard against German leaking into the canonical struct/JSON (#406): the
+    /// analysis bakes English, so no visible result text (dimension summaries,
+    /// friction problems/impacts/recommendations) may contain German umlauts/ß.
+    #[test]
+    fn canonical_struct_has_no_german_chars() {
+        // Sparse tree: missing H1, no navigation, no <main>, no CTA, plus
+        // unnamed links and buttons → triggers detectors across all dimensions.
+        let mut nodes = vec![node("root", "RootWebArea", Some("Page"))];
+        for i in 0..4 {
+            nodes.push(node(&format!("link{i}"), "link", None));
+        }
+        for i in 0..3 {
+            nodes.push(node(&format!("btn{i}"), "button", None));
+        }
+        let tree = AXTree::from_nodes(nodes);
+
+        let analysis = analyze_journey(&tree);
+        assert!(
+            !analysis.friction_points.is_empty(),
+            "scenario should produce friction points"
+        );
+
+        let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
+
+        for dim in [
+            &analysis.entry_clarity,
+            &analysis.orientation,
+            &analysis.navigation,
+            &analysis.interaction,
+            &analysis.conversion,
+        ] {
+            assert!(
+                !has_umlaut(&dim.name),
+                "canonical dimension name contains German umlaut: {}",
+                dim.name
+            );
+            assert!(
+                !has_umlaut(&dim.summary),
+                "canonical dimension summary contains German umlaut: {}",
+                dim.summary
+            );
+        }
+
+        for fp in &analysis.friction_points {
+            assert!(
+                !has_umlaut(&fp.problem),
+                "canonical friction problem contains German umlaut: {}",
+                fp.problem
+            );
+            assert!(
+                !has_umlaut(&fp.impact),
+                "canonical friction impact contains German umlaut: {}",
+                fp.impact
+            );
+            assert!(
+                !has_umlaut(&fp.recommendation),
+                "canonical friction recommendation contains German umlaut: {}",
+                fp.recommendation
+            );
+        }
+    }
+
+    /// PDF re-derivation: the pure text functions must yield real German.
+    #[test]
+    fn friction_text_german_for_pdf_derivation() {
+        let (problem, impact, recommendation) = journey_friction_text(
+            FrictionKind::NoH1,
+            &FrictionValues::default(),
+            false, // German
+        );
+        assert!(problem.contains("H1-Überschrift"));
+        assert!(impact.contains("Nutzer"));
+        assert!(recommendation.contains("aussagekräftige"));
+
+        // A count-interpolated variant localizes too.
+        let (problem, _, _) = journey_friction_text(
+            FrictionKind::EmptyLinks,
+            &FrictionValues { count: Some(3) },
+            false,
+        );
+        assert_eq!(problem, "3 Links ohne erkennbaren Text");
+
+        // Dimension summary localizes.
+        assert_eq!(
+            journey_dimension_summary(JourneyDimensionKind::Conversion, 95, false),
+            "Klarer Conversion-Pfad mit erreichbarem CTA"
+        );
     }
 }

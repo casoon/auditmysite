@@ -23,11 +23,11 @@ pub use page_health::{
     analyze_page_health, HtmlValidationIssue, PageHealthAnalysis, PageHealthIssue, WwwConsolidation,
 };
 pub use profile::{build_content_profile, SeoContentProfile};
-pub use robots::{audit_robots_txt, BotClass, RobotsAudit, RobotsGroup};
+pub use robots::{audit_robots_txt, infer_robots_policy, BotClass, RobotsAudit, RobotsGroup};
 pub use schema::{detect_structured_data, SchemaType, StructuredData};
 pub use serp::{build_serp_analysis, SerpAnalysis, SerpSignal, SerpSignalStatus};
 pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
-pub use technical::{analyze_technical_seo, TechnicalSeo};
+pub use technical::{analyze_technical_seo, collect_technical_issues, TechnicalSeo};
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -68,7 +68,11 @@ pub struct SeoAnalysis {
     pub image_efficiency: Option<ImageEfficiencyAnalysis>,
 }
 
-/// Run complete SEO analysis
+/// Run complete SEO analysis.
+///
+/// All derived text is baked in canonical English so the stored struct (and the
+/// JSON report) is language-independent. The PDF re-derives localized text from
+/// the same pure builders at presentation time (#406).
 pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
     // Extract all SEO data in parallel where possible
     let meta = extract_meta_tags(page).await?;
@@ -84,7 +88,8 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         .as_deref()
         .map(|r| r.to_lowercase().contains("noindex"))
         .unwrap_or(false);
-    let robots = Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex).await);
+    let robots =
+        Some(audit_robots_txt(url, technical.canonical_url.as_deref(), is_noindex, "en").await);
 
     // Page health analysis — HTTP probes + DOM inspection
     let page_health = match analyze_page_health(page, url).await {
@@ -129,11 +134,11 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
         image_efficiency,
     };
 
-    // Build content profile from collected data
-    analysis.content_profile = Some(build_content_profile(&analysis));
+    // Build content profile from collected data (baked English; PDF re-derives)
+    analysis.content_profile = Some(build_content_profile(&analysis, "en"));
 
     // SERP pass — pure aggregation, no additional CDP calls needed
-    analysis.serp = Some(build_serp_analysis(&analysis, url));
+    analysis.serp = Some(build_serp_analysis(&analysis, url, "en"));
 
     Ok(analysis)
 }

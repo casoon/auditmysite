@@ -229,10 +229,13 @@ pub trait AuditModule: Send + Sync {
     /// }
     ///
     /// fn assert_default<M: AuditModule>(m: &M, r: &mut AuditReport) -> Result<()> {
-    ///     m.derive(r)
+    ///     m.derive(r, "de")
     /// }
     /// ```
-    fn derive(&self, _report: &mut AuditReport) -> Result<()> {
+    ///
+    /// `locale` is the active report locale ("de"/"en"); derive modules that
+    /// produce report-visible text use it to localize their messages (#406).
+    fn derive(&self, _report: &mut AuditReport, _locale: &str) -> Result<()> {
         Ok(())
     }
 }

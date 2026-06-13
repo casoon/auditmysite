@@ -144,9 +144,23 @@ pub(super) fn render_budget_violations(
     ])
     .with_title(i18n.t("budget-table-title"));
 
+    // Metric names are stored in canonical English; re-localize the few
+    // translatable ones for the PDF (#406). Acronyms (LCP, TBT, …) pass through.
+    let localize_metric = |metric: &str| -> String {
+        if i18n.locale() == "en" {
+            return metric.to_string();
+        }
+        match metric {
+            "JS size" => "JS-Größe".to_string(),
+            "CSS size" => "CSS-Größe".to_string(),
+            "Page size" => "Seitengröße".to_string(),
+            other => other.to_string(),
+        }
+    };
+
     for v in violations {
         table = table.add_row(vec![
-            v.metric.clone(),
+            localize_metric(&v.metric),
             v.budget_label.clone(),
             v.actual_label.clone(),
             format!("+{:.0}%", v.exceeded_by_pct),
@@ -479,6 +493,12 @@ pub(super) fn render_performance(
             i18n.t("pdf-perf-min-savings"),
             format!("{:.1} KB", min.total_savings_kb),
         );
+        if min.legacy_count > 0 {
+            kv = kv.add(
+                "Legacy-/Polyfill-Skripte",
+                format!("{} (~{:.1} KB)", min.legacy_count, min.legacy_wasted_kb),
+            );
+        }
         builder = builder.add_component(kv);
 
         if !min.top_assets.is_empty() {
@@ -492,6 +512,17 @@ pub(super) fn render_performance(
             ]);
             for (url, kind, savings) in &min.top_assets {
                 table = table.add_row(vec![url.as_str(), kind.as_str(), savings.as_str()]);
+            }
+            builder = builder.add_component(table);
+        }
+        if !min.legacy_assets.is_empty() {
+            let mut table = AuditTable::new(vec![
+                TableColumn::new("URL").with_width("62%"),
+                TableColumn::new("Signatur").with_width("16%"),
+                TableColumn::new("Bytes").with_width("22%"),
+            ]);
+            for (url, signature, wasted) in &min.legacy_assets {
+                table = table.add_row(vec![url.as_str(), signature.as_str(), wasted.as_str()]);
             }
             builder = builder.add_component(table);
         }
@@ -1480,10 +1511,15 @@ pub(super) fn render_ux(
             &ux.interpretation,
         ));
 
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+
     // Dimension scores as KeyValueList
     let mut kv = KeyValueList::new().with_title(i18n.t("ux-dimensions"));
     for dim in &ux.dimensions {
-        kv = kv.add(&dim.name, format!("{}/100 — {}", dim.score, dim.summary));
+        let name = crate::ux::ux_dimension_name(dim.kind, en);
+        let summary = crate::ux::ux_dimension_summary(dim.kind, dim.score, en);
+        kv = kv.add(name, format!("{}/100 — {}", dim.score, summary));
     }
     builder = builder.add_component(kv);
 
@@ -1495,8 +1531,11 @@ pub(super) fn render_ux(
             "low" => crate::taxonomy::Severity::Low,
             _ => crate::taxonomy::Severity::Medium,
         });
-        let desc = format!("{} — {}", issue.impact, issue.recommendation);
-        builder = builder.add_component(Finding::new(&issue.dimension, sev, &desc));
+        let dimension = crate::ux::ux_dimension_name(issue.kind.dimension(), en);
+        let (_problem, impact, recommendation) =
+            crate::ux::ux_issue_text(issue.kind, &issue.values, en);
+        let desc = format!("{} — {}", impact, recommendation);
+        builder = builder.add_component(Finding::new(dimension, sev, &desc));
     }
     if ux.issues.len() > 3 {
         let more_note = i18n.t_args(
@@ -1540,6 +1579,9 @@ pub(super) fn render_journey(
             &journey.interpretation,
         ));
 
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+
     // Page intent
     let mut kv = KeyValueList::new().with_title(i18n.t("journey-page-type-dimensions"));
     kv = kv.add(
@@ -1547,9 +1589,11 @@ pub(super) fn render_journey(
         &journey.page_intent,
     );
     for dim in &journey.dimensions {
+        let name = crate::journey::journey_dimension_name(dim.kind, en);
+        let summary = crate::journey::journey_dimension_summary(dim.kind, dim.score, en);
         kv = kv.add(
-            format!("{} ({}%)", dim.name, dim.weight_pct),
-            format!("{}/100 — {}", dim.score, dim.summary),
+            format!("{} ({}%)", name, dim.weight_pct),
+            format!("{}/100 — {}", dim.score, summary),
         );
     }
     builder = builder.add_component(kv);
@@ -1562,8 +1606,10 @@ pub(super) fn render_journey(
             "low" => crate::taxonomy::Severity::Low,
             _ => crate::taxonomy::Severity::Medium,
         });
-        let desc = format!("[{}] {} — {}", fp.step, fp.impact, fp.recommendation);
-        builder = builder.add_component(Finding::new(&fp.problem, sev, &desc));
+        let (problem, impact, recommendation) =
+            crate::journey::journey_friction_text(fp.kind, &fp.values, en);
+        let desc = format!("[{}] {} — {}", fp.step, impact, recommendation);
+        builder = builder.add_component(Finding::new(&problem, sev, &desc));
     }
     if journey.friction_points.len() > 3 {
         let more_note = i18n.t_args(
@@ -1795,6 +1841,15 @@ pub(super) fn render_source_quality(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    use crate::source_quality::{
+        source_quality_dimension_label, source_quality_dimension_name, source_quality_disclaimer,
+        source_quality_signal_text,
+    };
+
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+    let disclaimer = source_quality_disclaimer(en);
+
     let sq_title = i18n.t("pdf-sq-section-title");
     if !is_first {
         builder = builder.add_component(PageBreak::new());
@@ -1815,7 +1870,7 @@ pub(super) fn render_source_quality(
             Label::new(format!(
                 "ℹ {}: {}",
                 i18n.t("pdf-sq-overview-title"),
-                sq.disclaimer
+                disclaimer
             ))
             .with_size("10.5pt")
             .with_color("#475569"),
@@ -1824,7 +1879,7 @@ pub(super) fn render_source_quality(
             i18n,
             "source_quality",
             sq.score,
-            &sq.disclaimer,
+            &disclaimer,
         ));
 
     if sq.score >= 80 {
@@ -1832,11 +1887,13 @@ pub(super) fn render_source_quality(
     }
 
     for dim in [&sq.substance, &sq.consistency, &sq.authority] {
-        builder = builder.add_component(Section::new(&dim.name).with_level(3));
+        let dim_name = source_quality_dimension_name(dim.kind, en);
+        let dim_label = source_quality_dimension_label(dim.score, en);
+        builder = builder.add_component(Section::new(dim_name).with_level(3));
 
         builder = builder.add_component(
             ScoreCard::new(score_quality_label(dim.score), dim.score)
-                .with_description(&dim.label)
+                .with_description(&dim_label)
                 .with_thresholds(70, 50),
         );
 
@@ -1848,8 +1905,10 @@ pub(super) fn render_source_quality(
             ]);
 
             for signal in &dim.signals {
+                let (name, detail) =
+                    source_quality_signal_text(signal.kind, signal.present, &signal.values, en);
                 let status = if signal.present { "✓" } else { "✗" };
-                table = table.add_row(vec![&signal.name, status, &signal.detail]);
+                table = table.add_row(vec![name, status.to_string(), detail]);
             }
             builder = builder.add_component(table);
         }
@@ -1934,6 +1993,15 @@ pub(super) fn render_ai_visibility(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    use crate::ai_visibility::{
+        ai_chunk_recommendation, ai_chunk_section_heading, ai_dimension_label, ai_disclaimer,
+        ai_kg_link_suggestion_reason, ai_signal_text,
+    };
+
+    // The struct carries canonical English; re-derive everything in the run language.
+    let en = i18n.locale() == "en";
+    let disclaimer = ai_disclaimer(en);
+
     let indicator_note_ai = i18n.t("pdf-ai-indicator-note");
     let ai_title = i18n.t("pdf-ai-section-title");
     if !is_first {
@@ -1964,7 +2032,7 @@ pub(super) fn render_ai_visibility(
             Label::new(format!(
                 "ℹ {}: {}",
                 i18n.t("pdf-ai-overview-title"),
-                av.disclaimer
+                disclaimer
             ))
             .with_size("10.5pt")
             .with_color("#475569"),
@@ -1973,7 +2041,7 @@ pub(super) fn render_ai_visibility(
             i18n,
             "ai_visibility",
             av.score,
-            &av.disclaimer,
+            &disclaimer,
         ));
 
     if av.score >= 80 {
@@ -1992,12 +2060,13 @@ pub(super) fn render_ai_visibility(
         (&av.policy.dimension, i18n.t("pdf-ai-policy")),
     ] {
         builder = builder.add_component(Section::new(title).with_level(3));
+        let dim_label = ai_dimension_label(dim.score, en);
         let mut dim_kv = KeyValueList::new().add(
             i18n.t("label-heuristic-indicator"),
             format!("~{}/100 — {}", dim.score, score_quality_label(dim.score)),
         );
-        if !dim.label.is_empty() {
-            dim_kv = dim_kv.add("Basis", &dim.label);
+        if !dim_label.is_empty() {
+            dim_kv = dim_kv.add("Basis", &dim_label);
         }
         builder = builder.add_component(dim_kv);
 
@@ -2009,8 +2078,10 @@ pub(super) fn render_ai_visibility(
             ]);
 
             for signal in dim.signals.iter().take(5) {
+                let (name, detail) =
+                    ai_signal_text(signal.kind, signal.present, &signal.values, en);
                 let status = if signal.present { "✓" } else { "✗" };
-                table = table.add_row(vec![&signal.name, status, &signal.detail]);
+                table = table.add_row(vec![name, status.to_string(), detail]);
             }
             builder = builder.add_component(table);
             if dim.signals.len() > 5 {
@@ -2036,16 +2107,25 @@ pub(super) fn render_ai_visibility(
         .with_title(i18n.t("pdf-ai-sections-title"));
 
         for section in &av.chunks.sections {
+            // Synthetic headings re-derive in the run language; real headings pass through.
+            let heading = match section.heading_kind {
+                Some(kind) => ai_chunk_section_heading(kind, en),
+                None => section.heading.clone(),
+            };
             table = table.add_row(vec![
-                &section.heading,
-                &format!("H{}", section.level),
-                &section.word_count.to_string(),
+                heading,
+                format!("H{}", section.level),
+                section.word_count.to_string(),
             ]);
         }
         builder = builder.add_component(table);
-        builder = builder.add_component(
-            Callout::info(&av.chunks.recommendation).with_title(i18n.t("pdf-ai-rec-title")),
+        let recommendation = ai_chunk_recommendation(
+            av.chunks.recommendation_kind,
+            av.chunks.recommendation_counts,
+            en,
         );
+        builder = builder
+            .add_component(Callout::info(&recommendation).with_title(i18n.t("pdf-ai-rec-title")));
     }
 
     // Knowledge graph entities
@@ -2090,9 +2170,27 @@ pub(super) fn render_ai_visibility(
         builder =
             builder.add_component(Section::new(i18n.t("section-link-suggestions")).with_level(3));
 
+        use crate::ai_visibility::KgSuggestionKind;
         let mut list = List::new();
         for suggestion in &av.knowledge_graph.link_suggestions {
-            list = list.add_item(format!("{}: {}", suggestion.entity, suggestion.reason));
+            // Re-derive the reason (and synthetic entity label) in the run language.
+            let reason = ai_kg_link_suggestion_reason(
+                suggestion.kind,
+                &suggestion.entity,
+                suggestion.internal_links.unwrap_or(0),
+                en,
+            );
+            let entity = match suggestion.kind {
+                KgSuggestionKind::FewInternalLinks => {
+                    if en {
+                        "Page".to_string()
+                    } else {
+                        "Seite".to_string()
+                    }
+                }
+                KgSuggestionKind::TopicOnlyHeading => suggestion.entity.clone(),
+            };
+            list = list.add_item(format!("{}: {}", entity, reason));
         }
         builder = builder.add_component(list);
     }
@@ -2127,13 +2225,24 @@ pub(super) fn render_content_visibility(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::assessment::AssessmentLevel;
+    use crate::content_visibility::content_visibility_signal_text;
+
+    // The struct carries canonical English; re-derive title/detail in the run language.
+    let en = i18n.locale() == "en";
+
+    // Localize a signal's title/detail via its stored kind + values, falling back
+    // to the canonical-English struct strings for any signal without a kind.
+    let localized = |s: &crate::assessment::ContentSignal| -> (String, String) {
+        match s.cv_kind {
+            Some(kind) => content_visibility_signal_text(kind, &s.cv_values, en),
+            None => (s.title.clone(), s.detail.clone()),
+        }
+    };
 
     let cv_title = i18n.t("pdf-cv-section-title");
-    let score = if cv.signal_count > 0 {
-        ((cv.signal_count - cv.problem_count) * 100) / cv.signal_count
-    } else {
-        100
-    } as u32;
+    let score = (cv.signal_count.saturating_sub(cv.problem_count) * 100)
+        .checked_div(cv.signal_count)
+        .unwrap_or(100) as u32;
 
     if !is_first {
         builder = builder.add_component(PageBreak::new());
@@ -2186,7 +2295,8 @@ pub(super) fn render_content_visibility(
             .iter()
             .filter(|s| s.level == AssessmentLevel::NotTestable)
         {
-            not_testable_rows.push(ChecklistRow::new(&s.title, &s.detail).with_status("info"));
+            let (title, detail) = localized(s);
+            not_testable_rows.push(ChecklistRow::new(&title, &detail).with_status("info"));
         }
 
         if visible.is_empty() {
@@ -2201,8 +2311,8 @@ pub(super) fn render_content_visibility(
                 crate::assessment::EvidenceConfidence::Medium => "◐ ",
                 crate::assessment::EvidenceConfidence::Low => "○ ",
             };
-            let body = format!("{}{}", conf_prefix, signal.detail);
-            let title = signal.title.clone();
+            let (title, detail) = localized(signal);
+            let body = format!("{}{}", conf_prefix, detail);
 
             builder = builder.add_component(match signal.level {
                 AssessmentLevel::Pass | AssessmentLevel::Positive => {
@@ -2450,61 +2560,153 @@ pub(super) fn render_a11y_journey_findings(
     builder
 }
 
-pub(super) fn render_quality_module_summary(
+/// Screen-reader reading-order audit section (#411). Renders the quality scores,
+/// the BFSG verdict and the detected issues. The full reading sequence stays in
+/// the sidecar JSON; this section surfaces the actionable summary in the report.
+pub(super) fn render_screen_reader_section(
     mut builder: renderreport::engine::ReportBuilder,
-    module_name: &str,
-    score: u32,
-    interpretation: &str,
-    findings: &[&FindingGroup],
+    sr: &crate::screen_reader::SrAuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    use crate::screen_reader::BfsgVerdict;
     let en = i18n.locale() == "en";
 
-    builder = builder
-        .add_component(Section::new(module_name).with_level(2))
-        .add_component(
-            ScoreCard::new(
-                if en {
-                    "Module Score"
-                } else {
-                    "Modul-Bewertung"
-                },
-                score,
-            )
-            .with_description(interpretation)
-            .with_thresholds(75, 50),
-        );
-
-    // Render findings list if there are any
-    if !findings.is_empty() {
-        let title = if en {
-            "Top Findings / Action Items"
+    builder = builder.add_component(PageBreak::new()).add_component(
+        Section::new(if en {
+            "Screen Reader Reading Order"
         } else {
-            "Wichtigste Befunde / Handlungsbedarf"
-        };
-        let mut table = AuditTable::new(vec![
-            TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("40%"),
-            TableColumn::new(if en { "Impact" } else { "Auswirkung" }).with_width("20%"),
-            TableColumn::new(if en { "Fix Suggestion" } else { "Lösung" }).with_width("40%"),
-        ])
-        .with_title(title);
+            "Screenreader-Lesereihenfolge"
+        })
+        .with_level(2),
+    );
 
-        for finding in findings.iter().take(5) {
-            let impact_label = super::helpers::severity_label_i18n(finding.severity, i18n);
-            table = table.add_row(vec![
-                finding.title.clone(),
-                impact_label,
-                finding.recommendation.clone(),
-            ]);
+    let intro = if en {
+        "How the page is announced to screen reader users: reading order, landmark and heading quality, and accessible names. These are structural checks on the accessibility tree, not a simulation of NVDA, JAWS or VoiceOver."
+    } else {
+        "Wie die Seite Screenreader-Nutzern angekündigt wird: Lesereihenfolge, Landmark- und Heading-Qualität sowie zugängliche Namen. Strukturelle Prüfungen am Accessibility Tree, keine Simulation von NVDA, JAWS oder VoiceOver."
+    };
+    builder = builder.add_component(Label::new(intro).with_size("10.5pt").with_color("#475569"));
+
+    let s = &sr.summary;
+    builder = builder.add_component(
+        MetricStrip::new(vec![
+            MetricStripItem::new(
+                if en {
+                    "Heading quality"
+                } else {
+                    "Heading-Qualität"
+                },
+                format!("{}/100", s.heading_quality_score),
+            )
+            .with_accent("#0f766e"),
+            MetricStripItem::new(
+                if en {
+                    "Landmark quality"
+                } else {
+                    "Landmark-Qualität"
+                },
+                format!("{}/100", s.landmark_quality_score),
+            )
+            .with_accent("#2563eb"),
+            MetricStripItem::new(
+                if en {
+                    "Name quality"
+                } else {
+                    "Namens-Qualität"
+                },
+                format!("{}/100", s.name_quality_score),
+            )
+            .with_accent("#7c3aed"),
+            MetricStripItem::new(
+                if en {
+                    "Announced nodes"
+                } else {
+                    "Angekündigte Knoten"
+                },
+                s.total_announced_nodes.to_string(),
+            ),
+            MetricStripItem::new(
+                if en { "Tab stops" } else { "Tab-Stopps" },
+                s.tab_stops.to_string(),
+            ),
+        ])
+        .compact(),
+    );
+
+    let bfsg_note = match sr.bfsg_compliance.verdict {
+        BfsgVerdict::Compliant => Callout::success(if en {
+            "BFSG check: no violations in the evaluated scope."
+        } else {
+            "BFSG-Prüfung: keine Verstöße im geprüften Umfang."
+        }),
+        BfsgVerdict::NonCompliant => Callout::warning(if en {
+            "BFSG check: violations detected in the evaluated scope (see issues below)."
+        } else {
+            "BFSG-Prüfung: Verstöße im geprüften Umfang festgestellt (siehe Befunde unten)."
+        }),
+        BfsgVerdict::NotEvaluated => Callout::info(if en {
+            "BFSG conformance was not evaluated for this page."
+        } else {
+            "BFSG-Konformität wurde für diese Seite nicht bewertet."
+        }),
+    };
+    builder = builder.add_component(bfsg_note);
+
+    // Re-derive issues in the run language. The stored `sr.issues` are baked in
+    // canonical English (#406); the PDF localizes them by recomputing from the
+    // reading sequence and navigation views.
+    let items: Vec<crate::screen_reader::ReadingItem> =
+        sr.reading_sequence.iter().map(|a| a.item.clone()).collect();
+    let localized_issues = crate::screen_reader::analyze_reading_sequence(
+        &items,
+        &sr.navigation_views,
+        i18n.locale(),
+        i18n.locale() == "en",
+    );
+
+    if !localized_issues.is_empty() {
+        // Collapse identical messages into one row with an occurrence count.
+        let mut deduped: Vec<(&crate::screen_reader::SrAuditIssue, usize)> = Vec::new();
+        for issue in &localized_issues {
+            if let Some(entry) = deduped
+                .iter_mut()
+                .find(|(g, _)| g.message == issue.message && g.severity == issue.severity)
+            {
+                entry.1 += 1;
+            } else {
+                deduped.push((issue, 1));
+            }
+        }
+
+        let sev_label = |sev: &str| -> &'static str {
+            match (sev, en) {
+                ("high", true) => "High",
+                ("high", false) => "Hoch",
+                ("medium", true) => "Medium",
+                ("medium", false) => "Mittel",
+                (_, true) => "Low",
+                (_, false) => "Niedrig",
+            }
+        };
+
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("label-issue")).with_width("75%"),
+            TableColumn::new(i18n.t("label-severity")).with_width("25%"),
+        ])
+        .with_title(if en {
+            "Screen reader findings"
+        } else {
+            "Screenreader-Befunde"
+        });
+        for (issue, count) in deduped {
+            let msg = if count > 1 {
+                format!("{} ({}×)", issue.message, count)
+            } else {
+                issue.message.clone()
+            };
+            table = table.add_row(vec![msg, sev_label(&issue.severity).to_string()]);
         }
         builder = builder.add_component(table);
-    } else {
-        let msg = if en {
-            "No significant issues or violations were detected in this area."
-        } else {
-            "Es wurden keine signifikanten Mängel oder Abweichungen in diesem Bereich festgestellt."
-        };
-        builder = builder.add_component(Callout::success(msg));
     }
 
     builder
@@ -2516,20 +2718,67 @@ mod tests {
     use crate::i18n::I18n;
     use renderreport::components::Component;
 
-    #[test]
-    fn module_customer_context_explains_non_accessibility_modules() {
-        let i18n = I18n::new("de").expect("de locale");
-        let perf = module_customer_context(&i18n, "performance", 59, "Ladezeit ist ausbaufähig.")
-            .to_data();
-        let perf_text = perf.to_string();
-        assert!(perf_text.contains("Was das für Kunden bedeutet"));
-        assert!(perf_text.contains("Verzögerungen"));
-        assert!(perf_text.contains("Verbesserungspotenzial"));
+    fn text(i18n: &I18n, module: &str, score: u32, interp: &str) -> String {
+        module_customer_context(i18n, module, score, interp)
+            .to_data()
+            .to_string()
+    }
 
-        let ai = module_customer_context(&i18n, "ai_visibility", 42, "").to_data();
-        let ai_text = ai.to_string();
-        assert!(ai_text.contains("KI-Sichtbarkeit"));
-        assert!(ai_text.contains("gelesen"));
-        assert!(ai_text.contains("zitiert"));
+    // These tests assert the *behavior* of the explanation (varies by module,
+    // score band, locale; includes the caller's interpretation) rather than
+    // exact prose, which changes frequently per the wording rules (#452).
+
+    #[test]
+    fn module_customer_context_varies_by_module() {
+        let i18n = I18n::new("de").expect("de locale");
+        assert_ne!(
+            text(&i18n, "performance", 60, ""),
+            text(&i18n, "ai_visibility", 60, "")
+        );
+    }
+
+    #[test]
+    fn module_customer_context_reflects_score_band() {
+        // A weakness clause is added below 75 and differs below 50, so the same
+        // module at different score bands must produce different text.
+        let i18n = I18n::new("de").expect("de locale");
+        let critical = text(&i18n, "performance", 40, "");
+        let mid = text(&i18n, "performance", 60, "");
+        let good = text(&i18n, "performance", 90, "");
+        assert_ne!(critical, mid);
+        assert_ne!(mid, good);
+        assert_ne!(critical, good);
+    }
+
+    #[test]
+    fn content_visibility_has_no_score_band_weakness_clause() {
+        // content_visibility is an indicator, so its text is identical across
+        // score bands — unlike a scored module such as performance.
+        let i18n = I18n::new("de").expect("de locale");
+        assert_eq!(
+            text(&i18n, "content_visibility", 40, ""),
+            text(&i18n, "content_visibility", 90, "")
+        );
+        assert_ne!(
+            text(&i18n, "performance", 40, ""),
+            text(&i18n, "performance", 90, "")
+        );
+    }
+
+    #[test]
+    fn module_customer_context_is_localized() {
+        let de = I18n::new("de").expect("de locale");
+        let en = I18n::new("en").expect("en locale");
+        assert_ne!(
+            text(&de, "performance", 60, ""),
+            text(&en, "performance", 60, "")
+        );
+    }
+
+    #[test]
+    fn module_customer_context_includes_caller_interpretation() {
+        let i18n = I18n::new("de").expect("de locale");
+        let sentinel = "XZ_SENTINEL_INTERPRETATION_42";
+        assert!(text(&i18n, "performance", 60, sentinel).contains(sentinel));
     }
 }

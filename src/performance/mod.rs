@@ -18,7 +18,9 @@ pub use module::PerformanceModule;
 pub use animations::{
     analyze_non_composited_animations, AnimationAnalysis, NonCompositedAnimation,
 };
-pub use content_weight::{analyze_content_weight, ContentWeight, ResourceBreakdown};
+pub use content_weight::{
+    analyze_content_weight, CarbonEstimate, ContentWeight, ResourceBreakdown,
+};
 pub use coverage::{
     prepare_coverage_collection, take_coverage_results, CoverageAnalysis, ScriptCoverageEntry,
     UnusedCssAnalysis, UnusedJsAnalysis,

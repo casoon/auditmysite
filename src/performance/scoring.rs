@@ -47,7 +47,7 @@ impl PerformanceGrade {
         match self {
             PerformanceGrade::Platinum => "SEHR GUT",
             PerformanceGrade::Gold => "GUT",
-            PerformanceGrade::Silver => "SOLIDE",
+            PerformanceGrade::Silver => "STABIL",
             PerformanceGrade::Bronze => "AUSBAUFÄHIG",
             PerformanceGrade::NeedsImprovement => "UNGENÜGEND",
         }
@@ -447,6 +447,7 @@ mod tests {
             transfer_bytes: 1_800_000,
             breakdown: ResourceBreakdown::default(),
             request_count: 30,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
         let s_light = calculate_performance_score(&vitals, Some(&cw_light));
@@ -460,6 +461,7 @@ mod tests {
             transfer_bytes: 3_000_000,
             breakdown: ResourceBreakdown::default(),
             request_count: 50,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
         let s_medium = calculate_performance_score(&vitals, Some(&cw_medium));
@@ -472,6 +474,7 @@ mod tests {
             transfer_bytes: 9_000_000,
             breakdown: ResourceBreakdown::default(),
             request_count: 80,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
         let s_heavy = calculate_performance_score(&vitals, Some(&cw_heavy));
@@ -497,6 +500,7 @@ mod tests {
             transfer_bytes: 1_800_000,
             breakdown,
             request_count: 30,
+            carbon: crate::performance::CarbonEstimate::default(),
             recommendations: vec![],
         };
 

@@ -67,18 +67,73 @@ pub enum BotClass {
     Unknown,
 }
 
+impl BotClass {
+    /// Human-readable, report-visible label for this bot class.
+    pub fn label(&self, en: bool) -> &'static str {
+        match self {
+            BotClass::Wildcard => {
+                if en {
+                    "All crawlers (*)"
+                } else {
+                    "Alle Crawler (*)"
+                }
+            }
+            BotClass::SearchEngine => {
+                if en {
+                    "Search engine"
+                } else {
+                    "Suchmaschine"
+                }
+            }
+            BotClass::AiTraining => {
+                if en {
+                    "AI training"
+                } else {
+                    "KI-Training"
+                }
+            }
+            BotClass::AiCitation => {
+                if en {
+                    "AI search / citation"
+                } else {
+                    "KI-Suche / Zitation"
+                }
+            }
+            BotClass::AiMixed => {
+                if en {
+                    "AI training & search"
+                } else {
+                    "KI-Training & Suche"
+                }
+            }
+            BotClass::UnknownAi => {
+                if en {
+                    "Unknown scraper"
+                } else {
+                    "Unbekannter Scraper"
+                }
+            }
+            BotClass::General => {
+                if en {
+                    "General"
+                } else {
+                    "Allgemein"
+                }
+            }
+            BotClass::Unknown => {
+                if en {
+                    "Unclassified"
+                } else {
+                    "Nicht klassifiziert"
+                }
+            }
+        }
+    }
+}
+
 impl std::fmt::Display for BotClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BotClass::Wildcard => write!(f, "Alle Crawler (*)"),
-            BotClass::SearchEngine => write!(f, "Suchmaschine"),
-            BotClass::AiTraining => write!(f, "KI-Training"),
-            BotClass::AiCitation => write!(f, "KI-Suche / Zitation"),
-            BotClass::AiMixed => write!(f, "KI-Training & Suche"),
-            BotClass::UnknownAi => write!(f, "Unbekannter Scraper"),
-            BotClass::General => write!(f, "Allgemein"),
-            BotClass::Unknown => write!(f, "Nicht klassifiziert"),
-        }
+        write!(f, "{}", self.label(false))
     }
 }
 
@@ -183,6 +238,7 @@ pub async fn audit_robots_txt(
     url: &str,
     canonical_url: Option<&str>,
     is_noindex: bool,
+    locale: &str,
 ) -> RobotsAudit {
     let base = extract_base(url);
     let robots_url = format!("{}/robots.txt", base.trim_end_matches('/'));
@@ -225,7 +281,7 @@ pub async fn audit_robots_txt(
         }
     };
 
-    let mut audit = parse_robots_txt(&text);
+    let mut audit = parse_robots_txt(&text, locale);
     audit.fetched = true;
 
     // noindex-in-sitemap check: only run when page is noindex and we have a canonical URL
@@ -299,7 +355,8 @@ fn extract_base(url: &str) -> String {
 
 // ─── Parser ──────────────────────────────────────────────────────────────────
 
-fn parse_robots_txt(text: &str) -> RobotsAudit {
+fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
+    let en = locale == "en";
     let mut groups: Vec<RobotsGroup> = Vec::new();
     let mut sitemaps: Vec<String> = Vec::new();
     let mut crawl_delays: Vec<(String, u32)> = Vec::new();
@@ -397,28 +454,7 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
             .iter()
             .any(|g| g.bot_class == BotClass::UnknownAi && is_fully_blocked(g));
 
-    let has_any_ai_rule = groups.iter().any(|g| {
-        matches!(
-            g.bot_class,
-            BotClass::AiTraining | BotClass::AiCitation | BotClass::AiMixed
-        )
-    });
-
-    let inferred_policy = if has_wildcard_disallow_all {
-        "Alles gesperrt (Disallow: *)".to_string()
-    } else if blocks_ai_citation {
-        "KI vollständig blockiert".to_string()
-    } else if blocks_ai_mixed && blocks_ai_training {
-        "KI-Training blockiert (konservativ)".to_string()
-    } else if blocks_ai_training {
-        "KI-Training blockiert, KI-Suche erlaubt".to_string()
-    } else if has_any_ai_rule {
-        "KI-Zugang offen".to_string()
-    } else {
-        "Keine explizite KI-Regel".to_string()
-    };
-
-    RobotsAudit {
+    let mut audit = RobotsAudit {
         fetched: false, // set by caller after network step
         error: None,
         groups,
@@ -428,8 +464,70 @@ fn parse_robots_txt(text: &str) -> RobotsAudit {
         blocks_ai_crawlers,
         blocks_ai_training,
         blocks_ai_citation,
-        inferred_policy,
+        inferred_policy: String::new(),
         noindex_in_sitemap: None,
+    };
+
+    // Bake the policy label in the requested language. The PDF re-derives a
+    // localized label from the same pure function at presentation time (#406).
+    audit.inferred_policy = infer_robots_policy(&audit, en);
+    audit
+}
+
+/// Re-derive the human-readable robots policy label in the requested language.
+///
+/// Pure function of the stored audit fields — used both at analysis time
+/// (canonical English, for JSON) and by the PDF to localize without re-fetching
+/// robots.txt (#406).
+pub fn infer_robots_policy(audit: &RobotsAudit, en: bool) -> String {
+    let is_fully_blocked = |g: &RobotsGroup| g.disallows.iter().any(|d| d == "/");
+
+    let blocks_ai_mixed = audit
+        .groups
+        .iter()
+        .any(|g| g.bot_class == BotClass::AiMixed && is_fully_blocked(g));
+
+    let has_any_ai_rule = audit.groups.iter().any(|g| {
+        matches!(
+            g.bot_class,
+            BotClass::AiTraining | BotClass::AiCitation | BotClass::AiMixed
+        )
+    });
+
+    if audit.has_wildcard_disallow_all {
+        if en {
+            "Everything blocked (Disallow: *)".to_string()
+        } else {
+            "Alles gesperrt (Disallow: *)".to_string()
+        }
+    } else if audit.blocks_ai_citation {
+        if en {
+            "AI fully blocked".to_string()
+        } else {
+            "KI vollständig blockiert".to_string()
+        }
+    } else if blocks_ai_mixed && audit.blocks_ai_training {
+        if en {
+            "AI training blocked (conservative)".to_string()
+        } else {
+            "KI-Training blockiert (konservativ)".to_string()
+        }
+    } else if audit.blocks_ai_training {
+        if en {
+            "AI training blocked, AI search allowed".to_string()
+        } else {
+            "KI-Training blockiert, KI-Suche erlaubt".to_string()
+        }
+    } else if has_any_ai_rule {
+        if en {
+            "AI access open".to_string()
+        } else {
+            "KI-Zugang offen".to_string()
+        }
+    } else if en {
+        "No explicit AI rule".to_string()
+    } else {
+        "Keine explizite KI-Regel".to_string()
     }
 }
 
@@ -475,7 +573,7 @@ Crawl-delay: 10
 
     #[test]
     fn test_parse_basic() {
-        let audit = parse_robots_txt(SAMPLE);
+        let audit = parse_robots_txt(SAMPLE, "de");
         assert!(!audit.has_wildcard_disallow_all);
         assert!(audit.blocks_ai_crawlers);
         assert!(audit
@@ -486,7 +584,7 @@ Crawl-delay: 10
     #[test]
     fn test_wildcard_disallow_all() {
         let text = "User-agent: *\nDisallow: /\n";
-        let audit = parse_robots_txt(text);
+        let audit = parse_robots_txt(text, "de");
         assert!(audit.has_wildcard_disallow_all);
     }
 

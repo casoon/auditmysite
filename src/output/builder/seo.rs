@@ -157,7 +157,7 @@ pub(super) fn build_seo_interpretation(locale: &str, seo: &crate::seo::SeoAnalys
     };
 
     if let Some(profile) = &seo.content_profile {
-        let page_type = profile.page_classification.primary_type.label();
+        let page_type = profile.page_classification.primary_type.label(en);
         let reference = profile.page_classification.intent_fit_score;
         let content_depth = profile.page_classification.content_depth_score;
         let score = seo.score;
@@ -361,14 +361,14 @@ pub(super) fn summarize_page_profile(
     if en {
         format!(
             "The page reads as \u{201C}{}\u{201D} and is {}. Notable: {}.",
-            classification.primary_type.label(),
+            classification.primary_type.label(true),
             quality,
             traits.join(", ")
         )
     } else {
         format!(
             "Die Seite wirkt wie \u{201E}{}\u{201C} und ist {}. Auffällig sind {}.",
-            classification.primary_type.label(),
+            classification.primary_type.label(false),
             quality,
             traits.join(", ")
         )
