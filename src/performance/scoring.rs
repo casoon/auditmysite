@@ -223,10 +223,14 @@ pub fn calculate_performance_score(
             overall = overall.saturating_sub(penalty);
         }
 
-        // DOM nodes caps: > 3000 -> max 59, > 2000 -> max 74
-        if nodes > 3000 {
+        // DOM nodes caps: only genuinely excessive DOMs cap the score.
+        // Moderate DOM bloat is already handled by the linear penalty above
+        // (up to 15 points from 1000 nodes); a hard cap at low thresholds made
+        // ordinary content sites (3000–5000 nodes are common today) all cluster
+        // at exactly 59. Caps now bite only at extreme node counts.
+        if nodes > 10000 {
             dom_cap = 59;
-        } else if nodes > 2000 {
+        } else if nodes > 6000 {
             dom_cap = 74;
         }
     }
@@ -511,8 +515,9 @@ mod tests {
     }
 
     #[test]
-    fn test_dom_nodes_capping_and_penalties() {
-        // DOM nodes = 2500 -> capped at 74, penalty applied
+    fn test_dom_nodes_penalty_without_cap_for_common_sizes() {
+        // 2500 nodes is common for modern content sites: the linear penalty
+        // applies but no hard cap (caps now bite only above 6000/10000).
         let vitals = WebVitals {
             lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
             fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
@@ -523,8 +528,41 @@ mod tests {
         };
 
         let s = calculate_performance_score(&vitals, None);
+        assert_eq!(s.dom_penalty, Some(15)); // (2500-1000)/100 * 2 = 30 -> max 15
+        assert_eq!(s.is_capped, None); // not capped at this size anymore
+        assert_eq!(s.overall, 85); // 100 - 15 penalty, no cap
+    }
+
+    #[test]
+    fn test_dom_nodes_caps_only_when_excessive() {
+        let base = WebVitals {
+            lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.01, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
+            ..Default::default()
+        };
+
+        // > 6000 nodes -> cap 74
+        let s = calculate_performance_score(
+            &WebVitals {
+                dom_nodes: Some(7000),
+                ..base.clone()
+            },
+            None,
+        );
         assert_eq!(s.overall, 74);
         assert_eq!(s.is_capped, Some(true));
-        assert_eq!(s.dom_penalty, Some(15)); // (2500-1000)/100 * 2 = 30 -> max 15
+
+        // > 10000 nodes -> cap 59
+        let s = calculate_performance_score(
+            &WebVitals {
+                dom_nodes: Some(11000),
+                ..base
+            },
+            None,
+        );
+        assert_eq!(s.overall, 59);
+        assert_eq!(s.is_capped, Some(true));
     }
 }
