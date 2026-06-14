@@ -165,7 +165,6 @@ pub fn calculate_performance_score(
     let mut size_cap = 100u32;
     let mut js_cap = 100u32;
     let mut req_cap = 100u32;
-    let mut dom_cap = 100u32;
 
     if let Some(cw) = content_weight {
         // Page Size (Total Bytes): > 2MB starts linear penalty (5 points per MB, max 30)
@@ -215,28 +214,29 @@ pub fn calculate_performance_score(
         }
     }
 
-    // DOM Nodes (WebVitals): > 1000 nodes starts linear penalty (2 points per 100 nodes, max 15)
+    // DOM Nodes (WebVitals): a degressive penalty, NOT a hard cap. A base
+    // linear penalty (2 points per 100 nodes from 1000, up to 15) covers
+    // moderate bloat; a logarithmic surcharge above 6000 nodes keeps very large
+    // DOMs costing more, bounded at 35 points total. Modelling DOM size as a
+    // hard cap (→ 59) flattened pages with perfect Core Web Vitals to a fixed
+    // score below a janky-CLS page, inverting the ranking (#455).
     if let Some(nodes) = vitals.dom_nodes {
         if nodes > 1000 {
-            let penalty = ((((nodes - 1000) as f64 / 100.0).round() * 2.0).min(15.0)) as u32;
+            let base = (((nodes - 1000) as f64 / 100.0).round() * 2.0).min(15.0);
+            let excess = nodes.saturating_sub(6000) as f64;
+            let surcharge = if excess > 0.0 {
+                (excess / 1000.0).ln_1p() * 4.0
+            } else {
+                0.0
+            };
+            let penalty = (base + surcharge).round().min(35.0) as u32;
             dom_penalty = Some(penalty);
             overall = overall.saturating_sub(penalty);
-        }
-
-        // DOM nodes caps: only genuinely excessive DOMs cap the score.
-        // Moderate DOM bloat is already handled by the linear penalty above
-        // (up to 15 points from 1000 nodes); a hard cap at low thresholds made
-        // ordinary content sites (3000–5000 nodes are common today) all cluster
-        // at exactly 59. Caps now bite only at extreme node counts.
-        if nodes > 10000 {
-            dom_cap = 59;
-        } else if nodes > 6000 {
-            dom_cap = 74;
         }
     }
 
     // Apply caps
-    let min_cap = size_cap.min(js_cap).min(req_cap).min(dom_cap);
+    let min_cap = size_cap.min(js_cap).min(req_cap);
     if overall > min_cap {
         overall = min_cap;
         is_capped = Some(true);
@@ -515,9 +515,9 @@ mod tests {
     }
 
     #[test]
-    fn test_dom_nodes_penalty_without_cap_for_common_sizes() {
-        // 2500 nodes is common for modern content sites: the linear penalty
-        // applies but no hard cap (caps now bite only above 6000/10000).
+    fn test_dom_nodes_penalty_for_common_sizes() {
+        // 2500 nodes is common for modern content sites: the base linear penalty
+        // applies (no surcharge below 6000 nodes), and DOM size never caps.
         let vitals = WebVitals {
             lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
             fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
@@ -529,12 +529,12 @@ mod tests {
 
         let s = calculate_performance_score(&vitals, None);
         assert_eq!(s.dom_penalty, Some(15)); // (2500-1000)/100 * 2 = 30 -> max 15
-        assert_eq!(s.is_capped, None); // not capped at this size anymore
-        assert_eq!(s.overall, 85); // 100 - 15 penalty, no cap
+        assert_eq!(s.is_capped, None);
+        assert_eq!(s.overall, 85); // 100 - 15 penalty
     }
 
     #[test]
-    fn test_dom_nodes_caps_only_when_excessive() {
+    fn test_dom_penalty_is_degressive_not_a_hard_cap() {
         let base = WebVitals {
             lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
             fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
@@ -542,27 +542,50 @@ mod tests {
             tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
             ..Default::default()
         };
-
-        // > 6000 nodes -> cap 74
-        let s = calculate_performance_score(
-            &WebVitals {
-                dom_nodes: Some(7000),
-                ..base.clone()
-            },
-            None,
+        let score_at = |nodes| {
+            calculate_performance_score(
+                &WebVitals {
+                    dom_nodes: Some(nodes),
+                    ..base.clone()
+                },
+                None,
+            )
+            .overall
+        };
+        // Monotonic: more nodes -> lower score, but never a fixed hard cap.
+        assert!(score_at(7000) > score_at(20000));
+        assert!(score_at(20000) >= score_at(250000));
+        // Bounded: even a 250k-node DOM with perfect vitals stays well above the
+        // old hard floor of 59 (penalty capped at 35 points) (#455).
+        assert!(
+            score_at(250000) >= 65,
+            "huge DOM scored {}",
+            score_at(250000)
         );
-        assert_eq!(s.overall, 74);
-        assert_eq!(s.is_capped, Some(true));
+    }
 
-        // > 10000 nodes -> cap 59
-        let s = calculate_performance_score(
-            &WebVitals {
-                dom_nodes: Some(11000),
-                ..base
-            },
-            None,
-        );
-        assert_eq!(s.overall, 59);
-        assert_eq!(s.is_capped, Some(true));
+    #[test]
+    fn test_perfect_vitals_huge_dom_outranks_janky_cls() {
+        // Regression for #455: perfect Core Web Vitals + a huge DOM must not
+        // score below a page with poor CLS.
+        let perfect_big_dom = WebVitals {
+            lcp: Some(VitalMetric::new(1200.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(1200.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
+            dom_nodes: Some(20000),
+            ..Default::default()
+        };
+        let janky_cls = WebVitals {
+            lcp: Some(VitalMetric::new(900.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.616, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
+            dom_nodes: Some(2000),
+            ..Default::default()
+        };
+        let a = calculate_performance_score(&perfect_big_dom, None).overall;
+        let b = calculate_performance_score(&janky_cls, None).overall;
+        assert!(a > b, "perfect+bigDOM {a} must outrank jankyCLS {b}");
     }
 }
