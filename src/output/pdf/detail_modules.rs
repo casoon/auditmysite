@@ -810,7 +810,8 @@ pub(super) fn render_seo(
         }
     }
 
-    if seo.meta_issues.is_empty() && seo.technical_issues.is_empty() {
+    // Strong SEO score → no significant findings; confirm it (#446 re-scope).
+    if seo.score >= 80 {
         builder = builder.add_component(clean_section_note(i18n));
     }
 
@@ -889,10 +890,15 @@ pub(super) fn render_page_health(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(Section::new(i18n.t("section-page-health")).with_level(3));
 
-    // No health issues → state it explicitly (reference data like URL analysis
-    // may still follow), so "checked and clean" reads differently from "not
-    // checked" (#446).
-    if ph.issues.is_empty() {
+    // No significant health issues (no High/Critical) → state it explicitly,
+    // even when minor notes or reference data (URL analysis) still follow, so
+    // "checked and clean" reads differently from "not checked" (#446 re-scope).
+    // Severity strings are canonical (low/medium/high/critical).
+    let has_significant = ph
+        .issues
+        .iter()
+        .any(|(_, _, sev)| matches!(sev.as_str(), "high" | "critical"));
+    if !has_significant {
         builder = builder.add_component(clean_section_note(i18n));
     }
 
@@ -1309,7 +1315,12 @@ pub(super) fn render_security(
         builder = builder.add_component(kv);
     }
 
-    if sec.issues.is_empty() {
+    // A strong security score means no significant findings — state it, so a
+    // clean section reads differently from an unchecked one. Mirrors the
+    // score>=80 confirmation the Source Quality / AI Visibility modules use, and
+    // fires for real-but-good sites (which always carry a few minor header
+    // notes and so never hit "zero findings") (#446 re-scope).
+    if sec.score >= 80 {
         builder = builder.add_component(clean_section_note(i18n));
     }
     for (title, sev, msg) in &sec.issues {
