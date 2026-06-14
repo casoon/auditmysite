@@ -14,8 +14,9 @@ use tracing::info;
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
     analyze_crawl_links, cache_matches_signature, compute_batch_verdict, compute_verdict,
-    crawl_site, load_artifacts, parse_sitemap, read_url_file, run_concurrent_batch,
-    run_single_audit, to_audit_report, BatchConfig, CrawlResult, PipelineConfig, Verdict,
+    crawl_site, hydrate_cached_report, load_artifacts, parse_sitemap, read_url_file,
+    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
+    PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::{Args, OutputFormat, RequestMode};
@@ -71,36 +72,41 @@ pub async fn run_single_mode(
                     );
                 }
 
+                let verdict_cfg = config
+                    .as_ref()
+                    .map(|c| c.effective_verdict_config())
+                    .unwrap_or_default();
+                // The verdict always derives from the stored NormalizedReport,
+                // so it is identical regardless of --format (#404).
+                let verdict_result = compute_verdict(&cached.audit, &verdict_cfg);
+
+                // Prefer the full cached report so every module section renders
+                // faithfully; fall back to the lossy reconstruction only for
+                // legacy entries written before report.json existed (#404).
+                let mut report = cached
+                    .report
+                    .clone()
+                    .unwrap_or_else(|| to_audit_report(&cached, &args.lang));
+                // screen_reader_audit is #[serde(skip)] and therefore absent from
+                // the persisted report — rebuild it from the cached AXTree so the
+                // cached report renders the same sections as a fresh run (#404).
+                hydrate_cached_report(&mut report, &cached.snapshot, &args.lang);
+
                 match args.effective_format() {
                     OutputFormat::Json => {
                         let output = format_json_cached(&cached.audit, true)?;
                         output_text(&output, &args.output, "JSON", args.quiet)?;
-                        let report = to_audit_report(&cached, &args.lang);
                         output_screen_reader_sidecar(&report, args)?;
-                        let verdict_cfg = config
-                            .as_ref()
-                            .map(|c| c.effective_verdict_config())
-                            .unwrap_or_default();
-                        let verdict_result = compute_verdict(&cached.audit, &verdict_cfg);
-                        print_verdict(&verdict_result, args.quiet);
-                        return Ok(verdict_result.verdict);
                     }
                     OutputFormat::Table
                     | OutputFormat::Pdf
                     | OutputFormat::Ai
                     | OutputFormat::Summary => {
-                        let report = to_audit_report(&cached, &args.lang);
-                        output_single_report(&report, args, None)?;
-                        let normalized = normalize(&report).normalized;
-                        let verdict_cfg = config
-                            .as_ref()
-                            .map(|c| c.effective_verdict_config())
-                            .unwrap_or_default();
-                        let verdict_result = compute_verdict(&normalized, &verdict_cfg);
-                        print_verdict(&verdict_result, args.quiet);
-                        return Ok(verdict_result.verdict);
+                        output_single_report(&report, args, Some(&verdict_result))?;
                     }
                 }
+                print_verdict(&verdict_result, args.quiet);
+                return Ok(verdict_result.verdict);
             }
             Some(_) if !args.quiet => {
                 println!(

@@ -75,8 +75,10 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
 // ── Snapshot data ─────────────────────────────────────────────────────────────
 
 /// Extracted snapshot data from a loaded page (one viewport pass).
+/// Captured page snapshot for one audit. Returned by `audit_page` so the caller
+/// can persist the cache entry after post-processing; fields stay crate-internal.
 #[derive(Debug, Clone)]
-struct SnapshotData {
+pub struct SnapshotData {
     ax_tree: AXTree,
     performance: Option<PerformanceResults>,
     seo: Option<SeoAnalysis>,
@@ -181,7 +183,7 @@ impl PipelineConfig {
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
         format!(
-            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={}",
+            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};semantic={}",
             env!("CARGO_PKG_VERSION"),
             self.wcag_level,
             self.check_performance as u8,
@@ -193,6 +195,8 @@ impl PipelineConfig {
             self.dismiss_consent as u8,
             self.interactive,
             self.journey_budget_ms,
+            self.lang,
+            self.semantic_eval.enabled as u8,
         )
     }
 }
@@ -297,7 +301,7 @@ pub async fn run_single_audit(
     let page = browser.new_page().await?;
     debug!("Created new page");
 
-    let mut report = audit_page(&page, url, config, browser).await?;
+    let (mut report, snapshot) = audit_page(&page, url, config, browser).await?;
 
     if config.check_performance {
         let (throttled, canonical) =
@@ -306,6 +310,12 @@ pub async fn run_single_audit(
         if let Some((vitals, score)) = canonical {
             apply_canonical_perf(&mut report, vitals, score);
         }
+    }
+
+    // Persist now that the report is final (post canonical-performance), so a
+    // cache hit renders identically to this fresh run (#404).
+    if config.persist_artifacts {
+        persist_artifacts(url, config, &snapshot, &report);
     }
 
     let duration = start_time.elapsed();
@@ -321,12 +331,16 @@ pub async fn run_single_audit(
 ///
 /// Handles its own viewport switching and URL navigation internally.
 /// Callers must supply `browser` for re-navigation between passes.
+///
+/// Returns the report together with the captured `SnapshotData` so the caller
+/// can persist the cache entry *after* any post-processing (e.g. the canonical
+/// performance pass), keeping the cached report identical to a fresh render.
 pub async fn audit_page(
     page: &Page,
     url: &str,
     config: &PipelineConfig,
     browser: &BrowserManager,
-) -> Result<AuditReport> {
+) -> Result<(AuditReport, SnapshotData)> {
     let start_time = Instant::now();
 
     // Enable bypassing CSP on the page
@@ -571,11 +585,11 @@ pub async fn audit_page(
     let advisory = crate::semantic_eval::run(&config.semantic_eval, &primary_snap.ax_tree).await;
     report.advisory_findings = advisory;
 
-    if config.persist_artifacts {
-        persist_artifacts(url, config, &primary_snap, &report);
-    }
-
-    Ok(report)
+    // Persistence is deferred to the caller: the single-page path applies the
+    // canonical (LhMobile) performance pass *after* audit_page returns, so
+    // persisting here would cache a pre-canonical report that differs from a
+    // fresh render (#404). The caller persists once the report is final.
+    Ok((report, primary_snap))
 }
 
 // ── Score helpers ─────────────────────────────────────────────────────────────
@@ -1120,7 +1134,7 @@ fn apply_canonical_perf(
     }
 }
 
-fn persist_artifacts(
+pub(crate) fn persist_artifacts(
     url: &str,
     config: &PipelineConfig,
     snapshot: &SnapshotData,
@@ -1143,6 +1157,11 @@ fn persist_artifacts(
         content_hash: hash.clone(),
         audit_signature: config.audit_signature(),
     };
+    // Persist the full report so cache hits render every module faithfully.
+    // Screenshots reference temp files that won't exist on reload, so strip them.
+    let mut report_for_cache = report.clone();
+    report_for_cache.page_screenshots = None;
+
     let artifacts = AuditArtifacts {
         fetch: FetchArtifact {
             requested_url: url.to_string(),
@@ -1153,6 +1172,7 @@ fn persist_artifacts(
         },
         snapshot: snapshot_artifact,
         audit: normalized,
+        report: Some(report_for_cache),
         content_hash: hash,
         meta,
     };
@@ -1320,6 +1340,17 @@ mod tests {
         // Interactive budget changes the possible journey findings.
         let mut other = test_pipeline_config();
         other.journey_budget_ms += 1;
+        assert_ne!(base_sig, other.audit_signature());
+
+        // Output language drives locale-dependent detection/text in the cached
+        // report, so it must invalidate the cache (#405).
+        let mut other = test_pipeline_config();
+        other.lang = "en".to_string();
+        assert_ne!(base_sig, other.audit_signature());
+
+        // Semantic eval adds advisory findings to the cached report (#405).
+        let mut other = test_pipeline_config();
+        other.semantic_eval.enabled = !base.semantic_eval.enabled;
         assert_ne!(base_sig, other.audit_signature());
     }
 

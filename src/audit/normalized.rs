@@ -64,7 +64,7 @@ pub struct NormalizedReport {
     #[serde(default)]
     pub has_screenshots: bool,
     /// Per-viewport scores from dual-pass audit (70 % mobile / 30 % desktop).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<ViewportScores>,
     /// How `overall_score` was computed: `"module_weighted"` (standard) or
     /// `"viewport_weighted"` (dual-pass: 70 % mobile + 30 % desktop + 10 % security).
@@ -72,7 +72,7 @@ pub struct NormalizedReport {
     /// Exact inputs used to produce `overall_score`.
     /// Present only for `viewport_weighted`; absent for `module_weighted` (module
     /// `weight_pct` values are already exact in that case).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub score_breakdown: Option<ScoreBreakdown>,
 
     /// Findings produced by the Accessibility-Journey-Layer (Phase 1+).
@@ -98,7 +98,7 @@ pub struct NormalizedReport {
     /// Pre-computed interpretation (evaluation texts, score bands). Always
     /// present after `normalize()`. Skipped in the `#[serde(skip)]` raw fields
     /// below so it IS serialized — consumers can read it without recomputing.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interpretation: Option<Interpretation>,
 }
 
@@ -191,10 +191,10 @@ pub struct NormalizedFinding {
     /// Schweregrad
     pub severity: Severity,
     /// Auswirkung auf den Nutzer
-    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub user_impact: String,
     /// Technische Auswirkung
-    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub technical_impact: String,
     /// Strukturierter Score-Impact
     pub score_impact: ScoreImpactData,
@@ -284,9 +284,9 @@ impl Default for ReportVisibilityData {
 pub struct OccurrenceDetail {
     pub node_id: String,
     pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selector: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fix_suggestion: Option<String>,
     /// Raw outer HTML of the affected element
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -463,10 +463,10 @@ pub struct ScoreBreakdown {
     /// Weight given to the viewport blend in the final formula (always 90 when security present)
     pub viewport_blend_weight_pct: u32,
     /// Security score after vulnerable-library penalty
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub security_score: Option<u32>,
     /// Weight given to security in the final formula (always 10 when security present)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub security_weight_pct: Option<u32>,
 }
 

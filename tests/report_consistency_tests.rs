@@ -710,6 +710,35 @@ fn test_risk_critical_with_level_a_violations() {
 }
 
 #[test]
+fn normalized_report_survives_cache_round_trip() {
+    // The --reuse-cache path serializes the NormalizedReport to audit.json and
+    // deserializes it on a cache hit. Every field skipped when empty/None must
+    // carry #[serde(default)] or the round-trip fails and the cache is unusable
+    // (#405). A full round-trip catches absent Option blocks (viewport_scores,
+    // interpretation, …).
+    let report = make_full_report();
+    let normalized = normalize(&report).normalized;
+    let json = serde_json::to_string(&normalized).expect("serialize NormalizedReport");
+    let _back: auditmysite::audit::normalized::NormalizedReport =
+        serde_json::from_str(&json).expect("NormalizedReport must round-trip through JSON");
+
+    // Findings with empty user_impact/technical_impact (e.g. SEO findings) skip
+    // those keys; deserialization must default them rather than error.
+    let mut v: serde_json::Value = serde_json::from_str(&json).unwrap();
+    if let Some(findings) = v.get_mut("findings").and_then(|f| f.as_array_mut()) {
+        for f in findings.iter_mut() {
+            if let Some(obj) = f.as_object_mut() {
+                obj.remove("user_impact");
+                obj.remove("technical_impact");
+            }
+        }
+    }
+    let stripped = serde_json::to_string(&v).unwrap();
+    let _back2: auditmysite::audit::normalized::NormalizedReport = serde_json::from_str(&stripped)
+        .expect("findings with absent user_impact/technical_impact must deserialize");
+}
+
+#[test]
 fn test_risk_low_without_violations() {
     let report = AuditReport::new(
         "https://example.com".to_string(),

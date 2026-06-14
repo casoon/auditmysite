@@ -104,7 +104,7 @@ async fn test_perfect_page_scores_high() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config(), &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -143,7 +143,7 @@ async fn test_many_violations_page_scores_low() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config(), &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -184,7 +184,7 @@ async fn test_full_audit_with_all_modules() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &config, &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
 
@@ -225,7 +225,7 @@ async fn test_output_formats() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config(), &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -274,7 +274,7 @@ async fn test_mobile_issues_detected() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &config, &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
 
@@ -314,7 +314,7 @@ async fn test_modern_contrast_resolution() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config(), &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -389,7 +389,7 @@ async fn test_image_contrast_pixel_sampling() {
         .await
         .expect("Navigation failed");
 
-    let report = audit_page(&page, &url, &default_config(), &manager)
+    let (report, _snapshot) = audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 
@@ -511,7 +511,7 @@ async fn test_catalog_driven_audit_complete_structure() {
         .await
         .expect("Navigation failed");
 
-    let report = auditmysite::audit_page(&page, &url, &config, &manager)
+    let (report, _snapshot) = auditmysite::audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit failed");
 
@@ -553,7 +553,7 @@ async fn test_partial_module_failure_does_not_abort_audit() {
         .await
         .expect("Navigation failed");
 
-    let report = auditmysite::audit_page(&page, &url, &config, &manager)
+    let (report, _snapshot) = auditmysite::audit_page(&page, &url, &config, &manager)
         .await
         .expect("Audit must succeed even when sub-analyses fail");
 
@@ -576,13 +576,13 @@ async fn test_sequential_two_url_audit() {
 
     let page1 = manager.new_page().await.expect("page 1 failed");
     manager.navigate(&page1, &url1).await.expect("nav 1 failed");
-    let report1 = auditmysite::audit_page(&page1, &url1, &default_config(), &manager)
+    let (report1, _snapshot) = auditmysite::audit_page(&page1, &url1, &default_config(), &manager)
         .await
         .expect("audit 1 failed");
 
     let page2 = manager.new_page().await.expect("page 2 failed");
     manager.navigate(&page2, &url2).await.expect("nav 2 failed");
-    let report2 = auditmysite::audit_page(&page2, &url2, &default_config(), &manager)
+    let (report2, _snapshot) = auditmysite::audit_page(&page2, &url2, &default_config(), &manager)
         .await
         .expect("audit 2 failed");
 
@@ -610,7 +610,7 @@ async fn test_catalog_audit_json_envelope_v2() {
         .await
         .expect("Navigation failed");
 
-    let report = auditmysite::audit_page(&page, &url, &default_config(), &manager)
+    let (report, _snapshot) = auditmysite::audit_page(&page, &url, &default_config(), &manager)
         .await
         .expect("Audit failed");
 

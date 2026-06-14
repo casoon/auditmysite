@@ -24,6 +24,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::accessibility::AXTree;
 use crate::audit::normalized::NormalizedReport;
@@ -88,6 +89,12 @@ pub struct AuditArtifacts {
     pub fetch: FetchArtifact,
     pub snapshot: SnapshotArtifact,
     pub audit: NormalizedReport,
+    /// The complete `AuditReport` (screenshots stripped), persisted so a cache
+    /// hit can render every module section faithfully instead of through the
+    /// lossy `to_audit_report` reconstruction. `None` for legacy entries
+    /// written before this field existed — those fall back to `to_audit_report`.
+    #[serde(default)]
+    pub report: Option<AuditReport>,
     pub content_hash: String,
     pub meta: CacheMeta,
 }
@@ -110,6 +117,9 @@ pub fn save_artifacts(url: &str, wcag_level: &str, artifacts: &AuditArtifacts) -
         dir.join("audit.json"),
         serde_json::to_vec_pretty(&artifacts.audit)?,
     )?;
+    if let Some(ref report) = artifacts.report {
+        fs::write(dir.join("report.json"), serde_json::to_vec_pretty(report)?)?;
+    }
 
     let meta = CacheMeta {
         auditmysite_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -132,20 +142,50 @@ pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
     let fetch_path = dir.join("fetch.json");
     let snapshot_path = dir.join("snapshot.json");
     let audit_path = dir.join("audit.json");
+    let report_path = dir.join("report.json");
     let meta_path = dir.join("meta.json");
 
     if !fetch_path.exists() || !snapshot_path.exists() || !audit_path.exists() {
         return Ok(None);
     }
 
-    let fetch: FetchArtifact = serde_json::from_slice(&fs::read(fetch_path)?)?;
-    let snapshot: SnapshotArtifact = serde_json::from_slice(&fs::read(snapshot_path)?)?;
-    let audit: NormalizedReport = serde_json::from_slice(&fs::read(audit_path)?)?;
+    // A truncated or otherwise corrupt cache entry must not abort the run — treat
+    // any read/parse failure as a cache miss so the caller falls back to a fresh
+    // audit (#405).
+    macro_rules! load_or_miss {
+        ($path:expr, $ty:ty) => {
+            match fs::read(&$path)
+                .map_err(|e| e.to_string())
+                .and_then(|bytes| serde_json::from_slice::<$ty>(&bytes).map_err(|e| e.to_string()))
+            {
+                Ok(value) => value,
+                Err(e) => {
+                    warn!(
+                        "Cache entry {} is unreadable ({}); ignoring and running fresh",
+                        $path.display(),
+                        e
+                    );
+                    return Ok(None);
+                }
+            }
+        };
+    }
+
+    let fetch: FetchArtifact = load_or_miss!(fetch_path, FetchArtifact);
+    let snapshot: SnapshotArtifact = load_or_miss!(snapshot_path, SnapshotArtifact);
+    let audit: NormalizedReport = load_or_miss!(audit_path, NormalizedReport);
     let content_hash = content_hash(&snapshot);
+
+    // Optional full report (absent for legacy entries → to_audit_report fallback).
+    let report: Option<AuditReport> = if report_path.exists() {
+        Some(load_or_miss!(report_path, AuditReport))
+    } else {
+        None
+    };
 
     // Load meta if present; generate a default for entries written before meta.json existed.
     let meta = if meta_path.exists() {
-        serde_json::from_slice(&fs::read(meta_path)?)?
+        load_or_miss!(meta_path, CacheMeta)
     } else {
         CacheMeta {
             auditmysite_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -160,6 +200,7 @@ pub fn load_artifacts(url: &str) -> Result<Option<AuditArtifacts>> {
         fetch,
         snapshot,
         audit,
+        report,
         content_hash,
         meta,
     }))
@@ -280,6 +321,21 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
     }
 
     report
+}
+
+/// Rebuild the `#[serde(skip)]` fields a cached `AuditReport` needs for
+/// rendering but that are never persisted. The screen-reader audit is a cheap
+/// structural pass over the cached AXTree, so it is recomputed exactly as a
+/// fresh run (and `to_audit_report`) does. No-op when the field is already set.
+pub fn hydrate_cached_report(report: &mut AuditReport, snapshot: &SnapshotArtifact, locale: &str) {
+    if report.screen_reader_audit.is_none() {
+        report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+            &report.url,
+            report.timestamp,
+            &snapshot.ax_tree,
+            locale,
+        ));
+    }
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────

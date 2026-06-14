@@ -226,7 +226,12 @@ async fn audit_url_with_pool(
             let pooled_page = pool.acquire().await?;
             let page = pooled_page.page()?;
             // audit_page handles viewport switching and navigation internally
-            let report = audit_page(page, url, config, pool.browser()).await?;
+            let (report, snapshot) = audit_page(page, url, config, pool.browser()).await?;
+            // Batch applies no canonical-performance pass, so the report is
+            // final here — persist it (audit_page no longer persists itself).
+            if config.persist_artifacts {
+                crate::audit::pipeline::persist_artifacts(url, config, &snapshot, &report);
+            }
             Ok::<AuditReport, AuditError>(report)
         })
         .await
