@@ -810,6 +810,10 @@ pub(super) fn render_seo(
         }
     }
 
+    if seo.meta_issues.is_empty() && seo.technical_issues.is_empty() {
+        builder = builder.add_component(clean_section_note(i18n));
+    }
+
     builder
 }
 
@@ -869,12 +873,28 @@ pub(super) fn render_serp(
     builder
 }
 
+/// A neutral per-section line shown when a module produced no findings, so a
+/// reader can distinguish "checked and clean" from "not checked" instead of the
+/// section silently collapsing to nothing (#446).
+fn clean_section_note(i18n: &I18n) -> Label {
+    Label::new(format!("ℹ {}", i18n.t("pdf-section-clean")))
+        .with_size("10.5pt")
+        .with_color("#475569")
+}
+
 pub(super) fn render_page_health(
     mut builder: renderreport::engine::ReportBuilder,
     ph: &crate::output::report_model::PageHealthPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(Section::new(i18n.t("section-page-health")).with_level(3));
+
+    // No health issues → state it explicitly (reference data like URL analysis
+    // may still follow), so "checked and clean" reads differently from "not
+    // checked" (#446).
+    if ph.issues.is_empty() {
+        builder = builder.add_component(clean_section_note(i18n));
+    }
 
     // Issues table (if any)
     if !ph.issues.is_empty() {
@@ -1289,6 +1309,9 @@ pub(super) fn render_security(
         builder = builder.add_component(kv);
     }
 
+    if sec.issues.is_empty() {
+        builder = builder.add_component(clean_section_note(i18n));
+    }
     for (title, sev, msg) in &sec.issues {
         builder = builder.add_component(Finding::new(title, map_severity(sev), msg));
     }
