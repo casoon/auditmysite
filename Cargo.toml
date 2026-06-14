@@ -69,7 +69,7 @@ fluent-bundle = "0.15"
 unic-langid = "0.9"
 
 # PDF report generation via Typst.
-renderreport = { version = "0.2.22", optional = true }
+renderreport = { version = "0.2.23", optional = true }
 
 # Local embedding model for semantic link-text evaluation (semantic-eval feature).
 fastembed = { version = "5", optional = true }

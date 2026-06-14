@@ -1768,7 +1768,11 @@ fn module_customer_context(
     i18n: &I18n,
     module_key: &str,
     score: u32,
-    interpretation: &str,
+    // Intentionally unused: the technical interpretation / heuristic disclaimer
+    // is already shown in the module's "Überblick" and indicator notes. Appending
+    // it here duplicated jargon (e.g. "DOM-Komplexität 20804 Knoten") into the
+    // plain-language customer passage, defeating its purpose (#446 readability).
+    _interpretation: &str,
 ) -> Label {
     let en = i18n.locale() == "en";
     let title = if en {
@@ -1822,9 +1826,6 @@ fn module_customer_context(
         parts.push(w);
     }
     parts.push(module_text);
-    if !interpretation.trim().is_empty() {
-        parts.push(interpretation.trim());
-    }
     let text = format!("ℹ {}: {}", title, parts.join(" "));
     Label::new(text).with_size("10.5pt").with_color("#475569")
 }
@@ -2810,9 +2811,18 @@ mod tests {
     }
 
     #[test]
-    fn module_customer_context_includes_caller_interpretation() {
+    fn module_customer_context_excludes_caller_interpretation() {
         let i18n = I18n::new("de").expect("de locale");
         let sentinel = "XZ_SENTINEL_INTERPRETATION_42";
-        assert!(text(&i18n, "performance", 60, sentinel).contains(sentinel));
+        let out = text(&i18n, "performance", 60, sentinel);
+        // The technical interpretation must NOT be echoed into the plain-language
+        // customer passage — it is already shown in the module overview, and
+        // duplicating it dumped jargon into the customer text (#446 readability).
+        assert!(
+            !out.contains(sentinel),
+            "customer passage must not echo the technical interpretation"
+        );
+        // The plain-language module text is still present.
+        assert!(out.contains("Was das f") || out.contains("Kunden"));
     }
 }
