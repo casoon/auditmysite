@@ -172,7 +172,6 @@ pub fn calculate_performance_score(
         if total_mb > 2.0 {
             let penalty = ((total_mb - 2.0) * 5.0).min(30.0).round() as u32;
             size_penalty = Some(penalty);
-            overall = overall.saturating_sub(penalty);
         }
 
         // JS Size (Decoded): > 1MB starts linear penalty (5 points per 500KB, max 20)
@@ -180,7 +179,6 @@ pub fn calculate_performance_score(
         if js_mb > 1.0 {
             let penalty = (((js_mb - 1.0) / 0.5) * 5.0).min(20.0).round() as u32;
             js_penalty = Some(penalty);
-            overall = overall.saturating_sub(penalty);
         }
 
         // Request Count: > 60 requests starts linear penalty (2 points per 10 requests, max 15)
@@ -188,7 +186,6 @@ pub fn calculate_performance_score(
             let penalty =
                 ((((cw.request_count - 60) as f64 / 10.0).round() * 2.0).min(15.0)) as u32;
             request_penalty = Some(penalty);
-            overall = overall.saturating_sub(penalty);
         }
 
         // Caps
@@ -231,9 +228,23 @@ pub fn calculate_performance_score(
             };
             let penalty = (base + surcharge).round().min(35.0) as u32;
             dom_penalty = Some(penalty);
-            overall = overall.saturating_sub(penalty);
         }
     }
+
+    // Apply the weight/complexity penalties as a *bounded aggregate* rather than
+    // stacking each one additively. Individually capped (size 30, JS 20, requests
+    // 15, DOM 35) they can sum past 80 and wipe a page with good Core Web Vitals
+    // (perfect CLS/TBT, fast FCP) down to 0 purely on heaviness — flattening
+    // every heavy site to the same zero and losing all discrimination (#461).
+    // Capping the combined deduction keeps the vitals-based score the dominant
+    // signal and spreads heavy sites across a low band instead of collapsing them.
+    const MAX_WEIGHT_PENALTY: u32 = 45;
+    let weight_penalty = (size_penalty.unwrap_or(0)
+        + js_penalty.unwrap_or(0)
+        + request_penalty.unwrap_or(0)
+        + dom_penalty.unwrap_or(0))
+    .min(MAX_WEIGHT_PENALTY);
+    overall = overall.saturating_sub(weight_penalty);
 
     // Apply caps
     let min_cap = size_cap.min(js_cap).min(req_cap);
@@ -512,6 +523,47 @@ mod tests {
         assert_eq!(s.overall, 74);
         assert_eq!(s.is_capped, Some(true));
         assert_eq!(s.js_penalty, Some(6)); // (1.6 - 1.0)/0.5 * 5 = 6
+    }
+
+    #[test]
+    fn test_weight_penalties_do_not_zero_out_good_vitals() {
+        // Regression for #461: a heavy page (large size + JS + many requests +
+        // huge DOM) with mostly good Core Web Vitals (perfect CLS/TBT, fast FCP,
+        // only LCP poor) must not collapse to 0. The aggregate weight penalty is
+        // bounded so the vitals stay the dominant signal and heavy sites spread
+        // across a low band instead of all clustering at zero.
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(7500.0, 2500.0, 4000.0)), // poor
+            fcp: Some(VitalMetric::new(200.0, 1800.0, 3000.0)),  // good
+            cls: Some(VitalMetric::new(0.003, 0.1, 0.25)),       // good
+            tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),      // good
+            dom_nodes: Some(30000),
+            ..Default::default()
+        };
+        let mut breakdown = ResourceBreakdown::default();
+        breakdown.javascript.bytes = 2_000_000;
+        let cw = ContentWeight {
+            total_bytes: 2_900_000, // size penalty, but below the 3MB cap
+            transfer_bytes: 2_200_000,
+            breakdown,
+            request_count: 120,
+            carbon: crate::performance::CarbonEstimate::default(),
+            recommendations: vec![],
+        };
+
+        let s = calculate_performance_score(&vitals, Some(&cw));
+        // Individual penalties sum to ~55; without the cap this would zero a
+        // base of ~72. Bounded at 45, the page stays in a low-but-nonzero band.
+        assert!(
+            s.overall >= 20,
+            "heavy page with good CLS/TBT must not collapse to ~0, got {}",
+            s.overall
+        );
+        assert!(
+            s.overall < 50,
+            "still clearly penalised for weight, got {}",
+            s.overall
+        );
     }
 
     #[test]
