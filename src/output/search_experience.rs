@@ -306,7 +306,13 @@ fn build_warnings(normalized: &AuditContext, score: u32, en: bool) -> Vec<String
                     "Inhaltsverständlichkeit"
                 },
                 ux.content_clarity.score,
-                ux.content_clarity.summary
+                // Re-derive in the run locale; the stored summary is canonical
+                // English and would otherwise leak into the German PDF (#406).
+                crate::ux::ux_dimension_summary(
+                    ux.content_clarity.kind,
+                    ux.content_clarity.score,
+                    en
+                )
             ));
         }
         if ux.trust_signals.score < 70 {
@@ -318,7 +324,7 @@ fn build_warnings(normalized: &AuditContext, score: u32, en: bool) -> Vec<String
                     "Vertrauenssignale"
                 },
                 ux.trust_signals.score,
-                ux.trust_signals.summary
+                crate::ux::ux_dimension_summary(ux.trust_signals.kind, ux.trust_signals.score, en)
             ));
         }
     }
