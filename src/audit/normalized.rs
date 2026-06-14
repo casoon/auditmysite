@@ -388,9 +388,14 @@ impl RiskAssessment {
             return self.summary.clone();
         }
         match self.level {
-            RiskLevel::Critical => format!(
+            // Breadth-driven vs. volume-driven Critical (#457).
+            RiskLevel::Critical if self.legal_flags >= 3 => format!(
                 "Critical risk: {} WCAG Level A violations with legal relevance (BFSG). {} blocking issues on interactive controls.",
                 self.legal_flags, self.blocking_issues
+            ),
+            RiskLevel::Critical => format!(
+                "Critical risk: {} critical violations on interactive controls and content.",
+                self.critical_issues
             ),
             RiskLevel::High => format!(
                 "High risk: {} critical and {} severe issues. Users are actively excluded.",
@@ -1228,13 +1233,14 @@ fn compute_risk_assessment(
     // Risk level — explicit precedence; legal_flags and blocking_issues both
     // raise the floor even when critical_issues is zero (see issue #250).
     //
-    // "Critical" is reserved for *systemic* legal exposure: multiple distinct
-    // WCAG Level A barriers (breadth) or a high volume of critical violations.
-    // A single isolated legal flag with a few critical occurrences is serious
-    // but not critical — it falls through to High. Previously any
-    // `legal_flags > 0 && critical_issues > 0` was Critical, which labelled
-    // almost every audited site as critical legal risk.
-    let level = if (legal_flags >= 3 && critical_issues > 0) || critical_issues >= 5 {
+    // "Critical" is reserved for *systemic* legal exposure: breadth (≥3 distinct
+    // WCAG Level A rules with High/Critical severity) OR volume (≥5 critical
+    // occurrences). The breadth path must NOT also require a critical occurrence
+    // — legal_flags already counts High-severity Level A rules, so gating it on
+    // `critical_issues > 0` made a site with 4 High-severity legal barriers rank
+    // *below* one with a single flag but 5+ critical occurrences (#457). A single
+    // isolated legal flag with a few critical occurrences stays High (#250).
+    let level = if legal_flags >= 3 || critical_issues >= 5 {
         RiskLevel::Critical
     } else if (legal_flags > 0 && critical_issues > 0)
         || critical_issues >= 3
@@ -1273,16 +1279,26 @@ fn compute_risk_assessment(
             } else {
                 "Kritisches Risiko"
             };
-            format!(
-                "{}: {} mit rechtlicher Relevanz (BFSG). {}.",
-                prefix,
-                plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
-                plural(
-                    blocking_issues,
-                    "Blocker bei Bedienelementen",
-                    "Blocker bei Bedienelementen"
+            if legal_flags >= 3 {
+                // Breadth-driven: multiple distinct legally-relevant barriers.
+                format!(
+                    "{}: {} mit rechtlicher Relevanz (BFSG). {}.",
+                    prefix,
+                    plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                    plural(
+                        blocking_issues,
+                        "Blocker bei Bedienelementen",
+                        "Blocker bei Bedienelementen"
+                    )
                 )
-            )
+            } else {
+                // Volume-driven: a high number of critical occurrences.
+                format!(
+                    "{}: {} auf Bedienelementen und Inhalten.",
+                    prefix,
+                    plural(critical_issues, "kritischer Verstoß", "kritische Verstöße")
+                )
+            }
         }
         RiskLevel::High => format!(
             "Hohes Risiko: {} und {}. Nutzer werden aktiv ausgeschlossen.",
@@ -1358,7 +1374,11 @@ fn compute_risk_assessment(
     let (threshold, driven_by) = match level {
         RiskLevel::Critical => (
             60u32,
-            if legal_flags > 0 {
+            // Attribute to the condition that actually triggered Critical:
+            // breadth of legal exposure (≥3 distinct Level A rules) vs. a high
+            // volume of critical occurrences. A single flag that rode in on
+            // volume must not be labelled "Legal Compliance" (#457).
+            if legal_flags >= 3 {
                 "Legal Compliance"
             } else {
                 "Accessibility"
