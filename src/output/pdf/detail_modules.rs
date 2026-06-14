@@ -1,8 +1,22 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    ChecklistPanel, ChecklistRow, Divider, KeyValueList, List, MetricStrip, MetricStripItem,
+    PageBreak,
 };
+
+/// A light rule used to separate short trailing indicator modules (Best
+/// Practices, Tech Stack) without forcing a page break — when clean these are
+/// only a ScoreCard plus one line, so a dedicated page left it 3/4 empty.
+fn packed_section_separator() -> Divider {
+    Divider {
+        style: "solid".to_string(),
+        thickness: "0.5pt".to_string(),
+        color: Some("#e2e8f0".to_string()),
+        spacing_above: "18pt".to_string(),
+        spacing_below: "10pt".to_string(),
+    }
+}
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
 use renderreport::prelude::*;
@@ -1965,7 +1979,7 @@ pub(super) fn render_tech_stack(
 
     let ts_title = i18n.t("pdf-ts-section-title");
     if !is_first {
-        builder = builder.add_component(PageBreak::new());
+        builder = builder.add_component(packed_section_separator());
     }
     builder = builder.add_component(
         ScoreCard::new(&ts_title, ts.score)
@@ -2400,7 +2414,7 @@ pub(super) fn render_best_practices(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !is_first {
-        builder = builder.add_component(PageBreak::new());
+        builder = builder.add_component(packed_section_separator());
     }
     builder =
         builder.add_component(ScoreCard::new("Best Practices", bp.score).with_thresholds(80, 50));
