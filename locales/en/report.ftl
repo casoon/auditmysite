@@ -588,6 +588,7 @@ pdf-seo-ie-displayed = Displayed
 pdf-serp-summary = { $total } signals checked — { $pass } OK, { $warning } warnings, { $fail } failures.
 pdf-serp-category = Category
 pdf-serp-rich-results-text = Rich result types possible: { $types }
+pdf-section-clean = No issues found within the audited scope.
 pdf-ph-issue = Issue
 pdf-ph-w3c-title = W3C HTML validator
 pdf-ph-www-title = www consolidation
