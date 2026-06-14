@@ -1491,7 +1491,9 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
             },
             has_any,
             Some(if has_any {
-                format!("{} Schema(s)", seo.structured_data.json_ld.len())
+                let n = seo.structured_data.json_ld.len();
+                let noun = if n == 1 { "Schema" } else { "Schemas" };
+                format!("{} {}", n, noun)
             } else if en {
                 "no structured data".to_string()
             } else {

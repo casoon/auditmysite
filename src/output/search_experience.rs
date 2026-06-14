@@ -51,7 +51,13 @@ pub fn build_search_experience(
             },
             score: ux.content_clarity.score,
             weight_pct: W_CONTENT,
-            explanation: ux.content_clarity.summary.clone(),
+            // Re-derive in the run locale; the stored summary is canonical
+            // English and would otherwise leak into the German report (#406).
+            explanation: crate::ux::ux_dimension_summary(
+                ux.content_clarity.kind,
+                ux.content_clarity.score,
+                en,
+            ),
         });
         components.push(SearchExperienceComponent {
             label: if en {
@@ -61,7 +67,11 @@ pub fn build_search_experience(
             },
             score: trust_score(normalized, ux.trust_signals.score),
             weight_pct: W_TRUST,
-            explanation: ux.trust_signals.summary.clone(),
+            explanation: crate::ux::ux_dimension_summary(
+                ux.trust_signals.kind,
+                ux.trust_signals.score,
+                en,
+            ),
         });
         components.push(SearchExperienceComponent {
             label: if en {
@@ -71,7 +81,11 @@ pub fn build_search_experience(
             },
             score: structure_score(normalized, ux.visual_hierarchy.score),
             weight_pct: W_STRUCTURE,
-            explanation: ux.visual_hierarchy.summary.clone(),
+            explanation: crate::ux::ux_dimension_summary(
+                ux.visual_hierarchy.kind,
+                ux.visual_hierarchy.score,
+                en,
+            ),
         });
     } else if let Some(profile) = seo.content_profile.as_ref() {
         components.push(SearchExperienceComponent {

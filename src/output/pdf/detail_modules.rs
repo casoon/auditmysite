@@ -41,17 +41,9 @@ pub(super) fn render_search_experience(
                 .with_thresholds(75, 50),
         )
         .add_component(
-            Label::new(format!(
-                "ℹ {}: {}",
-                if en {
-                    "Why this value stands first"
-                } else {
-                    "Warum dieser Wert vorne steht"
-                },
-                body
-            ))
-            .with_size("10.5pt")
-            .with_color("#475569"),
+            Label::new(format!("ℹ {}", body))
+                .with_size("10.5pt")
+                .with_color("#475569"),
         )
         .add_component(module_customer_context(
             i18n,
@@ -1167,7 +1159,19 @@ pub(super) fn render_seo_profile(
         ])
         .with_title(i18n.t_args(
             "pdf-seo-profile-structured-data-title",
-            &[("count", profile.schema_count.to_string())],
+            &[(
+                "label",
+                format!(
+                    "{} {}",
+                    profile.schema_count,
+                    match (profile.schema_count == 1, i18n.locale() == "en") {
+                        (true, true) => "schema",
+                        (false, true) => "schemas",
+                        (true, false) => "Schema",
+                        (false, false) => "Schemas",
+                    }
+                ),
+            )],
         ));
         for (typ, completeness, details) in &profile.schema_rows {
             table = table.add_row(vec![typ.as_str(), completeness.as_str(), details.as_str()]);
@@ -1775,11 +1779,6 @@ fn module_customer_context(
     _interpretation: &str,
 ) -> Label {
     let en = i18n.locale() == "en";
-    let title = if en {
-        "What this means for customers"
-    } else {
-        "Was das für Kunden bedeutet"
-    };
     let weakness = if module_key == "content_visibility" {
         None
     } else if score < 50 {
@@ -1826,7 +1825,9 @@ fn module_customer_context(
         parts.push(w);
     }
     parts.push(module_text);
-    let text = format!("ℹ {}: {}", title, parts.join(" "));
+    // No meta-label prefix — the plain-language sentence speaks for itself
+    // ("Was das für Kunden bedeutet:" was redundant wording, #446 readability).
+    let text = format!("ℹ {}", parts.join(" "));
     Label::new(text).with_size("10.5pt").with_color("#475569")
 }
 
@@ -2822,7 +2823,10 @@ mod tests {
             !out.contains(sentinel),
             "customer passage must not echo the technical interpretation"
         );
-        // The plain-language module text is still present.
-        assert!(out.contains("Was das f") || out.contains("Kunden"));
+        // No meta-label prefix anymore; the plain-language module sentence is present.
+        assert!(
+            out.contains("Besucher"),
+            "expected the plain performance customer text, got: {out}"
+        );
     }
 }
