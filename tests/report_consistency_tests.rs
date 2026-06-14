@@ -739,6 +739,46 @@ fn normalized_report_survives_cache_round_trip() {
 }
 
 #[test]
+fn test_risk_breadth_critical_without_critical_occurrences() {
+    // Regression for #457: 4 distinct WCAG Level A rules, all High severity (no
+    // Critical occurrences). Breadth of legal exposure must reach Critical and
+    // be attributed to Legal Compliance — a site like this previously ranked
+    // *below* one with a single flag but volume-triggered Critical.
+    let mut results = WcagResults::new();
+    for (rule, name) in [
+        ("1.1.1", "Non-text Content"),
+        ("2.4.4", "Link Purpose"),
+        ("2.4.6", "Headings"),
+        ("3.3.2", "Labels"),
+    ] {
+        results.add_violation(Violation::new(
+            rule,
+            name,
+            WcagLevel::A,
+            Severity::High,
+            "issue",
+            "node",
+        ));
+    }
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        100,
+    );
+    let normalized = normalize(&report);
+
+    assert_eq!(normalized.risk.critical_issues, 0);
+    assert_eq!(normalized.risk.legal_flags, 4);
+    assert_eq!(
+        normalized.risk.level,
+        auditmysite::audit::normalized::RiskLevel::Critical,
+        "4 distinct Level-A High rules = systemic legal exposure → Critical"
+    );
+    assert_eq!(normalized.risk.driven_by, "Legal Compliance");
+}
+
+#[test]
 fn test_risk_low_without_violations() {
     let report = AuditReport::new(
         "https://example.com".to_string(),

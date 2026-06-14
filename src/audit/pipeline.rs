@@ -304,8 +304,13 @@ pub async fn run_single_audit(
     let (mut report, snapshot) = audit_page(&page, url, config, browser).await?;
 
     if config.check_performance {
+        let content_weight = report
+            .performance
+            .as_ref()
+            .and_then(|p| p.content_weight.clone());
         let (throttled, canonical) =
-            collect_throttled_performance(&page, url, browser, config).await;
+            collect_throttled_performance(&page, url, browser, config, content_weight.as_ref())
+                .await;
         report.throttled_performance = throttled;
         if let Some((vitals, score)) = canonical {
             apply_canonical_perf(&mut report, vitals, score);
@@ -970,6 +975,7 @@ async fn collect_throttled_performance(
     url: &str,
     browser: &BrowserManager,
     _config: &PipelineConfig,
+    content_weight: Option<&crate::performance::ContentWeight>,
 ) -> (
     Vec<crate::audit::report::ThrottledPerfResult>,
     Option<(
@@ -1020,7 +1026,11 @@ async fn collect_throttled_performance(
 
         match crate::performance::extract_web_vitals(page).await {
             Ok(vitals) => {
-                let score = calculate_performance_score(&vitals, None);
+                // Pass the headline content_weight so the size/JS/request caps
+                // apply to throttled profiles too — otherwise a throttled
+                // profile can out-score the headline (and Slow3G out-score
+                // Fast3G) purely because its caps were skipped (#456).
+                let score = calculate_performance_score(&vitals, content_weight);
                 // If LCP could not be measured under throttling (timeout or
                 // navigation pre-completion), the most important navigation
                 // metric is missing — do not let CLS/TBT alone push the score
