@@ -216,15 +216,8 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
     let actions = build_actions_block(&i18n, &action_plan, score as f32, &audit_summary.site_state);
 
     let module_details = build_module_details_from_normalized(&i18n, normalized);
-    let executive = build_executive_narrative(
-        &i18n,
-        normalized,
-        &audit_summary,
-        score,
-        &severity,
-        &top_findings,
-        &action_plan,
-    );
+    let executive =
+        build_executive_narrative(&i18n, normalized, &audit_summary, &severity, &top_findings);
 
     ReportViewModel {
         meta: MetaBlock {
@@ -476,38 +469,6 @@ mod tests {
     }
 
     #[test]
-    fn view_model_names_high_level_a_findings_as_high_not_critical_only() {
-        let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::High,
-            "Missing accessible name",
-            "node-123",
-        ));
-
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagLevel::AA,
-            results,
-            1500,
-        );
-        let normalized = normalize(&report);
-        let vm = build_view_model(&normalized, &ReportConfig::default());
-        let risk_text = vm
-            .executive
-            .impact_rows
-            .iter()
-            .find(|(label, _)| label == "Risiko")
-            .map(|(_, text)| text.as_str())
-            .expect("risk row");
-
-        assert!(risk_text.contains("hohe oder kritische WCAG-Level-A-Befunde"));
-        assert!(!risk_text.contains("keine kritischen Level-A-Verstöße"));
-    }
-
-    #[test]
     fn english_view_model_excludes_top_level_german_labels() {
         use crate::audit::normalize;
         use crate::audit::AuditReport;
@@ -547,24 +508,6 @@ mod tests {
         let candidates: Vec<&str> = vec![
             exec.cover_eyebrow.as_str(),
             exec.cover_kicker.as_str(),
-            exec.status_title.as_str(),
-            exec.metrics_title.as_str(),
-            exec.key_points_title.as_str(),
-            exec.impact_title.as_str(),
-            exec.quick_actions_title.as_str(),
-            exec.spotlight_eyebrow.as_str(),
-            exec.leverage_title.as_str(),
-            exec.findings_title.as_str(),
-            exec.findings_intro.as_str(),
-            exec.action_plan_title.as_str(),
-            exec.action_plan_intro.as_str(),
-            exec.action_plan_callout_title.as_str(),
-            exec.action_plan_callout_body.as_str(),
-            exec.technical_title.as_str(),
-            exec.technical_intro.as_str(),
-            exec.next_steps_title.as_str(),
-            exec.next_steps_intro.as_str(),
-            exec.next_steps_callout_title.as_str(),
             exec.next_steps_callout_body.as_str(),
             vm.summary.verdict.as_str(),
             vm.summary.executive_lead.as_str(),
@@ -870,8 +813,9 @@ mod tests {
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
         report.source_quality = Some(sq);
         report.ai_visibility = Some(av);
-        report.content_visibility =
-            Some(crate::content_visibility::ContentVisibilityAnalysis::default());
+        report.content_visibility = Some(crate::content_visibility::analyze_content_visibility(
+            &report,
+        ));
         report
     }
 
@@ -1018,6 +962,44 @@ mod tests {
             pdf_keys.contains("patterns"),
             "patterns is missing from ModuleDetailsBlock — \
              add a patterns field and update pdf_rendered_modules()"
+        );
+    }
+
+    #[test]
+    fn test_active_modules_have_json_detail_and_pdf_registry_coverage() {
+        use crate::output::json::UnifiedReport;
+        use crate::output::module::active_modules;
+        use std::collections::BTreeSet;
+
+        let report = all_active_modules_report();
+        let active_keys: BTreeSet<&str> = active_modules(&report)
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+
+        let normalized = normalize(&report);
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).expect("JSON should render");
+        let json_value: serde_json::Value =
+            serde_json::from_str(&json_str).expect("JSON should parse");
+        let modules = json_value["pages"][0]["detail"]["modules"]
+            .as_object()
+            .expect("single report detail modules must be an object");
+        let json_keys: BTreeSet<&str> = modules
+            .iter()
+            .filter(|(_, value)| !value.is_null())
+            .map(|(key, _)| key.as_str())
+            .collect();
+        let pdf_keys = super::module_details::pdf_rendered_modules();
+
+        let missing_json: Vec<&&str> = active_keys.difference(&json_keys).collect();
+        let missing_pdf: Vec<&&str> = active_keys.difference(&pdf_keys).collect();
+
+        assert!(
+            missing_json.is_empty() && missing_pdf.is_empty(),
+            "Active module coverage gap:\n  missing JSON detail entries: {:?}\n  missing PDF registry entries: {:?}",
+            missing_json,
+            missing_pdf,
         );
     }
 }

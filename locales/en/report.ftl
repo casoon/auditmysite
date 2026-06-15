@@ -818,6 +818,7 @@ module-ai-visibility = AI Visibility
 module-source-quality = Source Quality
 module-tech-stack = Tech Stack
 linktext-generic-stopwords = read more,learn more,click here,here,more,details,link,view,open,see more,find out more,discover
+topic-stopwords = with,your,about,into,that,this,from,content,cloud,page,pages,site,web,website,websites
 sr-no-name = (no name)
 sr-role-button = button
 sr-role-link = link

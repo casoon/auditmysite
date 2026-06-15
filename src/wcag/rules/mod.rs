@@ -121,7 +121,7 @@ pub use landmark_granular::{
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_main_present, check_landmark_no_duplicate_banner,
     check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_skip_link,
+    check_landmark_unique, check_landmarks_with_page, check_skip_link,
 };
 pub use landmarks::check_landmarks;
 pub use language::check_language;
@@ -143,7 +143,7 @@ pub use on_focus::check_on_focus;
 pub use on_input::check_on_input;
 pub use orientation::check_orientation_with_page;
 pub use page_rules::{PageRuleEntry, PAGE_RULES};
-pub use page_titled::check_page_titled;
+pub use page_titled::{check_page_titled, check_page_titled_with_page};
 pub use parsing::{check_parsing, check_parsing_with_page};
 pub use pointer_cancellation::check_pointer_cancellation_with_page;
 pub use pointer_gestures::check_pointer_gestures_with_page;

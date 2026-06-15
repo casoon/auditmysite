@@ -104,7 +104,7 @@ cargo test --lib               # Unit tests only
 Ein pre-push Hook ist unter `.git/hooks/pre-push` eingerichtet und läuft automatisch.
 
 Häufige Falle: neue Felder in `NormalizedReport` brechen Struct-Initialisierer in
-`src/audit/history.rs` und `src/audit/summary.rs`. Immer beide prüfen.
+`src/audit/normalized.rs` und `src/audit/summary.rs`. Immer beide prüfen.
 
 ## Testing Against Live Sites
 ```bash

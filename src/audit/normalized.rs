@@ -748,7 +748,13 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
 
 fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
     match violation.rule_id.as_deref() {
-        Some("frame-title" | "form-no-submit" | "presentation-semantic-children") => violation
+        Some(
+            "frame-title"
+            | "form-no-submit"
+            | "landmark-main-present"
+            | "landmark-unique"
+            | "presentation-semantic-children",
+        ) => violation
             .rule_id
             .as_deref()
             .unwrap_or(violation.rule.as_str()),
@@ -2090,6 +2096,28 @@ mod tests {
             )
             .with_rule_id("presentation-semantic-children"),
         );
+        results.add_violation(
+            Violation::new(
+                "1.3.1",
+                "Landmark Main Present",
+                WcagLevel::A,
+                Severity::High,
+                "Page has no main landmark",
+                "document",
+            )
+            .with_rule_id("landmark-main-present"),
+        );
+        results.add_violation(
+            Violation::new(
+                "1.3.1",
+                "Landmark Unique",
+                WcagLevel::A,
+                Severity::Medium,
+                "Multiple navigation landmarks share the same accessible name",
+                "nav",
+            )
+            .with_rule_id("landmark-unique"),
+        );
 
         let report = AuditReport::new(
             "https://example.com".to_string(),
@@ -2117,6 +2145,17 @@ mod tests {
             presentation.axe_id.as_deref(),
             Some("presentation-semantic-children")
         );
+
+        assert!(norm
+            .findings
+            .iter()
+            .any(|f| f.rule_id == "a11y.landmark_main.missing"
+                && f.axe_id.as_deref() == Some("landmark-main-present")));
+        assert!(norm
+            .findings
+            .iter()
+            .any(|f| f.rule_id == "a11y.landmark_unique.invalid"
+                && f.axe_id.as_deref() == Some("landmark-unique")));
     }
 
     #[test]

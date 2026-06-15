@@ -41,6 +41,8 @@ use crate::output::report_model::*;
 
 const WORDMARK_ASSET: &str = "/auditmysite-wordmark.svg";
 const CUSTOM_COVER_LOGO_ASSET: &str = "/cover-logo-custom";
+const PAGE_DESKTOP_SCREENSHOT_ASSET: &str = "/auditmysite-desktop-preview.png";
+const PAGE_MOBILE_SCREENSHOT_ASSET: &str = "/auditmysite-mobile-preview.png";
 
 // ─── Single Report ──────────────────────────────────────────────────────────
 //
@@ -53,10 +55,12 @@ const CUSTOM_COVER_LOGO_ASSET: &str = "/cover-logo-custom";
 //   Page 6+ — Tech Details (implement: WCAG details, code examples, modules)
 
 pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
-    let (engine, built_report) = build_single_report(report, config)?;
-    let pdf_bytes = engine.render_pdf(&built_report)?;
+    let pdf_bytes: anyhow::Result<Vec<u8>> = (|| {
+        let (engine, built_report) = build_single_report(report, config)?;
+        Ok(engine.render_pdf(&built_report)?)
+    })();
     cleanup_screenshot_temps(report);
-    Ok(pdf_bytes)
+    pdf_bytes
 }
 
 /// Render the intermediate Typst source for a single-page report.
@@ -65,10 +69,12 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 /// checks (issue #239) — lets reviewers inspect completeness and wording without
 /// going through the heavy PDF + pdftotext pipeline.
 pub fn generate_typ(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<String> {
-    let (engine, built_report) = build_single_report(report, config)?;
-    let typ = engine.render_typ(&built_report)?;
+    let typ: anyhow::Result<String> = (|| {
+        let (engine, built_report) = build_single_report(report, config)?;
+        Ok(engine.render_typ(&built_report)?)
+    })();
     cleanup_screenshot_temps(report);
-    Ok(typ)
+    typ
 }
 
 fn build_single_report(
@@ -95,6 +101,7 @@ fn build_single_report(
 
     let cover_logo_asset = self::appendix::cover_logo_asset(config);
     builder = self::appendix::register_cover_logo_asset(builder, config, cover_logo_asset);
+    builder = register_page_screenshot_assets(builder, report)?;
 
     // ── Cover Page ───────────────────────────────────────────────────
     let en = i18n.locale() == "en";
@@ -429,6 +436,27 @@ fn cleanup_screenshot_temps(report: &AuditReport) {
         let _ = std::fs::remove_file(std::env::temp_dir().join(format!("ams-desktop-{}.png", ts)));
         let _ = std::fs::remove_file(std::env::temp_dir().join(format!("ams-mobile-{}.png", ts)));
     }
+}
+
+fn register_page_screenshot_assets(
+    mut builder: renderreport::engine::ReportBuilder,
+    report: &AuditReport,
+) -> anyhow::Result<renderreport::engine::ReportBuilder> {
+    let Some(ref shots) = report.page_screenshots else {
+        return Ok(builder);
+    };
+
+    let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+    let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
+    let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
+
+    std::fs::write(&desktop_path, &shots.desktop)?;
+    std::fs::write(&mobile_path, &shots.mobile)?;
+
+    builder = builder
+        .asset(PAGE_DESKTOP_SCREENSHOT_ASSET, desktop_path)
+        .asset(PAGE_MOBILE_SCREENSHOT_ASSET, mobile_path);
+    Ok(builder)
 }
 
 #[cfg(all(test, feature = "pdf_test"))]

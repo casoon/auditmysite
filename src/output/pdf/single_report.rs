@@ -4,7 +4,8 @@
 //! components, and returns the builder for further chaining.
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DiagnosisPanel, DiagnosisRow, List, PageBreak, SectionHeaderSplit,
+    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, List, PageBreak,
+    SectionHeaderSplit,
 };
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, Finding, TableColumn};
@@ -861,29 +862,90 @@ fn render_positive_signals_section(
 fn render_dual_viewport_summary_section(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
+    report: &AuditReport,
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let (Some(desktop), Some(mobile)) = (vm.cover.desktop_score, vm.cover.mobile_score) else {
+    let has_scores = vm.cover.desktop_score.is_some() && vm.cover.mobile_score.is_some();
+    let has_screenshot_status = report.page_screenshots.is_some()
+        || matches!(
+            report.screenshot_status,
+            crate::audit::ScreenshotStatus::Failed(_)
+        );
+    if !has_scores && !has_screenshot_status {
         return builder;
-    };
+    }
 
     if !is_first {
         builder = builder.add_component(PageBreak::new());
     }
 
     let en = i18n.locale() == "en";
-    let rows = vec![
-        ChecklistRow::new(
-            if en { "Desktop viewport" } else { "Desktop-Viewport" },
-            format!("{desktop}/100"),
-        )
-        .with_status(if desktop >= 75 { "good" } else { "warn" }),
-        ChecklistRow::new(
-            if en { "Mobile viewport" } else { "Mobile-Viewport" },
-            format!("{mobile}/100"),
-        )
-        .with_status(if mobile >= 75 { "good" } else { "warn" }),
+    if report.page_screenshots.is_some() {
+        builder = builder.add_component(
+            DevicePreview::new(
+                super::PAGE_DESKTOP_SCREENSHOT_ASSET,
+                super::PAGE_MOBILE_SCREENSHOT_ASSET,
+            )
+            .with_height(210.0),
+        );
+    }
+
+    let mut rows = Vec::new();
+    if let (Some(desktop), Some(mobile)) = (vm.cover.desktop_score, vm.cover.mobile_score) {
+        rows.push(
+            ChecklistRow::new(
+                if en {
+                    "Desktop viewport"
+                } else {
+                    "Desktop-Viewport"
+                },
+                format!("{desktop}/100"),
+            )
+            .with_status(if desktop >= 75 { "good" } else { "warn" }),
+        );
+        rows.push(
+            ChecklistRow::new(
+                if en {
+                    "Mobile viewport"
+                } else {
+                    "Mobile-Viewport"
+                },
+                format!("{mobile}/100"),
+            )
+            .with_status(if mobile >= 75 { "good" } else { "warn" }),
+        );
+    }
+
+    let screenshot_status = match &report.screenshot_status {
+        crate::audit::ScreenshotStatus::Captured => Some(
+            if en {
+                "Screenshots captured"
+            } else {
+                "Screenshots erfasst"
+            }
+            .to_string(),
+        ),
+        crate::audit::ScreenshotStatus::Failed(reason) => Some(if en {
+            format!("Screenshot capture failed: {reason}")
+        } else {
+            format!("Screenshot-Erfassung fehlgeschlagen: {reason}")
+        }),
+        crate::audit::ScreenshotStatus::NotRequested => None,
+    };
+    if let Some(status) = screenshot_status {
+        rows.push(
+            ChecklistRow::new(if en { "Preview" } else { "Vorschau" }, status).with_status(
+                if report.page_screenshots.is_some() {
+                    "good"
+                } else {
+                    "warn"
+                },
+            ),
+        );
+    }
+
+    rows.push(
         ChecklistRow::new(
             if en { "Interpretation" } else { "Einordnung" },
             if en {
@@ -893,7 +955,7 @@ fn render_dual_viewport_summary_section(
             },
         )
         .with_status("info"),
-    ];
+    );
 
     builder.add_component(ChecklistPanel::new(rows).with_title(if en {
         "Dual viewport summary"
@@ -909,8 +971,15 @@ pub(super) fn render_module_sections(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let mut is_first = true;
-    if vm.cover.desktop_score.is_some() && vm.cover.mobile_score.is_some() {
-        builder = render_dual_viewport_summary_section(builder, vm, is_first, i18n);
+    let has_dual_viewport_scores =
+        vm.cover.desktop_score.is_some() && vm.cover.mobile_score.is_some();
+    let has_screenshot_status = report.page_screenshots.is_some()
+        || matches!(
+            report.screenshot_status,
+            crate::audit::ScreenshotStatus::Failed(_)
+        );
+    if has_dual_viewport_scores || has_screenshot_status {
+        builder = render_dual_viewport_summary_section(builder, vm, report, is_first, i18n);
         is_first = false;
     }
     if let Some(ref sx) = vm.module_details.search_experience {

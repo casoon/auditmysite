@@ -108,14 +108,23 @@ pub(super) fn build_batch_verdict(i18n: &I18n, batch: &crate::audit::BatchReport
     )
 }
 
-pub(super) fn build_batch_appendix(locale: &str, batch: &BatchReport) -> BatchAppendixData {
+pub(super) fn build_batch_appendix(
+    locale: &str,
+    batch: &BatchReport,
+    normalized_reports: &[NormalizedReport],
+) -> BatchAppendixData {
+    debug_assert_eq!(
+        batch.reports.len(),
+        normalized_reports.len(),
+        "batch appendix requires one normalized report per raw report"
+    );
+
     BatchAppendixData {
         per_url: batch
             .reports
             .iter()
-            .map(|r| {
-                let normalized = crate::audit::normalize(r);
-
+            .zip(normalized_reports.iter())
+            .map(|(r, normalized)| {
                 UrlAppendix {
                     url: r.url.clone(),
                     violations: normalized

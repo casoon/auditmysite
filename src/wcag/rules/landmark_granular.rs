@@ -15,6 +15,9 @@
 
 use std::collections::HashMap;
 
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
@@ -469,6 +472,172 @@ pub fn check_landmark_main_present(tree: &AXTree) -> WcagResults {
         results.passes += 1;
     }
     results
+}
+
+/// DOM supplement for landmark parity. Some headless pages expose less
+/// landmark structure through the AX tree than is visible in the DOM; this
+/// mirrors the two deterministic axe cases we care about here: missing main
+/// landmark and same-role landmarks with the same accessible name.
+pub async fn check_landmarks_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        r#"
+        function isHidden(el) {
+          if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return true;
+          var cur = el;
+          while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+            var s = window.getComputedStyle(cur);
+            if (s.display === 'none') return true;
+            if (s.visibility === 'hidden' || s.visibility === 'collapse') return true;
+            cur = cur.parentElement;
+          }
+          return false;
+        }
+        function nameFor(el) {
+          var label = (el.getAttribute('aria-label') || '').trim();
+          if (label) return label;
+          var labelledBy = (el.getAttribute('aria-labelledby') || '').trim();
+          if (labelledBy) {
+            var text = labelledBy.split(/\s+/).map(function(id) {
+              var ref = document.getElementById(id);
+              return ref ? ref.textContent.trim() : '';
+            }).join(' ').trim();
+            if (text) return text;
+          }
+          return '';
+        }
+        function implicitRole(el) {
+          var tag = el.tagName.toLowerCase();
+          if (tag === 'main') return 'main';
+          if (tag === 'nav') return 'navigation';
+          if (tag === 'aside') return 'complementary';
+          if (tag === 'header') return 'banner';
+          if (tag === 'footer') return 'contentinfo';
+          return '';
+        }
+
+        var results = [];
+        var landmarks = [];
+        var candidates = document.querySelectorAll(
+          'main, nav, aside, header, footer, [role="main"], [role="navigation"], ' +
+          '[role="banner"], [role="contentinfo"], [role="complementary"], [role="search"], [role="region"]'
+        );
+        for (var i = 0; i < candidates.length; i++) {
+          var el = candidates[i];
+          if (isHidden(el)) continue;
+          var role = (el.getAttribute('role') || implicitRole(el)).toLowerCase();
+          if (!role) continue;
+          landmarks.push({
+            role: role,
+            name: nameFor(el).toLowerCase(),
+            selector: __amsCssSelector(el),
+            snippet: el.outerHTML.substring(0, 200)
+          });
+        }
+
+        if (!landmarks.some(function(l) { return l.role === 'main'; })) {
+          results.push({ rule_id: 'landmark-main-present', selector: 'document', snippet: '' });
+        }
+
+        var byKey = {};
+        for (var j = 0; j < landmarks.length; j++) {
+          var l = landmarks[j];
+          var key = l.role + '\u0000' + l.name;
+          if (!byKey[key]) byKey[key] = [];
+          byKey[key].push(l);
+        }
+        Object.keys(byKey).forEach(function(key) {
+          var group = byKey[key];
+          if (group.length < 2) return;
+          for (var k = 0; k < group.length; k++) {
+            results.push({
+              rule_id: 'landmark-unique',
+              role: group[k].role,
+              selector: group[k].selector,
+              snippet: group[k].snippet
+            });
+          }
+        });
+
+        return results;
+        "#,
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("landmark DOM JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let Some(value) = result.value() else {
+        return vec![];
+    };
+    let Some(items) = value.as_array() else {
+        return vec![];
+    };
+
+    items
+        .iter()
+        .filter_map(|item| {
+            let rule_id = item.get("rule_id")?.as_str()?;
+            let selector = item
+                .get("selector")
+                .and_then(|v| v.as_str())
+                .unwrap_or("document");
+            let (meta, message, fix) = match rule_id {
+                "landmark-main-present" => (
+                    &RULE_LANDMARK_MAIN_PRESENT,
+                    "Page has no main landmark — assistive technologies cannot skip to the primary content".to_string(),
+                    "Wrap the page's primary content in a <main> element (or add role=\"main\" to the container)".to_string(),
+                ),
+                "landmark-unique" => {
+                    let role = item
+                        .get("role")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("landmark");
+                    (
+                        &RULE_LANDMARK_UNIQUE,
+                        format!(
+                            "Multiple '{}' landmarks share the same accessible name; they cannot be distinguished",
+                            role
+                        ),
+                        format!(
+                            "Add a unique aria-label to each '{}' landmark so they can be told apart",
+                            role
+                        ),
+                    )
+                }
+                _ => return None,
+            };
+
+            let mut violation = Violation::new(
+                meta.id,
+                meta.name,
+                meta.level,
+                meta.severity,
+                message,
+                selector,
+            )
+            .with_selector(selector)
+            .with_rule_id(meta.axe_id)
+            .with_tags(meta.tags.iter().map(|s| s.to_string()).collect())
+            .with_fix(fix)
+            .with_help_url(meta.help_url);
+
+            if let Some(snippet) = item.get("snippet").and_then(|v| v.as_str()) {
+                if !snippet.is_empty() {
+                    violation = violation.with_html_snippet(snippet);
+                }
+            }
+
+            Some(violation)
+        })
+        .collect()
 }
 
 /// **skip-link** — page with a navigation landmark must have a skip-navigation link.

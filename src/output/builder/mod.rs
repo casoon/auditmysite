@@ -11,7 +11,10 @@ mod modules;
 mod seo;
 mod single;
 
-pub use batch::{build_batch_presentation, build_batch_presentation_with_locale};
+pub use batch::{
+    build_batch_presentation, build_batch_presentation_with_locale,
+    build_batch_presentation_with_normalized,
+};
 pub use single::build_view_model;
 
 #[cfg(test)]
@@ -86,7 +89,6 @@ mod tests {
             .iter()
             .any(|m| m.title == format!("Gesamtscore{NBSP}Website")));
         assert!(!vm.executive.key_points.is_empty());
-        assert!(!vm.executive.risk_title.is_empty());
     }
 
     #[test]

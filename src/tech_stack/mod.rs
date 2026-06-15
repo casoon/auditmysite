@@ -570,3 +570,53 @@ pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStack
         grade,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{calculate_score, StackFinding};
+    use crate::taxonomy::{module_score_grade, Severity};
+
+    fn finding(severity: Severity) -> StackFinding {
+        StackFinding {
+            tech: "WordPress".into(),
+            title: "Finding".into(),
+            detail: "Detail".into(),
+            severity,
+            fix: None,
+            url_checked: None,
+        }
+    }
+
+    #[test]
+    fn calculate_score_deducts_by_severity() {
+        let findings = [
+            finding(Severity::Low),
+            finding(Severity::Medium),
+            finding(Severity::High),
+            finding(Severity::Critical),
+        ];
+
+        assert_eq!(calculate_score(&findings), 35);
+    }
+
+    #[test]
+    fn calculate_score_saturates_at_zero_for_many_findings() {
+        let findings = [
+            finding(Severity::Critical),
+            finding(Severity::Critical),
+            finding(Severity::Critical),
+            finding(Severity::Critical),
+        ];
+
+        assert_eq!(calculate_score(&findings), 0);
+    }
+
+    #[test]
+    fn tech_stack_grade_uses_module_score_boundaries() {
+        assert_eq!(module_score_grade(calculate_score(&[])), "A");
+        assert_eq!(module_score_grade(89), "B");
+        assert_eq!(module_score_grade(74), "C");
+        assert_eq!(module_score_grade(59), "D");
+        assert_eq!(module_score_grade(39), "F");
+    }
+}

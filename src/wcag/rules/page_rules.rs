@@ -29,9 +29,10 @@ use super::{
     check_aria_valid_attr_value_with_page, check_background_audio_with_page,
     check_content_on_hover_with_page, check_focus_visible_css_with_page,
     check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
-    check_identify_purpose_with_page, check_label_in_name_with_page, check_location_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
-    check_orientation_with_page, check_parsing_with_page, check_pointer_cancellation_with_page,
+    check_identify_purpose_with_page, check_label_in_name_with_page, check_landmarks_with_page,
+    check_location_with_page, check_motion_actuation_with_page, check_no_interruptions_with_page,
+    check_no_timing_with_page, check_orientation_with_page, check_page_titled_with_page,
+    check_parsing_with_page, check_pointer_cancellation_with_page,
     check_pointer_gestures_with_page, check_presentation_semantic_children_with_page,
     check_re_authenticate_with_page, check_reduced_motion_with_page,
     check_same_origin_iframes_with_page, check_target_size_enhanced_with_page,
@@ -90,6 +91,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_same_origin_iframes_with_page(p)),
     },
     PageRuleEntry {
+        rule_id: "2.4.2/document-title",
+        name: "document-title",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_page_titled_with_page(p)),
+    },
+    PageRuleEntry {
         rule_id: "2.1.1/click-handler",
         name: "inline click-handler",
         min_level: WcagLevel::A,
@@ -106,6 +113,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "presentation semantic children",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_presentation_semantic_children_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "1.3.1/landmark-dom",
+        name: "landmark DOM",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_landmarks_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.2.1/meta-refresh",
@@ -269,9 +282,9 @@ mod tests {
             .count();
         // Level-A page rules in the table; tightening this catches
         // accidental reclassification of a rule's min_level.
-        // 7 original + 2 DOM parity checks + parsing (AAA→A)
-        // + aria-valid-attr-value + iframe-content = 12
-        assert_eq!(count, 12);
+        // 7 original + 4 DOM parity checks + parsing (AAA→A)
+        // + aria-valid-attr-value + iframe-content = 14
+        assert_eq!(count, 14);
     }
 
     #[test]
@@ -280,8 +293,8 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::AA >= r.min_level)
             .count();
-        // 12 A + 4 AA = 16.
-        assert_eq!(count, 16);
+        // 14 A + 4 AA = 18.
+        assert_eq!(count, 18);
     }
 
     #[test]

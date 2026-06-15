@@ -17,9 +17,10 @@ use super::actions::{
     impact_score, localized_finding_text, score_to_priority, severity_to_priority,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
-use super::seo::{
+use super::seo::page_profile_optimization_note;
+use crate::seo::{
     average_page_semantic_score, derive_domain_topics, derive_topic_overlap_pairs,
-    extract_page_topics, page_profile_optimization_note,
+    extract_page_topics,
 };
 
 /// Build a complete presentation model from a batch audit report
@@ -30,12 +31,25 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
 /// Locale-aware variant of [`build_batch_presentation`].
 pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
-    // Normalize all reports early — needed for overall scores, risk, module averages
     let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = batch
         .reports
         .iter()
         .map(|r| normalize(r).normalized)
         .collect();
+    build_batch_presentation_with_normalized(batch, i18n, &normalized_reports)
+}
+
+/// Locale-aware variant for callers that already normalized the batch pages.
+pub fn build_batch_presentation_with_normalized(
+    batch: &BatchReport,
+    i18n: &I18n,
+    normalized_reports: &[NormalizedReport],
+) -> BatchPresentation {
+    debug_assert_eq!(
+        batch.reports.len(),
+        normalized_reports.len(),
+        "batch presentation requires one normalized report per raw report"
+    );
     let collected = collect_batch_finding_groups(&normalized_reports, i18n);
     // Deduplicate findings with the same title across rule sources; prefer
     // non-"unknown." rule_ids, merge occurrence counts.
@@ -82,7 +96,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
             None
         } else {
             let mut category_map: HMap<String, (usize, Severity)> = HMap::new();
-            for nr in &normalized_reports {
+            for nr in normalized_reports {
                 let mut seen_in_page: std::collections::HashSet<String> = Default::default();
                 for f in &nr.interactive_findings {
                     let entry = category_map
@@ -539,7 +553,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
     // Aggregate module averages
     let module_averages = {
         let mut module_sums: HashMap<String, (u32, usize)> = HashMap::new();
-        for nr in &normalized_reports {
+        for nr in normalized_reports {
             for ms in &nr.module_scores {
                 let entry = module_sums.entry(ms.name.clone()).or_insert((0, 0));
                 entry.0 += ms.score;
@@ -713,7 +727,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         url_ranking,
         url_details,
         url_matrix: build_url_matrix(batch),
-        appendix: build_batch_appendix(i18n.locale(), batch),
+        appendix: build_batch_appendix(i18n.locale(), batch, normalized_reports),
         interactive_summary,
     }
 }

@@ -818,6 +818,7 @@ module-ai-visibility = KI-Sichtbarkeit
 module-source-quality = Quellenqualität
 module-tech-stack = Tech-Stack
 linktext-generic-stopwords = mehr erfahren,weiterlesen,hier klicken,hier,mehr,weiter,lesen,anzeigen,öffnen,details,link,klicken
+topic-stopwords = 2026,aber,allem,alle,auch,auf,aus,autor,bei,bereits,bietet,bild,bilder,casoon,checker,cloud,content,damit,dass,deine,diese,dieser,drei,durch,eine,einem,einen,einer,eines,einfach,entwickelt,entwicklung,erfahren,fuer,für,gmbh,heute,hier,ihre,ihren,ihrer,ihres,inklusive,inhalt,jetzt,keine,kunden,launch,lesen,mehr,moderne,klare,oder,page,pages,projekt,projekten,recht,rund,seite,seiten,seine,seiner,sich,sind,site,statt,systeme,technik,themen,thema,über,und,unsere,unserer,unsers,unter,transparent,viele,vom,von,web,websites,webentwicklung,website,weiter,werden,wird,wenig,willkommen,zeigen,ziel,haben,sowie,digitale
 sr-no-name = (kein Name)
 sr-role-button = Schalter
 sr-role-link = Link

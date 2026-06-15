@@ -6,6 +6,8 @@
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use chromiumoxide::Page;
+use tracing::warn;
 
 /// Rule metadata for 2.4.2
 pub const PAGE_TITLED_RULE: RuleMetadata = RuleMetadata {
@@ -68,6 +70,54 @@ pub fn check_page_titled(tree: &AXTree) -> WcagResults {
     }
 
     results
+}
+
+/// DOM supplement for document-title parity. Some pages expose the URL rather
+/// than the empty `<title>` state in the AX tree; `document.title` is the
+/// canonical signal for axe-core's `document-title` rule.
+pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
+    let result = match page
+        .evaluate(
+            "(function() { var title = document.querySelector('title'); return title ? title.textContent : ''; })()",
+        )
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("document-title DOM JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let title = result
+        .value()
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim();
+
+    if !title.is_empty() && !is_generic_title(title) {
+        return vec![];
+    }
+
+    vec![Violation::new(
+        PAGE_TITLED_RULE.id,
+        PAGE_TITLED_RULE.name,
+        PAGE_TITLED_RULE.level,
+        Severity::High,
+        "Page has missing or non-descriptive title",
+        "document",
+    )
+    .with_rule_id(PAGE_TITLED_RULE.axe_id)
+    .with_selector("head")
+    .with_tags(
+        PAGE_TITLED_RULE
+            .tags
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
+    )
+    .with_fix("Add a descriptive <title> element that describes the page topic or purpose")
+    .with_help_url(PAGE_TITLED_RULE.help_url)]
 }
 
 /// Check if a title is generic/non-descriptive

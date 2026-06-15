@@ -161,6 +161,8 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("frame-tested", "a11y.frame_tested.cross_origin"),
     ("frame-title", "a11y.frame_title.missing"),
     ("form-no-submit", "a11y.form_no_submit.missing"),
+    ("landmark-main-present", "a11y.landmark_main.missing"),
+    ("landmark-unique", "a11y.landmark_unique.invalid"),
     (
         "presentation-semantic-children",
         "a11y.presentation_semantic_children.invalid",
@@ -474,6 +476,52 @@ pub static RULES: &[Rule] = &[
             occurrence_scaling: Scaling::Fixed,
         },
         report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.landmark_main.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("landmark-main-present"),
+        title: "Fehlender Hauptbereich",
+        title_en: "Missing main landmark",
+        description: "Die Seite hat kein <main>-Element oder role=\"main\".",
+        user_impact: "Screenreader- und Tastaturnutzer können nicht direkt zum Hauptinhalt springen.",
+        user_impact_en: "Screen reader and keyboard users cannot jump directly to the main content.",
+        technical_impact: "Fehlendes main-Landmark im DOM oder Accessibility Tree.",
+        technical_impact_en: "Missing main landmark in the DOM or accessibility tree.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "a11y.landmark_unique.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("landmark-unique"),
+        title: "Landmarks nicht eindeutig benannt",
+        title_en: "Landmarks are not uniquely named",
+        description: "Mehrere Landmarks desselben Typs haben denselben zugänglichen Namen.",
+        user_impact: "Screenreader-Nutzer können gleichartige Bereiche nicht unterscheiden.",
+        user_impact_en: "Screen reader users cannot distinguish similar regions.",
+        technical_impact: "Mehrfach verwendete Landmark-Rollen ohne eindeutige aria-label/aria-labelledby-Werte.",
+        technical_impact_en: "Repeated landmark roles without unique aria-label/aria-labelledby values.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
     },
     Rule {
         id: "a11y.focus_order.weak",
@@ -2238,6 +2286,16 @@ mod tests {
             "a11y.presentation_semantic_children.invalid"
         );
         assert_eq!(presentation.external_ref, Some("WCAG 1.3.1"));
+
+        let landmark_main = RuleLookup::by_legacy_wcag_id("landmark-main-present")
+            .expect("landmark-main-present should resolve");
+        assert_eq!(landmark_main.id, "a11y.landmark_main.missing");
+        assert_eq!(landmark_main.external_ref, Some("WCAG 1.3.1"));
+
+        let landmark_unique = RuleLookup::by_legacy_wcag_id("landmark-unique")
+            .expect("landmark-unique should resolve");
+        assert_eq!(landmark_unique.id, "a11y.landmark_unique.invalid");
+        assert_eq!(landmark_unique.external_ref, Some("WCAG 1.3.1"));
     }
 
     #[test]

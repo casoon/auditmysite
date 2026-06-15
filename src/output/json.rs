@@ -15,7 +15,7 @@ use crate::audit::{
     SampleMetadata,
 };
 use crate::error::Result;
-use crate::output::builder::{build_batch_presentation, build_view_model};
+use crate::output::builder::{build_batch_presentation_with_normalized, build_view_model};
 use crate::output::explanations::get_explanation;
 use crate::output::module::ReportModule as _;
 use crate::output::report_model::{ReportConfig, UrlMatrixRow};
@@ -453,7 +453,9 @@ impl UnifiedReport {
             .iter()
             .map(|r| crate::audit::normalize(r).normalized)
             .collect();
-        let presentation = build_batch_presentation(batch_report);
+        let i18n = crate::i18n::I18n::new("de").expect("default locale must always load");
+        let presentation =
+            build_batch_presentation_with_normalized(batch_report, &i18n, &normalized_reports);
 
         let pages: Vec<PageEntry> = normalized_reports
             .iter()

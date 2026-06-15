@@ -2,7 +2,7 @@
 #[cfg(all(test, feature = "pdf_test"))]
 mod tests {
     use super::super::*;
-    use crate::audit::{AuditReport, BatchReport};
+    use crate::audit::{AuditReport, BatchReport, PageScreenshots, ScreenshotStatus};
     use crate::cli::{ReportLevel, WcagLevel};
     use crate::util::truncate_url;
     use crate::wcag::{Severity, Violation, WcagResults};
@@ -548,6 +548,16 @@ mod tests {
         )
     }
 
+    fn tiny_png_bytes() -> &'static [u8] {
+        &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ]
+    }
+
     fn find_executable(name: &str) -> Option<PathBuf> {
         let paths = std::env::var_os("PATH")?;
         std::env::split_paths(&paths)
@@ -801,6 +811,31 @@ mod tests {
                 level
             );
         }
+    }
+
+    #[test]
+    fn test_typ_renders_device_preview_when_screenshots_are_available() {
+        let mut report = pdf_fixture_report_rich();
+        report.page_screenshots = Some(PageScreenshots {
+            desktop: tiny_png_bytes().to_vec(),
+            mobile: tiny_png_bytes().to_vec(),
+        });
+        report.screenshot_status = ScreenshotStatus::Captured;
+
+        let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+        let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
+        let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
+
+        let typ = unescape_typ(&generate_typ(&report, &ReportConfig::default()).expect("typ"));
+
+        assert!(typ.contains("device-preview"));
+        assert!(typ.contains(PAGE_DESKTOP_SCREENSHOT_ASSET));
+        assert!(typ.contains(PAGE_MOBILE_SCREENSHOT_ASSET));
+        assert!(typ.contains("Screenshots erfasst"));
+        assert!(
+            !desktop_path.exists() && !mobile_path.exists(),
+            "temporary screenshot assets should be removed after Typst rendering"
+        );
     }
 
     // ── Typst ⇄ JSON consistency per report part (3 internal areas) ─────────
