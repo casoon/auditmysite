@@ -72,11 +72,15 @@ pub async fn analyze_vulnerable_libraries(page: &Page) -> Result<VulnerableLibra
                 out.push({name: 'Handlebars', version: Handlebars.VERSION, source: 'global'});
         } catch(e) {}
         try {
-            if (typeof _ !== 'undefined' && _.VERSION && typeof _.chunk === 'function')
+            // Both Lodash and Underscore expose `_` with `_.VERSION` and (in
+            // modern versions) `_.chunk`. `_.runInContext` is Lodash-exclusive,
+            // so use it as the distinguisher — otherwise a Lodash 4.x build was
+            // mislabelled "Underscore 4.17.5" (Underscore is at 1.x).
+            if (typeof _ !== 'undefined' && _.VERSION && typeof _.runInContext === 'function')
                 out.push({name: 'Lodash', version: _.VERSION, source: 'global'});
         } catch(e) {}
         try {
-            if (typeof _ !== 'undefined' && _.VERSION && typeof _.chunk === 'undefined')
+            if (typeof _ !== 'undefined' && _.VERSION && typeof _.runInContext !== 'function')
                 out.push({name: 'Underscore', version: _.VERSION, source: 'global'});
         } catch(e) {}
         try {

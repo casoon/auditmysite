@@ -86,6 +86,21 @@ fn calculate_score(console: &ConsoleErrorsAnalysis, libs: &VulnerableLibrariesAn
     let error_penalty = (distinct_errors as u32 * 5).min(30);
     score = score.saturating_sub(error_penalty);
 
+    // Console warnings: lighter than errors but still a quality signal (e.g.
+    // hydration mismatches, undefined globals). Penalise distinct warnings 2
+    // points each, capped at 10 — so a page emitting many warnings no longer
+    // scores a perfect 100 (#461 review).
+    let distinct_warnings = {
+        let mut seen = std::collections::HashSet::new();
+        console
+            .warnings
+            .iter()
+            .filter(|w| seen.insert(w.message.as_str()))
+            .count()
+    };
+    let warning_penalty = (distinct_warnings as u32 * 2).min(10);
+    score = score.saturating_sub(warning_penalty);
+
     // Vulnerable libraries: high = 20, medium = 10, low = 5 per lib, capped at 40
     let vuln_penalty: u32 = libs
         .vulnerable

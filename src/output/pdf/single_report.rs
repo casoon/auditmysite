@@ -1046,7 +1046,9 @@ pub(super) fn render_root_cause_analysis(
         "Bündelung der Einzelfunde in systemische Komponenten- und Template-Ursachen."
     };
 
-    builder = builder.add_component(PageBreak::new()).add_component(
+    // No leading PageBreak: the preceding part divider ("Befunde nach Ursache")
+    // already opened the page — an extra break left that divider page 3/4 empty.
+    builder = builder.add_component(
         SectionHeaderSplit::new(title, subtitle)
             .with_eyebrow(if en { "ROOT CAUSE" } else { "URSACHENANALYSE" })
             .with_level(2),

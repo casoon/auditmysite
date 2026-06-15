@@ -544,12 +544,14 @@ pub fn content_visibility_signal_text(
             "Breite Schema-Abdeckung".into(),
             format!("{count} Schemas — thematische Vielfalt erkennbar."),
         ),
-        (SchemaPresent, true) => {
-            ("Schema data present".into(), format!("{count} schema(s) found."))
-        }
-        (SchemaPresent, false) => {
-            ("Schema-Daten vorhanden".into(), format!("{count} Schema(s) gefunden."))
-        }
+        (SchemaPresent, true) => (
+            "Schema data present".into(),
+            format!("{count} {} found.", if count == 1 { "schema" } else { "schemas" }),
+        ),
+        (SchemaPresent, false) => (
+            "Schema-Daten vorhanden".into(),
+            format!("{count} {} gefunden.", if count == 1 { "Schema" } else { "Schemas" }),
+        ),
         (FaqPage, true) => (
             "FAQPage schema present".into(),
             "Topic coverage signaled by FAQ questions — good for featured snippets.".into(),

@@ -101,14 +101,24 @@ fn build_single_report(
     let certificate_label =
         self::cover::certificate_label_localized(&vm.cover.certificate, i18n.locale());
     let risk_summary_text = if en {
+        let noun = if vm.cover.total_issues == 1 {
+            "accessibility issue"
+        } else {
+            "accessibility issues"
+        };
         format!(
-            "Status: {}  ·  {} Total Issues ({} Critical/High)",
-            certificate_label, vm.cover.total_issues, vm.cover.critical_issues
+            "Status: {}  ·  {} {} ({} Critical/High)",
+            certificate_label, vm.cover.total_issues, noun, vm.cover.critical_issues
         )
     } else {
+        let noun = if vm.cover.total_issues == 1 {
+            "Accessibility-Befund"
+        } else {
+            "Accessibility-Befunde"
+        };
         format!(
-            "Status: {}  ·  {} Befunde gesamt ({} kritisch/hoch)",
-            certificate_label, vm.cover.total_issues, vm.cover.critical_issues
+            "Status: {}  ·  {} {} ({} kritisch/hoch)",
+            certificate_label, vm.cover.total_issues, noun, vm.cover.critical_issues
         )
     };
 

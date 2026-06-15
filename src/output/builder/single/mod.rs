@@ -204,6 +204,10 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
     let quick_win_count = action_plan.quick_wins.len();
     let critical_count =
         (normalized.occurrence_counts.critical + normalized.occurrence_counts.high) as u32;
+    // WCAG-only by design (severity/occurrence_counts are the legally-relevant
+    // accessibility counters; SEO findings are reported separately). The cover
+    // label makes the accessibility scope explicit so this does not read as a
+    // contradiction with cross-module measures (#446 area).
     let total_violations = normalized.occurrence_counts.total as u32;
     let nodes_analyzed = normalized.nodes_analyzed;
     let warning_count = normalized.raw_wcag.warnings.len() as u32;

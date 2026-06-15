@@ -238,12 +238,19 @@ pub fn calculate_performance_score(
     // every heavy site to the same zero and losing all discrimination (#461).
     // Capping the combined deduction keeps the vitals-based score the dominant
     // signal and spreads heavy sites across a low band instead of collapsing them.
+    // The cap is both absolute (max 45) and relative (at most 70 % of the
+    // vitals-based score): a page that actually measured its vitals must never
+    // be driven to 0 by weight alone. Without the relative bound a mediocre but
+    // very heavy page (base ≈ cap) still collapsed to exactly 0, losing it
+    // against worse-but-lighter pages (#461 follow-up; e.g. bundestag base 45 −
+    // cap 45 = 0 despite good TBT/FCP).
     const MAX_WEIGHT_PENALTY: u32 = 45;
-    let weight_penalty = (size_penalty.unwrap_or(0)
+    let raw_weight_penalty = size_penalty.unwrap_or(0)
         + js_penalty.unwrap_or(0)
         + request_penalty.unwrap_or(0)
-        + dom_penalty.unwrap_or(0))
-    .min(MAX_WEIGHT_PENALTY);
+        + dom_penalty.unwrap_or(0);
+    let relative_cap = (base_overall as f64 * 0.7).round() as u32;
+    let weight_penalty = raw_weight_penalty.min(MAX_WEIGHT_PENALTY).min(relative_cap);
     overall = overall.saturating_sub(weight_penalty);
 
     // Apply caps
@@ -562,6 +569,38 @@ mod tests {
         assert!(
             s.overall < 50,
             "still clearly penalised for weight, got {}",
+            s.overall
+        );
+    }
+
+    #[test]
+    fn test_weight_penalty_relative_cap_keeps_low_base_above_zero() {
+        // Regression for #461 follow-up: a mediocre page (base ≈ 45) that is
+        // also very heavy must not be canceled to exactly 0 — the relative cap
+        // (<=70% of base) leaves some of the measured vitals intact.
+        let vitals = WebVitals {
+            lcp: Some(VitalMetric::new(9400.0, 2500.0, 4000.0)), // poor -> ~0
+            fcp: Some(VitalMetric::new(1600.0, 1800.0, 3000.0)), // good
+            cls: Some(VitalMetric::new(0.346, 0.1, 0.25)),       // poor
+            tbt: Some(VitalMetric::new(282.0, 200.0, 600.0)),    // needs-improvement
+            dom_nodes: Some(178000),                             // huge -> dom penalty 35
+            ..Default::default()
+        };
+        let mut breakdown = ResourceBreakdown::default();
+        breakdown.javascript.bytes = 2_500_000;
+        let cw = ContentWeight {
+            total_bytes: 2_900_000,
+            transfer_bytes: 2_200_000,
+            breakdown,
+            request_count: 90,
+            carbon: crate::performance::CarbonEstimate::default(),
+            recommendations: vec![],
+        };
+
+        let s = calculate_performance_score(&vitals, Some(&cw));
+        assert!(
+            s.overall > 0,
+            "measured-but-mediocre heavy page must not hit exactly 0, got {}",
             s.overall
         );
     }

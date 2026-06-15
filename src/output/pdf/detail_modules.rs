@@ -1,8 +1,22 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    ChecklistPanel, ChecklistRow, Divider, KeyValueList, List, MetricStrip, MetricStripItem,
+    PageBreak,
 };
+
+/// A light rule used to separate short trailing indicator modules (Best
+/// Practices, Tech Stack) without forcing a page break — when clean these are
+/// only a ScoreCard plus one line, so a dedicated page left it 3/4 empty.
+fn packed_section_separator() -> Divider {
+    Divider {
+        style: "solid".to_string(),
+        thickness: "0.5pt".to_string(),
+        color: Some("#e2e8f0".to_string()),
+        spacing_above: "18pt".to_string(),
+        spacing_below: "10pt".to_string(),
+    }
+}
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
 use renderreport::prelude::*;
@@ -41,17 +55,9 @@ pub(super) fn render_search_experience(
                 .with_thresholds(75, 50),
         )
         .add_component(
-            Label::new(format!(
-                "ℹ {}: {}",
-                if en {
-                    "Why this value stands first"
-                } else {
-                    "Warum dieser Wert vorne steht"
-                },
-                body
-            ))
-            .with_size("10.5pt")
-            .with_color("#475569"),
+            Label::new(format!("ℹ {}", body))
+                .with_size("10.5pt")
+                .with_color("#475569"),
         )
         .add_component(module_customer_context(
             i18n,
@@ -1167,7 +1173,19 @@ pub(super) fn render_seo_profile(
         ])
         .with_title(i18n.t_args(
             "pdf-seo-profile-structured-data-title",
-            &[("count", profile.schema_count.to_string())],
+            &[(
+                "label",
+                format!(
+                    "{} {}",
+                    profile.schema_count,
+                    match (profile.schema_count == 1, i18n.locale() == "en") {
+                        (true, true) => "schema",
+                        (false, true) => "schemas",
+                        (true, false) => "Schema",
+                        (false, false) => "Schemas",
+                    }
+                ),
+            )],
         ));
         for (typ, completeness, details) in &profile.schema_rows {
             table = table.add_row(vec![typ.as_str(), completeness.as_str(), details.as_str()]);
@@ -1768,14 +1786,13 @@ fn module_customer_context(
     i18n: &I18n,
     module_key: &str,
     score: u32,
-    interpretation: &str,
+    // Intentionally unused: the technical interpretation / heuristic disclaimer
+    // is already shown in the module's "Überblick" and indicator notes. Appending
+    // it here duplicated jargon (e.g. "DOM-Komplexität 20804 Knoten") into the
+    // plain-language customer passage, defeating its purpose (#446 readability).
+    _interpretation: &str,
 ) -> Label {
     let en = i18n.locale() == "en";
-    let title = if en {
-        "What this means for customers"
-    } else {
-        "Was das für Kunden bedeutet"
-    };
     let weakness = if module_key == "content_visibility" {
         None
     } else if score < 50 {
@@ -1822,10 +1839,9 @@ fn module_customer_context(
         parts.push(w);
     }
     parts.push(module_text);
-    if !interpretation.trim().is_empty() {
-        parts.push(interpretation.trim());
-    }
-    let text = format!("ℹ {}: {}", title, parts.join(" "));
+    // No meta-label prefix — the plain-language sentence speaks for itself
+    // ("Was das für Kunden bedeutet:" was redundant wording, #446 readability).
+    let text = format!("ℹ {}", parts.join(" "));
     Label::new(text).with_size("10.5pt").with_color("#475569")
 }
 
@@ -1963,7 +1979,7 @@ pub(super) fn render_tech_stack(
 
     let ts_title = i18n.t("pdf-ts-section-title");
     if !is_first {
-        builder = builder.add_component(PageBreak::new());
+        builder = builder.add_component(packed_section_separator());
     }
     builder = builder.add_component(
         ScoreCard::new(&ts_title, ts.score)
@@ -2398,7 +2414,7 @@ pub(super) fn render_best_practices(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !is_first {
-        builder = builder.add_component(PageBreak::new());
+        builder = builder.add_component(packed_section_separator());
     }
     builder =
         builder.add_component(ScoreCard::new("Best Practices", bp.score).with_thresholds(80, 50));
@@ -2810,9 +2826,21 @@ mod tests {
     }
 
     #[test]
-    fn module_customer_context_includes_caller_interpretation() {
+    fn module_customer_context_excludes_caller_interpretation() {
         let i18n = I18n::new("de").expect("de locale");
         let sentinel = "XZ_SENTINEL_INTERPRETATION_42";
-        assert!(text(&i18n, "performance", 60, sentinel).contains(sentinel));
+        let out = text(&i18n, "performance", 60, sentinel);
+        // The technical interpretation must NOT be echoed into the plain-language
+        // customer passage — it is already shown in the module overview, and
+        // duplicating it dumped jargon into the customer text (#446 readability).
+        assert!(
+            !out.contains(sentinel),
+            "customer passage must not echo the technical interpretation"
+        );
+        // No meta-label prefix anymore; the plain-language module sentence is present.
+        assert!(
+            out.contains("Besucher"),
+            "expected the plain performance customer text, got: {out}"
+        );
     }
 }

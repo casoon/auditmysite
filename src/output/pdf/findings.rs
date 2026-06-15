@@ -12,6 +12,29 @@ use super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
 
 /// Extract the first sentence from a text (up to first period + space, or full text).
 /// Skips common German abbreviations like "z. B.", "d. h.", "u. a.".
+/// Compact an HTML/selector evidence string for table cells: collapse
+/// whitespace and replace `data:` URI bodies (huge unbreakable tokens that blow
+/// up row heights) with `data:…`, then length-truncate. Keeps the meaningful
+/// markup (tag, classes) while dropping the inline-asset noise.
+pub(super) fn compact_html(s: &str, max: usize) -> String {
+    let collapsed = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut result = String::with_capacity(collapsed.len());
+    let mut rest = collapsed.as_str();
+    while let Some(pos) = rest.find("data:") {
+        result.push_str(&rest[..pos]);
+        result.push_str("data:…");
+        rest = &rest[pos + "data:".len()..];
+        // Skip the URI body up to the closing attribute quote.
+        if let Some(q) = rest.find(['"', '\'']) {
+            rest = &rest[q..];
+        } else {
+            rest = "";
+        }
+    }
+    result.push_str(rest);
+    truncate_url(&result, max)
+}
+
 pub(super) fn first_sentence(text: &str) -> &str {
     let mut search_from = 0;
     while let Some(rel) = text[search_from..].find(". ") {
@@ -348,7 +371,7 @@ pub(super) fn render_finding_technical(
 
         for occ in &group.representative_occurrences {
             table = table.add_row(vec![
-                truncate_url(&occ.selector, 48),
+                compact_html(&occ.selector, 48),
                 first_sentence(&occ.message).to_string(),
             ]);
         }
@@ -360,7 +383,7 @@ pub(super) fn render_finding_technical(
             let mut snapshot = SummaryBox::new(format!(
                 "{}: {}",
                 i18n.t("finding-occurrence"),
-                truncate_url(&occ.selector, 60)
+                compact_html(&occ.selector, 60)
             ))
             .add_item("Node", truncate_url(&occ.node_id, 75))
             .add_item(i18n.t("finding-note"), first_sentence(&occ.message));
@@ -371,7 +394,7 @@ pub(super) fn render_finding_technical(
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
             {
-                snapshot = snapshot.add_item("HTML", truncate_url(html, 110));
+                snapshot = snapshot.add_item("HTML", compact_html(html, 110));
             }
 
             builder = builder.add_component(snapshot);
@@ -383,7 +406,7 @@ pub(super) fn render_finding_technical(
                 .filter(|value| !value.is_empty())
             {
                 builder = builder.add_component(
-                    Callout::info(truncate_url(code, 180))
+                    Callout::info(compact_html(code, 180))
                         .with_title(i18n.t("finding-suggested-fix")),
                 );
             }
