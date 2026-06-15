@@ -371,13 +371,9 @@ mod tests {
         ]);
         let label = active_modules_label(&args);
 
-        let mut expected =
+        let expected =
             "Accessibility, Accessibility Journey, Dark Mode, AI Visibility, Source Quality"
                 .to_string();
-        // Semantic Eval only appears when its build feature is compiled.
-        if cfg!(feature = "semantic-eval") {
-            expected.push_str(", Semantic Eval");
-        }
         assert_eq!(label, expected);
     }
 }

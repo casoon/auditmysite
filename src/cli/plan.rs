@@ -165,23 +165,16 @@ mod tests {
         // --skip-performance makes full_audit_enabled() return false,
         // so no optional full modules are active unless explicitly requested.
         let args = Args::parse_from(["auditmysite", "https://example.com", "--skip-performance"]);
-        let mut expected =
+        let expected =
             "Accessibility, Accessibility Journey, Dark Mode, AI Visibility, Source Quality"
                 .to_string();
-        // Semantic Eval only appears when its build feature is compiled.
-        if cfg!(feature = "semantic-eval") {
-            expected.push_str(", Semantic Eval");
-        }
         assert_eq!(active_modules_label(&args), expected);
     }
 
     #[test]
     fn active_modules_label_default_matches_standard_pipeline() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
-        let mut expected = "Accessibility, Accessibility Journey, Best Practices, Dark Mode, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, UX, Source Quality, Content Visibility".to_string();
-        if cfg!(feature = "semantic-eval") {
-            expected.push_str(", Semantic Eval");
-        }
+        let expected = "Accessibility, Accessibility Journey, Best Practices, Dark Mode, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, UX, Source Quality, Content Visibility".to_string();
         assert_eq!(active_modules_label(&args), expected);
     }
 

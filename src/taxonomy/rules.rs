@@ -160,6 +160,11 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("aria-prohibited-attr", "a11y.aria_prohibited_attr.invalid"),
     ("frame-tested", "a11y.frame_tested.cross_origin"),
     ("frame-title", "a11y.frame_title.missing"),
+    ("form-no-submit", "a11y.form_no_submit.missing"),
+    (
+        "presentation-semantic-children",
+        "a11y.presentation_semantic_children.invalid",
+    ),
 ];
 
 /// Alle Regeln im System
@@ -284,6 +289,29 @@ pub static RULES: &[Rule] = &[
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.presentation_semantic_children.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("presentation-semantic-children"),
+        title: "Semantische Kinder in presentational Container",
+        title_en: "Semantic children inside presentational container",
+        description: "Ein Element mit role=\"presentation\" oder role=\"none\" enthält semantische Nachfahren.",
+        user_impact: "Screenreader können relevante Struktur oder Bedienobjekte verlieren.",
+        user_impact_en: "Screen readers may lose relevant structure or interactive controls.",
+        technical_impact: "role=\"presentation\"/\"none\" verdeckt semantische Kindelemente.",
+        technical_impact_en: "role=\"presentation\"/\"none\" hides semantic child elements.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
     },
     Rule {
         id: "a11y.headings.missing",
@@ -840,6 +868,29 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
+        id: "a11y.form_no_submit.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 3.2.2"),
+        external_level: Some("A"),
+        axe_id: Some("form-no-submit"),
+        title: "Formular ohne Absende-Button",
+        title_en: "Form without submit button",
+        description: "Formular mit Eingabefeldern hat keinen expliziten Submit-Button.",
+        user_impact: "Tastatur- und Screenreader-Nutzer erkennen den Abschluss der Eingabe schwerer.",
+        user_impact_en: "Keyboard and screen reader users have a harder time completing the form.",
+        technical_impact: "Fehlendes Submit-Control im Formular.",
+        technical_impact_en: "Missing submit control in the form.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
         id: "a11y.error_id.missing_description",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
@@ -1331,7 +1382,7 @@ pub static RULES: &[Rule] = &[
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
         severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
+        external_ref: Some("WCAG 2.4.1"),
         external_level: Some("A"),
         axe_id: Some("frame-title"),
         title: "Iframe ohne zugänglichen Namen",
@@ -2162,6 +2213,31 @@ mod tests {
         let rule = RuleLookup::by_legacy_wcag_id("1.1.1");
         assert!(rule.is_some());
         assert_eq!(rule.unwrap().id, "a11y.alt_text.missing");
+    }
+
+    #[test]
+    fn test_frame_title_taxonomy_uses_wcag_241() {
+        let rule = RuleLookup::by_legacy_wcag_id("frame-title")
+            .expect("frame-title axe id should resolve");
+        assert_eq!(rule.id, "a11y.frame_title.missing");
+        assert_eq!(rule.external_ref, Some("WCAG 2.4.1"));
+        assert_eq!(rule.axe_id, Some("frame-title"));
+    }
+
+    #[test]
+    fn test_dom_parity_rules_resolve_to_specific_taxonomy() {
+        let form =
+            RuleLookup::by_legacy_wcag_id("form-no-submit").expect("form-no-submit should resolve");
+        assert_eq!(form.id, "a11y.form_no_submit.missing");
+        assert_eq!(form.external_ref, Some("WCAG 3.2.2"));
+
+        let presentation = RuleLookup::by_legacy_wcag_id("presentation-semantic-children")
+            .expect("presentation-semantic-children should resolve");
+        assert_eq!(
+            presentation.id,
+            "a11y.presentation_semantic_children.invalid"
+        );
+        assert_eq!(presentation.external_ref, Some("WCAG 1.3.1"));
     }
 
     #[test]

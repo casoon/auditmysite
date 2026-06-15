@@ -256,9 +256,6 @@ pub struct PageEntry {
     /// Reproducible journey traces. Present only when `--interactive != off`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_journey: Option<crate::audit::normalized::AccessibilityJourney>,
-    /// Advisory (semantic / LLM) findings. Never affect score or risk.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub advisory_findings: Vec<crate::audit::normalized::AdvisoryFinding>,
     /// Compact screen-reader audit (reading-order quality, issues, BFSG verdict).
     /// The full reading sequence stays in the sidecar JSON.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -785,7 +782,6 @@ fn build_page(
         audit_flags: normalized.audit_flags.clone(),
         interactive_findings: normalized.interactive_findings.clone(),
         accessibility_journey: normalized.accessibility_journey.clone(),
-        advisory_findings: normalized.advisory_findings.clone(),
         screen_reader: normalized.screen_reader.clone(),
         detail,
     }

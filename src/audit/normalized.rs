@@ -84,10 +84,6 @@ pub struct NormalizedReport {
     /// the Accessibility-Journey-Layer. `None` when `--interactive=off`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_journey: Option<AccessibilityJourney>,
-    /// Optional semantic / LLM advisory findings. Never influence score or
-    /// risk — explicitly advisory.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub advisory_findings: Vec<AdvisoryFinding>,
     /// Compact screen-reader audit (reading-order quality scores, issues, BFSG
     /// verdict). Kept separate from `findings[]` so WCAG severity counts stay
     /// rechtsrelevant; the full reading sequence stays in the sidecar JSON.
@@ -547,20 +543,6 @@ pub struct InteractiveFinding {
     pub fix_suggestion: Option<String>,
 }
 
-/// Advisory finding from semantic / LLM evaluation. Explicitly advisory —
-/// never influences score or risk level. Off unless `--semantic-eval` is set.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryFinding {
-    /// "link_text" | "heading_outline" | "form_label_coherence"
-    /// | "blind_user_perspective"
-    pub category: String,
-    pub message: String,
-    /// "llm" | "static_heuristic"
-    pub source: String,
-    /// 0.0..1.0 — model confidence or heuristic strength.
-    pub confidence: f32,
-}
-
 /// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditFlag {
@@ -579,7 +561,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
     // Group violations by rule ID
     let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
     for v in violations {
-        groups.entry(&v.rule).or_default().push(v);
+        groups.entry(wcag_group_key(v)).or_default().push(v);
     }
 
     // Build normalized findings
@@ -728,7 +710,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             NormalizedFinding {
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
-                wcag_criterion: rule_id.to_string(),
+                wcag_criterion: first.rule.clone(),
                 axe_id,
                 wcag_level: first.level.to_string(),
                 dimension,
@@ -762,6 +744,16 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
         .collect();
 
     findings
+}
+
+fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
+    match violation.rule_id.as_deref() {
+        Some("frame-title" | "form-no-submit" | "presentation-semantic-children") => violation
+            .rule_id
+            .as_deref()
+            .unwrap_or(violation.rule.as_str()),
+        _ => violation.rule.as_str(),
+    }
 }
 
 /// (title, technical_impact) for an SEO heading-issue type, in the requested
@@ -1703,7 +1695,6 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
         score_breakdown,
         interactive_findings,
         accessibility_journey: report.accessibility_journey.clone(),
-        advisory_findings: report.advisory_findings.clone(),
         screen_reader,
         interpretation: None,
     };
@@ -2024,6 +2015,108 @@ mod tests {
                 "canonical-English JSON field contains German diacritics: {field}"
             );
         }
+    }
+
+    #[test]
+    fn test_frame_title_keeps_wcag_241_and_specific_taxonomy() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "2.4.1",
+                "Frame title",
+                WcagLevel::A,
+                Severity::High,
+                "Iframe is missing an accessible name",
+                "iframe:nth-of-type(1)",
+            )
+            .with_rule_id("frame-title"),
+        );
+        results.add_violation(
+            Violation::new(
+                "2.4.1",
+                "Bypass Blocks",
+                WcagLevel::A,
+                Severity::High,
+                "No bypass mechanism found",
+                "document",
+            )
+            .with_rule_id("bypass"),
+        );
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        );
+        let norm = normalize(&report);
+
+        let frame = norm
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "a11y.frame_title.missing")
+            .expect("frame-title finding should keep its own taxonomy rule");
+        assert_eq!(frame.wcag_criterion, "2.4.1");
+        assert_eq!(frame.axe_id.as_deref(), Some("frame-title"));
+
+        assert!(norm
+            .findings
+            .iter()
+            .any(|f| f.rule_id == "a11y.bypass_blocks.missing"));
+    }
+
+    #[test]
+    fn test_dom_parity_rules_keep_specific_taxonomy() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "3.2.2",
+                "On Input",
+                WcagLevel::A,
+                Severity::Medium,
+                "Form has input controls but no explicit submit button",
+                "form",
+            )
+            .with_rule_id("form-no-submit"),
+        );
+        results.add_violation(
+            Violation::new(
+                "1.3.1",
+                "Info and Relationships",
+                WcagLevel::A,
+                Severity::Medium,
+                "Presentational container contains semantic child",
+                "div[role=\"presentation\"]",
+            )
+            .with_rule_id("presentation-semantic-children"),
+        );
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        );
+        let norm = normalize(&report);
+
+        let form = norm
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "a11y.form_no_submit.missing")
+            .expect("form-no-submit finding should keep its own taxonomy rule");
+        assert_eq!(form.wcag_criterion, "3.2.2");
+        assert_eq!(form.axe_id.as_deref(), Some("form-no-submit"));
+
+        let presentation = norm
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "a11y.presentation_semantic_children.invalid")
+            .expect("presentation-semantic-children should keep its own taxonomy rule");
+        assert_eq!(presentation.wcag_criterion, "1.3.1");
+        assert_eq!(
+            presentation.axe_id.as_deref(),
+            Some("presentation-semantic-children")
+        );
     }
 
     #[test]

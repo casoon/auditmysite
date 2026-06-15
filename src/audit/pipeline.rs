@@ -150,8 +150,6 @@ pub struct PipelineConfig {
     pub interactive: crate::cli::InteractiveMode,
     /// Wall-clock budget for the interactive phase per URL (milliseconds).
     pub journey_budget_ms: u64,
-    /// Semantic AI evaluation config (Phase 4 — off by default).
-    pub semantic_eval: crate::semantic_eval::SemanticEvalConfig,
     /// Report locale ("de" / "en") — used for i18n stopword loading.
     pub lang: String,
 }
@@ -169,9 +167,6 @@ impl PipelineConfig {
                 labels.push(module.label());
             }
         }
-        if self.semantic_eval.enabled {
-            labels.push("Semantic Eval");
-        }
         labels
     }
 
@@ -183,7 +178,7 @@ impl PipelineConfig {
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
         format!(
-            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={};semantic={}",
+            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
             self.wcag_level,
             self.check_performance as u8,
@@ -196,7 +191,6 @@ impl PipelineConfig {
             self.interactive,
             self.journey_budget_ms,
             self.lang,
-            self.semantic_eval.enabled as u8,
         )
     }
 }
@@ -255,33 +249,6 @@ impl PipelineConfig {
             dismiss_consent: args.dismiss_consent,
             interactive: args.interactive,
             journey_budget_ms,
-            semantic_eval: if args.semantic_eval {
-                // Key priority: env var > auditmysite.toml > None (Mistral skipped)
-                let toml_cfg = toml_cfg
-                    .map(|c| c.semantic_eval.clone())
-                    .unwrap_or_default();
-                let mistral_api_key = std::env::var("MISTRAL_API_KEY")
-                    .ok()
-                    .or(toml_cfg.mistral_api_key);
-                let mistral_model = toml_cfg
-                    .mistral_model
-                    .unwrap_or_else(|| "mistral-small-latest".to_string());
-                let similarity_threshold = toml_cfg.similarity_threshold.unwrap_or(0.62);
-                // Semantic eval is on by default (#451), but only counts as
-                // active when it can actually produce something: the fastembed
-                // link-text evaluator needs the `semantic-eval` build feature,
-                // and the Mistral check needs an API key. Otherwise it stays
-                // inert and must not be listed in the report scope.
-                let capable = cfg!(feature = "semantic-eval") || mistral_api_key.is_some();
-                crate::semantic_eval::SemanticEvalConfig {
-                    enabled: capable,
-                    mistral_api_key,
-                    mistral_model,
-                    similarity_threshold,
-                }
-            } else {
-                crate::semantic_eval::SemanticEvalConfig::default()
-            },
             lang: args.lang.clone(),
         }
     }
@@ -585,10 +552,6 @@ pub async fn audit_page(
         Ok(None) => {}
         Err(e) => warn!("Accessibility-Journey-Layer failed: {}", e),
     }
-
-    // ── Semantic AI evaluation (Phase 4 — off unless --semantic-eval) ─────────
-    let advisory = crate::semantic_eval::run(&config.semantic_eval, &primary_snap.ax_tree).await;
-    report.advisory_findings = advisory;
 
     // Persistence is deferred to the caller: the single-page path applies the
     // canonical (LhMobile) performance pass *after* audit_page returns, so
@@ -1241,7 +1204,6 @@ mod tests {
             also_json: false,
             logo: None,
             debug_typ: false,
-            semantic_eval: false,
             export_snapshot: None,
             request_mode: crate::cli::RequestMode::Browser,
         };
@@ -1261,7 +1223,7 @@ mod tests {
     fn active_module_labels_follow_pipeline_flags() {
         let config =
             PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
-        let mut expected = vec![
+        let expected = vec![
             "Accessibility",
             "Accessibility Journey",
             "Best Practices",
@@ -1277,11 +1239,6 @@ mod tests {
             "Source Quality",
             "Content Visibility",
         ];
-        // Semantic Eval is on by default but only counts as active when it can
-        // actually run — i.e. the `semantic-eval` build feature is compiled.
-        if cfg!(feature = "semantic-eval") {
-            expected.push("Semantic Eval");
-        }
         assert_eq!(config.active_module_labels(), expected);
     }
 
@@ -1293,16 +1250,13 @@ mod tests {
             "--skip-performance",
             "--skip-mobile",
         ]));
-        let mut expected = vec![
+        let expected = vec![
             "Accessibility",
             "Accessibility Journey",
             "Dark Mode",
             "AI Visibility",
             "Source Quality",
         ];
-        if cfg!(feature = "semantic-eval") {
-            expected.push("Semantic Eval");
-        }
         assert_eq!(config.active_module_labels(), expected);
     }
 
@@ -1322,7 +1276,6 @@ mod tests {
             dismiss_consent: false,
             interactive: crate::cli::InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
-            semantic_eval: crate::semantic_eval::SemanticEvalConfig::default(),
             lang: "de".to_string(),
         }
     }
@@ -1356,11 +1309,6 @@ mod tests {
         // report, so it must invalidate the cache (#405).
         let mut other = test_pipeline_config();
         other.lang = "en".to_string();
-        assert_ne!(base_sig, other.audit_signature());
-
-        // Semantic eval adds advisory findings to the cached report (#405).
-        let mut other = test_pipeline_config();
-        other.semantic_eval.enabled = !base.semantic_eval.enabled;
         assert_ne!(base_sig, other.audit_signature());
     }
 

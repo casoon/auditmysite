@@ -110,7 +110,6 @@ cargo build --release
 |---------|-------------|---------------|
 | `pdf` | PDF report generation via the `renderreport`/Typst engine | `cargo build --release --features pdf` |
 | `pdf_test` | PDF rendering integration tests | `cargo test --features pdf_test` |
-| `semantic-eval` | Fastembed local embedding for semantic link-text analysis (requires `--semantic-eval` flag at runtime) | `cargo build --release --features semantic-eval` |
 
 ## Requirements
 
@@ -230,7 +229,6 @@ Key top-level fields in a single-page report:
 - `findings` — static WCAG violations and SEO findings
 - `interactive_findings` — journey-phase results (link texts, landmarks, heading outline, focus order, modal traps …); present when `--interactive basic|full` was used
 - `accessibility_journey` — structured trace of each journey (steps, snapshots, durations); present when `--interactive basic|full` was used
-- `advisory_findings` — semantic AI evaluation results (fastembed + Mistral); present when `--semantic-eval` was used; explicitly advisory, never affects score or risk
 
 The repository validates these contracts in automated tests.
 
@@ -318,12 +316,7 @@ Risk level is computed independently from the score. A page scoring 81 can still
 
 ### Configuration file
 
-`auditmysite.toml` is an optional project-level config file placed in the working directory. It supports `[audit]`, `[rules]`, `[interactive]`, `[semantic_eval]`, `[thresholds]`, and `[budget]` sections.
-
-> **Security note:** If you store API keys (e.g. `mistral_api_key`) in `auditmysite.toml`, add the file to `.gitignore` to avoid accidentally committing secrets:
-> ```
-> echo "auditmysite.toml" >> .gitignore
-> ```
+`auditmysite.toml` is an optional project-level config file placed in the working directory. It supports `[audit]`, `[rules]`, `[interactive]`, `[thresholds]`, and `[budget]` sections.
 
 ### Rule configuration
 
@@ -334,42 +327,6 @@ Rules can be selectively disabled or filtered via `auditmysite.toml`:
 disabled = ["heading-order", "landmark-one-main"]
 # enabled_only = ["image-alt", "label"]  # run only these rules
 ```
-
-### Semantic AI evaluation
-
-Adds a semantic layer on top of the static and interactive checks. Two providers run when `--semantic-eval` is set:
-
-- **Fastembed** (local, no API key): embeds link texts using a multilingual model (`MultilingualE5Small`) and flags links that are semantically similar to known generic patterns ("Mehr erfahren", "Read more", …) — catches variations that string matching misses. Requires the `semantic-eval` Cargo feature: `cargo build --features semantic-eval`.
-- **Mistral** (API, optional): evaluates heading-outline plausibility and produces a brief "blind user perspective" for the page. Requires a Mistral API key.
-
-Results appear in `advisory_findings` in the JSON output. They are explicitly advisory — they never influence the accessibility score or risk level.
-
-**Usage:**
-
-```bash
-# Fastembed only (local, no key needed)
-auditmysite https://example.com --semantic-eval
-
-# Fastembed + Mistral via environment variable
-MISTRAL_API_KEY=sk-... auditmysite https://example.com --semantic-eval
-```
-
-**`auditmysite.toml` configuration:**
-
-```toml
-[semantic_eval]
-enabled = true
-mistral_model = "mistral-small-latest"   # or "open-mistral-nemo", "mistral-medium-latest"
-similarity_threshold = 0.62              # fastembed cosine threshold (0.0–1.0)
-
-# API key — omit this field and use the MISTRAL_API_KEY env var instead
-# to avoid storing secrets in a file that might be committed.
-# mistral_api_key = "sk-..."
-```
-
-Key priority: `MISTRAL_API_KEY` environment variable > `mistral_api_key` in `auditmysite.toml` > Mistral skipped (only Fastembed runs).
-
-> **Security note:** If you add `mistral_api_key` to `auditmysite.toml`, make sure the file is listed in `.gitignore`.
 
 ### AI / LLM output format
 

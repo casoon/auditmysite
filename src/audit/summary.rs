@@ -690,7 +690,6 @@ mod tests {
             score_breakdown: None,
             interactive_findings: Vec::new(),
             accessibility_journey: None,
-            advisory_findings: Vec::new(),
             screen_reader: None,
             interpretation: None,
             risk: crate::audit::normalized::RiskAssessment {

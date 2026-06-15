@@ -3,6 +3,9 @@
 //! Checks grouped form controls for fieldset/legend, required field indication,
 //! and error descriptions for invalid fields.
 
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
@@ -43,6 +46,18 @@ pub const RULE_META_LABELS: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag332", "cat.forms"],
 };
 
+/// Rule metadata for forms without an explicit submit control (H32).
+pub const RULE_META_FORM_NO_SUBMIT: RuleMetadata = RuleMetadata {
+    id: "3.2.2",
+    name: "On Input",
+    level: WcagLevel::A,
+    severity: Severity::Medium,
+    description: "Forms that collect user input should provide an explicit submit control",
+    help_url: "https://www.w3.org/WAI/WCAG21/Techniques/html/H32",
+    axe_id: "form-no-submit",
+    tags: &["wcag2a", "wcag322", "cat.forms"],
+};
+
 /// Run all form-related WCAG checks
 pub fn check_form_rules(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
@@ -52,6 +67,97 @@ pub fn check_form_rules(tree: &AXTree) -> WcagResults {
     check_invalid_field_description(tree, &mut results);
 
     results
+}
+
+/// DOM check for forms that collect user input but have no submit button.
+pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        r#"
+        var issues = [];
+        var forms = document.querySelectorAll('form');
+        for (var i = 0; i < forms.length; i++) {
+          var form = forms[i];
+          if (form.hasAttribute('hidden') || form.getAttribute('aria-hidden') === 'true') continue;
+          var style = window.getComputedStyle(form);
+          if (style && (style.display === 'none' || style.visibility === 'hidden')) continue;
+
+          var controls = form.querySelectorAll(
+            'input:not([type="hidden"]):not([disabled]), select:not([disabled]), ' +
+            'textarea:not([disabled]), button:not([disabled])'
+          );
+          if (controls.length === 0) continue;
+
+          var submit = form.querySelector(
+            'button:not([type]):not([disabled]), button[type="submit"]:not([disabled]), ' +
+            'input[type="submit"]:not([disabled]), input[type="image"]:not([disabled]), ' +
+            '[role="button"][data-submit], [role="button"][aria-label*="submit" i], ' +
+            '[role="button"][aria-label*="send" i], [role="button"][aria-label*="search" i]'
+          );
+          if (submit) continue;
+
+          issues.push({
+            selector: __amsCssSelector(form),
+            snippet: form.outerHTML.substring(0, 200),
+            controls: controls.length
+          });
+        }
+        return issues;
+        "#,
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("form-no-submit DOM JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let Some(value) = result.value() else {
+        return vec![];
+    };
+    let Some(issues) = value.as_array() else {
+        return vec![];
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+            let controls = issue.get("controls").and_then(|v| v.as_u64()).unwrap_or(0);
+            let mut violation = Violation::new(
+                RULE_META_FORM_NO_SUBMIT.id,
+                RULE_META_FORM_NO_SUBMIT.name,
+                RULE_META_FORM_NO_SUBMIT.level,
+                RULE_META_FORM_NO_SUBMIT.severity,
+                format!("Form has {controls} input control(s) but no explicit submit button"),
+                &selector,
+            )
+            .with_selector(&selector)
+            .with_rule_id(RULE_META_FORM_NO_SUBMIT.axe_id)
+            .with_tags(
+                RULE_META_FORM_NO_SUBMIT
+                    .tags
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+            )
+            .with_fix(
+                "Add a visible <button type=\"submit\"> or equivalent explicit submit control.",
+            )
+            .with_help_url(RULE_META_FORM_NO_SUBMIT.help_url);
+
+            if let Some(snippet) = issue.get("snippet").and_then(|v| v.as_str()) {
+                violation = violation.with_html_snippet(snippet);
+            }
+
+            Some(violation)
+        })
+        .collect()
 }
 
 /// Check that grouped radio/checkbox controls have a group ancestor
@@ -335,5 +441,12 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("no accessible error description")));
+    }
+
+    #[test]
+    fn test_form_no_submit_metadata() {
+        assert_eq!(RULE_META_FORM_NO_SUBMIT.id, "3.2.2");
+        assert_eq!(RULE_META_FORM_NO_SUBMIT.axe_id, "form-no-submit");
+        assert!(RULE_META_FORM_NO_SUBMIT.tags.contains(&"wcag322"));
     }
 }

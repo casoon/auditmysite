@@ -39,7 +39,6 @@
 //!         dismiss_consent: false,
 //!         interactive: auditmysite::cli::InteractiveMode::Off,
 //!         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-//!         semantic_eval: auditmysite::semantic_eval::SemanticEvalConfig::default(),
 //!         lang: "de".to_string(),
 //!     };
 //!
@@ -100,7 +99,6 @@ pub mod patterns;
 pub mod performance;
 pub mod screen_reader;
 pub mod security;
-pub mod semantic_eval;
 pub mod seo;
 pub mod source_quality;
 pub mod studio;

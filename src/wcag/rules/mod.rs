@@ -101,13 +101,15 @@ pub use error_identification::check_error_identification;
 pub use focus_order::check_focus_order;
 pub use focus_visible::check_focus_visible;
 pub use focus_visible_css::check_focus_visible_css_with_page;
-pub use form_rules::check_form_rules;
+pub use form_rules::{check_form_no_submit_with_page, check_form_rules};
 pub use headings::check_headings;
 pub use help::check_help;
 pub use identify_purpose::check_identify_purpose_with_page;
 pub use iframe_rules::check_same_origin_iframes_with_page;
 pub use image_input_rules::check_image_input_rules;
-pub use info_relationships::check_info_relationships;
+pub use info_relationships::{
+    check_info_relationships, check_presentation_semantic_children_with_page,
+};
 pub use input_purpose::check_input_purpose;
 pub use instructions::check_instructions;
 pub use keyboard::check_keyboard;

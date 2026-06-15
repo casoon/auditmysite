@@ -23,15 +23,6 @@ use super::helpers::{
 
 // ─── Helper: Batch Report Assessment & Key Points ──────────────────────────
 
-#[derive(Debug, Clone, PartialEq)]
-struct BatchAdvisoryFindingSummary {
-    url: String,
-    category: String,
-    source: String,
-    confidence: f32,
-    message: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BatchAuditFlagSummary {
     kind: String,
@@ -71,26 +62,6 @@ fn aggregate_audit_flags(reports: &[crate::audit::AuditReport]) -> Vec<BatchAudi
             .then_with(|| a.kind.cmp(&b.kind))
     });
     summaries
-}
-
-fn collect_batch_advisory_findings(
-    reports: &[crate::audit::AuditReport],
-) -> Vec<BatchAdvisoryFindingSummary> {
-    reports
-        .iter()
-        .flat_map(|report| {
-            report
-                .advisory_findings
-                .iter()
-                .map(move |finding| BatchAdvisoryFindingSummary {
-                    url: report.url.clone(),
-                    category: finding.category.clone(),
-                    source: finding.source.clone(),
-                    confidence: finding.confidence,
-                    message: finding.message.clone(),
-                })
-        })
-        .collect()
 }
 
 fn audit_flag_batch_title(kind: &str, en: bool) -> &'static str {
@@ -150,51 +121,6 @@ fn render_batch_audit_flags(
     } else {
         "Wiederkehrende Audit-Hinweise"
     }))
-}
-
-fn render_batch_advisory_findings(
-    builder: renderreport::engine::ReportBuilder,
-    batch: &BatchReport,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let findings = collect_batch_advisory_findings(&batch.reports);
-    if findings.is_empty() {
-        return builder;
-    }
-
-    let en = i18n.locale() == "en";
-    let mut table = AuditTable::new(vec![
-        TableColumn::new("URL").with_width("24%"),
-        TableColumn::new(if en { "Category" } else { "Kategorie" }).with_width("16%"),
-        TableColumn::new(if en { "Confidence" } else { "Vertrauen" }).with_width("12%"),
-        TableColumn::new(if en { "Finding" } else { "Hinweis" }).with_width("48%"),
-    ])
-    .with_title(if en {
-        "Advisory semantic findings"
-    } else {
-        "Semantische Hinweise"
-    });
-
-    for finding in findings {
-        table = table.add_row(vec![
-            truncate_url(&finding.url, 60),
-            format!("{} / {}", finding.category, finding.source),
-            advisory_confidence_label(finding.confidence),
-            finding.message,
-        ]);
-    }
-
-    builder
-        .add_component(Callout::info(if en {
-            "These advisory findings are included for context only and do not influence the audit score or risk level."
-        } else {
-            "Diese Hinweise dienen nur der Einordnung und beeinflussen weder Audit-Score noch Risikostufe."
-        }))
-        .add_component(table)
-}
-
-fn advisory_confidence_label(confidence: f32) -> String {
-    format!("{:.0} %", (confidence.clamp(0.0, 1.0) * 100.0).round())
 }
 
 /// Clear batch assessment — no score, just interpretation
@@ -2078,7 +2004,6 @@ fn build_batch_report(
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
     builder = render_batch_status_section(builder, &pres, &i18n);
     builder = render_batch_audit_flags(builder, batch, &i18n);
-    builder = render_batch_advisory_findings(builder, batch, &i18n);
     builder = render_batch_url_ranking(builder, &pres, &i18n);
 
     if let Some(ref interactive) = pres.interactive_summary {

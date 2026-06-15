@@ -21,7 +21,6 @@ use super::diagnosis::render_diagnosis_section;
 use super::findings::render_finding_technical;
 use super::helpers::map_severity;
 use super::wcag_coverage::render_wcag_coverage_section;
-use crate::audit::normalized::AdvisoryFinding;
 use crate::audit::AuditReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
@@ -903,55 +902,6 @@ fn render_dual_viewport_summary_section(
     }))
 }
 
-fn render_advisory_findings_section(
-    mut builder: renderreport::engine::ReportBuilder,
-    findings: &[AdvisoryFinding],
-    is_first: bool,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    if findings.is_empty() {
-        return builder;
-    }
-
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
-
-    let en = i18n.locale() == "en";
-    builder = builder.add_component(Callout::info(if en {
-        "These advisory findings are included for context only and do not influence the audit score or risk level."
-    } else {
-        "Diese Hinweise dienen nur der Einordnung und beeinflussen weder Audit-Score noch Risikostufe."
-    }));
-
-    let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Category" } else { "Kategorie" }).with_width("20%"),
-        TableColumn::new(if en { "Source" } else { "Quelle" }).with_width("14%"),
-        TableColumn::new(if en { "Confidence" } else { "Vertrauen" }).with_width("14%"),
-        TableColumn::new(if en { "Finding" } else { "Hinweis" }).with_width("52%"),
-    ])
-    .with_title(if en {
-        "Advisory semantic findings"
-    } else {
-        "Semantische Hinweise"
-    });
-
-    for finding in findings {
-        table = table.add_row(vec![
-            finding.category.clone(),
-            finding.source.clone(),
-            advisory_confidence_label(finding.confidence),
-            finding.message.clone(),
-        ]);
-    }
-
-    builder.add_component(table)
-}
-
-fn advisory_confidence_label(confidence: f32) -> String {
-    format!("{:.0} %", (confidence.clamp(0.0, 1.0) * 100.0).round())
-}
-
 pub(super) fn render_module_sections(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -1020,11 +970,6 @@ pub(super) fn render_module_sections(
     }
     if !vm.positive_signals.is_empty() {
         builder = render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n);
-        is_first = false;
-    }
-    if !report.advisory_findings.is_empty() {
-        builder =
-            render_advisory_findings_section(builder, &report.advisory_findings, is_first, i18n);
     }
     builder
 }
