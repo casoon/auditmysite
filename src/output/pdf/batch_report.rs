@@ -1818,6 +1818,40 @@ fn render_batch_seo_section(
         builder = builder.add_component(table);
     }
 
+    // Cross-page duplicate content (identical title / meta description / H1)
+    if !pres.portfolio_summary.duplicate_content.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-dup-type")),
+            TableColumn::new(i18n.t("batch-col-dup-value")),
+            TableColumn::new(i18n.t("batch-col-dup-count")),
+            TableColumn::new(i18n.t("batch-col-pages-list")),
+        ])
+        .with_title(i18n.t("batch-seo-duplicate-title"));
+
+        for group in &pres.portfolio_summary.duplicate_content {
+            let kind_label = match group.kind.as_str() {
+                "title" => i18n.t("batch-dup-kind-title"),
+                "meta_description" => i18n.t("batch-dup-kind-description"),
+                "h1" => i18n.t("batch-dup-kind-h1"),
+                other => other.to_string(),
+            };
+            let examples = group
+                .urls
+                .iter()
+                .take(3)
+                .map(|u| truncate_url(u, 30))
+                .collect::<Vec<_>>()
+                .join(", ");
+            table = table.add_row(vec![
+                kind_label,
+                group.value.clone(),
+                group.urls.len().to_string(),
+                examples,
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
     // Page type distribution
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
         let high_label = i18n.t("batch-relevance-high");

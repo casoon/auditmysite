@@ -137,6 +137,10 @@ pub struct UnifiedSummary {
     pub management_risks: Vec<ManagementRisk>,
     /// Decision-oriented top actions combining risk, impact, complexity, and reach.
     pub top_actions: Vec<DecisionAction>,
+    /// Cross-page duplicate content groups (batch only): identical title,
+    /// meta description, or H1 shared across multiple pages (#423).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub duplicate_content: Vec<crate::output::report_model::DuplicateContentGroup>,
 }
 
 #[derive(Debug, Serialize)]
@@ -500,6 +504,7 @@ impl UnifiedReport {
             accessibility_score_breakdown: build_accessibility_score_breakdown(&normalized_reports),
             management_risks: build_management_risks(&normalized_reports),
             top_actions: build_decision_actions(&normalized_reports),
+            duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -635,6 +640,7 @@ impl UnifiedReport {
             ),
             management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
+            duplicate_content: Vec::new(),
         };
 
         UnifiedReport {
@@ -703,6 +709,7 @@ impl UnifiedReport {
             ),
             management_risks: build_management_risks(std::slice::from_ref(normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(normalized)),
+            duplicate_content: Vec::new(),
         };
 
         UnifiedReport {
@@ -2288,6 +2295,7 @@ mod tests {
                 accessibility_score_breakdown: vec![],
                 management_risks: vec![],
                 top_actions: vec![],
+                duplicate_content: vec![],
             },
             sample: None,
             pages: vec![],

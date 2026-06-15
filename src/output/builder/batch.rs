@@ -383,6 +383,9 @@ pub fn build_batch_presentation_with_normalized(
         Vec::new()
     };
 
+    // Cross-page duplicate content (identical title / meta description / H1)
+    let duplicate_content = build_duplicate_content(&batch.reports);
+
     // Budget violations: aggregate across all pages
     let budget_summary: Vec<(String, String, usize, String)> = {
         use std::collections::HashMap;
@@ -720,6 +723,7 @@ pub fn build_batch_presentation_with_normalized(
             render_blocking_summary,
             schema_distribution,
             pages_without_schema,
+            duplicate_content,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -780,6 +784,71 @@ fn url_path(url: &str) -> String {
     url::Url::parse(url)
         .map(|u| u.path().to_string())
         .unwrap_or_else(|_| url.to_string())
+}
+
+/// Char-boundary-safe truncation with an ellipsis for display values.
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let head: String = s.chars().take(max).collect();
+        format!("{head}…")
+    }
+}
+
+/// Detect pages that share an identical title, meta description, or H1 across
+/// the audited set — a standard cross-page SEO signal (#423). Values are
+/// normalized (trimmed, whitespace-collapsed, lowercased) for grouping but
+/// stored verbatim (truncated) for display. Only groups with ≥2 pages are kept.
+fn build_duplicate_content(reports: &[crate::audit::AuditReport]) -> Vec<DuplicateContentGroup> {
+    fn norm(s: &str) -> String {
+        s.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    }
+
+    // (kind, normalized_value) → (verbatim display value, urls)
+    let mut groups: HashMap<(&'static str, String), (String, Vec<String>)> = HashMap::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let candidates: [(&'static str, Option<&str>); 3] = [
+            ("title", seo.meta.title.as_deref()),
+            ("meta_description", seo.meta.description.as_deref()),
+            ("h1", seo.headings.h1_text.as_deref()),
+        ];
+        for (kind, raw) in candidates {
+            let Some(value) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+                continue;
+            };
+            let entry = groups
+                .entry((kind, norm(value)))
+                .or_insert_with(|| (value.to_string(), Vec::new()));
+            if !entry.1.contains(&r.url) {
+                entry.1.push(r.url.clone());
+            }
+        }
+    }
+
+    let mut out: Vec<DuplicateContentGroup> = groups
+        .into_iter()
+        .filter(|(_, (_, urls))| urls.len() >= 2)
+        .map(|((kind, _), (value, urls))| DuplicateContentGroup {
+            kind: kind.to_string(),
+            value: truncate_chars(&value, 80),
+            urls,
+        })
+        .collect();
+
+    // Deterministic order: most-duplicated first, then by kind, then value.
+    out.sort_by(|a, b| {
+        b.urls
+            .len()
+            .cmp(&a.urls.len())
+            .then_with(|| a.kind.cmp(&b.kind))
+            .then_with(|| a.value.cmp(&b.value))
+    });
+    out
 }
 
 // ─── Internal batch helpers ──────────────────────────────────────────────────
@@ -1028,5 +1097,67 @@ fn representative_occurrence_from_normalized(
         message: occurrence.message.clone(),
         html_snippet: occurrence.html_snippet.clone(),
         suggested_code: occurrence.suggested_code.clone(),
+    }
+}
+
+#[cfg(test)]
+mod duplicate_content_tests {
+    use super::*;
+    use crate::audit::AuditReport;
+    use crate::cli::WcagLevel;
+    use crate::seo::{HeadingStructure, MetaTags, SeoAnalysis};
+    use crate::wcag::WcagResults;
+
+    fn report_with(url: &str, title: &str, h1: &str) -> AuditReport {
+        let seo = SeoAnalysis {
+            meta: MetaTags {
+                title: Some(title.to_string()),
+                ..Default::default()
+            },
+            headings: HeadingStructure {
+                h1_text: Some(h1.to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_seo(seo)
+    }
+
+    #[test]
+    fn groups_identical_titles_and_h1s_ignoring_case_and_whitespace() {
+        let reports = vec![
+            report_with("https://x.test/a", "Welcome", "Hero"),
+            // Same title (case + spacing differ) → one title group of 2 pages.
+            report_with("https://x.test/b", "  welcome ", "Other"),
+            report_with("https://x.test/c", "Unique", "Hero"),
+        ];
+
+        let groups = build_duplicate_content(&reports);
+
+        let title_group = groups
+            .iter()
+            .find(|g| g.kind == "title")
+            .expect("duplicate title group");
+        assert_eq!(title_group.value, "Welcome"); // verbatim from first occurrence, trimmed
+        assert_eq!(title_group.urls.len(), 2);
+
+        // "Hero" H1 appears on a and c → one h1 group of 2.
+        let h1_group = groups
+            .iter()
+            .find(|g| g.kind == "h1")
+            .expect("duplicate h1 group");
+        assert_eq!(h1_group.urls.len(), 2);
+
+        // "Unique" title and "Other" H1 appear once → not grouped.
+        assert!(!groups.iter().any(|g| g.value == "Unique"));
+    }
+
+    #[test]
+    fn no_groups_when_all_values_distinct() {
+        let reports = vec![
+            report_with("https://x.test/a", "One", "A"),
+            report_with("https://x.test/b", "Two", "B"),
+        ];
+        assert!(build_duplicate_content(&reports).is_empty());
     }
 }

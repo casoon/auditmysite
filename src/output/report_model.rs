@@ -1039,6 +1039,18 @@ pub struct ActionPlan {
     pub role_assignments: Vec<RoleAssignment>,
 }
 
+/// A group of pages that share an identical SEO content value across the site.
+///
+/// `kind` is a canonical, language-neutral key (`"title"`, `"meta_description"`,
+/// or `"h1"`); the PDF layer derives the localized label at render time (#406).
+/// `value` is the verbatim shared content (truncated for display).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DuplicateContentGroup {
+    pub kind: String,
+    pub value: String,
+    pub urls: Vec<String>,
+}
+
 pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
@@ -1083,6 +1095,8 @@ pub struct PortfolioSummary {
     pub schema_distribution: Vec<(String, usize)>,
     /// Number of pages with no structured data at all
     pub pages_without_schema: usize,
+    /// Cross-page duplicate content groups (identical title / meta description / H1)
+    pub duplicate_content: Vec<DuplicateContentGroup>,
 }
 
 pub struct CrawlLinkSummary {
