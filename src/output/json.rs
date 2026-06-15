@@ -141,6 +141,10 @@ pub struct UnifiedSummary {
     /// meta description, or H1 shared across multiple pages (#423).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub duplicate_content: Vec<crate::output::report_model::DuplicateContentGroup>,
+    /// Per-page canonical conflicts (batch only): noindex conflict or og:url
+    /// mismatch (#423).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub canonical_issues: Vec<crate::output::report_model::CanonicalIssue>,
 }
 
 #[derive(Debug, Serialize)]
@@ -505,6 +509,7 @@ impl UnifiedReport {
             management_risks: build_management_risks(&normalized_reports),
             top_actions: build_decision_actions(&normalized_reports),
             duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
+            canonical_issues: presentation.portfolio_summary.canonical_issues.clone(),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -641,6 +646,7 @@ impl UnifiedReport {
             management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
             duplicate_content: Vec::new(),
+            canonical_issues: Vec::new(),
         };
 
         UnifiedReport {
@@ -710,6 +716,7 @@ impl UnifiedReport {
             management_risks: build_management_risks(std::slice::from_ref(normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(normalized)),
             duplicate_content: Vec::new(),
+            canonical_issues: Vec::new(),
         };
 
         UnifiedReport {
@@ -2296,6 +2303,7 @@ mod tests {
                 management_risks: vec![],
                 top_actions: vec![],
                 duplicate_content: vec![],
+                canonical_issues: vec![],
             },
             sample: None,
             pages: vec![],

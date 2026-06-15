@@ -1051,6 +1051,18 @@ pub struct DuplicateContentGroup {
     pub urls: Vec<String>,
 }
 
+/// A canonical-tag conflict found on a single page (#423).
+///
+/// `kind` is a canonical, language-neutral key (`"noindex_conflict"` or
+/// `"og_url_mismatch"`); the PDF layer derives the localized label at render
+/// time (#406). `detail` carries the offending values for context.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CanonicalIssue {
+    pub kind: String,
+    pub url: String,
+    pub detail: String,
+}
+
 pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
@@ -1097,6 +1109,8 @@ pub struct PortfolioSummary {
     pub pages_without_schema: usize,
     /// Cross-page duplicate content groups (identical title / meta description / H1)
     pub duplicate_content: Vec<DuplicateContentGroup>,
+    /// Per-page canonical-tag conflicts aggregated across the site
+    pub canonical_issues: Vec<CanonicalIssue>,
 }
 
 pub struct CrawlLinkSummary {

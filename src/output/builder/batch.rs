@@ -386,6 +386,9 @@ pub fn build_batch_presentation_with_normalized(
     // Cross-page duplicate content (identical title / meta description / H1)
     let duplicate_content = build_duplicate_content(&batch.reports);
 
+    // Per-page canonical conflicts (noindex / og:url mismatch)
+    let canonical_issues = build_canonical_issues(&batch.reports);
+
     // Budget violations: aggregate across all pages
     let budget_summary: Vec<(String, String, usize, String)> = {
         use std::collections::HashMap;
@@ -724,6 +727,7 @@ pub fn build_batch_presentation_with_normalized(
             schema_distribution,
             pages_without_schema,
             duplicate_content,
+            canonical_issues,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -848,6 +852,63 @@ fn build_duplicate_content(reports: &[crate::audit::AuditReport]) -> Vec<Duplica
             .then_with(|| a.kind.cmp(&b.kind))
             .then_with(|| a.value.cmp(&b.value))
     });
+    out
+}
+
+/// Detect canonical-tag conflicts per page (#423): a canonical pointing away
+/// while the page is `noindex` (mixed signals to crawlers), and a canonical
+/// that disagrees with the page's `og:url`. Pure per-page checks aggregated
+/// across the batch; no extra network requests.
+fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<CanonicalIssue> {
+    fn norm_url(u: &str) -> String {
+        u.trim().trim_end_matches('/').to_string()
+    }
+
+    let mut out = Vec::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let Some(canonical) = seo
+            .technical
+            .canonical_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        else {
+            continue;
+        };
+
+        // canonical present while the page is noindex → conflicting signal.
+        let noindex = seo
+            .technical
+            .robots_meta
+            .as_deref()
+            .is_some_and(|m| m.to_lowercase().contains("noindex"));
+        if noindex {
+            out.push(CanonicalIssue {
+                kind: "noindex_conflict".to_string(),
+                url: r.url.clone(),
+                detail: canonical.to_string(),
+            });
+        }
+
+        // canonical vs og:url mismatch (ignoring trailing slash).
+        if let Some(og_url) = seo
+            .social
+            .open_graph
+            .as_ref()
+            .and_then(|og| og.url.as_deref())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            if norm_url(canonical) != norm_url(og_url) {
+                out.push(CanonicalIssue {
+                    kind: "og_url_mismatch".to_string(),
+                    url: r.url.clone(),
+                    detail: format!("{canonical} ≠ {og_url}"),
+                });
+            }
+        }
+    }
     out
 }
 
@@ -1159,5 +1220,68 @@ mod duplicate_content_tests {
             report_with("https://x.test/b", "Two", "B"),
         ];
         assert!(build_duplicate_content(&reports).is_empty());
+    }
+
+    fn report_with_canonical(
+        url: &str,
+        canonical: Option<&str>,
+        robots: Option<&str>,
+        og_url: Option<&str>,
+    ) -> AuditReport {
+        use crate::seo::{OpenGraph, SocialTags, TechnicalSeo};
+        let seo = SeoAnalysis {
+            technical: TechnicalSeo {
+                canonical_url: canonical.map(str::to_string),
+                robots_meta: robots.map(str::to_string),
+                ..Default::default()
+            },
+            social: SocialTags {
+                open_graph: og_url.map(|u| OpenGraph {
+                    url: Some(u.to_string()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_seo(seo)
+    }
+
+    #[test]
+    fn flags_noindex_and_ogurl_conflicts_only() {
+        let reports = vec![
+            // noindex + canonical → conflict
+            report_with_canonical(
+                "https://x.test/a",
+                Some("https://x.test/a"),
+                Some("noindex, follow"),
+                None,
+            ),
+            // canonical disagrees with og:url (trailing slash ignored elsewhere)
+            report_with_canonical(
+                "https://x.test/b",
+                Some("https://x.test/canon"),
+                None,
+                Some("https://x.test/other"),
+            ),
+            // clean: canonical == og:url (trailing slash only), indexable → no issue
+            report_with_canonical(
+                "https://x.test/c",
+                Some("https://x.test/c/"),
+                Some("index, follow"),
+                Some("https://x.test/c"),
+            ),
+        ];
+
+        let issues = build_canonical_issues(&reports);
+        assert_eq!(issues.len(), 2);
+        assert!(issues
+            .iter()
+            .any(|i| i.kind == "noindex_conflict" && i.url == "https://x.test/a"));
+        assert!(issues
+            .iter()
+            .any(|i| i.kind == "og_url_mismatch" && i.url == "https://x.test/b"));
+        // page c must not be flagged (trailing-slash-only difference)
+        assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
     }
 }

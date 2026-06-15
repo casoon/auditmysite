@@ -1852,6 +1852,31 @@ fn render_batch_seo_section(
         builder = builder.add_component(table);
     }
 
+    // Canonical conflicts (noindex / og:url mismatch)
+    if !pres.portfolio_summary.canonical_issues.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-dup-type")),
+            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-dup-value")),
+        ])
+        .with_title(i18n.t("batch-seo-canonical-title"));
+
+        for issue in &pres.portfolio_summary.canonical_issues {
+            let kind_label = match issue.kind.as_str() {
+                "noindex_conflict" => i18n.t("batch-canonical-noindex"),
+                "og_url_mismatch" => i18n.t("batch-canonical-ogurl"),
+                other => other.to_string(),
+            };
+            let detail = if issue.detail.chars().count() > 50 {
+                format!("{}…", issue.detail.chars().take(50).collect::<String>())
+            } else {
+                issue.detail.clone()
+            };
+            table = table.add_row(vec![kind_label, truncate_url(&issue.url, 35), detail]);
+        }
+        builder = builder.add_component(table);
+    }
+
     // Page type distribution
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
         let high_label = i18n.t("batch-relevance-high");
