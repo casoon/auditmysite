@@ -1063,6 +1063,16 @@ pub struct CanonicalIssue {
     pub detail: String,
 }
 
+/// A non-reciprocal hreflang relationship (#423): `source_url` declares an
+/// hreflang entry pointing to `target_url` (also in the audited set), but the
+/// target does not declare a return link back to the source.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct HreflangIssue {
+    pub source_url: String,
+    pub target_url: String,
+    pub lang: String,
+}
+
 pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
@@ -1111,6 +1121,8 @@ pub struct PortfolioSummary {
     pub duplicate_content: Vec<DuplicateContentGroup>,
     /// Per-page canonical-tag conflicts aggregated across the site
     pub canonical_issues: Vec<CanonicalIssue>,
+    /// Non-reciprocal hreflang relationships between audited pages
+    pub hreflang_issues: Vec<HreflangIssue>,
 }
 
 pub struct CrawlLinkSummary {

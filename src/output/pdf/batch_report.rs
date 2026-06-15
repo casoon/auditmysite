@@ -1877,6 +1877,25 @@ fn render_batch_seo_section(
         builder = builder.add_component(table);
     }
 
+    // Non-reciprocal hreflang relationships
+    if !pres.portfolio_summary.hreflang_issues.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-hreflang-source")),
+            TableColumn::new(i18n.t("batch-col-hreflang-target")),
+            TableColumn::new(i18n.t("batch-col-hreflang-lang")),
+        ])
+        .with_title(i18n.t("batch-seo-hreflang-title"));
+
+        for issue in &pres.portfolio_summary.hreflang_issues {
+            table = table.add_row(vec![
+                truncate_url(&issue.source_url, 32),
+                truncate_url(&issue.target_url, 32),
+                issue.lang.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
     // Page type distribution
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
         let high_label = i18n.t("batch-relevance-high");

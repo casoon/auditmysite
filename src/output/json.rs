@@ -145,6 +145,10 @@ pub struct UnifiedSummary {
     /// mismatch (#423).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub canonical_issues: Vec<crate::output::report_model::CanonicalIssue>,
+    /// Non-reciprocal hreflang relationships between audited pages (batch only,
+    /// #423).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hreflang_issues: Vec<crate::output::report_model::HreflangIssue>,
 }
 
 #[derive(Debug, Serialize)]
@@ -510,6 +514,7 @@ impl UnifiedReport {
             top_actions: build_decision_actions(&normalized_reports),
             duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
             canonical_issues: presentation.portfolio_summary.canonical_issues.clone(),
+            hreflang_issues: presentation.portfolio_summary.hreflang_issues.clone(),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -647,6 +652,7 @@ impl UnifiedReport {
             top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
             duplicate_content: Vec::new(),
             canonical_issues: Vec::new(),
+            hreflang_issues: Vec::new(),
         };
 
         UnifiedReport {
@@ -717,6 +723,7 @@ impl UnifiedReport {
             top_actions: build_decision_actions(std::slice::from_ref(normalized)),
             duplicate_content: Vec::new(),
             canonical_issues: Vec::new(),
+            hreflang_issues: Vec::new(),
         };
 
         UnifiedReport {
@@ -2304,6 +2311,7 @@ mod tests {
                 top_actions: vec![],
                 duplicate_content: vec![],
                 canonical_issues: vec![],
+                hreflang_issues: vec![],
             },
             sample: None,
             pages: vec![],

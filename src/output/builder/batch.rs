@@ -389,6 +389,9 @@ pub fn build_batch_presentation_with_normalized(
     // Per-page canonical conflicts (noindex / og:url mismatch)
     let canonical_issues = build_canonical_issues(&batch.reports);
 
+    // Non-reciprocal hreflang relationships among audited pages
+    let hreflang_issues = build_hreflang_issues(&batch.reports);
+
     // Budget violations: aggregate across all pages
     let budget_summary: Vec<(String, String, usize, String)> = {
         use std::collections::HashMap;
@@ -728,6 +731,7 @@ pub fn build_batch_presentation_with_normalized(
             pages_without_schema,
             duplicate_content,
             canonical_issues,
+            hreflang_issues,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -909,6 +913,58 @@ fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<Canonica
             }
         }
     }
+    out
+}
+
+/// Detect non-reciprocal hreflang relationships among the audited pages (#423):
+/// page A points to B via hreflang, B is also in the set, but B does not point
+/// back to A. Only verifiable pairs (both pages audited) are checked; targets
+/// outside the set are skipped since their hreflang is unknown.
+fn build_hreflang_issues(reports: &[crate::audit::AuditReport]) -> Vec<HreflangIssue> {
+    fn norm_url(u: &str) -> String {
+        u.trim().trim_end_matches('/').to_lowercase()
+    }
+
+    // normalized page url → set of normalized hreflang targets it declares.
+    let mut declared: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let entry = declared.entry(norm_url(&r.url)).or_default();
+        for tag in &seo.technical.hreflang {
+            let t = tag.url.trim();
+            if !t.is_empty() {
+                entry.insert(norm_url(t));
+            }
+        }
+    }
+
+    let mut out = Vec::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let source = norm_url(&r.url);
+        for tag in &seo.technical.hreflang {
+            let target = norm_url(tag.url.trim());
+            if target.is_empty() || target == source {
+                continue;
+            }
+            // Only verify reciprocity for targets that are themselves audited.
+            let Some(target_set) = declared.get(&target) else {
+                continue;
+            };
+            if !target_set.contains(&source) {
+                out.push(HreflangIssue {
+                    source_url: r.url.clone(),
+                    target_url: tag.url.trim().to_string(),
+                    lang: tag.lang.clone(),
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| {
+        a.source_url
+            .cmp(&b.source_url)
+            .then_with(|| a.target_url.cmp(&b.target_url))
+    });
     out
 }
 
@@ -1283,5 +1339,51 @@ mod duplicate_content_tests {
             .any(|i| i.kind == "og_url_mismatch" && i.url == "https://x.test/b"));
         // page c must not be flagged (trailing-slash-only difference)
         assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
+    }
+
+    fn report_with_hreflang(url: &str, targets: &[(&str, &str)]) -> AuditReport {
+        use crate::seo::technical::HreflangTag;
+        use crate::seo::TechnicalSeo;
+        let seo = SeoAnalysis {
+            technical: TechnicalSeo {
+                has_hreflang: !targets.is_empty(),
+                hreflang: targets
+                    .iter()
+                    .map(|(lang, u)| HreflangTag {
+                        lang: lang.to_string(),
+                        url: u.to_string(),
+                    })
+                    .collect(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_seo(seo)
+    }
+
+    #[test]
+    fn flags_only_non_reciprocal_hreflang_between_audited_pages() {
+        let reports = vec![
+            // A points to B and to an external (non-audited) page.
+            report_with_hreflang(
+                "https://x.test/en",
+                &[("de", "https://x.test/de"), ("fr", "https://ext.test/fr")],
+            ),
+            // B points back to A → A↔B reciprocal; B also points to C.
+            report_with_hreflang(
+                "https://x.test/de",
+                &[("en", "https://x.test/en"), ("es", "https://x.test/es")],
+            ),
+            // C does NOT point back to B → B→C is non-reciprocal.
+            report_with_hreflang("https://x.test/es", &[]),
+        ];
+
+        let issues = build_hreflang_issues(&reports);
+
+        // Only B→C should be flagged. A→B is reciprocal; A→ext is unverifiable.
+        assert_eq!(issues.len(), 1, "got: {issues:?}");
+        assert_eq!(issues[0].source_url, "https://x.test/de");
+        assert_eq!(issues[0].target_url, "https://x.test/es");
+        assert_eq!(issues[0].lang, "es");
     }
 }
