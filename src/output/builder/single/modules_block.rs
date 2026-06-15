@@ -23,29 +23,30 @@ fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &s
 
 pub(super) fn build_modules_block_from_normalized(
     i18n: &I18n,
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
 ) -> ModulesBlock {
     let locale = i18n.locale();
-    let a11y_score = normalized.score as f32;
+    let a11y_score = normalized.normalized.score as f32;
     let mut dashboard = vec![ModuleScore {
         name: localized_module_name("Accessibility", i18n),
         score: a11y_score.round() as u32,
         measurement_type: "measured".into(),
-        interpretation: module_interpretation(normalized, "accessibility", locale),
-        card_context: derive_accessibility_card_context(i18n, normalized),
-        score_context: derive_accessibility_context(i18n, normalized),
-        key_lever: derive_accessibility_lever(i18n, normalized),
+        interpretation: module_interpretation(&normalized.normalized, "accessibility", locale),
+        card_context: derive_accessibility_card_context(i18n, &normalized.normalized),
+        score_context: derive_accessibility_context(i18n, &normalized.normalized),
+        key_lever: derive_accessibility_lever(i18n, &normalized.normalized),
         good_threshold: 75,
         warn_threshold: 50,
     }];
 
-    if let Some(ref p) = normalized.raw_performance {
-        let score = normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
+    if let Some(p) = normalized.raw_performance {
+        let score = normalized_module_score(&normalized.normalized, "Performance")
+            .unwrap_or(p.score.overall);
         dashboard.push(ModuleScore {
             name: "Performance".into(),
             score,
             measurement_type: "measured".into(),
-            interpretation: module_interpretation(normalized, "performance", locale),
+            interpretation: module_interpretation(&normalized.normalized, "performance", locale),
             card_context: derive_performance_card_context(i18n, p),
             score_context: derive_performance_context(i18n, p),
             key_lever: derive_performance_lever(i18n, p),
@@ -75,13 +76,13 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 50,
         });
     }
-    if let Some(ref s) = normalized.raw_security {
-        let score = normalized_module_score(normalized, "Security").unwrap_or(s.score);
+    if let Some(s) = normalized.raw_security {
+        let score = normalized_module_score(&normalized.normalized, "Security").unwrap_or(s.score);
         dashboard.push(ModuleScore {
             name: localized_module_name("Security", i18n),
             score,
             measurement_type: "measured".into(),
-            interpretation: module_interpretation(normalized, "security", locale),
+            interpretation: module_interpretation(&normalized.normalized, "security", locale),
             card_context: derive_security_card_context(i18n, s),
             score_context: derive_security_context(i18n, s),
             key_lever: derive_security_lever(i18n, s),
@@ -89,13 +90,13 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 50,
         });
     }
-    if let Some(ref m) = normalized.raw_mobile {
-        let score = normalized_module_score(normalized, "Mobile").unwrap_or(m.score);
+    if let Some(m) = normalized.raw_mobile {
+        let score = normalized_module_score(&normalized.normalized, "Mobile").unwrap_or(m.score);
         dashboard.push(ModuleScore {
             name: "Mobile".into(),
             score,
             measurement_type: "measured".into(),
-            interpretation: module_interpretation(normalized, "mobile", locale),
+            interpretation: module_interpretation(&normalized.normalized, "mobile", locale),
             card_context: derive_mobile_card_context(i18n, m),
             score_context: derive_mobile_context(i18n, m),
             key_lever: derive_mobile_lever(i18n, m),
@@ -103,8 +104,8 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 50,
         });
     }
-    if let Some(ref u) = normalized.raw_ux {
-        let ux_score = normalized_module_score(normalized, "UX").unwrap_or(u.score);
+    if let Some(u) = normalized.raw_ux {
+        let ux_score = normalized_module_score(&normalized.normalized, "UX").unwrap_or(u.score);
         let ux_context = format!(
             "CTA Clarity {}/100, Visual Hierarchy {}/100, Content Clarity {}/100, Trust Signals {}/100, Cognitive Load {}/100",
             u.cta_clarity.score, u.visual_hierarchy.score, u.content_clarity.score, u.trust_signals.score, u.cognitive_load.score
@@ -122,7 +123,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "UX".into(),
             score: ux_score,
             measurement_type: "heuristic".into(),
-            interpretation: module_interpretation(normalized, "ux", locale),
+            interpretation: module_interpretation(&normalized.normalized, "ux", locale),
             card_context: ux_context.clone(),
             score_context: ux_context,
             key_lever: ux_lever,
@@ -130,8 +131,9 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 55,
         });
     }
-    if let Some(ref j) = normalized.raw_journey {
-        let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
+    if let Some(j) = normalized.raw_journey {
+        let journey_score =
+            normalized_module_score(&normalized.normalized, "Journey").unwrap_or(j.score);
         let journey_context = format!(
             "{}: {} · Entry {}/100, Orientation {}/100, Navigation {}/100, Interaction {}/100, Conversion {}/100",
             i18n.t("journey-intent-label"),
@@ -151,7 +153,7 @@ pub(super) fn build_modules_block_from_normalized(
             name: "Journey".into(),
             score: journey_score,
             measurement_type: "heuristic".into(),
-            interpretation: module_interpretation(normalized, "journey", locale),
+            interpretation: module_interpretation(&normalized.normalized, "journey", locale),
             card_context: journey_context.clone(),
             score_context: journey_context,
             key_lever: journey_lever,
@@ -162,12 +164,12 @@ pub(super) fn build_modules_block_from_normalized(
 
     let has_multiple = dashboard.len() > 1;
     let overall_score = if has_multiple {
-        Some(normalized.overall_score)
+        Some(normalized.normalized.overall_score)
     } else {
         None
     };
     let overall_interpretation =
-        overall_score.map(|_| build_overall_score_explanation(i18n, normalized));
+        overall_score.map(|_| build_overall_score_explanation(i18n, &normalized.normalized));
 
     ModulesBlock {
         dashboard,

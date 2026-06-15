@@ -18,10 +18,10 @@ const W_STRUCTURE: u32 = 10;
 const W_MOBILE: u32 = 5;
 
 pub fn build_search_experience(
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
     i18n: &I18n,
 ) -> Option<SearchExperiencePresentation> {
-    let seo = normalized.raw_seo.as_ref()?;
+    let seo = normalized.raw_seo?;
     let en = i18n.locale() == "en";
 
     let mut components = Vec::new();
@@ -42,7 +42,7 @@ pub fn build_search_experience(
         .into(),
     });
 
-    if let Some(ux) = normalized.raw_ux.as_ref() {
+    if let Some(ux) = normalized.raw_ux {
         components.push(SearchExperienceComponent {
             label: if en {
                 "Content clarity".into()
@@ -120,7 +120,7 @@ pub fn build_search_experience(
         });
     }
 
-    if let Some(ai) = normalized.raw_ai_visibility.as_ref() {
+    if let Some(ai) = normalized.raw_ai_visibility {
         let ai_score = weighted_average(&[
             (ai.readability.dimension.score, 40),
             (ai.citation.dimension.score, 30),
@@ -143,7 +143,7 @@ pub fn build_search_experience(
         });
     }
 
-    if let Some(mobile) = normalized.raw_mobile.as_ref() {
+    if let Some(mobile) = normalized.raw_mobile {
         components.push(SearchExperienceComponent {
             label: if en {
                 "Mobile readability".into()
@@ -196,10 +196,9 @@ fn weighted_average(items: &[(u32, u32)]) -> u32 {
     ((sum as f64 / total_weight as f64).round() as u32).min(100)
 }
 
-fn trust_score(normalized: &AuditContext, ux_score: u32) -> u32 {
+fn trust_score(normalized: &AuditContext<'_>, ux_score: u32) -> u32 {
     let local_business_penalty = normalized
         .raw_content_visibility
-        .as_ref()
         .map(|cv| {
             cv.local_business
                 .iter()
@@ -216,10 +215,9 @@ fn trust_score(normalized: &AuditContext, ux_score: u32) -> u32 {
     ux_score.saturating_sub(local_business_penalty.min(24))
 }
 
-fn structure_score(normalized: &AuditContext, ux_score: u32) -> u32 {
+fn structure_score(normalized: &AuditContext<'_>, ux_score: u32) -> u32 {
     let seo_structure = normalized
         .raw_seo
-        .as_ref()
         .and_then(|seo| seo.content_profile.as_ref())
         .map(|profile| {
             let heading = category_score(profile, "Überschriften")
@@ -245,9 +243,9 @@ fn category_score(profile: &crate::seo::profile::SeoContentProfile, name: &str) 
         .map(|c| c.score_pct)
 }
 
-fn build_warnings(normalized: &AuditContext, score: u32, en: bool) -> Vec<String> {
+fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<String> {
     let mut warnings = Vec::new();
-    if let Some(seo) = normalized.raw_seo.as_ref() {
+    if let Some(seo) = normalized.raw_seo {
         if seo.score >= 75 && score + 10 < seo.score {
             warnings.push(if en {
                 format!(
@@ -296,7 +294,7 @@ fn build_warnings(normalized: &AuditContext, score: u32, en: bool) -> Vec<String
         }
     }
 
-    if let Some(ux) = normalized.raw_ux.as_ref() {
+    if let Some(ux) = normalized.raw_ux {
         if ux.content_clarity.score < 70 {
             warnings.push(format!(
                 "{}: {} / 100 — {}",
@@ -329,7 +327,7 @@ fn build_warnings(normalized: &AuditContext, score: u32, en: bool) -> Vec<String
         }
     }
 
-    if let Some(cv) = normalized.raw_content_visibility.as_ref() {
+    if let Some(cv) = normalized.raw_content_visibility {
         if cv.local_business.iter().any(|s| s.level.is_problem()) {
             warnings.push(if en {
                 "LocalBusiness or local trust data is incomplete or not machine-readable."

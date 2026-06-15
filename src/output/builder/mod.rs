@@ -80,9 +80,9 @@ mod tests {
         let normalized = normalize(&report);
         let vm = build_view_model(&normalized, &ReportConfig::default());
 
-        assert_eq!(vm.summary.score, normalized.score);
-        assert_eq!(vm.summary.grade, normalized.grade);
-        assert_eq!(vm.summary.certificate, normalized.certificate);
+        assert_eq!(vm.summary.score, normalized.normalized.score);
+        assert_eq!(vm.summary.grade, normalized.normalized.grade);
+        assert_eq!(vm.summary.certificate, normalized.normalized.certificate);
         assert!(vm
             .summary
             .metrics
@@ -218,11 +218,14 @@ mod tests {
         let pres = build_batch_presentation(&batch);
         let normalized = normalize(&report);
 
-        assert_eq!(pres.url_ranking[0].score as u32, normalized.score);
-        assert_eq!(pres.url_ranking[0].grade, normalized.grade);
+        assert_eq!(
+            pres.url_ranking[0].score as u32,
+            normalized.normalized.score
+        );
+        assert_eq!(pres.url_ranking[0].grade, normalized.normalized.grade);
         assert_eq!(
             pres.url_details[0].module_scores.len(),
-            normalized.module_scores.len()
+            normalized.normalized.module_scores.len()
         );
         assert!(pres.url_details[0]
             .module_scores

@@ -397,7 +397,7 @@ mod tests {
 
         let report = pdf_fixture_report_rich();
         let normalized = crate::audit::normalize(&report);
-        let expected_score = normalized.score.to_string();
+        let expected_score = normalized.normalized.score.to_string();
         let config = ReportConfig {
             level: ReportLevel::Standard,
             ..ReportConfig::default()

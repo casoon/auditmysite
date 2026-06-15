@@ -154,6 +154,7 @@ fn test_all_modules_present_in_module_scores() {
     let normalized = normalize(&report);
 
     let module_names: Vec<&str> = normalized
+        .normalized
         .module_scores
         .iter()
         .map(|m| m.name.as_str())
@@ -230,11 +231,11 @@ fn test_missing_modules_not_in_scores() {
 
     // Only Accessibility should be in module_scores
     assert_eq!(
-        normalized.module_scores.len(),
+        normalized.normalized.module_scores.len(),
         1,
         "Only Accessibility should be present without --full"
     );
-    assert_eq!(normalized.module_scores[0].name, "Accessibility");
+    assert_eq!(normalized.normalized.module_scores[0].name, "Accessibility");
 }
 
 // ─── Overall Score Consistency ─────────────────────────────────────
@@ -246,12 +247,14 @@ fn test_overall_score_equals_weighted_average() {
 
     // Calculate expected weighted average from modules that contribute to overall_score.
     let weighted_sum: f64 = normalized
+        .normalized
         .module_scores
         .iter()
         .filter(|m| m.contributes_to_overall)
         .map(|m| m.score as f64 * m.weight_pct as f64)
         .sum();
     let total_weight: f64 = normalized
+        .normalized
         .module_scores
         .iter()
         .filter(|m| m.contributes_to_overall)
@@ -260,12 +263,13 @@ fn test_overall_score_equals_weighted_average() {
     let expected = (weighted_sum / total_weight).round() as u32;
 
     assert_eq!(
-        normalized.overall_score,
+        normalized.normalized.overall_score,
         expected,
         "overall_score ({}) != weighted average of module_scores ({}). Modules: {:?}",
-        normalized.overall_score,
+        normalized.normalized.overall_score,
         expected,
         normalized
+            .normalized
             .module_scores
             .iter()
             .map(|m| {
@@ -290,7 +294,7 @@ fn test_overall_score_accessibility_only() {
 
     // With only Accessibility, overall_score == accessibility score
     assert_eq!(
-        normalized.overall_score, normalized.score,
+        normalized.normalized.overall_score, normalized.normalized.score,
         "With only Accessibility module, overall should equal accessibility score"
     );
 }
@@ -313,7 +317,12 @@ fn test_severity_counts_match_findings() {
     let mut occ_medium = 0usize;
     let mut occ_low = 0usize;
 
-    for f in normalized.findings.iter().filter(|f| f.category == "wcag") {
+    for f in normalized
+        .normalized
+        .findings
+        .iter()
+        .filter(|f| f.category == "wcag")
+    {
         match f.severity {
             Severity::Critical => {
                 findings_critical += 1;
@@ -334,21 +343,30 @@ fn test_severity_counts_match_findings() {
         }
     }
 
-    assert_eq!(normalized.severity_counts.critical, findings_critical);
-    assert_eq!(normalized.severity_counts.high, findings_high);
-    assert_eq!(normalized.severity_counts.medium, findings_medium);
-    assert_eq!(normalized.severity_counts.low, findings_low);
     assert_eq!(
-        normalized.severity_counts.total,
+        normalized.normalized.severity_counts.critical,
+        findings_critical
+    );
+    assert_eq!(normalized.normalized.severity_counts.high, findings_high);
+    assert_eq!(
+        normalized.normalized.severity_counts.medium,
+        findings_medium
+    );
+    assert_eq!(normalized.normalized.severity_counts.low, findings_low);
+    assert_eq!(
+        normalized.normalized.severity_counts.total,
         findings_critical + findings_high + findings_medium + findings_low
     );
 
-    assert_eq!(normalized.occurrence_counts.critical, occ_critical);
-    assert_eq!(normalized.occurrence_counts.high, occ_high);
-    assert_eq!(normalized.occurrence_counts.medium, occ_medium);
-    assert_eq!(normalized.occurrence_counts.low, occ_low);
     assert_eq!(
-        normalized.occurrence_counts.total,
+        normalized.normalized.occurrence_counts.critical,
+        occ_critical
+    );
+    assert_eq!(normalized.normalized.occurrence_counts.high, occ_high);
+    assert_eq!(normalized.normalized.occurrence_counts.medium, occ_medium);
+    assert_eq!(normalized.normalized.occurrence_counts.low, occ_low);
+    assert_eq!(
+        normalized.normalized.occurrence_counts.total,
         occ_critical + occ_high + occ_medium + occ_low
     );
 }
@@ -390,13 +408,20 @@ fn test_json_counts_include_seo_findings() {
     let page = &unified.pages[0];
 
     let total_rules = normalized
+        .normalized
         .findings
         .iter()
         .map(|f| f.rule_id.as_str())
         .collect::<std::collections::HashSet<_>>()
         .len();
-    let total_occurrences: usize = normalized.findings.iter().map(|f| f.occurrence_count).sum();
+    let total_occurrences: usize = normalized
+        .normalized
+        .findings
+        .iter()
+        .map(|f| f.occurrence_count)
+        .sum();
     let seo_rules = normalized
+        .normalized
         .findings
         .iter()
         .filter(|f| f.category == "seo")
@@ -410,6 +435,7 @@ fn test_json_counts_include_seo_findings() {
 
     // severity_counts stays WCAG-only (legal/risk semantics)
     let wcag_rules = normalized
+        .normalized
         .findings
         .iter()
         .filter(|f| f.category == "wcag")
@@ -462,11 +488,11 @@ fn test_fix_guidance_matches_findings() {
 
     assert_eq!(
         fix_guidance.len(),
-        normalized.findings.len(),
+        normalized.normalized.findings.len(),
         "fix_guidance count should match findings count"
     );
 
-    for (guidance, finding) in fix_guidance.iter().zip(&normalized.findings) {
+    for (guidance, finding) in fix_guidance.iter().zip(&normalized.normalized.findings) {
         assert_eq!(
             guidance.rule_id, finding.rule_id,
             "fix_guidance rule_id mismatch"
@@ -563,7 +589,7 @@ fn test_grade_matches_score() {
         let normalized = normalize(&report);
 
         // Grade must be consistent with score
-        let grade_from_score = match normalized.score {
+        let grade_from_score = match normalized.normalized.score {
             90..=100 => "A",
             80..=89 => "B",
             70..=79 => "C",
@@ -572,9 +598,9 @@ fn test_grade_matches_score() {
         };
 
         assert_eq!(
-            normalized.grade, grade_from_score,
+            normalized.normalized.grade, grade_from_score,
             "Grade '{}' doesn't match score {} (expected '{}')",
-            normalized.grade, normalized.score, grade_from_score
+            normalized.normalized.grade, normalized.normalized.score, grade_from_score
         );
     }
 }
@@ -587,6 +613,7 @@ fn test_module_weights_sum_to_expected() {
     let normalized = normalize(&report);
 
     let total_weight: u32 = normalized
+        .normalized
         .module_scores
         .iter()
         .filter(|m| m.contributes_to_overall)
@@ -604,7 +631,7 @@ fn test_module_weights_correct() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
-    for m in &normalized.module_scores {
+    for m in &normalized.normalized.module_scores {
         let expected_weight = match m.name.as_str() {
             "Accessibility" => 40,
             "Performance" => 20,
@@ -695,16 +722,16 @@ fn test_risk_critical_with_level_a_violations() {
     let normalized = normalize(&report);
 
     assert_eq!(
-        normalized.risk.level,
+        normalized.normalized.risk.level,
         auditmysite::audit::normalized::RiskLevel::Critical,
         "Expected Critical risk for report with critical Level A violations"
     );
     assert!(
-        normalized.risk.legal_flags > 0,
+        normalized.normalized.risk.legal_flags > 0,
         "Should have legal flags for Level A violations"
     );
     assert!(
-        normalized.risk.blocking_issues > 0,
+        normalized.normalized.risk.blocking_issues > 0,
         "Should have blocking issues for 4.1.2 violations"
     );
 }
@@ -768,14 +795,14 @@ fn test_risk_breadth_critical_without_critical_occurrences() {
     );
     let normalized = normalize(&report);
 
-    assert_eq!(normalized.risk.critical_issues, 0);
-    assert_eq!(normalized.risk.legal_flags, 4);
+    assert_eq!(normalized.normalized.risk.critical_issues, 0);
+    assert_eq!(normalized.normalized.risk.legal_flags, 4);
     assert_eq!(
-        normalized.risk.level,
+        normalized.normalized.risk.level,
         auditmysite::audit::normalized::RiskLevel::Critical,
         "4 distinct Level-A High rules = systemic legal exposure → Critical"
     );
-    assert_eq!(normalized.risk.driven_by, "Legal Compliance");
+    assert_eq!(normalized.normalized.risk.driven_by, "Legal Compliance");
 }
 
 #[test]
@@ -789,12 +816,12 @@ fn test_risk_low_without_violations() {
     let normalized = normalize(&report);
 
     assert_eq!(
-        normalized.risk.level,
+        normalized.normalized.risk.level,
         auditmysite::audit::normalized::RiskLevel::Low,
         "Expected Low risk for report without violations"
     );
-    assert_eq!(normalized.risk.critical_issues, 0);
-    assert_eq!(normalized.risk.legal_flags, 0);
+    assert_eq!(normalized.normalized.risk.critical_issues, 0);
+    assert_eq!(normalized.normalized.risk.legal_flags, 0);
 }
 
 #[test]
@@ -842,21 +869,21 @@ fn test_risk_independent_from_score() {
     // test is that Risk is Critical even though Score is not 0 — they are
     // independent signals.
     assert!(
-        normalized.score > 0,
+        normalized.normalized.score > 0,
         "Score should be > 0 even with critical violations (got {})",
-        normalized.score
+        normalized.normalized.score
     );
     assert!(
-        normalized.score <= 49,
+        normalized.normalized.score <= 49,
         "Critical violations cap the score at 49 (got {})",
-        normalized.score
+        normalized.normalized.score
     );
     // A single distinct legal flag (3× the same rule) is High, not Critical —
     // Critical is reserved for systemic exposure (≥3 distinct WCAG-A barriers
     // or ≥5 critical occurrences). The point of this test is that risk is
     // elevated even though the score is low: score != risk.
     assert_eq!(
-        normalized.risk.level,
+        normalized.normalized.risk.level,
         auditmysite::audit::normalized::RiskLevel::High,
         "Risk should be elevated (High) — score != risk"
     );
@@ -891,6 +918,7 @@ fn test_json_module_detail_scores_match_normalized_scores() {
         ("Journey", m.journey.as_ref(), &["score"][..]),
     ] {
         let expected = normalized
+            .normalized
             .module_scores
             .iter()
             .find(|m| m.name == module_name)
@@ -921,12 +949,12 @@ fn test_ai_json_scores_match_normalized_scores() {
 
     assert_eq!(
         parsed["score"].as_u64(),
-        Some(normalized.score as u64),
+        Some(normalized.normalized.score as u64),
         "AI JSON score must use NormalizedReport.score as primary WCAG score"
     );
     assert_eq!(
         parsed["overall_score"].as_u64(),
-        Some(normalized.overall_score as u64),
+        Some(normalized.normalized.overall_score as u64),
         "AI JSON overall_score must use NormalizedReport.overall_score as secondary weighted score"
     );
 }
@@ -935,7 +963,7 @@ fn test_ai_json_scores_match_normalized_scores() {
 fn test_batch_json_average_score_is_accessibility_with_overall_separate() {
     let reports = vec![make_full_report()];
     let normalized = normalize(&reports[0]);
-    let expected_overall = normalized.overall_score as u64;
+    let expected_overall = normalized.normalized.overall_score as u64;
     let batch = BatchReport::from_reports(reports, vec![], 100);
     let expected_score = batch.summary.average_score.round() as u64;
     let parsed: serde_json::Value =
@@ -958,6 +986,7 @@ fn test_journey_module_weight() {
     let report = make_full_report();
     let normalized = normalize(&report);
     let journey_entry = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Journey");
@@ -982,9 +1011,9 @@ fn test_batch_summary_uses_normalized_primary_score() {
     report.score = 79.6;
 
     let normalized = normalize(&report);
-    let batch = BatchReport::from_reports(vec![report], vec![], 100);
+    let batch = BatchReport::from_reports(vec![report.clone()], vec![], 100);
 
-    assert_eq!(normalized.score, 80);
+    assert_eq!(normalized.normalized.score, 80);
     assert_eq!(batch.summary.average_score, 80.0);
     assert_eq!(batch.summary.passed, 1);
     assert_eq!(batch.summary.failed, 0);
@@ -1245,7 +1274,7 @@ fn test_contributes_to_overall_flags_correct() {
     let core = ["Accessibility", "Performance", "SEO", "Security", "Mobile"];
     let supplemental = ["UX", "Journey"];
 
-    for m in &normalized.module_scores {
+    for m in &normalized.normalized.module_scores {
         if core.contains(&m.name.as_str()) {
             assert!(
                 m.contributes_to_overall,
@@ -1267,6 +1296,7 @@ fn test_contributes_to_overall_flags_correct() {
 
     // Core weights must sum to exactly 100 so overall_score is a proper percentage
     let core_weight: u32 = normalized
+        .normalized
         .module_scores
         .iter()
         .filter(|m| m.contributes_to_overall)

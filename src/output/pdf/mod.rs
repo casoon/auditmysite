@@ -277,7 +277,7 @@ fn build_single_report(
 
         // Maßnahmenplan (Roadmap) & confidence notes
         builder = render_timeframe_roadmap(builder, &vm, &i18n);
-        builder = render_audit_confidence_notes(builder, &normalized.audit_flags, &i18n);
+        builder = render_audit_confidence_notes(builder, &normalized.normalized.audit_flags, &i18n);
     }
 
     // Executive level stops here

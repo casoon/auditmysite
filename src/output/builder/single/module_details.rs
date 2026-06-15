@@ -59,7 +59,7 @@ fn join_phrases(items: &[String], en: bool) -> String {
 fn append_performance_qualifiers(
     base: String,
     p: &crate::PerformanceResults,
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
     en: bool,
 ) -> String {
     let mut critical: Vec<String> = Vec::new();
@@ -190,25 +190,23 @@ fn append_performance_qualifiers(
 }
 
 fn build_performance_details(
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
     i18n: &I18n,
 ) -> Option<PerformancePresentation> {
     let locale = i18n.locale();
-    normalized.raw_performance.as_ref().map(|p| {
-        let performance_score =
-            normalized_module_score(normalized, "Performance").unwrap_or(p.score.overall);
-        let performance_grade = normalized_module_grade(normalized, "Performance")
+    normalized.raw_performance.map(|p| {
+        let performance_score = normalized_module_score(&normalized.normalized, "Performance")
+            .unwrap_or(p.score.overall);
+        let performance_grade = normalized_module_grade(&normalized.normalized, "Performance")
             .unwrap_or_else(|| p.score.grade.label().to_string());
         let vitals = build_vitals_list(p, i18n);
-        let desktop_viewport =
-            normalized
-                .raw_performance_desktop
-                .as_ref()
-                .map(|d| PerformanceViewport {
-                    score: d.score.overall,
-                    grade: d.score.grade.label().to_string(),
-                    vitals: build_vitals_list(d, i18n),
-                });
+        let desktop_viewport = normalized
+            .raw_performance_desktop
+            .map(|d| PerformanceViewport {
+                score: d.score.overall,
+                grade: d.score.grade.label().to_string(),
+                vitals: build_vitals_list(d, i18n),
+            });
         let mobile_viewport = Some(PerformanceViewport {
             score: p.score.overall,
             grade: p.score.grade.label().to_string(),
@@ -299,7 +297,7 @@ fn build_performance_details(
             );
         }
         let en = locale == "en";
-        let base_perf = module_interpretation(normalized, "performance", locale);
+        let base_perf = module_interpretation(&normalized.normalized, "performance", locale);
         // When all core vitals are green but score < 85, append the cause for the gap.
         let score_below_excellent = performance_score < 85;
         let perf_interpretation = if cwv_all_good && score_below_excellent {
@@ -587,11 +585,11 @@ fn build_performance_details(
     })
 }
 
-fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresentation> {
+fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPresentation> {
     let locale = i18n.locale();
     let en = locale == "en";
-    normalized.raw_seo.as_ref().map(|s| {
-        let seo_score = normalized_module_score(normalized, "SEO").unwrap_or(s.score);
+    normalized.raw_seo.map(|s| {
+        let seo_score = normalized_module_score(&normalized.normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
         if let Some(ref title) = s.meta.title {
             meta_tags.push(("Titel".to_string(), title.clone()));
@@ -947,7 +945,8 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
             // Re-derive SERP signals in the report locale; `s.serp` is canonical
             // English for JSON, the PDF localizes here (#406).
             serp: s.serp.as_ref().map(|_| {
-                let localized = crate::seo::build_serp_analysis(s, &normalized.url, locale);
+                let localized =
+                    crate::seo::build_serp_analysis(s, &normalized.normalized.url, locale);
                 build_serp_presentation(locale, &localized)
             }),
             robots: s.robots.as_ref().map(|r| {
@@ -1032,10 +1031,14 @@ fn build_seo_details(normalized: &AuditContext, i18n: &I18n) -> Option<SeoPresen
     })
 }
 
-fn build_security_details(normalized: &AuditContext, i18n: &I18n) -> Option<SecurityPresentation> {
+fn build_security_details(
+    normalized: &AuditContext<'_>,
+    i18n: &I18n,
+) -> Option<SecurityPresentation> {
     let locale = i18n.locale();
-    normalized.raw_security.as_ref().map(|sec| {
-        let security_score = normalized_module_score(normalized, "Security").unwrap_or(sec.score);
+    normalized.raw_security.map(|sec| {
+        let security_score =
+            normalized_module_score(&normalized.normalized, "Security").unwrap_or(sec.score);
         let header_checks: Vec<(&str, &Option<String>)> = vec![
             (
                 "Content-Security-Policy",
@@ -1064,9 +1067,9 @@ fn build_security_details(normalized: &AuditContext, i18n: &I18n) -> Option<Secu
 
         SecurityPresentation {
             score: security_score,
-            grade: normalized_module_grade(normalized, "Security")
+            grade: normalized_module_grade(&normalized.normalized, "Security")
                 .unwrap_or_else(|| sec.grade.clone()),
-            interpretation: module_interpretation(normalized, "security", locale),
+            interpretation: module_interpretation(&normalized.normalized, "security", locale),
             headers: header_checks
                 .iter()
                 .map(|(name, value)| {
@@ -1115,10 +1118,11 @@ fn build_security_details(normalized: &AuditContext, i18n: &I18n) -> Option<Secu
     })
 }
 
-fn build_mobile_details(normalized: &AuditContext, i18n: &I18n) -> Option<MobilePresentation> {
+fn build_mobile_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<MobilePresentation> {
     let locale = i18n.locale();
-    normalized.raw_mobile.as_ref().map(|m| {
-        let mobile_score = normalized_module_score(normalized, "Mobile").unwrap_or(m.score);
+    normalized.raw_mobile.map(|m| {
+        let mobile_score =
+            normalized_module_score(&normalized.normalized, "Mobile").unwrap_or(m.score);
         let small_targets = m.touch_targets.small_targets;
         let en = locale == "en";
         let context_hint = if !m.touch_targets.small_by_context.is_empty() {
@@ -1139,7 +1143,7 @@ fn build_mobile_details(normalized: &AuditContext, i18n: &I18n) -> Option<Mobile
         } else {
             String::new()
         };
-        let base_mobile = module_interpretation(normalized, "mobile", locale);
+        let base_mobile = module_interpretation(&normalized.normalized, "mobile", locale);
         let mobile_interpretation = if small_targets >= 10 {
             // When context is known (e.g. "footer", "navigation"), qualify as locally scoped
             // so a high overall score paired with a large touch-target count reads correctly.
@@ -1254,36 +1258,34 @@ fn build_mobile_details(normalized: &AuditContext, i18n: &I18n) -> Option<Mobile
     })
 }
 
-fn build_dark_mode_details(normalized: &AuditContext) -> Option<DarkModePresentation> {
-    normalized
-        .raw_dark_mode
-        .as_ref()
-        .map(|dm| DarkModePresentation {
-            supported: dm.supported,
-            score: dm.score,
-            detection_methods: dm.detection_methods.clone(),
-            color_scheme_css: dm.color_scheme_css,
-            meta_color_scheme: dm.meta_color_scheme.clone(),
-            css_custom_properties: dm.css_custom_properties,
-            dark_contrast_violations: dm.dark_contrast_violations,
-            dark_only_violations: dm.dark_only_violations,
-            light_only_violations: dm.light_only_violations,
-            issues: dm
-                .issues
-                .iter()
-                .map(|i| (i.severity.clone(), i.description.clone()))
-                .collect(),
-        })
+fn build_dark_mode_details(normalized: &AuditContext<'_>) -> Option<DarkModePresentation> {
+    normalized.raw_dark_mode.map(|dm| DarkModePresentation {
+        supported: dm.supported,
+        score: dm.score,
+        detection_methods: dm.detection_methods.clone(),
+        color_scheme_css: dm.color_scheme_css,
+        meta_color_scheme: dm.meta_color_scheme.clone(),
+        css_custom_properties: dm.css_custom_properties,
+        dark_contrast_violations: dm.dark_contrast_violations,
+        dark_only_violations: dm.dark_only_violations,
+        light_only_violations: dm.light_only_violations,
+        issues: dm
+            .issues
+            .iter()
+            .map(|i| (i.severity.clone(), i.description.clone()))
+            .collect(),
+    })
 }
 
-fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresentation> {
+fn build_ux_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<UxPresentation> {
     let locale = i18n.locale();
-    normalized.raw_ux.as_ref().map(|u| {
-        let ux_score = normalized_module_score(normalized, "UX").unwrap_or(u.score);
+    normalized.raw_ux.map(|u| {
+        let ux_score = normalized_module_score(&normalized.normalized, "UX").unwrap_or(u.score);
         UxPresentation {
             score: ux_score,
-            grade: normalized_module_grade(normalized, "UX").unwrap_or_else(|| u.grade.clone()),
-            interpretation: module_interpretation(normalized, "ux", locale),
+            grade: normalized_module_grade(&normalized.normalized, "UX")
+                .unwrap_or_else(|| u.grade.clone()),
+            interpretation: module_interpretation(&normalized.normalized, "ux", locale),
             dimensions: vec![
                 UxDimensionPresentation {
                     kind: u.cta_clarity.kind,
@@ -1333,15 +1335,18 @@ fn build_ux_details(normalized: &AuditContext, i18n: &I18n) -> Option<UxPresenta
     })
 }
 
-fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<JourneyPresentation> {
+fn build_journey_details(
+    normalized: &AuditContext<'_>,
+    i18n: &I18n,
+) -> Option<JourneyPresentation> {
     let locale = i18n.locale();
     let en = locale == "en";
-    normalized.raw_journey.as_ref().map(|j| {
-        let journey_score = normalized_module_score(normalized, "Journey").unwrap_or(j.score);
+    normalized.raw_journey.map(|j| {
+        let journey_score =
+            normalized_module_score(&normalized.normalized, "Journey").unwrap_or(j.score);
         // Detect page type mismatch between SEO profile and Journey module
         let seo_type: Option<String> = normalized
             .raw_seo
-            .as_ref()
             .and_then(|s| s.content_profile.as_ref())
             .map(|cp| cp.page_classification.primary_type.label(en).to_lowercase());
         let journey_type = j.page_intent.label(en).to_lowercase();
@@ -1361,7 +1366,7 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
             }
             _ => String::new(),
         };
-        let base_journey = module_interpretation(normalized, "journey", locale);
+        let base_journey = module_interpretation(&normalized.normalized, "journey", locale);
         let journey_interpretation = if type_note.is_empty() {
             base_journey
         } else {
@@ -1369,7 +1374,7 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
         };
         JourneyPresentation {
             score: journey_score,
-            grade: normalized_module_grade(normalized, "Journey")
+            grade: normalized_module_grade(&normalized.normalized, "Journey")
                 .unwrap_or_else(|| j.grade.clone()),
             page_intent: j.page_intent.label(en).to_string(),
             interpretation: journey_interpretation,
@@ -1429,7 +1434,7 @@ fn build_journey_details(normalized: &AuditContext, i18n: &I18n) -> Option<Journ
 
 pub(super) fn build_module_details_from_normalized(
     i18n: &I18n,
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
 ) -> ModuleDetailsBlock {
     let performance = build_performance_details(normalized, i18n);
     let search_experience = build_search_experience(normalized, i18n);
@@ -1440,12 +1445,12 @@ pub(super) fn build_module_details_from_normalized(
     let ux = build_ux_details(normalized, i18n);
     let journey = build_journey_details(normalized, i18n);
 
-    let source_quality = normalized.raw_source_quality.clone();
-    let ai_visibility = normalized.raw_ai_visibility.clone();
-    let tech_stack = normalized.raw_tech_stack.clone();
-    let content_visibility = normalized.raw_content_visibility.clone();
-    let best_practices = normalized.raw_best_practices.clone();
-    let patterns = normalized.raw_patterns.clone();
+    let source_quality = normalized.raw_source_quality.cloned();
+    let ai_visibility = normalized.raw_ai_visibility.cloned();
+    let tech_stack = normalized.raw_tech_stack.cloned();
+    let content_visibility = normalized.raw_content_visibility.cloned();
+    let best_practices = normalized.raw_best_practices.cloned();
+    let patterns = normalized.raw_patterns.cloned();
 
     let has_any = performance.is_some()
         || search_experience.is_some()

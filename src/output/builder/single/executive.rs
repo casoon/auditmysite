@@ -8,12 +8,11 @@ use crate::output::report_model::{
 /// description (already human-readable from the detector).
 pub(super) fn build_positive_signals(
     locale: &str,
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
 ) -> PositiveSignalsBlock {
     let en = locale == "en";
     let mut items: Vec<PositiveSignal> = normalized
         .raw_patterns
-        .as_ref()
         .map(|p| {
             p.recognized
                 .iter()

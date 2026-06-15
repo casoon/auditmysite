@@ -79,7 +79,7 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
             level,
             report.nodes_analyzed,
             report.duration_ms as f64 / 1000.0,
-            normalized.overall_score,
+            normalized.normalized.overall_score,
             report.certificate
         )
         .dimmed()
@@ -87,7 +87,7 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
     if !viewport_info.is_empty() {
         println!("{}", viewport_info);
     }
-    for flag in &normalized.audit_flags {
+    for flag in &normalized.normalized.audit_flags {
         if flag.kind == "viewport_gap" {
             println!(
                 "  {}",
@@ -132,14 +132,20 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
     let normalized = crate::audit::normalize(report);
     let mut rows = vec![render_dashboard_row(
         "Accessibility",
-        normalized.score,
-        &normalized.grade,
+        normalized.normalized.score,
+        &normalized.normalized.grade,
     )];
 
-    if let Some(module) = normalized.module_scores.iter().find(|m| m.name == "SEO") {
+    if let Some(module) = normalized
+        .normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "SEO")
+    {
         rows.push(render_dashboard_row("SEO", module.score, &module.grade));
     }
     if let Some(module) = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Performance")
@@ -151,6 +157,7 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
         ));
     }
     if let Some(module) = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Security")
@@ -161,13 +168,24 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
             &module.grade,
         ));
     }
-    if let Some(module) = normalized.module_scores.iter().find(|m| m.name == "Mobile") {
+    if let Some(module) = normalized
+        .normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "Mobile")
+    {
         rows.push(render_dashboard_row("Mobile", module.score, &module.grade));
     }
-    if let Some(module) = normalized.module_scores.iter().find(|m| m.name == "UX") {
+    if let Some(module) = normalized
+        .normalized
+        .module_scores
+        .iter()
+        .find(|m| m.name == "UX")
+    {
         rows.push(render_dashboard_row("UX", module.score, &module.grade));
     }
     if let Some(module) = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Journey")
@@ -364,7 +382,9 @@ fn print_fix_suggestions(violations: &[Violation]) {
 /// Print the report footer
 fn print_footer(report: &AuditReport) {
     let normalized = crate::audit::normalize(report);
-    let pass_fail = if normalized.score >= 70 && normalized.severity_counts.critical == 0 {
+    let pass_fail = if normalized.normalized.score >= 70
+        && normalized.normalized.severity_counts.critical == 0
+    {
         "PASS".green().bold()
     } else {
         "NEEDS IMPROVEMENT".red().bold()

@@ -37,7 +37,7 @@ fn aggregate_audit_flags(reports: &[crate::audit::AuditReport]) -> Vec<BatchAudi
     for report in reports {
         let normalized = crate::audit::normalize(report);
         let mut seen_on_page = std::collections::BTreeSet::new();
-        for flag in &normalized.audit_flags {
+        for flag in &normalized.normalized.audit_flags {
             if !seen_on_page.insert(flag.kind.clone()) {
                 continue;
             }
