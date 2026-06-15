@@ -23,15 +23,6 @@ use super::helpers::{
 
 // ─── Helper: Batch Report Assessment & Key Points ──────────────────────────
 
-#[derive(Debug, Clone, PartialEq)]
-struct BatchAdvisoryFindingSummary {
-    url: String,
-    category: String,
-    source: String,
-    confidence: f32,
-    message: String,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BatchAuditFlagSummary {
     kind: String,
@@ -46,7 +37,7 @@ fn aggregate_audit_flags(reports: &[crate::audit::AuditReport]) -> Vec<BatchAudi
     for report in reports {
         let normalized = crate::audit::normalize(report);
         let mut seen_on_page = std::collections::BTreeSet::new();
-        for flag in &normalized.audit_flags {
+        for flag in &normalized.normalized.audit_flags {
             if !seen_on_page.insert(flag.kind.clone()) {
                 continue;
             }
@@ -71,26 +62,6 @@ fn aggregate_audit_flags(reports: &[crate::audit::AuditReport]) -> Vec<BatchAudi
             .then_with(|| a.kind.cmp(&b.kind))
     });
     summaries
-}
-
-fn collect_batch_advisory_findings(
-    reports: &[crate::audit::AuditReport],
-) -> Vec<BatchAdvisoryFindingSummary> {
-    reports
-        .iter()
-        .flat_map(|report| {
-            report
-                .advisory_findings
-                .iter()
-                .map(move |finding| BatchAdvisoryFindingSummary {
-                    url: report.url.clone(),
-                    category: finding.category.clone(),
-                    source: finding.source.clone(),
-                    confidence: finding.confidence,
-                    message: finding.message.clone(),
-                })
-        })
-        .collect()
 }
 
 fn audit_flag_batch_title(kind: &str, en: bool) -> &'static str {
@@ -150,51 +121,6 @@ fn render_batch_audit_flags(
     } else {
         "Wiederkehrende Audit-Hinweise"
     }))
-}
-
-fn render_batch_advisory_findings(
-    builder: renderreport::engine::ReportBuilder,
-    batch: &BatchReport,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let findings = collect_batch_advisory_findings(&batch.reports);
-    if findings.is_empty() {
-        return builder;
-    }
-
-    let en = i18n.locale() == "en";
-    let mut table = AuditTable::new(vec![
-        TableColumn::new("URL").with_width("24%"),
-        TableColumn::new(if en { "Category" } else { "Kategorie" }).with_width("16%"),
-        TableColumn::new(if en { "Confidence" } else { "Vertrauen" }).with_width("12%"),
-        TableColumn::new(if en { "Finding" } else { "Hinweis" }).with_width("48%"),
-    ])
-    .with_title(if en {
-        "Advisory semantic findings"
-    } else {
-        "Semantische Hinweise"
-    });
-
-    for finding in findings {
-        table = table.add_row(vec![
-            truncate_url(&finding.url, 60),
-            format!("{} / {}", finding.category, finding.source),
-            advisory_confidence_label(finding.confidence),
-            finding.message,
-        ]);
-    }
-
-    builder
-        .add_component(Callout::info(if en {
-            "These advisory findings are included for context only and do not influence the audit score or risk level."
-        } else {
-            "Diese Hinweise dienen nur der Einordnung und beeinflussen weder Audit-Score noch Risikostufe."
-        }))
-        .add_component(table)
-}
-
-fn advisory_confidence_label(confidence: f32) -> String {
-    format!("{:.0} %", (confidence.clamp(0.0, 1.0) * 100.0).round())
 }
 
 /// Clear batch assessment — no score, just interpretation
@@ -1892,6 +1818,84 @@ fn render_batch_seo_section(
         builder = builder.add_component(table);
     }
 
+    // Cross-page duplicate content (identical title / meta description / H1)
+    if !pres.portfolio_summary.duplicate_content.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-dup-type")),
+            TableColumn::new(i18n.t("batch-col-dup-value")),
+            TableColumn::new(i18n.t("batch-col-dup-count")),
+            TableColumn::new(i18n.t("batch-col-pages-list")),
+        ])
+        .with_title(i18n.t("batch-seo-duplicate-title"));
+
+        for group in &pres.portfolio_summary.duplicate_content {
+            let kind_label = match group.kind.as_str() {
+                "title" => i18n.t("batch-dup-kind-title"),
+                "meta_description" => i18n.t("batch-dup-kind-description"),
+                "h1" => i18n.t("batch-dup-kind-h1"),
+                other => other.to_string(),
+            };
+            let examples = group
+                .urls
+                .iter()
+                .take(3)
+                .map(|u| truncate_url(u, 30))
+                .collect::<Vec<_>>()
+                .join(", ");
+            table = table.add_row(vec![
+                kind_label,
+                group.value.clone(),
+                group.urls.len().to_string(),
+                examples,
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Canonical conflicts (noindex / og:url mismatch)
+    if !pres.portfolio_summary.canonical_issues.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-dup-type")),
+            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-dup-value")),
+        ])
+        .with_title(i18n.t("batch-seo-canonical-title"));
+
+        for issue in &pres.portfolio_summary.canonical_issues {
+            let kind_label = match issue.kind.as_str() {
+                "noindex_conflict" => i18n.t("batch-canonical-noindex"),
+                "og_url_mismatch" => i18n.t("batch-canonical-ogurl"),
+                other => other.to_string(),
+            };
+            let detail = if issue.detail.chars().count() > 50 {
+                format!("{}…", issue.detail.chars().take(50).collect::<String>())
+            } else {
+                issue.detail.clone()
+            };
+            table = table.add_row(vec![kind_label, truncate_url(&issue.url, 35), detail]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    // Non-reciprocal hreflang relationships
+    if !pres.portfolio_summary.hreflang_issues.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-col-hreflang-source")),
+            TableColumn::new(i18n.t("batch-col-hreflang-target")),
+            TableColumn::new(i18n.t("batch-col-hreflang-lang")),
+        ])
+        .with_title(i18n.t("batch-seo-hreflang-title"));
+
+        for issue in &pres.portfolio_summary.hreflang_issues {
+            table = table.add_row(vec![
+                truncate_url(&issue.source_url, 32),
+                truncate_url(&issue.target_url, 32),
+                issue.lang.clone(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
     // Page type distribution
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
         let high_label = i18n.t("batch-relevance-high");
@@ -2078,7 +2082,6 @@ fn build_batch_report(
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
     builder = render_batch_status_section(builder, &pres, &i18n);
     builder = render_batch_audit_flags(builder, batch, &i18n);
-    builder = render_batch_advisory_findings(builder, batch, &i18n);
     builder = render_batch_url_ranking(builder, &pres, &i18n);
 
     if let Some(ref interactive) = pres.interactive_summary {

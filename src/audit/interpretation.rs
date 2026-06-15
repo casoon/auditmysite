@@ -95,15 +95,19 @@ pub struct Interpretation {
 }
 
 impl Interpretation {
-    pub fn from_context(ctx: &AuditContext) -> Self {
+    pub fn from_context(ctx: &AuditContext<'_>) -> Self {
         let technical_overview = build_technical_overview_localized(ctx);
         let per_module = build_per_module_localized(ctx);
-        let overall_score_band = ScoreBand::from_score(ctx.score as f32);
+        let overall_score_band = ScoreBand::from_score(ctx.normalized.score as f32);
         let overall_impact = build_overall_impact_localized(ctx);
-        let benchmark_context = build_benchmark_context_localized(ctx.overall_score as f32);
+        let benchmark_context =
+            build_benchmark_context_localized(ctx.normalized.overall_score as f32);
         let business_consequence_key = pick_business_consequence_key(ctx);
         let consequence_key = pick_consequence_key(ctx);
-        let verdict_key = pick_verdict_key(ctx.overall_score as f32, ctx.risk.legal_flags);
+        let verdict_key = pick_verdict_key(
+            ctx.normalized.overall_score as f32,
+            ctx.normalized.risk.legal_flags,
+        );
         let score_note_key = pick_score_note_key(ctx);
         let batch_verdict_key = String::new();
 
@@ -277,13 +281,13 @@ pub fn interpret_score_localized(area: InterpretArea, score: f32) -> LocalizedTe
 
 // ── Private builders ──────────────────────────────────────────────────────────
 
-fn build_technical_overview_localized(normalized: &AuditContext) -> Vec<LocalizedText> {
+fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<LocalizedText> {
     let mut bullets = Vec::new();
 
-    let critical = normalized.severity_counts.critical;
-    let high = normalized.severity_counts.high;
-    let total = normalized.severity_counts.total;
-    let rule_count = normalized.findings.len();
+    let critical = normalized.normalized.severity_counts.critical;
+    let high = normalized.normalized.severity_counts.high;
+    let total = normalized.normalized.severity_counts.total;
+    let rule_count = normalized.normalized.findings.len();
 
     // 1. Accessibility pattern
     let a11y = if total == 0 {
@@ -315,7 +319,7 @@ fn build_technical_overview_localized(normalized: &AuditContext) -> Vec<Localize
     bullets.push(a11y);
 
     // 2. SEO level
-    let seo = if let Some(ref s) = normalized.raw_seo {
+    let seo = if let Some(s) = normalized.raw_seo {
         if s.score >= 85 {
             LocalizedText {
                 de: format!(
@@ -364,7 +368,7 @@ fn build_technical_overview_localized(normalized: &AuditContext) -> Vec<Localize
     bullets.push(seo);
 
     // 3. Security level
-    let sec = if let Some(ref s) = normalized.raw_security {
+    let sec = if let Some(s) = normalized.raw_security {
         if s.score >= 80 {
             LocalizedText {
                 de: format!(
@@ -407,8 +411,8 @@ fn build_technical_overview_localized(normalized: &AuditContext) -> Vec<Localize
     bullets.push(sec);
 
     // 4. Tech complexity (DOM + performance)
-    let dom = normalized.nodes_analyzed;
-    let perf_score = normalized.raw_performance.as_ref().map(|p| p.score.overall);
+    let dom = normalized.normalized.nodes_analyzed;
+    let perf_score = normalized.raw_performance.map(|p| p.score.overall);
     let tech = match (dom, perf_score) {
         (d, Some(p)) if d > 2000 && p < 60 => LocalizedText {
             de: format!("Tech-Komplexität: Hoch — {d} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
@@ -444,43 +448,46 @@ fn build_technical_overview_localized(normalized: &AuditContext) -> Vec<Localize
     bullets
 }
 
-fn build_per_module_localized(normalized: &AuditContext) -> HashMap<String, LocalizedText> {
+fn build_per_module_localized(normalized: &AuditContext<'_>) -> HashMap<String, LocalizedText> {
     let mut map = HashMap::new();
 
     map.insert(
         "accessibility".to_string(),
-        interpret_score_localized(InterpretArea::Accessibility, normalized.score as f32),
+        interpret_score_localized(
+            InterpretArea::Accessibility,
+            normalized.normalized.score as f32,
+        ),
     );
 
-    if let Some(ref p) = normalized.raw_performance {
+    if let Some(p) = normalized.raw_performance {
         map.insert(
             "performance".to_string(),
             interpret_score_localized(InterpretArea::Performance, p.score.overall as f32),
         );
     }
 
-    if let Some(ref s) = normalized.raw_security {
+    if let Some(s) = normalized.raw_security {
         map.insert(
             "security".to_string(),
             interpret_score_localized(InterpretArea::Security, s.score as f32),
         );
     }
 
-    if let Some(ref m) = normalized.raw_mobile {
+    if let Some(m) = normalized.raw_mobile {
         map.insert(
             "mobile".to_string(),
             interpret_score_localized(InterpretArea::Mobile, m.score as f32),
         );
     }
 
-    if let Some(ref ux) = normalized.raw_ux {
+    if let Some(ux) = normalized.raw_ux {
         map.insert(
             "ux".to_string(),
             interpret_score_localized(InterpretArea::Ux, ux.score as f32),
         );
     }
 
-    if let Some(ref j) = normalized.raw_journey {
+    if let Some(j) = normalized.raw_journey {
         map.insert(
             "journey".to_string(),
             interpret_score_localized(InterpretArea::Journey, j.score as f32),
@@ -491,11 +498,11 @@ fn build_per_module_localized(normalized: &AuditContext) -> HashMap<String, Loca
 }
 
 fn build_overall_impact_localized(
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
 ) -> Vec<(LocalizedText, LocalizedText)> {
-    let score = normalized.score;
-    let critical = normalized.severity_counts.critical;
-    let high = normalized.severity_counts.high;
+    let score = normalized.normalized.score;
+    let critical = normalized.normalized.severity_counts.critical;
+    let high = normalized.normalized.severity_counts.high;
     let urgent = critical + high;
 
     let user_rating = LocalizedText {
@@ -619,17 +626,17 @@ fn build_benchmark_context_localized(score: f32) -> LocalizedText {
     }
 }
 
-fn pick_business_consequence_key(normalized: &AuditContext) -> String {
-    let critical = normalized.severity_counts.critical;
-    let total = normalized.severity_counts.total;
-    let score = normalized.score;
+fn pick_business_consequence_key(normalized: &AuditContext<'_>) -> String {
+    let critical = normalized.normalized.severity_counts.critical;
+    let total = normalized.normalized.severity_counts.total;
+    let score = normalized.normalized.score;
 
     if total == 0 {
         return "business-consequence-clean".to_string();
     }
 
-    let has_weak_seo = normalized.raw_seo.as_ref().is_some_and(|s| s.score < 65);
-    let has_heading_issues = normalized.findings.iter().any(|f| {
+    let has_weak_seo = normalized.raw_seo.is_some_and(|s| s.score < 65);
+    let has_heading_issues = normalized.normalized.findings.iter().any(|f| {
         f.rule_id.to_lowercase().contains("heading")
             || f.title.to_lowercase().contains("überschrift")
     });
@@ -646,26 +653,22 @@ fn pick_business_consequence_key(normalized: &AuditContext) -> String {
     .to_string()
 }
 
-fn pick_consequence_key(normalized: &AuditContext) -> String {
-    let critical = normalized.severity_counts.critical;
-    let total = normalized.severity_counts.total;
-    let score = normalized.score;
+fn pick_consequence_key(normalized: &AuditContext<'_>) -> String {
+    let critical = normalized.normalized.severity_counts.critical;
+    let total = normalized.normalized.severity_counts.total;
+    let score = normalized.normalized.score;
 
     if total == 0 {
         return String::new();
     }
 
     let weak_module_count = [
-        normalized
-            .raw_security
-            .as_ref()
-            .is_some_and(|s| s.score < 60),
-        normalized.raw_seo.as_ref().is_some_and(|s| s.score < 60),
+        normalized.raw_security.is_some_and(|s| s.score < 60),
+        normalized.raw_seo.is_some_and(|s| s.score < 60),
         normalized
             .raw_performance
-            .as_ref()
             .is_some_and(|p| p.score.overall < 70),
-        normalized.raw_mobile.as_ref().is_some_and(|m| m.score < 65),
+        normalized.raw_mobile.is_some_and(|m| m.score < 65),
     ]
     .iter()
     .filter(|&&v| v)
@@ -706,11 +709,12 @@ fn pick_verdict_key(score: f32, legal_flags: usize) -> String {
     .to_string()
 }
 
-fn pick_score_note_key(normalized: &AuditContext) -> Option<String> {
-    let critical_topics = normalized.severity_counts.critical + normalized.severity_counts.high;
-    if normalized.score >= 90 && critical_topics > 0 {
+fn pick_score_note_key(normalized: &AuditContext<'_>) -> Option<String> {
+    let critical_topics =
+        normalized.normalized.severity_counts.critical + normalized.normalized.severity_counts.high;
+    if normalized.normalized.score >= 90 && critical_topics > 0 {
         Some("score-note-high-with-critical".to_string())
-    } else if normalized.score == 100 {
+    } else if normalized.normalized.score == 100 {
         Some("score-note-perfect-automated-scope".to_string())
     } else {
         None

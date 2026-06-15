@@ -135,6 +135,7 @@ fn snapshot_normalized_report_fields() {
     let normalized = normalize(&report);
 
     let mut module_names: Vec<&str> = normalized
+        .normalized
         .module_scores
         .iter()
         .map(|m| m.name.as_str())
@@ -142,6 +143,7 @@ fn snapshot_normalized_report_fields() {
     module_names.sort_unstable();
 
     let mut finding_ids: Vec<&str> = normalized
+        .normalized
         .findings
         .iter()
         .map(|f| f.rule_id.as_str())
@@ -149,21 +151,21 @@ fn snapshot_normalized_report_fields() {
     finding_ids.sort_unstable();
 
     let value = serde_json::json!({
-        "url": normalized.url,
-        "overall_score": normalized.overall_score,
-        "score": normalized.score,
-        "grade": normalized.grade,
-        "certificate": normalized.certificate,
+        "url": normalized.normalized.url,
+        "overall_score": normalized.normalized.overall_score,
+        "score": normalized.normalized.score,
+        "grade": normalized.normalized.grade,
+        "certificate": normalized.normalized.certificate,
         "severity_counts": {
-            "critical": normalized.severity_counts.critical,
-            "high": normalized.severity_counts.high,
-            "medium": normalized.severity_counts.medium,
-            "low": normalized.severity_counts.low,
-            "total": normalized.severity_counts.total,
+            "critical": normalized.normalized.severity_counts.critical,
+            "high": normalized.normalized.severity_counts.high,
+            "medium": normalized.normalized.severity_counts.medium,
+            "low": normalized.normalized.severity_counts.low,
+            "total": normalized.normalized.severity_counts.total,
         },
-        "module_count": normalized.module_scores.len(),
+        "module_count": normalized.normalized.module_scores.len(),
         "module_names": module_names,
-        "finding_count": normalized.findings.len(),
+        "finding_count": normalized.normalized.findings.len(),
         "finding_rule_ids": finding_ids,
     });
 

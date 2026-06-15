@@ -29,10 +29,19 @@ pub struct StructuredData {
 pub struct SchemaIssue {
     /// The @type of the affected schema block
     pub schema_type: String,
+    /// Whether the missing property is required or recommended for rich-result quality
+    pub severity: SchemaIssueSeverity,
     /// Machine-readable issue key
     pub issue_type: String,
     /// Human-readable description
     pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SchemaIssueSeverity {
+    Required,
+    Recommended,
 }
 
 /// JSON-LD schema data
@@ -304,7 +313,6 @@ fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
         return vec![];
     }
 
-    // Required properties per schema type (Google rich-result spec)
     let required: &[(&str, &[&str])] = &[
         ("Article", &["headline", "image", "author", "datePublished"]),
         (
@@ -315,15 +323,87 @@ fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
             "NewsArticle",
             &["headline", "image", "author", "datePublished"],
         ),
-        ("Product", &["name", "image"]),
-        ("Event", &["name", "startDate"]),
+        ("Product", &["name", "image", "offers"]),
+        ("FAQPage", &["mainEntity"]),
+        ("BreadcrumbList", &["itemListElement"]),
+        ("LocalBusiness", &["name", "address"]),
+        ("Organization", &["name", "url"]),
+        ("Event", &["name", "startDate", "location"]),
         (
             "VideoObject",
             &["name", "description", "thumbnailUrl", "uploadDate"],
         ),
-        ("Recipe", &["name", "image"]),
+        (
+            "Recipe",
+            &["name", "image", "recipeIngredient", "recipeInstructions"],
+        ),
         ("HowTo", &["name"]),
         ("Review", &["author"]),
+    ];
+    let recommended: &[(&str, &[&str])] = &[
+        (
+            "Article",
+            &[
+                "dateModified",
+                "publisher",
+                "description",
+                "mainEntityOfPage",
+            ],
+        ),
+        (
+            "BlogPosting",
+            &[
+                "dateModified",
+                "publisher",
+                "description",
+                "mainEntityOfPage",
+            ],
+        ),
+        (
+            "NewsArticle",
+            &[
+                "dateModified",
+                "publisher",
+                "description",
+                "mainEntityOfPage",
+            ],
+        ),
+        (
+            "Product",
+            &["description", "sku", "brand", "aggregateRating", "review"],
+        ),
+        ("FAQPage", &[]),
+        ("BreadcrumbList", &[]),
+        (
+            "LocalBusiness",
+            &["telephone", "url", "openingHours", "geo", "aggregateRating"],
+        ),
+        ("Organization", &["logo", "sameAs", "contactPoint"]),
+        (
+            "Event",
+            &[
+                "endDate",
+                "image",
+                "description",
+                "offers",
+                "performer",
+                "eventStatus",
+                "eventAttendanceMode",
+            ],
+        ),
+        (
+            "Recipe",
+            &[
+                "author",
+                "datePublished",
+                "prepTime",
+                "cookTime",
+                "totalTime",
+                "nutrition",
+                "aggregateRating",
+                "video",
+            ],
+        ),
     ];
 
     let types_to_check: Vec<String> = if schema.schema_types.is_empty() {
@@ -342,12 +422,13 @@ fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
     };
 
     let mut issues = Vec::new();
-    for (type_name, props) in required {
-        if types_to_check.iter().any(|t| t == type_name) {
+    for type_name in types_to_check {
+        if let Some((_, props)) = required.iter().find(|(name, _)| *name == type_name) {
             for prop in *props {
-                if schema.content[prop].is_null() {
+                if !has_schema_property(&schema.content, prop) {
                     issues.push(SchemaIssue {
                         schema_type: type_name.to_string(),
+                        severity: SchemaIssueSeverity::Required,
                         issue_type: format!("schema_missing_{}", prop),
                         message: format!(
                             "{}: Pflichtfeld \"{}\" fehlt im JSON-LD",
@@ -357,8 +438,33 @@ fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
                 }
             }
         }
+        if let Some((_, props)) = recommended.iter().find(|(name, _)| *name == type_name) {
+            for prop in *props {
+                if !has_schema_property(&schema.content, prop) {
+                    issues.push(SchemaIssue {
+                        schema_type: type_name.to_string(),
+                        severity: SchemaIssueSeverity::Recommended,
+                        issue_type: format!("schema_recommended_missing_{}", prop),
+                        message: format!(
+                            "{}: Empfohlenes Feld \"{}\" fehlt im JSON-LD",
+                            type_name, prop
+                        ),
+                    });
+                }
+            }
+        }
     }
     issues
+}
+
+fn has_schema_property(content: &serde_json::Value, prop: &str) -> bool {
+    match content.get(prop) {
+        Some(serde_json::Value::Null) | None => false,
+        Some(serde_json::Value::String(s)) => !s.trim().is_empty(),
+        Some(serde_json::Value::Array(items)) => !items.is_empty(),
+        Some(serde_json::Value::Object(map)) => !map.is_empty(),
+        Some(_) => true,
+    }
 }
 
 fn extract_types(schema: &serde_json::Value) -> Vec<String> {
@@ -425,5 +531,72 @@ mod tests {
         assert!(SchemaType::Other("MedicalOrganization".into()).is_organization_like());
         assert!(!SchemaType::Person.is_organization_like());
         assert!(!SchemaType::WebSite.is_organization_like());
+    }
+
+    #[test]
+    fn product_schema_requires_offers_for_rich_result_eligibility() {
+        let schema = JsonLdSchema {
+            schema_type: "Product".to_string(),
+            schema_types: vec!["Product".to_string()],
+            content: serde_json::json!({
+                "@type": "Product",
+                "name": "Audit",
+                "image": "https://example.com/audit.png"
+            }),
+            is_valid: true,
+        };
+
+        let issues = validate_schema_properties(&schema);
+
+        assert!(issues.iter().any(|issue| {
+            issue.schema_type == "Product"
+                && issue.severity == SchemaIssueSeverity::Required
+                && issue.issue_type == "schema_missing_offers"
+        }));
+    }
+
+    #[test]
+    fn article_schema_reports_recommended_properties_separately() {
+        let schema = JsonLdSchema {
+            schema_type: "Article".to_string(),
+            schema_types: vec!["Article".to_string()],
+            content: serde_json::json!({
+                "@type": "Article",
+                "headline": "Accessibility audit",
+                "image": "https://example.com/article.png",
+                "author": { "@type": "Person", "name": "Ada" },
+                "datePublished": "2026-01-01"
+            }),
+            is_valid: true,
+        };
+
+        let issues = validate_schema_properties(&schema);
+
+        assert!(!issues
+            .iter()
+            .any(|issue| issue.severity == SchemaIssueSeverity::Required));
+        assert!(issues.iter().any(|issue| {
+            issue.severity == SchemaIssueSeverity::Recommended
+                && issue.issue_type == "schema_recommended_missing_dateModified"
+        }));
+    }
+
+    #[test]
+    fn empty_schema_properties_count_as_missing() {
+        let schema = JsonLdSchema {
+            schema_type: "BreadcrumbList".to_string(),
+            schema_types: vec!["BreadcrumbList".to_string()],
+            content: serde_json::json!({
+                "@type": "BreadcrumbList",
+                "itemListElement": []
+            }),
+            is_valid: true,
+        };
+
+        let issues = validate_schema_properties(&schema);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].issue_type, "schema_missing_itemListElement");
+        assert_eq!(issues[0].severity, SchemaIssueSeverity::Required);
     }
 }

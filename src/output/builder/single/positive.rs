@@ -6,11 +6,11 @@ use crate::output::report_model::{
 
 pub(super) fn derive_positive_aspects_from_normalized(
     locale: &str,
-    normalized: &AuditContext,
+    normalized: &AuditContext<'_>,
 ) -> Vec<PositiveAspect> {
     let en = locale == "en";
     let mut positives = Vec::new();
-    let a11y_score = normalized.score as f32;
+    let a11y_score = normalized.normalized.score as f32;
 
     let area_a11y: String = if en {
         "Accessibility".into()
@@ -18,7 +18,7 @@ pub(super) fn derive_positive_aspects_from_normalized(
         "Barrierefreiheit".into()
     };
 
-    if normalized.findings.is_empty() {
+    if normalized.normalized.findings.is_empty() {
         positives.push(PositiveAspect {
             area: area_a11y.clone(),
             description: if en {
@@ -38,7 +38,7 @@ pub(super) fn derive_positive_aspects_from_normalized(
         });
     }
 
-    if let Some(ref perf) = normalized.raw_performance {
+    if let Some(perf) = normalized.raw_performance {
         if perf.score.overall >= 80 {
             positives.push(PositiveAspect {
                 area: "Performance".into(),
@@ -50,7 +50,7 @@ pub(super) fn derive_positive_aspects_from_normalized(
             });
         }
     }
-    if let Some(ref seo) = normalized.raw_seo {
+    if let Some(seo) = normalized.raw_seo {
         if seo.score >= 80 {
             positives.push(PositiveAspect {
                 area: "SEO".into(),
@@ -62,7 +62,7 @@ pub(super) fn derive_positive_aspects_from_normalized(
             });
         }
     }
-    if let Some(ref sec) = normalized.raw_security {
+    if let Some(sec) = normalized.raw_security {
         if sec.score >= 80 {
             positives.push(PositiveAspect {
                 area: if en {
@@ -78,7 +78,7 @@ pub(super) fn derive_positive_aspects_from_normalized(
             });
         }
     }
-    if let Some(ref mobile) = normalized.raw_mobile {
+    if let Some(mobile) = normalized.raw_mobile {
         if mobile.score >= 80 {
             positives.push(PositiveAspect {
                 area: "Mobile".into(),

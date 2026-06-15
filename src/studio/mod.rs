@@ -122,12 +122,13 @@ impl StudioAuditResponse {
     /// The `json_report` must be pre-rendered — this function does not
     /// call the JSON formatter itself to avoid circular dependencies.
     pub fn from_normalized(
-        normalized: &AuditContext,
+        normalized: &AuditContext<'_>,
         _report: &AuditReport,
         json_report: String,
     ) -> Self {
         let vm = build_view_model(normalized, &ReportConfig::default());
         let module_scores: Vec<StudioModuleScore> = normalized
+            .normalized
             .module_scores
             .iter()
             .map(|m| StudioModuleScore {
@@ -140,6 +141,7 @@ impl StudioAuditResponse {
             .collect();
 
         let findings: Vec<StudioFindingPreview> = normalized
+            .normalized
             .findings
             .iter()
             .map(|f| StudioFindingPreview {
@@ -153,25 +155,25 @@ impl StudioAuditResponse {
             .collect();
 
         Self {
-            url: normalized.url.clone(),
-            timestamp: normalized.timestamp,
-            accessibility_score: normalized.score,
-            overall_score: normalized.overall_score,
-            grade: normalized.grade.clone(),
-            certificate: normalized.certificate.clone(),
-            risk_level: risk_level_string(normalized.risk.level),
-            risk_summary: normalized.risk.summary.clone(),
-            legal_flags: normalized.risk.legal_flags,
-            blocking_issues: normalized.risk.blocking_issues,
-            critical_issues: normalized.severity_counts.critical,
-            high_issues: normalized.severity_counts.high,
-            medium_issues: normalized.severity_counts.medium,
-            low_issues: normalized.severity_counts.low,
-            total_issues: normalized.severity_counts.total,
+            url: normalized.normalized.url.clone(),
+            timestamp: normalized.normalized.timestamp,
+            accessibility_score: normalized.normalized.score,
+            overall_score: normalized.normalized.overall_score,
+            grade: normalized.normalized.grade.clone(),
+            certificate: normalized.normalized.certificate.clone(),
+            risk_level: risk_level_string(normalized.normalized.risk.level),
+            risk_summary: normalized.normalized.risk.summary.clone(),
+            legal_flags: normalized.normalized.risk.legal_flags,
+            blocking_issues: normalized.normalized.risk.blocking_issues,
+            critical_issues: normalized.normalized.severity_counts.critical,
+            high_issues: normalized.normalized.severity_counts.high,
+            medium_issues: normalized.normalized.severity_counts.medium,
+            low_issues: normalized.normalized.severity_counts.low,
+            total_issues: normalized.normalized.severity_counts.total,
             module_scores,
             findings,
-            nodes_analyzed: normalized.nodes_analyzed,
-            execution_time_ms: normalized.duration_ms,
+            nodes_analyzed: normalized.normalized.nodes_analyzed,
+            execution_time_ms: normalized.normalized.duration_ms,
             executive_summary: StudioExecutiveSummary {
                 executive_lead: vm.summary.executive_lead,
                 verdict: vm.summary.verdict,

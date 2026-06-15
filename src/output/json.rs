@@ -15,7 +15,7 @@ use crate::audit::{
     SampleMetadata,
 };
 use crate::error::Result;
-use crate::output::builder::{build_batch_presentation, build_view_model};
+use crate::output::builder::{build_batch_presentation_with_normalized, build_view_model};
 use crate::output::explanations::get_explanation;
 use crate::output::module::ReportModule as _;
 use crate::output::report_model::{ReportConfig, UrlMatrixRow};
@@ -27,7 +27,7 @@ const SCHEMA_VERSION: &str = "2.0";
 
 /// Generate single-report JSON from a live audit context.
 pub fn format_json_normalized(
-    ctx: &AuditContext,
+    ctx: &AuditContext<'_>,
     report: &AuditReport,
     pretty: bool,
 ) -> Result<String> {
@@ -137,6 +137,18 @@ pub struct UnifiedSummary {
     pub management_risks: Vec<ManagementRisk>,
     /// Decision-oriented top actions combining risk, impact, complexity, and reach.
     pub top_actions: Vec<DecisionAction>,
+    /// Cross-page duplicate content groups (batch only): identical title,
+    /// meta description, or H1 shared across multiple pages (#423).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub duplicate_content: Vec<crate::output::report_model::DuplicateContentGroup>,
+    /// Per-page canonical conflicts (batch only): noindex conflict or og:url
+    /// mismatch (#423).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub canonical_issues: Vec<crate::output::report_model::CanonicalIssue>,
+    /// Non-reciprocal hreflang relationships between audited pages (batch only,
+    /// #423).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hreflang_issues: Vec<crate::output::report_model::HreflangIssue>,
 }
 
 #[derive(Debug, Serialize)]
@@ -256,9 +268,6 @@ pub struct PageEntry {
     /// Reproducible journey traces. Present only when `--interactive != off`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_journey: Option<crate::audit::normalized::AccessibilityJourney>,
-    /// Advisory (semantic / LLM) findings. Never affect score or risk.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub advisory_findings: Vec<crate::audit::normalized::AdvisoryFinding>,
     /// Compact screen-reader audit (reading-order quality, issues, BFSG verdict).
     /// The full reading sequence stays in the sidecar JSON.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -402,7 +411,7 @@ pub struct ReportMetadata {
 
 impl UnifiedReport {
     /// Build a single-page report with full module detail.
-    pub fn single(ctx: &AuditContext, raw: &AuditReport) -> Self {
+    pub fn single(ctx: &AuditContext<'_>, raw: &AuditReport) -> Self {
         let mut collection_errors: Vec<ReportError> = Vec::new();
 
         let budget_violations = raw
@@ -439,7 +448,7 @@ impl UnifiedReport {
             screenshot_status,
             collection_errors,
         };
-        let page = build_page(ctx, Some(ctx), Some(detail_ctx));
+        let page = build_page(&ctx.normalized, Some(ctx), Some(detail_ctx));
         Self::wrap_single(ctx, page)
     }
 
@@ -456,7 +465,9 @@ impl UnifiedReport {
             .iter()
             .map(|r| crate::audit::normalize(r).normalized)
             .collect();
-        let presentation = build_batch_presentation(batch_report);
+        let i18n = crate::i18n::I18n::new("de").expect("default locale must always load");
+        let presentation =
+            build_batch_presentation_with_normalized(batch_report, &i18n, &normalized_reports);
 
         let pages: Vec<PageEntry> = normalized_reports
             .iter()
@@ -501,6 +512,9 @@ impl UnifiedReport {
             accessibility_score_breakdown: build_accessibility_score_breakdown(&normalized_reports),
             management_risks: build_management_risks(&normalized_reports),
             top_actions: build_decision_actions(&normalized_reports),
+            duplicate_content: presentation.portfolio_summary.duplicate_content.clone(),
+            canonical_issues: presentation.portfolio_summary.canonical_issues.clone(),
+            hreflang_issues: presentation.portfolio_summary.hreflang_issues.clone(),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -578,7 +592,7 @@ impl UnifiedReport {
         self
     }
 
-    fn wrap_single(ctx: &AuditContext, page: PageEntry) -> Self {
+    fn wrap_single(ctx: &AuditContext<'_>, page: PageEntry) -> Self {
         let no_legal_flags = !page.findings.iter().any(|f| {
             f.wcag_level == "A"
                 && matches!(
@@ -607,12 +621,12 @@ impl UnifiedReport {
             failed_url_count: 1 - passed,
             violated_rule_count,
             top_recurring_rules,
-            performance_score: normalized_module_score(ctx, "Performance"),
-            seo_score: normalized_module_score(ctx, "SEO"),
-            security_score: normalized_module_score(ctx, "Security"),
-            mobile_score: normalized_module_score(ctx, "Mobile"),
-            ux_score: normalized_module_score(ctx, "UX"),
-            journey_score: normalized_module_score(ctx, "Journey"),
+            performance_score: normalized_module_score(&ctx.normalized, "Performance"),
+            seo_score: normalized_module_score(&ctx.normalized, "SEO"),
+            security_score: normalized_module_score(&ctx.normalized, "Security"),
+            mobile_score: normalized_module_score(&ctx.normalized, "Mobile"),
+            ux_score: normalized_module_score(&ctx.normalized, "UX"),
+            journey_score: normalized_module_score(&ctx.normalized, "Journey"),
             performance_throttled_avg_score: {
                 let scores: Vec<u32> = ctx
                     .raw_throttled_performance
@@ -630,12 +644,15 @@ impl UnifiedReport {
                 .iter()
                 .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
                 .map(|t| t.score),
-            wcag_coverage: build_wcag_coverage_summary(ctx),
+            wcag_coverage: build_wcag_coverage_summary(&ctx.normalized),
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(&ctx.normalized),
             ),
             management_risks: build_management_risks(std::slice::from_ref(&ctx.normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(&ctx.normalized)),
+            duplicate_content: Vec::new(),
+            canonical_issues: Vec::new(),
+            hreflang_issues: Vec::new(),
         };
 
         UnifiedReport {
@@ -644,9 +661,9 @@ impl UnifiedReport {
             tool_version: env!("CARGO_PKG_VERSION"),
             metadata: ReportMetadata {
                 tool: format!("auditmysite v{}", env!("CARGO_PKG_VERSION")),
-                timestamp: ctx.timestamp,
-                wcag_level: ctx.wcag_level.to_string(),
-                execution_time_ms: ctx.duration_ms,
+                timestamp: ctx.normalized.timestamp,
+                wcag_level: ctx.normalized.wcag_level.to_string(),
+                execution_time_ms: ctx.normalized.duration_ms,
             },
             summary,
             sample: None,
@@ -704,6 +721,9 @@ impl UnifiedReport {
             ),
             management_risks: build_management_risks(std::slice::from_ref(normalized)),
             top_actions: build_decision_actions(std::slice::from_ref(normalized)),
+            duplicate_content: Vec::new(),
+            canonical_issues: Vec::new(),
+            hreflang_issues: Vec::new(),
         };
 
         UnifiedReport {
@@ -743,7 +763,7 @@ struct DetailContext {
 /// `detail_ctx` `None` leaves `detail` unset (batch callers attach a compact detail).
 fn build_page(
     normalized: &NormalizedReport,
-    audit_ctx: Option<&AuditContext>,
+    audit_ctx: Option<&AuditContext<'_>>,
     detail_ctx: Option<DetailContext>,
 ) -> PageEntry {
     let detail = detail_ctx.map(|d| {
@@ -785,7 +805,6 @@ fn build_page(
         audit_flags: normalized.audit_flags.clone(),
         interactive_findings: normalized.interactive_findings.clone(),
         accessibility_journey: normalized.accessibility_journey.clone(),
-        advisory_findings: normalized.advisory_findings.clone(),
         screen_reader: normalized.screen_reader.clone(),
         detail,
     }
@@ -824,9 +843,9 @@ fn build_detail_cached(normalized: &NormalizedReport, detail_ctx: DetailContext)
     }
 }
 
-fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
+fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) -> PageDetail {
     let vm = build_view_model(ctx, &ReportConfig::default());
-    let normalized: &NormalizedReport = ctx;
+    let normalized: &NormalizedReport = &ctx.normalized;
     let mut errors = detail_ctx.collection_errors;
 
     let wcag_findings: Vec<_> = normalized
@@ -840,7 +859,7 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         .filter(|f| f.category == "seo")
         .collect();
 
-    let tech_stack = ctx.raw_tech_stack.as_ref().and_then(|m| {
+    let tech_stack = ctx.raw_tech_stack.and_then(|m| {
         serde_json::to_value(m)
             .map_err(|e| {
                 errors.push(ReportError {
@@ -870,14 +889,14 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         })
     });
 
-    let dual_viewport = ctx.raw_dual_viewport.as_ref().map(|dual| {
+    let dual_viewport = ctx.raw_dual_viewport.map(|dual| {
         serde_json::json!({
             "desktop": viewport_detail_summary(&dual.desktop),
             "mobile": viewport_detail_summary(&dual.mobile),
         })
     });
 
-    let patterns = ctx.raw_patterns.as_ref().map(|m| {
+    let patterns = ctx.raw_patterns.map(|m| {
         let total = m.recognized.len() + m.violations.len();
         let pattern_score: u32 = if total > 0 {
             (m.recognized.len() as u32 * 100) / total as u32
@@ -923,7 +942,7 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         acc
     };
 
-    let seo = ctx.raw_seo.as_ref().map(|m| {
+    let seo = ctx.raw_seo.map(|m| {
         let mut v = with_normalized_score(m.to_json(), normalized, "SEO");
         let findings_value = match serde_json::to_value(&seo_findings) {
             Ok(json) => json,
@@ -952,7 +971,7 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         })),
         dual_viewport,
         search_experience,
-        performance: ctx.raw_performance.as_ref().map(|m| {
+        performance: ctx.raw_performance.map(|m| {
             inject_unused_js_bytes(
                 with_normalized_score(m.to_json(), normalized, "Performance"),
                 m,
@@ -961,33 +980,26 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         seo,
         security: ctx
             .raw_security
-            .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Security")),
         mobile: ctx
             .raw_mobile
-            .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Mobile")),
         ux: ctx
             .raw_ux
-            .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "UX")),
         journey: ctx
             .raw_journey
-            .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Journey")),
         dark_mode: ctx
             .raw_dark_mode
-            .as_ref()
             .map(|m| inject_grade(m.to_json(), m.score)),
         source_quality: ctx
             .raw_source_quality
-            .as_ref()
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),
         ai_visibility: ctx
             .raw_ai_visibility
-            .as_ref()
             .map(|m| with_measurement_type(m.to_json(), "heuristic")),
-        content_visibility: ctx.raw_content_visibility.as_ref().and_then(|m| {
+        content_visibility: ctx.raw_content_visibility.and_then(|m| {
             // Only emit when SEO data was available — all signal sections are empty
             // without --full, which is misleading.
             if m.signal_count == 0 {
@@ -1011,7 +1023,6 @@ fn build_detail(ctx: &AuditContext, detail_ctx: DetailContext) -> PageDetail {
         patterns,
         best_practices: ctx
             .raw_best_practices
-            .as_ref()
             .map(|m| with_normalized_score(m.to_json(), normalized, "Best Practices")),
     };
 
@@ -1669,8 +1680,14 @@ mod tests {
         let normalized = normalize(&report);
         let unified = UnifiedReport::single(&normalized, &report);
 
-        assert_eq!(unified.summary.accessibility_score, normalized.score);
-        assert_eq!(unified.summary.overall_score, normalized.overall_score);
+        assert_eq!(
+            unified.summary.accessibility_score,
+            normalized.normalized.score
+        );
+        assert_eq!(
+            unified.summary.overall_score,
+            normalized.normalized.overall_score
+        );
         assert_eq!(unified.summary.violation_count, 0);
         assert_eq!(unified.summary.passed_url_count, 1);
         assert_eq!(unified.summary.failed_url_count, 0);
@@ -1733,9 +1750,9 @@ mod tests {
         let unified = UnifiedReport::single(&normalized, &report);
         let page = first_page(&unified);
 
-        assert_eq!(page.accessibility_score, normalized.score);
-        assert_eq!(page.grade, normalized.grade);
-        assert_eq!(page.certificate, normalized.certificate);
+        assert_eq!(page.accessibility_score, normalized.normalized.score);
+        assert_eq!(page.grade, normalized.normalized.grade);
+        assert_eq!(page.certificate, normalized.normalized.certificate);
     }
 
     #[test]
@@ -2181,9 +2198,12 @@ mod tests {
             weighted_overall: 100,
         });
         let normalized = normalize(&report);
-        assert_eq!(normalized.score_calculation_method, "viewport_weighted");
+        assert_eq!(
+            normalized.normalized.score_calculation_method,
+            "viewport_weighted"
+        );
         assert!(
-            normalized.score_breakdown.is_some(),
+            normalized.normalized.score_breakdown.is_some(),
             "NormalizedReport must have score_breakdown for viewport_weighted"
         );
         let unified = UnifiedReport::single(&normalized, &report);
@@ -2205,7 +2225,7 @@ mod tests {
             100,
         );
         let normalized = normalize(&report);
-        let page = super::build_page(&normalized, None, None);
+        let page = super::build_page(&normalized.normalized, None, None);
         let json_str = serde_json::to_string(&page).unwrap();
         let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
         assert!(
@@ -2290,6 +2310,9 @@ mod tests {
                 accessibility_score_breakdown: vec![],
                 management_risks: vec![],
                 top_actions: vec![],
+                duplicate_content: vec![],
+                canonical_issues: vec![],
+                hreflang_issues: vec![],
             },
             sample: None,
             pages: vec![],

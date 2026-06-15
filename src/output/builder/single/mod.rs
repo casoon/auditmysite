@@ -38,17 +38,19 @@ use super::helpers::{
 
 /// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
 /// For the cached/deserialized path, use `build_view_model_from_normalized` instead.
-pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> ReportViewModel {
+pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let i18n = I18n::new(&config.locale)
         .or_else(|_| I18n::new("de"))
         .expect("default locale must always load");
     let priority_by_rule: std::collections::HashMap<&str, f32> = normalized
+        .normalized
         .findings
         .iter()
         .map(|f| (f.rule_id.as_str(), f.priority_score))
         .collect();
 
     let mut sorted_groups: Vec<FindingGroup> = normalized
+        .normalized
         .findings
         .iter()
         .filter(|f| match config.level {
@@ -98,13 +100,14 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
         sorted_groups = deduped;
     }
 
-    let score = normalized.score;
-    let grade = normalized.grade.clone();
-    let certificate = normalized.certificate.clone();
-    let audit_summary = analyze_with_locale(normalized, &config.locale);
+    let score = normalized.normalized.score;
+    let grade = normalized.normalized.grade.clone();
+    let certificate = normalized.normalized.certificate.clone();
+    let audit_summary = analyze_with_locale(&normalized.normalized, &config.locale);
     let maturity_label = audit_summary.site_state.label_localized(&i18n);
     let problem_type = audit_summary.problem_type_label.clone();
     let mut technical_overview: Vec<String> = normalized
+        .normalized
         .interpretation
         .as_ref()
         .map(|interp| {
@@ -121,12 +124,16 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
             cross.dimensions, cross.description
         ));
     }
-    let overall_impact = build_overall_impact(&config.locale, normalized);
+    let overall_impact = build_overall_impact(&config.locale, &normalized.normalized);
     let date_fmt = i18n.t("date-format-str");
-    let date = normalized.timestamp.format(&date_fmt).to_string();
+    let date = normalized
+        .normalized
+        .timestamp
+        .format(&date_fmt)
+        .to_string();
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
-    let report_author = extract_domain(&normalized.url);
+    let report_author = extract_domain(&normalized.normalized.url);
     let top_findings: Vec<FindingGroup> = {
         use crate::output::report_model::CriticalityTier;
         // Prefer Mandatory (BFSG) tier first within the urgent (Critical/High) bucket — #245.
@@ -174,6 +181,7 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
     let mut module_names: Vec<String> = vec![localized_module_name("Accessibility", &i18n)];
     for module_name in &["Performance", "SEO", "Security", "Mobile", "UX", "Journey"] {
         if normalized
+            .normalized
             .module_scores
             .iter()
             .any(|m| m.name == *module_name)
@@ -189,12 +197,12 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
             (ci + 1, co + f.occurrence_count as u32)
         });
     let severity = SeverityBlock {
-        critical: normalized.occurrence_counts.critical as u32,
-        high: normalized.occurrence_counts.high as u32,
-        medium: normalized.occurrence_counts.medium as u32,
-        low: normalized.occurrence_counts.low as u32,
-        total: normalized.occurrence_counts.total as u32,
-        has_issues: normalized.occurrence_counts.total > 0,
+        critical: normalized.normalized.occurrence_counts.critical as u32,
+        high: normalized.normalized.occurrence_counts.high as u32,
+        medium: normalized.normalized.occurrence_counts.medium as u32,
+        low: normalized.normalized.occurrence_counts.low as u32,
+        total: normalized.normalized.occurrence_counts.total as u32,
+        has_issues: normalized.normalized.occurrence_counts.total > 0,
         component_issues,
         component_occurrences,
     };
@@ -202,14 +210,14 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
     let modules = build_modules_block_from_normalized(&i18n, normalized);
 
     let quick_win_count = action_plan.quick_wins.len();
-    let critical_count =
-        (normalized.occurrence_counts.critical + normalized.occurrence_counts.high) as u32;
+    let critical_count = (normalized.normalized.occurrence_counts.critical
+        + normalized.normalized.occurrence_counts.high) as u32;
     // WCAG-only by design (severity/occurrence_counts are the legally-relevant
     // accessibility counters; SEO findings are reported separately). The cover
     // label makes the accessibility scope explicit so this does not read as a
     // contradiction with cross-module measures (#446 area).
-    let total_violations = normalized.occurrence_counts.total as u32;
-    let nodes_analyzed = normalized.nodes_analyzed;
+    let total_violations = normalized.normalized.occurrence_counts.total as u32;
+    let nodes_analyzed = normalized.normalized.nodes_analyzed;
     let warning_count = normalized.raw_wcag.warnings.len() as u32;
     let not_testable_count = normalized.raw_wcag.not_testables.len() as u32;
 
@@ -218,18 +226,16 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
     let module_details = build_module_details_from_normalized(&i18n, normalized);
     let executive = build_executive_narrative(
         &i18n,
-        normalized,
+        &normalized.normalized,
         &audit_summary,
-        score,
         &severity,
         &top_findings,
-        &action_plan,
     );
 
     ReportViewModel {
         meta: MetaBlock {
             title: report_title.clone(),
-            subtitle: normalized.url.clone(),
+            subtitle: normalized.normalized.url.clone(),
             date: date.clone(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             author: report_author.clone(),
@@ -239,7 +245,7 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
         cover: CoverBlock {
             brand: report_author,
             title: report_title,
-            domain: normalized.url.clone(),
+            domain: normalized.normalized.url.clone(),
             subtitle: report_subtitle.to_string(),
             date: date.clone(),
             score,
@@ -250,27 +256,34 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
             critical_issues: critical_count,
             modules: module_names,
             desktop_score: normalized
+                .normalized
                 .viewport_scores
                 .as_ref()
                 .map(|vs| vs.desktop.accessibility),
             mobile_score: normalized
+                .normalized
                 .viewport_scores
                 .as_ref()
                 .map(|vs| vs.mobile.accessibility),
         },
         summary: SummaryBlock {
             score,
-            overall_score: normalized.overall_score,
+            overall_score: normalized.normalized.overall_score,
             grade: grade.clone(),
             certificate: certificate.clone(),
             maturity_label: maturity_label.clone(),
             problem_type: problem_type.clone(),
-            domain: normalized.url.clone(),
+            domain: normalized.normalized.url.clone(),
             date: date.clone(),
             executive_lead: audit_summary.verdict_intro.clone(),
             dominant_issue_note: audit_summary.dominant_issue_note.clone(),
-            verdict: build_verdict_text(&i18n, &normalized.url, score as f32, normalized),
-            score_note: build_score_note(&i18n, normalized),
+            verdict: build_verdict_text(
+                &i18n,
+                &normalized.normalized.url,
+                score as f32,
+                &normalized.normalized,
+            ),
+            score_note: build_score_note(&i18n, &normalized.normalized),
             metrics: {
                 let label_violations_total = i18n.t("metric-violations-total");
                 let label_critical = i18n.t("metric-critical-high");
@@ -283,7 +296,7 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
                 vec![
                     MetricItem {
                         title: label_overall_score,
-                        value: normalized.overall_score.to_string(),
+                        value: normalized.normalized.overall_score.to_string(),
                         accent_color: Some("#0f766e".into()),
                     },
                     MetricItem {
@@ -308,7 +321,7 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
                     },
                     MetricItem {
                         title: label_wcag_level,
-                        value: normalized.wcag_level.to_string(),
+                        value: normalized.normalized.wcag_level.to_string(),
                         accent_color: Some("#22c55e".into()),
                     },
                 ]
@@ -344,21 +357,21 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
                 .collect(),
             overall_impact,
             technical_overview,
-            benchmark_context: build_benchmark_context(&config.locale, normalized),
-            business_consequence: build_business_consequence(&i18n, normalized),
-            consequence: build_consequence_text(&i18n, normalized),
-            risk_level: normalized.risk.level.label_localized(&i18n),
-            risk_summary: normalized.risk.summary_for(&config.locale),
+            benchmark_context: build_benchmark_context(&config.locale, &normalized.normalized),
+            business_consequence: build_business_consequence(&i18n, &normalized.normalized),
+            consequence: build_consequence_text(&i18n, &normalized.normalized),
+            risk_level: normalized.normalized.risk.level.label_localized(&i18n),
+            risk_summary: normalized.normalized.risk.summary_for(&config.locale),
         },
         executive,
-        methodology: build_methodology(&i18n, normalized),
+        methodology: build_methodology(&i18n, &normalized.normalized),
         modules,
         severity,
         findings: {
             let clusters = build_thematic_clusters(&config.locale, &sorted_groups);
             let finding_summary = build_finding_summary(
                 &config.locale,
-                &normalized.occurrence_counts,
+                &normalized.normalized.occurrence_counts,
                 &audit_summary,
             );
             let by_severity = build_severity_tiers(&config.locale, &sorted_groups);
@@ -372,10 +385,10 @@ pub fn build_view_model(normalized: &AuditContext, config: &ReportConfig) -> Rep
                 all_findings: sorted_groups,
             }
         },
-        diagnosis: build_diagnosis_block(&config.locale, normalized, &audit_summary),
+        diagnosis: build_diagnosis_block(&config.locale, &normalized.normalized, &audit_summary),
         module_details,
         actions,
-        appendix: build_appendix_block_from_normalized(&config.locale, normalized),
+        appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
         positive_signals: build_positive_signals(&config.locale, normalized),
     }
 }
@@ -453,8 +466,8 @@ mod tests {
         });
 
         let normalized = normalize(&report);
-        assert_eq!(normalized.findings.len(), 2);
-        assert_eq!(normalized.occurrence_counts.total, 1);
+        assert_eq!(normalized.normalized.findings.len(), 2);
+        assert_eq!(normalized.normalized.occurrence_counts.total, 1);
 
         let vm = build_view_model(&normalized, &ReportConfig::default());
 
@@ -473,38 +486,6 @@ mod tests {
             .find(|m| m.title == "Kritisch / Hoch")
             .expect("critical/high metric");
         assert_eq!(urgent_metric.value, "1");
-    }
-
-    #[test]
-    fn view_model_names_high_level_a_findings_as_high_not_critical_only() {
-        let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::High,
-            "Missing accessible name",
-            "node-123",
-        ));
-
-        let report = AuditReport::new(
-            "https://example.com".to_string(),
-            WcagLevel::AA,
-            results,
-            1500,
-        );
-        let normalized = normalize(&report);
-        let vm = build_view_model(&normalized, &ReportConfig::default());
-        let risk_text = vm
-            .executive
-            .impact_rows
-            .iter()
-            .find(|(label, _)| label == "Risiko")
-            .map(|(_, text)| text.as_str())
-            .expect("risk row");
-
-        assert!(risk_text.contains("hohe oder kritische WCAG-Level-A-Befunde"));
-        assert!(!risk_text.contains("keine kritischen Level-A-Verstöße"));
     }
 
     #[test]
@@ -547,24 +528,6 @@ mod tests {
         let candidates: Vec<&str> = vec![
             exec.cover_eyebrow.as_str(),
             exec.cover_kicker.as_str(),
-            exec.status_title.as_str(),
-            exec.metrics_title.as_str(),
-            exec.key_points_title.as_str(),
-            exec.impact_title.as_str(),
-            exec.quick_actions_title.as_str(),
-            exec.spotlight_eyebrow.as_str(),
-            exec.leverage_title.as_str(),
-            exec.findings_title.as_str(),
-            exec.findings_intro.as_str(),
-            exec.action_plan_title.as_str(),
-            exec.action_plan_intro.as_str(),
-            exec.action_plan_callout_title.as_str(),
-            exec.action_plan_callout_body.as_str(),
-            exec.technical_title.as_str(),
-            exec.technical_intro.as_str(),
-            exec.next_steps_title.as_str(),
-            exec.next_steps_intro.as_str(),
-            exec.next_steps_callout_title.as_str(),
             exec.next_steps_callout_body.as_str(),
             vm.summary.verdict.as_str(),
             vm.summary.executive_lead.as_str(),
@@ -870,8 +833,9 @@ mod tests {
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
         report.source_quality = Some(sq);
         report.ai_visibility = Some(av);
-        report.content_visibility =
-            Some(crate::content_visibility::ContentVisibilityAnalysis::default());
+        report.content_visibility = Some(crate::content_visibility::analyze_content_visibility(
+            &report,
+        ));
         report
     }
 
@@ -1018,6 +982,44 @@ mod tests {
             pdf_keys.contains("patterns"),
             "patterns is missing from ModuleDetailsBlock — \
              add a patterns field and update pdf_rendered_modules()"
+        );
+    }
+
+    #[test]
+    fn test_active_modules_have_json_detail_and_pdf_registry_coverage() {
+        use crate::output::json::UnifiedReport;
+        use crate::output::module::active_modules;
+        use std::collections::BTreeSet;
+
+        let report = all_active_modules_report();
+        let active_keys: BTreeSet<&str> = active_modules(&report)
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+
+        let normalized = normalize(&report);
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).expect("JSON should render");
+        let json_value: serde_json::Value =
+            serde_json::from_str(&json_str).expect("JSON should parse");
+        let modules = json_value["pages"][0]["detail"]["modules"]
+            .as_object()
+            .expect("single report detail modules must be an object");
+        let json_keys: BTreeSet<&str> = modules
+            .iter()
+            .filter(|(_, value)| !value.is_null())
+            .map(|(key, _)| key.as_str())
+            .collect();
+        let pdf_keys = super::module_details::pdf_rendered_modules();
+
+        let missing_json: Vec<&&str> = active_keys.difference(&json_keys).collect();
+        let missing_pdf: Vec<&&str> = active_keys.difference(&pdf_keys).collect();
+
+        assert!(
+            missing_json.is_empty() && missing_pdf.is_empty(),
+            "Active module coverage gap:\n  missing JSON detail entries: {:?}\n  missing PDF registry entries: {:?}",
+            missing_json,
+            missing_pdf,
         );
     }
 }

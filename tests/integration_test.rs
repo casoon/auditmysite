@@ -87,9 +87,70 @@ fn default_config() -> PipelineConfig {
         dismiss_consent: false,
         interactive: auditmysite::cli::InteractiveMode::Off,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-        semantic_eval: auditmysite::semantic_eval::SemanticEvalConfig::default(),
         lang: "de".to_string(),
     }
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_wcag_parity_gaps_on_stable_fixture() {
+    let (url, shutdown) = serve_fixture("parity_gaps.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let direct_title_findings = auditmysite::wcag::rules::check_page_titled_with_page(&page).await;
+    assert!(
+        direct_title_findings
+            .iter()
+            .any(|v| v.rule_id.as_deref() == Some("document-title")),
+        "direct DOM document-title check should trigger; got {direct_title_findings:?}"
+    );
+
+    let config = PipelineConfig {
+        persist_artifacts: false,
+        ..default_config()
+    };
+
+    let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
+        .await
+        .expect("Audit failed");
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let normalized = auditmysite::audit::normalize(&report).normalized;
+    let axe_ids: std::collections::BTreeSet<_> = normalized
+        .findings
+        .iter()
+        .filter_map(|finding| finding.axe_id.as_deref())
+        .collect();
+    let raw_rule_ids: Vec<_> = report
+        .wcag_results
+        .violations
+        .iter()
+        .map(|v| (v.rule.as_str(), v.rule_id.as_deref()))
+        .collect();
+
+    assert!(
+        axe_ids.contains("document-title"),
+        "missing title fixture should trigger document-title; got {axe_ids:?}; raw {raw_rule_ids:?}"
+    );
+    assert!(
+        axe_ids.contains("landmark-main-present") || axe_ids.contains("landmark-one-main"),
+        "missing main landmark fixture should trigger a main-landmark finding; got {axe_ids:?}"
+    );
+    assert!(
+        axe_ids.contains("landmark-unique"),
+        "duplicate navigation names should trigger landmark-unique; got {axe_ids:?}"
+    );
+    assert!(
+        axe_ids.contains("aria-hidden-focus"),
+        "focusable element in aria-hidden subtree should trigger aria-hidden-focus; got {axe_ids:?}"
+    );
 }
 
 #[tokio::test]

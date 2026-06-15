@@ -84,10 +84,6 @@ pub struct NormalizedReport {
     /// the Accessibility-Journey-Layer. `None` when `--interactive=off`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_journey: Option<AccessibilityJourney>,
-    /// Optional semantic / LLM advisory findings. Never influence score or
-    /// risk — explicitly advisory.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub advisory_findings: Vec<AdvisoryFinding>,
     /// Compact screen-reader audit (reading-order quality scores, issues, BFSG
     /// verdict). Kept separate from `findings[]` so WCAG severity counts stay
     /// rechtsrelevant; the full reading sequence stays in the sidecar JSON.
@@ -108,38 +104,25 @@ pub struct NormalizedReport {
 /// by output builders. Distinct from `NormalizedReport`: a deserialized
 /// `NormalizedReport` is a complete, valid snapshot without raw data, whereas
 /// `AuditContext` always carries live module results alongside it.
-pub struct AuditContext {
+pub struct AuditContext<'a> {
     pub normalized: NormalizedReport,
-    pub raw_dual_viewport: Option<crate::audit::report::DualViewportResults>,
-    pub raw_performance: Option<PerformanceResults>,
-    pub raw_performance_desktop: Option<PerformanceResults>,
-    pub raw_seo: Option<SeoAnalysis>,
-    pub raw_security: Option<SecurityAnalysis>,
-    pub raw_mobile: Option<MobileFriendliness>,
-    pub raw_ux: Option<crate::ux::UxAnalysis>,
-    pub raw_journey: Option<crate::journey::JourneyAnalysis>,
-    pub raw_dark_mode: Option<DarkModeAnalysis>,
-    pub raw_source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
-    pub raw_ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
-    pub raw_tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
-    pub raw_content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
-    pub raw_wcag: WcagResults,
-    pub raw_patterns: Option<crate::patterns::PatternAnalysis>,
-    pub raw_throttled_performance: Vec<crate::audit::report::ThrottledPerfResult>,
-    pub raw_best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
-}
-
-impl std::ops::Deref for AuditContext {
-    type Target = NormalizedReport;
-    fn deref(&self) -> &NormalizedReport {
-        &self.normalized
-    }
-}
-
-impl std::ops::DerefMut for AuditContext {
-    fn deref_mut(&mut self) -> &mut NormalizedReport {
-        &mut self.normalized
-    }
+    pub raw_dual_viewport: Option<&'a crate::audit::report::DualViewportResults>,
+    pub raw_performance: Option<&'a PerformanceResults>,
+    pub raw_performance_desktop: Option<&'a PerformanceResults>,
+    pub raw_seo: Option<&'a SeoAnalysis>,
+    pub raw_security: Option<&'a SecurityAnalysis>,
+    pub raw_mobile: Option<&'a MobileFriendliness>,
+    pub raw_ux: Option<&'a crate::ux::UxAnalysis>,
+    pub raw_journey: Option<&'a crate::journey::JourneyAnalysis>,
+    pub raw_dark_mode: Option<&'a DarkModeAnalysis>,
+    pub raw_source_quality: Option<&'a crate::source_quality::SourceQualityAnalysis>,
+    pub raw_ai_visibility: Option<&'a crate::ai_visibility::AiVisibilityAnalysis>,
+    pub raw_tech_stack: Option<&'a crate::tech_stack::TechStackAnalysis>,
+    pub raw_content_visibility: Option<&'a crate::content_visibility::ContentVisibilityAnalysis>,
+    pub raw_wcag: &'a WcagResults,
+    pub raw_patterns: Option<&'a crate::patterns::PatternAnalysis>,
+    pub raw_throttled_performance: &'a [crate::audit::report::ThrottledPerfResult],
+    pub raw_best_practices: Option<&'a crate::best_practices::BestPracticesAnalysis>,
 }
 
 /// Einheitliche Severity-Zähler
@@ -547,20 +530,6 @@ pub struct InteractiveFinding {
     pub fix_suggestion: Option<String>,
 }
 
-/// Advisory finding from semantic / LLM evaluation. Explicitly advisory —
-/// never influences score or risk level. Off unless `--semantic-eval` is set.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvisoryFinding {
-    /// "link_text" | "heading_outline" | "form_label_coherence"
-    /// | "blind_user_perspective"
-    pub category: String,
-    pub message: String,
-    /// "llm" | "static_heuristic"
-    pub source: String,
-    /// 0.0..1.0 — model confidence or heuristic strength.
-    pub confidence: f32,
-}
-
 /// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditFlag {
@@ -579,7 +548,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
     // Group violations by rule ID
     let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
     for v in violations {
-        groups.entry(&v.rule).or_default().push(v);
+        groups.entry(wcag_group_key(v)).or_default().push(v);
     }
 
     // Build normalized findings
@@ -728,7 +697,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             NormalizedFinding {
                 category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
-                wcag_criterion: rule_id.to_string(),
+                wcag_criterion: first.rule.clone(),
                 axe_id,
                 wcag_level: first.level.to_string(),
                 dimension,
@@ -762,6 +731,22 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
         .collect();
 
     findings
+}
+
+fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
+    match violation.rule_id.as_deref() {
+        Some(
+            "frame-title"
+            | "form-no-submit"
+            | "landmark-main-present"
+            | "landmark-unique"
+            | "presentation-semantic-children",
+        ) => violation
+            .rule_id
+            .as_deref()
+            .unwrap_or(violation.rule.as_str()),
+        _ => violation.rule.as_str(),
+    }
 }
 
 /// (title, technical_impact) for an SEO heading-issue type, in the requested
@@ -1420,7 +1405,7 @@ fn compute_risk_assessment(
 /// - Gruppert Violations nach Regel-ID
 /// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
 /// - Berechnet Grade/Certificate aus korrigiertem Score
-pub fn normalize(report: &AuditReport) -> AuditContext {
+pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let violations = &report.wcag_results.violations;
 
     let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
@@ -1703,32 +1688,31 @@ pub fn normalize(report: &AuditReport) -> AuditContext {
         score_breakdown,
         interactive_findings,
         accessibility_journey: report.accessibility_journey.clone(),
-        advisory_findings: report.advisory_findings.clone(),
         screen_reader,
         interpretation: None,
     };
     let mut ctx = AuditContext {
         normalized: normalized_data,
-        raw_dual_viewport: report.dual_viewport.clone(),
-        raw_performance: report.performance.clone(),
+        raw_dual_viewport: report.dual_viewport.as_ref(),
+        raw_performance: report.performance.as_ref(),
         raw_performance_desktop: report
             .dual_viewport
             .as_ref()
-            .and_then(|d| d.desktop.performance.clone()),
-        raw_seo: report.seo.clone(),
-        raw_security: report.security.clone(),
-        raw_mobile: report.mobile.clone(),
-        raw_ux: report.ux.clone(),
-        raw_journey: report.journey.clone(),
-        raw_dark_mode: report.dark_mode.clone(),
-        raw_source_quality: report.source_quality.clone(),
-        raw_ai_visibility: report.ai_visibility.clone(),
-        raw_tech_stack: report.tech_stack.clone(),
-        raw_content_visibility: report.content_visibility.clone(),
-        raw_wcag: report.wcag_results.clone(),
-        raw_patterns: report.patterns.clone(),
-        raw_throttled_performance: report.throttled_performance.clone(),
-        raw_best_practices: report.best_practices.clone(),
+            .and_then(|d| d.desktop.performance.as_ref()),
+        raw_seo: report.seo.as_ref(),
+        raw_security: report.security.as_ref(),
+        raw_mobile: report.mobile.as_ref(),
+        raw_ux: report.ux.as_ref(),
+        raw_journey: report.journey.as_ref(),
+        raw_dark_mode: report.dark_mode.as_ref(),
+        raw_source_quality: report.source_quality.as_ref(),
+        raw_ai_visibility: report.ai_visibility.as_ref(),
+        raw_tech_stack: report.tech_stack.as_ref(),
+        raw_content_visibility: report.content_visibility.as_ref(),
+        raw_wcag: &report.wcag_results,
+        raw_patterns: report.patterns.as_ref(),
+        raw_throttled_performance: &report.throttled_performance,
+        raw_best_practices: report.best_practices.as_ref(),
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
     ctx
@@ -1921,11 +1905,11 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        assert_eq!(norm.score, 100);
-        assert_eq!(norm.grade, "A");
-        assert_eq!(norm.certificate, "SEHR GUT");
-        assert!(norm.findings.is_empty());
-        assert_eq!(norm.severity_counts.total, 0);
+        assert_eq!(norm.normalized.score, 100);
+        assert_eq!(norm.normalized.grade, "A");
+        assert_eq!(norm.normalized.certificate, "SEHR GUT");
+        assert!(norm.normalized.findings.is_empty());
+        assert_eq!(norm.normalized.severity_counts.total, 0);
     }
 
     #[test]
@@ -1964,8 +1948,9 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        assert_eq!(norm.findings.len(), 2);
+        assert_eq!(norm.normalized.findings.len(), 2);
         let alt = norm
+            .normalized
             .findings
             .iter()
             .find(|f| f.wcag_criterion == "1.1.1")
@@ -1997,7 +1982,7 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        let finding = &norm.findings[0];
+        let finding = &norm.normalized.findings[0];
         assert_eq!(finding.rule_id, "a11y.alt_text.missing");
         assert_eq!(finding.dimension, "Accessibility");
         assert_eq!(finding.subcategory, "Content & Alternatives");
@@ -2024,6 +2009,147 @@ mod tests {
                 "canonical-English JSON field contains German diacritics: {field}"
             );
         }
+    }
+
+    #[test]
+    fn test_frame_title_keeps_wcag_241_and_specific_taxonomy() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "2.4.1",
+                "Frame title",
+                WcagLevel::A,
+                Severity::High,
+                "Iframe is missing an accessible name",
+                "iframe:nth-of-type(1)",
+            )
+            .with_rule_id("frame-title"),
+        );
+        results.add_violation(
+            Violation::new(
+                "2.4.1",
+                "Bypass Blocks",
+                WcagLevel::A,
+                Severity::High,
+                "No bypass mechanism found",
+                "document",
+            )
+            .with_rule_id("bypass"),
+        );
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        );
+        let norm = normalize(&report);
+
+        let frame = norm
+            .normalized
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "a11y.frame_title.missing")
+            .expect("frame-title finding should keep its own taxonomy rule");
+        assert_eq!(frame.wcag_criterion, "2.4.1");
+        assert_eq!(frame.axe_id.as_deref(), Some("frame-title"));
+
+        assert!(norm
+            .normalized
+            .findings
+            .iter()
+            .any(|f| f.rule_id == "a11y.bypass_blocks.missing"));
+    }
+
+    #[test]
+    fn test_dom_parity_rules_keep_specific_taxonomy() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "3.2.2",
+                "On Input",
+                WcagLevel::A,
+                Severity::Medium,
+                "Form has input controls but no explicit submit button",
+                "form",
+            )
+            .with_rule_id("form-no-submit"),
+        );
+        results.add_violation(
+            Violation::new(
+                "1.3.1",
+                "Info and Relationships",
+                WcagLevel::A,
+                Severity::Medium,
+                "Presentational container contains semantic child",
+                "div[role=\"presentation\"]",
+            )
+            .with_rule_id("presentation-semantic-children"),
+        );
+        results.add_violation(
+            Violation::new(
+                "1.3.1",
+                "Landmark Main Present",
+                WcagLevel::A,
+                Severity::High,
+                "Page has no main landmark",
+                "document",
+            )
+            .with_rule_id("landmark-main-present"),
+        );
+        results.add_violation(
+            Violation::new(
+                "1.3.1",
+                "Landmark Unique",
+                WcagLevel::A,
+                Severity::Medium,
+                "Multiple navigation landmarks share the same accessible name",
+                "nav",
+            )
+            .with_rule_id("landmark-unique"),
+        );
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        );
+        let norm = normalize(&report);
+
+        let form = norm
+            .normalized
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "a11y.form_no_submit.missing")
+            .expect("form-no-submit finding should keep its own taxonomy rule");
+        assert_eq!(form.wcag_criterion, "3.2.2");
+        assert_eq!(form.axe_id.as_deref(), Some("form-no-submit"));
+
+        let presentation = norm
+            .normalized
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "a11y.presentation_semantic_children.invalid")
+            .expect("presentation-semantic-children should keep its own taxonomy rule");
+        assert_eq!(presentation.wcag_criterion, "1.3.1");
+        assert_eq!(
+            presentation.axe_id.as_deref(),
+            Some("presentation-semantic-children")
+        );
+
+        assert!(norm
+            .normalized
+            .findings
+            .iter()
+            .any(|f| f.rule_id == "a11y.landmark_main.missing"
+                && f.axe_id.as_deref() == Some("landmark-main-present")));
+        assert!(norm
+            .normalized
+            .findings
+            .iter()
+            .any(|f| f.rule_id == "a11y.landmark_unique.invalid"
+                && f.axe_id.as_deref() == Some("landmark-unique")));
     }
 
     #[test]
@@ -2063,14 +2189,14 @@ mod tests {
         let norm = normalize(&report);
 
         // severity_counts: 2 distinct findings (one per rule + severity).
-        assert_eq!(norm.severity_counts.high, 1);
-        assert_eq!(norm.severity_counts.medium, 1);
-        assert_eq!(norm.severity_counts.total, 2);
+        assert_eq!(norm.normalized.severity_counts.high, 1);
+        assert_eq!(norm.normalized.severity_counts.medium, 1);
+        assert_eq!(norm.normalized.severity_counts.total, 2);
 
         // occurrence_counts: 3 element occurrences (2 for 1.1.1 + 1 for 2.4.4).
-        assert_eq!(norm.occurrence_counts.high, 2);
-        assert_eq!(norm.occurrence_counts.medium, 1);
-        assert_eq!(norm.occurrence_counts.total, 3);
+        assert_eq!(norm.normalized.occurrence_counts.high, 2);
+        assert_eq!(norm.normalized.occurrence_counts.medium, 1);
+        assert_eq!(norm.normalized.occurrence_counts.total, 3);
     }
 
     #[test]
@@ -2094,10 +2220,10 @@ mod tests {
 
         let norm = normalize(&report);
 
-        assert_eq!(norm.risk.level, RiskLevel::Medium);
-        assert_eq!(norm.severity_counts.total, 0);
-        assert_eq!(norm.score, 100);
-        assert_eq!(norm.risk.interactive_critical_issues, 1);
+        assert_eq!(norm.normalized.risk.level, RiskLevel::Medium);
+        assert_eq!(norm.normalized.severity_counts.total, 0);
+        assert_eq!(norm.normalized.score, 100);
+        assert_eq!(norm.normalized.risk.interactive_critical_issues, 1);
     }
 
     #[test]
@@ -2121,11 +2247,11 @@ mod tests {
 
         let norm = normalize(&report);
 
-        assert_eq!(norm.risk.level, RiskLevel::Medium);
-        assert_eq!(norm.risk.score, 5);
-        assert_eq!(norm.risk.interactive_high_issues, 1);
-        assert_eq!(norm.severity_counts.total, 0);
-        assert_eq!(norm.score, 100);
+        assert_eq!(norm.normalized.risk.level, RiskLevel::Medium);
+        assert_eq!(norm.normalized.risk.score, 5);
+        assert_eq!(norm.normalized.risk.interactive_high_issues, 1);
+        assert_eq!(norm.normalized.severity_counts.total, 0);
+        assert_eq!(norm.normalized.score, 100);
     }
 
     #[test]
@@ -2148,8 +2274,8 @@ mod tests {
         );
         // Without SEO data — 3.1.1 should remain
         let norm_no_seo = normalize(&report);
-        assert_eq!(norm_no_seo.findings.len(), 1);
-        assert!(norm_no_seo.audit_flags.is_empty());
+        assert_eq!(norm_no_seo.normalized.findings.len(), 1);
+        assert!(norm_no_seo.normalized.audit_flags.is_empty());
 
         // With SEO indicating has_lang — 3.1.1 should remain but be marked as a conflicting signal
         report.seo = Some(crate::seo::SeoAnalysis {
@@ -2160,11 +2286,13 @@ mod tests {
             ..Default::default()
         });
         let norm_with_seo = normalize(&report);
-        assert_eq!(norm_with_seo.findings.len(), 1);
-        assert_eq!(norm_with_seo.score, report.score.round() as u32);
-        assert_eq!(norm_with_seo.audit_flags.len(), 1);
+        assert_eq!(norm_with_seo.normalized.findings.len(), 1);
+        assert_eq!(norm_with_seo.normalized.score, report.score.round() as u32);
+        assert_eq!(norm_with_seo.normalized.audit_flags.len(), 1);
         assert_eq!(
-            norm_with_seo.audit_flags[0].related_rule.as_deref(),
+            norm_with_seo.normalized.audit_flags[0]
+                .related_rule
+                .as_deref(),
             Some("3.1.1")
         );
     }
@@ -2191,10 +2319,12 @@ mod tests {
 
         // Grade and certificate are both derived from overall_score so they
         // remain mutually consistent (see issue #233).
-        let expected_grade = AccessibilityScorer::calculate_grade(norm.overall_score as f32);
-        let expected_cert = AccessibilityScorer::calculate_certificate(norm.overall_score as f32);
-        assert_eq!(norm.grade, expected_grade);
-        assert_eq!(norm.certificate, expected_cert);
+        let expected_grade =
+            AccessibilityScorer::calculate_grade(norm.normalized.overall_score as f32);
+        let expected_cert =
+            AccessibilityScorer::calculate_certificate(norm.normalized.overall_score as f32);
+        assert_eq!(norm.normalized.grade, expected_grade);
+        assert_eq!(norm.normalized.certificate, expected_cert);
     }
 
     #[test]
@@ -2243,6 +2373,7 @@ mod tests {
         let norm = normalize(&report);
 
         let bp_entry = norm
+            .normalized
             .module_scores
             .iter()
             .find(|m| m.name == "Best Practices");
@@ -2315,7 +2446,11 @@ mod tests {
 
         let norm = normalize(&report);
 
-        let sec_entry = norm.module_scores.iter().find(|m| m.name == "Security");
+        let sec_entry = norm
+            .normalized
+            .module_scores
+            .iter()
+            .find(|m| m.name == "Security");
         assert!(sec_entry.is_some());
         // high=15 + medium=8 = 23 penalty; 80 - 23 = 57
         assert_eq!(sec_entry.unwrap().score, 57);
@@ -2386,12 +2521,17 @@ mod tests {
             weighted_overall: 100,
         });
         let norm = normalize(&report);
-        assert_eq!(norm.score_calculation_method, "viewport_weighted");
+        assert_eq!(
+            norm.normalized.score_calculation_method,
+            "viewport_weighted"
+        );
         assert!(norm
+            .normalized
             .score_breakdown
             .as_ref()
             .is_some_and(|b| b.calculation_note.contains("canonical final score")));
         let names_contributing: Vec<&str> = norm
+            .normalized
             .module_scores
             .iter()
             .filter(|m| m.contributes_to_overall)

@@ -195,13 +195,6 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "full")]
     pub interactive: InteractiveMode,
 
-    /// Semantic AI evaluation (fastembed link-text + optional Mistral).
-    /// Enabled by default; pass `--no-semantic-eval` to disable. The fastembed
-    /// evaluator requires the `semantic-eval` build feature; Mistral requires
-    /// the MISTRAL_API_KEY env var. Findings are advisory only (never scored).
-    #[arg(long = "no-semantic-eval", action = clap::ArgAction::SetFalse)]
-    pub semantic_eval: bool,
-
     /// Enable tech stack detection and stack-specific audits (WordPress, Next.js, Drupal, …)
     #[arg(long)]
     pub stack: bool,
@@ -640,7 +633,6 @@ mod tests {
             prefer_sitemap: false,
             per_page_reports: false,
             dismiss_consent: false,
-            semantic_eval: false,
             interactive: InteractiveMode::Off,
             report_level: ReportLevel::Standard,
             lang: "de".to_string(),

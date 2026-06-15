@@ -49,14 +49,14 @@ pub const RULE_META_IMAGE: RuleMetadata = RuleMetadata {
 
 /// Rule metadata for iframe accessible names (axe-core `frame-title`).
 pub const RULE_META_FRAME_TITLE: RuleMetadata = RuleMetadata {
-    id: "frame-title",
+    id: "2.4.1",
     name: "Frame title",
     level: WcagLevel::A,
     severity: Severity::High,
     description: "Frames and iframes must have an accessible name",
-    help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
+    help_url: "https://www.w3.org/WAI/WCAG21/Techniques/html/H64",
     axe_id: "frame-title",
-    tags: &["wcag2a", "wcag412", "cat.text-alternatives"],
+    tags: &["wcag2a", "wcag241", "cat.text-alternatives"],
 };
 
 /// Run all media-related WCAG checks
@@ -499,5 +499,12 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("Video element may lack")));
+    }
+
+    #[test]
+    fn test_frame_title_metadata_uses_wcag_241_with_axe_id() {
+        assert_eq!(RULE_META_FRAME_TITLE.id, "2.4.1");
+        assert_eq!(RULE_META_FRAME_TITLE.axe_id, "frame-title");
+        assert!(RULE_META_FRAME_TITLE.tags.contains(&"wcag241"));
     }
 }

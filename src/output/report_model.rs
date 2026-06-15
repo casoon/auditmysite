@@ -342,32 +342,7 @@ pub struct SummaryBlock {
 pub struct ExecutiveNarrativeBlock {
     pub cover_eyebrow: String,
     pub cover_kicker: String,
-    pub status_title: String,
-    pub risk_title: String,
-    pub metrics_title: String,
-    pub key_points_title: String,
     pub key_points: Vec<String>,
-    pub impact_title: String,
-    pub impact_rows: Vec<(String, String)>,
-    pub quick_actions_title: String,
-    pub quick_actions: Vec<String>,
-    pub spotlight_eyebrow: String,
-    pub spotlight_body: String,
-    pub spotlight_impact: String,
-    pub spotlight_recommendation: String,
-    pub leverage_title: String,
-    pub leverage_text: Option<String>,
-    pub findings_title: String,
-    pub findings_intro: String,
-    pub action_plan_title: String,
-    pub action_plan_intro: String,
-    pub action_plan_callout_title: String,
-    pub action_plan_callout_body: String,
-    pub technical_title: String,
-    pub technical_intro: String,
-    pub next_steps_title: String,
-    pub next_steps_intro: String,
-    pub next_steps_callout_title: String,
     pub next_steps_callout_body: String,
 }
 
@@ -1064,6 +1039,40 @@ pub struct ActionPlan {
     pub role_assignments: Vec<RoleAssignment>,
 }
 
+/// A group of pages that share an identical SEO content value across the site.
+///
+/// `kind` is a canonical, language-neutral key (`"title"`, `"meta_description"`,
+/// or `"h1"`); the PDF layer derives the localized label at render time (#406).
+/// `value` is the verbatim shared content (truncated for display).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DuplicateContentGroup {
+    pub kind: String,
+    pub value: String,
+    pub urls: Vec<String>,
+}
+
+/// A canonical-tag conflict found on a single page (#423).
+///
+/// `kind` is a canonical, language-neutral key (`"noindex_conflict"` or
+/// `"og_url_mismatch"`); the PDF layer derives the localized label at render
+/// time (#406). `detail` carries the offending values for context.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CanonicalIssue {
+    pub kind: String,
+    pub url: String,
+    pub detail: String,
+}
+
+/// A non-reciprocal hreflang relationship (#423): `source_url` declares an
+/// hreflang entry pointing to `target_url` (also in the audited set), but the
+/// target does not declare a return link back to the source.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct HreflangIssue {
+    pub source_url: String,
+    pub target_url: String,
+    pub lang: String,
+}
+
 pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
@@ -1108,6 +1117,12 @@ pub struct PortfolioSummary {
     pub schema_distribution: Vec<(String, usize)>,
     /// Number of pages with no structured data at all
     pub pages_without_schema: usize,
+    /// Cross-page duplicate content groups (identical title / meta description / H1)
+    pub duplicate_content: Vec<DuplicateContentGroup>,
+    /// Per-page canonical-tag conflicts aggregated across the site
+    pub canonical_issues: Vec<CanonicalIssue>,
+    /// Non-reciprocal hreflang relationships between audited pages
+    pub hreflang_issues: Vec<HreflangIssue>,
 }
 
 pub struct CrawlLinkSummary {

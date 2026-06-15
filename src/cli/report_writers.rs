@@ -120,9 +120,10 @@ pub fn output_single_report(
         }
         OutputFormat::Summary => {
             let normalized = normalize(report);
-            let output = format_summary(&normalized).map_err(|e| AuditError::OutputError {
-                reason: e.to_string(),
-            })?;
+            let output =
+                format_summary(&normalized.normalized).map_err(|e| AuditError::OutputError {
+                    reason: e.to_string(),
+                })?;
             output_text(&output, &args.output, "summary JSON", args.quiet)?;
         }
     }
@@ -233,7 +234,7 @@ pub fn output_batch_report(
                 .iter()
                 .filter_map(|r| {
                     let normalized = normalize(r);
-                    format_summary(&normalized).ok()
+                    format_summary(&normalized.normalized).ok()
                 })
                 .collect();
             let combined = format!("[\n{}\n]", summaries.join(",\n"));

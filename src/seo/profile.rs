@@ -1679,15 +1679,34 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
     // Required-property validation issues from schema.rs
     if !seo.structured_data.schema_issues.is_empty() {
         // Group missing fields by schema type for a compact summary
-        let mut by_type: std::collections::BTreeMap<&str, Vec<&str>> =
+        let mut by_type: std::collections::BTreeMap<&str, (Vec<&str>, Vec<&str>)> =
             std::collections::BTreeMap::new();
         for issue in &seo.structured_data.schema_issues {
-            by_type
+            let entry = by_type
                 .entry(issue.schema_type.as_str())
-                .or_default()
-                .push(issue.message.split('"').nth(1).unwrap_or("?"));
+                .or_insert_with(|| (Vec::new(), Vec::new()));
+            let field = issue.message.split('"').nth(1).unwrap_or("?");
+            match issue.severity {
+                crate::seo::schema::SchemaIssueSeverity::Required => entry.0.push(field),
+                crate::seo::schema::SchemaIssueSeverity::Recommended => entry.1.push(field),
+            }
         }
-        for (type_name, fields) in &by_type {
+        for (type_name, (required, recommended)) in &by_type {
+            let mut detail_parts = Vec::new();
+            if !required.is_empty() {
+                detail_parts.push(if en {
+                    format!("Missing required: {}", required.join(", "))
+                } else {
+                    format!("Pflichtfelder fehlen: {}", required.join(", "))
+                });
+            }
+            if !recommended.is_empty() {
+                detail_parts.push(if en {
+                    format!("Recommended missing: {}", recommended.join(", "))
+                } else {
+                    format!("Empfohlene Felder fehlen: {}", recommended.join(", "))
+                });
+            }
             checks.push(check(
                 &if en {
                     format!("{} required fields complete", type_name)
@@ -1695,11 +1714,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                     format!("{} Pflichtfelder vollständig", type_name)
                 },
                 false,
-                Some(if en {
-                    format!("Missing: {}", fields.join(", "))
-                } else {
-                    format!("Fehlt: {}", fields.join(", "))
-                }),
+                Some(detail_parts.join("; ")),
             ));
         }
     }

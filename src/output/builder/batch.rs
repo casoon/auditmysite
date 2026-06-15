@@ -17,9 +17,10 @@ use super::actions::{
     impact_score, localized_finding_text, score_to_priority, severity_to_priority,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
-use super::seo::{
+use super::seo::page_profile_optimization_note;
+use crate::seo::{
     average_page_semantic_score, derive_domain_topics, derive_topic_overlap_pairs,
-    extract_page_topics, page_profile_optimization_note,
+    extract_page_topics,
 };
 
 /// Build a complete presentation model from a batch audit report
@@ -30,12 +31,25 @@ pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
 
 /// Locale-aware variant of [`build_batch_presentation`].
 pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) -> BatchPresentation {
-    // Normalize all reports early — needed for overall scores, risk, module averages
     let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = batch
         .reports
         .iter()
         .map(|r| normalize(r).normalized)
         .collect();
+    build_batch_presentation_with_normalized(batch, i18n, &normalized_reports)
+}
+
+/// Locale-aware variant for callers that already normalized the batch pages.
+pub fn build_batch_presentation_with_normalized(
+    batch: &BatchReport,
+    i18n: &I18n,
+    normalized_reports: &[NormalizedReport],
+) -> BatchPresentation {
+    debug_assert_eq!(
+        batch.reports.len(),
+        normalized_reports.len(),
+        "batch presentation requires one normalized report per raw report"
+    );
     let collected = collect_batch_finding_groups(&normalized_reports, i18n);
     // Deduplicate findings with the same title across rule sources; prefer
     // non-"unknown." rule_ids, merge occurrence counts.
@@ -82,7 +96,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
             None
         } else {
             let mut category_map: HMap<String, (usize, Severity)> = HMap::new();
-            for nr in &normalized_reports {
+            for nr in normalized_reports {
                 let mut seen_in_page: std::collections::HashSet<String> = Default::default();
                 for f in &nr.interactive_findings {
                     let entry = category_map
@@ -369,6 +383,15 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         Vec::new()
     };
 
+    // Cross-page duplicate content (identical title / meta description / H1)
+    let duplicate_content = build_duplicate_content(&batch.reports);
+
+    // Per-page canonical conflicts (noindex / og:url mismatch)
+    let canonical_issues = build_canonical_issues(&batch.reports);
+
+    // Non-reciprocal hreflang relationships among audited pages
+    let hreflang_issues = build_hreflang_issues(&batch.reports);
+
     // Budget violations: aggregate across all pages
     let budget_summary: Vec<(String, String, usize, String)> = {
         use std::collections::HashMap;
@@ -539,7 +562,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
     // Aggregate module averages
     let module_averages = {
         let mut module_sums: HashMap<String, (u32, usize)> = HashMap::new();
-        for nr in &normalized_reports {
+        for nr in normalized_reports {
             for ms in &nr.module_scores {
                 let entry = module_sums.entry(ms.name.clone()).or_insert((0, 0));
                 entry.0 += ms.score;
@@ -706,6 +729,9 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
             render_blocking_summary,
             schema_distribution,
             pages_without_schema,
+            duplicate_content,
+            canonical_issues,
+            hreflang_issues,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -713,7 +739,7 @@ pub fn build_batch_presentation_with_locale(batch: &BatchReport, i18n: &I18n) ->
         url_ranking,
         url_details,
         url_matrix: build_url_matrix(batch),
-        appendix: build_batch_appendix(i18n.locale(), batch),
+        appendix: build_batch_appendix(i18n.locale(), batch, normalized_reports),
         interactive_summary,
     }
 }
@@ -766,6 +792,180 @@ fn url_path(url: &str) -> String {
     url::Url::parse(url)
         .map(|u| u.path().to_string())
         .unwrap_or_else(|_| url.to_string())
+}
+
+/// Char-boundary-safe truncation with an ellipsis for display values.
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let head: String = s.chars().take(max).collect();
+        format!("{head}…")
+    }
+}
+
+/// Detect pages that share an identical title, meta description, or H1 across
+/// the audited set — a standard cross-page SEO signal (#423). Values are
+/// normalized (trimmed, whitespace-collapsed, lowercased) for grouping but
+/// stored verbatim (truncated) for display. Only groups with ≥2 pages are kept.
+fn build_duplicate_content(reports: &[crate::audit::AuditReport]) -> Vec<DuplicateContentGroup> {
+    fn norm(s: &str) -> String {
+        s.split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    }
+
+    // (kind, normalized_value) → (verbatim display value, urls)
+    let mut groups: HashMap<(&'static str, String), (String, Vec<String>)> = HashMap::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let candidates: [(&'static str, Option<&str>); 3] = [
+            ("title", seo.meta.title.as_deref()),
+            ("meta_description", seo.meta.description.as_deref()),
+            ("h1", seo.headings.h1_text.as_deref()),
+        ];
+        for (kind, raw) in candidates {
+            let Some(value) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+                continue;
+            };
+            let entry = groups
+                .entry((kind, norm(value)))
+                .or_insert_with(|| (value.to_string(), Vec::new()));
+            if !entry.1.contains(&r.url) {
+                entry.1.push(r.url.clone());
+            }
+        }
+    }
+
+    let mut out: Vec<DuplicateContentGroup> = groups
+        .into_iter()
+        .filter(|(_, (_, urls))| urls.len() >= 2)
+        .map(|((kind, _), (value, urls))| DuplicateContentGroup {
+            kind: kind.to_string(),
+            value: truncate_chars(&value, 80),
+            urls,
+        })
+        .collect();
+
+    // Deterministic order: most-duplicated first, then by kind, then value.
+    out.sort_by(|a, b| {
+        b.urls
+            .len()
+            .cmp(&a.urls.len())
+            .then_with(|| a.kind.cmp(&b.kind))
+            .then_with(|| a.value.cmp(&b.value))
+    });
+    out
+}
+
+/// Detect canonical-tag conflicts per page (#423): a canonical pointing away
+/// while the page is `noindex` (mixed signals to crawlers), and a canonical
+/// that disagrees with the page's `og:url`. Pure per-page checks aggregated
+/// across the batch; no extra network requests.
+fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<CanonicalIssue> {
+    fn norm_url(u: &str) -> String {
+        u.trim().trim_end_matches('/').to_string()
+    }
+
+    let mut out = Vec::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let Some(canonical) = seo
+            .technical
+            .canonical_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        else {
+            continue;
+        };
+
+        // canonical present while the page is noindex → conflicting signal.
+        let noindex = seo
+            .technical
+            .robots_meta
+            .as_deref()
+            .is_some_and(|m| m.to_lowercase().contains("noindex"));
+        if noindex {
+            out.push(CanonicalIssue {
+                kind: "noindex_conflict".to_string(),
+                url: r.url.clone(),
+                detail: canonical.to_string(),
+            });
+        }
+
+        // canonical vs og:url mismatch (ignoring trailing slash).
+        if let Some(og_url) = seo
+            .social
+            .open_graph
+            .as_ref()
+            .and_then(|og| og.url.as_deref())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            if norm_url(canonical) != norm_url(og_url) {
+                out.push(CanonicalIssue {
+                    kind: "og_url_mismatch".to_string(),
+                    url: r.url.clone(),
+                    detail: format!("{canonical} ≠ {og_url}"),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// Detect non-reciprocal hreflang relationships among the audited pages (#423):
+/// page A points to B via hreflang, B is also in the set, but B does not point
+/// back to A. Only verifiable pairs (both pages audited) are checked; targets
+/// outside the set are skipped since their hreflang is unknown.
+fn build_hreflang_issues(reports: &[crate::audit::AuditReport]) -> Vec<HreflangIssue> {
+    fn norm_url(u: &str) -> String {
+        u.trim().trim_end_matches('/').to_lowercase()
+    }
+
+    // normalized page url → set of normalized hreflang targets it declares.
+    let mut declared: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let entry = declared.entry(norm_url(&r.url)).or_default();
+        for tag in &seo.technical.hreflang {
+            let t = tag.url.trim();
+            if !t.is_empty() {
+                entry.insert(norm_url(t));
+            }
+        }
+    }
+
+    let mut out = Vec::new();
+    for r in reports {
+        let Some(seo) = &r.seo else { continue };
+        let source = norm_url(&r.url);
+        for tag in &seo.technical.hreflang {
+            let target = norm_url(tag.url.trim());
+            if target.is_empty() || target == source {
+                continue;
+            }
+            // Only verify reciprocity for targets that are themselves audited.
+            let Some(target_set) = declared.get(&target) else {
+                continue;
+            };
+            if !target_set.contains(&source) {
+                out.push(HreflangIssue {
+                    source_url: r.url.clone(),
+                    target_url: tag.url.trim().to_string(),
+                    lang: tag.lang.clone(),
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| {
+        a.source_url
+            .cmp(&b.source_url)
+            .then_with(|| a.target_url.cmp(&b.target_url))
+    });
+    out
 }
 
 // ─── Internal batch helpers ──────────────────────────────────────────────────
@@ -1014,5 +1214,176 @@ fn representative_occurrence_from_normalized(
         message: occurrence.message.clone(),
         html_snippet: occurrence.html_snippet.clone(),
         suggested_code: occurrence.suggested_code.clone(),
+    }
+}
+
+#[cfg(test)]
+mod duplicate_content_tests {
+    use super::*;
+    use crate::audit::AuditReport;
+    use crate::cli::WcagLevel;
+    use crate::seo::{HeadingStructure, MetaTags, SeoAnalysis};
+    use crate::wcag::WcagResults;
+
+    fn report_with(url: &str, title: &str, h1: &str) -> AuditReport {
+        let seo = SeoAnalysis {
+            meta: MetaTags {
+                title: Some(title.to_string()),
+                ..Default::default()
+            },
+            headings: HeadingStructure {
+                h1_text: Some(h1.to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_seo(seo)
+    }
+
+    #[test]
+    fn groups_identical_titles_and_h1s_ignoring_case_and_whitespace() {
+        let reports = vec![
+            report_with("https://x.test/a", "Welcome", "Hero"),
+            // Same title (case + spacing differ) → one title group of 2 pages.
+            report_with("https://x.test/b", "  welcome ", "Other"),
+            report_with("https://x.test/c", "Unique", "Hero"),
+        ];
+
+        let groups = build_duplicate_content(&reports);
+
+        let title_group = groups
+            .iter()
+            .find(|g| g.kind == "title")
+            .expect("duplicate title group");
+        assert_eq!(title_group.value, "Welcome"); // verbatim from first occurrence, trimmed
+        assert_eq!(title_group.urls.len(), 2);
+
+        // "Hero" H1 appears on a and c → one h1 group of 2.
+        let h1_group = groups
+            .iter()
+            .find(|g| g.kind == "h1")
+            .expect("duplicate h1 group");
+        assert_eq!(h1_group.urls.len(), 2);
+
+        // "Unique" title and "Other" H1 appear once → not grouped.
+        assert!(!groups.iter().any(|g| g.value == "Unique"));
+    }
+
+    #[test]
+    fn no_groups_when_all_values_distinct() {
+        let reports = vec![
+            report_with("https://x.test/a", "One", "A"),
+            report_with("https://x.test/b", "Two", "B"),
+        ];
+        assert!(build_duplicate_content(&reports).is_empty());
+    }
+
+    fn report_with_canonical(
+        url: &str,
+        canonical: Option<&str>,
+        robots: Option<&str>,
+        og_url: Option<&str>,
+    ) -> AuditReport {
+        use crate::seo::{OpenGraph, SocialTags, TechnicalSeo};
+        let seo = SeoAnalysis {
+            technical: TechnicalSeo {
+                canonical_url: canonical.map(str::to_string),
+                robots_meta: robots.map(str::to_string),
+                ..Default::default()
+            },
+            social: SocialTags {
+                open_graph: og_url.map(|u| OpenGraph {
+                    url: Some(u.to_string()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_seo(seo)
+    }
+
+    #[test]
+    fn flags_noindex_and_ogurl_conflicts_only() {
+        let reports = vec![
+            // noindex + canonical → conflict
+            report_with_canonical(
+                "https://x.test/a",
+                Some("https://x.test/a"),
+                Some("noindex, follow"),
+                None,
+            ),
+            // canonical disagrees with og:url (trailing slash ignored elsewhere)
+            report_with_canonical(
+                "https://x.test/b",
+                Some("https://x.test/canon"),
+                None,
+                Some("https://x.test/other"),
+            ),
+            // clean: canonical == og:url (trailing slash only), indexable → no issue
+            report_with_canonical(
+                "https://x.test/c",
+                Some("https://x.test/c/"),
+                Some("index, follow"),
+                Some("https://x.test/c"),
+            ),
+        ];
+
+        let issues = build_canonical_issues(&reports);
+        assert_eq!(issues.len(), 2);
+        assert!(issues
+            .iter()
+            .any(|i| i.kind == "noindex_conflict" && i.url == "https://x.test/a"));
+        assert!(issues
+            .iter()
+            .any(|i| i.kind == "og_url_mismatch" && i.url == "https://x.test/b"));
+        // page c must not be flagged (trailing-slash-only difference)
+        assert!(!issues.iter().any(|i| i.url == "https://x.test/c"));
+    }
+
+    fn report_with_hreflang(url: &str, targets: &[(&str, &str)]) -> AuditReport {
+        use crate::seo::technical::HreflangTag;
+        use crate::seo::TechnicalSeo;
+        let seo = SeoAnalysis {
+            technical: TechnicalSeo {
+                has_hreflang: !targets.is_empty(),
+                hreflang: targets
+                    .iter()
+                    .map(|(lang, u)| HreflangTag {
+                        lang: lang.to_string(),
+                        url: u.to_string(),
+                    })
+                    .collect(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100).with_seo(seo)
+    }
+
+    #[test]
+    fn flags_only_non_reciprocal_hreflang_between_audited_pages() {
+        let reports = vec![
+            // A points to B and to an external (non-audited) page.
+            report_with_hreflang(
+                "https://x.test/en",
+                &[("de", "https://x.test/de"), ("fr", "https://ext.test/fr")],
+            ),
+            // B points back to A → A↔B reciprocal; B also points to C.
+            report_with_hreflang(
+                "https://x.test/de",
+                &[("en", "https://x.test/en"), ("es", "https://x.test/es")],
+            ),
+            // C does NOT point back to B → B→C is non-reciprocal.
+            report_with_hreflang("https://x.test/es", &[]),
+        ];
+
+        let issues = build_hreflang_issues(&reports);
+
+        // Only B→C should be flagged. A→B is reciprocal; A→ext is unverifiable.
+        assert_eq!(issues.len(), 1, "got: {issues:?}");
+        assert_eq!(issues[0].source_url, "https://x.test/de");
+        assert_eq!(issues[0].target_url, "https://x.test/es");
+        assert_eq!(issues[0].lang, "es");
     }
 }

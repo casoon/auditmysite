@@ -99,18 +99,20 @@ pub async fn press_escape(page: &Page) -> Result<()> {
 
 /// Press an arrow key. `direction` is `"Up"`, `"Down"`, `"Left"`, or `"Right"`.
 pub async fn press_arrow(page: &Page, direction: &str) -> Result<()> {
-    let key = match direction {
-        "Up" => "ArrowUp",
-        "Down" => "ArrowDown",
-        "Left" => "ArrowLeft",
-        "Right" => "ArrowRight",
-        other => {
-            return Err(AuditError::InteractionFailed {
-                reason: format!("Invalid arrow direction: {other}"),
-            });
-        }
-    };
+    let key = arrow_key(direction).ok_or_else(|| AuditError::InteractionFailed {
+        reason: format!("Invalid arrow direction: {direction}"),
+    })?;
     press(page, key).await
+}
+
+fn arrow_key(direction: &str) -> Option<&'static str> {
+    match direction {
+        "Up" => Some("ArrowUp"),
+        "Down" => Some("ArrowDown"),
+        "Left" => Some("ArrowLeft"),
+        "Right" => Some("ArrowRight"),
+        _ => None,
+    }
 }
 
 /// Type a string of printable characters by dispatching key events per
@@ -121,4 +123,24 @@ pub async fn type_text(page: &Page, text: &str) -> Result<()> {
         press(page, &s).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::arrow_key;
+
+    #[test]
+    fn arrow_key_maps_supported_directions_to_w3c_key_names() {
+        assert_eq!(arrow_key("Up"), Some("ArrowUp"));
+        assert_eq!(arrow_key("Down"), Some("ArrowDown"));
+        assert_eq!(arrow_key("Left"), Some("ArrowLeft"));
+        assert_eq!(arrow_key("Right"), Some("ArrowRight"));
+    }
+
+    #[test]
+    fn arrow_key_rejects_unknown_directions() {
+        for direction in ["", "up", "Forward", "ArrowUp"] {
+            assert_eq!(arrow_key(direction), None);
+        }
+    }
 }

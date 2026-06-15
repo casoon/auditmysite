@@ -62,6 +62,7 @@ fn ux_score_propagated_to_summary() {
         "summary.ux_score must be Some when UX module is active"
     );
     let ux_entry = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "UX")
@@ -84,6 +85,7 @@ fn journey_score_propagated_to_summary() {
         "summary.journey_score must be Some when Journey module is active"
     );
     let journey_entry = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Journey")
@@ -180,9 +182,9 @@ fn severity_counts_low_nonzero_with_low_finding() {
     let normalized = normalize(&report);
 
     assert!(
-        normalized.severity_counts.low > 0,
+        normalized.normalized.severity_counts.low > 0,
         "severity_counts.low must be > 0 when a Low-severity rule fires, got {}",
-        normalized.severity_counts.low
+        normalized.normalized.severity_counts.low
     );
 }
 
@@ -206,11 +208,11 @@ fn severity_counts_low_not_upgraded_by_taxonomy_floor() {
     let normalized = normalize(&report);
 
     assert_eq!(
-        normalized.severity_counts.low, 1,
+        normalized.normalized.severity_counts.low, 1,
         "Low violation of a Medium/High taxonomy rule must not be upgraded (#288)"
     );
     assert_eq!(
-        normalized.severity_counts.high, 0,
+        normalized.normalized.severity_counts.high, 0,
         "taxonomy floor must not silently upgrade Low to High (#288)"
     );
 }
@@ -236,6 +238,7 @@ fn security_score_below_100_without_permissions_policy() {
     report.security = Some(make_security_from_headers(headers));
     let normalized = normalize(&report);
     let security_entry = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Security")
@@ -266,6 +269,7 @@ fn security_score_below_100_without_coop() {
     report.security = Some(make_security_from_headers(headers));
     let normalized = normalize(&report);
     let security_entry = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Security")
@@ -296,6 +300,7 @@ fn security_score_below_100_without_corp() {
     report.security = Some(make_security_from_headers(headers));
     let normalized = normalize(&report);
     let security_entry = normalized
+        .normalized
         .module_scores
         .iter()
         .find(|m| m.name == "Security")

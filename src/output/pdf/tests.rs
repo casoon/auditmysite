@@ -2,8 +2,7 @@
 #[cfg(all(test, feature = "pdf_test"))]
 mod tests {
     use super::super::*;
-    use crate::audit::normalized::AdvisoryFinding;
-    use crate::audit::{AuditReport, BatchReport};
+    use crate::audit::{AuditReport, BatchReport, PageScreenshots, ScreenshotStatus};
     use crate::cli::{ReportLevel, WcagLevel};
     use crate::util::truncate_url;
     use crate::wcag::{Severity, Violation, WcagResults};
@@ -322,73 +321,6 @@ mod tests {
     }
 
     #[test]
-    fn test_single_pdf_renders_advisory_findings() {
-        let Some(pdftotext) = find_executable("pdftotext") else {
-            return;
-        };
-
-        let mut report = pdf_fixture_report_rich();
-        report.advisory_findings = vec![AdvisoryFinding {
-            category: "heading_outline".to_string(),
-            message: "Heading order looks confusing in the main content.".to_string(),
-            source: "static_heuristic".to_string(),
-            confidence: 0.82,
-        }];
-
-        let pdf = generate_pdf(&report, &ReportConfig::default()).expect("PDF should render");
-
-        let temp_dir = tempfile::tempdir().expect("temp dir");
-        let pdf_path = temp_dir.path().join("advisory-single.pdf");
-        let txt_path = temp_dir.path().join("advisory-single.txt");
-        std::fs::write(&pdf_path, &pdf).expect("write pdf");
-        Command::new(pdftotext)
-            .arg(&pdf_path)
-            .arg(&txt_path)
-            .status()
-            .expect("pdftotext should run");
-        let text = std::fs::read_to_string(&txt_path).expect("read text");
-
-        assert!(
-            text.contains("Heading order looks confusing"),
-            "Expected advisory finding message in single PDF text"
-        );
-    }
-
-    #[test]
-    fn test_batch_pdf_renders_advisory_findings() {
-        let Some(pdftotext) = find_executable("pdftotext") else {
-            return;
-        };
-
-        let mut report = pdf_fixture_report_rich();
-        report.advisory_findings = vec![AdvisoryFinding {
-            category: "link_text".to_string(),
-            message: "Several link labels need editorial review.".to_string(),
-            source: "static_heuristic".to_string(),
-            confidence: 0.71,
-        }];
-        let batch = BatchReport::from_reports(vec![report], vec![], 3_800);
-
-        let pdf = generate_batch_pdf(&batch, &ReportConfig::default()).expect("PDF should render");
-
-        let temp_dir = tempfile::tempdir().expect("temp dir");
-        let pdf_path = temp_dir.path().join("advisory-batch.pdf");
-        let txt_path = temp_dir.path().join("advisory-batch.txt");
-        std::fs::write(&pdf_path, &pdf).expect("write pdf");
-        Command::new(pdftotext)
-            .arg(&pdf_path)
-            .arg(&txt_path)
-            .status()
-            .expect("pdftotext should run");
-        let text = std::fs::read_to_string(&txt_path).expect("read text");
-
-        assert!(
-            text.contains("Several link labels need editorial review"),
-            "Expected advisory finding message in batch PDF text"
-        );
-    }
-
-    #[test]
     fn test_pdf_renders_throttled_performance_table() {
         let Some(pdftotext) = find_executable("pdftotext") else {
             return;
@@ -465,7 +397,7 @@ mod tests {
 
         let report = pdf_fixture_report_rich();
         let normalized = crate::audit::normalize(&report);
-        let expected_score = normalized.score.to_string();
+        let expected_score = normalized.normalized.score.to_string();
         let config = ReportConfig {
             level: ReportLevel::Standard,
             ..ReportConfig::default()
@@ -614,6 +546,16 @@ mod tests {
             results,
             3_800,
         )
+    }
+
+    fn tiny_png_bytes() -> &'static [u8] {
+        &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ]
     }
 
     fn find_executable(name: &str) -> Option<PathBuf> {
@@ -869,6 +811,31 @@ mod tests {
                 level
             );
         }
+    }
+
+    #[test]
+    fn test_typ_renders_device_preview_when_screenshots_are_available() {
+        let mut report = pdf_fixture_report_rich();
+        report.page_screenshots = Some(PageScreenshots {
+            desktop: tiny_png_bytes().to_vec(),
+            mobile: tiny_png_bytes().to_vec(),
+        });
+        report.screenshot_status = ScreenshotStatus::Captured;
+
+        let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+        let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
+        let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
+
+        let typ = unescape_typ(&generate_typ(&report, &ReportConfig::default()).expect("typ"));
+
+        assert!(typ.contains("device-preview"));
+        assert!(typ.contains(PAGE_DESKTOP_SCREENSHOT_ASSET));
+        assert!(typ.contains(PAGE_MOBILE_SCREENSHOT_ASSET));
+        assert!(typ.contains("Screenshots erfasst"));
+        assert!(
+            !desktop_path.exists() && !mobile_path.exists(),
+            "temporary screenshot assets should be removed after Typst rendering"
+        );
     }
 
     // ── Typst ⇄ JSON consistency per report part (3 internal areas) ─────────

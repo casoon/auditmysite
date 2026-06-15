@@ -203,10 +203,6 @@ pub struct AuditReport {
     /// evaluator. Empty when `--interactive=off`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interactive_findings: Vec<crate::audit::normalized::InteractiveFinding>,
-    /// Advisory findings from semantic / LLM evaluation (Phase 4).
-    /// Never influence score or risk. Empty unless `--semantic-eval` is set.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub advisory_findings: Vec<crate::audit::normalized::AdvisoryFinding>,
     /// Standalone screen-reader audit artifact. Written as sidecar JSON output.
     #[serde(skip)]
     pub screen_reader_audit: Option<crate::screen_reader::SrAuditReport>,
@@ -296,7 +292,6 @@ impl AuditReport {
             consent_banner_dismissed: false,
             accessibility_journey: None,
             interactive_findings: Vec::new(),
-            advisory_findings: Vec::new(),
             screen_reader_audit: None,
         }
     }
@@ -931,18 +926,10 @@ mod tests {
             "n2",
         ));
 
-        let r1 = normalize(&AuditReport::new(
-            "https://a.com".into(),
-            WcagLevel::AA,
-            results1,
-            100,
-        ));
-        let r2 = normalize(&AuditReport::new(
-            "https://b.com".into(),
-            WcagLevel::AA,
-            results2,
-            100,
-        ));
+        let report1 = AuditReport::new("https://a.com".into(), WcagLevel::AA, results1, 100);
+        let report2 = AuditReport::new("https://b.com".into(), WcagLevel::AA, results2, 100);
+        let r1 = normalize(&report1);
+        let r2 = normalize(&report2);
 
         let (rules, violated_count) = compute_recurring_rules(&[r1.normalized, r2.normalized]);
         assert_eq!(violated_count, 1, "one distinct rule fired");
@@ -958,12 +945,13 @@ mod tests {
 
         // Create two pages: one with no violations (Low risk) and one with
         // many critical violations that push it to Critical risk.
-        let empty = normalize(&AuditReport::new(
+        let empty_report = AuditReport::new(
             "https://a.com".into(),
             WcagLevel::AA,
             WcagResults::new(),
             100,
-        ));
+        );
+        let empty = normalize(&empty_report);
 
         // Build a report likely to be Critical risk: legal_flags > 0 + critical issues
         let mut results = WcagResults::new();
@@ -977,12 +965,8 @@ mod tests {
                 format!("n{i}"),
             ));
         }
-        let risky = normalize(&AuditReport::new(
-            "https://b.com".into(),
-            WcagLevel::AA,
-            results,
-            50,
-        ));
+        let risky_report = AuditReport::new("https://b.com".into(), WcagLevel::AA, results, 50);
+        let risky = normalize(&risky_report);
 
         let risk = compute_worst_risk(&[empty.normalized, risky.normalized]);
         // Risky page should pull the batch to at least Medium or higher
