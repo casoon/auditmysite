@@ -69,6 +69,10 @@ pub struct SecurityHeaders {
     pub cross_origin_opener_policy: Option<String>,
     /// Cross-Origin-Resource-Policy
     pub cross_origin_resource_policy: Option<String>,
+    /// Access-Control-Allow-Origin
+    pub access_control_allow_origin: Option<String>,
+    /// Access-Control-Allow-Credentials
+    pub access_control_allow_credentials: Option<String>,
 }
 
 impl SecurityHeaders {
@@ -83,6 +87,8 @@ impl SecurityHeaders {
             self.strict_transport_security.is_some(),
             self.cross_origin_opener_policy.is_some(),
             self.cross_origin_resource_policy.is_some(),
+            self.access_control_allow_origin.is_some(),
+            self.access_control_allow_credentials.is_some(),
         ]
         .iter()
         .filter(|&&x| x)
@@ -105,6 +111,69 @@ pub struct SslInfo {
     pub hsts_include_subdomains: bool,
     /// HSTS preload
     pub hsts_preload: bool,
+    /// TLS protocol reported by the browser (e.g. "TLS 1.3").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+    /// TLS cipher reported by the browser.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cipher: Option<String>,
+    /// Certificate subject name reported by the browser.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_subject: Option<String>,
+    /// Certificate issuer reported by the browser.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_issuer: Option<String>,
+    /// Certificate expiration timestamp (seconds since Unix epoch).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_valid_to: Option<i64>,
+    /// Days until certificate expiration, based on collection time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_expires_in_days: Option<i64>,
+    /// Number of certificates in the chain exposed by CDP.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_chain_length: Option<usize>,
+    /// Browser-reported certificate network error, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_error: Option<String>,
+    /// Whether the browser reported weak certificate signatures.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_has_weak_signature: Option<bool>,
+    /// Whether the browser reported SHA-1 signatures in the chain.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certificate_has_sha1_signature: Option<bool>,
+}
+
+/// Browser-observed certificate details from the CDP Security domain.
+#[derive(Debug, Clone, Default)]
+pub struct BrowserCertificateDetails {
+    pub protocol: Option<String>,
+    pub cipher: Option<String>,
+    pub subject: Option<String>,
+    pub issuer: Option<String>,
+    pub valid_to: Option<i64>,
+    pub expires_in_days: Option<i64>,
+    pub chain_length: Option<usize>,
+    pub error: Option<String>,
+    pub has_weak_signature: Option<bool>,
+    pub has_sha1_signature: Option<bool>,
+}
+
+impl SslInfo {
+    pub fn apply_certificate_details(&mut self, details: BrowserCertificateDetails) {
+        self.protocol = details.protocol;
+        self.cipher = details.cipher;
+        self.certificate_subject = details.subject;
+        self.certificate_issuer = details.issuer;
+        self.certificate_valid_to = details.valid_to;
+        self.certificate_expires_in_days = details.expires_in_days;
+        self.certificate_chain_length = details.chain_length;
+        self.certificate_error = details.error;
+        self.certificate_has_weak_signature = details.has_weak_signature;
+        self.certificate_has_sha1_signature = details.has_sha1_signature;
+        if self.certificate_error.is_some() {
+            self.valid_certificate = false;
+        }
+    }
 }
 
 /// Security issue
@@ -290,6 +359,14 @@ fn extract_security_headers(headers: &HeaderMap) -> SecurityHeaders {
             .get("cross-origin-resource-policy")
             .and_then(|v| v.to_str().ok())
             .map(String::from),
+        access_control_allow_origin: headers
+            .get("access-control-allow-origin")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from),
+        access_control_allow_credentials: headers
+            .get("access-control-allow-credentials")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from),
     }
 }
 
@@ -318,6 +395,7 @@ fn analyze_ssl(https: bool, headers: &SecurityHeaders) -> SslInfo {
         hsts_max_age,
         hsts_include_subdomains,
         hsts_preload,
+        ..Default::default()
     }
 }
 
@@ -410,7 +488,27 @@ pub(crate) fn generate_security_issues(
         });
     }
 
+    if cors_allows_wildcard_credentials(headers) {
+        issues.push(SecurityIssue {
+            header: "Access-Control-Allow-Origin".to_string(),
+            issue_type: "cors_wildcard_credentials".to_string(),
+            message: "CORS allows any origin while also allowing credentials".to_string(),
+            severity: Severity::High,
+        });
+    }
+
     issues
+}
+
+fn cors_allows_wildcard_credentials(headers: &SecurityHeaders) -> bool {
+    headers
+        .access_control_allow_origin
+        .as_deref()
+        .is_some_and(|origin| origin.trim() == "*")
+        && headers
+            .access_control_allow_credentials
+            .as_deref()
+            .is_some_and(|credentials| credentials.trim().eq_ignore_ascii_case("true"))
 }
 
 fn collect_csp_quality_issues(policy: &str) -> Vec<SecurityIssue> {
@@ -615,6 +713,13 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
         recommendations.push(
             "Consider Cross-Origin-Resource-Policy if the site serves fonts, scripts, or media \
              that other origins should not be able to load — not required if resources are intentionally public."
+                .to_string(),
+        );
+    }
+
+    if cors_allows_wildcard_credentials(headers) {
+        recommendations.push(
+            "Do not combine Access-Control-Allow-Origin: * with credentialed CORS; allowlist trusted origins instead."
                 .to_string(),
         );
     }
@@ -830,9 +935,37 @@ mod tests {
             permissions_policy: Some("camera=()".to_string()),
             cross_origin_opener_policy: Some("same-origin".to_string()),
             cross_origin_resource_policy: Some("same-origin".to_string()),
+            ..Default::default()
         };
         let issues = generate_security_issues(&headers, true);
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_cors_wildcard_credentials_generates_high_issue() {
+        let headers = SecurityHeaders {
+            access_control_allow_origin: Some("*".to_string()),
+            access_control_allow_credentials: Some("true".to_string()),
+            ..Default::default()
+        };
+
+        let issues = generate_security_issues(&headers, true);
+        assert!(issues.iter().any(|issue| {
+            issue.issue_type == "cors_wildcard_credentials" && issue.severity == Severity::High
+        }));
+    }
+
+    #[test]
+    fn test_cors_wildcard_without_credentials_is_not_flagged() {
+        let headers = SecurityHeaders {
+            access_control_allow_origin: Some("*".to_string()),
+            ..Default::default()
+        };
+
+        let issues = generate_security_issues(&headers, true);
+        assert!(!issues
+            .iter()
+            .any(|issue| issue.issue_type == "cors_wildcard_credentials"));
     }
 
     #[test]
@@ -900,6 +1033,7 @@ mod tests {
             hsts_max_age: Some(31536000),
             hsts_include_subdomains: true,
             hsts_preload: true,
+            ..Default::default()
         };
         let issues = vec![];
         let score = calculate_security_score(&headers, &ssl, &issues);

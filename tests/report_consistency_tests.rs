@@ -1172,6 +1172,9 @@ fn test_json_report_includes_extra_module_keys() {
         light_only_violations: 0,
         dark_only_violations: 0,
         contrast_violations: vec![],
+        print: Default::default(),
+        forced_colors: Default::default(),
+        vision_deficiency: Default::default(),
         issues: vec![],
     });
 

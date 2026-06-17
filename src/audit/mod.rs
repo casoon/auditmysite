@@ -25,8 +25,8 @@ pub use artifacts::{
 };
 pub use baseline::{Baseline, BaselineDiff, BaselineViolation, WaivedViolation};
 pub use batch::{
-    count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch, BatchConfig,
-    BatchResult,
+    analyze_sitemap_diagnostics, count_sitemap_entries_shallow, parse_sitemap, read_url_file,
+    run_concurrent_batch, BatchConfig, BatchResult,
 };
 pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use catalog::AuditCatalog;
@@ -37,10 +37,10 @@ pub use normalized::{normalize, AuditContext, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_recurring_rules, compute_worst_risk, AuditReport, BatchError, BatchReport,
-    BatchSummary, BrokenLink, BrokenLinkSeverity, CrawlDiagnostics, DualViewportResults,
-    PageScreenshots, PerformanceResults, RecurringRule, RedirectChain, SampleMetadata,
-    ScreenshotStatus, ThrottledPerfResult, ViewportAuditData, ViewportScoreSet, ViewportScores,
-    ViewportScreenshot,
+    BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentCookieSignal, ConsentPrivacySnapshot,
+    CrawlDiagnostics, DualViewportResults, PageScreenshots, PerformanceResults, RecurringRule,
+    RedirectChain, SampleMetadata, ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue,
+    ThrottledPerfResult, ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

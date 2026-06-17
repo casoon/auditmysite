@@ -505,8 +505,24 @@ pub struct DarkModePresentation {
     pub dark_contrast_violations: u32,
     pub dark_only_violations: u32,
     pub light_only_violations: u32,
+    pub print_stylesheet_detected: bool,
+    pub print_interactive_chrome_hidden: bool,
+    pub print_content_not_clipped: bool,
+    pub print_clipped_elements: u32,
+    pub forced_colors_detected: bool,
+    pub forced_colors_active_matches: bool,
+    pub forced_color_adjust_count: u32,
+    pub forced_colors_focus_visible: bool,
+    pub vision_deficiency_modes: Vec<VisionDeficiencyModePresentation>,
     /// (severity, description) pairs for issues
     pub issues: Vec<(String, String)>,
+}
+
+pub struct VisionDeficiencyModePresentation {
+    pub mode: String,
+    pub contrast_violations: u32,
+    pub new_contrast_violations: u32,
+    pub use_of_color_violations: u32,
 }
 
 /// Action plan as pre-mapped roadmap columns
@@ -678,6 +694,8 @@ pub struct ThrottledPerfEntry {
 /// Per-origin row for third-party attribution display
 pub struct ThirdPartyOriginRow {
     pub origin: String,
+    pub provider: Option<String>,
+    pub category: Option<String>,
     pub request_count: u32,
     pub transfer_kb: f64,
     pub resource_kinds: String,
@@ -1123,6 +1141,12 @@ pub struct PortfolioSummary {
     pub canonical_issues: Vec<CanonicalIssue>,
     /// Non-reciprocal hreflang relationships between audited pages
     pub hreflang_issues: Vec<HreflangIssue>,
+    /// Sitemap entries with HTTP/indexability issues
+    pub sitemap_http_issues: Vec<crate::audit::SitemapHttpIssue>,
+    /// Sitemap entries not linked by any audited page
+    pub orphan_sitemap_urls: Vec<String>,
+    /// Internal linked URLs that are absent from the sitemap
+    pub linked_not_in_sitemap: Vec<String>,
 }
 
 pub struct CrawlLinkSummary {

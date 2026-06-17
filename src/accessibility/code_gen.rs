@@ -37,7 +37,7 @@ pub fn generate_suggested_code(
 ) -> Option<String> {
     match wcag_rule {
         "1.1.1" => suggest_alt_text(html_snippet, role),
-        "2.4.2" => Some("<title>Aussagekräftiger Seitentitel</title>".to_string()),
+        "2.4.2" => Some("<title>Descriptive page title</title>".to_string()),
         "3.1.1" => suggest_lang(html_snippet),
         "1.4.3" | "1.4.6" => suggest_contrast(fix_suggestion),
         "4.1.2" => suggest_name_role_value(html_snippet, role),
@@ -58,22 +58,22 @@ fn suggest_alt_text(html_snippet: Option<&str>, role: Option<&str>) -> Option<St
     if role == Some("graphics-document") || role == Some("graphics-symbol") || html.contains("<svg")
     {
         return Some(
-            "<!-- Dekorativ (Icon neben sichtbarem Text): -->\n\
+            "<!-- Decorative (icon next to visible text): -->\n\
              <svg aria-hidden=\"true\">…</svg>\n\n\
-             <!-- Informativ (eigenständiges Bild ohne Text-Kontext): -->\n\
-             <svg role=\"img\" aria-label=\"Beschreibung\"><title>Beschreibung</title>…</svg>"
+             <!-- Informative (standalone image without text context): -->\n\
+             <svg role=\"img\" aria-label=\"Description\"><title>Description</title>…</svg>"
                 .to_string(),
         );
     }
 
     // img tag: inject alt attribute
     if html.trim_start().starts_with("<img") {
-        let fixed = inject_attribute(html, "alt", "Bildbeschreibung");
+        let fixed = inject_attribute(html, "alt", "Image description");
         return Some(fixed);
     }
 
     // icon / other img-role element: recommend aria-label
-    if let Some(fixed) = inject_attribute_if_missing(html, "aria-label", "Beschreibung") {
+    if let Some(fixed) = inject_attribute_if_missing(html, "aria-label", "Description") {
         return Some(fixed);
     }
 
@@ -92,9 +92,9 @@ fn suggest_lang(html_snippet: Option<&str>) -> Option<String> {
 
 fn suggest_contrast(fix_suggestion: Option<&str>) -> Option<String> {
     // Contrast fixes require knowing the actual colors; provide a commented hint
-    let base = "/* Kontrastverhältnis erhöhen — mindestens 4.5:1 für normalen Text, 3:1 für großen Text */";
+    let base = "/* Increase contrast ratio — at least 4.5:1 for normal text, 3:1 for large text */";
     if let Some(fix) = fix_suggestion {
-        Some(format!("{}\n/* Hinweis: {} */", base, fix))
+        Some(format!("{}\n/* Note: {} */", base, fix))
     } else {
         Some(base.to_string())
     }
@@ -104,7 +104,7 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
     let html = html_snippet?;
 
     if html.contains("__next-route-announcer__") {
-        return Some(inject_attribute(html, "aria-label", "Seitenwechsel"));
+        return Some(inject_attribute(html, "aria-label", "Page transition"));
     }
 
     // Decorative <hr> — separator role does not need an accessible name.
@@ -115,7 +115,7 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
 
     // Button without accessible name
     if html.contains("<button") || role == Some("button") {
-        return Some(inject_attribute(html, "aria-label", "Schaltfläche"));
+        return Some(inject_attribute(html, "aria-label", "Button"));
     }
 
     // Input without label — show label wrapper
@@ -124,7 +124,7 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
             .or_else(|| extract_attr(html, "name"))
             .unwrap_or("field-id");
         return Some(format!(
-            "<label for=\"{id}\">Feldbeschriftung</label>\n{html}",
+            "<label for=\"{id}\">Field label</label>\n{html}",
             id = id_hint,
             html = ensure_attr(html, "id", id_hint),
         ));
@@ -138,7 +138,7 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
 fn suggest_link_purpose(html_snippet: Option<&str>) -> Option<String> {
     let html = html_snippet?;
     if html.contains("<a ") || html.starts_with("<a>") {
-        let fixed = inject_attribute(html, "aria-label", "Linkziel");
+        let fixed = inject_attribute(html, "aria-label", "Link target");
         return Some(fixed);
     }
     None
@@ -159,7 +159,7 @@ fn suggest_form_label(html_snippet: Option<&str>, role: Option<&str>) -> Option<
             .unwrap_or("field-id");
         let tagged = ensure_attr(html, "id", id_hint);
         return Some(format!(
-            "<label for=\"{id}\">Feldbeschriftung</label>\n{html}",
+            "<label for=\"{id}\">Field label</label>\n{html}",
             id = id_hint,
             html = tagged,
         ));
@@ -177,7 +177,7 @@ fn suggest_keyboard(html_snippet: Option<&str>, role: Option<&str>) -> Option<St
     }
 
     Some(format!(
-        "<!-- Element mit tabindex=\"0\" und keydown-Handler versehen -->\n{}",
+        "<!-- Add tabindex=\"0\" and a keydown handler to make this element keyboard-operable -->\n{}",
         inject_attribute(html, "tabindex", "0")
     ))
 }
@@ -323,7 +323,7 @@ mod tests {
             None,
         )
         .unwrap();
-        assert!(code.contains("aria-label=\"Seitenwechsel\""));
+        assert!(code.contains("aria-label=\"Page transition\""));
         assert!(!code.contains("["));
     }
 

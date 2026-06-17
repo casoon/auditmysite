@@ -232,6 +232,7 @@ fn security_score_below_100_without_permissions_policy() {
         cross_origin_opener_policy: Some("same-origin".to_string()),
         cross_origin_resource_policy: Some("same-origin".to_string()),
         permissions_policy: None,
+        ..Default::default()
     };
 
     let mut report = make_report(WcagResults::new());
@@ -263,6 +264,7 @@ fn security_score_below_100_without_coop() {
         permissions_policy: Some("camera=()".to_string()),
         cross_origin_resource_policy: Some("same-origin".to_string()),
         cross_origin_opener_policy: None,
+        ..Default::default()
     };
 
     let mut report = make_report(WcagResults::new());
@@ -294,6 +296,7 @@ fn security_score_below_100_without_corp() {
         permissions_policy: Some("camera=()".to_string()),
         cross_origin_opener_policy: Some("same-origin".to_string()),
         cross_origin_resource_policy: None,
+        ..Default::default()
     };
 
     let mut report = make_report(WcagResults::new());

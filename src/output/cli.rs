@@ -520,6 +520,37 @@ fn print_dark_mode_section(dm: &crate::dark_mode::DarkModeAnalysis) {
             dm.css_custom_properties
         );
     }
+    println!(
+        "  {} {}",
+        "Print stylesheet:".bold(),
+        if dm.print.stylesheet_detected {
+            "Detected".green().to_string()
+        } else {
+            "Not detected".yellow().to_string()
+        }
+    );
+    println!(
+        "  {} {}",
+        "Forced colors:".bold(),
+        if dm.forced_colors.stylesheet_detected {
+            "Detected".green().to_string()
+        } else {
+            "Not detected".yellow().to_string()
+        }
+    );
+    if !dm.vision_deficiency.modes.is_empty() {
+        let new_vision_contrast: u32 = dm
+            .vision_deficiency
+            .modes
+            .iter()
+            .map(|mode| mode.new_contrast_violations)
+            .sum();
+        println!(
+            "  {} {} new contrast issues",
+            "Color vision emulation:".bold(),
+            new_vision_contrast
+        );
+    }
     if dm.supported {
         if dm.dark_only_violations > 0 {
             println!(

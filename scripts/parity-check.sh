@@ -6,6 +6,7 @@ set -euo pipefail
 URL="${1:?Usage: $0 <URL>}"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REPORTS="$REPO_ROOT/reports"
+CONTRACT="$REPO_ROOT/docs/PARITY_CONTRACT.jsonc"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -54,11 +55,13 @@ npx --yes pa11y "$URL" --reporter json > "$TMP/pa11y.json" 2>/dev/null || true
 
 echo "Comparing..."
 
-python3 - "$TMP" "$URL" "$OUT" << 'PYEOF'
+python3 - "$TMP" "$URL" "$OUT" "$CONTRACT" << 'PYEOF'
 import json, sys, glob, os
 from collections import defaultdict
 
-tmp, url, out = sys.argv[1], sys.argv[2], sys.argv[3]
+tmp, url, out, contract_path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+with open(contract_path) as f:
+    contract = json.load(f)
 
 # ── load auditmysite ─────────────────────────────────────────────────────────
 ams_violations = []
@@ -72,6 +75,7 @@ if os.path.exists(ams_path):
         for fi in findings:
             ams_violations.append({
                 "rule": fi.get("rule_id", "?"),
+                "axe_id": fi.get("axe_id", ""),
                 "wcag": fi.get("wcag_criterion", ""),
                 "severity": fi.get("severity", "?"),
                 "count": fi.get("occurrence_count", 1),
@@ -121,6 +125,20 @@ if os.path.exists(pa11y_path):
         })
 
 # ── build report ─────────────────────────────────────────────────────────────
+known_pairs = contract.get("axe_rule_mappings", {})
+frozen = contract.get("frozen_numbers", {})
+methodology = contract.get("methodology", {})
+
+def ams_matches_axe(axe_rule, ams_finding):
+    ams_rule = ams_finding.get("rule", "")
+    ams_axe_id = ams_finding.get("axe_id", "")
+    if axe_rule == ams_rule or axe_rule == ams_axe_id:
+        return True
+    return any(pattern in ams_rule for pattern in known_pairs.get(axe_rule, []))
+
+def ams_matches_for_axe(axe_rule):
+    return [v for v in ams_violations if ams_matches_axe(axe_rule, v)]
+
 lines = []
 lines.append(f"# Parity Check — {url}")
 lines.append(f"\n## Summary\n")
@@ -129,6 +147,33 @@ lines.append(f"|---|---|---|")
 lines.append(f"| auditmysite | {len(ams_violations)} findings | AX-tree based |")
 lines.append(f"| axe-core | {len(axe_violations)} confirmed + {len(axe_incomplete)} incomplete | DOM based |")
 lines.append(f"| pa11y | {len(pa11y_issues)} issues | htmlcs runner |")
+
+lines.append("\n## Methodology Contract\n")
+lines.append(f"- Contract schema: `{contract.get('schema_version', '?')}`")
+lines.append(f"- Primary audit engine: {methodology.get('primary_audit_engine', 'n/a')}")
+tools = methodology.get("comparison_tools", [])
+if tools:
+    lines.append(f"- Comparison tools: {', '.join(tools)}")
+policy = methodology.get("candidate_policy", {})
+for key in ["auditmysite_only", "axe_core_only", "axe_incomplete"]:
+    if key in policy:
+        lines.append(f"- {key}: {policy[key]}")
+
+lines.append("\n## Frozen Landing Page Numbers\n")
+lines.append("| Metric | Value |")
+lines.append("|---|---:|")
+for key in [
+    "wcag_aa_total_criteria",
+    "automated_wcag_aa_criteria",
+    "manual_review_criteria",
+]:
+    if key in frozen:
+        lines.append(f"| {key} | {frozen[key]} |")
+if frozen.get("stable_parity_fixture"):
+    lines.append(f"\nStable fixture: `{frozen['stable_parity_fixture']}`")
+expected = frozen.get("stable_parity_fixture_expected_axe_ids", [])
+if expected:
+    lines.append(f"Expected fixture axe IDs: {', '.join(f'`{item}`' for item in expected)}")
 
 # ── axe-core violations ──────────────────────────────────────────────────────
 lines.append(f"\n## axe-core — Confirmed Violations ({len(axe_violations)})\n")
@@ -163,42 +208,46 @@ lines.append(f"\n## auditmysite — Findings ({len(ams_violations)})\n")
 axe_pass_set = set(axe_passes)
 axe_viol_set = {v["rule"] for v in axe_violations}
 if ams_violations:
-    lines.append("| Severity | Rule | WCAG | Count | axe-core pass? |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("| Severity | Rule | axe ID | WCAG | Count | axe-core status |")
+    lines.append("|---|---|---|---|---|---|")
     for v in sorted(ams_violations, key=lambda x: ["critical","high","medium","low"].index(x["severity"]) if x["severity"] in ["critical","high","medium","low"] else 9):
-        # rough rule name mapping: a11y.form_labels.missing → label, a11y.alt_text.missing → image-alt
         axe_note = ""
-        if v["rule"] in axe_viol_set:
+        if any(ams_matches_axe(axe_rule, v) for axe_rule in axe_viol_set):
             axe_note = "⚠️ also violation"
-        elif any(v["rule"].split(".")[-1] in p or p in v["rule"] for p in axe_pass_set):
+        elif any(ams_matches_axe(axe_rule, v) for axe_rule in axe_pass_set):
             axe_note = "✅ PASS"
-        lines.append(f"| {v['severity']} | `{v['rule']}` | {v['wcag']} | {v['count']} | {axe_note} |")
+        lines.append(f"| {v['severity']} | `{v['rule']}` | `{v['axe_id']}` | {v['wcag']} | {v['count']} | {axe_note} |")
 
 # ── divergence section ───────────────────────────────────────────────────────
 lines.append(f"\n## Divergence Notes\n")
 
-# axe PASS but ams has violations — map known rule pairs
-known_pairs = {
-    "label": ["form_labels", "form_label"],
-    "image-alt": ["alt_text"],
-    "button-name": ["name_role", "button_name"],
-    "duplicate-id": ["parsing", "duplicate_id"],
-    "color-contrast": ["contrast"],
-    "heading-order": ["headings"],
-    "aria-required-attr": ["aria"],
-}
-divergences = []
+false_positive_candidates = []
 for axe_rule, ams_patterns in known_pairs.items():
     if axe_rule in axe_pass_set:
-        matching = [v for v in ams_violations if any(p in v["rule"] for p in ams_patterns)]
+        matching = ams_matches_for_axe(axe_rule)
         if matching:
             total = sum(v["count"] for v in matching)
-            divergences.append(f"- **`{axe_rule}` PASS in axe-core** but auditmysite reports {total} occurrence(s) via {[v['rule'] for v in matching]} — investigate for false positives")
+            false_positive_candidates.append(f"- **`{axe_rule}` PASS in axe-core** but auditmysite reports {total} occurrence(s) via {[v['rule'] for v in matching]} — investigate for false positives")
 
-for d in divergences:
-    lines.append(d)
-if not divergences:
-    lines.append("_No significant divergences detected._")
+false_negative_candidates = []
+for axe_violation in axe_violations:
+    axe_rule = axe_violation["rule"]
+    if not ams_matches_for_axe(axe_rule):
+        false_negative_candidates.append(
+            f"- **`{axe_rule}` violation in axe-core** ({axe_violation['impact']}, {axe_violation['count']} node(s)) has no mapped auditmysite finding — investigate for false negatives"
+        )
+
+lines.append(f"### auditmysite-only candidates ({len(false_positive_candidates)})\n")
+if false_positive_candidates:
+    lines.extend(false_positive_candidates)
+else:
+    lines.append("_None_")
+
+lines.append(f"\n### axe-core-only candidates ({len(false_negative_candidates)})\n")
+if false_negative_candidates:
+    lines.extend(false_negative_candidates)
+else:
+    lines.append("_None_")
 
 report = "\n".join(lines)
 with open(out, "w") as f:

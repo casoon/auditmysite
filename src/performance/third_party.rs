@@ -24,6 +24,12 @@ pub struct ThirdPartyOrigin {
     /// URL of the largest single resource from this origin
     #[serde(skip_serializing_if = "Option::is_none")]
     pub largest_url: Option<String>,
+    /// Known provider, when the origin matches a built-in tracker classification.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// Functional tracker category such as analytics, ads, social, or marketing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
     /// Transfer size of the largest single resource
     pub largest_bytes: u64,
 }
@@ -119,13 +125,18 @@ pub async fn analyze_third_party_attribution(
 
     let mut origins: Vec<ThirdPartyOrigin> = origin_map
         .into_iter()
-        .map(|(host, a)| ThirdPartyOrigin {
-            origin: host,
-            transfer_bytes: a.transfer_bytes,
-            request_count: a.request_count,
-            resource_kinds: a.kinds,
-            largest_url: a.largest_url,
-            largest_bytes: a.largest_bytes,
+        .map(|(host, a)| {
+            let (provider, category) = classify_origin(&host);
+            ThirdPartyOrigin {
+                origin: host,
+                provider,
+                category,
+                transfer_bytes: a.transfer_bytes,
+                request_count: a.request_count,
+                resource_kinds: a.kinds,
+                largest_url: a.largest_url,
+                largest_bytes: a.largest_bytes,
+            }
         })
         .collect();
 
@@ -207,6 +218,29 @@ fn classify_kind(url: &str, initiator_type: &str) -> String {
         "other"
     }
     .to_string()
+}
+
+fn classify_origin(host: &str) -> (Option<String>, Option<String>) {
+    let lower = host.to_ascii_lowercase();
+    let pair = if lower.contains("googletagmanager.com")
+        || lower.contains("google-analytics.com")
+        || lower.contains("analytics.google.com")
+    {
+        ("Google", "analytics")
+    } else if lower.contains("doubleclick.net") || lower.contains("googleadservices.com") {
+        ("Google Ads", "ads")
+    } else if lower.contains("facebook.com") || lower.contains("connect.facebook.net") {
+        ("Meta", "social")
+    } else if lower.contains("hotjar.com") {
+        ("Hotjar", "analytics")
+    } else if lower.contains("hubspot.com") || lower.contains("hs-analytics.net") {
+        ("HubSpot", "marketing")
+    } else if lower.contains("matomo") {
+        ("Matomo", "analytics")
+    } else {
+        return (None, None);
+    };
+    (Some(pair.0.to_string()), Some(pair.1.to_string()))
 }
 
 fn truncate(s: &str, max: usize) -> String {

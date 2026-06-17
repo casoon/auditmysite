@@ -60,6 +60,9 @@ pub struct NormalizedReport {
     /// Audit flags for noteworthy signal conflicts or caveats
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub audit_flags: Vec<AuditFlag>,
+    /// Cookie metadata snapshot before/after consent interaction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consent_privacy: Option<crate::audit::ConsentPrivacySnapshot>,
     /// Whether desktop/mobile cover screenshots were captured for this audit.
     #[serde(default)]
     pub has_screenshots: bool,
@@ -1145,9 +1148,16 @@ fn build_module_scores(
     if let Some(ref sq) = report.source_quality {
         push_indicator("Source Quality", sq.score, "heuristic");
     }
-    if let Some(ref ts) = report.tech_stack {
-        push_indicator("Tech Stack", ts.score, "heuristic");
+    if let Some(ref cv) = report.content_visibility {
+        if cv.signal_count > 0 {
+            let cv_score = (cv.signal_count.saturating_sub(cv.problem_count) as u32 * 100)
+                / cv.signal_count as u32;
+            push_indicator("Content Visibility", cv_score, "heuristic");
+        }
     }
+    // Tech Stack is detection-only — no score in module_scores.
+    // Stack-specific security findings (WordPress admin exposure, etc.) flow
+    // into the Security module score instead.
 
     module_scores
 }
@@ -1260,49 +1270,49 @@ fn compute_risk_assessment(
             // contradictory. Surface the contrast explicitly so the report
             // explains why both signals can hold at once. See issue #237.
             let prefix = if overall_score >= 80 {
-                "Kritisches Risiko trotz gutem Gesamtscore"
+                "Critical risk despite high overall score"
             } else {
-                "Kritisches Risiko"
+                "Critical risk"
             };
             if legal_flags >= 3 {
                 // Breadth-driven: multiple distinct legally-relevant barriers.
                 format!(
-                    "{}: {} mit rechtlicher Relevanz (BFSG). {}.",
+                    "{}: {} with legal relevance (BFSG). {}.",
                     prefix,
-                    plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                    plural(legal_flags, "WCAG Level A violation", "WCAG Level A violations"),
                     plural(
                         blocking_issues,
-                        "Blocker bei Bedienelementen",
-                        "Blocker bei Bedienelementen"
+                        "blocker on interactive elements",
+                        "blockers on interactive elements"
                     )
                 )
             } else {
                 // Volume-driven: a high number of critical occurrences.
                 format!(
-                    "{}: {} auf Bedienelementen und Inhalten.",
+                    "{}: {} on interactive elements and content.",
                     prefix,
-                    plural(critical_issues, "kritischer Verstoß", "kritische Verstöße")
+                    plural(critical_issues, "critical violation", "critical violations")
                 )
             }
         }
         RiskLevel::High => format!(
-            "Hohes Risiko: {} und {}. Nutzer werden aktiv ausgeschlossen.",
-            plural(critical_issues, "kritisches Problem", "kritische Probleme"),
+            "High risk: {} and {}. Users are actively excluded.",
+            plural(critical_issues, "critical issue", "critical issues"),
             plural(
                 high_issues,
-                "schwerwiegendes Problem",
-                "schwerwiegende Probleme"
+                "serious issue",
+                "serious issues"
             )
         ),
         RiskLevel::Medium => {
             if legal_flags > 0 {
                 format!(
-                    "Mittleres Risiko: {} mit rechtlicher Relevanz (BFSG){}.",
-                    plural(legal_flags, "WCAG-Level-A-Verstoß", "WCAG-Level-A-Verstöße"),
+                    "Medium risk: {} with legal relevance (BFSG){}.",
+                    plural(legal_flags, "WCAG Level A violation", "WCAG Level A violations"),
                     if blocking_issues > 0 {
                         format!(
-                            ", {} bei Bedienelementen",
-                            plural(blocking_issues, "Blocker", "Blocker")
+                            ", {} on interactive elements",
+                            plural(blocking_issues, "blocker", "blockers")
                         )
                     } else {
                         String::new()
@@ -1310,35 +1320,35 @@ fn compute_risk_assessment(
                 )
             } else if blocking_issues > 0 {
                 format!(
-                    "Mittleres Risiko: {} bei Bedienelementen erkannt. \
-                     Einschränkungen für bestimmte Nutzergruppen.",
-                    plural(blocking_issues, "Blocker", "Blocker")
+                    "Medium risk: {} detected on interactive elements. \
+                     Restrictions for certain user groups.",
+                    plural(blocking_issues, "blocker", "blockers")
                 )
             } else if interactive_critical_issues > 0 {
                 format!(
-                    "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
+                    "Medium risk: {} from interactive keyboard and state-transition tests.",
                     plural(
                         interactive_critical_issues,
-                        "kritischer Befund",
-                        "kritische Befunde"
+                        "critical finding",
+                        "critical findings"
                     )
                 )
             } else if interactive_high_issues > 0 {
                 format!(
-                    "Mittleres Risiko: {} aus interaktiven Tastatur- und Zustandswechsel-Tests erkannt.",
+                    "Medium risk: {} from interactive keyboard and state-transition tests.",
                     plural(
                         interactive_high_issues,
-                        "schwerwiegender Befund",
-                        "schwerwiegende Befunde"
+                        "serious finding",
+                        "serious findings"
                     )
                 )
             } else {
                 format!(
-                    "Mittleres Risiko: {} erkannt. Einschränkungen für bestimmte Nutzergruppen.",
+                    "Medium risk: {} detected. Restrictions for certain user groups.",
                     plural(
                         high_issues + critical_issues,
-                        "schwerwiegendes Problem",
-                        "schwerwiegende Probleme"
+                        "serious issue",
+                        "serious issues"
                     )
                 )
             }
@@ -1347,11 +1357,11 @@ fn compute_risk_assessment(
             let notable = interactive_high_issues + interactive_critical_issues;
             if notable > 0 {
                 format!(
-                    "Geringes Risiko: Keine kritischen Verstöße — Tastatur-Journey enthält {}, manuelle Prüfung empfohlen.",
-                    plural(notable, "auffälligen Befund", "auffällige Befunde")
+                    "Low risk: No critical violations — keyboard journey contains {}, manual review recommended.",
+                    plural(notable, "notable finding", "notable findings")
                 )
             } else {
-                "Geringes Risiko: Keine kritischen Verstöße — Verbesserungspotenzial vorhanden."
+                "Low risk: No critical violations — improvement potential exists."
                     .to_string()
             }
         }
@@ -1590,12 +1600,12 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     if report.consent_banner_detected {
         let msg = if report.consent_banner_dismissed {
             format!(
-                "Consent-Banner erkannt und automatisch geschlossen{}. Audit-Ergebnisse spiegeln den Seiteninhalt nach Zustimmung wider.",
+                "Consent banner detected and automatically dismissed{}. Audit results reflect the page content after consent.",
                 report.consent_banner_cmp.as_ref().map(|c| format!(" ({})", c)).unwrap_or_default()
             )
         } else {
             format!(
-                "Consent-Banner erkannt{} — Audit ohne Zustimmung durchgeführt. Barrierefreiheits- und SEO-Ergebnisse können unvollständig sein. Empfehlung: --dismiss-consent nutzen.",
+                "Consent banner detected{} — audit performed without consent. Accessibility and SEO results may be incomplete. Recommendation: use --dismiss-consent.",
                 report.consent_banner_cmp.as_ref().map(|c| format!(" ({})", c)).unwrap_or_default()
             )
         };
@@ -1617,9 +1627,9 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
                     related_rule: None,
                     source: "browser.consent".to_string(),
                     message: format!(
-                        "Mögliches Consent-Wall-Artefakt: {} Violations bei nur {} analysierten Nodes. \
-                         Scores könnten den Consent-Dialog statt den eigentlichen Seiteninhalt messen. \
-                         Empfehlung: Audit mit --dismiss-consent wiederholen.",
+                        "Possible consent wall artifact: {} violations with only {} analyzed nodes. \
+                         Scores may be measuring the consent dialog rather than the actual page content. \
+                         Recommendation: re-run the audit with --dismiss-consent.",
                         violation_count, report.nodes_analyzed
                     ),
                 });
@@ -1682,6 +1692,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         risk,
         principle_coverage: AccessibilityScorer::calculate_coverage(violations),
         audit_flags,
+        consent_privacy: report.consent_privacy.clone(),
         has_screenshots: report.page_screenshots.is_some(),
         viewport_scores: report.viewport_scores.clone(),
         score_calculation_method,
@@ -1796,27 +1807,27 @@ fn derive_complexity(
         (
             "high".to_string(),
             format!(
-                "{} Vorkommen deuten auf ein Komponenten- oder Templateproblem hin.",
+                "{} occurrences indicate a component- or template-level issue.",
                 occurrence_count
             ),
         )
     } else if key.contains("aria") || key.contains("focus") || key.contains("keyboard") {
         (
             "medium".to_string(),
-            "Der Fix ist technisch, betrifft aber eine begrenzte Anzahl von Mustern.".to_string(),
+            "The fix is technical but affects a limited number of patterns.".to_string(),
         )
     } else if occurrence_count >= 5 {
         (
             "medium".to_string(),
             format!(
-                "{} Vorkommen müssen konsistent in Inhalt oder Template angepasst werden.",
+                "{} occurrences require consistent updates across content or templates.",
                 occurrence_count
             ),
         )
     } else {
         (
             "low".to_string(),
-            "Wenige Vorkommen und ein klar begrenzter Fix.".to_string(),
+            "Few occurrences and a clearly scoped fix.".to_string(),
         )
     }
 }
@@ -1835,12 +1846,12 @@ fn derive_expected_impact(
     };
     if category == "wcag" {
         format!(
-            "Behebt {} Vorkommen; erwarteter Score-Effekt: {}; WCAG-Level: {}.",
+            "Fixes {} occurrences; expected score impact: {}; WCAG level: {}.",
             occurrence_count, score_effect, wcag_level
         )
     } else {
         format!(
-            "Behebt {} Vorkommen; erwarteter Sichtbarkeits-/Struktureffekt: {}.",
+            "Fixes {} occurrences; expected visibility/structure impact: {}.",
             occurrence_count, score_effect
         )
     }

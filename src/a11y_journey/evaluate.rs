@@ -42,13 +42,13 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
                 before_snapshot_label: None,
                 after_snapshot_label: step.snapshot_label.clone(),
                 message: format!(
-                    "Tastatur-Fokus landet auf einem Element innerhalb \
-                     eines aria-hidden-Bereichs ({selector}). Screenreader-Nutzer \
-                     erreichen ein vom AXTree ausgeblendetes Element."
+                    "Keyboard focus lands on an element inside an aria-hidden \
+                     region ({selector}). Screen reader users reach an element \
+                     that is hidden from the accessibility tree."
                 ),
                 fix_suggestion: Some(
-                    "Element aus aria-hidden-Bereich entfernen oder \
-                     tabindex=\"-1\" setzen."
+                    "Remove the element from the aria-hidden region or set \
+                     tabindex=\"-1\" on it."
                         .to_string(),
                 ),
             });
@@ -61,13 +61,13 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
                 before_snapshot_label: None,
                 after_snapshot_label: step.snapshot_label.clone(),
                 message: format!(
-                    "Tastatur-Fokus landet auf einem Element innerhalb \
-                     eines inert-Bereichs ({selector}). Inert-Bereiche \
-                     sollten nicht erreichbar sein."
+                    "Keyboard focus lands on an element inside an inert \
+                     region ({selector}). Inert regions should not be \
+                     reachable by keyboard."
                 ),
                 fix_suggestion: Some(
-                    "Element aus inert-Bereich nehmen oder \
-                     tabindex/Fokus-Kette korrigieren."
+                    "Remove the element from the inert region or \
+                     correct the tabindex/focus chain."
                         .to_string(),
                 ),
             });
@@ -83,14 +83,13 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
                 before_snapshot_label: None,
                 after_snapshot_label: step.snapshot_label.clone(),
                 message: format!(
-                    "Tastatur-Fokus landet auf einem visuell verborgenen \
-                     Element ({selector}: display:none, visibility:hidden \
-                     oder opacity:0). Tastatur-Nutzer verlieren die \
-                     Orientierung."
+                    "Keyboard focus lands on a visually hidden element \
+                     ({selector}: display:none, visibility:hidden, or \
+                     opacity:0). Keyboard users lose orientation."
                 ),
                 fix_suggestion: Some(
-                    "Element aus Tab-Sequenz entfernen (tabindex=\"-1\") \
-                     oder erst sichtbar machen."
+                    "Remove the element from the tab sequence (tabindex=\"-1\") \
+                     or make it visible before it receives focus."
                         .to_string(),
                 ),
             });
@@ -106,15 +105,13 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
                 before_snapshot_label: None,
                 after_snapshot_label: step.snapshot_label.clone(),
                 message: format!(
-                    "Element ({selector}) zeigt im fokussierten Zustand keinen \
-                     sichtbaren Fokus-Indikator (kein outline, kein box-shadow, \
-                     keine border-Änderung). Tastatur-Nutzer verlieren die \
-                     Orientierung."
+                    "Element ({selector}) shows no visible focus indicator when focused \
+                     (no outline, no box-shadow, no border change). \
+                     Keyboard users lose orientation."
                 ),
                 fix_suggestion: Some(
-                    "CSS :focus-visible-Regel ergänzen mit klarer outline-, \
-                     box-shadow- oder border-Änderung gegenüber dem unfokussierten \
-                     Zustand."
+                    "Add a CSS :focus-visible rule with a clear outline, \
+                     box-shadow, or border change compared to the unfocused state."
                         .to_string(),
                 ),
             });
@@ -188,14 +185,13 @@ pub fn tab_walk_order(trace: &JourneyTrace, dom_order: &[String]) -> Vec<Interac
         before_snapshot_label: None,
         after_snapshot_label: None,
         message: format!(
-            "Tab-Reihenfolge weicht von der DOM-Reihenfolge ab: {count} Rückwärts-Sprung(e) \
-             beobachtet. Erste betroffene Elemente: {preview}{suffix}. \
-             Tastatur-Nutzer könnten dem Lesefluss nicht folgen."
+            "Tab order deviates from DOM order: {count} backward jump(s) \
+             observed. First affected elements: {preview}{suffix}. \
+             Keyboard users may not be able to follow the reading flow."
         ),
         fix_suggestion: Some(
-            "Negative oder hohe tabindex-Werte vermeiden. \
-             Lese-/DOM-Reihenfolge so anordnen, dass sie der visuellen \
-             Reihenfolge entspricht."
+            "Avoid negative or high tabindex values. \
+             Arrange the reading/DOM order to match the visual order."
                 .to_string(),
         ),
     }]
@@ -316,7 +312,7 @@ mod tests {
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].category, "FocusIndicator");
         assert_eq!(findings[0].severity, Severity::Medium);
-        assert!(findings[0].message.contains("Fokus-Indikator"));
+        assert!(findings[0].message.contains("focus indicator"));
     }
 
     #[test]

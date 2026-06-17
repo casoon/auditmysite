@@ -392,6 +392,18 @@ pub fn build_batch_presentation_with_normalized(
     // Non-reciprocal hreflang relationships among audited pages
     let hreflang_issues = build_hreflang_issues(&batch.reports);
 
+    let (sitemap_http_issues, orphan_sitemap_urls, linked_not_in_sitemap) = batch
+        .sitemap_diagnostics
+        .as_ref()
+        .map(|diagnostics| {
+            (
+                diagnostics.http_issues.clone(),
+                diagnostics.orphan_sitemap_urls.clone(),
+                diagnostics.linked_not_in_sitemap.clone(),
+            )
+        })
+        .unwrap_or_default();
+
     // Budget violations: aggregate across all pages
     let budget_summary: Vec<(String, String, usize, String)> = {
         use std::collections::HashMap;
@@ -732,6 +744,9 @@ pub fn build_batch_presentation_with_normalized(
             duplicate_content,
             canonical_issues,
             hreflang_issues,
+            sitemap_http_issues,
+            orphan_sitemap_urls,
+            linked_not_in_sitemap,
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,
@@ -1385,5 +1400,35 @@ mod duplicate_content_tests {
         assert_eq!(issues[0].source_url, "https://x.test/de");
         assert_eq!(issues[0].target_url, "https://x.test/es");
         assert_eq!(issues[0].lang, "es");
+    }
+
+    #[test]
+    fn batch_presentation_exposes_aggregated_module_markers() {
+        let batch = BatchReport::from_reports(
+            vec![
+                report_with("https://x.test/a", "One", "A"),
+                report_with("https://x.test/b", "Two", "B"),
+            ],
+            vec![],
+            200,
+        );
+
+        let pres = build_batch_presentation(&batch);
+
+        assert!(
+            pres.portfolio_summary
+                .active_modules
+                .iter()
+                .any(|module| module == "SEO"),
+            "Batch presentation must expose active module markers"
+        );
+        assert!(
+            pres.portfolio_summary
+                .module_averages
+                .iter()
+                .any(|(module, _)| module == "SEO"),
+            "Batch presentation must expose module score aggregates"
+        );
+        assert_eq!(pres.portfolio_summary.total_urls, 2);
     }
 }

@@ -122,14 +122,13 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "{count} Link(s) tragen einen generischen oder nichtssagenden Text \
-                ({example_str}). Ohne sichtbaren Kontext sind sie für Screenreader-Nutzer \
-                nicht unterscheidbar und erfüllen WCAG 2.4.4 nicht."
+                "{count} link(s) carry generic or non-descriptive text \
+                ({example_str}). Without surrounding context they are indistinguishable for \
+                screen reader users and do not satisfy WCAG 2.4.4."
             ),
             fix_suggestion: Some(
-                "Linktexte so formulieren, dass sie auch ohne den umgebenden Seitentext \
-                verstaendlich sind, z. B. 'Mehr erfahren ueber Barrierefreiheit' statt \
-                'Mehr erfahren'."
+                "Write link text that is meaningful without the surrounding page context, \
+                e.g. 'Learn more about accessibility' instead of 'Learn more'."
                     .to_string(),
             ),
         });
@@ -157,14 +156,13 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "{count} Linktext(e) erscheinen 3 oder mehr Mal auf der Seite: {}. \
-                Wenn sie zu unterschiedlichen Zielen führen, können Screenreader-Nutzer \
-                sie nicht unterscheiden.",
+                "{count} link text(s) appear 3 or more times on the page: {}. \
+                If they point to different targets, screen reader users cannot distinguish them.",
                 examples.join(", ")
             ),
             fix_suggestion: Some(
-                "Wiederholte Linktexte durch eindeutige Formulierungen ersetzen oder \
-                mit aria-label / aria-labelledby den sichtbaren Text ergänzen."
+                "Replace repeated link texts with unique wording or supplement the visible \
+                text with aria-label / aria-labelledby."
                     .to_string(),
             ),
         });
@@ -195,12 +193,11 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
             after_snapshot_label: None,
-            message: "Die Seite enthält keine H1-Überschrift. Screenreader-Nutzer können \
-                ohne H1 die Hauptstruktur der Seite nicht erfassen."
+            message: "The page has no H1 heading. Screen reader users cannot \
+                identify the main structure of the page without an H1."
                 .to_string(),
             fix_suggestion: Some(
-                "Exakt eine H1-Überschrift pro Seite verwenden, die den Hauptinhalt \
-                beschreibt."
+                "Use exactly one H1 heading per page that describes the main content."
                     .to_string(),
             ),
         });
@@ -217,12 +214,11 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "{h1_count} H1-Überschriften gefunden. Mehrere H1-Elemente erschweren \
-                Screenreader-Nutzern die Orientierung."
+                "{h1_count} H1 headings found. Multiple H1 elements make it harder for \
+                screen reader users to orient themselves."
             ),
             fix_suggestion: Some(
-                "Nur eine H1-Überschrift pro Seite verwenden. Weitere Hauptüberschriften \
-                als H2 auszeichnen."
+                "Use only one H1 heading per page. Mark further top-level headings as H2."
                     .to_string(),
             ),
         });
@@ -252,13 +248,12 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "Heading-Hierarchie überspringt Ebenen ({}). Screenreader-Nutzer können \
-                dadurch die Seitenstruktur nicht verlässlich erfassen.",
+                "Heading hierarchy skips levels ({}). Screen reader users may not be able \
+                to reliably parse the page structure.",
                 examples.join(", ")
             ),
             fix_suggestion: Some(
-                "Überschriften-Ebenen nie überspringen. Nach einer H1 folgt H2, \
-                nach H2 folgt H3 usw."
+                "Never skip heading levels. After H1 comes H2, after H2 comes H3, and so on."
                     .to_string(),
             ),
         });
@@ -305,12 +300,12 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
             journey: "link_inventory".to_string(),
             before_snapshot_label: None,
             after_snapshot_label: None,
-            message: "Kein <main>-Landmark gefunden. Screenreader-Nutzer können den \
-                Hauptinhalt nicht direkt anspringen."
+            message: "No <main> landmark found. Screen reader users cannot \
+                jump directly to the main content."
                 .to_string(),
             fix_suggestion: Some(
-                "Den Hauptinhalt in einem <main>-Element wrappen oder role=\"main\" \
-                auf dem entsprechenden Container setzen."
+                "Wrap the main content in a <main> element or set role=\"main\" \
+                on the appropriate container."
                     .to_string(),
             ),
         });
@@ -328,13 +323,12 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "{nav_count} Navigation-Landmarks ohne eindeutige Beschriftungen. \
-                Screenreader-Nutzer können nicht unterscheiden, welche Navigation \
-                welchen Bereich abdeckt."
+                "{nav_count} navigation landmarks without distinct labels. \
+                Screen reader users cannot tell which navigation covers which area."
             ),
             fix_suggestion: Some(
-                "Jede <nav>-Region mit einem aria-label benennen, \
-                z. B. aria-label=\"Hauptnavigation\" und aria-label=\"Footer-Navigation\"."
+                "Label each <nav> region with an aria-label, \
+                e.g. aria-label=\"Main navigation\" and aria-label=\"Footer navigation\"."
                     .to_string(),
             ),
         });
@@ -352,12 +346,12 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
                 before_snapshot_label: None,
                 after_snapshot_label: None,
                 message: format!(
-                    "Landmark-Rolle \"{role}\" erscheint {count}× auf der Seite. \
-                    Diese Rolle sollte pro Seite nur einmal vorkommen."
+                    "Landmark role \"{role}\" appears {count}× on the page. \
+                    This role should only occur once per page."
                 ),
                 fix_suggestion: Some(format!(
-                    "Nur ein Element mit role=\"{role}\" (oder dem entsprechenden \
-                    HTML-Element) pro Seite verwenden."
+                    "Use only one element with role=\"{role}\" (or the corresponding \
+                    HTML element) per page."
                 )),
             });
         }
@@ -436,7 +430,7 @@ mod tests {
         let findings = check_heading_outline(&tree);
         assert!(findings
             .iter()
-            .any(|f| f.category == "HeadingOutline" && f.message.contains("keine H1")));
+            .any(|f| f.category == "HeadingOutline" && f.message.contains("no H1")));
     }
 
     #[test]

@@ -506,7 +506,10 @@ pub(super) fn build_tracking_summary_text(
     technical: &crate::seo::technical::TechnicalSeo,
 ) -> String {
     if technical.zaraz.detected {
-        if technical.tracking_cookies.is_empty() && technical.tracking_signals.is_empty() {
+        if technical.tracking_cookies.is_empty()
+            && technical.tracking_signals.is_empty()
+            && technical.storage_items.is_empty()
+        {
             return i18n.t("tracking-summary-zaraz-clean");
         }
         return i18n.t("tracking-summary-zaraz-signals");
@@ -516,7 +519,10 @@ pub(super) fn build_tracking_summary_text(
         return i18n.t("tracking-summary-fonts");
     }
 
-    if !technical.tracking_cookies.is_empty() || !technical.tracking_signals.is_empty() {
+    if !technical.tracking_cookies.is_empty()
+        || !technical.tracking_signals.is_empty()
+        || !technical.storage_items.is_empty()
+    {
         return i18n.t("tracking-summary-signals");
     }
 

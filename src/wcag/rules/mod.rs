@@ -47,6 +47,7 @@ mod location;
 mod media_alternative;
 mod media_rules;
 mod meta_viewport_large;
+mod modern_attributes;
 mod motion_actuation;
 mod no_interruptions;
 mod no_timing;
@@ -135,6 +136,7 @@ pub use media_rules::{
     check_frame_tested_with_page, check_frame_title_with_page, check_media_rules,
 };
 pub use meta_viewport_large::check_meta_viewport_large;
+pub use modern_attributes::check_modern_attributes_with_page;
 pub use motion_actuation::check_motion_actuation_with_page;
 pub use no_interruptions::check_no_interruptions_with_page;
 pub use no_timing::check_no_timing_with_page;

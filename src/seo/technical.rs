@@ -8,7 +8,7 @@ use futures::stream::{self, StreamExt};
 use reqwest::{redirect::Policy, Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::{AuditError, Result};
 use crate::taxonomy::Severity;
@@ -67,6 +67,9 @@ pub struct TechnicalSeo {
     /// Progressive Web App manifest and service-worker signals.
     #[serde(default)]
     pub pwa: PwaAnalysis,
+    /// Basic AMP conformance signals when AMP markup is present.
+    #[serde(default)]
+    pub amp: AmpAnalysis,
     /// Sensitive form transport, method, and credential-autocomplete checks.
     #[serde(default)]
     pub form_security: FormSecurityAnalysis,
@@ -78,6 +81,12 @@ pub struct TechnicalSeo {
     pub google_fonts_sources: Vec<String>,
     /// Tracking cookies detected on the page
     pub tracking_cookies: Vec<TrackingCookie>,
+    /// Cookie metadata from the browser cookie jar. Values are never collected.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub cookie_inventory: Vec<CookieInventoryItem>,
+    /// localStorage/sessionStorage keys detected on the page (values are never collected).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub storage_items: Vec<StorageItem>,
     /// Tracking providers or signals detected from scripts/resources
     pub tracking_signals: Vec<String>,
     /// Cloudflare Zaraz detected
@@ -114,6 +123,34 @@ pub struct TrackingCookie {
     pub provider: String,
 }
 
+/// Browser cookie metadata. Values are intentionally omitted.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CookieInventoryItem {
+    pub name: String,
+    pub domain: String,
+    pub path: String,
+    pub secure: bool,
+    pub http_only: bool,
+    pub same_site: Option<String>,
+    pub session: bool,
+    pub third_party: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+}
+
+/// Browser storage key detected on the page. Values are intentionally omitted.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageItem {
+    pub area: String,
+    pub key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+}
+
 /// Zaraz detection summary.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ZarazDetection {
@@ -134,6 +171,17 @@ pub struct MixedContentResource {
     pub url: String,
     pub resource_type: String,
     pub blockable: bool,
+}
+
+/// Basic AMP markup signal analysis.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AmpAnalysis {
+    pub detected: bool,
+    pub canonical_present: bool,
+    pub runtime_script_present: bool,
+    pub boilerplate_present: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub issues: Vec<String>,
 }
 
 /// Basic Progressive Web App signal analysis.
@@ -328,7 +376,48 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
             .split(';')
             .map(part => part.trim().split('=')[0])
             .filter(Boolean);
+        result.storageItems = [];
+        const readStorageKeys = area => {
+            try {
+                const storage = window[area];
+                if (!storage) return;
+                for (let i = 0; i < storage.length; i++) {
+                    const key = storage.key(i);
+                    if (key) result.storageItems.push({ area, key });
+                }
+            } catch(e) {}
+        };
+        readStorageKeys('localStorage');
+        readStorageKeys('sessionStorage');
         result.hasZarazGlobal = typeof window.zaraz !== 'undefined';
+
+        const htmlEl = document.documentElement;
+        const hasAmpAttr = htmlEl.hasAttribute('amp') ||
+            Array.from(htmlEl.attributes).some(attr => attr.name === '\u26a1');
+        const ampRuntime = !!document.querySelector('script[src^="https://cdn.ampproject.org/v0.js"], script[src="//cdn.ampproject.org/v0.js"]');
+        const ampBoilerplate = !!document.querySelector('style[amp-boilerplate]');
+        const ampCustomScripts = Array.from(document.querySelectorAll('script[custom-element], script[custom-template]'));
+        const ampDetected = hasAmpAttr || ampRuntime || ampBoilerplate || ampCustomScripts.length > 0;
+        const ampIssues = [];
+        if (ampDetected) {
+            if (!hasAmpAttr) ampIssues.push('missing_html_amp_attribute');
+            if (!result.canonical) ampIssues.push('missing_canonical');
+            if (!ampRuntime) ampIssues.push('missing_amp_runtime');
+            if (!ampBoilerplate) ampIssues.push('missing_amp_boilerplate');
+            document.querySelectorAll('script:not([type="application/ld+json"]):not([src^="https://cdn.ampproject.org/"]):not([src^="//cdn.ampproject.org/"])')
+                .forEach(script => {
+                    if (!script.hasAttribute('custom-element') && !script.hasAttribute('custom-template')) {
+                        ampIssues.push('custom_script_not_allowed');
+                    }
+                });
+        }
+        result.amp = {
+            detected: ampDetected,
+            canonicalPresent: !!result.canonical,
+            runtimeScriptPresent: ampRuntime,
+            boilerplatePresent: ampBoilerplate,
+            issues: Array.from(new Set(ampIssues))
+        };
 
         // Favicon
         const faviconEl = document.querySelector(
@@ -454,6 +543,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let resource_urls = parse_string_array(&parsed["resourceUrls"]);
     let mixed_content = parse_mixed_content_resources(&parsed["mixedContentResources"]);
     let cookie_names = parse_string_array(&parsed["cookieNames"]);
+    let storage_items = parse_storage_items(&parsed["storageItems"]);
     let has_zaraz_global = parsed["hasZarazGlobal"].as_bool().unwrap_or(false);
     let has_favicon = parsed["hasFavicon"].as_bool().unwrap_or(false);
     let web_manifest_url = parsed["webManifestUrl"].as_str().map(String::from);
@@ -461,6 +551,7 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
     let service_worker_supported = parsed["serviceWorkerSupported"].as_bool().unwrap_or(false);
     let service_worker_controlled = parsed["serviceWorkerControlled"].as_bool().unwrap_or(false);
     let form_security = parse_form_security_analysis(&parsed["formSecurity"]);
+    let amp = parse_amp_analysis(&parsed["amp"]);
 
     let google_fonts_sources =
         collect_google_fonts_sources(&stylesheet_urls, &resource_urls, &script_urls);
@@ -468,8 +559,14 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         .iter()
         .filter_map(|name| classify_tracking_cookie(name))
         .collect();
-    let tracking_signals =
-        collect_tracking_signals(&script_urls, &resource_urls, &tracking_cookies);
+    let cookie_inventory = collect_cookie_inventory(page, url).await;
+    let tracking_signals = collect_tracking_signals(
+        &script_urls,
+        &resource_urls,
+        &tracking_cookies,
+        &cookie_inventory,
+        &storage_items,
+    );
     let zaraz = detect_zaraz(
         &script_urls,
         &resource_urls,
@@ -528,11 +625,14 @@ pub async fn analyze_technical_seo(page: &Page, url: &str) -> Result<TechnicalSe
         broken_links,
         mixed_content,
         pwa,
+        amp,
         form_security,
         text_excerpt,
         uses_remote_google_fonts: !google_fonts_sources.is_empty(),
         google_fonts_sources,
         tracking_cookies,
+        cookie_inventory,
+        storage_items,
         tracking_signals,
         zaraz,
         has_favicon,
@@ -768,6 +868,7 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
     }
 
     collect_pwa_issues(&t.pwa, en, &mut issues);
+    collect_amp_issues(&t.amp, en, &mut issues);
     collect_form_security_issues(&t.form_security, en, &mut issues);
 
     if let Some(ref check) = t.www_redirect {
@@ -917,6 +1018,119 @@ fn parse_string_array(value: &serde_json::Value) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn parse_storage_items(value: &serde_json::Value) -> Vec<StorageItem> {
+    let mut seen = BTreeSet::new();
+    value
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let area = item["area"].as_str()?.trim();
+                    let key = item["key"].as_str()?.trim();
+                    if area.is_empty() || key.is_empty() {
+                        return None;
+                    }
+                    let dedupe_key = format!("{area}:{key}");
+                    if !seen.insert(dedupe_key) {
+                        return None;
+                    }
+                    let classified = classify_tracking_cookie(key);
+                    let provider = classified.as_ref().map(|cookie| cookie.provider.clone());
+                    Some(StorageItem {
+                        area: area.to_string(),
+                        key: key.to_string(),
+                        category: provider
+                            .as_deref()
+                            .and_then(classify_tracking_provider_category),
+                        provider,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_amp_analysis(value: &serde_json::Value) -> AmpAnalysis {
+    let issues = value
+        .get("issues")
+        .and_then(|items| items.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.as_str())
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    AmpAnalysis {
+        detected: value
+            .get("detected")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        canonical_present: value
+            .get("canonicalPresent")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        runtime_script_present: value
+            .get("runtimeScriptPresent")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        boilerplate_present: value
+            .get("boilerplatePresent")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        issues,
+    }
+}
+
+async fn collect_cookie_inventory(page: &Page, page_url: &str) -> Vec<CookieInventoryItem> {
+    let page_host = url::Url::parse(page_url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_ascii_lowercase))
+        .unwrap_or_default();
+
+    let cookies = match page.get_cookies().await {
+        Ok(cookies) => cookies,
+        Err(e) => {
+            warn!("cookie inventory collection failed: {}", e);
+            return Vec::new();
+        }
+    };
+
+    cookies
+        .into_iter()
+        .map(|cookie| {
+            let domain = cookie.domain.trim_start_matches('.').to_ascii_lowercase();
+            let third_party = !page_host.is_empty()
+                && domain != page_host
+                && !page_host.ends_with(&format!(".{domain}"));
+            let classified = classify_tracking_cookie(&cookie.name);
+            let provider = classified.as_ref().map(|cookie| cookie.provider.clone());
+            CookieInventoryItem {
+                category: provider
+                    .as_deref()
+                    .and_then(classify_tracking_provider_category),
+                provider,
+                name: cookie.name,
+                domain: cookie.domain,
+                path: cookie.path,
+                secure: cookie.secure,
+                http_only: cookie.http_only,
+                same_site: cookie
+                    .same_site
+                    .as_ref()
+                    .map(|same_site| same_site.as_ref().to_string()),
+                session: cookie.session,
+                third_party,
+            }
+        })
+        .collect()
 }
 
 fn parse_mixed_content_resources(value: &serde_json::Value) -> Vec<MixedContentResource> {
@@ -1102,6 +1316,49 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIss
                 "Keine Service-Worker-Registrierung erkannt".to_string()
             },
             severity: Severity::Low,
+        });
+    }
+}
+
+fn collect_amp_issues(amp: &AmpAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
+    if !amp.detected || amp.issues.is_empty() {
+        return;
+    }
+
+    for issue in &amp.issues {
+        let (message_en, message_de, severity) = match issue.as_str() {
+            "missing_html_amp_attribute" => (
+                "AMP markup detected, but the html element has no amp attribute",
+                "AMP-Markup erkannt, aber das html-Element hat kein amp-Attribut",
+                Severity::Medium,
+            ),
+            "missing_canonical" => (
+                "AMP page is missing a canonical link",
+                "AMP-Seite hat keinen Canonical-Link",
+                Severity::Medium,
+            ),
+            "missing_amp_runtime" => (
+                "AMP page is missing the AMP runtime script",
+                "AMP-Seite bindet das AMP-Runtime-Script nicht ein",
+                Severity::Medium,
+            ),
+            "missing_amp_boilerplate" => (
+                "AMP page is missing amp-boilerplate CSS",
+                "AMP-Seite enthält kein amp-boilerplate-CSS",
+                Severity::Low,
+            ),
+            "custom_script_not_allowed" => (
+                "AMP page contains a custom script outside the AMP runtime",
+                "AMP-Seite enthält ein eigenes Script außerhalb der AMP-Runtime",
+                Severity::Medium,
+            ),
+            _ => continue,
+        };
+
+        issues.push(TechnicalIssue {
+            issue_type: format!("amp_{issue}"),
+            message: if en { message_en } else { message_de }.to_string(),
+            severity,
         });
     }
 }
@@ -1372,7 +1629,7 @@ fn is_google_fonts_url(url: &str) -> bool {
     lower.contains("fonts.googleapis.com") || lower.contains("fonts.gstatic.com")
 }
 
-fn classify_tracking_cookie(name: &str) -> Option<TrackingCookie> {
+pub(crate) fn classify_tracking_cookie(name: &str) -> Option<TrackingCookie> {
     let lower = name.trim().to_ascii_lowercase();
     let (scope, provider) = if lower.starts_with("_ga")
         || lower == "_gid"
@@ -1401,10 +1658,22 @@ fn classify_tracking_cookie(name: &str) -> Option<TrackingCookie> {
     })
 }
 
+pub(crate) fn classify_tracking_provider_category(provider: &str) -> Option<String> {
+    let category = match provider {
+        "Google" | "Matomo" | "Cloudflare Zaraz" => "analytics",
+        "Meta" => "social",
+        "Hotjar" | "HubSpot" => "marketing",
+        _ => return None,
+    };
+    Some(category.to_string())
+}
+
 fn collect_tracking_signals(
     script_urls: &[String],
     resource_urls: &[String],
     tracking_cookies: &[TrackingCookie],
+    cookie_inventory: &[CookieInventoryItem],
+    storage_items: &[StorageItem],
 ) -> Vec<String> {
     let mut signals = BTreeSet::new();
     for url in script_urls.iter().chain(resource_urls.iter()) {
@@ -1415,7 +1684,38 @@ fn collect_tracking_signals(
     for cookie in tracking_cookies {
         signals.insert(format!("{}-Cookie: {}", cookie.provider, cookie.name));
     }
+    for cookie in cookie_inventory {
+        if let Some(provider) = &cookie.provider {
+            signals.insert(format_tracking_signal(
+                provider,
+                cookie.category.as_deref(),
+                "Cookie",
+                &cookie.name,
+            ));
+        }
+    }
+    for item in storage_items {
+        if let Some(provider) = &item.provider {
+            signals.insert(format!(
+                "{} ({})",
+                format_tracking_signal(provider, item.category.as_deref(), "Storage", &item.key),
+                item.area
+            ));
+        }
+    }
     signals.into_iter().collect()
+}
+
+fn format_tracking_signal(
+    provider: &str,
+    category: Option<&str>,
+    signal_type: &str,
+    name: &str,
+) -> String {
+    match category {
+        Some(category) => format!("{provider} [{category}]-{signal_type}: {name}"),
+        None => format!("{provider}-{signal_type}: {name}"),
+    }
 }
 
 fn classify_tracking_url(url: &str) -> Option<&'static str> {
@@ -1504,6 +1804,47 @@ mod tests {
     }
 
     #[test]
+    fn test_storage_items_are_inventory_only_and_feed_tracking_signals() {
+        let value = serde_json::json!([
+            {"area": "localStorage", "key": "_ga"},
+            {"area": "localStorage", "key": "_ga"},
+            {"area": "sessionStorage", "key": "app_state"}
+        ]);
+
+        let storage_items = parse_storage_items(&value);
+        assert_eq!(storage_items.len(), 2);
+        assert_eq!(storage_items[0].provider.as_deref(), Some("Google"));
+        assert_eq!(storage_items[0].category.as_deref(), Some("analytics"));
+        assert_eq!(storage_items[1].provider, None);
+
+        let signals = collect_tracking_signals(&[], &[], &[], &[], &storage_items);
+        assert!(signals
+            .iter()
+            .any(|signal| signal == "Google [analytics]-Storage: _ga (localStorage)"));
+    }
+
+    #[test]
+    fn test_cookie_inventory_feeds_tracking_signals() {
+        let cookie_inventory = vec![CookieInventoryItem {
+            name: "_fbp".to_string(),
+            domain: ".example.com".to_string(),
+            path: "/".to_string(),
+            secure: true,
+            http_only: true,
+            same_site: Some("Lax".to_string()),
+            session: false,
+            third_party: false,
+            provider: Some("Meta".to_string()),
+            category: Some("social".to_string()),
+        }];
+
+        let signals = collect_tracking_signals(&[], &[], &[], &cookie_inventory, &[]);
+        assert!(signals
+            .iter()
+            .any(|signal| signal == "Meta [social]-Cookie: _fbp"));
+    }
+
+    #[test]
     fn test_zaraz_detection() {
         let zaraz = detect_zaraz(
             &["https://www.example.com/cdn-cgi/zaraz/s.js".to_string()],
@@ -1572,6 +1913,31 @@ mod tests {
         assert!(issues
             .iter()
             .any(|issue| issue.issue_type == "pwa_missing_service_worker"));
+    }
+
+    #[test]
+    fn test_parse_amp_analysis_and_collect_issues() {
+        let value = serde_json::json!({
+            "detected": true,
+            "canonicalPresent": false,
+            "runtimeScriptPresent": false,
+            "boilerplatePresent": true,
+            "issues": ["missing_canonical", "missing_amp_runtime"]
+        });
+
+        let amp = parse_amp_analysis(&value);
+        assert!(amp.detected);
+        assert!(!amp.canonical_present);
+        assert_eq!(amp.issues.len(), 2);
+
+        let mut issues = Vec::new();
+        collect_amp_issues(&amp, true, &mut issues);
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "amp_missing_canonical"));
+        assert!(issues
+            .iter()
+            .any(|issue| issue.issue_type == "amp_missing_amp_runtime"));
     }
 
     #[test]

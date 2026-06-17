@@ -6,15 +6,18 @@
 //! - URL file processing
 //! - Progress reporting
 
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::stream::{FuturesUnordered, StreamExt};
+use reqwest::{redirect::Policy, Client};
 use tracing::{debug, info, warn};
+use url::Url;
 
 use super::pipeline::{audit_page, PipelineConfig};
-use super::report::{AuditReport, BatchError, BatchReport};
+use super::report::{AuditReport, BatchError, BatchReport, SitemapDiagnostics, SitemapHttpIssue};
 use crate::browser::{BrowserOptions, BrowserPool, PoolConfig};
 use crate::cli::{Args, RequestMode};
 use crate::error::{AuditError, Result};
@@ -202,6 +205,184 @@ pub async fn run_concurrent_batch(
         batch_errors,
         total_duration_ms,
     ))
+}
+
+/// Validate sitemap entries that were selected for a sitemap-driven batch.
+///
+/// The checks intentionally stay sitemap-specific: a sitemap should list only
+/// canonical, indexable 200 URLs. Link graph comparisons use the audited pages'
+/// collected internal targets, so no extra crawl is required for the orphan
+/// signal.
+pub async fn analyze_sitemap_diagnostics(
+    sitemap_urls: &[String],
+    reports: &[AuditReport],
+) -> SitemapDiagnostics {
+    let client = Client::builder()
+        .redirect(Policy::none())
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| Client::new());
+
+    let http_issues: Vec<SitemapHttpIssue> = futures::stream::iter(sitemap_urls.iter())
+        .map(|url| check_sitemap_url(&client, url))
+        .buffer_unordered(8)
+        .filter_map(|issue| async move { issue })
+        .collect()
+        .await;
+
+    let sitemap_set: HashSet<String> = sitemap_urls
+        .iter()
+        .filter_map(|u| normalize_url(u))
+        .collect();
+    let audited_set: HashSet<String> = reports
+        .iter()
+        .filter_map(|r| normalize_url(&r.url))
+        .collect();
+    let linked_set = collect_internal_link_targets(reports);
+
+    let mut orphan_sitemap_urls: Vec<String> = sitemap_set
+        .iter()
+        .filter(|url| audited_set.contains(*url) && !linked_set.contains(*url))
+        .cloned()
+        .collect();
+    orphan_sitemap_urls.sort();
+
+    let mut linked_not_in_sitemap: Vec<String> =
+        linked_set.difference(&sitemap_set).cloned().collect();
+    linked_not_in_sitemap.sort();
+
+    SitemapDiagnostics {
+        checked_urls: sitemap_urls.len(),
+        http_issues,
+        orphan_sitemap_urls,
+        linked_not_in_sitemap,
+    }
+}
+
+async fn check_sitemap_url(client: &Client, url: &str) -> Option<SitemapHttpIssue> {
+    let response = match client
+        .get(url)
+        .header("User-Agent", "auditmysite-sitemap-validator/1.0")
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(err) => {
+            return Some(SitemapHttpIssue {
+                kind: "fetch_error".to_string(),
+                url: url.to_string(),
+                status_code: None,
+                final_url: None,
+                detail: err.to_string(),
+            });
+        }
+    };
+
+    let status = response.status();
+    if status.is_redirection() {
+        let final_url = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|location| resolve_url(url, location))
+            .unwrap_or_else(|| url.to_string());
+        return Some(SitemapHttpIssue {
+            kind: "redirect".to_string(),
+            url: url.to_string(),
+            status_code: Some(status.as_u16()),
+            final_url: Some(final_url.clone()),
+            detail: final_url,
+        });
+    }
+
+    if status.as_u16() != 200 {
+        return Some(SitemapHttpIssue {
+            kind: "status".to_string(),
+            url: url.to_string(),
+            status_code: Some(status.as_u16()),
+            final_url: None,
+            detail: status.to_string(),
+        });
+    }
+
+    let headers_noindex = response
+        .headers()
+        .get("x-robots-tag")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(contains_noindex);
+    let body = response.text().await.unwrap_or_default();
+    let meta_noindex = contains_noindex_meta(&body);
+    if headers_noindex || meta_noindex {
+        return Some(SitemapHttpIssue {
+            kind: "noindex".to_string(),
+            url: url.to_string(),
+            status_code: Some(200),
+            final_url: None,
+            detail: if headers_noindex {
+                "x-robots-tag".to_string()
+            } else {
+                "meta robots".to_string()
+            },
+        });
+    }
+
+    None
+}
+
+fn contains_noindex(value: &str) -> bool {
+    value
+        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
+        .any(|part| part.eq_ignore_ascii_case("noindex"))
+}
+
+fn contains_noindex_meta(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    lower.contains("<meta")
+        && lower.contains("name=\"robots\"")
+        && lower.contains("content=")
+        && lower.contains("noindex")
+}
+
+fn collect_internal_link_targets(reports: &[AuditReport]) -> HashSet<String> {
+    let mut targets = HashSet::new();
+    for report in reports {
+        let Some(base) = Url::parse(&report.url).ok() else {
+            continue;
+        };
+        let Some(seo) = &report.seo else {
+            continue;
+        };
+        for target in &seo.technical.internal_link_targets {
+            let resolved = if target.starts_with("http://") || target.starts_with("https://") {
+                target.to_string()
+            } else {
+                base.join(target)
+                    .map(|url| url.to_string())
+                    .unwrap_or_else(|_| target.to_string())
+            };
+            if let Some(normalized) = normalize_url(&resolved) {
+                targets.insert(normalized);
+            }
+        }
+    }
+    targets
+}
+
+fn resolve_url(base: &str, location: &str) -> Option<String> {
+    Url::parse(base).ok()?.join(location).ok().map(|mut url| {
+        url.set_fragment(None);
+        url.to_string()
+    })
+}
+
+fn normalize_url(url: &str) -> Option<String> {
+    let mut parsed = Url::parse(url).ok()?;
+    parsed.set_fragment(None);
+    let path = parsed.path().to_string();
+    if path != "/" && path.ends_with('/') {
+        parsed.set_path(path.trim_end_matches('/'));
+    }
+    Some(parsed.to_string())
 }
 
 /// Audit a single URL using a page from the pool
@@ -488,5 +669,48 @@ mod tests {
         let urls = extract_loc_urls(sitemap).unwrap();
         assert_eq!(urls.len(), 1);
         assert_eq!(urls[0], "https://example.com/cdata");
+    }
+
+    #[test]
+    fn sitemap_link_graph_uses_audited_internal_targets() {
+        let mut report = AuditReport::new(
+            "https://example.com/a".to_string(),
+            crate::cli::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            10,
+        );
+        let mut seo = crate::seo::SeoAnalysis::default();
+        seo.technical.internal_link_targets = vec!["/b".to_string(), "/linked-only".to_string()];
+        report.seo = Some(seo);
+
+        let targets = collect_internal_link_targets(&[report.clone()]);
+        assert!(targets.contains("https://example.com/b"));
+        assert!(targets.contains("https://example.com/linked-only"));
+
+        let sitemap_set: HashSet<String> = ["https://example.com/a", "https://example.com/b"]
+            .into_iter()
+            .filter_map(normalize_url)
+            .collect();
+        let audited_set: HashSet<String> = [report.url.as_str()]
+            .into_iter()
+            .filter_map(normalize_url)
+            .collect();
+
+        let mut orphan_sitemap_urls: Vec<String> = sitemap_set
+            .iter()
+            .filter(|url| audited_set.contains(*url) && !targets.contains(*url))
+            .cloned()
+            .collect();
+        orphan_sitemap_urls.sort();
+
+        let mut linked_not_in_sitemap: Vec<String> =
+            targets.difference(&sitemap_set).cloned().collect();
+        linked_not_in_sitemap.sort();
+
+        assert_eq!(orphan_sitemap_urls, vec!["https://example.com/a"]);
+        assert_eq!(
+            linked_not_in_sitemap,
+            vec!["https://example.com/linked-only"]
+        );
     }
 }

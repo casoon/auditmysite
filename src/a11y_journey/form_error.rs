@@ -202,14 +202,14 @@ pub async fn test(
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_submit".to_string()),
             after_snapshot_label: Some("after_submit_click".to_string()),
-            message: "Formular-Fehler werden nicht über eine Live-Region (role=\"alert\" oder \
-                aria-live) angekündigt und aria-invalid wird nicht gesetzt. \
-                Screenreader-Nutzer erhalten keine Rückmeldung, wenn das Pflichtfeld \
-                leer geblieben ist."
+            message: "Form errors are not announced via a live region (role=\"alert\" or \
+                aria-live) and aria-invalid is not set. \
+                Screen reader users receive no feedback when a required field \
+                is left empty."
                 .to_string(),
             fix_suggestion: Some(
-                "Fehlermeldungen in einem role=\"alert\"-Element ausgeben und \
-                aria-invalid=\"true\" auf jedem fehlerhaften Feld setzen."
+                "Output error messages inside a role=\"alert\" element and set \
+                aria-invalid=\"true\" on each invalid field."
                     .to_string(),
             ),
         });
@@ -225,14 +225,14 @@ pub async fn test(
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_submit".to_string()),
             after_snapshot_label: Some("after_submit_click".to_string()),
-            message: "aria-invalid wird nach dem Absenden gesetzt, aber es existiert keine \
-                Live-Region (role=\"alert\" oder aria-live), die den Fehler ankündigt. \
-                Screenreader-Nutzer bemerken den Fehlerzustand erst, wenn sie explizit \
-                zurück zum Feld navigieren."
+            message: "aria-invalid is set after submission, but no live region \
+                (role=\"alert\" or aria-live) announces the error. \
+                Screen reader users will only notice the error state when they \
+                explicitly navigate back to the field."
                 .to_string(),
             fix_suggestion: Some(
-                "Einen role=\"alert\"-Container ergänzen, in dem die Fehlermeldung \
-                nach dem Absenden ausgegeben wird."
+                "Add a role=\"alert\" container that outputs the error message \
+                after form submission."
                     .to_string(),
             ),
         });
@@ -249,14 +249,13 @@ pub async fn test(
             before_snapshot_label: Some("before_submit".to_string()),
             after_snapshot_label: Some("after_submit_click".to_string()),
             message: format!(
-                "{unlinked} Feld(er) mit aria-invalid=\"true\" sind nicht über \
-                aria-describedby oder aria-errormessage mit ihrer Fehlermeldung verknüpft. \
-                Screenreader-Nutzer hören den Fehler, können ihn aber nicht dem Feld \
-                zuordnen."
+                "{unlinked} field(s) with aria-invalid=\"true\" are not linked to their error \
+                message via aria-describedby or aria-errormessage. \
+                Screen reader users hear the error state but cannot associate it with the field."
             ),
             fix_suggestion: Some(
-                "aria-describedby=\"id-der-fehlermeldung\" auf jedem Feld mit \
-                aria-invalid=\"true\" ergänzen."
+                "Add aria-describedby=\"error-message-id\" on each field with \
+                aria-invalid=\"true\"."
                     .to_string(),
             ),
         });

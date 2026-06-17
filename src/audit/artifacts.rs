@@ -305,6 +305,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         consent_banner_detected: false,
         consent_banner_cmp: None,
         consent_banner_dismissed: false,
+        consent_privacy: None,
         accessibility_journey: None,
         interactive_findings: Vec::new(),
         screen_reader_audit: Some(crate::screen_reader::build_sr_audit_report(

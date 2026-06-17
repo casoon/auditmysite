@@ -41,6 +41,28 @@ pub struct PageScreenshots {
     pub mobile: Vec<u8>,
 }
 
+/// Cookie metadata snapshot around consent interaction. Cookie values are never stored.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ConsentPrivacySnapshot {
+    pub before_interaction: Vec<ConsentCookieSignal>,
+    pub after_interaction: Vec<ConsentCookieSignal>,
+    pub added_after_interaction: Vec<ConsentCookieSignal>,
+}
+
+/// Cookie signal stored for consent/privacy comparison without cookie values.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ConsentCookieSignal {
+    pub name: String,
+    pub domain: String,
+    pub secure: bool,
+    pub http_only: bool,
+    pub same_site: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+}
+
 /// Why device-preview screenshots are or are not available in this report.
 /// Used by the PDF renderer to surface the right callout when screenshots
 /// are missing (failure reason vs. not-requested).
@@ -196,6 +218,9 @@ pub struct AuditReport {
     /// Whether the banner was successfully dismissed
     #[serde(default)]
     pub consent_banner_dismissed: bool,
+    /// Cookie snapshot before/after consent interaction; values are never stored.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consent_privacy: Option<ConsentPrivacySnapshot>,
     /// Accessibility-Journey-Layer result (populated when `--interactive != off`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessibility_journey: Option<crate::audit::normalized::AccessibilityJourney>,
@@ -290,6 +315,7 @@ impl AuditReport {
             consent_banner_detected: false,
             consent_banner_cmp: None,
             consent_banner_dismissed: false,
+            consent_privacy: None,
             accessibility_journey: None,
             interactive_findings: Vec::new(),
             screen_reader_audit: None,
@@ -388,6 +414,10 @@ pub struct BatchReport {
     /// Optional crawl/link diagnostics if the batch originated from crawler discovery
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crawl_diagnostics: Option<CrawlDiagnostics>,
+    /// Optional sitemap HTTP/indexability diagnostics when the batch originated
+    /// from an XML sitemap.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub sitemap_diagnostics: Option<SitemapDiagnostics>,
     /// Cross-page consistency analysis (issues #44/#45/#46). None when the
     /// batch contains fewer than 2 pages.
     #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -422,6 +452,36 @@ pub struct SampleMetadata {
     /// True when fewer URLs were audited than discovered — i.e. this is a sample,
     /// not full coverage.
     pub is_sample: bool,
+}
+
+/// Sitemap URL validation result for sitemap-driven batch reports.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SitemapDiagnostics {
+    /// Number of sitemap URLs checked via HTTP.
+    pub checked_urls: usize,
+    /// Sitemap entries that do not resolve to a direct canonical 200 response,
+    /// or that are marked noindex.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub http_issues: Vec<SitemapHttpIssue>,
+    /// URLs present in the sitemap but not linked by any audited page.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub orphan_sitemap_urls: Vec<String>,
+    /// Internal targets linked by audited pages but absent from the sitemap.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub linked_not_in_sitemap: Vec<String>,
+}
+
+/// One sitemap URL whose HTTP/indexability state contradicts sitemap guidance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SitemapHttpIssue {
+    /// Canonical issue kind: `"status"`, `"redirect"`, `"noindex"` or `"fetch_error"`.
+    pub kind: String,
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub final_url: Option<String>,
+    pub detail: String,
 }
 
 /// Severity of a broken or problematic link finding
@@ -736,6 +796,7 @@ impl BatchReport {
                 verdict_key,
             },
             crawl_diagnostics: None,
+            sitemap_diagnostics: None,
             consistency: None,
             sample: None,
             total_duration_ms,
@@ -746,6 +807,11 @@ impl BatchReport {
 
     pub fn with_crawl_diagnostics(mut self, diagnostics: CrawlDiagnostics) -> Self {
         self.crawl_diagnostics = Some(diagnostics);
+        self
+    }
+
+    pub fn with_sitemap_diagnostics(mut self, diagnostics: SitemapDiagnostics) -> Self {
+        self.sitemap_diagnostics = Some(diagnostics);
         self
     }
 

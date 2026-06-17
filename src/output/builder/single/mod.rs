@@ -727,7 +727,7 @@ mod tests {
         assert!(vm.summary.verdict.contains("100/100"));
     }
 
-    /// Builds an AuditReport with all 11 modules registered in `active_modules()`.
+    /// Builds an AuditReport with all modules registered in `active_modules()`.
     fn all_active_modules_report() -> AuditReport {
         use crate::audit::PerformanceResults;
         use crate::dark_mode::DarkModeAnalysis;
@@ -802,6 +802,9 @@ mod tests {
             light_only_violations: 0,
             dark_only_violations: 0,
             contrast_violations: vec![],
+            print: Default::default(),
+            forced_colors: Default::default(),
+            vision_deficiency: Default::default(),
             issues: vec![],
         })
         .with_best_practices(crate::best_practices::BestPracticesAnalysis {
@@ -835,6 +838,78 @@ mod tests {
         report.ai_visibility = Some(av);
         report.content_visibility = Some(crate::content_visibility::analyze_content_visibility(
             &report,
+        ));
+        report
+    }
+
+    fn report_with_all_report_areas() -> AuditReport {
+        let mut report = all_active_modules_report();
+        report.wcag_results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Image is missing alternative text",
+                "img",
+            )
+            .with_rule_id("image-alt"),
+        );
+        report.wcag_results.add_violation(
+            Violation::new(
+                "2.4.10",
+                "Section Headings",
+                WcagLevel::AAA,
+                Severity::Low,
+                "Long sections are not split by headings",
+                "section",
+            )
+            .with_rule_id("heading-order"),
+        );
+        report.viewport_scores = Some(crate::audit::ViewportScores {
+            desktop: crate::audit::ViewportScoreSet {
+                accessibility: 95,
+                performance: Some(90),
+                overall: 92,
+            },
+            mobile: crate::audit::ViewportScoreSet {
+                accessibility: 65,
+                performance: Some(75),
+                overall: 70,
+            },
+            weighted_overall: 77,
+        });
+        report.consent_banner_detected = true;
+        report.consent_banner_cmp = Some("FixtureCMP".to_string());
+        report
+            .interactive_findings
+            .push(crate::audit::normalized::InteractiveFinding {
+                category: "SkipLink".to_string(),
+                maps_to_finding: None,
+                severity: Severity::High,
+                journey: "skip_link".to_string(),
+                before_snapshot_label: Some("before".to_string()),
+                after_snapshot_label: Some("after".to_string()),
+                message: "Skip link does not move focus".to_string(),
+                fix_suggestion: Some("Move focus to the main content target".to_string()),
+            });
+        report.accessibility_journey = Some(crate::audit::normalized::AccessibilityJourney {
+            traces: vec![crate::audit::normalized::JourneyTrace {
+                journey: "skip_link".to_string(),
+                steps: vec![crate::audit::normalized::JourneyStep {
+                    action: "enter".to_string(),
+                    target: Some("a[href=\"#main\"]".to_string()),
+                    focus: Some("body".to_string()),
+                    result: Some("focus_lost_to_body".to_string()),
+                    snapshot_label: Some("after".to_string()),
+                }],
+            }],
+        });
+        report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+            &report.url,
+            report.timestamp,
+            &crate::AXTree::new(),
+            "en",
         ));
         report
     }
@@ -916,11 +991,6 @@ mod tests {
     }
 
     /// Parity: active_modules() keys must equal pdf_rendered_modules() keys.
-    ///
-    /// Currently ignored: `tech_stack` is present in `ModuleDetailsBlock` but absent
-    /// from `active_modules()` and therefore absent from the JSON output via that
-    /// path. Un-ignore once the gap is resolved (add tech_stack to active_modules
-    /// or remove it from ModuleDetailsBlock).
     #[test]
     fn test_module_parity_json_vs_pdf_viewmodel() {
         use crate::output::module::active_modules;
@@ -946,10 +1016,7 @@ mod tests {
     }
 
     /// Documents that `patterns` is rendered in both JSON (via ModuleBlob) and PDF
-    /// but is absent from `active_modules()` and `ModuleDetailsBlock`.
-    ///
-    /// Un-ignore once patterns is added to both `active_modules()` (with a
-    /// `ReportModule` impl) and `ModuleDetailsBlock` / `pdf_rendered_modules()`.
+    /// and remains registered in `active_modules()` / `ModuleDetailsBlock`.
     #[test]
     fn test_patterns_parity_with_active_modules() {
         use crate::output::module::active_modules;
@@ -988,7 +1055,7 @@ mod tests {
     #[test]
     fn test_active_modules_have_json_detail_and_pdf_registry_coverage() {
         use crate::output::json::UnifiedReport;
-        use crate::output::module::active_modules;
+        use crate::output::module::{active_modules, active_report_modules};
         use std::collections::BTreeSet;
 
         let report = all_active_modules_report();
@@ -1011,15 +1078,90 @@ mod tests {
             .map(|(key, _)| key.as_str())
             .collect();
         let pdf_keys = super::module_details::pdf_rendered_modules();
+        let i18n = crate::i18n::I18n::new("de").expect("test locale should load");
+        let missing_pdf_hooks: Vec<&str> = active_report_modules(&report)
+            .into_iter()
+            .filter(|module| module.render_pdf(&i18n).is_empty())
+            .map(|module| module.module_key())
+            .collect();
 
         let missing_json: Vec<&&str> = active_keys.difference(&json_keys).collect();
         let missing_pdf: Vec<&&str> = active_keys.difference(&pdf_keys).collect();
 
         assert!(
-            missing_json.is_empty() && missing_pdf.is_empty(),
-            "Active module coverage gap:\n  missing JSON detail entries: {:?}\n  missing PDF registry entries: {:?}",
+            missing_json.is_empty() && missing_pdf.is_empty() && missing_pdf_hooks.is_empty(),
+            "Active module coverage gap:\n  missing JSON detail entries: {:?}\n  missing PDF registry entries: {:?}\n  empty PDF hooks: {:?}",
             missing_json,
             missing_pdf,
+            missing_pdf_hooks,
         );
+    }
+
+    #[test]
+    fn test_report_areas_have_json_and_pdf_viewmodel_coverage() {
+        use crate::output::json::UnifiedReport;
+        use crate::output::module::REPORT_AREAS;
+
+        let report = report_with_all_report_areas();
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+        let unified = UnifiedReport::single(&normalized, &report);
+        let json_str = unified.to_json(true).expect("JSON should render");
+        let json_value: serde_json::Value =
+            serde_json::from_str(&json_str).expect("JSON should parse");
+        let page = &json_value["pages"][0];
+        let detail_modules = &page["detail"]["modules"];
+
+        for area in REPORT_AREAS {
+            let json_present = match *area {
+                "wcag_findings" => {
+                    page["findings"]
+                        .as_array()
+                        .is_some_and(|items| !items.is_empty())
+                        && detail_modules["accessibility"]["findings"]
+                            .as_array()
+                            .is_some_and(|items| !items.is_empty())
+                }
+                "a11y_journey" => page["interactive_findings"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty()),
+                "audit_flags" => page["audit_flags"]
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty()),
+                "search_experience" => !detail_modules["search_experience"].is_null(),
+                "screen_reader" => !page["screen_reader"].is_null(),
+                "advisory_findings" => page["findings"].as_array().is_some_and(|items| {
+                    items.iter().any(|item| {
+                        item["category"] != "wcag"
+                            || !matches!(item["wcag_level"].as_str(), Some("A") | Some("AA"))
+                    })
+                }),
+                "score_breakdown" => !page["score_breakdown"].is_null(),
+                unknown => panic!("REPORT_AREAS contains unmapped JSON area: {unknown}"),
+            };
+
+            let pdf_viewmodel_present = match *area {
+                "wcag_findings" => !vm.findings.all_findings.is_empty(),
+                "a11y_journey" => !report.interactive_findings.is_empty(),
+                "audit_flags" => !normalized.normalized.audit_flags.is_empty(),
+                "search_experience" => vm.module_details.search_experience.is_some(),
+                "screen_reader" => report.screen_reader_audit.is_some(),
+                "advisory_findings" => vm.findings.by_tier.iter().any(|group| {
+                    group.tier == crate::output::report_model::CriticalityTier::Optimization
+                        && group.total_findings > 0
+                }),
+                "score_breakdown" => normalized.normalized.score_breakdown.is_some(),
+                unknown => panic!("REPORT_AREAS contains unmapped PDF area: {unknown}"),
+            };
+
+            assert!(
+                json_present,
+                "REPORT_AREAS JSON coverage missing for {area}"
+            );
+            assert!(
+                pdf_viewmodel_present,
+                "REPORT_AREAS PDF/ViewModel coverage missing for {area}"
+            );
+        }
     }
 }

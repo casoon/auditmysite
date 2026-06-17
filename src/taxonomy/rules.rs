@@ -157,12 +157,14 @@ static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
     ("4.1.2", "a11y.name_role.missing"),
     ("4.1.3", "a11y.status_messages.broken"),
     ("aria-hidden-focus", "a11y.aria_hidden_focus.invalid"),
+    ("aria-required-attr", "a11y.aria_required_attr.missing"),
     ("aria-prohibited-attr", "a11y.aria_prohibited_attr.invalid"),
     ("frame-tested", "a11y.frame_tested.cross_origin"),
     ("frame-title", "a11y.frame_title.missing"),
     ("form-no-submit", "a11y.form_no_submit.missing"),
     ("landmark-main-present", "a11y.landmark_main.missing"),
     ("landmark-unique", "a11y.landmark_unique.invalid"),
+    ("modern-attribute-misuse", "a11y.modern_attributes.invalid"),
     (
         "presentation-semantic-children",
         "a11y.presentation_semantic_children.invalid",
@@ -1379,6 +1381,31 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
+        id: "a11y.aria_required_attr.missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Critical,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("aria-required-attr"),
+        title: "Pflicht-ARIA-Attribut fehlt",
+        title_en: "Required ARIA attribute missing",
+        description:
+            "Ein Element mit ARIA-Rolle besitzt nicht alle fuer diese Rolle erforderlichen Attribute.",
+        user_impact: "Assistive Technologien koennen Zustand oder Wert des Elements nicht verlaesslich vermitteln.",
+        user_impact_en:
+            "Assistive technologies cannot reliably expose the element state or value.",
+        technical_impact: "Rolle und ARIA-Attributsatz sind unvollstaendig.",
+        technical_impact_en: "Role and ARIA attribute set are incomplete.",
+        score_impact: ScoreImpact {
+            base_penalty: 6.0,
+            max_penalty: 15.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
         id: "a11y.name_role.missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
@@ -1397,6 +1424,29 @@ pub static RULES: &[Rule] = &[
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 12.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "a11y.modern_attributes.invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("modern-attribute-misuse"),
+        title: "Ungültige moderne Interaktionsattribute",
+        title_en: "Invalid modern interaction attributes",
+        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
+        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
+        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
+        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
+        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
+        score_impact: ScoreImpact {
+            base_penalty: 4.0,
+            max_penalty: 10.0,
             occurrence_scaling: Scaling::Logarithmic,
         },
         report_visibility: VIS_ALL,
@@ -2296,6 +2346,12 @@ mod tests {
             .expect("landmark-unique should resolve");
         assert_eq!(landmark_unique.id, "a11y.landmark_unique.invalid");
         assert_eq!(landmark_unique.external_ref, Some("WCAG 1.3.1"));
+
+        let modern = RuleLookup::by_legacy_wcag_id("modern-attribute-misuse")
+            .expect("modern-attribute-misuse should resolve");
+        assert_eq!(modern.id, "a11y.modern_attributes.invalid");
+        assert_eq!(modern.external_ref, Some("WCAG 4.1.2"));
+        assert_eq!(modern.axe_id, Some("modern-attribute-misuse"));
     }
 
     #[test]

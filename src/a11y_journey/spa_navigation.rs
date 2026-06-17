@@ -283,15 +283,15 @@ pub async fn run(
             before_snapshot_label: Some("before_spa_nav".to_string()),
             after_snapshot_label: Some("after_spa_nav".to_string()),
             message: format!(
-                "Nach einer SPA-Navigation ändert sich weder der Seiten-Titel \
-                (vorher: {title_before:?}) noch der H1-Heading, und der Fokus \
-                bleibt an derselben Stelle. Screenreader kündigen den neuen \
-                Inhalt deshalb nicht an."
+                "After SPA navigation neither the page title \
+                (before: {title_before:?}) nor the H1 heading changed, and focus \
+                remained in the same place. Screen readers will not announce \
+                the new content."
             ),
             fix_suggestion: Some(
-                "Nach jeder Client-seitigen Navigation: (1) document.title aktualisieren, \
-                (2) Fokus auf das <main>-Element oder den neuen H1-Heading setzen, \
-                (3) alternativ eine aria-live-Region mit dem neuen Seitennamen befüllen."
+                "After each client-side navigation: (1) update document.title, \
+                (2) move focus to the <main> element or the new H1 heading, \
+                (3) alternatively populate an aria-live region with the new page name."
                     .to_string(),
             ),
         });
@@ -305,12 +305,11 @@ pub async fn run(
             before_snapshot_label: Some("before_spa_nav".to_string()),
             after_snapshot_label: Some("after_spa_nav".to_string()),
             message: format!(
-                "Nach SPA-Navigation bleibt document.title unverändert ({title_before:?}). \
-                Screenreader kündigen Seitenwechsel oft primär über den Titel an."
+                "After SPA navigation document.title remains unchanged ({title_before:?}). \
+                Screen readers often primarily announce page transitions via the title."
             ),
             fix_suggestion: Some(
-                "document.title nach jeder Client-seitigen Navigation auf den neuen \
-                Seitennamen setzen."
+                "Update document.title to the new page name after every client-side navigation."
                     .to_string(),
             ),
         });
@@ -323,12 +322,12 @@ pub async fn run(
             journey: journey_name.clone(),
             before_snapshot_label: Some("before_spa_nav".to_string()),
             after_snapshot_label: Some("after_spa_nav".to_string()),
-            message: "Nach SPA-Navigation wird der Fokus nicht auf den neuen Hauptbereich \
-                gesetzt. Tastatur-Nutzer müssen manuell zum neuen Inhalt navigieren."
+            message: "After SPA navigation focus is not moved to the new main area. \
+                Keyboard users must manually navigate to the new content."
                 .to_string(),
             fix_suggestion: Some(
-                "Nach der Navigation den Fokus auf das <main>-Element oder den ersten \
-                H1-Heading des neuen Inhalts setzen."
+                "After navigation, move focus to the <main> element or the first \
+                H1 heading of the new content."
                     .to_string(),
             ),
         });

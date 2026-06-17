@@ -111,6 +111,28 @@ In the rendered PDF:
 - All user-visible labels in PDF output must use Fluent (`.ftl`) keys.
   Hard-coded German strings in PDF renderers are a contract violation.
 
+### Localization Boundaries
+
+AuditMySite currently has three localization surfaces. Keep new text in the
+surface that owns its lifecycle:
+
+- `locales/{de,en}/report.ftl`: runtime report labels, headings, table columns,
+  callout titles, status labels, and short reusable PDF/JSON presentation text.
+  New PDF renderer text should start here.
+- `src/output/explanations.rs`: WCAG rule explanations, examples, user impact,
+  causes, fix recommendations, owner role, and effort. These are rule catalog
+  facts rather than layout labels. Do not add generic report UI copy here.
+- `src/audit/interpretation.rs`: computed interpretation sentences that depend
+  on normalized audit signals and must be available before the output layer is
+  built. Prefer Fluent keys in the interpretation model when the text is a fixed
+  report sentence; use `LocalizedText` only when the sentence is derived from
+  audit data and stored with the normalized report.
+
+When adding another language, Fluent bundles are the primary expansion point.
+Any remaining paired `*_en` fields or `LocalizedText { de, en }` values are
+known migration seams from issue #417 and should not grow without a specific
+reason.
+
 ## Visual Quality Requirements
 
 Every PDF should:

@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "methodology": {
+    "primary_audit_engine": "auditmysite via Chrome DevTools Protocol Accessibility Tree plus targeted DOM/CDP supplements",
+    "comparison_tools": [
+      "axe-core CLI (DOM based)",
+      "pa11y htmlcs runner"
+    ],
+    "candidate_policy": {
+      "auditmysite_only": "axe PASS or no mapped axe violation while auditmysite reports a mapped finding; investigate for false positives before changing rules",
+      "axe_core_only": "axe confirmed violation with no mapped auditmysite finding; investigate for false negatives before treating as acceptable divergence",
+      "axe_incomplete": "manual review signal, not an automatic false negative"
+    }
+  },
+  "frozen_numbers": {
+    "wcag_version": "WCAG 2.1 AA",
+    "wcag_aa_total_criteria": 50,
+    "automated_wcag_aa_criteria": 27,
+    "manual_review_criteria": 16,
+    "stable_parity_fixture": "tests/fixtures/parity_gaps.html",
+    "stable_parity_fixture_expected_axe_ids": [
+      "aria-hidden-focus",
+      "document-title",
+      "landmark-main-present",
+      "landmark-unique"
+    ]
+  },
+  "axe_rule_mappings": {
+    "aria-hidden-focus": [
+      "aria_hidden_focus"
+    ],
+    "aria-required-attr": [
+      "aria"
+    ],
+    "button-name": [
+      "name_role",
+      "button_name"
+    ],
+    "color-contrast": [
+      "contrast"
+    ],
+    "document-title": [
+      "document_title",
+      "page_title"
+    ],
+    "duplicate-id": [
+      "parsing",
+      "duplicate_id"
+    ],
+    "frame-title": [
+      "frame_title"
+    ],
+    "heading-order": [
+      "headings"
+    ],
+    "image-alt": [
+      "alt_text"
+    ],
+    "label": [
+      "form_labels",
+      "form_label"
+    ],
+    "landmark-main-present": [
+      "landmark_main"
+    ],
+    "landmark-one-main": [
+      "landmark_one_main",
+      "landmark_main"
+    ],
+    "landmark-unique": [
+      "landmark_unique"
+    ]
+  }
+}

@@ -1312,6 +1312,48 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    (
+        "a11y.modern_attributes.invalid",
+        RuleExplanation {
+            customer_title: "Fehlerhafte Dialog- oder Popover-Steuerung",
+            customer_title_en: "Broken dialog or popover control",
+            customer_description:
+                "Moderne HTML-Attribute für Popover, Dialoge oder gesperrte Bereiche sind \
+                 unvollständig oder widersprüchlich eingesetzt.",
+            customer_description_en:
+                "Modern HTML attributes for popovers, dialogs, or disabled regions are used \
+                 incompletely or inconsistently.",
+            user_impact:
+                "Tastatur- und Screenreader-Nutzer können Oberflächen öffnen, fokussieren oder \
+                 verlassen, ohne eine verständliche Rückmeldung zu erhalten.",
+            user_impact_en:
+                "Keyboard and screen reader users may open, focus, or leave surfaces without \
+                 understandable feedback.",
+            typical_cause:
+                "popovertarget verweist auf ein fehlendes Element, ein sichtbarer Dialog hat keinen \
+                 zugänglichen Namen, oder ein aktiver Bereich ist gleichzeitig inert markiert.",
+            typical_cause_en:
+                "popovertarget points to a missing element, a visible dialog has no accessible \
+                 name, or an active region is marked inert at the same time.",
+            recommendation:
+                "Popover-Ziele prüfen, sichtbare Dialoge und Menüs benennen und inert nur für \
+                 tatsächlich inaktive Bereiche verwenden.",
+            recommendation_en:
+                "Check popover targets, name visible dialogs and menus, and use inert only for \
+                 regions that are truly inactive.",
+            technical_note:
+                "popovertarget muss auf ein Element mit popover zeigen. Offene Dialoge, Menüs und \
+                 Popover brauchen aria-label, aria-labelledby oder einen geeigneten Namen.",
+            technical_note_en:
+                "popovertarget must reference an element with popover. Open dialogs, menus, and \
+                 popovers need aria-label, aria-labelledby, or another suitable name.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button popovertarget=\"menu\">Menü</button>\n<div id=\"menu\">...</div>"),
+            example_good: Some("<button popovertarget=\"menu\">Menü</button>\n<div id=\"menu\" popover aria-label=\"Menü\">...</div>"),
+            example_decorative: None,
+        },
+    ),
     // ── SEO rules (no WCAG criterion) ────────────────────────────────────────
     (
         "seo.headings.long_heading",
@@ -1428,6 +1470,7 @@ mod tests {
         for rule_id in [
             "a11y.aria_hidden_focus.invalid",
             "a11y.aria_prohibited_attr.invalid",
+            "a11y.modern_attributes.invalid",
         ] {
             let expl = get_explanation(rule_id)
                 .unwrap_or_else(|| panic!("missing explanation for {rule_id}"));

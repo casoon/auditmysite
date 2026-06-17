@@ -4,10 +4,17 @@
 //! and report generation. Every audit runs two viewport passes (desktop 1280×800,
 //! mobile 390×844) and blends results with 70 % mobile / 30 % desktop weighting.
 
+use std::collections::BTreeSet;
 use std::time::Instant;
 
 use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
+use chromiumoxide::cdp::browser_protocol::security::{
+    EnableParams as SecurityEnableParams, EventVisibleSecurityStateChanged,
+};
+use chromiumoxide::listeners::EventStream;
 use chromiumoxide::Page;
+use chrono::Utc;
+use futures::StreamExt;
 use tracing::{debug, info, warn};
 
 use super::artifacts::{
@@ -15,8 +22,8 @@ use super::artifacts::{
 };
 use super::normalize;
 use super::report::{
-    AuditReport, DualViewportResults, PerformanceResults, ViewportAuditData, ViewportScoreSet,
-    ViewportScores, ViewportScreenshot,
+    AuditReport, ConsentCookieSignal, ConsentPrivacySnapshot, DualViewportResults,
+    PerformanceResults, ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
@@ -32,7 +39,7 @@ use crate::interaction::stability::settle;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
-use crate::security::{analyze_security, SecurityAnalysis};
+use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
 use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
 use crate::wcag::{self, Violation, WcagResults};
@@ -70,6 +77,89 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
         })?;
     settle(page).await?;
     Ok(())
+}
+
+async fn collect_certificate_details(
+    events: &mut Option<EventStream<EventVisibleSecurityStateChanged>>,
+) -> Option<BrowserCertificateDetails> {
+    let event = tokio::time::timeout(
+        std::time::Duration::from_millis(750),
+        events.as_mut()?.next(),
+    )
+    .await
+    .ok()??;
+    let cert = event
+        .visible_security_state
+        .certificate_security_state
+        .as_ref()?;
+    let valid_to = *cert.valid_to.inner() as i64;
+    let now = Utc::now().timestamp();
+    Some(BrowserCertificateDetails {
+        protocol: non_empty(&cert.protocol),
+        cipher: non_empty(&cert.cipher),
+        subject: non_empty(&cert.subject_name),
+        issuer: non_empty(&cert.issuer),
+        valid_to: Some(valid_to),
+        expires_in_days: Some((valid_to - now) / 86_400),
+        chain_length: Some(cert.certificate.len()),
+        error: cert.certificate_network_error.clone(),
+        has_weak_signature: Some(cert.certificate_has_weak_signature),
+        has_sha1_signature: Some(cert.certificate_has_sha1_signature),
+    })
+}
+
+fn non_empty(value: &str) -> Option<String> {
+    (!value.trim().is_empty()).then(|| value.to_string())
+}
+
+async fn collect_consent_cookie_signals(page: &Page) -> Vec<ConsentCookieSignal> {
+    let mut signals: Vec<ConsentCookieSignal> = page
+        .get_cookies()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|cookie| {
+            let provider =
+                crate::seo::technical::classify_tracking_cookie(&cookie.name).map(|c| c.provider);
+            ConsentCookieSignal {
+                category: provider
+                    .as_deref()
+                    .and_then(crate::seo::technical::classify_tracking_provider_category),
+                provider,
+                name: cookie.name,
+                domain: cookie.domain,
+                secure: cookie.secure,
+                http_only: cookie.http_only,
+                same_site: cookie
+                    .same_site
+                    .as_ref()
+                    .map(|same_site| same_site.as_ref().to_string()),
+            }
+        })
+        .collect();
+    signals.sort();
+    signals.dedup();
+    signals
+}
+
+fn build_consent_privacy_snapshot(
+    before_interaction: Vec<ConsentCookieSignal>,
+    after_interaction: Vec<ConsentCookieSignal>,
+) -> ConsentPrivacySnapshot {
+    let before_keys: BTreeSet<(String, String)> = before_interaction
+        .iter()
+        .map(|cookie| (cookie.name.clone(), cookie.domain.clone()))
+        .collect();
+    let added_after_interaction = after_interaction
+        .iter()
+        .filter(|cookie| !before_keys.contains(&(cookie.name.clone(), cookie.domain.clone())))
+        .cloned()
+        .collect();
+    ConsentPrivacySnapshot {
+        before_interaction,
+        after_interaction,
+        added_after_interaction,
+    }
 }
 
 // ── Snapshot data ─────────────────────────────────────────────────────────────
@@ -317,9 +407,26 @@ pub async fn audit_page(
 
     // Enable bypassing CSP on the page
     let _ = page.execute(SetBypassCspParams::new(true)).await;
+    let mut security_events = if config.check_security {
+        match page
+            .event_listener::<EventVisibleSecurityStateChanged>()
+            .await
+        {
+            Ok(events) => {
+                let _ = page.execute(SecurityEnableParams::default()).await;
+                Some(events)
+            }
+            Err(e) => {
+                warn!("Security CDP listener setup failed: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
 
     // ── Security: viewport-independent, fetch once ────────────────────────────
-    let security: Option<SecurityAnalysis> = if config.check_security {
+    let mut security: Option<SecurityAnalysis> = if config.check_security {
         match analyze_security(url).await {
             Ok(s) => Some(s),
             Err(e) => {
@@ -351,9 +458,21 @@ pub async fn audit_page(
         }
     }
     browser.navigate(page, url).await?;
+    if let (Some(sec), Some(details)) = (
+        &mut security,
+        collect_certificate_details(&mut security_events).await,
+    ) {
+        sec.ssl.apply_certificate_details(details);
+    }
+
+    let consent_cookies_before = collect_consent_cookie_signals(page).await;
 
     // ── Post-navigation: detect and optionally dismiss consent banner ─────────
     let mut consent_result = handle_post_navigation(page, config.dismiss_consent).await;
+    let consent_privacy = Some(build_consent_privacy_snapshot(
+        consent_cookies_before,
+        collect_consent_cookie_signals(page).await,
+    ));
 
     // Capture desktop screenshot
     let desktop_screenshot = match capture_screenshot_with_metadata(page).await {
@@ -514,6 +633,7 @@ pub async fn audit_page(
     report.consent_banner_detected = consent_result.banner_detected;
     report.consent_banner_cmp = consent_result.cmp_name;
     report.consent_banner_dismissed = consent_result.dismissed;
+    report.consent_privacy = consent_privacy;
     report.dual_viewport = Some(dual_viewport);
     report.viewport_scores = Some(viewport_scores);
 

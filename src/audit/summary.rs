@@ -684,6 +684,7 @@ mod tests {
             },
             module_scores: vec![],
             audit_flags: vec![],
+            consent_privacy: None,
             has_screenshots: false,
             viewport_scores: None,
             score_calculation_method: "module_weighted".to_string(),

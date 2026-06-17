@@ -13,10 +13,10 @@ use tracing::info;
 
 use auditmysite::audit::normalize;
 use auditmysite::audit::{
-    analyze_crawl_links, cache_matches_signature, compute_batch_verdict, compute_verdict,
-    crawl_site, hydrate_cached_report, load_artifacts, parse_sitemap, read_url_file,
-    run_concurrent_batch, run_single_audit, to_audit_report, BatchConfig, CrawlResult,
-    PipelineConfig, Verdict,
+    analyze_crawl_links, analyze_sitemap_diagnostics, cache_matches_signature,
+    compute_batch_verdict, compute_verdict, crawl_site, hydrate_cached_report, load_artifacts,
+    parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, to_audit_report,
+    BatchConfig, CrawlResult, PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::{Args, OutputFormat, RequestMode};
@@ -393,6 +393,8 @@ pub async fn run_batch_mode(
         is_sample: total_urls < total_discovered,
     };
 
+    let audited_urls: Vec<String> = urls.iter().take(total_urls).cloned().collect();
+
     if !args.quiet {
         if sample.is_sample {
             println!(
@@ -446,6 +448,21 @@ pub async fn run_batch_mode(
 
     let mut batch_report = run_concurrent_batch(urls, &batch_config, progress).await?;
     batch_report = batch_report.with_sample(sample);
+
+    if url_source == "sitemap" {
+        let diagnostics = analyze_sitemap_diagnostics(&audited_urls, &batch_report.reports).await;
+        if !args.quiet {
+            println!(
+                "{} {} URLs checked, {} sitemap issues",
+                "Sitemap check:".cyan().bold(),
+                diagnostics.checked_urls,
+                diagnostics.http_issues.len()
+                    + diagnostics.orphan_sitemap_urls.len()
+                    + diagnostics.linked_not_in_sitemap.len()
+            );
+        }
+        batch_report = batch_report.with_sitemap_diagnostics(diagnostics);
+    }
 
     if let Some(ref crawl) = crawl_result {
         let diagnostics = analyze_crawl_links(crawl).await;

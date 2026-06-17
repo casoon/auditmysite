@@ -7,7 +7,7 @@ use crate::output::report_model::{
     OversizedImageRow, PerformancePresentation, PerformanceViewport, RobotsPresentation,
     SecurityPresentation, SeoPresentation, SeoProfilePresentation, SignalDetails,
     ThirdPartyOriginRow, ThirdPartyPresentation, ThrottledPerfEntry, UxDimensionPresentation,
-    UxIssuePresentation, UxPresentation,
+    UxIssuePresentation, UxPresentation, VisionDeficiencyModePresentation,
 };
 use crate::output::search_experience::build_search_experience;
 
@@ -467,6 +467,8 @@ fn build_performance_details(
                     .take(10)
                     .map(|o| ThirdPartyOriginRow {
                         origin: o.origin.clone(),
+                        provider: o.provider.clone(),
+                        category: o.category.clone(),
                         request_count: o.request_count,
                         transfer_kb: o.transfer_bytes as f64 / 1024.0,
                         resource_kinds: o.resource_kinds.join(", "),
@@ -889,6 +891,16 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     "Nofollow-Links".to_string(),
                     s.technical.nofollow_links.to_string(),
                 ),
+                (
+                    "AMP".to_string(),
+                    if !s.technical.amp.detected {
+                        "Nicht erkannt".to_string()
+                    } else if s.technical.amp.issues.is_empty() {
+                        "Erkannt, Basis-Signale vollständig".to_string()
+                    } else {
+                        format!("Erkannt, {} Basisproblem(e)", s.technical.amp.issues.len())
+                    },
+                ),
             ],
             tracking_summary: vec![
                 (
@@ -920,12 +932,89 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     },
                 ),
                 (
+                    "Cookie-Inventar".to_string(),
+                    if s.technical.cookie_inventory.is_empty() {
+                        "Keine Cookies erkannt".to_string()
+                    } else {
+                        let risky = s
+                            .technical
+                            .cookie_inventory
+                            .iter()
+                            .filter(|cookie| !cookie.secure || cookie.same_site.is_none())
+                            .count();
+                        let category_suffix = tracking_category_summary(
+                            s.technical
+                                .cookie_inventory
+                                .iter()
+                                .filter_map(|cookie| cookie.category.as_deref()),
+                        )
+                        .map(|summary| format!("; Kategorien: {summary}"))
+                        .unwrap_or_default();
+                        format!(
+                            "{} Cookies, {} ohne Secure/SameSite-Signal{}",
+                            s.technical.cookie_inventory.len(),
+                            risky,
+                            category_suffix
+                        )
+                    },
+                ),
+                (
+                    "Browser Storage".to_string(),
+                    if s.technical.storage_items.is_empty() {
+                        "Keine Keys erkannt".to_string()
+                    } else {
+                        format!(
+                            "{} ({}){}",
+                            s.technical.storage_items.len(),
+                            s.technical
+                                .storage_items
+                                .iter()
+                                .map(|item| format!("{}:{}", item.area, item.key))
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                            tracking_category_summary(
+                                s.technical
+                                    .storage_items
+                                    .iter()
+                                    .filter_map(|item| item.category.as_deref()),
+                            )
+                            .map(|summary| format!("; Kategorien: {summary}"))
+                            .unwrap_or_default()
+                        )
+                    },
+                ),
+                (
                     "Tracking-Signale".to_string(),
                     if s.technical.tracking_signals.is_empty() {
                         "Keine erkannt".to_string()
                     } else {
                         truncate_list(&s.technical.tracking_signals, 3)
                     },
+                ),
+                (
+                    "Consent-Cookies".to_string(),
+                    normalized
+                        .normalized
+                        .consent_privacy
+                        .as_ref()
+                        .map(|snapshot| {
+                            let category_suffix = tracking_category_summary(
+                                snapshot
+                                    .added_after_interaction
+                                    .iter()
+                                    .filter_map(|cookie| cookie.category.as_deref()),
+                            )
+                            .map(|summary| format!("; Kategorien: {summary}"))
+                            .unwrap_or_default();
+                            format!(
+                                "{} vor Interaktion, {} nach Interaktion, {} neu{}",
+                                snapshot.before_interaction.len(),
+                                snapshot.after_interaction.len(),
+                                snapshot.added_after_interaction.len(),
+                                category_suffix
+                            )
+                        })
+                        .unwrap_or_else(|| "Nicht erhoben".to_string()),
                 ),
                 (
                     "Zaraz".to_string(),
@@ -1031,6 +1120,23 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
     })
 }
 
+fn tracking_category_summary<'a>(categories: impl Iterator<Item = &'a str>) -> Option<String> {
+    let mut counts = std::collections::BTreeMap::new();
+    for category in categories {
+        *counts.entry(category).or_insert(0usize) += 1;
+    }
+    if counts.is_empty() {
+        return None;
+    }
+    Some(
+        counts
+            .into_iter()
+            .map(|(category, count)| format!("{category} {count}"))
+            .collect::<Vec<_>>()
+            .join(", "),
+    )
+}
+
 fn build_security_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
@@ -1063,7 +1169,59 @@ fn build_security_details(
                 "Cross-Origin-Resource-Policy",
                 &sec.headers.cross_origin_resource_policy,
             ),
+            (
+                "Access-Control-Allow-Origin",
+                &sec.headers.access_control_allow_origin,
+            ),
+            (
+                "Access-Control-Allow-Credentials",
+                &sec.headers.access_control_allow_credentials,
+            ),
         ];
+
+        let mut ssl_info = vec![
+            ("HTTPS".to_string(), yes_no(locale, sec.ssl.https)),
+            (
+                "Gültiges Zertifikat".to_string(),
+                yes_no(locale, sec.ssl.valid_certificate),
+            ),
+            ("HSTS".to_string(), yes_no(locale, sec.ssl.has_hsts)),
+            (
+                "HSTS Max-Age".to_string(),
+                sec.ssl
+                    .hsts_max_age
+                    .map(|v| format!("{}s", v))
+                    .unwrap_or_else(|| "—".to_string()),
+            ),
+            (
+                "Subdomains".to_string(),
+                yes_no(locale, sec.ssl.hsts_include_subdomains),
+            ),
+            ("Preload".to_string(), yes_no(locale, sec.ssl.hsts_preload)),
+        ];
+        push_optional_ssl_row(&mut ssl_info, "TLS", sec.ssl.protocol.as_deref());
+        push_optional_ssl_row(&mut ssl_info, "Cipher", sec.ssl.cipher.as_deref());
+        push_optional_ssl_row(
+            &mut ssl_info,
+            "Zertifikat Subject",
+            sec.ssl.certificate_subject.as_deref(),
+        );
+        push_optional_ssl_row(
+            &mut ssl_info,
+            "Zertifikat Issuer",
+            sec.ssl.certificate_issuer.as_deref(),
+        );
+        if let Some(days) = sec.ssl.certificate_expires_in_days {
+            ssl_info.push(("Läuft ab in".to_string(), format!("{days} Tage")));
+        }
+        if let Some(chain_length) = sec.ssl.certificate_chain_length {
+            ssl_info.push(("Chain-Länge".to_string(), chain_length.to_string()));
+        }
+        push_optional_ssl_row(
+            &mut ssl_info,
+            "Zertifikatsfehler",
+            sec.ssl.certificate_error.as_deref(),
+        );
 
         SecurityPresentation {
             score: security_score,
@@ -1080,26 +1238,7 @@ fn build_security_details(
                     (name.to_string(), status, val)
                 })
                 .collect(),
-            ssl_info: vec![
-                ("HTTPS".to_string(), yes_no(locale, sec.ssl.https)),
-                (
-                    "Gültiges Zertifikat".to_string(),
-                    yes_no(locale, sec.ssl.valid_certificate),
-                ),
-                ("HSTS".to_string(), yes_no(locale, sec.ssl.has_hsts)),
-                (
-                    "HSTS Max-Age".to_string(),
-                    sec.ssl
-                        .hsts_max_age
-                        .map(|v| format!("{}s", v))
-                        .unwrap_or_else(|| "—".to_string()),
-                ),
-                (
-                    "Subdomains".to_string(),
-                    yes_no(locale, sec.ssl.hsts_include_subdomains),
-                ),
-                ("Preload".to_string(), yes_no(locale, sec.ssl.hsts_preload)),
-            ],
+            ssl_info,
             issues: sec
                 .issues
                 .iter()
@@ -1116,6 +1255,12 @@ fn build_security_details(
             has_cdn: sec.protection.has_cdn,
         }
     })
+}
+
+fn push_optional_ssl_row(rows: &mut Vec<(String, String)>, label: &str, value: Option<&str>) {
+    if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
+        rows.push((label.to_string(), truncate_url(value, 80)));
+    }
 }
 
 fn build_mobile_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<MobilePresentation> {
@@ -1269,6 +1414,25 @@ fn build_dark_mode_details(normalized: &AuditContext<'_>) -> Option<DarkModePres
         dark_contrast_violations: dm.dark_contrast_violations,
         dark_only_violations: dm.dark_only_violations,
         light_only_violations: dm.light_only_violations,
+        print_stylesheet_detected: dm.print.stylesheet_detected,
+        print_interactive_chrome_hidden: dm.print.interactive_chrome_hidden,
+        print_content_not_clipped: dm.print.content_not_clipped,
+        print_clipped_elements: dm.print.clipped_elements,
+        forced_colors_detected: dm.forced_colors.stylesheet_detected,
+        forced_colors_active_matches: dm.forced_colors.active_matches,
+        forced_color_adjust_count: dm.forced_colors.forced_color_adjust_count,
+        forced_colors_focus_visible: dm.forced_colors.focus_indicators_visible,
+        vision_deficiency_modes: dm
+            .vision_deficiency
+            .modes
+            .iter()
+            .map(|mode| VisionDeficiencyModePresentation {
+                mode: mode.mode.clone(),
+                contrast_violations: mode.contrast_violations,
+                new_contrast_violations: mode.new_contrast_violations,
+                use_of_color_violations: mode.use_of_color_violations,
+            })
+            .collect(),
         issues: dm
             .issues
             .iter()

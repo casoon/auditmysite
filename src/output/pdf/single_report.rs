@@ -25,6 +25,7 @@ use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
 use crate::cli::ReportLevel;
 use crate::i18n::I18n;
+use crate::output::module::active_report_modules;
 use crate::output::report_model::*;
 
 /// Render a part divider — visually separates the three report parts (#246).
@@ -410,43 +411,6 @@ pub(super) fn render_management_page(
 
     // 4. Measures
     builder = builder.add_component(build_top_measures_list(vm, i18n));
-
-    // 5. Expected leverage
-    let total_ch = (vm.severity.critical + vm.severity.high) as usize;
-    let comp_ch = vm
-        .findings
-        .all_findings
-        .iter()
-        .filter(|f| {
-            f.is_component_issue
-                && (f.severity == crate::wcag::Severity::Critical
-                    || f.severity == crate::wcag::Severity::High)
-        })
-        .map(|f| f.occurrence_count)
-        .sum::<usize>();
-    let share_pct = if total_ch > 0 {
-        (comp_ch * 100).checked_div(total_ch).unwrap_or(0)
-    } else {
-        0
-    };
-
-    let leverage_text = if en {
-        format!(
-            "Leverage Effect: Central correction of only {} template/component issues resolves {}% of all critical and high violations.",
-            vm.severity.component_issues, share_pct
-        )
-    } else {
-        format!(
-            "Hebelwirkung: Eine zentrale Behebung von nur {} Template-/Komponentenfehlern beseitigt {} % aller kritischen und hohen Barrieren.",
-            vm.severity.component_issues, share_pct
-        )
-    };
-
-    builder = builder.add_component(Callout::success(&leverage_text).with_title(if en {
-        "Leverage Effect"
-    } else {
-        "Hebelwirkung"
-    }));
 
     builder
 }
@@ -986,61 +950,104 @@ pub(super) fn render_module_sections(
         builder = render_search_experience(builder, sx, is_first, i18n);
         is_first = false;
     }
-    if let Some(ref seo) = vm.module_details.seo {
-        builder = render_seo(builder, seo, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref av) = vm.module_details.ai_visibility {
-        builder = render_ai_visibility(builder, av, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref cv) = vm.module_details.content_visibility {
-        builder = render_content_visibility(builder, cv, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref perf) = vm.module_details.performance {
-        builder = render_performance(builder, perf, is_first, i18n);
-        is_first = false;
-        if !report.budget_violations.is_empty() {
-            builder = render_budget_violations(builder, &report.budget_violations, i18n);
+
+    for module in active_report_modules(report) {
+        let (next_builder, rendered) =
+            render_active_module_section(builder, module.module_key(), vm, report, is_first, i18n);
+        builder = next_builder;
+        if rendered {
+            is_first = false;
         }
     }
-    if let Some(ref sec) = vm.module_details.security {
-        builder = render_security(builder, sec, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref mobile) = vm.module_details.mobile {
-        builder = render_mobile(builder, mobile, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref ux) = vm.module_details.ux {
-        builder = render_ux(builder, ux, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref journey) = vm.module_details.journey {
-        builder = render_journey(builder, journey, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref dm) = vm.module_details.dark_mode {
-        builder = render_dark_mode(builder, dm, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref sq) = vm.module_details.source_quality {
-        builder = render_source_quality(builder, sq, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref ts) = vm.module_details.tech_stack {
-        builder = render_tech_stack(builder, ts, is_first, i18n);
-        is_first = false;
-    }
-    if let Some(ref bp) = vm.module_details.best_practices {
-        builder = render_best_practices(builder, bp, is_first, i18n);
-        is_first = false;
-    }
-    if !vm.positive_signals.is_empty() {
-        builder = render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n);
-    }
+
     builder
+}
+
+fn render_active_module_section(
+    mut builder: renderreport::engine::ReportBuilder,
+    module_key: &str,
+    vm: &ReportViewModel,
+    report: &AuditReport,
+    is_first: bool,
+    i18n: &I18n,
+) -> (renderreport::engine::ReportBuilder, bool) {
+    match module_key {
+        "performance" => {
+            if let Some(ref perf) = vm.module_details.performance {
+                builder = render_performance(builder, perf, is_first, i18n);
+                if !report.budget_violations.is_empty() {
+                    builder = render_budget_violations(builder, &report.budget_violations, i18n);
+                }
+                return (builder, true);
+            }
+        }
+        "seo" => {
+            if let Some(ref seo) = vm.module_details.seo {
+                return (render_seo(builder, seo, is_first, i18n), true);
+            }
+        }
+        "security" => {
+            if let Some(ref sec) = vm.module_details.security {
+                return (render_security(builder, sec, is_first, i18n), true);
+            }
+        }
+        "mobile" => {
+            if let Some(ref mobile) = vm.module_details.mobile {
+                return (render_mobile(builder, mobile, is_first, i18n), true);
+            }
+        }
+        "ux" => {
+            if let Some(ref ux) = vm.module_details.ux {
+                return (render_ux(builder, ux, is_first, i18n), true);
+            }
+        }
+        "journey" => {
+            if let Some(ref journey) = vm.module_details.journey {
+                return (render_journey(builder, journey, is_first, i18n), true);
+            }
+        }
+        "dark_mode" => {
+            if let Some(ref dm) = vm.module_details.dark_mode {
+                return (render_dark_mode(builder, dm, is_first, i18n), true);
+            }
+        }
+        "source_quality" => {
+            if let Some(ref sq) = vm.module_details.source_quality {
+                return (render_source_quality(builder, sq, is_first, i18n), true);
+            }
+        }
+        "ai_visibility" => {
+            if let Some(ref av) = vm.module_details.ai_visibility {
+                return (render_ai_visibility(builder, av, is_first, i18n), true);
+            }
+        }
+        "content_visibility" => {
+            if let Some(ref cv) = vm.module_details.content_visibility {
+                return (render_content_visibility(builder, cv, is_first, i18n), true);
+            }
+        }
+        "best_practices" => {
+            if let Some(ref bp) = vm.module_details.best_practices {
+                return (render_best_practices(builder, bp, is_first, i18n), true);
+            }
+        }
+        "tech_stack" => {
+            if let Some(ref ts) = vm.module_details.tech_stack {
+                return (render_tech_stack(builder, ts, is_first, i18n), true);
+            }
+        }
+        "patterns" => {
+            if !vm.positive_signals.is_empty() {
+                return (
+                    render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n),
+                    true,
+                );
+            }
+        }
+        _ => {}
+    }
+
+    (builder, false)
 }
 
 pub(super) fn render_root_cause_analysis(
@@ -1144,18 +1151,6 @@ pub(super) fn render_root_cause_analysis(
         table = table.add_row(row);
     }
     builder = builder.add_component(table);
-
-    // Add a callout with explanation of leverage
-    let leverage_text = if en {
-        "Instead of fixing hundreds of individual instances, resolving these top component issues at the template level will resolve the majority of accessibility barriers."
-    } else {
-        "Statt hunderte Einzelfälle zu bearbeiten, beseitigt eine Anpassung der betroffenen Templates/Komponenten direkt die Mehrheit aller Barrieren."
-    };
-    builder = builder.add_component(Callout::info(leverage_text).with_title(if en {
-        "Leverage Effect"
-    } else {
-        "Hebelwirkung"
-    }));
 
     builder
 }
