@@ -1185,17 +1185,21 @@ fn compute_risk_assessment(
         })
         .count();
 
-    // The screen-reader audit can detect journey-level BFSG barriers (e.g. broken
-    // skip links) that the static WCAG engine misses, so the main report's risk
-    // model and the screen-reader sidecar must not disagree on BFSG status (#484).
-    // When the sidecar reports non-compliance on a fully audited page — not a
-    // consent-blocked one (#483) — ensure at least one legal flag is counted.
+    // The screen-reader audit can detect journey-level BFSG barriers the static
+    // WCAG engine misses, so the main report and the screen-reader sidecar should
+    // not disagree on legal status (#484). Only *confirmed* Level-A blockers raise
+    // the legal flag — the SR "high" severity findings (empty interactive elements
+    // 4.1.2, unlabeled form fields 3.3.2). Medium/low heuristics (generic link
+    // text, tab-stop count, heading order) are deliberately excluded so soft
+    // signals do not inflate legal risk on otherwise well-maintained sites. The
+    // consent-wall guard (#483) keeps incomplete audits from contributing.
     if let Some(sr) = screen_reader {
         let consent_wall = matches!(
             sr.summary.audit_quality,
             crate::screen_reader::SrAuditQuality::ConsentWallSuspected
         );
         if sr.bfsg_compliance.verdict == crate::screen_reader::BfsgVerdict::NonCompliant
+            && sr.count_severity("high") > 0
             && !consent_wall
         {
             legal_flags = legal_flags.max(1);
