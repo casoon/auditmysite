@@ -50,7 +50,7 @@ pub fn build_batch_presentation_with_normalized(
         normalized_reports.len(),
         "batch presentation requires one normalized report per raw report"
     );
-    let collected = collect_batch_finding_groups(&normalized_reports, i18n);
+    let collected = collect_batch_finding_groups(normalized_reports, i18n);
     // Deduplicate findings with the same title across rule sources; prefer
     // non-"unknown." rule_ids, merge occurrence counts.
     let mut seen_titles: std::collections::HashMap<String, usize> =

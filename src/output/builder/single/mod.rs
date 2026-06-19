@@ -1053,6 +1053,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "pdf")]
     fn test_active_modules_have_json_detail_and_pdf_registry_coverage() {
         use crate::output::json::UnifiedReport;
         use crate::output::module::{active_modules, active_report_modules};

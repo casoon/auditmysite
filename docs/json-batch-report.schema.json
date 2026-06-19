@@ -72,6 +72,7 @@
         "url_count": { "type": "integer", "minimum": 0 },
         "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
         "certificate": { "type": "string" },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },

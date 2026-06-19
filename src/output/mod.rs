@@ -7,6 +7,7 @@ pub mod builder;
 mod cli;
 pub mod explanations;
 mod json;
+#[cfg(feature = "pdf")]
 mod localized;
 pub mod module;
 #[cfg(feature = "pdf")]

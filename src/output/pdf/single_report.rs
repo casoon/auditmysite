@@ -1036,13 +1036,11 @@ fn render_active_module_section(
                 return (render_tech_stack(builder, ts, is_first, i18n), true);
             }
         }
-        "patterns" => {
-            if !vm.positive_signals.is_empty() {
-                return (
-                    render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n),
-                    true,
-                );
-            }
+        "patterns" if !vm.positive_signals.is_empty() => {
+            return (
+                render_positive_signals_section(builder, &vm.positive_signals, is_first, i18n),
+                true,
+            );
         }
         _ => {}
     }

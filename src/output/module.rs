@@ -17,6 +17,7 @@ use crate::audit::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::dark_mode::DarkModeAnalysis;
+#[cfg(feature = "pdf")]
 use crate::i18n::I18n;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
@@ -27,6 +28,7 @@ use crate::source_quality::SourceQualityAnalysis;
 use crate::tech_stack::TechStackAnalysis;
 use crate::ux::UxAnalysis;
 
+#[cfg(feature = "pdf")]
 pub type PdfComponents = Vec<Box<dyn renderreport::components::Component>>;
 
 /// Interface contract for optional audit modules.
@@ -38,9 +40,11 @@ pub trait ReportModule {
     fn to_json(&self) -> Value;
 
     /// Render a structural PDF hook for this module.
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents;
 }
 
+#[cfg(feature = "pdf")]
 fn pdf_marker(module_key: &str, i18n: &I18n) -> PdfComponents {
     vec![Box::new(renderreport::components::text::TextBlock::new(
         format!("pdf-module:{module_key}:{}", i18n.locale()),
@@ -65,6 +69,7 @@ impl ReportModule for PerformanceResults {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -77,6 +82,7 @@ impl ReportModule for SeoAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -89,6 +95,7 @@ impl ReportModule for SecurityAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -101,6 +108,7 @@ impl ReportModule for MobileFriendliness {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -113,6 +121,7 @@ impl ReportModule for UxAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -125,6 +134,7 @@ impl ReportModule for JourneyAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -137,6 +147,7 @@ impl ReportModule for DarkModeAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -149,6 +160,7 @@ impl ReportModule for SourceQualityAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -161,6 +173,7 @@ impl ReportModule for AiVisibilityAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -173,6 +186,7 @@ impl ReportModule for ContentVisibilityAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -185,6 +199,7 @@ impl ReportModule for BestPracticesAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -197,6 +212,7 @@ impl ReportModule for TechStackAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -209,6 +225,7 @@ impl ReportModule for PatternAnalysis {
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
+    #[cfg(feature = "pdf")]
     fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
         pdf_marker(self.module_key(), i18n)
     }
@@ -270,6 +287,7 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
 
 /// Returns all active modules as trait objects so JSON/PDF coverage tests use
 /// the same compile-time `ReportModule` contract.
+#[cfg(feature = "pdf")]
 pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     let mut out: Vec<&dyn ReportModule> = Vec::new();
 
