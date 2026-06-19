@@ -142,11 +142,12 @@ fn test_json_report_exposes_confidence_and_capabilities() {
         .as_array()
         .expect("capabilities must be an array");
 
+    // JSON is canonical English (#406).
     assert!(confidence
         .iter()
-        .any(|entry| entry["signal"] == "Audit-Vertrauen"));
+        .any(|entry| entry["signal"] == "Audit confidence"));
     assert!(capabilities.iter().any(|entry| {
-        entry["signal"] == "WCAG-Regeln & Vorkommen"
+        entry["signal"] == "WCAG rules & occurrences"
             && entry["surfaces"]
                 .as_array()
                 .is_some_and(|surfaces| surfaces.iter().any(|s| s == "PDF"))

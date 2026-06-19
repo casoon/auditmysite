@@ -276,6 +276,7 @@ pub async fn analyze_dark_mode(page: &Page, wcag_level: WcagLevel) -> Result<Dar
 
 // ─── Issue generation ─────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 fn build_issues(
     info: &StaticDarkModeInfo,
     dark_contrast_count: u32,

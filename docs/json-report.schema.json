@@ -52,6 +52,7 @@
         "url_count": { "type": "integer", "minimum": 0 },
         "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
         "certificate": { "type": "string" },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
@@ -220,7 +221,9 @@
         "content_visibility": { "type": ["object", "null"] },
         "tech_stack": { "type": ["object", "null"] },
         "patterns": { "type": ["object", "null"] },
-        "best_practices": { "type": ["object", "null"] }
+        "best_practices": { "type": ["object", "null"] },
+        "dual_viewport": { "type": ["object", "null"] },
+        "search_experience": { "type": ["object", "null"] }
       }
     },
     "principleCoverage": {
