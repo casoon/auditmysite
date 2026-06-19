@@ -48,6 +48,22 @@ pub struct SrAuditSummary {
     pub name_quality_score: u32,
     pub landmark_quality_score: u32,
     pub heading_quality_score: u32,
+    /// Whether the audited tree looks complete or is likely a consent-blocked
+    /// page (very few nodes and no structural landmark). On a consent wall the
+    /// quality scores and BFSG verdict reflect an audit limitation, not a real
+    /// accessibility failure (#483).
+    pub audit_quality: SrAuditQuality,
+}
+
+/// Confidence qualifier for a screen-reader audit (#483).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SrAuditQuality {
+    /// The audited tree looks complete.
+    Ok,
+    /// Too few nodes and no structural landmark — likely a consent wall blocked
+    /// the audit, so findings may be incomplete.
+    ConsentWallSuspected,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -116,7 +132,6 @@ pub struct BfsgViolation {
     pub en_301_549_clause: Option<String>,
     pub bfsg_reference: Option<String>,
     pub fix_required: bool,
-    pub deadline: Option<String>,
     pub affected_node_ids: Vec<String>,
 }
 
@@ -143,6 +158,7 @@ mod tests {
                 name_quality_score: 100,
                 landmark_quality_score: 100,
                 heading_quality_score: 100,
+                audit_quality: SrAuditQuality::Ok,
             },
             issues: vec![issue("high"), issue("High"), issue("medium"), issue("low")],
             bfsg_compliance: BfsgCompliance {

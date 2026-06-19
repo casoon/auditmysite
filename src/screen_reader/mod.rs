@@ -14,7 +14,7 @@ pub use linearizer::{linearize, linearize_with_ignored};
 pub use navigator::{navigation_views, NavigationViews};
 pub use types::{
     AnnouncedReadingItem, BfsgCompliance, BfsgVerdict, BfsgViolation, IgnoredReadingNode,
-    ReadingItem, ScreenReaderSummary, SrAuditIssue, SrAuditReport, SrAuditSummary,
+    ReadingItem, ScreenReaderSummary, SrAuditIssue, SrAuditQuality, SrAuditReport, SrAuditSummary,
 };
 
 use crate::accessibility::AXTree;
@@ -64,11 +64,31 @@ pub fn build_sr_audit_report(
             name_quality_score: name_quality_score(&reading_items, detect_locale),
             landmark_quality_score: landmark_quality_score(&navigation_views),
             heading_quality_score: heading_quality_score(&navigation_views),
+            audit_quality: detect_audit_quality(reading_items.len(), &navigation_views),
         },
         reading_sequence,
         navigation_views,
         issues,
         bfsg_compliance,
+    }
+}
+
+/// Flags a likely consent-blocked audit (#483): too few announced nodes and no
+/// structural landmark (banner/navigation/main/contentinfo). On such pages the
+/// quality scores and BFSG verdict reflect an audit limitation, not a genuine
+/// accessibility failure, so downstream consumers can qualify the findings.
+fn detect_audit_quality(total_nodes: usize, views: &NavigationViews) -> SrAuditQuality {
+    const CONSENT_WALL_NODE_THRESHOLD: usize = 200;
+    let has_structural_landmark = views.landmarks.iter().any(|l| {
+        matches!(
+            l.role.as_str(),
+            "banner" | "navigation" | "main" | "contentinfo"
+        ) && l.quality != navigator::LandmarkQuality::MissingMain
+    });
+    if total_nodes < CONSENT_WALL_NODE_THRESHOLD && !has_structural_landmark {
+        SrAuditQuality::ConsentWallSuspected
+    } else {
+        SrAuditQuality::Ok
     }
 }
 
@@ -118,7 +138,6 @@ fn bfsg_compliance(issues: &[SrAuditIssue]) -> BfsgCompliance {
                 en_301_549_clause: Some(mapping.en_301549_clause.to_string()),
                 bfsg_reference: Some(mapping.bfsg_paragraph.to_string()),
                 fix_required: mapping.fix_required,
-                deadline: Some(mapping.deadline.to_string()),
                 affected_node_ids: issue.affected_node_ids.clone(),
             })
         })

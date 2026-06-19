@@ -40,7 +40,22 @@ pub fn analyze_reading_sequence(
     detect_empty_interactive_elements(items, en, &mut issues);
     detect_empty_form_labels(views, en, &mut issues);
 
+    // Sanitize node references: drop empty strings (failed lookups, #480) and
+    // synthetic negative AX node IDs (#481), which cannot be cross-referenced to
+    // a real DOM node. Leaves a valid empty array when nothing real remains.
+    for issue in &mut issues {
+        issue.affected_node_ids.retain(|id| is_real_node_id(id));
+    }
+
     issues
+}
+
+/// A node ID is reportable only when it can be resolved to a real DOM/AX node.
+/// Empty strings come from failed lookups; Chrome emits negative AX node IDs for
+/// synthetic nodes that have no backing DOM element.
+fn is_real_node_id(id: &str) -> bool {
+    let id = id.trim();
+    !id.is_empty() && !id.starts_with('-')
 }
 
 fn localized_stopwords(locale: &str) -> HashSet<String> {
@@ -148,7 +163,11 @@ fn push_desert_issue(
     issues: &mut Vec<SrAuditIssue>,
 ) {
     issues.push(SrAuditIssue {
-        wcag_criterion: None,
+        // Heuristic structural finding (long region without orientation point).
+        // Mapped to 1.3.6 (Identify Purpose) for a self-documenting criterion,
+        // consistent with the missing-landmark issues. 1.3.6 is intentionally not
+        // in the BFSG Level-A/AA list, so it does not create a BFSG violation.
+        wcag_criterion: Some("1.3.6".into()),
         severity: "low".into(),
         affected_node_ids: node_ids.to_vec(),
         message: if en {

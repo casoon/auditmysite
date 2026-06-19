@@ -3,7 +3,9 @@
 //! All non-text content has a text alternative that serves the equivalent purpose.
 //! This includes images, icons, charts, and other visual content.
 
-use crate::accessibility::AXTree;
+use std::collections::HashSet;
+
+use crate::accessibility::{AXTree, NameSource};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
@@ -33,14 +35,29 @@ pub fn check_text_alternatives(tree: &AXTree) -> WcagResults {
     let images = tree.images();
     results.nodes_checked = images.len();
 
+    // Node IDs already evaluated as images, so check_icons does not flag the same
+    // role="img" node a second time (#487 false-positive double counting).
+    let mut flagged_image_ids: HashSet<&str> = HashSet::new();
+
     for image in images {
         // Skip ignored nodes (they're intentionally hidden from AT)
         if image.ignored {
             continue;
         }
 
+        // Skip explicitly decorative images: an empty name that comes from a name
+        // attribute (alt="" / aria-label="") is intentional, not a missing
+        // alternative. Lazy-load placeholders (data-URI src) keep the empty alt
+        // but are not marked `ignored` in headless Chrome, so they would
+        // otherwise be flagged en masse (#487).
+        if is_decorative_empty_name(image) {
+            results.passes += 1;
+            continue;
+        }
+
         // Check if image has an accessible name
         if !image.has_name() {
+            flagged_image_ids.insert(image.node_id.as_str());
             let violation = Violation::new(
                 RULE_META.id,
                 RULE_META.name,
@@ -62,17 +79,31 @@ pub fn check_text_alternatives(tree: &AXTree) -> WcagResults {
     }
 
     // Also check for other non-text content
-    check_icons(tree, &mut results);
+    check_icons(tree, &flagged_image_ids, &mut results);
     check_svg_elements(tree, &mut results);
 
     results
 }
 
+/// True when the node has no accessible name but the (empty) name was supplied
+/// by a name attribute such as `alt=""` or `aria-label=""` — i.e. the author
+/// explicitly marked it decorative. A genuinely missing `alt` has no attribute
+/// name source, so it stays flagged.
+fn is_decorative_empty_name(node: &crate::accessibility::AXNode) -> bool {
+    !node.has_name() && node.name.is_some() && node.name_source == Some(NameSource::Attribute)
+}
+
 /// Check icon elements for text alternatives
-fn check_icons(tree: &AXTree, results: &mut WcagResults) {
+fn check_icons(tree: &AXTree, flagged_image_ids: &HashSet<&str>, results: &mut WcagResults) {
     // Icons might have role="img" but different implementation
     for node in tree.iter() {
         if node.ignored {
+            continue;
+        }
+
+        // Skip nodes already flagged by the main image loop (#487 dedup) and
+        // explicitly-decorative empty-name nodes.
+        if flagged_image_ids.contains(node.node_id.as_str()) || is_decorative_empty_name(node) {
             continue;
         }
 

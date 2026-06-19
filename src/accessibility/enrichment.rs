@@ -70,6 +70,20 @@ pub async fn enrich_violations_with_page(
 
         // Fetch outer HTML and generate a concrete code fix
         if let Some(raw_html) = get_outer_html(page, backend_id).await {
+            // Two 1.1.1 false-positive classes are demoted to warnings so they do
+            // not inflate violation counts or scoring (#487):
+            //   1. Lazy-load <img> placeholders (data-src/data-srcset/lazyload)
+            //      receive their real src+alt only on scroll, which a headless
+            //      audit never triggers.
+            //   2. Decorative inline SVG icons (<svg><use …> sprite refs with no
+            //      <title>/aria-label) — almost always UI chrome that should carry
+            //      aria-hidden. A meaningful SVG has a title/label and thus an
+            //      accessible name, so it never reaches this check.
+            if violation.rule == "1.1.1"
+                && (is_lazyload_image_placeholder(&raw_html) || is_decorative_svg_icon(&raw_html))
+            {
+                violation.kind = crate::wcag::types::FindingKind::Warning;
+            }
             let snippet = truncate_html(raw_html);
             let suggested = generate_suggested_code(
                 &violation.rule,
@@ -89,6 +103,38 @@ pub async fn enrich_violations_with_page(
             );
         }
     }
+}
+
+/// Detects JS lazy-load `<img>` placeholders whose real source/alt is deferred to
+/// a `data-*` attribute and only swapped in on scroll. Native `loading="lazy"`
+/// images keep a real `src`/`alt` and are intentionally *not* matched here, so a
+/// genuinely missing alt on a native-lazy image still counts (#487).
+fn is_lazyload_image_placeholder(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    if !lower.trim_start().starts_with("<img") {
+        return false;
+    }
+    const LAZY_MARKERS: &[&str] = &[
+        "data-src",
+        "data-srcset",
+        "data-lazy",
+        "data-original",
+        "lazyload",
+    ];
+    LAZY_MARKERS.iter().any(|marker| lower.contains(marker))
+}
+
+/// Detects decorative inline SVG icons: an `<svg>` that references a sprite via
+/// `<use>` and carries no `<title>` or `aria-label`. These are UI chrome that
+/// should be `aria-hidden`; flagging each as a missing-alt 1.1.1 barrier inflates
+/// counts on icon-heavy sites. A meaningful SVG exposes a name (title/aria-label)
+/// and therefore never reaches the 1.1.1 check at all (#487).
+fn is_decorative_svg_icon(html: &str) -> bool {
+    let lower = html.to_ascii_lowercase();
+    lower.trim_start().starts_with("<svg")
+        && lower.contains("<use")
+        && !lower.contains("<title")
+        && !lower.contains("aria-label")
 }
 
 // ─── CDP element resolution ───────────────────────────────────────────────────
@@ -292,5 +338,45 @@ mod tests {
     fn short_url_keeps_short_src() {
         let short = "/img/logo.png";
         assert_eq!(short_url(short), short);
+    }
+
+    #[test]
+    fn lazyload_placeholder_detection() {
+        // JS lazy-load placeholders → demoted.
+        assert!(is_lazyload_image_placeholder(
+            r#"<img class="lazyload" alt="" src="data:image/svg+xml,...">"#
+        ));
+        assert!(is_lazyload_image_placeholder(
+            r#"<img data-src="/real.jpg" src="/placeholder.gif">"#
+        ));
+        assert!(is_lazyload_image_placeholder(
+            r#"<img data-srcset="/real-2x.jpg 2x">"#
+        ));
+        // Native lazy + real image, and non-img elements → not matched.
+        assert!(!is_lazyload_image_placeholder(
+            r#"<img loading="lazy" src="/real.jpg">"#
+        ));
+        assert!(!is_lazyload_image_placeholder(r#"<img src="/real.jpg">"#));
+        assert!(!is_lazyload_image_placeholder(
+            r#"<div data-src="/x.jpg"></div>"#
+        ));
+    }
+
+    #[test]
+    fn decorative_svg_icon_detection() {
+        // Sprite-ref icon with no title/label → decorative.
+        assert!(is_decorative_svg_icon(
+            r##"<svg width="16" height="16"><use xlink:href="#spon-text-m"></use></svg>"##
+        ));
+        // Labelled / titled SVGs are meaningful → not demoted.
+        assert!(!is_decorative_svg_icon(
+            r##"<svg aria-label="Search"><use xlink:href="#search"></use></svg>"##
+        ));
+        assert!(!is_decorative_svg_icon(
+            r#"<svg><title>Chart</title><path d="…"/></svg>"#
+        ));
+        // Not an SVG / no sprite ref.
+        assert!(!is_decorative_svg_icon(r#"<img src="/x.jpg">"#));
+        assert!(!is_decorative_svg_icon(r#"<svg><path d="…"/></svg>"#));
     }
 }

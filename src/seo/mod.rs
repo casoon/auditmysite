@@ -149,7 +149,7 @@ pub async fn analyze_seo(page: &Page, url: &str) -> Result<SeoAnalysis> {
 }
 
 fn calculate_seo_score(
-    _meta: &MetaTags,
+    meta: &MetaTags,
     meta_issues: &[MetaValidation],
     headings: &HeadingStructure,
     social: &SocialTags,
@@ -208,5 +208,23 @@ fn calculate_seo_score(
         score = score.saturating_sub(ie_penalty);
     }
 
-    score.min(100)
+    // Baseline-signal floor (#486): a page with the core meta/technical SEO
+    // signals in place must not collapse from a couple of structural heading
+    // issues. Each present baseline signal raises the floor by 10 points, so
+    // well-configured pages stay in a credible range even with a missing H1 —
+    // a high-profile site with complete meta tags, canonical, lang and Open
+    // Graph no longer scores 44 from two heading findings.
+    let baseline_signals = [
+        meta.title.as_ref().is_some_and(|t| !t.trim().is_empty()),
+        meta.description
+            .as_ref()
+            .is_some_and(|d| !d.trim().is_empty()),
+        technical.https,
+        technical.has_canonical,
+        technical.has_lang,
+        social.open_graph.is_some(),
+    ];
+    let floor = baseline_signals.iter().filter(|present| **present).count() as u32 * 10;
+
+    score.max(floor).min(100)
 }
