@@ -1075,12 +1075,13 @@ pub(super) fn render_root_cause_analysis(
             .with_level(2),
     );
 
-    // Let's filter the accessibility findings from all_findings, sorted by occurrence count desc
+    // Only WCAG/Mandatory findings — scope matches the header "N Accessibility-Befunde" count.
+    // SEO findings (Optimization tier) appear in their own section below.
     let mut findings: Vec<&FindingGroup> = vm
         .findings
         .all_findings
         .iter()
-        .filter(|f| f.occurrence_count > 0)
+        .filter(|f| f.occurrence_count > 0 && f.criticality_tier == CriticalityTier::Mandatory)
         .collect();
     findings.sort_by_key(|f| std::cmp::Reverse(f.occurrence_count));
 
@@ -1094,11 +1095,11 @@ pub(super) fn render_root_cause_analysis(
         return builder;
     }
 
-    // Render list of component errors (assigning letters A, B, C, etc.)
+    // Render root causes (assigning letters A, B, C, etc.)
     let mut list = List::new().with_title(if en {
         "Systemic Root Causes"
     } else {
-        "Erkannte Kernursachen (Templates)"
+        "Erkannte Kernursachen"
     });
     let mut table_rows = Vec::new();
     let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
@@ -1107,11 +1108,7 @@ pub(super) fn render_root_cause_analysis(
         let letter = (b'A' + idx as u8) as char;
         let item_title = format!(
             "{} {}: {} Vorkommen — {}",
-            if en {
-                "Component Issue"
-            } else {
-                "Komponentenfehler"
-            },
+            if en { "Root Cause" } else { "Ursache" },
             letter,
             finding.occurrence_count,
             finding.title
