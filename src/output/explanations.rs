@@ -232,6 +232,67 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    // Rule-specific override for presentation-semantic-children violations.
+    // The WCAG 1.3.1 fallback is too generic (tables/lists/forms) for this case —
+    // the actual issue is an ARIA role conflict in navigation markup.
+    (
+        "a11y.presentation_semantic_children.invalid",
+        RuleExplanation {
+            customer_title: "ARIA-Rollen-Konflikt in Navigation",
+            customer_title_en: "ARIA role conflict in navigation",
+            customer_description:
+                "Ein Element ist mit role=\"none\" als semantisch leer markiert, \
+                 enthält aber Kindelemente mit eigenen ARIA-Rollen. Das verwirrt \
+                 Screenreader: Der Container hat keine Semantik, aber die enthaltenen \
+                 Elemente referenzieren Rollentypen, die einen bestimmten Container \
+                 voraussetzen.",
+            customer_description_en:
+                "An element is marked as semantically empty with role=\"none\", but \
+                 contains child elements with their own ARIA roles. This confuses screen \
+                 readers: the container has no semantics, but the contained elements \
+                 reference role types that require a specific parent container.",
+            user_impact:
+                "Screenreader können Navigationsmenüs nicht korrekt interpretieren. \
+                 Tastaturnutzer erhalten möglicherweise falsche oder fehlende \
+                 Navigationshinweise.",
+            user_impact_en:
+                "Screen readers cannot correctly interpret navigation menus. Keyboard \
+                 users may receive incorrect or missing navigation cues.",
+            typical_cause:
+                "Verwendung von ARIA-Mustern aus Desktop-Anwendungen (z. B. \
+                 role=\"menuitem\") für Website-Navigation. role=\"none\" auf \
+                 List-Elementen, die ARIA-Kinder mit Rollenanforderungen enthalten.",
+            typical_cause_en:
+                "Using ARIA patterns from desktop applications (e.g. role=\"menuitem\") \
+                 for website navigation. role=\"none\" on list items that contain ARIA \
+                 children with role requirements.",
+            recommendation:
+                "Website-Navigation ohne ARIA-Menubar-Muster aufbauen: \
+                 <nav><ul><li><a> reicht für Screenreader aus. role=\"menuitem\" und \
+                 role=\"menubar\" sind für Desktop-App-Menüs reserviert, nicht für \
+                 Seitennavigation. role=\"none\" nur auf Elementen verwenden, die \
+                 wirklich keine Kinder mit Eigenrollen haben.",
+            recommendation_en:
+                "Build website navigation without the ARIA Menubar pattern: \
+                 <nav><ul><li><a> is sufficient for screen readers. role=\"menuitem\" \
+                 and role=\"menubar\" are reserved for desktop application menus, not \
+                 website navigation. Only use role=\"none\" on elements that truly have \
+                 no children with their own roles.",
+            technical_note:
+                "ARIA APG: Navigation-Menubar ist für App-ähnliche Menüs mit \
+                 Pfeilnavigation. Website-Navigation verwendet <nav> + natürliche \
+                 Listenstruktur. role=\"none\" hebt nicht die Rollen von Nachfahren auf.",
+            technical_note_en:
+                "ARIA APG: Navigation Menubar is for app-like menus with arrow key \
+                 navigation. Website navigation uses <nav> + natural list structure. \
+                 role=\"none\" does not remove the roles of descendant elements.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<li role=\"none\"><a href=\"/home\" role=\"menuitem\">Home</a></li>"),
+            example_good: Some("<li><a href=\"/home\">Home</a></li>"),
+            example_decorative: None,
+        },
+    ),
     (
         "1.3.5",
         RuleExplanation {

@@ -99,7 +99,13 @@ pub(super) fn build_detail_cached(
 
 pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) -> PageDetail {
     // JSON is canonical English (#406) — always build the view model with "en".
-    let vm = build_view_model(ctx, &ReportConfig { locale: "en".to_string(), ..ReportConfig::default() });
+    let vm = build_view_model(
+        ctx,
+        &ReportConfig {
+            locale: "en".to_string(),
+            ..ReportConfig::default()
+        },
+    );
     let normalized: &NormalizedReport = &ctx.normalized;
     let mut errors = detail_ctx.collection_errors;
 

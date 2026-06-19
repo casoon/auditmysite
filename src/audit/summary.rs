@@ -232,23 +232,48 @@ fn detect_dominant_issue(
     findings: &[NormalizedFinding],
     urgent_occurrences: usize,
 ) -> Option<DominantIssue> {
-    if urgent_occurrences == 0 {
-        return None;
-    }
-
-    // Accumulate group count and occurrence total per rule_id.
-    let mut rule_counts: HashMap<&str, (&NormalizedFinding, usize, usize)> = HashMap::new();
-    for f in findings {
-        if matches!(f.severity, Severity::Critical | Severity::High) {
-            let entry = rule_counts.entry(&f.rule_id).or_insert((f, 0, 0));
-            entry.1 += 1; // group count
-            entry.2 += f.occurrence_count; // occurrence total
+    // Phase 1: dominance among critical/high findings (threshold ≥ 45 %).
+    if urgent_occurrences > 0 {
+        let mut rule_counts: HashMap<&str, (&NormalizedFinding, usize, usize)> = HashMap::new();
+        for f in findings {
+            if matches!(f.severity, Severity::Critical | Severity::High) {
+                let entry = rule_counts.entry(&f.rule_id).or_insert((f, 0, 0));
+                entry.1 += 1; // group count
+                entry.2 += f.occurrence_count; // occurrence total
+            }
+        }
+        let result = rule_counts
+            .into_values()
+            .filter(|(_, _, occ_total)| (*occ_total as f32 / urgent_occurrences as f32) >= 0.45)
+            .max_by_key(|(_, _, occ_total)| *occ_total)
+            .map(|(f, count, occurrence_total)| DominantIssue {
+                rule_id: f.rule_id.clone(),
+                title: f.title.clone(),
+                severity: f.severity,
+                count,
+                occurrence_total,
+                share_pct: occurrence_total as f32 / urgent_occurrences as f32 * 100.0,
+            });
+        if result.is_some() {
+            return result;
         }
     }
 
+    // Phase 2: when no critical/high dominance is found, check all findings.
+    // Higher threshold (≥ 60 %) because medium/low findings have less individual weight.
+    let all_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
+    if all_occurrences == 0 {
+        return None;
+    }
+    let mut rule_counts: HashMap<&str, (&NormalizedFinding, usize, usize)> = HashMap::new();
+    for f in findings {
+        let entry = rule_counts.entry(&f.rule_id).or_insert((f, 0, 0));
+        entry.1 += 1;
+        entry.2 += f.occurrence_count;
+    }
     rule_counts
         .into_values()
-        .filter(|(_, _, occ_total)| (*occ_total as f32 / urgent_occurrences as f32) >= 0.45)
+        .filter(|(_, _, occ_total)| (*occ_total as f32 / all_occurrences as f32) >= 0.60)
         .max_by_key(|(_, _, occ_total)| *occ_total)
         .map(|(f, count, occurrence_total)| DominantIssue {
             rule_id: f.rule_id.clone(),
@@ -256,7 +281,7 @@ fn detect_dominant_issue(
             severity: f.severity,
             count,
             occurrence_total,
-            share_pct: occurrence_total as f32 / urgent_occurrences as f32 * 100.0,
+            share_pct: occurrence_total as f32 / all_occurrences as f32 * 100.0,
         })
 }
 

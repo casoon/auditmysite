@@ -1279,7 +1279,11 @@ fn compute_risk_assessment(
                 format!(
                     "{}: {} with legal relevance (BFSG). {}.",
                     prefix,
-                    plural(legal_flags, "WCAG Level A violation", "WCAG Level A violations"),
+                    plural(
+                        legal_flags,
+                        "WCAG Level A violation",
+                        "WCAG Level A violations"
+                    ),
                     plural(
                         blocking_issues,
                         "blocker on interactive elements",
@@ -1298,17 +1302,17 @@ fn compute_risk_assessment(
         RiskLevel::High => format!(
             "High risk: {} and {}. Users are actively excluded.",
             plural(critical_issues, "critical issue", "critical issues"),
-            plural(
-                high_issues,
-                "serious issue",
-                "serious issues"
-            )
+            plural(high_issues, "serious issue", "serious issues")
         ),
         RiskLevel::Medium => {
             if legal_flags > 0 {
                 format!(
                     "Medium risk: {} with legal relevance (BFSG){}.",
-                    plural(legal_flags, "WCAG Level A violation", "WCAG Level A violations"),
+                    plural(
+                        legal_flags,
+                        "WCAG Level A violation",
+                        "WCAG Level A violations"
+                    ),
                     if blocking_issues > 0 {
                         format!(
                             ", {} on interactive elements",
@@ -1361,8 +1365,7 @@ fn compute_risk_assessment(
                     plural(notable, "notable finding", "notable findings")
                 )
             } else {
-                "Low risk: No critical violations — improvement potential exists."
-                    .to_string()
+                "Low risk: No critical violations — improvement potential exists.".to_string()
             }
         }
     };

@@ -55,7 +55,7 @@ pub(super) fn render_diagnosis_section(
     // Category breakdown table
     if !diagnosis.category_breakdown.is_empty() {
         let col_dim = i18n.t("diagnosis-col-category");
-        let col_count = i18n.t("diagnosis-col-findings");
+        let col_count = i18n.t("diagnosis-col-occurrences");
         let col_sev = i18n.t("diagnosis-col-worst-severity");
         let table_title = i18n.t("diagnosis-table-categories");
         let mut table = AuditTable::new(vec![

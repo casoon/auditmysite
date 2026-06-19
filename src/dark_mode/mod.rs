@@ -301,11 +301,10 @@ fn build_issues(
     if !info.has_dark_media_query && info.has_class_based_dark_mode {
         issues.push(DarkModeIssue {
             kind: DarkModeIssueKind::IncompleteImplementation,
-            description:
-                "Class-based dark mode detected (html.dark / [data-theme=\"dark\"]). \
+            description: "Class-based dark mode detected (html.dark / [data-theme=\"dark\"]). \
                           Contrast checking in dark mode via CDP emulation is not possible — \
                           only @media (prefers-color-scheme: dark) can be tested automatically."
-                    .to_string(),
+                .to_string(),
             severity: "low".to_string(),
         });
     }

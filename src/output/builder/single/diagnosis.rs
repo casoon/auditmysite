@@ -318,7 +318,7 @@ pub(super) fn build_diagnosis_block(
         let entry = dim_map
             .entry(dim)
             .or_insert((0, crate::wcag::Severity::Low));
-        entry.0 += 1;
+        entry.0 += f.occurrence_count;
         if f.severity > entry.1 {
             entry.1 = f.severity;
         }

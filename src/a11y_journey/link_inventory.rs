@@ -197,8 +197,7 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
                 identify the main structure of the page without an H1."
                 .to_string(),
             fix_suggestion: Some(
-                "Use exactly one H1 heading per page that describes the main content."
-                    .to_string(),
+                "Use exactly one H1 heading per page that describes the main content.".to_string(),
             ),
         });
     }

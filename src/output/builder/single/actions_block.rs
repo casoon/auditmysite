@@ -42,6 +42,17 @@ pub(super) fn build_actions_block(
         }
     }
 
+    // Cross-bucket dedup: derive_action_plan deduplicates within effort buckets,
+    // but two findings with slightly different raw recommendations can produce the
+    // same humanized action text and land in different priority buckets here.
+    {
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        blockers.retain(|i| seen.insert(i.action.clone()));
+        high_prio.retain(|i| seen.insert(i.action.clone()));
+        medium_prio.retain(|i| seen.insert(i.action.clone()));
+        low_prio.retain(|i| seen.insert(i.action.clone()));
+    }
+
     // Within each bucket sort by execution_priority descending
     let sort_bucket = |mut v: Vec<ActionItem>| -> Vec<ActionItem> {
         v.sort_by_key(|i| std::cmp::Reverse(i.execution_priority));
