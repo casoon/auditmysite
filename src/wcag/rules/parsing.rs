@@ -18,15 +18,20 @@ use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
+// WCAG 4.1.1 (Parsing) was removed in WCAG 2.2 (Oct 2023) — it "always passes"
+// for HTML since browsers recover from malformed markup. Duplicate IDs remain a
+// real problem (AT may resolve aria-owns/aria-labelledby to the wrong element),
+// but they do not cause complete inaccessibility, so this is High, not Critical.
+// Tagged wcag21 only, not wcag22.
 pub const PARSING_PAGE_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.1",
     name: "Parsing (Duplicate IDs)",
     level: WcagLevel::A,
-    severity: Severity::Critical,
-    description: "IDs must be unique in the DOM",
+    severity: Severity::High,
+    description: "IDs must be unique in the DOM (WCAG 4.1.1, pre-2.2 criterion)",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
     axe_id: "duplicate-id",
-    tags: &["wcag2a", "wcag411", "cat.parsing"],
+    tags: &["wcag2a", "wcag21", "wcag411", "cat.parsing"],
 };
 
 const DUPLICATE_ID_JS: &str = r#"
@@ -73,7 +78,7 @@ pub async fn check_parsing_with_page(page: &Page) -> Vec<Violation> {
                 PARSING_PAGE_RULE.id,
                 PARSING_PAGE_RULE.name,
                 PARSING_PAGE_RULE.level,
-                Severity::Critical,
+                PARSING_PAGE_RULE.severity,
                 format!(
                     "Duplicate id='{}' appears {} times in the DOM. Duplicate IDs cause \
                      AT to resolve references incorrectly.",
@@ -96,11 +101,12 @@ pub const PARSING_RULE: RuleMetadata = RuleMetadata {
     id: "4.1.1",
     name: "Parsing",
     level: WcagLevel::A,
-    severity: Severity::Critical,
-    description: "IDs must be unique; elements must be correctly nested",
+    severity: Severity::High,
+    description:
+        "IDs must be unique; elements must be correctly nested (WCAG 4.1.1, pre-2.2 criterion)",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/parsing.html",
     axe_id: "duplicate-id-aria",
-    tags: &["wcag2a", "wcag411", "cat.parsing"],
+    tags: &["wcag2a", "wcag21", "wcag411", "cat.parsing"],
 };
 
 pub fn check_parsing(tree: &AXTree) -> WcagResults {
@@ -127,7 +133,7 @@ pub fn check_parsing(tree: &AXTree) -> WcagResults {
                     PARSING_RULE.id,
                     PARSING_RULE.name,
                     PARSING_RULE.level,
-                    Severity::Critical,
+                    PARSING_RULE.severity,
                     format!(
                         "aria-owns target '{}' is claimed by {} nodes — likely caused by duplicate ID in the DOM",
                         target_id,

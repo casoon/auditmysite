@@ -131,7 +131,6 @@ mod tests {
                   "3"
                 ],
                 "bfsg_reference": "§12 Abs. 1",
-                "deadline": "2025-06-28",
                 "en_301_549_clause": "9.2.4.4",
                 "fix_required": true,
                 "wcag_criterion": "2.4.4"
@@ -234,6 +233,7 @@ mod tests {
           "report_type": "screen_reader_audit",
           "schema_version": "1.0",
           "summary": {
+            "audit_quality": "ok",
             "bfsg_violations": 1,
             "heading_quality_score": 100,
             "landmark_quality_score": 25,

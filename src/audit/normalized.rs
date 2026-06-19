@@ -1178,12 +1178,29 @@ fn compute_risk_assessment(
     // Legal flags: count distinct WCAG Level A rules with High/Critical severity.
     // Per-occurrence counting would inflate the number (e.g. 1000 images without
     // alt text is one rule violation, not 1000 legal flags).
-    let legal_flags = findings
+    let mut legal_flags = findings
         .iter()
         .filter(|f| {
             f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
         })
         .count();
+
+    // The screen-reader audit can detect journey-level BFSG barriers (e.g. broken
+    // skip links) that the static WCAG engine misses, so the main report's risk
+    // model and the screen-reader sidecar must not disagree on BFSG status (#484).
+    // When the sidecar reports non-compliance on a fully audited page — not a
+    // consent-blocked one (#483) — ensure at least one legal flag is counted.
+    if let Some(sr) = screen_reader {
+        let consent_wall = matches!(
+            sr.summary.audit_quality,
+            crate::screen_reader::SrAuditQuality::ConsentWallSuspected
+        );
+        if sr.bfsg_compliance.verdict == crate::screen_reader::BfsgVerdict::NonCompliant
+            && !consent_wall
+        {
+            legal_flags = legal_flags.max(1);
+        }
+    }
 
     // Blocking issues: interactive elements without accessible names (4.1.2/2.1.1).
     // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.

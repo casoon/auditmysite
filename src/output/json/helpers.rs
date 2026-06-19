@@ -32,7 +32,14 @@ pub(super) fn build_accessibility_score_breakdown(
     AREAS
         .iter()
         .map(|(area, weight_pct)| {
-            let mut penalty = 0u32;
+            // Logarithmic occurrence penalty with a soft floor (#485). The old
+            // linear `severity_weight * occurrence_count` saturated at 100 after a
+            // handful of findings, collapsing whole areas to 0 on large, mostly
+            // compliant pages (e.g. gov.uk Forms). Each additional occurrence now
+            // contributes progressively less, and the per-area loss is capped below
+            // 100 so areas stay diagnostic — 1 vs. 100 violations remain
+            // distinguishable instead of all flatlining at 0.
+            let mut penalty = 0f64;
             let mut driver: Option<(&str, usize)> = None;
 
             for finding in reports.iter().flat_map(|report| report.findings.iter()) {
@@ -40,12 +47,13 @@ pub(super) fn build_accessibility_score_breakdown(
                     continue;
                 }
                 let severity_weight = match finding.severity {
-                    crate::taxonomy::Severity::Critical => 20,
-                    crate::taxonomy::Severity::High => 14,
-                    crate::taxonomy::Severity::Medium => 8,
-                    crate::taxonomy::Severity::Low => 4,
+                    crate::taxonomy::Severity::Critical => 20.0,
+                    crate::taxonomy::Severity::High => 14.0,
+                    crate::taxonomy::Severity::Medium => 8.0,
+                    crate::taxonomy::Severity::Low => 4.0,
                 };
-                penalty = penalty.saturating_add(severity_weight * finding.occurrence_count as u32);
+                let occ = finding.occurrence_count.max(1) as f64;
+                penalty += severity_weight * (1.0 + occ.ln());
                 if driver
                     .map(|(_, count)| finding.occurrence_count > count)
                     .unwrap_or(true)
@@ -54,7 +62,8 @@ pub(super) fn build_accessibility_score_breakdown(
                 }
             }
 
-            let estimated_lost_points = penalty.min(100);
+            // Soft cap at 90: the worst areas floor at a score of 10 rather than 0.
+            let estimated_lost_points = (penalty.round() as u32).min(90);
             AccessibilityScoreComponent {
                 area: (*area).to_string(),
                 score: 100u32.saturating_sub(estimated_lost_points),

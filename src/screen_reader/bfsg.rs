@@ -5,11 +5,9 @@ pub struct BfsgMapping {
     pub en_301549_clause: &'static str,
     pub bfsg_paragraph: &'static str,
     pub fix_required: bool,
-    pub deadline: &'static str,
 }
 
 pub const BFSG_PARAGRAPH_WEB: &str = "§12 Abs. 1";
-pub const BFSG_DEADLINE: &str = "2025-06-28";
 
 pub fn map_to_bfsg(wcag: &str) -> Option<BfsgMapping> {
     WCAG_21_AA_CRITERIA
@@ -19,7 +17,6 @@ pub fn map_to_bfsg(wcag: &str) -> Option<BfsgMapping> {
             en_301549_clause: criterion.en_301549_clause,
             bfsg_paragraph: BFSG_PARAGRAPH_WEB,
             fix_required: true,
-            deadline: BFSG_DEADLINE,
         })
 }
 
@@ -246,7 +243,6 @@ mod tests {
         assert_eq!(mapping.en_301549_clause, "9.1.1.1");
         assert_eq!(mapping.bfsg_paragraph, "§12 Abs. 1");
         assert!(mapping.fix_required);
-        assert_eq!(mapping.deadline, "2025-06-28");
 
         assert_eq!(
             map_to_bfsg("4.1.2").expect("mapped").en_301549_clause,
