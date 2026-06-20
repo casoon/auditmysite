@@ -8,7 +8,6 @@ mod actions;
 mod batch;
 mod helpers;
 mod modules;
-mod seo;
 mod single;
 
 pub use batch::{
@@ -715,7 +714,10 @@ mod tests {
                     "module": "SEO",
                     "area_locale": locale,
                     "score": score,
-                    "text": super::seo::build_seo_interpretation(locale, &seo),
+                    "text": crate::seo::interpretation::seo_interpretation_text(
+                        &seo,
+                        locale == "en",
+                    ),
                 }));
             }
         }

@@ -4,6 +4,7 @@
 
 mod headings;
 pub mod image_efficiency;
+pub mod interpretation;
 mod meta;
 pub mod module;
 pub mod page_health;

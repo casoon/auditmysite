@@ -16,10 +16,10 @@ use super::super::modules::{
     build_tracking_summary_text, build_vitals_list, derive_performance_recommendations,
     derive_security_recommendations,
 };
-use super::super::seo::{
-    build_seo_interpretation, page_profile_optimization_note, summarize_page_profile,
-};
 use super::serp::{build_page_health_presentation, build_serp_presentation};
+use crate::seo::interpretation::{
+    page_profile_optimization_note_text, page_profile_summary_text, seo_interpretation_text,
+};
 use crate::util::truncate_url;
 
 /// Read the pre-computed interpretation for a module. Falls back to an empty
@@ -806,8 +806,8 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 structural_richness_score: cp.page_classification.structural_richness_score,
                 media_text_balance_score: cp.page_classification.media_text_balance_score,
                 intent_fit_score: cp.page_classification.intent_fit_score,
-                page_profile_summary: summarize_page_profile(locale, cp),
-                optimization_note: page_profile_optimization_note(locale, cp),
+                page_profile_summary: page_profile_summary_text(cp, en),
+                optimization_note: page_profile_optimization_note_text(cp, en),
                 page_profile_facts: vec![
                     (
                         "Seitentyp".to_string(),
@@ -821,10 +821,10 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                             format!("{}.", cp.page_classification.attributes.join(", "))
                         },
                     ),
-                    ("Einordnung".to_string(), summarize_page_profile(locale, cp)),
+                    ("Einordnung".to_string(), page_profile_summary_text(cp, en)),
                     (
                         "Empfehlung".to_string(),
-                        page_profile_optimization_note(locale, cp),
+                        page_profile_optimization_note_text(cp, en),
                     ),
                 ],
                 schema_rows,
@@ -841,7 +841,7 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
 
         SeoPresentation {
             score: seo_score,
-            interpretation: build_seo_interpretation(locale, s),
+            interpretation: seo_interpretation_text(s, en),
             meta_tags,
             meta_issues,
             heading_summary: format!(

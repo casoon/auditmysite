@@ -17,10 +17,10 @@ use super::actions::{
     localized_finding_text,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
-use super::seo::page_profile_optimization_note;
 use crate::audit::prioritization::{
     derive_execution_priority, score_to_priority, severity_to_priority,
 };
+use crate::seo::interpretation::page_profile_optimization_note_text;
 use crate::seo::{
     average_page_semantic_score, derive_domain_topics, derive_topic_overlap_pairs,
     extract_page_topics,
@@ -221,9 +221,9 @@ pub fn build_batch_presentation_with_normalized(
                     .map(|g| g.title.clone())
                     .or_else(|| {
                         r.seo.as_ref().and_then(|seo| {
-                            seo.content_profile
-                                .as_ref()
-                                .map(|cp| page_profile_optimization_note(i18n.locale(), cp))
+                            seo.content_profile.as_ref().map(|cp| {
+                                page_profile_optimization_note_text(cp, i18n.locale() == "en")
+                            })
                         })
                     })
                     .unwrap_or_else(|| {
