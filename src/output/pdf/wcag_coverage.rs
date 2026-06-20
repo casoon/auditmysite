@@ -23,7 +23,8 @@ pub(super) fn render_wcag_coverage_section(
     let en = i18n.locale() == "en";
 
     // Principle coverage — informative secondary indicator (#99).
-    let coverage = AccessibilityScorer::calculate_coverage(&report.wcag_results.violations);
+    let coverage =
+        AccessibilityScorer::calculate_coverage(&report.accessibility.wcag_results.violations);
     let cov_title = if en {
         "Principle coverage (criteria passed)"
     } else {

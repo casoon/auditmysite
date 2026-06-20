@@ -975,7 +975,7 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
         word_count,
         heading_count,
         security_score: report.security.as_ref().map(|s| s.score),
-        a11y_score: report.score,
+        a11y_score: report.accessibility.score,
         has_faq_schema,
         has_lists,
         short_paragraph_ratio,
@@ -1009,6 +1009,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
 
     // Check for semantic HTML from accessibility tree or mobile analysis
     let has_nav_landmarks = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -1219,18 +1220,20 @@ mod tests {
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),
-            wcag_results: WcagResults::new(),
-            score: 95.0,
-            grade: "A".into(),
-            certificate: "SEHR GUT".into(),
-            statistics: ViolationStatistics {
-                critical: 0,
-                high: 0,
-                medium: 0,
-                low: 0,
-                total: 0,
+            accessibility: crate::audit::AccessibilitySection {
+                wcag_results: WcagResults::new(),
+                score: 95.0,
+                grade: "A".into(),
+                certificate: "SEHR GUT".into(),
+                statistics: ViolationStatistics {
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    total: 0,
+                },
+                nodes_analyzed: 100,
             },
-            nodes_analyzed: 100,
             duration_ms: 1000,
             performance: None,
             seo: None,

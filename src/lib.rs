@@ -46,7 +46,7 @@
 //!     let report = run_single_audit("https://example.com", &browser, &config).await?;
 //!
 //!     // Print results
-//!     println!("Score: {}", report.score);
+//!     println!("Score: {}", report.accessibility.score);
 //!     println!("Violations: {}", report.violation_count());
 //!
 //!     // Close browser

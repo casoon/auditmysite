@@ -72,7 +72,7 @@ pub struct AiReport {
 /// pretty-printed JSON.
 pub fn format_ai_json(report: &AuditReport) -> String {
     let normalized = normalize(report);
-    let violations = &report.wcag_results.violations;
+    let violations = &report.accessibility.wcag_results.violations;
 
     // Build tasks, then sort by impact severity.
     // task_id is numbered per rule_id (a stable, rule-local sequence) rather
@@ -124,7 +124,7 @@ pub fn format_ai_json(report: &AuditReport) -> String {
             minor: normalized.normalized.severity_counts.low,
         },
         tasks,
-        passing_checks: report.wcag_results.passes,
+        passing_checks: report.accessibility.wcag_results.passes,
         metadata: AiMetadata {
             tool: "auditmysite".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),

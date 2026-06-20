@@ -144,15 +144,11 @@ pub struct ExperienceSection {
     pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
 }
 
-/// Complete audit report for a single URL
+/// Core accessibility results — the WCAG check output, the resulting score/grade/
+/// certificate, violation statistics and the analyzed node count. Grouped into a
+/// section so the `AuditReport` top level stays stable as modules evolve.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditReport {
-    /// The URL that was audited
-    pub url: String,
-    /// WCAG conformance level used for the audit
-    pub wcag_level: WcagLevel,
-    /// Timestamp when the audit was performed
-    pub timestamp: DateTime<Utc>,
+pub struct AccessibilitySection {
     /// WCAG check results
     pub wcag_results: WcagResults,
     /// Overall accessibility score (0-100)
@@ -165,6 +161,19 @@ pub struct AuditReport {
     pub statistics: ViolationStatistics,
     /// Number of AXTree nodes analyzed
     pub nodes_analyzed: usize,
+}
+
+/// Complete audit report for a single URL
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditReport {
+    /// The URL that was audited
+    pub url: String,
+    /// WCAG conformance level used for the audit
+    pub wcag_level: WcagLevel,
+    /// Timestamp when the audit was performed
+    pub timestamp: DateTime<Utc>,
+    /// Core accessibility results (WCAG output, score/grade/certificate, stats).
+    pub accessibility: AccessibilitySection,
     /// Time taken to complete the audit (milliseconds)
     pub duration_ms: u64,
     /// Performance analysis (optional)
@@ -297,12 +306,14 @@ impl AuditReport {
             url,
             wcag_level,
             timestamp: Utc::now(),
-            wcag_results,
-            score,
-            grade,
-            certificate,
-            statistics,
-            nodes_analyzed,
+            accessibility: AccessibilitySection {
+                wcag_results,
+                score,
+                grade,
+                certificate,
+                statistics,
+                nodes_analyzed,
+            },
             duration_ms,
             performance: None,
             seo: None,
@@ -391,13 +402,14 @@ impl AuditReport {
 
     /// Get the total number of violations
     pub fn violation_count(&self) -> usize {
-        self.wcag_results.violations.len()
+        self.accessibility.wcag_results.violations.len()
     }
 
     /// Check if the audit passed (no critical violations, score >= 70)
     pub fn passed(&self) -> bool {
-        self.score >= 70.0
+        self.accessibility.score >= 70.0
             && !self
+                .accessibility
                 .wcag_results
                 .violations
                 .iter()
@@ -846,7 +858,7 @@ mod tests {
         );
 
         assert_eq!(report.url, "https://example.com");
-        assert_eq!(report.score, 100.0); // No violations = perfect score
+        assert_eq!(report.accessibility.score, 100.0); // No violations = perfect score
         assert_eq!(report.duration_ms, 500);
         assert!(report.performance.is_none());
         assert!(report.seo.is_none());

@@ -1008,7 +1008,7 @@ fn test_batch_summary_uses_normalized_primary_score() {
     );
     // Score rounds to 80 — meets the new pass criterion (≥ 80, no criticals,
     // no WCAG-A high/critical findings). See issue #253.
-    report.score = 79.6;
+    report.accessibility.score = 79.6;
 
     let normalized = normalize(&report);
     let batch = BatchReport::from_reports(vec![report.clone()], vec![], 100);

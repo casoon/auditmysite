@@ -129,6 +129,7 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         .filter_map(|finding| finding.axe_id.as_deref())
         .collect();
     let raw_rule_ids: Vec<_> = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -173,13 +174,14 @@ async fn test_perfect_page_scores_high() {
 
     // A well-structured page should score above 70 (no score suppression)
     assert!(
-        report.score >= 70.0,
+        report.accessibility.score >= 70.0,
         "Perfect page scored only {:.1}, expected >= 70",
-        report.score
+        report.accessibility.score
     );
 
     // Should have few or no critical violations
     let critical_count = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -212,16 +214,16 @@ async fn test_many_violations_page_scores_low() {
 
     // Page with many issues should score below 70
     assert!(
-        report.score < 70.0,
+        report.accessibility.score < 70.0,
         "Violation-heavy page scored {:.1}, expected < 70",
-        report.score
+        report.accessibility.score
     );
 
     // Should have multiple violations
     assert!(
-        report.wcag_results.violations.len() >= 3,
+        report.accessibility.wcag_results.violations.len() >= 3,
         "Expected at least 3 violations, got {}",
-        report.wcag_results.violations.len()
+        report.accessibility.wcag_results.violations.len()
     );
 }
 
@@ -388,7 +390,7 @@ async fn test_modern_contrast_resolution() {
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
     // Let's debug print violations to see what we found
-    for violation in &report.wcag_results.violations {
+    for violation in &report.accessibility.wcag_results.violations {
         println!(
             "Violation: rule={}, selector={:?}, message={}",
             violation.rule, violation.selector, violation.message
@@ -397,6 +399,7 @@ async fn test_modern_contrast_resolution() {
 
     // Filter violations by contrast rule "1.4.3"
     let contrast_violations: Vec<_> = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -464,6 +467,7 @@ async fn test_image_contrast_pixel_sampling() {
 
     // Filter contrast rule "1.4.3" violations and warnings
     let contrast_violations: Vec<_> = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -471,6 +475,7 @@ async fn test_image_contrast_pixel_sampling() {
         .collect();
 
     let contrast_warnings: Vec<_> = report
+        .accessibility
         .wcag_results
         .warnings
         .iter()
@@ -596,7 +601,7 @@ async fn test_catalog_driven_audit_complete_structure() {
         report.content_visibility.is_some(),
         "content_visibility must be populated"
     );
-    assert!(report.score >= 0.0 && report.score <= 100.0);
+    assert!(report.accessibility.score >= 0.0 && report.accessibility.score <= 100.0);
 }
 
 /// #345 — a page that causes a sub-analysis to fail does not abort the audit.
@@ -627,7 +632,8 @@ async fn test_partial_module_failure_does_not_abort_audit() {
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
     assert!(
-        !report.wcag_results.violations.is_empty() || report.wcag_results.passes > 0,
+        !report.accessibility.wcag_results.violations.is_empty()
+            || report.accessibility.wcag_results.passes > 0,
         "WCAG results must be present"
     );
 }
@@ -657,10 +663,10 @@ async fn test_sequential_two_url_audit() {
     shutdown2.store(true, std::sync::atomic::Ordering::Relaxed);
 
     assert!(
-        report1.score > report2.score,
+        report1.accessibility.score > report2.accessibility.score,
         "perfect page ({:.1}) should beat violations page ({:.1})",
-        report1.score,
-        report2.score
+        report1.accessibility.score,
+        report2.accessibility.score
     );
 }
 

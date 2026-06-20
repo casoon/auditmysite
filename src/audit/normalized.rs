@@ -986,8 +986,9 @@ fn build_module_scores(
     occurrence_counts: &SeverityCounts,
     vuln_security_penalty: u32,
 ) -> Vec<ModuleScoreEntry> {
-    let score = report.score.round().max(1.0) as u32;
-    let accessibility_grade = AccessibilityScorer::calculate_grade(report.score).to_string();
+    let score = report.accessibility.score.round().max(1.0) as u32;
+    let accessibility_grade =
+        AccessibilityScorer::calculate_grade(report.accessibility.score).to_string();
 
     let mut module_scores = Vec::new();
 
@@ -1440,7 +1441,7 @@ fn compute_risk_assessment(
 /// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
 /// - Berechnet Grade/Certificate aus korrigiertem Score
 pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
-    let violations = &report.wcag_results.violations;
+    let violations = &report.accessibility.wcag_results.violations;
 
     let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
@@ -1461,7 +1462,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let mut interactive_findings = report.interactive_findings.clone();
     filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);
 
-    let score = report.score.round().max(1.0) as u32;
+    let score = report.accessibility.score.round().max(1.0) as u32;
 
     // Severity counts — only WCAG findings count (not SEO findings).
     // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
@@ -1644,8 +1645,10 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         // strong signal that the AXTree captured the consent dialog DOM rather than
         // actual page content.
         if !report.consent_banner_dismissed {
-            let violation_count: usize = report.wcag_results.violations.len();
-            if report.nodes_analyzed > 0 && violation_count > report.nodes_analyzed {
+            let violation_count: usize = report.accessibility.wcag_results.violations.len();
+            if report.accessibility.nodes_analyzed > 0
+                && violation_count > report.accessibility.nodes_analyzed
+            {
                 audit_flags.push(AuditFlag {
                     kind: "consent_wall_artifact".to_string(),
                     related_rule: None,
@@ -1654,7 +1657,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
                         "Possible consent wall artifact: {} violations with only {} analyzed nodes. \
                          Scores may be measuring the consent dialog rather than the actual page content. \
                          Recommendation: re-run the audit with --dismiss-consent.",
-                        violation_count, report.nodes_analyzed
+                        violation_count, report.accessibility.nodes_analyzed
                     ),
                 });
             }
@@ -1704,7 +1707,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         wcag_level: report.wcag_level,
         timestamp: report.timestamp,
         duration_ms: report.duration_ms,
-        nodes_analyzed: report.nodes_analyzed,
+        nodes_analyzed: report.accessibility.nodes_analyzed,
         score,
         grade,
         certificate,
@@ -1744,7 +1747,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_ai_visibility: report.ai_visibility.as_ref(),
         raw_tech_stack: report.tech_stack.as_ref(),
         raw_content_visibility: report.content_visibility.as_ref(),
-        raw_wcag: &report.wcag_results,
+        raw_wcag: &report.accessibility.wcag_results,
         raw_patterns: report.patterns.as_ref(),
         raw_throttled_performance: &report.throttled_performance,
         raw_best_practices: report.best_practices.as_ref(),
@@ -2322,7 +2325,10 @@ mod tests {
         });
         let norm_with_seo = normalize(&report);
         assert_eq!(norm_with_seo.normalized.findings.len(), 1);
-        assert_eq!(norm_with_seo.normalized.score, report.score.round() as u32);
+        assert_eq!(
+            norm_with_seo.normalized.score,
+            report.accessibility.score.round() as u32
+        );
         assert_eq!(norm_with_seo.normalized.audit_flags.len(), 1);
         assert_eq!(
             norm_with_seo.normalized.audit_flags[0]
