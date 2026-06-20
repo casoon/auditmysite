@@ -37,9 +37,27 @@ pub struct CommerceAnalysis {
     pub product: Option<ProductCommerce>,
     /// Which mandatory/trust pages this page links to.
     pub trust_pages: TrustPages,
-    /// Findings across both groups.
+    /// Page-type-gated conversion signals (payment methods, free-shipping
+    /// threshold, guest checkout).
+    pub conversion: ConversionSignals,
+    /// Findings across all groups.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub findings: Vec<CommerceFinding>,
+}
+
+/// Presence-based conversion signals detected from the page's visible text.
+/// Presence only — never a judgment of effectiveness or "honesty".
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ConversionSignals {
+    /// Payment methods named on the page (canonical labels, deduplicated).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub payment_methods: Vec<String>,
+    /// A free-shipping threshold ("versandkostenfrei ab …") is mentioned.
+    pub free_shipping_threshold: bool,
+    /// Guest checkout: `Some(true/false)` only on cart/checkout pages where it is
+    /// meaningful; `None` elsewhere (not applicable).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guest_checkout: Option<bool>,
 }
 
 /// Coarse classification of a shop page, from URL path + product schema.
@@ -162,6 +180,9 @@ pub enum CommerceFindingKind {
     MissingShippingPageLink,
     MissingPaymentLink,
     MissingContactLink,
+    // Conversion (page-type-gated).
+    NoPaymentMethodsVisible,
+    NoGuestCheckout,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -243,6 +264,7 @@ pub fn analyze_commerce(
     url: &str,
     structured_data: &StructuredData,
     anchor_texts: &[String],
+    page_texts: &[String],
     is_ecommerce_stack: bool,
 ) -> Option<CommerceAnalysis> {
     let product = analyze_product(structured_data);
@@ -252,19 +274,110 @@ pub fn analyze_commerce(
 
     let page_kind = detect_page_kind(url, product.is_some());
     let trust_pages = detect_trust_pages(anchor_texts);
+    let conversion = detect_conversion(page_texts, page_kind);
 
     let mut findings = Vec::new();
     if let Some(p) = &product {
         push_product_findings(p, &mut findings);
     }
     push_trust_findings(&trust_pages, &mut findings);
+    push_conversion_findings(&conversion, page_kind, &mut findings);
 
     Some(CommerceAnalysis {
         page_kind,
         product,
         trust_pages,
+        conversion,
         findings,
     })
+}
+
+/// Canonical payment-method labels mapped from their detection keywords.
+const PAYMENT_METHODS: &[(&str, &[&str])] = &[
+    ("PayPal", &["paypal"]),
+    ("Klarna", &["klarna"]),
+    ("Invoice", &["rechnung", "invoice"]),
+    ("Direct debit", &["lastschrift", "sepa", "direct debit"]),
+    (
+        "Credit card",
+        &["kreditkarte", "credit card", "visa", "mastercard", "amex"],
+    ),
+    ("Apple Pay", &["apple pay"]),
+    ("Google Pay", &["google pay"]),
+    ("Amazon Pay", &["amazon pay"]),
+    ("Sofort", &["sofort", "sofortüberweisung"]),
+    ("giropay", &["giropay"]),
+];
+
+const FREE_SHIPPING_MARKERS: &[&str] = &[
+    "versandkostenfrei ab",
+    "gratisversand ab",
+    "kostenloser versand ab",
+    "kostenlose lieferung ab",
+    "free shipping over",
+    "free shipping on orders over",
+    "free delivery over",
+];
+
+const GUEST_CHECKOUT_MARKERS: &[&str] = &[
+    "als gast",
+    "gast-bestellung",
+    "gastbestellung",
+    "ohne registrierung",
+    "ohne anmeldung",
+    "ohne kundenkonto",
+    "ohne konto",
+    "guest checkout",
+    "checkout as guest",
+    "continue as guest",
+];
+
+fn detect_conversion(page_texts: &[String], page_kind: CommercePageKind) -> ConversionSignals {
+    let lower: Vec<String> = page_texts.iter().map(|t| t.to_lowercase()).collect();
+    let corpus_has = |needle: &str| lower.iter().any(|t| t.contains(needle));
+
+    let mut payment_methods: Vec<String> = PAYMENT_METHODS
+        .iter()
+        .filter(|(_, kws)| kws.iter().any(|kw| corpus_has(kw)))
+        .map(|(label, _)| label.to_string())
+        .collect();
+    payment_methods.dedup();
+
+    let free_shipping_threshold = FREE_SHIPPING_MARKERS.iter().any(|m| corpus_has(m));
+
+    let guest_checkout = match page_kind {
+        CommercePageKind::Cart | CommercePageKind::Checkout => {
+            Some(GUEST_CHECKOUT_MARKERS.iter().any(|m| corpus_has(m)))
+        }
+        _ => None,
+    };
+
+    ConversionSignals {
+        payment_methods,
+        free_shipping_threshold,
+        guest_checkout,
+    }
+}
+
+fn push_conversion_findings(
+    c: &ConversionSignals,
+    page_kind: CommercePageKind,
+    out: &mut Vec<CommerceFinding>,
+) {
+    use CommerceFindingKind::*;
+    // Only flag where it's a confident expectation: payment methods on the
+    // cart/checkout funnel, guest checkout on the checkout page.
+    if c.payment_methods.is_empty()
+        && matches!(
+            page_kind,
+            CommercePageKind::Cart | CommercePageKind::Checkout
+        )
+    {
+        out.push(finding(NoPaymentMethodsVisible, Severity::Medium));
+    }
+    if c.guest_checkout == Some(false) && page_kind == CommercePageKind::Checkout {
+        out.push(finding(NoGuestCheckout, Severity::Medium));
+    }
 }
 
 fn analyze_product(structured_data: &StructuredData) -> Option<ProductCommerce> {
@@ -429,6 +542,18 @@ pub fn commerce_finding_text(kind: CommerceFindingKind, en: bool) -> String {
         }
         (MissingContactLink, true) => "No contact (Kontakt) link found on this page.".into(),
         (MissingContactLink, false) => "Kein Kontakt-Link auf dieser Seite gefunden.".into(),
+        (NoPaymentMethodsVisible, true) => {
+            "No common payment methods named on this cart/checkout page.".into()
+        }
+        (NoPaymentMethodsVisible, false) => {
+            "Keine gängigen Zahlungsarten auf dieser Warenkorb-/Checkout-Seite genannt.".into()
+        }
+        (NoGuestCheckout, true) => {
+            "No guest-checkout option detected on the checkout page (possible forced registration).".into()
+        }
+        (NoGuestCheckout, false) => {
+            "Keine Gast-Bestellung auf der Checkout-Seite erkannt (mögliche Pflichtregistrierung).".into()
+        }
     }
 }
 
@@ -593,7 +718,7 @@ mod tests {
     #[test]
     fn non_shop_page_returns_none() {
         let sd = structured(serde_json::json!({"@type": "Article", "headline": "x"}));
-        assert!(analyze_commerce("https://x.de/blog/post", &sd, &[], false).is_none());
+        assert!(analyze_commerce("https://x.de/blog/post", &sd, &[], &[], false).is_none());
     }
 
     #[test]
@@ -602,6 +727,7 @@ mod tests {
             "https://shop.de/kategorie/schuhe",
             &empty(),
             &["Impressum".into(), "Kontakt".into()],
+            &[],
             true,
         )
         .expect("ecommerce stack activates commerce");
@@ -642,11 +768,47 @@ mod tests {
         .iter()
         .map(|s| s.to_string())
         .collect();
-        let c = analyze_commerce("https://shop.de/produkt/widget", &sd, &anchors, false)
+        let c = analyze_commerce("https://shop.de/produkt/widget", &sd, &anchors, &[], false)
             .expect("product");
         assert_eq!(c.page_kind, CommercePageKind::ProductDetail);
         assert_eq!(c.product.unwrap().score, 100);
         assert!(c.findings.is_empty());
+    }
+
+    #[test]
+    fn conversion_signals_detected_and_gated_by_page_kind() {
+        let texts: Vec<String> = [
+            "Zahlung per PayPal, Klarna oder Rechnung",
+            "Versandkostenfrei ab 50 €",
+            "Weiter als Gast",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+        // Checkout page: payment + free shipping + guest checkout all detected.
+        let co = detect_conversion(&texts, CommercePageKind::Checkout);
+        assert!(co.payment_methods.contains(&"PayPal".to_string()));
+        assert!(co.payment_methods.contains(&"Klarna".to_string()));
+        assert!(co.payment_methods.contains(&"Invoice".to_string()));
+        assert!(co.free_shipping_threshold);
+        assert_eq!(co.guest_checkout, Some(true));
+
+        // Product page: guest_checkout is not applicable → None.
+        let pd = detect_conversion(&texts, CommercePageKind::ProductDetail);
+        assert_eq!(pd.guest_checkout, None);
+
+        // Checkout without a guest marker → Some(false) + finding.
+        let no_guest = detect_conversion(
+            &["Zur Kasse".into(), "PayPal".into()],
+            CommercePageKind::Checkout,
+        );
+        assert_eq!(no_guest.guest_checkout, Some(false));
+        let mut findings = Vec::new();
+        push_conversion_findings(&no_guest, CommercePageKind::Checkout, &mut findings);
+        assert!(findings
+            .iter()
+            .any(|f| f.kind == CommerceFindingKind::NoGuestCheckout));
     }
 
     #[test]
