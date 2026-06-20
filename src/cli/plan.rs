@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn active_modules_label_default_matches_standard_pipeline() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
-        let expected = "Accessibility, Accessibility Journey, Best Practices, Dark Mode, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, UX, Source Quality, Content Visibility".to_string();
+        let expected = "Accessibility, Accessibility Journey, Best Practices, Dark Mode, Journey, Mobile, Performance, Security, SEO, AI Visibility, Commerce, Tech Stack, UX, Source Quality, Content Visibility".to_string();
         assert_eq!(active_modules_label(&args), expected);
     }
 
