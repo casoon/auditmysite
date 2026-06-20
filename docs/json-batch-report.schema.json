@@ -101,7 +101,8 @@
         "top_actions": {
           "type": "array",
           "items": { "$ref": "#/$defs/decisionAction" }
-        }
+        },
+        "commerce": { "type": ["object", "null"] }
       }
     },
     "pageEntry": {
