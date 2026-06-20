@@ -39,7 +39,7 @@ impl AuditModule for AiVisibilityModule {
     }
 
     fn derive(&self, report: &mut AuditReport, _locale: &str) -> Result<()> {
-        report.ai_visibility = Some(analyze_ai_visibility(report));
+        report.discoverability.ai_visibility = Some(analyze_ai_visibility(report));
         Ok(())
     }
 }

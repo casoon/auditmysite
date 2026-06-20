@@ -163,6 +163,28 @@ pub struct AccessibilitySection {
     pub nodes_analyzed: usize,
 }
 
+/// Discoverability signals grouped together: how findable and machine-readable
+/// the page is — search engines (SEO), AI/LLM assistants, organic content
+/// visibility, source quality and the detected tech stack.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DiscoverabilitySection {
+    /// SEO analysis (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seo: Option<SeoAnalysis>,
+    /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
+    /// Content visibility analysis (organic visibility, local business, E-E-A-T, depth, topical authority)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
+    /// Source quality analysis (Substanz / Konsistenz / Autorität)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
+    /// Technology stack detection and stack-specific audit findings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
+}
+
 /// Complete audit report for a single URL
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditReport {
@@ -179,9 +201,6 @@ pub struct AuditReport {
     /// Performance analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance: Option<PerformanceResults>,
-    /// SEO analysis (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seo: Option<SeoAnalysis>,
     /// Security analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security: Option<SecurityAnalysis>,
@@ -195,18 +214,10 @@ pub struct AuditReport {
     /// Journey analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journey: Option<crate::journey::JourneyAnalysis>,
-    /// Source quality analysis (Substanz / Konsistenz / Autorität)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
-    /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
-    /// Content visibility analysis (organic visibility, local business, E-E-A-T, depth, topical authority)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
-    /// Technology stack detection and stack-specific audit findings.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
+    /// Discoverability signals grouped together: SEO, AI/LLM visibility, content
+    /// visibility, source quality and tech-stack detection.
+    #[serde(default)]
+    pub discoverability: DiscoverabilitySection,
     /// Screenshots for PDF cover page (captured during audit, not serialized).
     #[serde(skip)]
     pub page_screenshots: Option<PageScreenshots>,
@@ -316,15 +327,17 @@ impl AuditReport {
             },
             duration_ms,
             performance: None,
-            seo: None,
             security: None,
             experience: ExperienceSection::default(),
             ux: None,
             journey: None,
-            source_quality: None,
-            ai_visibility: None,
-            content_visibility: None,
-            tech_stack: None,
+            discoverability: DiscoverabilitySection {
+                seo: None,
+                ai_visibility: None,
+                content_visibility: None,
+                source_quality: None,
+                tech_stack: None,
+            },
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,
@@ -356,7 +369,7 @@ impl AuditReport {
 
     /// Set SEO results
     pub fn with_seo(mut self, seo: SeoAnalysis) -> Self {
-        self.seo = Some(seo);
+        self.discoverability.seo = Some(seo);
         self
     }
 
@@ -391,7 +404,7 @@ impl AuditReport {
     }
 
     pub fn with_tech_stack(mut self, tech_stack: crate::tech_stack::TechStackAnalysis) -> Self {
-        self.tech_stack = Some(tech_stack);
+        self.discoverability.tech_stack = Some(tech_stack);
         self
     }
 
@@ -861,7 +874,7 @@ mod tests {
         assert_eq!(report.accessibility.score, 100.0); // No violations = perfect score
         assert_eq!(report.duration_ms, 500);
         assert!(report.performance.is_none());
-        assert!(report.seo.is_none());
+        assert!(report.discoverability.seo.is_none());
         assert!(report.security.is_none());
         assert!(report.experience.mobile.is_none());
     }

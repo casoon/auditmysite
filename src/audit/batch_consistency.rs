@@ -152,7 +152,12 @@ fn analyze_headings(reports: &[AuditReport]) -> HeadingConsistency {
     let mut findings = Vec::new();
 
     for r in reports {
-        let h1_count = r.seo.as_ref().map(|s| s.headings.h1_count).unwrap_or(0);
+        let h1_count = r
+            .discoverability
+            .seo
+            .as_ref()
+            .map(|s| s.headings.h1_count)
+            .unwrap_or(0);
         match h1_count {
             0 => none += 1,
             1 => single += 1,
@@ -189,6 +194,7 @@ fn analyze_canonical(reports: &[AuditReport]) -> CanonicalConsistency {
 
     for r in reports {
         let canonical = r
+            .discoverability
             .seo
             .as_ref()
             .and_then(|s| s.technical.canonical_url.as_deref());
@@ -228,7 +234,7 @@ fn analyze_orphan_pages(reports: &[AuditReport]) -> OrphanPageAnalysis {
     // Collect all internal link targets from every page, normalised.
     let mut all_targets: HashSet<String> = HashSet::new();
     for r in reports {
-        if let Some(seo) = r.seo.as_ref() {
+        if let Some(seo) = r.discoverability.seo.as_ref() {
             for target in &seo.technical.internal_link_targets {
                 all_targets.insert(normalise_url(target));
             }
@@ -263,7 +269,12 @@ fn analyze_schema_graph(reports: &[AuditReport]) -> SchemaGraphAnalysis {
     let mut entities: HashMap<String, Vec<(String, String, String)>> = HashMap::new();
 
     for r in reports {
-        let json_ld = match r.seo.as_ref().map(|s| &s.structured_data.json_ld) {
+        let json_ld = match r
+            .discoverability
+            .seo
+            .as_ref()
+            .map(|s| &s.structured_data.json_ld)
+        {
             Some(v) => v,
             None => continue,
         };
@@ -385,7 +396,7 @@ mod tests {
         recognized: Vec<&str>,
     ) -> AuditReport {
         let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
-        report.seo = Some(SeoAnalysis {
+        report.discoverability.seo = Some(SeoAnalysis {
             headings: HeadingStructure {
                 h1_count,
                 ..Default::default()
@@ -489,7 +500,7 @@ mod tests {
 
     fn make_report_with_links(url: &str, link_targets: Vec<&str>) -> AuditReport {
         let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
-        report.seo = Some(SeoAnalysis {
+        report.discoverability.seo = Some(SeoAnalysis {
             technical: TechnicalSeo {
                 internal_link_targets: link_targets.into_iter().map(String::from).collect(),
                 ..Default::default()
@@ -543,7 +554,7 @@ mod tests {
 
         let make_schema_report = |url: &str, schema_type: &str| {
             let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
-            report.seo = Some(SeoAnalysis {
+            report.discoverability.seo = Some(SeoAnalysis {
                 structured_data: StructuredData {
                     json_ld: vec![JsonLdSchema {
                         schema_type: schema_type.to_string(),
@@ -581,7 +592,7 @@ mod tests {
 
         let make_schema_report = |url: &str| {
             let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
-            report.seo = Some(SeoAnalysis {
+            report.discoverability.seo = Some(SeoAnalysis {
                 structured_data: StructuredData {
                     json_ld: vec![JsonLdSchema {
                         schema_type: "Organization".to_string(),

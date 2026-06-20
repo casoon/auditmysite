@@ -258,7 +258,10 @@ async fn test_full_audit_with_all_modules() {
         report.performance.is_some(),
         "Performance results should be present"
     );
-    assert!(report.seo.is_some(), "SEO results should be present");
+    assert!(
+        report.discoverability.seo.is_some(),
+        "SEO results should be present"
+    );
     assert!(
         report.security.is_some(),
         "Security results should be present"
@@ -590,15 +593,15 @@ async fn test_catalog_driven_audit_complete_structure() {
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
     assert!(
-        report.source_quality.is_some(),
+        report.discoverability.source_quality.is_some(),
         "source_quality must be populated"
     );
     assert!(
-        report.ai_visibility.is_some(),
+        report.discoverability.ai_visibility.is_some(),
         "ai_visibility must be populated"
     );
     assert!(
-        report.content_visibility.is_some(),
+        report.discoverability.content_visibility.is_some(),
         "content_visibility must be populated"
     );
     assert!(report.accessibility.score >= 0.0 && report.accessibility.score <= 100.0);

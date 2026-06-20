@@ -611,7 +611,7 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
         blocked_count,
         has_sitemap_in_robots,
         inferred_policy,
-    ) = if let Some(seo) = &report.seo {
+    ) = if let Some(seo) = &report.discoverability.seo {
         if let Some(robots) = &seo.robots {
             let blocked = robots
                 .groups
@@ -702,7 +702,7 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
     ));
 
     // 6. Meta robots (check for noindex/nofollow which affects AI visibility)
-    let has_meta_robots_issue = report.seo.as_ref().is_some_and(|seo| {
+    let has_meta_robots_issue = report.discoverability.seo.as_ref().is_some_and(|seo| {
         seo.technical
             .issues
             .iter()
@@ -839,7 +839,7 @@ fn detail_meta_robots_allowed(present: bool, en: bool) -> String {
 // ─── Input builders ─────────────────────────────────────────────────────────
 
 fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInput {
-    let seo = report.seo.as_ref();
+    let seo = report.discoverability.seo.as_ref();
 
     let word_count = seo.map_or(0, |s| s.technical.word_count);
     let headings = seo.map_or(&[][..], |s| &s.headings.headings);
@@ -908,7 +908,7 @@ fn build_readability_input(report: &AuditReport) -> readability::ReadabilityInpu
 }
 
 fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
-    let seo = report.seo.as_ref();
+    let seo = report.discoverability.seo.as_ref();
     let schema_types = seo.map_or(&[][..], |s| &s.structured_data.types);
 
     let has_author_schema = schema_types.iter().any(|t| matches!(t, SchemaType::Person));
@@ -985,7 +985,7 @@ fn build_citation_input(report: &AuditReport) -> citation::CitationInput {
 }
 
 fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
-    let seo = report.seo.as_ref();
+    let seo = report.discoverability.seo.as_ref();
 
     let headings: Vec<chunks::HeadingInfo> = seo.map_or(vec![], |s| {
         let h = &s.headings.headings;
@@ -1037,7 +1037,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
 }
 
 fn build_knowledge_graph_input(report: &AuditReport) -> knowledge_graph::KnowledgeGraphInput {
-    let seo = report.seo.as_ref();
+    let seo = report.discoverability.seo.as_ref();
 
     let schemas: Vec<knowledge_graph::SchemaEntity> = seo.map_or(vec![], |s| {
         s.structured_data
@@ -1236,15 +1236,17 @@ mod tests {
             },
             duration_ms: 1000,
             performance: None,
-            seo: None,
             security: None,
             experience: crate::audit::ExperienceSection::default(),
             ux: None,
             journey: None,
-            source_quality: None,
-            ai_visibility: None,
-            content_visibility: None,
-            tech_stack: None,
+            discoverability: crate::audit::DiscoverabilitySection {
+                seo: None,
+                ai_visibility: None,
+                content_visibility: None,
+                source_quality: None,
+                tech_stack: None,
+            },
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,
@@ -1311,7 +1313,7 @@ mod tests {
         };
         // Bare SEO so every "missing"/"weak" branch contributes a string.
         let mut report = minimal_report();
-        report.seo = Some(SeoAnalysis {
+        report.discoverability.seo = Some(SeoAnalysis {
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

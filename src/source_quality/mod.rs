@@ -695,7 +695,7 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
     let mut signals = Vec::new();
 
     // 1. Heading structure depth
-    if let Some(seo) = &report.seo {
+    if let Some(seo) = &report.discoverability.seo {
         let has_h1 = seo.headings.h1_count > 0;
         let depth = seo
             .headings
@@ -853,7 +853,7 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
     }
 
     // 3. Schema.org Organization / Author
-    if let Some(seo) = &report.seo {
+    if let Some(seo) = &report.discoverability.seo {
         let has_org = seo.structured_data.types.iter().any(|t| {
             t.is_organization_like() || matches!(t, SchemaType::Person | SchemaType::WebSite)
         });
@@ -923,7 +923,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     let mut signals = Vec::new();
 
     // 1. Heading hierarchy (no skips)
-    if let Some(seo) = &report.seo {
+    if let Some(seo) = &report.discoverability.seo {
         let issue_count = seo.headings.issues.len();
         signals.push(QualitySignal::new(
             HeadingHierarchy,
@@ -967,7 +967,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     ));
 
     // 4. Language consistency
-    if let Some(seo) = &report.seo {
+    if let Some(seo) = &report.discoverability.seo {
         let has_lang = seo.technical.has_lang;
         signals.push(QualitySignal::new(
             LanguageConsistency,
@@ -1006,7 +1006,8 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     let with_meta: usize = reports
         .iter()
         .filter(|r| {
-            r.seo
+            r.discoverability
+                .seo
                 .as_ref()
                 .and_then(|s| s.meta.description.as_ref())
                 .is_some_and(|d| d.len() >= 50)
@@ -1027,7 +1028,8 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     let with_schema: usize = reports
         .iter()
         .filter(|r| {
-            r.seo
+            r.discoverability
+                .seo
                 .as_ref()
                 .is_some_and(|s| s.structured_data.has_structured_data)
         })
@@ -1046,7 +1048,12 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     // 4. Language declaration coverage
     let with_lang: usize = reports
         .iter()
-        .filter(|r| r.seo.as_ref().is_some_and(|s| s.technical.has_lang))
+        .filter(|r| {
+            r.discoverability
+                .seo
+                .as_ref()
+                .is_some_and(|s| s.technical.has_lang)
+        })
         .count();
     let lang_pct = (with_lang as f32 / total * 100.0) as u32;
     signals.push(QualitySignal::new(
@@ -1221,15 +1228,17 @@ mod tests {
             },
             duration_ms: 1000,
             performance: None,
-            seo: None,
             security: None,
             experience: crate::audit::ExperienceSection::default(),
             ux: None,
             journey: None,
-            source_quality: None,
-            ai_visibility: None,
-            content_visibility: None,
-            tech_stack: None,
+            discoverability: crate::audit::DiscoverabilitySection {
+                seo: None,
+                ai_visibility: None,
+                content_visibility: None,
+                source_quality: None,
+                tech_stack: None,
+            },
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,
@@ -1326,7 +1335,7 @@ mod tests {
         // A bare SEO profile so every "missing"/"weak" branch contributes a string.
         let mut report = minimal_report();
         report.accessibility.score = 50.0;
-        report.seo = Some(SeoAnalysis {
+        report.discoverability.seo = Some(SeoAnalysis {
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

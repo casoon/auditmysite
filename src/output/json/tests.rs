@@ -434,8 +434,8 @@ fn all_active_modules_report() -> AuditReport {
     });
     let sq = crate::source_quality::analyze_source_quality(&report);
     let av = crate::ai_visibility::analyze_ai_visibility(&report);
-    report.source_quality = Some(sq);
-    report.ai_visibility = Some(av);
+    report.discoverability.source_quality = Some(sq);
+    report.discoverability.ai_visibility = Some(av);
     // content_visibility is set separately per test — its JSON emission
     // is conditional on signal_count > 0.
     report

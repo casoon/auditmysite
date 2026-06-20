@@ -195,6 +195,7 @@ pub fn build_batch_presentation_with_normalized(
                 critical_violations: nr.severity_counts.critical + nr.severity_counts.high,
                 total_violations: nr.severity_counts.total,
                 page_type: r
+                    .discoverability
                     .seo
                     .as_ref()
                     .and_then(|seo| seo.content_profile.as_ref())
@@ -206,12 +207,14 @@ pub fn build_batch_presentation_with_normalized(
                             .to_string()
                     }),
                 page_attributes: r
+                    .discoverability
                     .seo
                     .as_ref()
                     .and_then(|seo| seo.content_profile.as_ref())
                     .map(|profile| profile.page_classification.attributes.clone())
                     .unwrap_or_default(),
                 page_semantic_score: r
+                    .discoverability
                     .seo
                     .as_ref()
                     .and_then(|seo| seo.content_profile.as_ref())
@@ -220,7 +223,7 @@ pub fn build_batch_presentation_with_normalized(
                     .first()
                     .map(|g| g.title.clone())
                     .or_else(|| {
-                        r.seo.as_ref().and_then(|seo| {
+                        r.discoverability.seo.as_ref().and_then(|seo| {
                             seo.content_profile.as_ref().map(|cp| {
                                 page_profile_optimization_note_text(cp, i18n.locale() == "en")
                             })
@@ -294,6 +297,7 @@ pub fn build_batch_presentation_with_normalized(
     let mut marketing_pages = 0usize;
     for report in &batch.reports {
         if let Some(profile) = report
+            .discoverability
             .seo
             .as_ref()
             .and_then(|seo| seo.content_profile.as_ref())
@@ -369,7 +373,8 @@ pub fn build_batch_presentation_with_normalized(
         .reports
         .iter()
         .filter_map(|r| {
-            r.seo
+            r.discoverability
+                .seo
                 .as_ref()
                 .filter(|seo| !seo.technical.text_excerpt.is_empty())
                 .map(|seo| (r.url.clone(), seo.technical.text_excerpt.clone()))
@@ -609,7 +614,7 @@ pub fn build_batch_presentation_with_normalized(
         let mut type_counts: HashMap<String, usize> = HashMap::new();
         let mut without = 0usize;
         for report in &batch.reports {
-            if let Some(seo) = &report.seo {
+            if let Some(seo) = &report.discoverability.seo {
                 if seo.structured_data.types.is_empty() {
                     without += 1;
                 } else {
@@ -768,7 +773,7 @@ fn build_url_matrix(batch: &BatchReport) -> Vec<UrlMatrixRow> {
     // Build inbound link map: path → count of pages that link here
     let mut inbound: HashMap<String, usize> = HashMap::new();
     for report in &batch.reports {
-        if let Some(seo) = &report.seo {
+        if let Some(seo) = &report.discoverability.seo {
             for target in &seo.technical.internal_link_targets {
                 *inbound.entry(target.clone()).or_insert(0) += 1;
             }
@@ -780,13 +785,19 @@ fn build_url_matrix(batch: &BatchReport) -> Vec<UrlMatrixRow> {
         .iter()
         .enumerate()
         .map(|(i, r)| {
-            let title = r.seo.as_ref().and_then(|seo| seo.meta.title.clone());
+            let title = r
+                .discoverability
+                .seo
+                .as_ref()
+                .and_then(|seo| seo.meta.title.clone());
             let word_count = r
+                .discoverability
                 .seo
                 .as_ref()
                 .map(|seo| seo.technical.word_count)
                 .unwrap_or(0);
             let outbound = r
+                .discoverability
                 .seo
                 .as_ref()
                 .map(|seo| seo.technical.internal_links + seo.technical.external_links)
@@ -837,7 +848,9 @@ fn build_duplicate_content(reports: &[crate::audit::AuditReport]) -> Vec<Duplica
     // (kind, normalized_value) → (verbatim display value, urls)
     let mut groups: HashMap<(&'static str, String), (String, Vec<String>)> = HashMap::new();
     for r in reports {
-        let Some(seo) = &r.seo else { continue };
+        let Some(seo) = &r.discoverability.seo else {
+            continue;
+        };
         let candidates: [(&'static str, Option<&str>); 3] = [
             ("title", seo.meta.title.as_deref()),
             ("meta_description", seo.meta.description.as_deref()),
@@ -888,7 +901,9 @@ fn build_canonical_issues(reports: &[crate::audit::AuditReport]) -> Vec<Canonica
 
     let mut out = Vec::new();
     for r in reports {
-        let Some(seo) = &r.seo else { continue };
+        let Some(seo) = &r.discoverability.seo else {
+            continue;
+        };
         let Some(canonical) = seo
             .technical
             .canonical_url
@@ -946,7 +961,9 @@ fn build_hreflang_issues(reports: &[crate::audit::AuditReport]) -> Vec<HreflangI
     // normalized page url → set of normalized hreflang targets it declares.
     let mut declared: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
     for r in reports {
-        let Some(seo) = &r.seo else { continue };
+        let Some(seo) = &r.discoverability.seo else {
+            continue;
+        };
         let entry = declared.entry(norm_url(&r.url)).or_default();
         for tag in &seo.technical.hreflang {
             let t = tag.url.trim();
@@ -958,7 +975,9 @@ fn build_hreflang_issues(reports: &[crate::audit::AuditReport]) -> Vec<HreflangI
 
     let mut out = Vec::new();
     for r in reports {
-        let Some(seo) = &r.seo else { continue };
+        let Some(seo) = &r.discoverability.seo else {
+            continue;
+        };
         let source = norm_url(&r.url);
         for tag in &seo.technical.hreflang {
             let target = norm_url(tag.url.trim());
