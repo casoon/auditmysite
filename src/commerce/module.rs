@@ -63,8 +63,14 @@ impl AuditModule for CommerceModule {
             })
             .unwrap_or(false);
 
+        let url = report.url.clone();
         report.commerce = report.discoverability.seo.as_ref().and_then(|seo| {
-            analyze_commerce(&seo.structured_data, &anchor_texts, is_ecommerce_stack)
+            analyze_commerce(
+                &url,
+                &seo.structured_data,
+                &anchor_texts,
+                is_ecommerce_stack,
+            )
         });
         Ok(())
     }

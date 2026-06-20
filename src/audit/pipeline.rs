@@ -273,8 +273,8 @@ impl PipelineConfig {
         // defaulted) and silently drop data within the same tool version. Bumped
         // Bumped to 2 for the ExperienceSection move, 3 for AccessibilitySection,
         // 4 for DiscoverabilitySection, 5 for the new commerce module field,
-        // 6 for the commerce trust-pages restructure (product/trust_pages split).
-        const CACHE_FMT: u8 = 6;
+        // 6 for the commerce trust-pages restructure, 7 for commerce page_kind.
+        const CACHE_FMT: u8 = 7;
         format!(
             "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),

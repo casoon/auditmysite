@@ -29,6 +29,8 @@ use crate::taxonomy::Severity;
 /// Commerce signals for one shop page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CommerceAnalysis {
+    /// Coarse commerce page type (foundation for page-type-specific heuristics).
+    pub page_kind: CommercePageKind,
     /// Product structured-data completeness; `None` when the page carries no
     /// `Product`/`Offer` schema (e.g. a category or info page of a shop).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,6 +40,52 @@ pub struct CommerceAnalysis {
     /// Findings across both groups.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub findings: Vec<CommerceFinding>,
+}
+
+/// Coarse classification of a shop page, from URL path + product schema.
+/// Foundation for page-type-specific commerce heuristics (cart/checkout/category).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommercePageKind {
+    ProductDetail,
+    Category,
+    Cart,
+    Checkout,
+    #[default]
+    Other,
+}
+
+/// Classify a shop page from its URL path and whether it carries Product schema.
+/// Checkout/cart are matched before product/category so a `/checkout` URL that
+/// still embeds product data is classified by its funnel stage.
+pub fn detect_page_kind(url: &str, has_product_schema: bool) -> CommercePageKind {
+    // Path including the leading slash (so "/kategorie/" needles match), host stripped.
+    let after_scheme = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
+    let path = match after_scheme.find('/') {
+        Some(i) => after_scheme[i..].to_lowercase(),
+        None => String::new(),
+    };
+    let has = |needles: &[&str]| needles.iter().any(|n| path.contains(n));
+
+    if has(&["checkout", "kasse", "bestellung", "zur-kasse"]) {
+        CommercePageKind::Checkout
+    } else if has(&["/cart", "warenkorb", "/basket", "/cart/"]) || path.ends_with("cart") {
+        CommercePageKind::Cart
+    } else if has_product_schema || has(&["/product/", "/produkt/", "/p/", "/dp/", "/artikel/"]) {
+        CommercePageKind::ProductDetail
+    } else if has(&[
+        "/category/",
+        "/kategorie/",
+        "/collection",
+        "/collections/",
+        "/c/",
+        "/shop/",
+        "/kategorien/",
+    ]) {
+        CommercePageKind::Category
+    } else {
+        CommercePageKind::Other
+    }
 }
 
 /// Product structured-data completeness.
@@ -192,6 +240,7 @@ const EXPECTED_PRODUCT_SIGNALS: u32 = 5;
 /// shop system (Shopify/WooCommerce/…) was detected. Returns `None` for pages
 /// with neither product schema nor a shop stack (non-shop pages).
 pub fn analyze_commerce(
+    url: &str,
     structured_data: &StructuredData,
     anchor_texts: &[String],
     is_ecommerce_stack: bool,
@@ -201,6 +250,7 @@ pub fn analyze_commerce(
         return None;
     }
 
+    let page_kind = detect_page_kind(url, product.is_some());
     let trust_pages = detect_trust_pages(anchor_texts);
 
     let mut findings = Vec::new();
@@ -210,6 +260,7 @@ pub fn analyze_commerce(
     push_trust_findings(&trust_pages, &mut findings);
 
     Some(CommerceAnalysis {
+        page_kind,
         product,
         trust_pages,
         findings,
@@ -542,13 +593,19 @@ mod tests {
     #[test]
     fn non_shop_page_returns_none() {
         let sd = structured(serde_json::json!({"@type": "Article", "headline": "x"}));
-        assert!(analyze_commerce(&sd, &[], false).is_none());
+        assert!(analyze_commerce("https://x.de/blog/post", &sd, &[], false).is_none());
     }
 
     #[test]
     fn ecommerce_stack_without_product_schema_still_analyzes_trust_pages() {
-        let c = analyze_commerce(&empty(), &["Impressum".into(), "Kontakt".into()], true)
-            .expect("ecommerce stack activates commerce");
+        let c = analyze_commerce(
+            "https://shop.de/kategorie/schuhe",
+            &empty(),
+            &["Impressum".into(), "Kontakt".into()],
+            true,
+        )
+        .expect("ecommerce stack activates commerce");
+        assert_eq!(c.page_kind, CommercePageKind::Category);
         assert!(c.product.is_none());
         assert!(c.trust_pages.impressum);
         assert!(c.trust_pages.kontakt);
@@ -585,9 +642,34 @@ mod tests {
         .iter()
         .map(|s| s.to_string())
         .collect();
-        let c = analyze_commerce(&sd, &anchors, false).expect("product");
+        let c = analyze_commerce("https://shop.de/produkt/widget", &sd, &anchors, false)
+            .expect("product");
+        assert_eq!(c.page_kind, CommercePageKind::ProductDetail);
         assert_eq!(c.product.unwrap().score, 100);
         assert!(c.findings.is_empty());
+    }
+
+    #[test]
+    fn page_kind_classification() {
+        use CommercePageKind::*;
+        assert_eq!(
+            detect_page_kind("https://s.de/checkout/step2", false),
+            Checkout
+        );
+        assert_eq!(detect_page_kind("https://s.de/warenkorb", false), Cart);
+        assert_eq!(
+            detect_page_kind("https://s.de/produkt/abc", false),
+            ProductDetail
+        );
+        // Product schema alone classifies as product detail even on a bare URL.
+        assert_eq!(detect_page_kind("https://s.de/x", true), ProductDetail);
+        assert_eq!(
+            detect_page_kind("https://s.de/kategorie/schuhe", false),
+            Category
+        );
+        assert_eq!(detect_page_kind("https://s.de/ueber-uns", false), Other);
+        // Funnel stage wins over embedded product data.
+        assert_eq!(detect_page_kind("https://s.de/kasse", true), Checkout);
     }
 
     #[test]
