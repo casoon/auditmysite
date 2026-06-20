@@ -1,18 +1,20 @@
-//! Commerce / shop audit — schema-driven commercial-completeness signals.
+//! Commerce / shop audit.
 //!
-//! Derive-only analysis (no CDP): reads the JSON-LD already collected by the SEO
-//! module (`discoverability.seo.structured_data`) and reports whether a product
-//! page exposes the commercial information shoppers (and search/AI) expect —
-//! price, availability/delivery, shipping, returns and reviews — as
-//! machine-readable structured data.
+//! Derive-only analysis (no CDP). Two signal groups, both gated to shop context
+//! (Product/Offer schema present, or an e-commerce tech stack detected) so it
+//! never fires on landing/editorial pages:
 //!
-//! Self-gating: produces `Some(..)` only on pages that carry `Product`/`Offer`
-//! schema; otherwise `None` (skipped on landing/editorial pages). Absence of a
-//! signal means "not exposed as structured data", which is itself an SEO/AI
-//! visibility gap — it does NOT assert the shop lacks the information on-page.
+//! - **Product completeness** (slice 1): from the JSON-LD the SEO module already
+//!   collected — price, availability/delivery, shipping, returns, reviews.
+//! - **Mandatory pages** (slice 2): whether the page links to the legally/UX
+//!   expected pages (Impressum, AGB, Widerruf/Retoure, Versand, Zahlungsarten,
+//!   Kontakt), detected from the screen-reader link inventory's anchor texts.
+//!   The batch layer aggregates these per-page booleans into a site-wide view.
 //!
-//! Localization (#406): the stored struct is canonical English; findings carry a
+//! Localization (#406): stored struct is canonical English; findings carry a
 //! `kind` enum and `commerce_finding_text(kind, en)` is the single text source.
+//! Honest wording: absence means "not exposed as structured data" / "not linked
+//! from this page", never a claim of legal (non-)compliance.
 
 pub mod module;
 
@@ -24,28 +26,33 @@ use serde_json::Value;
 use crate::seo::StructuredData;
 use crate::taxonomy::Severity;
 
-/// Schema-derived commercial completeness for a product page.
+/// Commerce signals for one shop page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CommerceAnalysis {
-    /// Price + currency + validity from `Offer`.
+    /// Product structured-data completeness; `None` when the page carries no
+    /// `Product`/`Offer` schema (e.g. a category or info page of a shop).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub price: Option<PriceInfo>,
-    /// `Offer.availability` (schema.org URL or token, e.g. `InStock`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub availability: Option<String>,
-    /// Human delivery time from `shippingDetails.deliveryTime`, if present.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_time: Option<String>,
-    /// Whether `OfferShippingDetails` is present (and free-shipping if derivable).
-    pub shipping: ShippingInfo,
-    /// Whether a `MerchantReturnPolicy` is present (and its window, if given).
-    pub returns: ReturnsInfo,
-    /// `AggregateRating` rating value + review count, if present.
-    pub reviews: ReviewInfo,
-    /// Findings for missing/incomplete commercial structured data.
+    pub product: Option<ProductCommerce>,
+    /// Which mandatory/trust pages this page links to.
+    pub trust_pages: TrustPages,
+    /// Findings across both groups.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub findings: Vec<CommerceFinding>,
-    /// Share of expected commercial signals exposed (0–100).
+}
+
+/// Product structured-data completeness.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProductCommerce {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<PriceInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub availability: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delivery_time: Option<String>,
+    pub shipping: ShippingInfo,
+    pub returns: ReturnsInfo,
+    pub reviews: ReviewInfo,
+    /// Share of the 5 expected product signals exposed (0–100).
     pub score: u32,
 }
 
@@ -54,132 +61,193 @@ pub struct PriceInfo {
     pub value: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub currency: Option<String>,
-    /// `priceValidUntil` raw value (ISO date), if present.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub valid_until: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ShippingInfo {
-    /// `OfferShippingDetails` present anywhere on the offer/product.
     pub has_shipping_details: bool,
-    /// A shipping rate value was found (`shippingRate.value`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shipping_rate: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ReturnsInfo {
-    /// `MerchantReturnPolicy` / `hasMerchantReturnPolicy` present.
     pub has_return_policy: bool,
-    /// `merchantReturnDays` value, if given.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub return_days: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ReviewInfo {
-    /// `aggregateRating.ratingValue`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rating_value: Option<String>,
-    /// `aggregateRating.reviewCount` / `ratingCount`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub review_count: Option<String>,
 }
 
-/// Canonical finding kinds. Text is derived via [`commerce_finding_text`].
+/// Which mandatory/trust pages the page links to (by anchor text).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct TrustPages {
+    pub impressum: bool,
+    pub agb: bool,
+    pub widerruf: bool,
+    pub versand: bool,
+    pub zahlungsarten: bool,
+    pub kontakt: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommerceFindingKind {
+    // Product structured data.
     MissingPrice,
     MissingAvailability,
     MissingShippingDetails,
     MissingReturnPolicy,
     MissingReviews,
+    // Mandatory / trust pages.
+    MissingImpressumLink,
+    MissingAgbLink,
+    MissingWiderrufLink,
+    MissingShippingPageLink,
+    MissingPaymentLink,
+    MissingContactLink,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CommerceFinding {
     pub kind: CommerceFindingKind,
     pub severity: Severity,
-    /// Canonical English message (#406); PDF re-derives via the run locale.
     pub message: String,
 }
 
-const EXPECTED_SIGNALS: u32 = 5;
+const EXPECTED_PRODUCT_SIGNALS: u32 = 5;
 
-/// Analyze commercial completeness from already-collected structured data.
-/// Returns `None` when the page carries no `Product`/`Offer` schema.
-pub fn analyze_commerce(structured_data: &StructuredData) -> Option<CommerceAnalysis> {
+/// Analyze commerce signals. `anchor_texts` are the page's link anchor texts
+/// (from the screen-reader link inventory); `is_ecommerce_stack` is true when a
+/// shop system (Shopify/WooCommerce/…) was detected. Returns `None` for pages
+/// with neither product schema nor a shop stack (non-shop pages).
+pub fn analyze_commerce(
+    structured_data: &StructuredData,
+    anchor_texts: &[String],
+    is_ecommerce_stack: bool,
+) -> Option<CommerceAnalysis> {
+    let product = analyze_product(structured_data);
+    if product.is_none() && !is_ecommerce_stack {
+        return None;
+    }
+
+    let trust_pages = detect_trust_pages(anchor_texts);
+
+    let mut findings = Vec::new();
+    if let Some(p) = &product {
+        push_product_findings(p, &mut findings);
+    }
+    push_trust_findings(&trust_pages, &mut findings);
+
+    Some(CommerceAnalysis {
+        product,
+        trust_pages,
+        findings,
+    })
+}
+
+fn analyze_product(structured_data: &StructuredData) -> Option<ProductCommerce> {
     let product = structured_data
         .json_ld
         .iter()
         .find(|s| schema_is(&s.content, "Product") || schema_is(&s.content, "Offer"))?;
     let content = &product.content;
-
-    // The Offer may be the root (schema_type Offer) or nested under `offers`
-    // (single object or array). Shipping/returns can live on offer or product.
     let offer = first_offer(content);
     let offer_or_product = offer.unwrap_or(content);
 
     let price = extract_price(offer_or_product, content);
     let availability = str_field(offer_or_product, "availability").map(normalize_schema_token);
-
     let shipping = extract_shipping(offer_or_product, content);
     let delivery_time = extract_delivery_time(offer_or_product, content);
     let returns = extract_returns(offer_or_product, content);
     let reviews = extract_reviews(content);
 
-    let mut findings = Vec::new();
-    let mut present = 0u32;
+    let present = [
+        price.is_some(),
+        availability.is_some(),
+        shipping.has_shipping_details,
+        returns.has_return_policy,
+        reviews.rating_value.is_some(),
+    ]
+    .iter()
+    .filter(|p| **p)
+    .count() as u32;
+    let score = (present * 100) / EXPECTED_PRODUCT_SIGNALS;
 
-    if price.is_some() {
-        present += 1;
-    } else {
-        findings.push(finding(CommerceFindingKind::MissingPrice, Severity::High));
-    }
-    if availability.is_some() {
-        present += 1;
-    } else {
-        findings.push(finding(
-            CommerceFindingKind::MissingAvailability,
-            Severity::Medium,
-        ));
-    }
-    if shipping.has_shipping_details {
-        present += 1;
-    } else {
-        findings.push(finding(
-            CommerceFindingKind::MissingShippingDetails,
-            Severity::Medium,
-        ));
-    }
-    if returns.has_return_policy {
-        present += 1;
-    } else {
-        findings.push(finding(
-            CommerceFindingKind::MissingReturnPolicy,
-            Severity::Medium,
-        ));
-    }
-    if reviews.rating_value.is_some() {
-        present += 1;
-    } else {
-        findings.push(finding(CommerceFindingKind::MissingReviews, Severity::Low));
-    }
-
-    let score = (present * 100) / EXPECTED_SIGNALS;
-
-    Some(CommerceAnalysis {
+    Some(ProductCommerce {
         price,
         availability,
         delivery_time,
         shipping,
         returns,
         reviews,
-        findings,
         score,
     })
+}
+
+fn push_product_findings(p: &ProductCommerce, out: &mut Vec<CommerceFinding>) {
+    use CommerceFindingKind::*;
+    if p.price.is_none() {
+        out.push(finding(MissingPrice, Severity::High));
+    }
+    if p.availability.is_none() {
+        out.push(finding(MissingAvailability, Severity::Medium));
+    }
+    if !p.shipping.has_shipping_details {
+        out.push(finding(MissingShippingDetails, Severity::Medium));
+    }
+    if !p.returns.has_return_policy {
+        out.push(finding(MissingReturnPolicy, Severity::Medium));
+    }
+    if p.reviews.rating_value.is_none() {
+        out.push(finding(MissingReviews, Severity::Low));
+    }
+}
+
+fn push_trust_findings(t: &TrustPages, out: &mut Vec<CommerceFinding>) {
+    use CommerceFindingKind::*;
+    // German B2C duty pages weigh heaviest; AGB/shipping/payment are strong UX
+    // expectations; contact is advisory. Wording stays "not linked", not "absent".
+    if !t.impressum {
+        out.push(finding(MissingImpressumLink, Severity::High));
+    }
+    if !t.widerruf {
+        out.push(finding(MissingWiderrufLink, Severity::High));
+    }
+    if !t.agb {
+        out.push(finding(MissingAgbLink, Severity::Medium));
+    }
+    if !t.versand {
+        out.push(finding(MissingShippingPageLink, Severity::Medium));
+    }
+    if !t.zahlungsarten {
+        out.push(finding(MissingPaymentLink, Severity::Low));
+    }
+    if !t.kontakt {
+        out.push(finding(MissingContactLink, Severity::Low));
+    }
+}
+
+/// Detect mandatory/trust page links from anchor texts (case-insensitive).
+pub fn detect_trust_pages(anchor_texts: &[String]) -> TrustPages {
+    let lower: Vec<String> = anchor_texts.iter().map(|t| t.to_lowercase()).collect();
+    let any = |needles: &[&str]| lower.iter().any(|t| needles.iter().any(|n| t.contains(n)));
+    TrustPages {
+        impressum: any(&["impressum", "imprint", "legal notice"]),
+        agb: any(&["agb", "allgemeine geschäftsbedingungen", "terms"]),
+        widerruf: any(&["widerruf", "rückgabe", "retoure", "return"]),
+        versand: any(&["versand", "lieferung", "shipping", "delivery"]),
+        zahlungsarten: any(&["zahlung", "zahlart", "payment"]),
+        kontakt: any(&["kontakt", "contact"]),
+    }
 }
 
 fn finding(kind: CommerceFindingKind, severity: Severity) -> CommerceFinding {
@@ -190,8 +258,7 @@ fn finding(kind: CommerceFindingKind, severity: Severity) -> CommerceFinding {
     }
 }
 
-/// Single source of truth for finding wording (#406). Analysis bakes English
-/// (`en = true`); the PDF presentation calls it with the run locale.
+/// Single source of truth for finding wording (#406).
 pub fn commerce_finding_text(kind: CommerceFindingKind, en: bool) -> String {
     use CommerceFindingKind::*;
     match (kind, en) {
@@ -225,13 +292,35 @@ pub fn commerce_finding_text(kind: CommerceFindingKind, en: bool) -> String {
         (MissingReviews, false) => {
             "Keine Sammelbewertung in den strukturierten Daten (aggregateRating) — Bewertungssterne können nicht in Suchergebnissen erscheinen.".into()
         }
+        (MissingImpressumLink, true) => "No imprint (Impressum) link found on this page.".into(),
+        (MissingImpressumLink, false) => "Kein Impressum-Link auf dieser Seite gefunden.".into(),
+        (MissingWiderrufLink, true) => {
+            "No right-of-withdrawal / returns (Widerruf/Retoure) link found on this page.".into()
+        }
+        (MissingWiderrufLink, false) => {
+            "Kein Widerruf-/Retoure-Link auf dieser Seite gefunden.".into()
+        }
+        (MissingAgbLink, true) => "No terms (AGB) link found on this page.".into(),
+        (MissingAgbLink, false) => "Kein AGB-Link auf dieser Seite gefunden.".into(),
+        (MissingShippingPageLink, true) => {
+            "No shipping-info (Versand/Lieferung) link found on this page.".into()
+        }
+        (MissingShippingPageLink, false) => {
+            "Kein Versand-/Lieferungs-Link auf dieser Seite gefunden.".into()
+        }
+        (MissingPaymentLink, true) => {
+            "No payment-methods (Zahlungsarten) link found on this page.".into()
+        }
+        (MissingPaymentLink, false) => {
+            "Kein Zahlungsarten-Link auf dieser Seite gefunden.".into()
+        }
+        (MissingContactLink, true) => "No contact (Kontakt) link found on this page.".into(),
+        (MissingContactLink, false) => "Kein Kontakt-Link auf dieser Seite gefunden.".into(),
     }
 }
 
 // ─── JSON-LD navigation helpers ────────────────────────────────────────────
 
-/// True if the value's `@type` equals or contains `wanted` (handles string and
-/// array `@type`).
 fn schema_is(v: &Value, wanted: &str) -> bool {
     match v.get("@type") {
         Some(Value::String(s)) => s == wanted,
@@ -240,8 +329,6 @@ fn schema_is(v: &Value, wanted: &str) -> bool {
     }
 }
 
-/// The first `Offer` object: the `offers` field (object or array element), else
-/// the root itself if it is an Offer.
 fn first_offer(content: &Value) -> Option<&Value> {
     match content.get("offers") {
         Some(Value::Object(_)) => content.get("offers"),
@@ -258,7 +345,6 @@ fn first_offer(content: &Value) -> Option<&Value> {
 
 fn extract_price(offer: &Value, product: &Value) -> Option<PriceInfo> {
     let value = value_to_string(offer.get("price")).or_else(|| {
-        // Some shops use priceSpecification.price.
         offer
             .get("priceSpecification")
             .and_then(|ps| value_to_string(ps.get("price")))
@@ -298,8 +384,6 @@ fn extract_delivery_time(offer: &Value, product: &Value) -> Option<String> {
         .get("shippingDetails")
         .or_else(|| product.get("shippingDetails"))?;
     let dt = details.get("deliveryTime")?;
-    // deliveryTime is usually a ShippingDeliveryTime object; surface a compact
-    // human hint if a transit-time bound is given, else just note its presence.
     let transit = dt
         .get("transitTime")
         .or_else(|| dt.get("handlingTime"))
@@ -313,7 +397,6 @@ fn extract_returns(offer: &Value, product: &Value) -> ReturnsInfo {
         .get("hasMerchantReturnPolicy")
         .or_else(|| product.get("hasMerchantReturnPolicy"))
         .or_else(|| {
-            // Some shops emit a standalone MerchantReturnPolicy node.
             if schema_is(product, "MerchantReturnPolicy") {
                 Some(product)
             } else {
@@ -330,8 +413,7 @@ fn extract_returns(offer: &Value, product: &Value) -> ReturnsInfo {
 }
 
 fn extract_reviews(product: &Value) -> ReviewInfo {
-    let agg = product.get("aggregateRating");
-    match agg {
+    match product.get("aggregateRating") {
         Some(a) => ReviewInfo {
             rating_value: value_to_string(a.get("ratingValue")),
             review_count: value_to_string(a.get("reviewCount"))
@@ -345,7 +427,6 @@ fn str_field(v: &Value, key: &str) -> Option<String> {
     v.get(key).and_then(|x| x.as_str()).map(str::to_string)
 }
 
-/// Stringify a scalar JSON value (string or number); `None` for other shapes.
 fn value_to_string(v: Option<&Value>) -> Option<String> {
     v.and_then(value_to_string_owned)
 }
@@ -358,7 +439,6 @@ fn value_to_string_owned(v: &Value) -> Option<String> {
     }
 }
 
-/// `https://schema.org/InStock` → `InStock`; leaves bare tokens untouched.
 fn normalize_schema_token(s: String) -> String {
     s.rsplit('/').next().unwrap_or(&s).to_string()
 }
@@ -387,17 +467,41 @@ mod tests {
         }
     }
 
-    #[test]
-    fn non_product_page_returns_none() {
-        let sd = structured(serde_json::json!({"@type": "Article", "headline": "x"}));
-        assert!(analyze_commerce(&sd).is_none());
+    fn empty() -> StructuredData {
+        StructuredData {
+            json_ld: vec![],
+            types: vec![],
+            has_structured_data: false,
+            rich_snippets_potential: vec![],
+            schema_issues: vec![],
+        }
     }
 
     #[test]
-    fn full_product_scores_100_no_findings() {
+    fn non_shop_page_returns_none() {
+        let sd = structured(serde_json::json!({"@type": "Article", "headline": "x"}));
+        assert!(analyze_commerce(&sd, &[], false).is_none());
+    }
+
+    #[test]
+    fn ecommerce_stack_without_product_schema_still_analyzes_trust_pages() {
+        let c = analyze_commerce(&empty(), &["Impressum".into(), "Kontakt".into()], true)
+            .expect("ecommerce stack activates commerce");
+        assert!(c.product.is_none());
+        assert!(c.trust_pages.impressum);
+        assert!(c.trust_pages.kontakt);
+        assert!(!c.trust_pages.widerruf);
+        // Widerruf/AGB/Versand/Zahlung missing → findings.
+        assert!(c
+            .findings
+            .iter()
+            .any(|f| f.kind == CommerceFindingKind::MissingWiderrufLink));
+    }
+
+    #[test]
+    fn full_product_with_all_trust_pages_has_no_findings() {
         let sd = structured(serde_json::json!({
             "@type": "Product",
-            "name": "Widget",
             "aggregateRating": {"ratingValue": "4.6", "reviewCount": "120"},
             "offers": {
                 "@type": "Offer",
@@ -408,34 +512,33 @@ mod tests {
                 "hasMerchantReturnPolicy": {"@type": "MerchantReturnPolicy", "merchantReturnDays": "30"}
             }
         }));
-        let c = analyze_commerce(&sd).expect("product");
-        assert_eq!(c.score, 100);
+        let anchors: Vec<String> = [
+            "Impressum",
+            "AGB",
+            "Widerruf",
+            "Versand",
+            "Zahlungsarten",
+            "Kontakt",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let c = analyze_commerce(&sd, &anchors, false).expect("product");
+        assert_eq!(c.product.unwrap().score, 100);
         assert!(c.findings.is_empty());
-        assert_eq!(c.price.unwrap().value, "19.99");
-        assert_eq!(c.availability.as_deref(), Some("InStock"));
-        assert!(c.shipping.has_shipping_details);
-        assert_eq!(c.shipping.shipping_rate.as_deref(), Some("3.90"));
-        assert!(c.returns.has_return_policy);
-        assert_eq!(c.returns.return_days.as_deref(), Some("30"));
-        assert_eq!(c.reviews.rating_value.as_deref(), Some("4.6"));
     }
 
     #[test]
-    fn bare_product_flags_all_gaps() {
-        let sd = structured(serde_json::json!({"@type": "Product", "name": "Bare"}));
-        let c = analyze_commerce(&sd).expect("product");
-        assert_eq!(c.score, 0);
-        assert_eq!(c.findings.len(), 5);
-    }
-
-    #[test]
-    fn offers_as_array_is_handled() {
-        let sd = structured(serde_json::json!({
-            "@type": "Product",
-            "offers": [{"@type": "Offer", "price": "5", "priceCurrency": "EUR"}]
-        }));
-        let c = analyze_commerce(&sd).expect("product");
-        assert_eq!(c.price.unwrap().value, "5");
+    fn trust_page_keywords_match_variants() {
+        let t = detect_trust_pages(&[
+            "Allgemeine Geschäftsbedingungen".into(),
+            "Rückgabe & Retoure".into(),
+            "Lieferung".into(),
+        ]);
+        assert!(t.agb);
+        assert!(t.widerruf);
+        assert!(t.versand);
+        assert!(!t.impressum);
     }
 
     #[test]
@@ -446,6 +549,12 @@ mod tests {
             CommerceFindingKind::MissingShippingDetails,
             CommerceFindingKind::MissingReturnPolicy,
             CommerceFindingKind::MissingReviews,
+            CommerceFindingKind::MissingImpressumLink,
+            CommerceFindingKind::MissingAgbLink,
+            CommerceFindingKind::MissingWiderrufLink,
+            CommerceFindingKind::MissingShippingPageLink,
+            CommerceFindingKind::MissingPaymentLink,
+            CommerceFindingKind::MissingContactLink,
         ] {
             let t = commerce_finding_text(kind, true);
             assert!(
