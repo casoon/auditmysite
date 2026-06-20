@@ -14,6 +14,7 @@ pub mod interpretation;
 pub mod module;
 pub mod normalized;
 mod pipeline;
+pub mod prioritization;
 mod report;
 mod scoring;
 pub mod summary;

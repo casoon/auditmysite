@@ -31,49 +31,10 @@ impl Default for ReportConfig {
 
 // ─── Shared Enums ───────────────────────────────────────────────────────────
 
-/// Priority level for findings and actions
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Priority {
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-impl Priority {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Priority::Critical => {
-                if en {
-                    "Critical"
-                } else {
-                    "Kritisch"
-                }
-            }
-            Priority::High => {
-                if en {
-                    "High"
-                } else {
-                    "Hoch"
-                }
-            }
-            Priority::Medium => {
-                if en {
-                    "Medium"
-                } else {
-                    "Mittel"
-                }
-            }
-            Priority::Low => {
-                if en {
-                    "Low"
-                } else {
-                    "Niedrig"
-                }
-            }
-        }
-    }
-}
+/// Priority, Effort and ExecutionPriority are domain prioritization concepts and
+/// now live in `audit::prioritization`; re-exported here so existing
+/// `report_model::{Priority, Effort, ExecutionPriority}` references keep working.
+pub use crate::audit::prioritization::{Effort, ExecutionPriority, Priority};
 
 /// Responsible role for a fix
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -109,72 +70,6 @@ impl Role {
                     "Projektleitung"
                 }
             }
-        }
-    }
-}
-
-/// Effort estimate for a fix
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Effort {
-    Quick,
-    Medium,
-    Structural,
-}
-
-impl Effort {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Effort::Quick => {
-                if en {
-                    "Low complexity"
-                } else {
-                    "Geringe Komplexität"
-                }
-            }
-            Effort::Medium => {
-                if en {
-                    "Medium effort"
-                } else {
-                    "Mittlerer Aufwand"
-                }
-            }
-            Effort::Structural => {
-                if en {
-                    "High complexity"
-                } else {
-                    "Hohe Komplexität"
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ExecutionPriority {
-    Optional,
-    Important,
-    Immediate,
-}
-
-impl ExecutionPriority {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            ExecutionPriority::Immediate => {
-                if en {
-                    "Urgent"
-                } else {
-                    "Dringend"
-                }
-            }
-            ExecutionPriority::Important => {
-                if en {
-                    "High"
-                } else {
-                    "Hoch"
-                }
-            }
-            // "Standard" is identical in both locales.
-            ExecutionPriority::Optional => "Standard",
         }
     }
 }

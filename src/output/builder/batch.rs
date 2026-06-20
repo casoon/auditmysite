@@ -13,11 +13,14 @@ use crate::util::truncate_url;
 use crate::wcag::Severity;
 
 use super::actions::{
-    build_narrative_arc, derive_action_plan, derive_business_impact, derive_execution_priority,
-    impact_score, localized_finding_text, score_to_priority, severity_to_priority,
+    build_narrative_arc, derive_action_plan, derive_business_impact, impact_score,
+    localized_finding_text,
 };
 use super::helpers::{build_batch_appendix, build_batch_verdict};
 use super::seo::page_profile_optimization_note;
+use crate::audit::prioritization::{
+    derive_execution_priority, score_to_priority, severity_to_priority,
+};
 use crate::seo::{
     average_page_semantic_score, derive_domain_topics, derive_topic_overlap_pairs,
     extract_page_topics,

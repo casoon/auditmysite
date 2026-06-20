@@ -6,10 +6,8 @@ use crate::output::report_model::{
     RepresentativeOccurrence, Role,
 };
 
-use super::super::actions::{
-    build_narrative_arc, derive_business_impact, derive_execution_priority, localized_finding_text,
-    severity_to_priority,
-};
+use super::super::actions::{build_narrative_arc, derive_business_impact, localized_finding_text};
+use crate::audit::prioritization::{derive_execution_priority, severity_to_priority};
 
 pub(super) fn finding_group_from_normalized(
     i18n: &I18n,

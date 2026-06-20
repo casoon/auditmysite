@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 
 use crate::output::report_model::{
-    ActionItem, ActionPlan, Effort, ExecutionPriority, FindingGroup, NarrativeArc, Priority, Role,
-    RoleAssignment,
+    ActionItem, ActionPlan, Effort, FindingGroup, NarrativeArc, Role, RoleAssignment,
 };
 use crate::wcag::Severity;
 
@@ -126,21 +125,6 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         medium_term,
         structural,
         role_assignments,
-    }
-}
-
-pub(super) fn derive_execution_priority(
-    severity: Severity,
-    effort: Effort,
-    dimension: &str,
-) -> ExecutionPriority {
-    match (severity, effort, dimension) {
-        (Severity::Critical, _, _) => ExecutionPriority::Immediate,
-        (Severity::High, _, "Accessibility") => ExecutionPriority::Immediate,
-        (Severity::High, Effort::Quick, _) => ExecutionPriority::Important,
-        (Severity::High, _, _) => ExecutionPriority::Important,
-        (Severity::Medium, Effort::Quick, _) => ExecutionPriority::Important,
-        _ => ExecutionPriority::Optional,
     }
 }
 
@@ -268,27 +252,6 @@ pub(super) fn humanize_action_text(i18n: &I18n, action: &str) -> String {
         return i18n.t("action-human-landmark");
     }
     action.to_string()
-}
-
-pub(super) fn severity_to_priority(severity: Severity) -> Priority {
-    match severity {
-        Severity::Critical => Priority::Critical,
-        Severity::High => Priority::High,
-        Severity::Medium => Priority::Medium,
-        Severity::Low => Priority::Low,
-    }
-}
-
-pub(super) fn score_to_priority(score: f32) -> Priority {
-    if score < 50.0 {
-        Priority::Critical
-    } else if score < 70.0 {
-        Priority::High
-    } else if score < 85.0 {
-        Priority::Medium
-    } else {
-        Priority::Low
-    }
 }
 
 pub(super) fn impact_score(group: &FindingGroup) -> u32 {
