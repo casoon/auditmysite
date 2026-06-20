@@ -267,9 +267,16 @@ impl PipelineConfig {
     /// requests a different scope. Excludes options that do not affect content
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
+        // `fmt` is bumped whenever the cached `AuditReport` struct shape changes.
+        // `AuditReport` has no `deny_unknown_fields`, so an old-shape cache would
+        // otherwise deserialize *successfully* (unknown keys ignored, new fields
+        // defaulted) and silently drop data within the same tool version. Bumped
+        // to 2 for the ExperienceSection move (mobile/dark_mode/budget_violations).
+        const CACHE_FMT: u8 = 2;
         format!(
-            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
+            CACHE_FMT,
             self.wcag_level,
             self.check_performance as u8,
             self.check_seo as u8,
@@ -1211,7 +1218,7 @@ fn apply_canonical_perf(
 
     let new_perf = report.performance.as_ref().map(|p| p.score.overall);
     let mobile_seo = report.seo.as_ref().map(|s| s.score);
-    let mobile_mf = report.mobile.as_ref().map(|m| m.score);
+    let mobile_mf = report.experience.mobile.as_ref().map(|m| m.score);
     if let Some(ref mut vps) = report.viewport_scores {
         vps.mobile.performance = new_perf;
         let mobile_overall = compute_viewport_overall(

@@ -251,7 +251,7 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.security {
         push(m);
     }
-    if let Some(ref m) = report.mobile {
+    if let Some(ref m) = report.experience.mobile {
         push(m);
     }
     if let Some(ref m) = report.ux {
@@ -260,7 +260,7 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.journey {
         push(m);
     }
-    if let Some(ref m) = report.dark_mode {
+    if let Some(ref m) = report.experience.dark_mode {
         push(m);
     }
     if let Some(ref m) = report.source_quality {
@@ -302,10 +302,10 @@ pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     push_module!(report.performance);
     push_module!(report.seo);
     push_module!(report.security);
-    push_module!(report.mobile);
+    push_module!(report.experience.mobile);
     push_module!(report.ux);
     push_module!(report.journey);
-    push_module!(report.dark_mode);
+    push_module!(report.experience.dark_mode);
     push_module!(report.source_quality);
     push_module!(report.ai_visibility);
     push_module!(report.content_visibility);

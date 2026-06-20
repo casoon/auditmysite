@@ -286,11 +286,12 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         performance: artifacts.snapshot.performance.clone(),
         seo: artifacts.snapshot.seo.clone(),
         security: artifacts.snapshot.security.clone(),
-        mobile: artifacts.snapshot.mobile.clone(),
+        experience: crate::audit::report::ExperienceSection {
+            mobile: artifacts.snapshot.mobile.clone(),
+            ..Default::default()
+        },
         ux: None,
         journey: None,
-        budget_violations: Vec::new(),
-        dark_mode: None,
         source_quality: None,
         ai_visibility: None,
         content_visibility: None,

@@ -412,7 +412,7 @@ pub fn build_batch_presentation_with_normalized(
         use std::collections::HashMap;
         let mut map: HashMap<String, (String, usize, &str)> = HashMap::new();
         for r in &batch.reports {
-            for v in &r.budget_violations {
+            for v in &r.experience.budget_violations {
                 let entry = map
                     .entry(v.metric.clone())
                     .or_insert_with(|| (v.budget_label.clone(), 0, "Warning"));

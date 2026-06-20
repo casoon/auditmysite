@@ -261,7 +261,10 @@ async fn test_full_audit_with_all_modules() {
         report.security.is_some(),
         "Security results should be present"
     );
-    assert!(report.mobile.is_some(), "Mobile results should be present");
+    assert!(
+        report.experience.mobile.is_some(),
+        "Mobile results should be present"
+    );
 
     // Overall score should be calculated
     let overall = auditmysite::audit::normalize(&report)
@@ -341,7 +344,10 @@ async fn test_mobile_issues_detected() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    let mobile = report.mobile.expect("Mobile analysis should be present");
+    let mobile = report
+        .experience
+        .mobile
+        .expect("Mobile analysis should be present");
 
     // Missing viewport should be detected
     assert!(

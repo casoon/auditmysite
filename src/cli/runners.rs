@@ -158,15 +158,18 @@ pub async fn run_single_mode(
     // Evaluate performance budgets from config
     if let Some(ref cfg) = *config {
         if !cfg.budgets.is_empty() {
-            report.budget_violations = auditmysite::audit::evaluate_budgets(&report, &cfg.budgets);
-            if !report.budget_violations.is_empty() && !args.quiet {
+            report.experience.budget_violations =
+                auditmysite::audit::evaluate_budgets(&report, &cfg.budgets);
+            if !report.experience.budget_violations.is_empty() && !args.quiet {
                 use auditmysite::audit::BudgetSeverity;
                 let errors = report
+                    .experience
                     .budget_violations
                     .iter()
                     .filter(|v| v.severity == BudgetSeverity::Error)
                     .count();
                 let warnings = report
+                    .experience
                     .budget_violations
                     .iter()
                     .filter(|v| v.severity == BudgetSeverity::Warning)
@@ -174,8 +177,8 @@ pub async fn run_single_mode(
                 println!(
                     "{} {}{}: {} Error{}, {} Warning{}",
                     "Budget:".yellow().bold(),
-                    report.budget_violations.len(),
-                    if report.budget_violations.len() == 1 {
+                    report.experience.budget_violations.len(),
+                    if report.experience.budget_violations.len() == 1 {
                         " violation"
                     } else {
                         " violations"

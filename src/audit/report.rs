@@ -128,6 +128,22 @@ pub struct ViewportScores {
     pub weighted_overall: u32,
 }
 
+/// User-experience signals grouped together: mobile friendliness, dark-mode
+/// support and performance-budget violations. First of the planned `AuditReport`
+/// section structs that replace the flat list of optional module fields.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExperienceSection {
+    /// Mobile friendliness analysis (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mobile: Option<MobileFriendliness>,
+    /// Dark mode support and quality analysis (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dark_mode: Option<DarkModeAnalysis>,
+    /// Budget violations detected for this page
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
+}
+
 /// Complete audit report for a single URL
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditReport {
@@ -160,21 +176,16 @@ pub struct AuditReport {
     /// Security analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security: Option<SecurityAnalysis>,
-    /// Mobile friendliness analysis (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mobile: Option<MobileFriendliness>,
-    /// Budget violations detected for this page
-    #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
+    /// User-experience signals grouped into one section: mobile friendliness,
+    /// dark-mode support and performance-budget violations.
+    #[serde(default)]
+    pub experience: ExperienceSection,
     /// UX analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ux: Option<UxAnalysis>,
     /// Journey analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journey: Option<crate::journey::JourneyAnalysis>,
-    /// Dark mode support and quality analysis (optional)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dark_mode: Option<DarkModeAnalysis>,
     /// Source quality analysis (Substanz / Konsistenz / Autorität)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
@@ -296,11 +307,9 @@ impl AuditReport {
             performance: None,
             seo: None,
             security: None,
-            mobile: None,
+            experience: ExperienceSection::default(),
             ux: None,
             journey: None,
-            budget_violations: Vec::new(),
-            dark_mode: None,
             source_quality: None,
             ai_visibility: None,
             content_visibility: None,
@@ -348,7 +357,7 @@ impl AuditReport {
 
     /// Set mobile friendliness results
     pub fn with_mobile(mut self, mobile: MobileFriendliness) -> Self {
-        self.mobile = Some(mobile);
+        self.experience.mobile = Some(mobile);
         self
     }
 
@@ -366,7 +375,7 @@ impl AuditReport {
 
     /// Set dark mode analysis results
     pub fn with_dark_mode(mut self, dark_mode: DarkModeAnalysis) -> Self {
-        self.dark_mode = Some(dark_mode);
+        self.experience.dark_mode = Some(dark_mode);
         self
     }
 
@@ -842,7 +851,7 @@ mod tests {
         assert!(report.performance.is_none());
         assert!(report.seo.is_none());
         assert!(report.security.is_none());
-        assert!(report.mobile.is_none());
+        assert!(report.experience.mobile.is_none());
     }
 
     #[test]

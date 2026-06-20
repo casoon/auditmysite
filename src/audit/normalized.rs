@@ -1031,7 +1031,7 @@ fn build_module_scores(
             measurement_type: "measured".to_string(),
         });
     }
-    if let Some(ref mob) = report.mobile {
+    if let Some(ref mob) = report.experience.mobile {
         module_scores.push(ModuleScoreEntry {
             name: "Mobile".to_string(),
             score: mob.score,
@@ -1139,7 +1139,7 @@ fn build_module_scores(
             measurement_type: measurement_type.to_string(),
         });
     };
-    if let Some(ref dm) = report.dark_mode {
+    if let Some(ref dm) = report.experience.dark_mode {
         push_indicator("Dark Mode", dm.score, "measured");
     }
     if let Some(ref ai) = report.ai_visibility {
@@ -1736,10 +1736,10 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
             .and_then(|d| d.desktop.performance.as_ref()),
         raw_seo: report.seo.as_ref(),
         raw_security: report.security.as_ref(),
-        raw_mobile: report.mobile.as_ref(),
+        raw_mobile: report.experience.mobile.as_ref(),
         raw_ux: report.ux.as_ref(),
         raw_journey: report.journey.as_ref(),
-        raw_dark_mode: report.dark_mode.as_ref(),
+        raw_dark_mode: report.experience.dark_mode.as_ref(),
         raw_source_quality: report.source_quality.as_ref(),
         raw_ai_visibility: report.ai_visibility.as_ref(),
         raw_tech_stack: report.tech_stack.as_ref(),
