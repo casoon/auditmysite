@@ -307,6 +307,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         patterns: None,
         screenshot_status: Default::default(),
         best_practices: None,
+        commerce: None,
         consent_banner_detected: false,
         consent_banner_cmp: None,
         consent_banner_dismissed: false,

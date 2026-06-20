@@ -15,6 +15,7 @@ use serde_json::Value;
 use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
+use crate::commerce::CommerceAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::dark_mode::DarkModeAnalysis;
 #[cfg(feature = "pdf")]
@@ -205,6 +206,19 @@ impl ReportModule for BestPracticesAnalysis {
     }
 }
 
+impl ReportModule for CommerceAnalysis {
+    fn module_key(&self) -> &'static str {
+        "commerce"
+    }
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+    #[cfg(feature = "pdf")]
+    fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
+        pdf_marker(self.module_key(), i18n)
+    }
+}
+
 impl ReportModule for TechStackAnalysis {
     fn module_key(&self) -> &'static str {
         "tech_stack"
@@ -275,6 +289,9 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.best_practices {
         push(m);
     }
+    if let Some(ref m) = report.commerce {
+        push(m);
+    }
     if let Some(ref m) = report.discoverability.tech_stack {
         push(m);
     }
@@ -310,6 +327,7 @@ pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     push_module!(report.discoverability.ai_visibility);
     push_module!(report.discoverability.content_visibility);
     push_module!(report.best_practices);
+    push_module!(report.commerce);
     push_module!(report.discoverability.tech_stack);
     push_module!(report.patterns);
 

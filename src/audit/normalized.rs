@@ -126,6 +126,7 @@ pub struct AuditContext<'a> {
     pub raw_patterns: Option<&'a crate::patterns::PatternAnalysis>,
     pub raw_throttled_performance: &'a [crate::audit::report::ThrottledPerfResult],
     pub raw_best_practices: Option<&'a crate::best_practices::BestPracticesAnalysis>,
+    pub raw_commerce: Option<&'a crate::commerce::CommerceAnalysis>,
 }
 
 /// Einheitliche Severity-Zähler
@@ -1755,6 +1756,7 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_patterns: report.patterns.as_ref(),
         raw_throttled_performance: &report.throttled_performance,
         raw_best_practices: report.best_practices.as_ref(),
+        raw_commerce: report.commerce.as_ref(),
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
     ctx

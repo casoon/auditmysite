@@ -52,6 +52,7 @@ src/
 ├── screen_reader/       # Screen-reader reading-order primitives
 ├── ai_visibility/       # AI/LLM discoverability analysis
 ├── content_visibility/  # Cross-module signal aggregation (SEO+AI+Quality)
+├── commerce/            # Shop schema-completeness (Product/Offer JSON-LD: shipping, returns, reviews, availability) — derive-only, shop-gated
 ├── source_quality/      # Source quality signals (headers, schema, HTTPS)
 ├── tech_stack/          # CMS/framework detection from in-page signals
 ├── patterns/            # UI pattern detection (nav, accordion, modal, …)
@@ -232,7 +233,7 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - 2 output formats (json, pdf); table for quick terminal checks
 - Batch processing with configurable concurrency
 - Pattern Detection: MainNavigation, SkipLink, Accordion, Dialog, DisclosureMenu, TabList, Form
-- Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack, Best Practices, Accessibility Journey Layer
+- Modules: Performance, SEO, Security, Mobile, Dark Mode, UX, Journey, AI Visibility, Content Visibility, Source Quality, Tech Stack, Best Practices, Commerce, Accessibility Journey Layer
 - Consent: `--dismiss-consent` Flag; CMP-Cookie-Injection + Banner-Click; `consent_banner` audit_flag im JSON
 - `audit_flags` kinds: `conflicting_signal` (3.1.1 vs. SEO lang), `viewport_gap` (Desktop/Mobile ≥20 Punkte), `consent_banner`, `consent_wall_artifact`, `bypass_blocks_untested` (Skip-Link vorhanden aber funktional kaputt — statischer Check hat PASS, Journey FAIL)
 - JSON: **Unified Report Envelope v2.0** — einheitliches Schema für single + batch (`schema_version`, `report_type`, `summary`, `pages[]`, `pages[i].detail`). Breaking Change ggü. v0.17.
