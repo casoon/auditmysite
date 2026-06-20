@@ -132,7 +132,7 @@ pub async fn run_concurrent_batch(
                 Ok(report) => {
                     info!(
                         "[{}/{}] Completed: {} (score: {})",
-                        current, total, url, report.score
+                        current, total, url, report.accessibility.score
                     );
                     if let Some(ref cb) = progress {
                         cb(current, total, &url, None);

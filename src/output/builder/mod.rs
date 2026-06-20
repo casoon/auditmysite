@@ -602,7 +602,7 @@ mod tests {
 
         let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 1500)
             .with_seo(seo);
-        report.score = score;
+        report.accessibility.score = score;
         report
     }
 

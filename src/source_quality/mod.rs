@@ -771,6 +771,7 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
 
     // 6. Accessibility — image alt text coverage
     let image_violations = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -788,6 +789,7 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
 
     // 7. Landmark structure
     let landmark_violations = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -886,13 +888,13 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
     }
 
     // 6. Accessibility score as quality signal
-    let a11y_good = report.score >= 80.0;
+    let a11y_good = report.accessibility.score >= 80.0;
     signals.push(QualitySignal::new(
         Accessibility,
         a11y_good,
         0.15,
         SignalValues {
-            score: Some(report.score),
+            score: Some(report.accessibility.score),
             ..Default::default()
         },
     ));
@@ -936,6 +938,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
 
     // 2. All interactive elements named
     let unnamed_interactive = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -952,7 +955,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     ));
 
     // 3. No critical WCAG violations
-    let critical = report.statistics.critical;
+    let critical = report.accessibility.statistics.critical;
     signals.push(QualitySignal::new(
         NoCriticalErrors,
         critical == 0,
@@ -985,7 +988,7 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     let mut signals = Vec::new();
 
     // 1. Score stability (low standard deviation = consistent)
-    let scores: Vec<f32> = reports.iter().map(|r| r.score).collect();
+    let scores: Vec<f32> = reports.iter().map(|r| r.accessibility.score).collect();
     let mean = scores.iter().sum::<f32>() / total;
     let variance = scores.iter().map(|s| (s - mean).powi(2)).sum::<f32>() / total;
     let std_dev = variance.sqrt();
@@ -1077,7 +1080,10 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     ));
 
     // 6. No pages with critical violations
-    let pages_with_critical: usize = reports.iter().filter(|r| r.statistics.critical > 0).count();
+    let pages_with_critical: usize = reports
+        .iter()
+        .filter(|r| r.accessibility.statistics.critical > 0)
+        .count();
     let clean_pct = ((total as usize - pages_with_critical) as f32 / total * 100.0) as u32;
     signals.push(QualitySignal::new(
         ErrorFreePages,
@@ -1199,18 +1205,20 @@ mod tests {
             url: "https://example.com".into(),
             wcag_level: WcagLevel::AA,
             timestamp: chrono::Utc::now(),
-            wcag_results: WcagResults::new(),
-            score: 95.0,
-            grade: "A".into(),
-            certificate: "SEHR GUT".into(),
-            statistics: ViolationStatistics {
-                critical: 0,
-                high: 0,
-                medium: 0,
-                low: 0,
-                total: 0,
+            accessibility: crate::audit::AccessibilitySection {
+                wcag_results: WcagResults::new(),
+                score: 95.0,
+                grade: "A".into(),
+                certificate: "SEHR GUT".into(),
+                statistics: ViolationStatistics {
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    total: 0,
+                },
+                nodes_analyzed: 100,
             },
-            nodes_analyzed: 100,
             duration_ms: 1000,
             performance: None,
             seo: None,
@@ -1317,7 +1325,7 @@ mod tests {
         };
         // A bare SEO profile so every "missing"/"weak" branch contributes a string.
         let mut report = minimal_report();
-        report.score = 50.0;
+        report.accessibility.score = 50.0;
         report.seo = Some(SeoAnalysis {
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),

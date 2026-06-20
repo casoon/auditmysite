@@ -844,7 +844,7 @@ mod tests {
 
     fn report_with_all_report_areas() -> AuditReport {
         let mut report = all_active_modules_report();
-        report.wcag_results.add_violation(
+        report.accessibility.wcag_results.add_violation(
             Violation::new(
                 "1.1.1",
                 "Non-text Content",
@@ -855,7 +855,7 @@ mod tests {
             )
             .with_rule_id("image-alt"),
         );
-        report.wcag_results.add_violation(
+        report.accessibility.wcag_results.add_violation(
             Violation::new(
                 "2.4.10",
                 "Section Headings",

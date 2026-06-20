@@ -19,8 +19,8 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
     println!();
     print_dashboard(report, level);
 
-    if !report.wcag_results.violations.is_empty() {
-        print_violations_table(&report.wcag_results.violations);
+    if !report.accessibility.wcag_results.violations.is_empty() {
+        print_violations_table(&report.accessibility.wcag_results.violations);
     }
 
     // Optional module results
@@ -77,10 +77,10 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
         format!(
             "  WCAG {}  Nodes {}  Duration {:.1}s  Overall {}  Certificate {}",
             level,
-            report.nodes_analyzed,
+            report.accessibility.nodes_analyzed,
             report.duration_ms as f64 / 1000.0,
             normalized.normalized.overall_score,
-            report.certificate
+            report.accessibility.certificate
         )
         .dimmed()
     );
@@ -98,12 +98,14 @@ fn print_dashboard(report: &AuditReport, level: WcagLevel) {
 
     // Risk level (computed from violations)
     let critical = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
         .filter(|v| v.severity == Severity::Critical)
         .count();
     let high = report
+        .accessibility
         .wcag_results
         .violations
         .iter()
@@ -198,24 +200,28 @@ fn dashboard_rows(report: &AuditReport) -> Vec<String> {
         "  {}",
         render_issue_summary(
             report
+                .accessibility
                 .wcag_results
                 .violations
                 .iter()
                 .filter(|v| v.severity == Severity::Critical)
                 .count(),
             report
+                .accessibility
                 .wcag_results
                 .violations
                 .iter()
                 .filter(|v| v.severity == Severity::High)
                 .count(),
             report
+                .accessibility
                 .wcag_results
                 .violations
                 .iter()
                 .filter(|v| v.severity == Severity::Medium)
                 .count(),
             report
+                .accessibility
                 .wcag_results
                 .violations
                 .iter()

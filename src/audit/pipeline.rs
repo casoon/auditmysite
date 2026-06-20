@@ -271,8 +271,9 @@ impl PipelineConfig {
         // `AuditReport` has no `deny_unknown_fields`, so an old-shape cache would
         // otherwise deserialize *successfully* (unknown keys ignored, new fields
         // defaulted) and silently drop data within the same tool version. Bumped
-        // to 2 for the ExperienceSection move (mobile/dark_mode/budget_violations).
-        const CACHE_FMT: u8 = 2;
+        // Bumped to 2 for the ExperienceSection move, 3 for AccessibilitySection
+        // (wcag_results/score/grade/certificate/statistics/nodes_analyzed).
+        const CACHE_FMT: u8 = 3;
         format!(
             "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
@@ -390,7 +391,7 @@ pub async fn run_single_audit(
     let duration = start_time.elapsed();
     info!(
         "Audit completed for {} in {:?} (score: {})",
-        url, duration, report.score
+        url, duration, report.accessibility.score
     );
 
     Ok(report)

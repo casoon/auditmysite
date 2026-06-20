@@ -39,12 +39,12 @@ pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
 pub use normalized::{normalize, AuditContext, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
-    compute_recurring_rules, compute_worst_risk, AuditReport, BatchError, BatchReport,
-    BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentCookieSignal, ConsentPrivacySnapshot,
-    CrawlDiagnostics, DualViewportResults, ExperienceSection, PageScreenshots, PerformanceResults,
-    RecurringRule, RedirectChain, SampleMetadata, ScreenshotStatus, SitemapDiagnostics,
-    SitemapHttpIssue, ThrottledPerfResult, ViewportAuditData, ViewportScoreSet, ViewportScores,
-    ViewportScreenshot,
+    compute_recurring_rules, compute_worst_risk, AccessibilitySection, AuditReport, BatchError,
+    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentCookieSignal,
+    ConsentPrivacySnapshot, CrawlDiagnostics, DualViewportResults, ExperienceSection,
+    PageScreenshots, PerformanceResults, RecurringRule, RedirectChain, SampleMetadata,
+    ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, ThrottledPerfResult, ViewportAuditData,
+    ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

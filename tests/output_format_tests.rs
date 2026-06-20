@@ -179,10 +179,10 @@ fn test_report_score_calculation() {
         WcagResults::new(),
         100,
     );
-    assert!(clean_report.score >= 90.0);
+    assert!(clean_report.accessibility.score >= 90.0);
 
     let report_with_issues = create_test_report();
-    assert!(report_with_issues.score < clean_report.score);
+    assert!(report_with_issues.accessibility.score < clean_report.accessibility.score);
 }
 
 #[test]
