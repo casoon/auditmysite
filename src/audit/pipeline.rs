@@ -267,9 +267,16 @@ impl PipelineConfig {
     /// requests a different scope. Excludes options that do not affect content
     /// (timeout, verbosity, persistence, screenshot capture).
     pub fn audit_signature(&self) -> String {
+        // `fmt` is bumped whenever the cached `AuditReport` struct shape changes.
+        // `AuditReport` has no `deny_unknown_fields`, so an old-shape cache would
+        // otherwise deserialize *successfully* (unknown keys ignored, new fields
+        // defaulted) and silently drop data within the same tool version. Bumped
+        // to 2 for the ExperienceSection move (mobile/dark_mode/budget_violations).
+        const CACHE_FMT: u8 = 2;
         format!(
-            "v={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
+            CACHE_FMT,
             self.wcag_level,
             self.check_performance as u8,
             self.check_seo as u8,
