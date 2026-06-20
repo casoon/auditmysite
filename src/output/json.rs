@@ -177,6 +177,10 @@ pub struct UnifiedSummary {
     /// Internal targets linked by audited pages but absent from the sitemap.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub linked_not_in_sitemap: Vec<String>,
+    /// Site-wide commerce roll-up (batch only): union of mandatory/trust-page
+    /// links across the audited shop pages.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commerce: Option<crate::commerce::CommerceSiteSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -553,6 +557,12 @@ impl UnifiedReport {
             sitemap_http_issues: presentation.portfolio_summary.sitemap_http_issues.clone(),
             orphan_sitemap_urls: presentation.portfolio_summary.orphan_sitemap_urls.clone(),
             linked_not_in_sitemap: presentation.portfolio_summary.linked_not_in_sitemap.clone(),
+            commerce: crate::commerce::aggregate_site_commerce(
+                batch_report
+                    .reports
+                    .iter()
+                    .filter_map(|r| r.commerce.as_ref()),
+            ),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -708,6 +718,7 @@ impl UnifiedReport {
             sitemap_http_issues: Vec::new(),
             orphan_sitemap_urls: Vec::new(),
             linked_not_in_sitemap: Vec::new(),
+            commerce: None,
         };
 
         UnifiedReport {
@@ -784,6 +795,7 @@ impl UnifiedReport {
             sitemap_http_issues: Vec::new(),
             orphan_sitemap_urls: Vec::new(),
             linked_not_in_sitemap: Vec::new(),
+            commerce: None,
         };
 
         UnifiedReport {

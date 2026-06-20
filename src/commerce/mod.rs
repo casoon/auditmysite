@@ -123,6 +123,68 @@ pub struct CommerceFinding {
     pub message: String,
 }
 
+/// Site-wide commerce roll-up across an audited batch (slice 2b).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommerceSiteSummary {
+    /// Trust pages linked on at least one audited page (union).
+    pub trust_pages_linked: TrustPages,
+    /// Mandatory/trust categories not linked anywhere in the audited set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub missing_site_wide: Vec<CommerceFindingKind>,
+    /// Number of audited pages carrying Product schema.
+    pub product_pages: usize,
+}
+
+/// Aggregate per-page commerce results into a site-wide roll-up. Returns `None`
+/// when no audited page produced commerce data (i.e. not a shop).
+pub fn aggregate_site_commerce<'a>(
+    commerces: impl Iterator<Item = &'a CommerceAnalysis>,
+) -> Option<CommerceSiteSummary> {
+    use CommerceFindingKind::*;
+    let mut u = TrustPages::default();
+    let mut product_pages = 0usize;
+    let mut any = false;
+    for c in commerces {
+        any = true;
+        if c.product.is_some() {
+            product_pages += 1;
+        }
+        u.impressum |= c.trust_pages.impressum;
+        u.agb |= c.trust_pages.agb;
+        u.widerruf |= c.trust_pages.widerruf;
+        u.versand |= c.trust_pages.versand;
+        u.zahlungsarten |= c.trust_pages.zahlungsarten;
+        u.kontakt |= c.trust_pages.kontakt;
+    }
+    if !any {
+        return None;
+    }
+    let mut missing = Vec::new();
+    if !u.impressum {
+        missing.push(MissingImpressumLink);
+    }
+    if !u.widerruf {
+        missing.push(MissingWiderrufLink);
+    }
+    if !u.agb {
+        missing.push(MissingAgbLink);
+    }
+    if !u.versand {
+        missing.push(MissingShippingPageLink);
+    }
+    if !u.zahlungsarten {
+        missing.push(MissingPaymentLink);
+    }
+    if !u.kontakt {
+        missing.push(MissingContactLink);
+    }
+    Some(CommerceSiteSummary {
+        trust_pages_linked: u,
+        missing_site_wide: missing,
+        product_pages,
+    })
+}
+
 const EXPECTED_PRODUCT_SIGNALS: u32 = 5;
 
 /// Analyze commerce signals. `anchor_texts` are the page's link anchor texts

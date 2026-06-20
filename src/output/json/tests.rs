@@ -680,6 +680,7 @@ fn test_collection_errors_serialized_when_present() {
             sitemap_http_issues: vec![],
             orphan_sitemap_urls: vec![],
             linked_not_in_sitemap: vec![],
+            commerce: None,
         },
         sample: None,
         pages: vec![],
