@@ -285,6 +285,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         best_practices: ctx
             .raw_best_practices
             .map(|m| with_normalized_score(m.to_json(), normalized, "Best Practices")),
+        commerce: ctx.raw_commerce.map(|m| m.to_json()),
     };
 
     PageDetail {

@@ -365,6 +365,8 @@ pub struct ModuleBlob {
     pub patterns: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub best_practices: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commerce: Option<serde_json::Value>,
 }
 
 /// AI-oriented fix guidance for a single finding group.

@@ -87,6 +87,7 @@ pub mod audit;
 pub mod best_practices;
 pub mod browser;
 pub mod cli;
+pub mod commerce;
 pub mod content_visibility;
 pub mod dark_mode;
 pub mod error;

@@ -272,9 +272,8 @@ impl PipelineConfig {
         // otherwise deserialize *successfully* (unknown keys ignored, new fields
         // defaulted) and silently drop data within the same tool version. Bumped
         // Bumped to 2 for the ExperienceSection move, 3 for AccessibilitySection,
-        // 4 for DiscoverabilitySection (seo/ai_visibility/content_visibility/
-        // source_quality/tech_stack).
-        const CACHE_FMT: u8 = 4;
+        // 4 for DiscoverabilitySection, 5 for the new commerce module field.
+        const CACHE_FMT: u8 = 5;
         format!(
             "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
@@ -1363,6 +1362,7 @@ mod tests {
             "Security",
             "SEO",
             "AI Visibility",
+            "Commerce",
             "Tech Stack",
             "UX",
             "Source Quality",

@@ -35,6 +35,7 @@ impl AuditCatalog {
     pub fn standard() -> Self {
         use crate::ai_visibility::AiVisibilityModule;
         use crate::best_practices::BestPracticesModule;
+        use crate::commerce::CommerceModule;
         use crate::content_visibility::ContentVisibilityModule;
         use crate::dark_mode::DarkModeModule;
         use crate::journey::JourneyModule;
@@ -59,6 +60,7 @@ impl AuditCatalog {
             .with_module(Box::new(SourceQualityModule))
             .with_module(Box::new(AiVisibilityModule))
             .with_module(Box::new(ContentVisibilityModule))
+            .with_module(Box::new(CommerceModule))
     }
 
     /// Catalog with no registered modules.
@@ -312,6 +314,7 @@ mod tests {
             "source_quality",
             "ai_visibility",
             "content_visibility",
+            "commerce",
         ]
         .into_iter()
         .collect();

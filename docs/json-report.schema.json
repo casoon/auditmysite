@@ -222,6 +222,7 @@
         "tech_stack": { "type": ["object", "null"] },
         "patterns": { "type": ["object", "null"] },
         "best_practices": { "type": ["object", "null"] },
+        "commerce": { "type": ["object", "null"] },
         "dual_viewport": { "type": ["object", "null"] },
         "search_experience": { "type": ["object", "null"] }
       }
