@@ -41,7 +41,7 @@ fn topic_stopwords() -> HashSet<String> {
 
 pub fn extract_page_topics(report: &AuditReport) -> Vec<String> {
     let mut weighted_segments: Vec<(String, usize)> = Vec::new();
-    if let Some(ref seo) = report.seo {
+    if let Some(ref seo) = report.discoverability.seo {
         if let Some(ref title) = seo.meta.title {
             weighted_segments.push((title.clone(), 4));
         }

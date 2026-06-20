@@ -349,7 +349,7 @@ fn collect_internal_link_targets(reports: &[AuditReport]) -> HashSet<String> {
         let Some(base) = Url::parse(&report.url).ok() else {
             continue;
         };
-        let Some(seo) = &report.seo else {
+        let Some(seo) = &report.discoverability.seo else {
             continue;
         };
         for target in &seo.technical.internal_link_targets {
@@ -681,7 +681,7 @@ mod tests {
         );
         let mut seo = crate::seo::SeoAnalysis::default();
         seo.technical.internal_link_targets = vec!["/b".to_string(), "/linked-only".to_string()];
-        report.seo = Some(seo);
+        report.discoverability.seo = Some(seo);
 
         let targets = collect_internal_link_targets(&[report.clone()]);
         assert!(targets.contains("https://example.com/b"));

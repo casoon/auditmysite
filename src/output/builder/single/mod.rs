@@ -452,7 +452,7 @@ mod tests {
             results,
             1500,
         );
-        report.seo = Some(crate::seo::SeoAnalysis {
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis {
             headings: crate::seo::HeadingStructure {
                 h1_count: 2,
                 issues: vec![crate::seo::HeadingIssue {
@@ -661,7 +661,7 @@ mod tests {
             results,
             1_500,
         );
-        report.seo = Some(crate::seo::SeoAnalysis {
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis {
             headings: crate::seo::HeadingStructure {
                 issues: vec![crate::seo::HeadingIssue {
                     issue_type: "empty_heading".to_string(),
@@ -834,11 +834,11 @@ mod tests {
         });
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
-        report.source_quality = Some(sq);
-        report.ai_visibility = Some(av);
-        report.content_visibility = Some(crate::content_visibility::analyze_content_visibility(
-            &report,
-        ));
+        report.discoverability.source_quality = Some(sq);
+        report.discoverability.ai_visibility = Some(av);
+        report.discoverability.content_visibility = Some(
+            crate::content_visibility::analyze_content_visibility(&report),
+        );
         report
     }
 

@@ -271,9 +271,10 @@ impl PipelineConfig {
         // `AuditReport` has no `deny_unknown_fields`, so an old-shape cache would
         // otherwise deserialize *successfully* (unknown keys ignored, new fields
         // defaulted) and silently drop data within the same tool version. Bumped
-        // Bumped to 2 for the ExperienceSection move, 3 for AccessibilitySection
-        // (wcag_results/score/grade/certificate/statistics/nodes_analyzed).
-        const CACHE_FMT: u8 = 3;
+        // Bumped to 2 for the ExperienceSection move, 3 for AccessibilitySection,
+        // 4 for DiscoverabilitySection (seo/ai_visibility/content_visibility/
+        // source_quality/tech_stack).
+        const CACHE_FMT: u8 = 4;
         format!(
             "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
@@ -1218,7 +1219,7 @@ fn apply_canonical_perf(
     }
 
     let new_perf = report.performance.as_ref().map(|p| p.score.overall);
-    let mobile_seo = report.seo.as_ref().map(|s| s.score);
+    let mobile_seo = report.discoverability.seo.as_ref().map(|s| s.score);
     let mobile_mf = report.experience.mobile.as_ref().map(|m| m.score);
     if let Some(ref mut vps) = report.viewport_scores {
         vps.mobile.performance = new_perf;

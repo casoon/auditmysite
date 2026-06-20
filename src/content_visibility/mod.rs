@@ -700,16 +700,20 @@ fn signal(
 pub fn analyze_content_visibility(report: &AuditReport) -> ContentVisibilityAnalysis {
     let mut out = ContentVisibilityAnalysis::default();
 
-    if let Some(seo) = &report.seo {
+    if let Some(seo) = &report.discoverability.seo {
         out.organic_visibility = build_organic_visibility(seo);
 
         let lb_signals = build_local_business(seo);
         out.local_business = lb_signals;
 
-        out.eeat = build_eeat(seo, report.source_quality.as_ref());
-        out.content_depth = build_content_depth(seo, report.source_quality.as_ref());
-        out.topical_authority =
-            build_topical_authority(seo, report.ai_visibility.as_ref(), report.patterns.as_ref());
+        out.eeat = build_eeat(seo, report.discoverability.source_quality.as_ref());
+        out.content_depth =
+            build_content_depth(seo, report.discoverability.source_quality.as_ref());
+        out.topical_authority = build_topical_authority(
+            seo,
+            report.discoverability.ai_visibility.as_ref(),
+            report.patterns.as_ref(),
+        );
     }
 
     out.finish()
@@ -1969,15 +1973,17 @@ mod tests {
             },
             duration_ms: 1000,
             performance: None,
-            seo: Some(seo),
             security: None,
             experience: crate::audit::ExperienceSection::default(),
             ux: None,
             journey: None,
-            source_quality: None,
-            ai_visibility: None,
-            content_visibility: None,
-            tech_stack: None,
+            discoverability: crate::audit::DiscoverabilitySection {
+                seo: Some(seo),
+                ai_visibility: None,
+                content_visibility: None,
+                source_quality: None,
+                tech_stack: None,
+            },
             page_screenshots: None,
             dual_viewport: None,
             viewport_scores: None,

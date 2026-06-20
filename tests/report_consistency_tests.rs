@@ -1156,9 +1156,9 @@ fn test_json_report_includes_extra_module_keys() {
 
     let base = make_full_report();
     let mut report = make_full_report();
-    report.source_quality = Some(analyze_source_quality(&base));
-    report.ai_visibility = Some(analyze_ai_visibility(&base));
-    report.content_visibility = Some(analyze_content_visibility(&base));
+    report.discoverability.source_quality = Some(analyze_source_quality(&base));
+    report.discoverability.ai_visibility = Some(analyze_ai_visibility(&base));
+    report.discoverability.content_visibility = Some(analyze_content_visibility(&base));
     report.experience.dark_mode = Some(DarkModeAnalysis {
         supported: false,
         score: 0,
@@ -1211,7 +1211,7 @@ fn test_json_report_includes_extra_module_keys() {
 #[test]
 fn test_json_report_includes_report_artifact_fields() {
     let mut report = make_full_report();
-    report.tech_stack = Some(auditmysite::tech_stack::TechStackAnalysis {
+    report.discoverability.tech_stack = Some(auditmysite::tech_stack::TechStackAnalysis {
         detected: vec![auditmysite::tech_stack::DetectedTech {
             name: "Astro".to_string(),
             category: auditmysite::tech_stack::TechCategory::Framework,

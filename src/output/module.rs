@@ -245,7 +245,7 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.performance {
         push(m);
     }
-    if let Some(ref m) = report.seo {
+    if let Some(ref m) = report.discoverability.seo {
         push(m);
     }
     if let Some(ref m) = report.security {
@@ -263,19 +263,19 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.experience.dark_mode {
         push(m);
     }
-    if let Some(ref m) = report.source_quality {
+    if let Some(ref m) = report.discoverability.source_quality {
         push(m);
     }
-    if let Some(ref m) = report.ai_visibility {
+    if let Some(ref m) = report.discoverability.ai_visibility {
         push(m);
     }
-    if let Some(ref m) = report.content_visibility {
+    if let Some(ref m) = report.discoverability.content_visibility {
         push(m);
     }
     if let Some(ref m) = report.best_practices {
         push(m);
     }
-    if let Some(ref m) = report.tech_stack {
+    if let Some(ref m) = report.discoverability.tech_stack {
         push(m);
     }
     if let Some(ref m) = report.patterns {
@@ -300,17 +300,17 @@ pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     }
 
     push_module!(report.performance);
-    push_module!(report.seo);
+    push_module!(report.discoverability.seo);
     push_module!(report.security);
     push_module!(report.experience.mobile);
     push_module!(report.ux);
     push_module!(report.journey);
     push_module!(report.experience.dark_mode);
-    push_module!(report.source_quality);
-    push_module!(report.ai_visibility);
-    push_module!(report.content_visibility);
+    push_module!(report.discoverability.source_quality);
+    push_module!(report.discoverability.ai_visibility);
+    push_module!(report.discoverability.content_visibility);
     push_module!(report.best_practices);
-    push_module!(report.tech_stack);
+    push_module!(report.discoverability.tech_stack);
     push_module!(report.patterns);
 
     out

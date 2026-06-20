@@ -1011,7 +1011,7 @@ fn build_module_scores(
             measurement_type: "measured".to_string(),
         });
     }
-    if let Some(ref seo) = report.seo {
+    if let Some(ref seo) = report.discoverability.seo {
         module_scores.push(ModuleScoreEntry {
             name: "SEO".to_string(),
             score: seo.score,
@@ -1143,13 +1143,13 @@ fn build_module_scores(
     if let Some(ref dm) = report.experience.dark_mode {
         push_indicator("Dark Mode", dm.score, "measured");
     }
-    if let Some(ref ai) = report.ai_visibility {
+    if let Some(ref ai) = report.discoverability.ai_visibility {
         push_indicator("AI Visibility", ai.score, "heuristic");
     }
-    if let Some(ref sq) = report.source_quality {
+    if let Some(ref sq) = report.discoverability.source_quality {
         push_indicator("Source Quality", sq.score, "heuristic");
     }
-    if let Some(ref cv) = report.content_visibility {
+    if let Some(ref cv) = report.discoverability.content_visibility {
         if cv.signal_count > 0 {
             let cv_score = (cv.signal_count.saturating_sub(cv.problem_count) as u32 * 100)
                 / cv.signal_count as u32;
@@ -1443,11 +1443,15 @@ fn compute_risk_assessment(
 pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let violations = &report.accessibility.wcag_results.violations;
 
-    let seo_reports_lang = report.seo.as_ref().is_some_and(|s| s.technical.has_lang);
+    let seo_reports_lang = report
+        .discoverability
+        .seo
+        .as_ref()
+        .is_some_and(|s| s.technical.has_lang);
     let had_311 = violations.iter().any(|v| v.rule == "3.1.1");
 
     let mut findings = build_wcag_findings(violations);
-    if let Some(seo) = &report.seo {
+    if let Some(seo) = &report.discoverability.seo {
         findings.extend(aggregate_seo_findings(seo, MAX_OCCURRENCES));
     }
 
@@ -1737,16 +1741,16 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
             .dual_viewport
             .as_ref()
             .and_then(|d| d.desktop.performance.as_ref()),
-        raw_seo: report.seo.as_ref(),
+        raw_seo: report.discoverability.seo.as_ref(),
         raw_security: report.security.as_ref(),
         raw_mobile: report.experience.mobile.as_ref(),
         raw_ux: report.ux.as_ref(),
         raw_journey: report.journey.as_ref(),
         raw_dark_mode: report.experience.dark_mode.as_ref(),
-        raw_source_quality: report.source_quality.as_ref(),
-        raw_ai_visibility: report.ai_visibility.as_ref(),
-        raw_tech_stack: report.tech_stack.as_ref(),
-        raw_content_visibility: report.content_visibility.as_ref(),
+        raw_source_quality: report.discoverability.source_quality.as_ref(),
+        raw_ai_visibility: report.discoverability.ai_visibility.as_ref(),
+        raw_tech_stack: report.discoverability.tech_stack.as_ref(),
+        raw_content_visibility: report.discoverability.content_visibility.as_ref(),
         raw_wcag: &report.accessibility.wcag_results,
         raw_patterns: report.patterns.as_ref(),
         raw_throttled_performance: &report.throttled_performance,
@@ -2316,7 +2320,7 @@ mod tests {
         assert!(norm_no_seo.normalized.audit_flags.is_empty());
 
         // With SEO indicating has_lang — 3.1.1 should remain but be marked as a conflicting signal
-        report.seo = Some(crate::seo::SeoAnalysis {
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis {
             technical: crate::seo::TechnicalSeo {
                 has_lang: true,
                 ..Default::default()

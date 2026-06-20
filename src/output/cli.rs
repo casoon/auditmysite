@@ -27,7 +27,7 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
     if let Some(ref perf) = report.performance {
         print_performance_section(perf);
     }
-    if let Some(ref seo) = report.seo {
+    if let Some(ref seo) = report.discoverability.seo {
         print_seo_section(seo);
     }
     if let Some(ref sec) = report.security {
@@ -43,7 +43,7 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
     if let Some(ref dm) = report.experience.dark_mode {
         print_dark_mode_section(dm);
     }
-    if let Some(ref cv) = report.content_visibility {
+    if let Some(ref cv) = report.discoverability.content_visibility {
         print_content_visibility_section(cv);
     }
 

@@ -154,13 +154,17 @@ fn journey_module_scores_rich_page_higher_than_empty() {
 #[test]
 fn source_quality_module_populates_report_field() {
     let mut report = empty_report("https://example.com");
-    assert!(report.source_quality.is_none(), "precondition");
+    assert!(
+        report.discoverability.source_quality.is_none(),
+        "precondition"
+    );
 
     SourceQualityModule
         .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let sq = report
+        .discoverability
         .source_quality
         .as_ref()
         .expect("source_quality was populated");
@@ -178,8 +182,18 @@ fn source_quality_module_rewards_https_over_http() {
     SourceQualityModule.derive(&mut https_report, "de").unwrap();
     SourceQualityModule.derive(&mut http_report, "de").unwrap();
 
-    let https_score = https_report.source_quality.as_ref().unwrap().score;
-    let http_score = http_report.source_quality.as_ref().unwrap().score;
+    let https_score = https_report
+        .discoverability
+        .source_quality
+        .as_ref()
+        .unwrap()
+        .score;
+    let http_score = http_report
+        .discoverability
+        .source_quality
+        .as_ref()
+        .unwrap()
+        .score;
     assert!(
         https_score > http_score,
         "HTTPS (score={}) should beat HTTP (score={}) on authority signals",
@@ -195,13 +209,17 @@ fn source_quality_module_rewards_https_over_http() {
 #[test]
 fn ai_visibility_module_populates_report_field() {
     let mut report = empty_report("https://example.com");
-    assert!(report.ai_visibility.is_none(), "precondition");
+    assert!(
+        report.discoverability.ai_visibility.is_none(),
+        "precondition"
+    );
 
     AiVisibilityModule
         .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let av = report
+        .discoverability
         .ai_visibility
         .as_ref()
         .expect("ai_visibility was populated");
@@ -224,8 +242,8 @@ fn ai_visibility_module_uses_seo_signals() {
     AiVisibilityModule.derive(&mut with_seo, "de").unwrap();
 
     // Both must populate the field; the score field is well-defined in both.
-    assert!(without_seo.ai_visibility.is_some());
-    assert!(with_seo.ai_visibility.is_some());
+    assert!(without_seo.discoverability.ai_visibility.is_some());
+    assert!(with_seo.discoverability.ai_visibility.is_some());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,13 +253,17 @@ fn ai_visibility_module_uses_seo_signals() {
 #[test]
 fn content_visibility_module_returns_default_without_seo() {
     let mut report = empty_report("https://example.com");
-    assert!(report.content_visibility.is_none(), "precondition");
+    assert!(
+        report.discoverability.content_visibility.is_none(),
+        "precondition"
+    );
 
     ContentVisibilityModule
         .derive(&mut report, "de")
         .expect("derive succeeds");
 
     let cv = report
+        .discoverability
         .content_visibility
         .as_ref()
         .expect("content_visibility was populated");
@@ -257,7 +279,7 @@ fn content_visibility_module_returns_default_without_seo() {
 fn content_visibility_module_produces_signals_with_seo_present() {
     let mut report = report_with_seo("https://example.com", SeoAnalysis::default());
     ContentVisibilityModule.derive(&mut report, "de").unwrap();
-    let cv = report.content_visibility.as_ref().unwrap();
+    let cv = report.discoverability.content_visibility.as_ref().unwrap();
     assert!(
         cv.signal_count > 0,
         "SEO present → some organic-visibility signals expected, got {}",
