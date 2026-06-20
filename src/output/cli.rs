@@ -33,14 +33,14 @@ pub fn print_report(report: &AuditReport, level: WcagLevel) {
     if let Some(ref sec) = report.security {
         print_security_section(sec);
     }
-    if let Some(ref mobile) = report.mobile {
+    if let Some(ref mobile) = report.experience.mobile {
         print_mobile_section(mobile);
     }
 
-    if !report.budget_violations.is_empty() {
-        print_budget_violations_section(&report.budget_violations);
+    if !report.experience.budget_violations.is_empty() {
+        print_budget_violations_section(&report.experience.budget_violations);
     }
-    if let Some(ref dm) = report.dark_mode {
+    if let Some(ref dm) = report.experience.dark_mode {
         print_dark_mode_section(dm);
     }
     if let Some(ref cv) = report.content_visibility {

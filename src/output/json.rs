@@ -445,6 +445,7 @@ impl UnifiedReport {
         let mut collection_errors: Vec<ReportError> = Vec::new();
 
         let budget_violations = raw
+            .experience
             .budget_violations
             .iter()
             .filter_map(|v| {

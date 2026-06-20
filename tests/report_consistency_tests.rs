@@ -1159,7 +1159,7 @@ fn test_json_report_includes_extra_module_keys() {
     report.source_quality = Some(analyze_source_quality(&base));
     report.ai_visibility = Some(analyze_ai_visibility(&base));
     report.content_visibility = Some(analyze_content_visibility(&base));
-    report.dark_mode = Some(DarkModeAnalysis {
+    report.experience.dark_mode = Some(DarkModeAnalysis {
         supported: false,
         score: 0,
         detection_methods: vec![],
@@ -1223,7 +1223,7 @@ fn test_json_report_includes_report_artifact_fields() {
         score: 100,
         grade: "A".to_string(),
     });
-    report.budget_violations = vec![auditmysite::audit::BudgetViolation {
+    report.experience.budget_violations = vec![auditmysite::audit::BudgetViolation {
         metric: "LCP".to_string(),
         budget_label: "<= 2500 ms".to_string(),
         actual_label: "3200 ms".to_string(),

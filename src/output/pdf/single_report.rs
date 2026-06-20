@@ -975,8 +975,12 @@ fn render_active_module_section(
         "performance" => {
             if let Some(ref perf) = vm.module_details.performance {
                 builder = render_performance(builder, perf, is_first, i18n);
-                if !report.budget_violations.is_empty() {
-                    builder = render_budget_violations(builder, &report.budget_violations, i18n);
+                if !report.experience.budget_violations.is_empty() {
+                    builder = render_budget_violations(
+                        builder,
+                        &report.experience.budget_violations,
+                        i18n,
+                    );
                 }
                 return (builder, true);
             }
