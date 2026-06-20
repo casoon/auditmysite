@@ -13,6 +13,7 @@ pub mod duplicate;
 pub mod interpretation;
 pub mod module;
 pub mod normalized;
+pub mod occurrence_analysis;
 mod pipeline;
 pub mod prioritization;
 mod report;

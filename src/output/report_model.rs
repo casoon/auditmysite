@@ -532,18 +532,11 @@ pub struct FindingGroup {
     pub narrative: NarrativeArc,
 }
 
-pub struct RepresentativeOccurrence {
-    pub selector: String,
-    pub node_id: String,
-    pub message: String,
-    pub html_snippet: Option<String>,
-    pub suggested_code: Option<String>,
-}
-
-pub struct FindingPatternCluster {
-    pub label: String,
-    pub occurrences: usize,
-}
+/// Occurrence-analysis result structs are produced by domain logic in
+/// `audit::occurrence_analysis`; re-exported here so existing
+/// `report_model::{RepresentativeOccurrence, FindingPatternCluster}` references
+/// keep working.
+pub use crate::audit::occurrence_analysis::{FindingPatternCluster, RepresentativeOccurrence};
 
 pub struct CapabilitySignal {
     pub signal: String,
