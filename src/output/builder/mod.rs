@@ -8,7 +8,6 @@ mod actions;
 mod batch;
 mod helpers;
 mod modules;
-mod seo;
 mod single;
 
 pub use batch::{
@@ -667,7 +666,7 @@ mod tests {
     ///
     /// It exercises the interpretation generators across their full input space:
     ///   * `interpret_score` — every module area × all 5 grade bands × {de,en}
-    ///   * `build_seo_interpretation` — 5 score bands × {de,en}
+    ///   * `seo_interpretation_text` — 5 score bands × {de,en}
     ///   * the real `build_view_model` path — dashboard module interpretations +
     ///     the overall-score explanation (de + en)
     ///
@@ -711,11 +710,14 @@ mod tests {
                 let mut seo = crate::seo::SeoAnalysis::default();
                 seo.score = score;
                 records.push(serde_json::json!({
-                    "source": "build_seo_interpretation",
+                    "source": "seo_interpretation_text",
                     "module": "SEO",
                     "area_locale": locale,
                     "score": score,
-                    "text": super::seo::build_seo_interpretation(locale, &seo),
+                    "text": crate::seo::interpretation::seo_interpretation_text(
+                        &seo,
+                        locale == "en",
+                    ),
                 }));
             }
         }
@@ -789,10 +791,10 @@ mod tests {
         // Source map for the fixture-dependent generators not exhaustively
         // enumerated above (each combines profile/threshold inputs).
         let source_map = serde_json::json!([
-            {"generator": "build_seo_interpretation (page-type appendix)", "file": "src/output/builder/seo.rs:41"},
-            {"generator": "summarize_page_profile", "file": "src/output/builder/seo.rs:194"},
-            {"generator": "page_profile_optimization_note", "file": "src/output/builder/seo.rs:246"},
-            {"generator": "perf_interpretation (CWV-green special case)", "file": "src/output/builder/single/module_details.rs:123"},
+            {"generator": "seo_interpretation_text (page-type appendix)", "file": "src/seo/interpretation.rs"},
+            {"generator": "page_profile_summary_text", "file": "src/seo/interpretation.rs"},
+            {"generator": "page_profile_optimization_note_text", "file": "src/seo/interpretation.rs"},
+            {"generator": "performance_gap_text + append_performance_qualifiers_text", "file": "src/audit/performance_interpretation.rs"},
             {"generator": "mobile_interpretation (small-target special case)", "file": "src/output/builder/single/module_details.rs:812"},
             {"generator": "journey_interpretation (page-type prefix)", "file": "src/output/builder/single/module_details.rs:1001"},
         ]);
