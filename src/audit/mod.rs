@@ -14,6 +14,7 @@ pub mod interpretation;
 pub mod module;
 pub mod normalized;
 pub mod occurrence_analysis;
+pub mod performance_interpretation;
 mod pipeline;
 pub mod prioritization;
 mod report;

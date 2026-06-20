@@ -1,4 +1,7 @@
 use crate::audit::normalized::{AuditContext, NormalizedReport};
+use crate::audit::performance_interpretation::{
+    append_performance_qualifiers_text, performance_gap_text,
+};
 use crate::i18n::I18n;
 use crate::output::report_model::{
     AnimationPresentation, CoveragePresentation, CriticalChainPresentation, DarkModePresentation,
@@ -32,161 +35,6 @@ fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &s
         .and_then(|i| i.per_module.get(module))
         .map(|t| t.for_locale(locale).to_string())
         .unwrap_or_default()
-}
-
-/// Joins phrases into a natural list ("a, b and c" / "a, b und c").
-fn join_phrases(items: &[String], en: bool) -> String {
-    match items.len() {
-        0 => String::new(),
-        1 => items[0].clone(),
-        _ => {
-            let (last, head) = items.split_last().unwrap();
-            format!(
-                "{} {} {}",
-                head.join(", "),
-                if en { "and" } else { "und" },
-                last
-            )
-        }
-    }
-}
-
-/// Appends threshold-based qualifiers to the performance interpretation so that
-/// concrete weak metrics (DOM complexity, throttled LCP, render-blocking
-/// resources, unminified weight, non-composited animations) are named instead
-/// of left to the score band alone, while genuinely strong metrics (CLS, TBT)
-/// are acknowledged as contrast (#367).
-fn append_performance_qualifiers(
-    base: String,
-    p: &crate::PerformanceResults,
-    normalized: &AuditContext<'_>,
-    en: bool,
-) -> String {
-    let mut critical: Vec<String> = Vec::new();
-
-    if let Some(nodes) = p.vitals.dom_nodes.filter(|n| *n > 3000) {
-        critical.push(if en {
-            format!("high DOM complexity ({nodes} nodes)")
-        } else {
-            format!("die hohe DOM-Komplexität ({nodes} Knoten)")
-        });
-    }
-
-    // Worst LCP measured under network throttling (e.g. Slow 3G).
-    let throttled_lcp = normalized
-        .raw_throttled_performance
-        .iter()
-        .filter_map(|t| t.lcp_ms)
-        .fold(0.0_f64, f64::max);
-    if throttled_lcp > 4000.0 {
-        critical.push(if en {
-            format!("a late largest contentful paint under throttling ({throttled_lcp:.0} ms)")
-        } else {
-            format!(
-                "der spät erscheinende Hauptinhalt unter Drosselung ({throttled_lcp:.0} ms LCP)"
-            )
-        });
-    }
-
-    let rb_count = p
-        .render_blocking
-        .as_ref()
-        .map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len())
-        .unwrap_or(0);
-    if rb_count > 0 {
-        critical.push(if en {
-            format!("{rb_count} render-blocking resources")
-        } else {
-            format!("{rb_count} render-blockierende Ressourcen")
-        });
-    }
-
-    let unminified_kb = p
-        .minification
-        .as_ref()
-        .map(|m| m.total_savings_bytes as f64 / 1024.0)
-        .unwrap_or(0.0);
-    if unminified_kb > 100.0 {
-        critical.push(if en {
-            format!("unminified assets (~{unminified_kb:.0} KB savings)")
-        } else {
-            format!("unminifizierte Assets (~{unminified_kb:.0} KB Einsparpotenzial)")
-        });
-    }
-
-    let anim_count = p.animations.as_ref().map(|a| a.total_count).unwrap_or(0);
-    if anim_count > 10 {
-        critical.push(if en {
-            format!("{anim_count} non-composited animations")
-        } else {
-            format!("{anim_count} nicht-composited Animationen")
-        });
-    }
-
-    if critical.is_empty() {
-        return base;
-    }
-
-    let mut positive: Vec<String> = Vec::new();
-    if p.vitals.cls.as_ref().is_some_and(|v| v.rating == "good") {
-        positive.push(
-            if en {
-                "layout stability (CLS)"
-            } else {
-                "Layout-Stabilität (CLS)"
-            }
-            .to_string(),
-        );
-    }
-    if p.vitals.tbt.as_ref().is_some_and(|v| v.rating == "good") {
-        positive.push(
-            if en {
-                "main-thread blocking (TBT)"
-            } else {
-                "Hauptthread-Blockierung (TBT)"
-            }
-            .to_string(),
-        );
-    }
-
-    let mut out = base;
-    if !out.is_empty() {
-        out.push(' ');
-    }
-    if en {
-        out.push_str(&format!(
-            "Critical here are {}.",
-            join_phrases(&critical, en)
-        ));
-        if !positive.is_empty() {
-            let verb = if positive.len() == 1 {
-                "remains"
-            } else {
-                "remain"
-            };
-            out.push_str(&format!(
-                " In contrast, {} {verb} unobtrusive.",
-                join_phrases(&positive, en)
-            ));
-        }
-    } else {
-        out.push_str(&format!(
-            "Kritisch sind hier {}.",
-            join_phrases(&critical, en)
-        ));
-        if !positive.is_empty() {
-            let verb = if positive.len() == 1 {
-                "bleibt"
-            } else {
-                "bleiben"
-            };
-            out.push_str(&format!(
-                " Im Kontrast dazu {verb} {} unauffällig.",
-                join_phrases(&positive, en)
-            ));
-        }
-    }
-    out
 }
 
 fn build_performance_details(
@@ -298,43 +146,24 @@ fn build_performance_details(
         }
         let en = locale == "en";
         let base_perf = module_interpretation(&normalized.normalized, "performance", locale);
-        // When all core vitals are green but score < 85, append the cause for the gap.
+        // Decision + wording live in the domain layer (#406); the builder only
+        // supplies the viewport flags and the worst throttled LCP.
         let score_below_excellent = performance_score < 85;
-        let perf_interpretation = if cwv_all_good && score_below_excellent {
-            let mut reasons = Vec::new();
-            if p.vitals.dom_nodes.is_some_and(|n| n > 1500) {
-                reasons.push(if en { "DOM size" } else { "DOM-Größe" });
-            }
-            if has_render_blocking {
-                reasons.push(if en {
-                    "render-blocking resources"
-                } else {
-                    "Render-blockierende Ressourcen"
-                });
-            }
-            if p.vitals.tbt.as_ref().is_some_and(|v| v.rating != "good") {
-                reasons.push("Total Blocking Time");
-            }
-            if reasons.is_empty() {
-                base_perf
-            } else if en {
-                format!(
-                    "{} Score reduced by {} although Core Web Vitals are in the green.",
-                    base_perf,
-                    reasons.join(", ")
-                )
-            } else {
-                format!(
-                    "{} Score durch {} reduziert, obwohl Core Web Vitals im grünen Bereich liegen.",
-                    base_perf,
-                    reasons.join(", ")
-                )
-            }
-        } else {
-            base_perf
-        };
+        let perf_interpretation = performance_gap_text(
+            base_perf,
+            p,
+            cwv_all_good,
+            score_below_excellent,
+            has_render_blocking,
+            en,
+        );
+        let throttled_lcp_max = normalized
+            .raw_throttled_performance
+            .iter()
+            .filter_map(|t| t.lcp_ms)
+            .fold(0.0_f64, f64::max);
         let mut perf_interpretation =
-            append_performance_qualifiers(perf_interpretation, p, normalized, en);
+            append_performance_qualifiers_text(perf_interpretation, p, throttled_lcp_max, en);
 
         let mut capping_warnings = Vec::new();
         if p.score.is_capped == Some(true) {
