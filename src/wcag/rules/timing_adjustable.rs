@@ -123,7 +123,7 @@ pub async fn check_timing_with_page(page: &Page) -> Vec<Violation> {
     let exempt = seconds.map(|s| s >= 20 * 60 * 60).unwrap_or(false);
     if !exempt {
         let detail = match seconds {
-            Some(s) => format!("after {s} second(s)"),
+            Some(s) => format!("after {s} {}", if s == 1 { "second" } else { "seconds" }),
             None => format!("(content: \"{content}\")"),
         };
         findings.push(

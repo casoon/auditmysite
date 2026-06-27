@@ -40,13 +40,20 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     };
     let detail = if with_controls == disclosure_count {
         format!(
-            "{} disclosure trigger(s) with aria-expanded and aria-controls — well-formed pattern.",
-            disclosure_count
+            "{} disclosure {} with aria-expanded and aria-controls — well-formed pattern.",
+            disclosure_count,
+            if disclosure_count == 1 {
+                "trigger"
+            } else {
+                "triggers"
+            }
         )
     } else {
         format!(
-            "{} disclosure trigger(s) with aria-expanded ({} with aria-controls). Controls relationship strengthens screen-reader announcements.",
-            disclosure_count, with_controls
+            "{} disclosure {} with aria-expanded ({} with aria-controls). Controls relationship strengthens screen-reader announcements.",
+            disclosure_count,
+            if disclosure_count == 1 { "trigger" } else { "triggers" },
+            with_controls
         )
     };
     out.add_recognized("DisclosureMenu", detail, confidence);

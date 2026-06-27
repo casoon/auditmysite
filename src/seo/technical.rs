@@ -777,13 +777,23 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
             issue_type: "internal_links_with_query_params".to_string(),
             message: if en {
                 format!(
-                    "{} internal link(s) with query parameters — can dilute crawl budget",
-                    t.internal_links_with_query_params
+                    "{} internal {} with query parameters — can dilute crawl budget",
+                    t.internal_links_with_query_params,
+                    if t.internal_links_with_query_params == 1 {
+                        "link"
+                    } else {
+                        "links"
+                    }
                 )
             } else {
                 format!(
-                    "{} interne Link(s) mit Query-Parametern — können Crawl-Budget verwässern",
-                    t.internal_links_with_query_params
+                    "{} interne {} mit Query-Parametern — können Crawl-Budget verwässern",
+                    t.internal_links_with_query_params,
+                    if t.internal_links_with_query_params == 1 {
+                        "Link"
+                    } else {
+                        "Links"
+                    }
                 )
             },
             severity: Severity::Low,
@@ -804,8 +814,13 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
             issue_type: "broken_internal_links".to_string(),
             message: if en {
                 format!(
-                    "{} broken internal link(s) detected: {}",
+                    "{} broken internal {} detected: {}",
                     t.broken_links.len(),
+                    if t.broken_links.len() == 1 {
+                        "link"
+                    } else {
+                        "links"
+                    },
                     t.broken_links
                         .iter()
                         .take(3)
@@ -815,8 +830,13 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
                 )
             } else {
                 format!(
-                    "{} defekte interne Link(s) erkannt: {}",
+                    "{} defekte interne {} erkannt: {}",
                     t.broken_links.len(),
+                    if t.broken_links.len() == 1 {
+                        "Link"
+                    } else {
+                        "Links"
+                    },
                     t.broken_links
                         .iter()
                         .take(3)
@@ -846,15 +866,25 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
             issue_type: "mixed_content".to_string(),
             message: if en {
                 format!(
-                    "{} HTTP subresource(s) referenced from HTTPS page ({} blockable): {}",
+                    "{} HTTP {} referenced from HTTPS page ({} blockable): {}",
                     t.mixed_content.len(),
+                    if t.mixed_content.len() == 1 {
+                        "subresource"
+                    } else {
+                        "subresources"
+                    },
                     blockable_count,
                     samples
                 )
             } else {
                 format!(
-                    "{} HTTP-Subressource(n) auf HTTPS-Seite referenziert ({} blockierbar): {}",
+                    "{} {} auf HTTPS-Seite referenziert ({} blockierbar): {}",
                     t.mixed_content.len(),
+                    if t.mixed_content.len() == 1 {
+                        "HTTP-Subressource"
+                    } else {
+                        "HTTP-Subressourcen"
+                    },
                     blockable_count,
                     samples
                 )
@@ -1373,13 +1403,23 @@ fn collect_form_security_issues(
             issue_type: "form_insecure_transport".to_string(),
             message: if en {
                 format!(
-                    "{} sensitive form(s) submit to HTTP or are hosted on HTTP",
-                    form_security.insecure_transport_forms
+                    "{} sensitive {} submit to HTTP or are hosted on HTTP",
+                    form_security.insecure_transport_forms,
+                    if form_security.insecure_transport_forms == 1 {
+                        "form"
+                    } else {
+                        "forms"
+                    }
                 )
             } else {
                 format!(
-                    "{} sensible Formular(e) senden an HTTP oder werden über HTTP ausgeliefert",
-                    form_security.insecure_transport_forms
+                    "{} {} senden an HTTP oder werden über HTTP ausgeliefert",
+                    form_security.insecure_transport_forms,
+                    if form_security.insecure_transport_forms == 1 {
+                        "sensibles Formular"
+                    } else {
+                        "sensible Formulare"
+                    }
                 )
             },
             severity: Severity::High,
@@ -1391,13 +1431,23 @@ fn collect_form_security_issues(
             issue_type: "form_sensitive_get".to_string(),
             message: if en {
                 format!(
-                    "{} sensitive form(s) use GET and can leak values into URLs and logs",
-                    form_security.get_sensitive_forms
+                    "{} sensitive {} use GET and can leak values into URLs and logs",
+                    form_security.get_sensitive_forms,
+                    if form_security.get_sensitive_forms == 1 {
+                        "form"
+                    } else {
+                        "forms"
+                    }
                 )
             } else {
                 format!(
-                    "{} sensible Formular(e) verwenden GET und können Werte in URLs und Logs preisgeben",
-                    form_security.get_sensitive_forms
+                    "{} {} verwenden GET und können Werte in URLs und Logs preisgeben",
+                    form_security.get_sensitive_forms,
+                    if form_security.get_sensitive_forms == 1 {
+                        "sensibles Formular"
+                    } else {
+                        "sensible Formulare"
+                    }
                 )
             },
             severity: Severity::High,
@@ -1409,13 +1459,23 @@ fn collect_form_security_issues(
             issue_type: "form_password_autocomplete".to_string(),
             message: if en {
                 format!(
-                    "{} password field(s) have autocomplete disabled or misconfigured",
-                    form_security.password_autocomplete_issues
+                    "{} password {} have autocomplete disabled or misconfigured",
+                    form_security.password_autocomplete_issues,
+                    if form_security.password_autocomplete_issues == 1 {
+                        "field"
+                    } else {
+                        "fields"
+                    }
                 )
             } else {
                 format!(
-                    "{} Passwortfeld(er) haben autocomplete deaktiviert oder fehlkonfiguriert",
-                    form_security.password_autocomplete_issues
+                    "{} {} haben autocomplete deaktiviert oder fehlkonfiguriert",
+                    form_security.password_autocomplete_issues,
+                    if form_security.password_autocomplete_issues == 1 {
+                        "Passwortfeld"
+                    } else {
+                        "Passwortfelder"
+                    }
                 )
             },
             severity: Severity::Medium,

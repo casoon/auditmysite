@@ -134,7 +134,10 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
                 RULE_META_FORM_NO_SUBMIT.name,
                 RULE_META_FORM_NO_SUBMIT.level,
                 RULE_META_FORM_NO_SUBMIT.severity,
-                format!("Form has {controls} input control(s) but no explicit submit button"),
+                format!(
+                    "Form has {controls} input {} but no explicit submit button",
+                    if controls == 1 { "control" } else { "controls" }
+                ),
                 &selector,
             )
             .with_selector(&selector)

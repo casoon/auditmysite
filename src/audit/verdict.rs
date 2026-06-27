@@ -78,9 +78,11 @@ pub fn compute_verdict(normalized: &NormalizedReport, config: &VerdictConfig) ->
             normalized.score, warn_below
         ));
     } else if normalized.severity_counts.total > 0 {
+        let n = normalized.severity_counts.total;
         warn_reasons.push(format!(
-            "{} finding(s) present",
-            normalized.severity_counts.total
+            "{} {} present",
+            n,
+            if n == 1 { "finding" } else { "findings" }
         ));
     }
 
@@ -135,11 +137,20 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
         ));
     } else if summary.failed > 0 {
         warn_reasons.push(format!(
-            "{} URL(s) failed quality threshold",
-            summary.failed
+            "{} {} failed quality threshold",
+            summary.failed,
+            if summary.failed == 1 { "URL" } else { "URLs" }
         ));
     } else if summary.total_violations > 0 {
-        warn_reasons.push(format!("{} violation(s) found", summary.total_violations));
+        warn_reasons.push(format!(
+            "{} {} found",
+            summary.total_violations,
+            if summary.total_violations == 1 {
+                "violation"
+            } else {
+                "violations"
+            }
+        ));
     }
 
     if !warn_reasons.is_empty() {

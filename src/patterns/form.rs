@@ -84,8 +84,13 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     out.add_recognized(
         "Form",
         format!(
-            "{} required field(s) detected; submit trigger: {}",
+            "{} required {} detected; submit trigger: {}",
             required_controls.len(),
+            if required_controls.len() == 1 {
+                "field"
+            } else {
+                "fields"
+            },
             trigger.name.as_deref().unwrap_or("(unnamed button)")
         ),
         PatternConfidence::Partial,

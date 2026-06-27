@@ -503,11 +503,11 @@ pub fn content_visibility_signal_text(
         }
         (InternalLinksFew, true) => (
             "Hardly any internal links".into(),
-            format!("{count} internal link(s) — the page appears isolated."),
+            format!("{count} {} — the page appears isolated.", if count == 1 { "internal link" } else { "internal links" }),
         ),
         (InternalLinksFew, false) => (
             "Kaum interne Links".into(),
-            format!("{count} interne Link(s) — Seite wirkt isoliert."),
+            format!("{count} {} — Seite wirkt isoliert.", if count == 1 { "interner Link" } else { "interne Links" }),
         ),
         (LanguageDefined, true) => ("Language defined".into(), text.to_string()),
         (LanguageDefined, false) => ("Sprache definiert".into(), text.to_string()),

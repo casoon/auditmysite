@@ -102,9 +102,14 @@ pub fn check_media_rules(tree: &AXTree) -> WcagResults {
                 RULE_META_CAPTIONS.level,
                 Severity::High,
                 format!(
-                    "{video_element_count} media element(s) detected. \
+                    "{video_element_count} media {} detected. \
                      Caption presence and accuracy cannot be verified automatically — \
-                     review each video for correct, synchronized captions."
+                     review each video for correct, synchronized captions.",
+                    if video_element_count == 1 {
+                        "element"
+                    } else {
+                        "elements"
+                    }
                 ),
                 "page",
             )

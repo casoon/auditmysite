@@ -464,13 +464,23 @@ fn build_capability_matrix(locale: &str, normalized: &NormalizedReport) -> Vec<C
             surfaces: vec!["JSON".into(), "PDF".into()],
             note: if en {
                 format!(
-                    "{} conflict signal(s) are surfaced openly rather than hidden in the score.",
-                    normalized.audit_flags.len()
+                    "{} conflict {} surfaced openly rather than hidden in the score.",
+                    normalized.audit_flags.len(),
+                    if normalized.audit_flags.len() == 1 {
+                        "signal is"
+                    } else {
+                        "signals are"
+                    }
                 )
             } else {
                 format!(
-                    "{} Konfliktsignal(e) werden offen ausgewiesen statt im Score versteckt.",
-                    normalized.audit_flags.len()
+                    "{} {} offen ausgewiesen statt im Score versteckt.",
+                    normalized.audit_flags.len(),
+                    if normalized.audit_flags.len() == 1 {
+                        "Konfliktsignal wird"
+                    } else {
+                        "Konfliktsignale werden"
+                    }
                 )
             },
         });

@@ -108,8 +108,11 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     out.add_recognized(
         "Accordion",
         format!(
-            "{} accordion trigger(s); {} with aria-controls; {} non-button triggers.",
-            triggers, with_controls, non_button_triggers
+            "{} accordion {}; {} with aria-controls; {} non-button triggers.",
+            triggers,
+            if triggers == 1 { "trigger" } else { "triggers" },
+            with_controls,
+            non_button_triggers
         ),
         confidence,
     );

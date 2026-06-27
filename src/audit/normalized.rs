@@ -421,14 +421,32 @@ impl RiskAssessment {
     }
 }
 
-fn gate_certificate_by_risk(certificate: String, risk_level: &RiskLevel) -> String {
-    match risk_level {
-        RiskLevel::Critical => "NICHT BESTANDEN".to_string(),
-        RiskLevel::High if matches!(certificate.as_str(), "STABIL" | "GUT" | "SEHR GUT") => {
-            "EINGESCHRÄNKT".to_string()
-        }
-        _ => certificate,
+/// Veto a misleadingly positive certificate when the audit does not pass.
+///
+/// Critical risk never passes. Beyond that, the certificate must follow the
+/// default verdict (see `verdict.rs`): a legal-relevant WCAG Level-A violation
+/// (`legal_flags`) or a blocking interactive issue (`blocking_issues`) fails the
+/// audit regardless of the risk band — so a positive tier (e.g. "GUT" on a
+/// medium-risk page) must be downgraded too, not just on High/Critical risk.
+fn gate_certificate_by_risk(
+    certificate: String,
+    risk_level: &RiskLevel,
+    legal_flags: usize,
+    blocking_issues: usize,
+) -> String {
+    if matches!(risk_level, RiskLevel::Critical) {
+        return "NICHT BESTANDEN".to_string();
     }
+    let is_positive = matches!(
+        certificate.as_str(),
+        "AUSBAUFÄHIG" | "STABIL" | "GUT" | "SEHR GUT"
+    );
+    let does_not_pass =
+        matches!(risk_level, RiskLevel::High) || legal_flags > 0 || blocking_issues > 0;
+    if is_positive && does_not_pass {
+        return "EINGESCHRÄNKT".to_string();
+    }
+    certificate
 }
 
 fn viewport_score_calculation_note() -> String {
@@ -1705,7 +1723,12 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         score,
         overall_score,
     );
-    let certificate = gate_certificate_by_risk(certificate, &risk.level);
+    let certificate = gate_certificate_by_risk(
+        certificate,
+        &risk.level,
+        risk.legal_flags,
+        risk.blocking_issues,
+    );
 
     let normalized_data = NormalizedReport {
         url: report.url.clone(),
@@ -2347,12 +2370,15 @@ mod tests {
     #[test]
     fn test_score_consistency() {
         let mut results = WcagResults::new();
+        // A non-legal, non-blocking violation (Level AA, Low severity): keeps the
+        // page out of the certificate veto (no legal_flags / blocking_issues), so
+        // the ungated score→grade→certificate mapping is what we assert here.
         results.add_violation(Violation::new(
-            "1.1.1",
-            "Alt",
-            WcagLevel::A,
-            Severity::High,
-            "Missing",
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::Low,
+            "Low contrast",
             "n1",
         ));
 
@@ -2377,16 +2403,48 @@ mod tests {
     #[test]
     fn high_risk_vetoes_positive_certificate() {
         assert_eq!(
-            gate_certificate_by_risk("STABIL".to_string(), &RiskLevel::High),
+            gate_certificate_by_risk("STABIL".to_string(), &RiskLevel::High, 0, 0),
             "EINGESCHRÄNKT"
         );
         assert_eq!(
-            gate_certificate_by_risk("SEHR GUT".to_string(), &RiskLevel::Critical),
+            gate_certificate_by_risk("SEHR GUT".to_string(), &RiskLevel::Critical, 0, 0),
             "NICHT BESTANDEN"
         );
+        // High risk also vetoes the bronze "AUSBAUFÄHIG" band: a failing page
+        // must not surface a label that reads milder than a Critical fail.
         assert_eq!(
-            gate_certificate_by_risk("AUSBAUFÄHIG".to_string(), &RiskLevel::High),
-            "AUSBAUFÄHIG"
+            gate_certificate_by_risk("AUSBAUFÄHIG".to_string(), &RiskLevel::High, 0, 0),
+            "EINGESCHRÄNKT"
+        );
+        // "UNGENÜGEND" is already terminal and stays as-is under High risk.
+        assert_eq!(
+            gate_certificate_by_risk("UNGENÜGEND".to_string(), &RiskLevel::High, 0, 0),
+            "UNGENÜGEND"
+        );
+    }
+
+    #[test]
+    fn legal_or_blocking_vetoes_positive_certificate_at_medium_risk() {
+        // A legal-relevant WCAG Level-A violation fails the default verdict even
+        // at medium risk — the certificate must not read "GUT" (regression: a
+        // medium-risk page with legal_flags=1 showed a passing tier).
+        assert_eq!(
+            gate_certificate_by_risk("GUT".to_string(), &RiskLevel::Medium, 1, 0),
+            "EINGESCHRÄNKT"
+        );
+        assert_eq!(
+            gate_certificate_by_risk("STABIL".to_string(), &RiskLevel::Medium, 0, 3),
+            "EINGESCHRÄNKT"
+        );
+        // A clean medium/low-risk page (no legal flags, no blockers) keeps its
+        // positive tier — e.g. a "warn" verdict that still passes.
+        assert_eq!(
+            gate_certificate_by_risk("GUT".to_string(), &RiskLevel::Low, 0, 0),
+            "GUT"
+        );
+        assert_eq!(
+            gate_certificate_by_risk("GUT".to_string(), &RiskLevel::Medium, 0, 0),
+            "GUT"
         );
     }
 

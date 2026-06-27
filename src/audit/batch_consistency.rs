@@ -126,13 +126,15 @@ fn analyze_navigation(reports: &[AuditReport]) -> NavigationConsistency {
     if pages_with_main_nav > 0 && pages_with_main_nav < total_pages {
         let missing = total_pages - pages_with_main_nav;
         findings.push(format!(
-            "{missing} of {total_pages} page(s) have no recognized main navigation landmark — inconsistent navigation structure across the site."
+            "{missing} of {total_pages} {} have no recognized main navigation landmark — inconsistent navigation structure across the site.",
+            if total_pages == 1 { "page" } else { "pages" }
         ));
     }
     if pages_with_skip_link > 0 && pages_with_skip_link < total_pages {
         let missing = total_pages - pages_with_skip_link;
         findings.push(format!(
-            "Skip link present on {pages_with_skip_link} of {total_pages} page(s); missing on {missing}. Skip links should appear on every page."
+            "Skip link present on {pages_with_skip_link} of {total_pages} {}; missing on {missing}. Skip links should appear on every page.",
+            if total_pages == 1 { "page" } else { "pages" }
         ));
     }
 
@@ -167,12 +169,14 @@ fn analyze_headings(reports: &[AuditReport]) -> HeadingConsistency {
 
     if none > 0 {
         findings.push(format!(
-            "{none} of {total_pages} page(s) have no H1 heading. Every page should start with a single H1."
+            "{none} of {total_pages} {} have no H1 heading. Every page should start with a single H1.",
+            if total_pages == 1 { "page" } else { "pages" }
         ));
     }
     if multi > 0 {
         findings.push(format!(
-            "{multi} of {total_pages} page(s) have multiple H1 headings. Use exactly one H1 per page."
+            "{multi} of {total_pages} {} have multiple H1 headings. Use exactly one H1 per page.",
+            if total_pages == 1 { "page" } else { "pages" }
         ));
     }
 
@@ -210,12 +214,14 @@ fn analyze_canonical(reports: &[AuditReport]) -> CanonicalConsistency {
 
     if www > 0 && non_www > 0 {
         findings.push(format!(
-            "Mixed canonical strategy: {www} page(s) canonicalize to www, {non_www} to non-www. Pick one variant and use it everywhere."
+            "Mixed canonical strategy: {www} {} canonicalize to www, {non_www} to non-www. Pick one variant and use it everywhere.",
+            if www == 1 { "page" } else { "pages" }
         ));
     }
     if missing > 0 {
         findings.push(format!(
-            "{missing} of {total_pages} page(s) have no canonical URL. Set <link rel=\"canonical\"> on every page."
+            "{missing} of {total_pages} {} have no canonical URL. Set <link rel=\"canonical\"> on every page.",
+            if total_pages == 1 { "page" } else { "pages" }
         ));
     }
 
@@ -251,8 +257,13 @@ fn analyze_orphan_pages(reports: &[AuditReport]) -> OrphanPageAnalysis {
     let mut findings = Vec::new();
     if !orphan_urls.is_empty() {
         findings.push(format!(
-            "{} of {total_pages} page(s) are not linked from any other audited page: {}",
+            "{} of {total_pages} {} are not linked from any other audited page: {}",
             orphan_urls.len(),
+            if orphan_urls.len() == 1 {
+                "page"
+            } else {
+                "pages"
+            },
             orphan_urls.join(", ")
         ));
     }

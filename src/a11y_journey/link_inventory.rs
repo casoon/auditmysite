@@ -122,9 +122,10 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "{count} link(s) carry generic or non-descriptive text \
+                "{count} {} carry generic or non-descriptive text \
                 ({example_str}). Without surrounding context they are indistinguishable for \
-                screen reader users and do not satisfy WCAG 2.4.4."
+                screen reader users and do not satisfy WCAG 2.4.4.",
+                if count == 1 { "link" } else { "links" }
             ),
             fix_suggestion: Some(
                 "Write link text that is meaningful without the surrounding page context, \
@@ -156,8 +157,13 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             before_snapshot_label: None,
             after_snapshot_label: None,
             message: format!(
-                "{count} link text(s) appear 3 or more times on the page: {}. \
+                "{count} {} appear 3 or more times on the page: {}. \
                 If they point to different targets, screen reader users cannot distinguish them.",
+                if count == 1 {
+                    "link text"
+                } else {
+                    "link texts"
+                },
                 examples.join(", ")
             ),
             fix_suggestion: Some(

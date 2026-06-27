@@ -1256,13 +1256,23 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "document_write".to_string(),
             message: if en {
                 format!(
-                    "{} inline script(s) use document.write() — blocks HTML parsing",
-                    a.document_write_count
+                    "{} inline {} use document.write() — blocks HTML parsing",
+                    a.document_write_count,
+                    if a.document_write_count == 1 {
+                        "script"
+                    } else {
+                        "scripts"
+                    }
                 )
             } else {
                 format!(
-                    "{} Inline-Script(s) verwenden document.write() — blockiert HTML-Parsing",
-                    a.document_write_count
+                    "{} Inline-{} verwenden document.write() — blockiert HTML-Parsing",
+                    a.document_write_count,
+                    if a.document_write_count == 1 {
+                        "Script"
+                    } else {
+                        "Scripts"
+                    }
                 )
             },
             severity: "medium".to_string(),
@@ -1326,13 +1336,15 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "paste_blocked_password".to_string(),
             message: if en {
                 format!(
-                    "{} password field(s) block pasting (onpaste handler) — interferes with password managers",
-                    a.paste_blocking_password_fields
+                    "{} password {} block pasting (onpaste handler) — interferes with password managers",
+                    a.paste_blocking_password_fields,
+                    if a.paste_blocking_password_fields == 1 { "field" } else { "fields" }
                 )
             } else {
                 format!(
-                    "{} Passwortfeld(er) blockieren Einfügen (onpaste-Handler) — beeinträchtigt Passwort-Manager",
-                    a.paste_blocking_password_fields
+                    "{} {} blockieren Einfügen (onpaste-Handler) — beeinträchtigt Passwort-Manager",
+                    a.paste_blocking_password_fields,
+                    if a.paste_blocking_password_fields == 1 { "Passwortfeld" } else { "Passwortfelder" }
                 )
             },
             severity: "medium".to_string(),
@@ -1479,13 +1491,19 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "gif_images".to_string(),
             message: if en {
                 format!(
-                    "{} GIF image(s) found — consider replacing with MP4/WebM (80–95% smaller)",
-                    a.gif_images
+                    "{} GIF {} found — consider replacing with MP4/WebM (80–95% smaller)",
+                    a.gif_images,
+                    if a.gif_images == 1 { "image" } else { "images" }
                 )
             } else {
                 format!(
-                    "{} GIF-Bild(er) gefunden — ggf. als MP4/WebM ersetzen (80–95 % kleiner)",
-                    a.gif_images
+                    "{} {} gefunden — ggf. als MP4/WebM ersetzen (80–95 % kleiner)",
+                    a.gif_images,
+                    if a.gif_images == 1 {
+                        "GIF-Bild"
+                    } else {
+                        "GIF-Bilder"
+                    }
                 )
             },
             severity: "low".to_string(),
@@ -1584,13 +1602,23 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "deprecated_apis".to_string(),
             message: if en {
                 format!(
-                    "{} deprecated browser API(s) detected in inline scripts",
-                    a.deprecated_api_count
+                    "{} deprecated browser {} detected in inline scripts",
+                    a.deprecated_api_count,
+                    if a.deprecated_api_count == 1 {
+                        "API"
+                    } else {
+                        "APIs"
+                    }
                 )
             } else {
                 format!(
-                    "{} veraltete Browser-API(s) in Inline-Scripts erkannt",
-                    a.deprecated_api_count
+                    "{} veraltete {} in Inline-Scripts erkannt",
+                    a.deprecated_api_count,
+                    if a.deprecated_api_count == 1 {
+                        "Browser-API"
+                    } else {
+                        "Browser-APIs"
+                    }
                 )
             },
             severity: "medium".to_string(),
@@ -1656,16 +1684,26 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "inefficient_resource_cache".to_string(),
             message: if en {
                 format!(
-                    "{} of {} static resource(s) without an efficient cache policy{}",
+                    "{} of {} static {} without an efficient cache policy{}",
                     a.resource_cache.inefficient_resources,
                     a.resource_cache.cacheable_resources,
+                    if a.resource_cache.cacheable_resources == 1 {
+                        "resource"
+                    } else {
+                        "resources"
+                    },
                     sample
                 )
             } else {
                 format!(
-                    "{} von {} statischen Ressource(n) ohne effiziente Cache-Policy{}",
+                    "{} von {} statischen {} ohne effiziente Cache-Policy{}",
                     a.resource_cache.inefficient_resources,
                     a.resource_cache.cacheable_resources,
+                    if a.resource_cache.cacheable_resources == 1 {
+                        "Ressource"
+                    } else {
+                        "Ressourcen"
+                    },
                     sample
                 )
             },
@@ -1719,13 +1757,15 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "sync_head_scripts".to_string(),
             message: if en {
                 format!(
-                    "{} script(s) in <head> without defer/async/module are syntactically render-blocking; whether they delay measurably is shown by the render-blocking analysis.",
-                    a.sync_head_scripts
+                    "{} {} in <head> without defer/async/module are syntactically render-blocking; whether they delay measurably is shown by the render-blocking analysis.",
+                    a.sync_head_scripts,
+                    if a.sync_head_scripts == 1 { "script" } else { "scripts" }
                 )
             } else {
                 format!(
-                    "{} Script(s) im <head> ohne defer/async/module sind syntaktisch render-blockierend; ob sie messbar verzögern, zeigt die Render-Blocking-Analyse.",
-                    a.sync_head_scripts
+                    "{} {} im <head> ohne defer/async/module sind syntaktisch render-blockierend; ob sie messbar verzögern, zeigt die Render-Blocking-Analyse.",
+                    a.sync_head_scripts,
+                    if a.sync_head_scripts == 1 { "Script" } else { "Scripts" }
                 )
             },
             severity: "medium".to_string(),
@@ -1738,13 +1778,23 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "missing_sri".to_string(),
             message: if en {
                 format!(
-                    "{} external resource(s) without Subresource Integrity (integrity attribute missing)",
-                    sri_total
+                    "{} external {} without Subresource Integrity (integrity attribute missing)",
+                    sri_total,
+                    if sri_total == 1 {
+                        "resource"
+                    } else {
+                        "resources"
+                    }
                 )
             } else {
                 format!(
-                    "{} externe Ressource(n) ohne Subresource Integrity (integrity-Attribut fehlt)",
-                    sri_total
+                    "{} externe {} ohne Subresource Integrity (integrity-Attribut fehlt)",
+                    sri_total,
+                    if sri_total == 1 {
+                        "Ressource"
+                    } else {
+                        "Ressourcen"
+                    }
                 )
             },
             severity: "medium".to_string(),
@@ -1763,13 +1813,25 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "broken_fragment_links".to_string(),
             message: if en {
                 format!(
-                    "{} anchor link(s) point to non-existent IDs{}",
-                    a.broken_fragment_links, sample
+                    "{} anchor {} point to non-existent IDs{}",
+                    a.broken_fragment_links,
+                    if a.broken_fragment_links == 1 {
+                        "link"
+                    } else {
+                        "links"
+                    },
+                    sample
                 )
             } else {
                 format!(
-                    "{} Anker-Link(s) verweisen auf nicht existierende IDs{}",
-                    a.broken_fragment_links, sample
+                    "{} Anker-{} verweisen auf nicht existierende IDs{}",
+                    a.broken_fragment_links,
+                    if a.broken_fragment_links == 1 {
+                        "Link"
+                    } else {
+                        "Links"
+                    },
+                    sample
                 )
             },
             severity: "low".to_string(),
@@ -1781,13 +1843,15 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             issue_type: "generic_link_text".to_string(),
             message: if en {
                 format!(
-                    "{} link(s) with non-descriptive text (\"here\", \"more\", \"click here\" and similar)",
-                    a.generic_link_text_count
+                    "{} {} with non-descriptive text (\"here\", \"more\", \"click here\" and similar)",
+                    a.generic_link_text_count,
+                    if a.generic_link_text_count == 1 { "link" } else { "links" }
                 )
             } else {
                 format!(
-                    "{} Link(s) mit nicht-beschreibendem Text (\"hier\", \"mehr\", \"click here\" u.ä.)",
-                    a.generic_link_text_count
+                    "{} {} mit nicht-beschreibendem Text (\"hier\", \"mehr\", \"click here\" u.ä.)",
+                    a.generic_link_text_count,
+                    if a.generic_link_text_count == 1 { "Link" } else { "Links" }
                 )
             },
             severity: "low".to_string(),

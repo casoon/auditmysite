@@ -70,8 +70,13 @@ pub(super) fn build_customer_diagnosis_panel(vm: &ReportViewModel, i18n: &I18n) 
     let accessibility = if vm.severity.total > 0 {
         if en {
             format!(
-                "{} accessibility occurrence(s) affect operation, orientation or perception.",
-                vm.severity.total
+                "{} accessibility {} affect operation, orientation or perception.",
+                vm.severity.total,
+                if vm.severity.total == 1 {
+                    "occurrence"
+                } else {
+                    "occurrences"
+                }
             )
         } else {
             format!(

@@ -179,7 +179,14 @@ pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<Manage
                 "low"
             }
             .to_string(),
-            rationale: format!("{component_findings} likely component or template issue(s) need coordinated remediation."),
+            rationale: format!(
+                "{component_findings} likely component or template {} coordinated remediation.",
+                if component_findings == 1 {
+                    "issue needs"
+                } else {
+                    "issues need"
+                }
+            ),
         },
     ]
 }

@@ -185,9 +185,10 @@ pub fn tab_walk_order(trace: &JourneyTrace, dom_order: &[String]) -> Vec<Interac
         before_snapshot_label: None,
         after_snapshot_label: None,
         message: format!(
-            "Tab order deviates from DOM order: {count} backward jump(s) \
+            "Tab order deviates from DOM order: {count} backward {} \
              observed. First affected elements: {preview}{suffix}. \
-             Keyboard users may not be able to follow the reading flow."
+             Keyboard users may not be able to follow the reading flow.",
+            if count == 1 { "jump" } else { "jumps" }
         ),
         fix_suggestion: Some(
             "Avoid negative or high tabindex values. \

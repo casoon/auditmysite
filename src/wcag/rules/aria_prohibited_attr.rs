@@ -160,7 +160,7 @@ pub async fn check_aria_prohibited_attr_with_page(page: &Page) -> Vec<Violation>
                 RULE_META.level,
                 RULE_META.severity,
                 format!(
-                    "ARIA attribute(s) '{}' cannot be used on a generic element without a valid role",
+                    "ARIA attributes '{}' cannot be used on a generic element without a valid role",
                     attrs
                 ),
                 &selector,
