@@ -3,7 +3,7 @@ use super::*;
 pub(in crate::output::pdf) fn render_source_quality(
     mut builder: renderreport::engine::ReportBuilder,
     sq: &crate::source_quality::SourceQualityAnalysis,
-    is_first: bool,
+    _is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::source_quality::{
@@ -16,29 +16,21 @@ pub(in crate::output::pdf) fn render_source_quality(
     let disclaimer = source_quality_disclaimer(en);
 
     let sq_title = i18n.t("pdf-sq-section-title");
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = builder.add_component(Section::new(&sq_title).with_level(3));
     builder = builder
         .add_component(
-            ScoreCard::new(&sq_title, sq.score)
-                .with_description(i18n.t_args(
-                    "pdf-sq-score-desc-format",
-                    &[
-                        ("grade", sq.grade.as_str()),
-                        ("quality", score_quality_label(sq.score)),
-                    ],
-                ))
-                .with_thresholds(70, 50),
+            ScoreCard::new(super::module_score_caption(i18n), sq.score)
+                .with_description(super::score_band_label(sq.score, i18n))
+                .with_thresholds(75, 40),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-sq-overview-title"),
                 disclaimer
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
@@ -98,8 +90,8 @@ pub(in crate::output::pdf) fn render_tech_stack(
     }
     builder = builder.add_component(
         ScoreCard::new(&ts_title, ts.score)
-            .with_description(format!("Grade: {}", ts.grade))
-            .with_thresholds(80, 50),
+            .with_description(super::score_band_label(ts.score, i18n))
+            .with_thresholds(75, 40),
     );
 
     if !ts.detected.is_empty() {
@@ -155,7 +147,7 @@ pub(in crate::output::pdf) fn render_tech_stack(
 pub(in crate::output::pdf) fn render_ai_visibility(
     mut builder: renderreport::engine::ReportBuilder,
     av: &crate::ai_visibility::AiVisibilityAnalysis,
-    is_first: bool,
+    _is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::ai_visibility::{
@@ -169,38 +161,30 @@ pub(in crate::output::pdf) fn render_ai_visibility(
 
     let indicator_note_ai = i18n.t("pdf-ai-indicator-note");
     let ai_title = i18n.t("pdf-ai-section-title");
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = builder.add_component(Section::new(&ai_title).with_level(3));
     builder = builder
         .add_component(
-            ScoreCard::new(&ai_title, av.score)
-                .with_description(i18n.t_args(
-                    "pdf-ai-score-desc-format",
-                    &[
-                        ("grade", av.grade.as_str()),
-                        ("quality", score_quality_label(av.score)),
-                    ],
-                ))
-                .with_thresholds(70, 50),
+            ScoreCard::new(super::module_score_caption(i18n), av.score)
+                .with_description(super::score_band_label(av.score, i18n))
+                .with_thresholds(75, 40),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-seo-indicator-title"),
                 indicator_note_ai
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-ai-overview-title"),
                 disclaimer
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
@@ -228,7 +212,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
         let dim_label = ai_dimension_label(dim.score, en);
         let mut dim_kv = KeyValueList::new().add(
             i18n.t("label-heuristic-indicator"),
-            format!("~{}/100 — {}", dim.score, score_quality_label(dim.score)),
+            format!("~{} — {}", dim.score, score_quality_label(dim.score)),
         );
         if !dim_label.is_empty() {
             dim_kv = dim_kv.add("Basis", &dim_label);
@@ -386,7 +370,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
 pub(in crate::output::pdf) fn render_content_visibility(
     mut builder: renderreport::engine::ReportBuilder,
     cv: &crate::content_visibility::ContentVisibilityAnalysis,
-    is_first: bool,
+    _is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::assessment::AssessmentLevel;
@@ -409,15 +393,13 @@ pub(in crate::output::pdf) fn render_content_visibility(
         .checked_div(cv.signal_count)
         .unwrap_or(100) as u32;
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = builder.add_component(Section::new(&cv_title).with_level(3));
 
     builder = builder
         .add_component(
-            ScoreCard::new(&cv_title, score)
-                .with_description(i18n.t("pdf-cv-overview-body"))
-                .with_thresholds(75, 50),
+            ScoreCard::new(super::module_score_caption(i18n), score)
+                .with_description(super::score_band_label(score, i18n))
+                .with_thresholds(75, 40),
         )
         .add_component(module_customer_context(
             i18n,

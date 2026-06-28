@@ -18,20 +18,18 @@ pub(in crate::output::pdf) fn render_search_experience(
         "Dieser Gesamtwert verbindet klassisches technisches SEO mit Inhaltsverständlichkeit, Vertrauenssignalen, KI-Lesbarkeit, semantischer Struktur und mobiler Lesbarkeit. Das klassische SEO bleibt im nächsten Detailkapitel sichtbar."
     };
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = super::module_chapter_opener(builder, title, is_first);
 
     builder = builder
         .add_component(
-            ScoreCard::new(title, sx.score)
+            ScoreCard::new(super::module_score_caption(i18n), sx.score)
                 .with_description(&sx.interpretation)
-                .with_thresholds(75, 50),
+                .with_thresholds(75, 40),
         )
         .add_component(
-            Label::new(format!("ℹ {}", body))
+            Label::new(body)
                 .with_size("10.5pt")
-                .with_color("#475569"),
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,

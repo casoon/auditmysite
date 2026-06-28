@@ -59,8 +59,8 @@ pub(super) fn build_consequence_text(i18n: &I18n, normalized: &NormalizedReport)
 
 pub(super) fn localized_report_title(locale: &str) -> String {
     match locale {
-        "en" => "Accessibility Audit Report".to_string(),
-        _ => "Barrierefreiheits-Prüfbericht".to_string(),
+        "en" => "Website Health Report".to_string(),
+        _ => "Website-Qualitätsbericht".to_string(),
     }
 }
 

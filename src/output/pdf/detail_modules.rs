@@ -42,7 +42,7 @@ fn packed_section_separator() -> Divider {
     Divider {
         style: "solid".to_string(),
         thickness: "0.5pt".to_string(),
-        color: Some("#e2e8f0".to_string()),
+        color: Some(crate::output::pdf::design::tokens::BORDER.to_string()),
         spacing_above: "18pt".to_string(),
         spacing_below: "10pt".to_string(),
     }
@@ -52,15 +52,17 @@ fn packed_section_separator() -> Divider {
 /// reader can distinguish "checked and clean" from "not checked" instead of the
 /// section silently collapsing to nothing (#446).
 fn clean_section_note(i18n: &I18n) -> Label {
-    Label::new(format!("ℹ {}", i18n.t("pdf-section-clean")))
+    Label::new(i18n.t("pdf-section-clean"))
         .with_size("10.5pt")
         .with_color("#475569")
 }
 
 fn score_status(score: u32) -> &'static str {
+    // Aligned with the grade bands / `design::score_color`: ≥75 good, 40–74
+    // watch, <40 problem. Kept as keyword form for `MetricStripItem::with_status`.
     if score >= 75 {
         "good"
-    } else if score >= 50 {
+    } else if score >= 40 {
         "warn"
     } else {
         "bad"
@@ -126,17 +128,59 @@ fn module_customer_context(
     parts.push(module_text);
     // No meta-label prefix — the plain-language sentence speaks for itself
     // ("Was das für Kunden bedeutet:" was redundant wording, #446 readability).
-    let text = format!("ℹ {}", parts.join(" "));
-    Label::new(text).with_size("10.5pt").with_color("#475569")
+    let text = parts.join(" ");
+    Label::new(text)
+        .with_size("10.5pt")
+        .with_color(crate::output::pdf::design::tokens::NEUTRAL)
 }
 
 fn score_color(score: u32) -> &'static str {
-    if score >= 75 {
-        "#0f766e"
-    } else if score >= 50 {
-        "#d97706"
+    crate::output::pdf::design::score_color(score.min(255) as u8)
+}
+
+/// Opens a heavy module as a numbered-free level-2 chapter: a page break (unless
+/// it is the first module) plus a level-2 heading carrying the module name, so
+/// the module appears in the table of contents as its own chapter.
+pub(super) fn module_chapter_opener(
+    mut builder: renderreport::engine::ReportBuilder,
+    title: &str,
+    is_first: bool,
+) -> renderreport::engine::ReportBuilder {
+    use renderreport::components::advanced::PageBreak;
+    use renderreport::prelude::Section;
+    if !is_first {
+        builder = builder.add_component(PageBreak::new());
+    }
+    builder.add_component(Section::new(title).with_level(2))
+}
+
+/// Generic label for a module's headline score card. The descriptive module
+/// name lives in the level-2 chapter heading, so the card only needs a short
+/// "overall score" caption (avoids printing the title twice).
+pub(super) fn module_score_caption(i18n: &I18n) -> &'static str {
+    if is_english(i18n) {
+        "Overall score"
     } else {
-        "#dc2626"
+        "Gesamtwertung"
+    }
+}
+
+/// Plain-language grade band for a module score, aligned with the report's
+/// bands (Sehr gut ≥ 90 … Kritisch < 40). Replaces the rejected A–F letter
+/// grade as the score-card description. Localized de/en.
+pub(super) fn score_band_label(score: u32, i18n: &I18n) -> &'static str {
+    let en = is_english(i18n);
+    match (score, en) {
+        (90..=u32::MAX, true) => "Excellent",
+        (75..=89, true) => "Good",
+        (60..=74, true) => "Needs improvement",
+        (40..=59, true) => "Inadequate",
+        (_, true) => "Critical",
+        (90..=u32::MAX, false) => "Sehr gut",
+        (75..=89, false) => "Gut",
+        (60..=74, false) => "Verbesserungswürdig",
+        (40..=59, false) => "Ausbaufähig",
+        (_, false) => "Kritisch",
     }
 }
 

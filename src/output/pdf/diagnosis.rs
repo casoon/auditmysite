@@ -48,7 +48,7 @@ pub(super) fn render_diagnosis_section(
             Label::new(&spotlight_text)
                 .with_size("10.5pt")
                 .bold()
-                .with_color("#b91c1c"),
+                .with_color(crate::output::pdf::design::tokens::DANGER),
         );
     }
 

@@ -8,20 +8,18 @@ pub(in crate::output::pdf) fn render_security(
 ) -> renderreport::engine::ReportBuilder {
     let security_title = i18n.t("section-security");
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = super::module_chapter_opener(builder, &security_title, is_first);
 
     builder = builder
         .add_component(
-            ScoreCard::new(&security_title, sec.score)
-                .with_description(format!("Grade: {}", sec.grade))
-                .with_thresholds(70, 50),
+            ScoreCard::new(super::module_score_caption(i18n), sec.score)
+                .with_description(super::score_band_label(sec.score, i18n))
+                .with_thresholds(75, 40),
         )
         .add_component(
-            Label::new(format!("ℹ: {}", sec.interpretation))
+            Label::new(sec.interpretation.as_str())
                 .with_size("10.5pt")
-                .with_color("#475569"),
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
@@ -115,15 +113,17 @@ pub(in crate::output::pdf) fn render_mobile(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let mobile_title = i18n.t("section-mobile-usability");
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = super::module_chapter_opener(builder, &mobile_title, is_first);
     builder = builder
-        .add_component(ScoreCard::new(&mobile_title, mobile.score).with_thresholds(80, 50))
         .add_component(
-            Label::new(format!("ℹ: {}", mobile.interpretation))
+            ScoreCard::new(super::module_score_caption(i18n), mobile.score)
+                .with_description(super::score_band_label(mobile.score, i18n))
+                .with_thresholds(75, 40),
+        )
+        .add_component(
+            Label::new(mobile.interpretation.as_str())
                 .with_size("10.5pt")
-                .with_color("#475569"),
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,

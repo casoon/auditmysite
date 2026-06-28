@@ -17,25 +17,23 @@ pub(in crate::output::pdf) fn render_performance(
             i18n.t("pdf-perf-intro-technical-complexity"),
         );
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    builder = super::module_chapter_opener(builder, &perf_section_title, is_first);
 
     builder = builder
         .add_component(
-            ScoreCard::new(&perf_section_title, perf.score)
-                .with_description(format!("Grade: {}", perf.grade))
-                .with_thresholds(75, 50),
+            ScoreCard::new(super::module_score_caption(i18n), perf.score)
+                .with_description(super::score_band_label(perf.score, i18n))
+                .with_thresholds(75, 40),
         )
         .add_component(perf_intro)
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-perf-overview-title"),
                 perf.interpretation
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
