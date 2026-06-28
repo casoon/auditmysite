@@ -18,7 +18,8 @@ pub(in crate::output::pdf) fn render_search_experience(
         "Dieser Gesamtwert verbindet klassisches technisches SEO mit Inhaltsverständlichkeit, Vertrauenssignalen, KI-Lesbarkeit, semantischer Struktur und mobiler Lesbarkeit. Das klassische SEO bleibt im nächsten Detailkapitel sichtbar."
     };
 
-    builder = super::module_chapter_opener(builder, title, is_first);
+    let sx_takeaway = super::first_sentence(&sx.interpretation);
+    builder = super::module_chapter_opener(builder, title, &sx_takeaway, is_first);
 
     builder = builder
         .add_component(

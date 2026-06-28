@@ -17,7 +17,8 @@ pub(in crate::output::pdf) fn render_performance(
             i18n.t("pdf-perf-intro-technical-complexity"),
         );
 
-    builder = super::module_chapter_opener(builder, &perf_section_title, is_first);
+    let perf_takeaway = super::first_sentence(&perf.interpretation);
+    builder = super::module_chapter_opener(builder, &perf_section_title, &perf_takeaway, is_first);
 
     builder = builder
         .add_component(

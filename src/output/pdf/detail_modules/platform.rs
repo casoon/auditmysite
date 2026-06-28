@@ -8,7 +8,8 @@ pub(in crate::output::pdf) fn render_security(
 ) -> renderreport::engine::ReportBuilder {
     let security_title = i18n.t("section-security");
 
-    builder = super::module_chapter_opener(builder, &security_title, is_first);
+    let sec_takeaway = super::first_sentence(&sec.interpretation);
+    builder = super::module_chapter_opener(builder, &security_title, &sec_takeaway, is_first);
 
     builder = builder
         .add_component(
@@ -113,7 +114,8 @@ pub(in crate::output::pdf) fn render_mobile(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let mobile_title = i18n.t("section-mobile-usability");
-    builder = super::module_chapter_opener(builder, &mobile_title, is_first);
+    let mobile_takeaway = super::first_sentence(&mobile.interpretation);
+    builder = super::module_chapter_opener(builder, &mobile_title, &mobile_takeaway, is_first);
     builder = builder
         .add_component(
             ScoreCard::new(super::module_score_caption(i18n), mobile.score)

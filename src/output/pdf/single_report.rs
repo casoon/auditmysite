@@ -1264,6 +1264,7 @@ pub(super) fn render_root_cause_analysis(
         "Erkannte Kernursachen"
     });
     let mut table_rows = Vec::new();
+    let mut chart_data: Vec<(String, f64)> = Vec::new();
     let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
 
     for (idx, finding) in findings.iter().enumerate().take(6) {
@@ -1290,9 +1291,26 @@ pub(super) fn render_root_cause_analysis(
             finding.occurrence_count.to_string(),
             format!("{} %", share_pct),
         ]);
+        chart_data.push((
+            format!("{} {}", if en { "Cause" } else { "Ursache" }, letter),
+            finding.occurrence_count as f64,
+        ));
     }
 
     builder = builder.add_component(list);
+
+    // Occurrence distribution as a bar chart — shows at a glance where the
+    // findings concentrate (#7 distribution bars).
+    if chart_data.len() >= 2 {
+        builder = builder.add_component(
+            Chart::bar(if en {
+                "Occurrence distribution by cause"
+            } else {
+                "Verteilung der Vorkommen nach Ursache"
+            })
+            .add_series("occurrences", chart_data),
+        );
+    }
 
     // Render the table: Ursache | Vorkommen | Anteil
     let mut table = AuditTable::new(vec![

@@ -12,7 +12,13 @@ pub(in crate::output::pdf) fn render_dark_mode(
         i18n.t("pdf-dm-status-not-supported")
     };
     let dm_title = i18n.t("section-dark-mode");
-    builder = super::module_chapter_opener(builder, &dm_title, is_first);
+    let dm_takeaway = match (dm.supported, i18n.locale() == "en") {
+        (true, true) => "The page supports a dark color scheme.",
+        (true, false) => "Die Seite unterstützt ein dunkles Farbschema.",
+        (false, true) => "No dark color scheme support was detected.",
+        (false, false) => "Es wurde kein Support für ein dunkles Farbschema erkannt.",
+    };
+    builder = super::module_chapter_opener(builder, &dm_title, dm_takeaway, is_first);
     builder = builder.add_component(
         ScoreCard::new(super::module_score_caption(i18n), dm.score)
             .with_description(super::score_band_label(dm.score, i18n))

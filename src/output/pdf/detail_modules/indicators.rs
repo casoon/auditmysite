@@ -85,11 +85,15 @@ pub(in crate::output::pdf) fn render_tech_stack(
     use crate::tech_stack::Confidence;
 
     let ts_title = i18n.t("pdf-ts-section-title");
-    if !is_first {
-        builder = builder.add_component(packed_section_separator());
-    }
+    let ts_takeaway = match (ts.detected.is_empty(), i18n.locale() == "en") {
+        (true, true) => "No common technologies were detected.".to_string(),
+        (true, false) => "Keine gängigen Technologien erkannt.".to_string(),
+        (false, true) => format!("{} technologies detected.", ts.detected.len()),
+        (false, false) => format!("{} Technologien erkannt.", ts.detected.len()),
+    };
+    builder = super::module_chapter_opener(builder, &ts_title, &ts_takeaway, is_first);
     builder = builder.add_component(
-        ScoreCard::new(&ts_title, ts.score)
+        ScoreCard::new(super::module_score_caption(i18n), ts.score)
             .with_description(super::score_band_label(ts.score, i18n))
             .with_thresholds(75, 40),
     );
@@ -510,11 +514,20 @@ pub(in crate::output::pdf) fn render_best_practices(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    if !is_first {
-        builder = builder.add_component(packed_section_separator());
-    }
-    builder =
-        builder.add_component(ScoreCard::new("Best Practices", bp.score).with_thresholds(80, 50));
+    let bp_clean =
+        bp.console_errors.error_count == 0 && !bp.vulnerable_libraries.has_vulnerabilities;
+    let bp_takeaway = match (bp_clean, i18n.locale() == "en") {
+        (true, true) => "No console errors or known-vulnerable libraries detected.",
+        (true, false) => "Keine Konsolenfehler oder bekannten verwundbaren Bibliotheken erkannt.",
+        (false, true) => "Console errors or vulnerable libraries were detected — see below.",
+        (false, false) => "Konsolenfehler oder verwundbare Bibliotheken erkannt — siehe unten.",
+    };
+    builder = super::module_chapter_opener(builder, "Best Practices", bp_takeaway, is_first);
+    builder = builder.add_component(
+        ScoreCard::new(super::module_score_caption(i18n), bp.score)
+            .with_description(super::score_band_label(bp.score, i18n))
+            .with_thresholds(75, 40),
+    );
 
     if bp.score >= 90
         && bp.console_errors.error_count == 0

@@ -9,7 +9,8 @@ pub(in crate::output::pdf) fn render_seo(
     let indicator_note_seo = i18n.t("pdf-seo-indicator-note");
     let seo_section_title = i18n.t("section-seo-analysis");
 
-    builder = super::module_chapter_opener(builder, &seo_section_title, is_first);
+    let seo_takeaway = super::first_sentence(&seo.interpretation);
+    builder = super::module_chapter_opener(builder, &seo_section_title, &seo_takeaway, is_first);
 
     builder = builder
         .add_component(

@@ -7,7 +7,8 @@ pub(in crate::output::pdf) fn render_ux(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let ux_title = i18n.t("section-ux");
-    builder = super::module_chapter_opener(builder, &ux_title, is_first);
+    let ux_takeaway = super::first_sentence(&ux.interpretation);
+    builder = super::module_chapter_opener(builder, &ux_title, &ux_takeaway, is_first);
     builder = builder
         .add_component(
             ScoreCard::new(super::module_score_caption(i18n), ux.score)
@@ -73,7 +74,8 @@ pub(in crate::output::pdf) fn render_journey(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let journey_title = i18n.t("section-journey");
-    builder = super::module_chapter_opener(builder, &journey_title, is_first);
+    let journey_takeaway = super::first_sentence(&journey.interpretation);
+    builder = super::module_chapter_opener(builder, &journey_title, &journey_takeaway, is_first);
     builder = builder
         .add_component(
             ScoreCard::new(super::module_score_caption(i18n), journey.score)

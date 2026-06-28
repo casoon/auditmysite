@@ -1,8 +1,7 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, Divider, KeyValueList, List, MetricStrip, MetricStripItem,
-    PageBreak,
+    ChecklistPanel, ChecklistRow, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
 };
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
@@ -35,26 +34,13 @@ pub(super) use performance::render_performance;
 pub(super) use platform::{render_mobile, render_security};
 pub(super) use seo::render_seo;
 
-/// A light rule used to separate short trailing indicator modules (Best
-/// Practices, Tech Stack) without forcing a page break — when clean these are
-/// only a ScoreCard plus one line, so a dedicated page left it 3/4 empty.
-fn packed_section_separator() -> Divider {
-    Divider {
-        style: "solid".to_string(),
-        thickness: "0.5pt".to_string(),
-        color: Some(crate::output::pdf::design::tokens::BORDER.to_string()),
-        spacing_above: "18pt".to_string(),
-        spacing_below: "10pt".to_string(),
-    }
-}
-
 /// A neutral per-section line shown when a module produced no findings, so a
 /// reader can distinguish "checked and clean" from "not checked" instead of the
 /// section silently collapsing to nothing (#446).
 fn clean_section_note(i18n: &I18n) -> Label {
     Label::new(i18n.t("pdf-section-clean"))
         .with_size("10.5pt")
-        .with_color("#475569")
+        .with_color(crate::output::pdf::design::tokens::NEUTRAL)
 }
 
 fn score_status(score: u32) -> &'static str {
@@ -138,20 +124,32 @@ fn score_color(score: u32) -> &'static str {
     crate::output::pdf::design::score_color(score.min(255) as u8)
 }
 
-/// Opens a heavy module as a numbered-free level-2 chapter: a page break (unless
-/// it is the first module) plus a level-2 heading carrying the module name, so
-/// the module appears in the table of contents as its own chapter.
+/// Opens a module as a level-2 chapter: a page break (unless it is the first
+/// module) plus a level-2 header carrying the module name and a one-line key
+/// takeaway, so the module appears in the table of contents as its own chapter
+/// and the reader leaves the page with one core message (#15).
 pub(super) fn module_chapter_opener(
     mut builder: renderreport::engine::ReportBuilder,
     title: &str,
+    takeaway: &str,
     is_first: bool,
 ) -> renderreport::engine::ReportBuilder {
-    use renderreport::components::advanced::PageBreak;
-    use renderreport::prelude::Section;
+    use renderreport::components::advanced::{PageBreak, SectionHeaderSplit};
     if !is_first {
         builder = builder.add_component(PageBreak::new());
     }
-    builder.add_component(Section::new(title).with_level(2))
+    builder.add_component(SectionHeaderSplit::new(title, takeaway).with_level(2))
+}
+
+/// First sentence of an interpretation text — used as the chapter's one-line
+/// key takeaway so the opener stays concise even when the full interpretation
+/// runs to several sentences.
+pub(super) fn first_sentence(text: &str) -> String {
+    let t = text.trim();
+    match t.find(". ") {
+        Some(idx) => t[..=idx].trim().to_string(),
+        None => t.to_string(),
+    }
 }
 
 /// Generic label for a module's headline score card. The descriptive module

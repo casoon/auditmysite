@@ -37,6 +37,7 @@ pub mod tokens {
     pub const NEUTRAL: &str = "#475569";
     /// Faint text / captions.
     pub const MUTED: &str = "#94a3b8";
+    #[allow(dead_code)]
     /// Hairline borders and dividers.
     pub const BORDER: &str = "#e2e8f0";
     #[allow(dead_code)]
