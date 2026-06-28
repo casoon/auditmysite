@@ -40,7 +40,11 @@ pub struct StudioAuditResponse {
     pub overall_score: u32,
     /// Grade (A–F)
     pub grade: String,
-    /// Certificate level (SEHR GUT / GUT / STABIL / AUSBAUFÄHIG / UNGENÜGEND)
+    /// Certificate level. Base bands by overall score:
+    /// SEHR GUT / GUT / STABIL / AUSBAUFÄHIG / UNGENÜGEND.
+    /// Risk gating can override a positive band with EINGESCHRÄNKT
+    /// (high risk / legal / blocking) or NICHT BESTANDEN (critical risk).
+    /// The full set of 7 values is the contract — see docs/studio-contract.schema.json.
     pub certificate: String,
 
     // ── Risk (independent from score) ───────────────────────────────

@@ -42,8 +42,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         out.add_recognized(
             "MainNavigation",
             format!(
-                "{} navigation landmark(s) found, but {} have no accessible name. Screen reader users cannot distinguish them.",
+                "{} navigation {} found, but {} have no accessible name. Screen reader users cannot distinguish them.",
                 nav_nodes.len(),
+                if nav_nodes.len() == 1 { "landmark" } else { "landmarks" },
                 count_missing
             ),
             PatternConfidence::Partial,
@@ -56,8 +57,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
         out.add_recognized(
             "MainNavigation",
             format!(
-                "{} navigation landmark(s) found, but none contain link children. Pattern is structurally incomplete.",
-                nav_nodes.len()
+                "{} navigation {} found, but none contain link children. Pattern is structurally incomplete.",
+                nav_nodes.len(),
+                if nav_nodes.len() == 1 { "landmark" } else { "landmarks" }
             ),
             PatternConfidence::Partial,
         );
@@ -67,8 +69,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     out.add_recognized(
         "MainNavigation",
         format!(
-            "Semantic main navigation recognized ({} landmark(s) with native links). Good foundation for keyboard and screen reader use.",
-            nav_nodes.len()
+            "Semantic main navigation recognized ({} {} with native links). Good foundation for keyboard and screen reader use.",
+            nav_nodes.len(),
+            if nav_nodes.len() == 1 { "landmark" } else { "landmarks" }
         ),
         PatternConfidence::Strong,
     );

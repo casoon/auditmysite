@@ -249,9 +249,10 @@ pub async fn test(
             before_snapshot_label: Some("before_submit".to_string()),
             after_snapshot_label: Some("after_submit_click".to_string()),
             message: format!(
-                "{unlinked} field(s) with aria-invalid=\"true\" are not linked to their error \
+                "{unlinked} {} with aria-invalid=\"true\" are not linked to their error \
                 message via aria-describedby or aria-errormessage. \
-                Screen reader users hear the error state but cannot associate it with the field."
+                Screen reader users hear the error state but cannot associate it with the field.",
+                if unlinked == 1 { "field" } else { "fields" }
             ),
             fix_suggestion: Some(
                 "Add aria-describedby=\"error-message-id\" on each field with \

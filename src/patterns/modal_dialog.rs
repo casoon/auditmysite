@@ -79,8 +79,9 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     out.add_recognized(
         "ModalDialog",
         format!(
-            "{} dialog(s) detected, {} structurally well-formed (accessible name, aria-modal, focusable descendants).",
+            "{} {} detected, {} structurally well-formed (accessible name, aria-modal, focusable descendants).",
             dialogs.len(),
+            if dialogs.len() == 1 { "dialog" } else { "dialogs" },
             well_formed
         ),
         confidence,

@@ -411,9 +411,14 @@ fn build_issues(
         issues.push(DarkModeIssue {
             kind: DarkModeIssueKind::DarkModeContrastFailure,
             description: format!(
-                "{dark_only} element(s) lose contrast in dark mode (dark mode regression). \
+                "{dark_only} {} lose contrast in dark mode (dark mode regression). \
                  These elements pass in light mode but fall below the WCAG minimum contrast \
-                 in dark mode.{selectors}"
+                 in dark mode.{selectors}",
+                if dark_only == 1 {
+                    "element"
+                } else {
+                    "elements"
+                }
             ),
             severity: "high".to_string(),
         });
@@ -431,8 +436,9 @@ fn build_issues(
         issues.push(DarkModeIssue {
             kind: DarkModeIssueKind::DarkModeContrastFailure,
             description: format!(
-                "{both} element(s) have insufficient contrast in both color modes (light and dark). \
-                 The dark mode implementation does not adjust the colors of these elements sufficiently.{selectors}"
+                "{both} {} insufficient contrast in both color modes (light and dark). \
+                 The dark mode implementation does not adjust the colors of these elements sufficiently.{selectors}",
+                if both == 1 { "element has" } else { "elements have" }
             ),
             severity: "high".to_string(),
         });
@@ -443,8 +449,13 @@ fn build_issues(
         issues.push(DarkModeIssue {
             kind: DarkModeIssueKind::DarkModeContrastFailure,
             description: format!(
-                "{light_only} element(s) have contrast issues only in light mode — dark mode resolves them. \
-                 Consider adjusting the light mode colors accordingly."
+                "{light_only} {} contrast issues only in light mode — dark mode resolves them. \
+                 Consider adjusting the light mode colors accordingly.",
+                if light_only == 1 {
+                    "element has"
+                } else {
+                    "elements have"
+                }
             ),
             severity: "low".to_string(),
         });

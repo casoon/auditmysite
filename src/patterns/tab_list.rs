@@ -74,9 +74,15 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     out.add_recognized(
         "TabList",
         format!(
-            "{} tablist(s) with {} tab(s); {} have aria-selected, {} declare aria-controls.",
+            "{} {} with {} {}; {} have aria-selected, {} declare aria-controls.",
             tablists.len(),
+            if tablists.len() == 1 {
+                "tablist"
+            } else {
+                "tablists"
+            },
             tabs_total,
+            if tabs_total == 1 { "tab" } else { "tabs" },
             tabs_with_selected,
             tabs_with_controls
         ),

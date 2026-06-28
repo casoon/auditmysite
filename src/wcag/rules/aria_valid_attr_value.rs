@@ -110,7 +110,7 @@ const ARIA_VALID_ATTR_VALUE_JS: &str = r#"
           violations.push({
             attr: name,
             value: val,
-            expected: 'existing DOM id(s): ' + broken.join(', ') + ' not found',
+            expected: 'existing DOM ' + (broken.length === 1 ? 'id' : 'ids') + ': ' + broken.join(', ') + ' not found',
             tag: el.tagName.toLowerCase(),
             id: el.id || null,
             cls: el.className ? el.className.split(' ')[0] : null

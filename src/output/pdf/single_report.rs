@@ -4,12 +4,15 @@
 //! components, and returns the builder for further chaining.
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, List, PageBreak,
-    SectionHeaderSplit,
+    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, List, MetricStrip,
+    MetricStripItem, PageBreak, RecommendationCard, SectionHeaderSplit,
 };
+use renderreport::components::charts::{Chart, ChartType};
 use renderreport::components::text::Label;
-use renderreport::components::{AuditTable, Finding, TableColumn};
+use renderreport::components::{AuditTable, CardDashboard, DashboardCard, Finding, TableColumn};
 use renderreport::prelude::*;
+
+use super::design;
 
 use super::appendix::build_cli_snapshot_table;
 use super::detail_modules::{
@@ -51,6 +54,13 @@ pub(super) fn render_part_divider(
         builder = builder.add_component(PageBreak::new());
     }
     builder = builder
+        // Large chapter number — magazine-style opener.
+        .add_component(
+            Label::new(format!("{:02}", part_num))
+                .with_size("72pt")
+                .bold()
+                .with_color(design::tokens::MUTED),
+        )
         .add_component(
             SectionHeaderSplit::new(title, intro)
                 .with_eyebrow(eyebrow)
@@ -59,87 +69,117 @@ pub(super) fn render_part_divider(
         .add_component(
             Label::new(format!("{}: {}", audience_title, audience_body))
                 .with_size("10.5pt")
-                .with_color("#475569"),
+                .with_color(design::tokens::NEUTRAL),
         );
     builder
 }
 
-pub(super) fn build_customer_diagnosis_panel(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
+/// Scannable severity counter row for the executive dashboard — total findings
+/// plus a critical/high/medium breakdown. Zero counts read as "all clear"
+/// (green), non-zero counts carry their severity hue.
+fn build_severity_counter_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStrip {
     let en = i18n.locale() == "en";
-    let mut rows = Vec::new();
-    let accessibility = if vm.severity.total > 0 {
-        if en {
-            format!(
-                "{} accessibility occurrence(s) affect operation, orientation or perception.",
-                vm.severity.total
-            )
+    let count_accent = |n: u32, hue: &'static str| {
+        if n > 0 {
+            hue
         } else {
-            format!(
-                "{} Accessibility-Vorkommen betreffen Bedienbarkeit, Orientierung oder Wahrnehmbarkeit.",
-                vm.severity.total
-            )
+            design::tokens::SUCCESS
         }
-    } else if en {
-        "No automatically confirmed accessibility barriers were detected in the tested scope."
-            .to_string()
-    } else {
-        "Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Barrieren erkannt."
-            .to_string()
     };
-    rows.push(
-        ChecklistRow::new(
+    let items = vec![
+        MetricStripItem::new(
             if en {
-                "Accessibility"
+                "Findings total"
             } else {
-                "Barrierefreiheit"
+                "Befunde gesamt"
             },
-            accessibility,
+            vm.severity.total.to_string(),
         )
-        .with_status(if vm.severity.total > 0 {
-            "warn"
-        } else {
-            "good"
-        }),
-    );
+        .with_accent(design::tokens::INK),
+        MetricStripItem::new(
+            if en { "Critical" } else { "Kritisch" },
+            vm.severity.critical.to_string(),
+        )
+        .with_accent(count_accent(vm.severity.critical, design::tokens::DANGER)),
+        MetricStripItem::new(
+            if en { "High" } else { "Hoch" },
+            vm.severity.high.to_string(),
+        )
+        .with_accent(count_accent(vm.severity.high, design::tokens::DANGER)),
+        MetricStripItem::new(
+            if en { "Medium" } else { "Mittel" },
+            vm.severity.medium.to_string(),
+        )
+        .with_accent(count_accent(vm.severity.medium, design::tokens::WARN_DEEP)),
+    ];
+    MetricStrip::new(items).compact()
+}
 
-    for module in vm
+/// Build a dashboard card for one module, aligned with the report's grade bands
+/// (good ≥ 75, watch 40–74, problem < 40).
+fn module_dashboard_card(module: &ModuleScore) -> DashboardCard {
+    DashboardCard {
+        name: module.name.clone(),
+        score: module.score,
+        interpretation: if module.interpretation.is_empty() {
+            format!("{}/100", module.score)
+        } else {
+            module.interpretation.clone()
+        },
+        good_threshold: 75,
+        warn_threshold: 40,
+    }
+}
+
+/// "What works well" vs "Where optimization pays off" — splits the module
+/// scores into two card groups so an unbriefed reader sees strengths and
+/// priorities at a glance.
+fn render_module_split_dashboards(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let strong: Vec<DashboardCard> = vm
         .modules
         .dashboard
         .iter()
-        .filter(|m| m.name != "Accessibility")
-    {
-        if module.score >= 85 {
-            continue;
-        }
-        let status = if module.score < 50 { "bad" } else { "warn" };
-        let detail = if module.interpretation.is_empty() {
-            format!("{}/100", module.score)
-        } else {
-            format!("{}/100 — {}", module.score, module.interpretation)
-        };
-        rows.push(ChecklistRow::new(&module.name, detail).with_status(status));
-        if rows.len() >= 6 {
-            break;
-        }
-    }
+        .filter(|m| m.score >= 75)
+        .map(module_dashboard_card)
+        .collect();
+    let weak: Vec<DashboardCard> = vm
+        .modules
+        .dashboard
+        .iter()
+        .filter(|m| m.score < 75)
+        .map(module_dashboard_card)
+        .collect();
 
-    if rows.len() == 1 && !vm.modules.dashboard.is_empty() {
-        let text = if en {
-            "The audited modules are mostly stable; the detailed sections document remaining quality signals."
+    if !strong.is_empty() {
+        builder = builder.add_component(CardDashboard::new(strong).with_title(if en {
+            "What works particularly well"
         } else {
-            "Die geprüften Module sind überwiegend stabil; die Detailkapitel zeigen verbleibende Qualitätssignale."
-        };
-        rows.push(
-            ChecklistRow::new(if en { "Overall picture" } else { "Gesamtbild" }, text)
-                .with_status("good"),
+            "Was besonders gut funktioniert"
+        }));
+    }
+    if !weak.is_empty() {
+        builder = builder.add_component(CardDashboard::new(weak).with_title(if en {
+            "Where optimization pays off"
+        } else {
+            "Wo sich Optimierung lohnt"
+        }));
+    } else if !vm.modules.dashboard.is_empty() {
+        builder = builder.add_component(
+            Label::new(if en {
+                "All audited modules are in good shape — no module needs prioritized optimization."
+            } else {
+                "Alle geprüften Module sind in gutem Zustand — kein Modul erfordert vorrangige Optimierung."
+            })
+            .with_size("10.5pt")
+            .with_color(design::tokens::SUCCESS),
         );
     }
-
-    ChecklistPanel::new(rows).with_title(if en {
-        "What the audit says about the site"
-    } else {
-        "Was der Audit über die Seite aussagt"
-    })
+    builder
 }
 
 pub(super) fn build_top_risks_checklist(vm: &ReportViewModel, i18n: &I18n) -> ChecklistPanel {
@@ -396,20 +436,53 @@ pub(super) fn render_management_page(
             .with_level(1),
     );
 
-    // 1. Gesamturteil Callout
+    // 1. Scannable severity counters — the 20-second top line
+    builder = builder.add_component(build_severity_counter_strip(vm, i18n));
+
+    // 2. Overall verdict (the single core sentence)
     builder = builder.add_component(Callout::info(&vm.summary.verdict).with_title(if en {
         "Overall Verdict"
     } else {
         "Gesamturteil"
     }));
 
-    // 2. Score overview panel
-    builder = builder.add_component(build_customer_diagnosis_panel(vm, i18n));
+    // 2b. Quality profile radar — balance across all dimensions at a glance.
+    let radar_data: Vec<(String, f64)> = vm
+        .modules
+        .dashboard
+        .iter()
+        .map(|m| {
+            let short = m
+                .name
+                .split([' ', '&'])
+                .next()
+                .unwrap_or(m.name.as_str())
+                .trim()
+                .to_string();
+            (short, m.score as f64)
+        })
+        .collect();
+    if radar_data.len() >= 3 {
+        builder = builder.add_component(
+            Chart::new(
+                if en {
+                    "Quality profile"
+                } else {
+                    "Qualitätsprofil"
+                },
+                ChartType::Radar,
+            )
+            .add_series("scores", radar_data),
+        );
+    }
 
-    // 3. Risks
+    // 3. Strengths vs. priorities as card groups
+    builder = render_module_split_dashboards(builder, vm, i18n);
+
+    // 4. Risks
     builder = builder.add_component(build_top_risks_checklist(vm, i18n));
 
-    // 4. Measures
+    // 5. Measures
     builder = builder.add_component(build_top_measures_list(vm, i18n));
 
     builder
@@ -580,6 +653,42 @@ fn render_findings_section(
             })
             .collect();
 
+        // Overview row so the classification header carries substance instead of
+        // sitting alone on an otherwise blank page.
+        let systemic_total = systemic_mandatory.len() + systemic_optimization.len();
+        let local_total = local_mandatory.len() + local_optimization.len();
+        builder = builder.add_component(
+            MetricStrip::new(vec![
+                MetricStripItem::new(
+                    if en {
+                        "Systemic component issues"
+                    } else {
+                        "Systemische Komponentenfehler"
+                    },
+                    systemic_total.to_string(),
+                )
+                .with_accent(if systemic_total > 0 {
+                    design::tokens::INFO
+                } else {
+                    design::tokens::SUCCESS
+                }),
+                MetricStripItem::new(
+                    if en {
+                        "Individual cases"
+                    } else {
+                        "Einzelfälle"
+                    },
+                    local_total.to_string(),
+                )
+                .with_accent(design::tokens::NEUTRAL),
+            ])
+            .compact(),
+        );
+
+        // The first rendered category flows directly under the classification
+        // header; only later categories start on a fresh page.
+        let mut rendered_categories = 0usize;
+
         // 1. Systemic Mandatory
         if !systemic_mandatory.is_empty() {
             let title = if en {
@@ -592,6 +701,10 @@ fn render_findings_section(
             } else {
                 "Diese Befunde betreffen wiederkehrende Template- oder Komponentenfehler. Eine zentrale Behebung in der Vorlage behebt die Fehler auf allen betroffenen Seiten gleichzeitig."
             };
+            if rendered_categories > 0 {
+                builder = builder.add_component(PageBreak::new());
+            }
+            rendered_categories += 1;
             builder = builder.add_component(
                 SectionHeaderSplit::new(title, desc)
                     .with_eyebrow(if en {
@@ -618,7 +731,11 @@ fn render_findings_section(
             } else {
                 "Wiederkehrende Empfehlungen zur Qualitätsverbesserung und Suchmaschinen-Auffindbarkeit im Template."
             };
-            builder = builder.add_component(PageBreak::new()).add_component(
+            if rendered_categories > 0 {
+                builder = builder.add_component(PageBreak::new());
+            }
+            rendered_categories += 1;
+            builder = builder.add_component(
                 SectionHeaderSplit::new(title, desc)
                     .with_eyebrow(if en {
                         "SYSTEMIC OPTIMIZATION"
@@ -644,7 +761,11 @@ fn render_findings_section(
             } else {
                 "Punktuelle Barrieren, die nur einzelne Seiten, spezifische Bilder oder redaktionelle Texte betreffen und meist individuell behoben werden müssen."
             };
-            builder = builder.add_component(PageBreak::new()).add_component(
+            if rendered_categories > 0 {
+                builder = builder.add_component(PageBreak::new());
+            }
+            rendered_categories += 1;
+            builder = builder.add_component(
                 SectionHeaderSplit::new(title, desc)
                     .with_eyebrow(if en {
                         "LOCAL COMPLIANCE"
@@ -670,7 +791,11 @@ fn render_findings_section(
             } else {
                 "Ergänzende Empfehlungen zur Verbesserung der Ladezeiten, Suchmaschinenoptimierung und Benutzerfreundlichkeit auf bestimmten Seiten."
             };
-            builder = builder.add_component(PageBreak::new()).add_component(
+            if rendered_categories > 0 {
+                builder = builder.add_component(PageBreak::new());
+            }
+            rendered_categories += 1;
+            builder = builder.add_component(
                 SectionHeaderSplit::new(title, desc)
                     .with_eyebrow(if en {
                         "LOCAL OPTIMIZATION"
@@ -683,6 +808,7 @@ fn render_findings_section(
                 builder = render_finding_technical(builder, group, i18n);
             }
         }
+        let _ = rendered_categories; // last write is intentional; silence dead-store lint
     }
     builder
 }
@@ -951,9 +1077,43 @@ pub(super) fn render_module_sections(
         is_first = false;
     }
 
+    // #14: Source Quality, AI Visibility and Content Visibility are merged into
+    // one "KI & Vertrauen" / "AI & Trust" chapter so the three trust- and
+    // discoverability-indicator modules read as one section instead of three
+    // fragmented ones. They render as level-3 sub-sections under one opener.
+    let en = i18n.locale() == "en";
+    let mut ki_opened = false;
+    let mut in_ki_chapter = false;
     for module in active_report_modules(report) {
+        let key = module.module_key();
+        let is_trust = matches!(
+            key,
+            "source_quality" | "ai_visibility" | "content_visibility"
+        );
+        if is_trust && !ki_opened {
+            builder = builder.add_component(PageBreak::new()).add_component(
+                SectionHeaderSplit::new(
+                    if en { "AI & Trust" } else { "KI & Vertrauen" },
+                    if en {
+                        "Source quality, AI readability and content visibility — trust and discoverability indicators."
+                    } else {
+                        "Quellenqualität, KI-Lesbarkeit und Content-Sichtbarkeit — Vertrauens- und Auffindbarkeits-Indikatoren."
+                    },
+                )
+                .with_eyebrow(if en { "AI & TRUST" } else { "KI & VERTRAUEN" })
+                .with_level(2),
+            );
+            ki_opened = true;
+            in_ki_chapter = true;
+            is_first = true; // the trio's first sub-section flows under the opener
+        } else if !is_trust && in_ki_chapter {
+            // Close the trust chapter before the next, unrelated module.
+            builder = builder.add_component(PageBreak::new());
+            in_ki_chapter = false;
+            is_first = true;
+        }
         let (next_builder, rendered) =
-            render_active_module_section(builder, module.module_key(), vm, report, is_first, i18n);
+            render_active_module_section(builder, key, vm, report, is_first, i18n);
         builder = next_builder;
         if rendered {
             is_first = false;
@@ -1104,6 +1264,7 @@ pub(super) fn render_root_cause_analysis(
         "Erkannte Kernursachen"
     });
     let mut table_rows = Vec::new();
+    let mut chart_data: Vec<(String, f64)> = Vec::new();
     let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
 
     for (idx, finding) in findings.iter().enumerate().take(6) {
@@ -1130,9 +1291,26 @@ pub(super) fn render_root_cause_analysis(
             finding.occurrence_count.to_string(),
             format!("{} %", share_pct),
         ]);
+        chart_data.push((
+            format!("{} {}", if en { "Cause" } else { "Ursache" }, letter),
+            finding.occurrence_count as f64,
+        ));
     }
 
     builder = builder.add_component(list);
+
+    // Occurrence distribution as a bar chart — shows at a glance where the
+    // findings concentrate (#7 distribution bars).
+    if chart_data.len() >= 2 {
+        builder = builder.add_component(
+            Chart::bar(if en {
+                "Occurrence distribution by cause"
+            } else {
+                "Verteilung der Vorkommen nach Ursache"
+            })
+            .add_series("occurrences", chart_data),
+        );
+    }
 
     // Render the table: Ursache | Vorkommen | Anteil
     let mut table = AuditTable::new(vec![
@@ -1162,9 +1340,9 @@ pub(super) fn render_timeframe_roadmap(
     let en = i18n.locale() == "en";
     let title = if en { "Action Plan" } else { "Maßnahmenplan" };
     let subtitle = if en {
-        "Prioritized roadmap structured by implementation timeframe."
+        "Recommended actions grouped by where the problem lives."
     } else {
-        "Priorisierter Ablaufplan strukturiert nach Umsetzungs-Zeithorizont."
+        "Empfohlene Maßnahmen, gruppiert nach Ebene des Problems."
     };
 
     builder = builder.add_component(PageBreak::new()).add_component(
@@ -1173,108 +1351,30 @@ pub(super) fn render_timeframe_roadmap(
             .with_level(2),
     );
 
-    let timeframes = if en {
-        vec![
-            (
-                "Priority 1: Critical Barriers",
-                "Acute barriers — highest risk, must be resolved before anything else.",
-            ),
-            (
-                "Priority 2: Usability & Compliance",
-                "Significant barriers with direct usability impact.",
-            ),
-            (
-                "Priority 3: Structural Optimizations",
-                "Quality improvements with moderate accessibility benefit.",
-            ),
-        ]
-    } else {
-        vec![
-            (
-                "Priorität 1: Kritische Hürden",
-                "Akute Barrieren — vor allen anderen Punkten beheben.",
-            ),
-            (
-                "Priorität 2: Nutzbarkeit & Konformität",
-                "Relevante Barrieren mit direktem Impact auf Nutzbarkeit.",
-            ),
-            (
-                "Priorität 3: Strukturelle Optimierungen",
-                "Qualitätsverbesserungen mit moderatem Barrierefreiheits-Nutzen.",
-            ),
-        ]
-    };
-
-    for (idx, (header, desc)) in timeframes.into_iter().enumerate() {
-        let mut column_items: &[RoadmapItemData] = &[];
-        if let Some(col) = vm.actions.roadmap_columns.get(idx) {
-            column_items = &col.items;
-        }
-
-        if column_items.is_empty() {
-            let search_term = match idx {
-                0 => {
-                    if en {
-                        "priority 1"
-                    } else {
-                        "priorität 1"
-                    }
-                }
-                1 => {
-                    if en {
-                        "priority 2"
-                    } else {
-                        "priorität 2"
-                    }
-                }
-                _ => {
-                    if en {
-                        "priority 3"
-                    } else {
-                        "priorität 3"
-                    }
-                }
-            };
-            if let Some(col) = vm
-                .actions
-                .roadmap_columns
-                .iter()
-                .find(|c| c.title.to_lowercase().contains(search_term))
-            {
-                column_items = &col.items;
-            }
-        }
-
-        builder = builder.add_component(SectionHeaderSplit::new(header, desc).with_level(3));
-
-        if column_items.is_empty() {
-            let empty_msg = if en {
-                "No recommendations for this timeframe."
-            } else {
-                "Keine Maßnahmen für diesen Zeitraum empfohlen."
-            };
-            builder = builder.add_component(Label::new(empty_msg).with_color("#475569"));
+    let columns = &vm.actions.roadmap_columns;
+    if columns.is_empty() {
+        let empty_msg = if en {
+            "No prioritized actions — no findings require remediation."
         } else {
-            let mut table = AuditTable::new(vec![
-                TableColumn::new(if en { "Action" } else { "Maßnahme" }).with_width("40%"),
-                TableColumn::new(if en { "Complexity" } else { "Komplexität" }).with_width("20%"),
-                TableColumn::new(if en { "Responsible" } else { "Zuständig" }).with_width("20%"),
-                TableColumn::new(if en {
-                    "Risk Reduction"
-                } else {
-                    "Risiko-Reduktion"
-                })
-                .with_width("20%"),
-            ]);
-            for item in column_items {
-                table = table.add_row(vec![
-                    item.action.clone(),
-                    item.effort.clone(),
-                    item.role.clone(),
-                    item.risk_effect.clone(),
-                ]);
-            }
-            builder = builder.add_component(table);
+            "Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf."
+        };
+        builder = builder.add_component(Label::new(empty_msg).with_color(design::tokens::NEUTRAL));
+        return builder;
+    }
+
+    // One level group per column (systemic vs. local), each action as a clean
+    // recommendation card — no time/effort badges, just what to do and why.
+    for col in columns {
+        builder = builder.add_component(
+            SectionHeaderSplit::new(col.title.clone(), col.description.clone()).with_level(3),
+        );
+        for item in &col.items {
+            let why = if !item.benefit.is_empty() {
+                item.benefit.clone()
+            } else {
+                item.risk_effect.clone()
+            };
+            builder = builder.add_component(RecommendationCard::new(item.action.clone(), why));
         }
     }
 

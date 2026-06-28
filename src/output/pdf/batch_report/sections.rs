@@ -323,8 +323,14 @@ pub(super) fn render_batch_management_risks(
         .add(
             if en { "Project risk" } else { "Projektrisiko" },
             format!(
-                "{} — {} recurring component/template pattern(s)",
-                project_level, component_count
+                "{} — {} recurring component/template {}",
+                project_level,
+                component_count,
+                if component_count == 1 {
+                    "pattern"
+                } else {
+                    "patterns"
+                }
             ),
         );
     builder.add_component(kv)

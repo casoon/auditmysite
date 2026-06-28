@@ -3,7 +3,7 @@ source: tests/snapshot_tests.rs
 expression: value
 ---
 {
-  "action_column_count": 2,
+  "action_column_count": 1,
   "cover": {
     "certificate": "NICHT BESTANDEN",
     "critical_issues": 5,

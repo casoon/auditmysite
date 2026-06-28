@@ -175,11 +175,14 @@ pub async fn analyze_render_blocking(
         }
     }
 
-    let suggestions = build_suggestions(
-        &blocking_scripts,
-        &blocking_css,
+    // Canonical English is baked into the stored struct (#406). The PDF layer
+    // re-derives localized text from the structured counts at render time.
+    let suggestions = render_blocking_suggestions(
+        blocking_scripts.len(),
+        blocking_css.len(),
         third_party_bytes,
         third_party_origins.len() as u32,
+        true,
     );
 
     info!(
@@ -200,42 +203,77 @@ pub async fn analyze_render_blocking(
     })
 }
 
-fn build_suggestions(
-    scripts: &[BlockingResource],
-    css: &[BlockingResource],
+/// Build localized render-blocking suggestions from structured counts.
+///
+/// This is the single source of truth for the suggestion wording (#406):
+/// the analysis layer calls it with `en = true` to bake canonical English
+/// into the stored struct, the PDF builder calls it with the runtime locale.
+pub fn render_blocking_suggestions(
+    script_count: usize,
+    css_count: usize,
     third_party_bytes: u64,
     third_party_origins: u32,
+    en: bool,
 ) -> Vec<String> {
     let mut s = Vec::new();
 
-    if !scripts.is_empty() {
-        s.push(format!(
-            "{} Script{} im <head> ohne defer/async blockier{} das Rendering. \
-             Füge defer oder async hinzu.",
-            scripts.len(),
-            if scripts.len() == 1 { "" } else { "s" },
-            if scripts.len() == 1 { "t" } else { "en" },
-        ));
+    if script_count > 0 {
+        s.push(if en {
+            format!(
+                "{} script{} in <head> without defer/async block rendering. \
+                 Add defer or async.",
+                script_count,
+                if script_count == 1 { "" } else { "s" },
+            )
+        } else {
+            format!(
+                "{} Script{} im <head> ohne defer/async blockier{} das Rendering. \
+                 Füge defer oder async hinzu.",
+                script_count,
+                if script_count == 1 { "" } else { "s" },
+                if script_count == 1 { "t" } else { "en" },
+            )
+        });
     }
 
-    if !css.is_empty() {
-        s.push(format!(
-            "{} CSS-Datei{} blockier{} das Rendering. \
-             Inline kritisches CSS oder nutze <link rel=\"preload\">.",
-            css.len(),
-            if css.len() == 1 { "" } else { "en" },
-            if css.len() == 1 { "t" } else { "en" },
-        ));
+    if css_count > 0 {
+        s.push(if en {
+            format!(
+                "{} CSS file{} block rendering. \
+                 Inline critical CSS or use <link rel=\"preload\">.",
+                css_count,
+                if css_count == 1 { "" } else { "s" },
+            )
+        } else {
+            format!(
+                "{} CSS-Datei{} blockier{} das Rendering. \
+                 Inline kritisches CSS oder nutze <link rel=\"preload\">.",
+                css_count,
+                if css_count == 1 { "" } else { "en" },
+                if css_count == 1 { "t" } else { "en" },
+            )
+        });
     }
 
     if third_party_bytes > 100_000 {
-        s.push(format!(
-            "Third-Party-Ressourcen: {:.0} KB von {} Domain{}. \
-             Prüfe, ob alle Skripte wirklich notwendig sind.",
-            third_party_bytes as f64 / 1024.0,
-            third_party_origins,
-            if third_party_origins == 1 { "" } else { "s" },
-        ));
+        let kb = third_party_bytes as f64 / 1024.0;
+        s.push(if en {
+            format!(
+                "Third-party resources: {:.0} KB from {} domain{}. \
+                 Check whether all scripts are really necessary.",
+                kb,
+                third_party_origins,
+                if third_party_origins == 1 { "" } else { "s" },
+            )
+        } else {
+            format!(
+                "Third-Party-Ressourcen: {:.0} KB von {} Domain{}. \
+                 Prüfe, ob alle Skripte wirklich notwendig sind.",
+                kb,
+                third_party_origins,
+                if third_party_origins == 1 { "" } else { "s" },
+            )
+        });
     }
 
     s
@@ -261,27 +299,29 @@ mod tests {
 
     #[test]
     fn test_build_suggestions_single_script() {
-        let script = BlockingResource {
-            url: "https://example.com/app.js".to_string(),
-            transfer_bytes: 50_000,
-            kind: "script".to_string(),
-        };
-        let s = build_suggestions(&[script], &[], 0, 0);
+        let s = render_blocking_suggestions(1, 0, 0, 0, true);
         assert_eq!(s.len(), 1);
         assert!(s[0].contains("defer"));
     }
 
     #[test]
     fn test_build_suggestions_third_party() {
-        let s = build_suggestions(&[], &[], 200_000, 3);
+        let s = render_blocking_suggestions(0, 0, 200_000, 3, true);
         assert_eq!(s.len(), 1);
-        assert!(s[0].contains("Third-Party"));
+        assert!(s[0].contains("Third-party"));
     }
 
     #[test]
     fn test_build_suggestions_empty() {
-        let s = build_suggestions(&[], &[], 0, 0);
+        let s = render_blocking_suggestions(0, 0, 0, 0, true);
         assert!(s.is_empty());
+    }
+
+    #[test]
+    fn test_build_suggestions_canonical_english_no_umlauts() {
+        let s = render_blocking_suggestions(2, 3, 200_000, 2, true);
+        assert_eq!(s.len(), 3);
+        assert!(!s.iter().any(|x| x.chars().any(|c| "äöüßÄÖÜ".contains(c))));
     }
 
     #[test]

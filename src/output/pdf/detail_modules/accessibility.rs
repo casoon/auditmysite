@@ -165,7 +165,11 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     } else {
         "Wie die Seite Screenreader-Nutzern angekündigt wird: Lesereihenfolge, Landmark- und Heading-Qualität sowie zugängliche Namen. Strukturelle Prüfungen am Accessibility Tree, keine Simulation von NVDA, JAWS oder VoiceOver."
     };
-    builder = builder.add_component(Label::new(intro).with_size("10.5pt").with_color("#475569"));
+    builder = builder.add_component(
+        Label::new(intro)
+            .with_size("10.5pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+    );
 
     let s = &sr.summary;
     builder = builder.add_component(
@@ -176,27 +180,27 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
                 } else {
                     "Heading-Qualität"
                 },
-                format!("{}/100", s.heading_quality_score),
+                s.heading_quality_score.to_string(),
             )
-            .with_accent("#0f766e"),
+            .with_accent(crate::output::pdf::design::tokens::SUCCESS),
             MetricStripItem::new(
                 if en {
                     "Landmark quality"
                 } else {
                     "Landmark-Qualität"
                 },
-                format!("{}/100", s.landmark_quality_score),
+                s.landmark_quality_score.to_string(),
             )
-            .with_accent("#2563eb"),
+            .with_accent(crate::output::pdf::design::tokens::INFO),
             MetricStripItem::new(
                 if en {
                     "Name quality"
                 } else {
                     "Namens-Qualität"
                 },
-                format!("{}/100", s.name_quality_score),
+                s.name_quality_score.to_string(),
             )
-            .with_accent("#7c3aed"),
+            .with_accent(crate::output::pdf::design::tokens::INFO),
             MetricStripItem::new(
                 if en {
                     "Announced nodes"

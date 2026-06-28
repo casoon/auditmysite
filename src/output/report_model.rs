@@ -434,6 +434,7 @@ pub struct ActionsBlock {
 
 pub struct RoadmapColumnData {
     pub title: String,
+    pub description: String,
     pub accent_color: String,
     pub items: Vec<RoadmapItemData>,
 }
@@ -872,6 +873,10 @@ pub struct ActionItem {
     pub priority: Priority,
     pub execution_priority: ExecutionPriority,
     pub effort: Effort,
+    /// Whether the underlying finding is a systemic template/component issue
+    /// (fix once, applies everywhere) vs. a local/individual occurrence. Drives
+    /// the action plan's "by problem level" grouping.
+    pub is_systemic: bool,
 }
 
 pub struct RoleAssignment {

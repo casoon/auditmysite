@@ -9,33 +9,32 @@ pub(in crate::output::pdf) fn render_seo(
     let indicator_note_seo = i18n.t("pdf-seo-indicator-note");
     let seo_section_title = i18n.t("section-seo-analysis");
 
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    let seo_takeaway = super::first_sentence(&seo.interpretation);
+    builder = super::module_chapter_opener(builder, &seo_section_title, &seo_takeaway, is_first);
 
     builder = builder
         .add_component(
-            ScoreCard::new(&seo_section_title, seo.score)
-                .with_description(i18n.t("seo-score-card-description"))
-                .with_thresholds(80, 50),
+            ScoreCard::new(super::module_score_caption(i18n), seo.score)
+                .with_description(super::score_band_label(seo.score, i18n))
+                .with_thresholds(75, 40),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-seo-indicator-title"),
                 indicator_note_seo
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-seo-overview-title"),
                 seo.interpretation
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
@@ -55,7 +54,7 @@ pub(in crate::output::pdf) fn render_seo(
         );
         seo_strip.push(
             MetricStripItem::new(i18n.t("pdf-seo-maturity"), &profile.maturity_level)
-                .with_accent("#7c3aed"),
+                .with_accent(crate::output::pdf::design::tokens::INFO),
         );
     }
     if !seo_strip.is_empty() {
@@ -274,9 +273,9 @@ pub(in crate::output::pdf) fn render_serp(
 /// reader can distinguish "checked and clean" from "not checked" instead of the
 /// section silently collapsing to nothing (#446).
 fn clean_section_note(i18n: &I18n) -> Label {
-    Label::new(format!("ℹ {}", i18n.t("pdf-section-clean")))
+    Label::new(i18n.t("pdf-section-clean"))
         .with_size("10.5pt")
-        .with_color("#475569")
+        .with_color(crate::output::pdf::design::tokens::NEUTRAL)
 }
 
 pub(in crate::output::pdf) fn render_page_health(

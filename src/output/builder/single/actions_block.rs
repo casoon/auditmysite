@@ -104,49 +104,46 @@ pub(super) fn build_actions_block(
             .collect()
     };
 
-    // Bucket labels and colors
-    let (blocker_label, blocker_desc) = if en {
+    // #8: group the roadmap by WHERE the problem lives, not by abstract
+    // priority. Pull from the already-deduped, priority-sorted buckets so the
+    // most urgent action stays first within each level.
+    let systemic: Vec<ActionItem> = blockers
+        .iter()
+        .chain(&high_prio)
+        .chain(&medium_prio)
+        .chain(&low_prio)
+        .filter(|i| i.is_systemic)
+        .cloned()
+        .collect();
+    let local: Vec<ActionItem> = blockers
+        .iter()
+        .chain(&high_prio)
+        .chain(&medium_prio)
+        .chain(&low_prio)
+        .filter(|i| !i.is_systemic)
+        .cloned()
+        .collect();
+
+    let (systemic_label, systemic_desc) = if en {
         (
-            "Priority 1: Critical Barriers",
-            "Acute barriers — highest risk, recommended to be addressed first",
+            "Systemic actions",
+            "Fix once in the template or component — this resolves the issue across all affected pages.",
         )
     } else {
         (
-            "Priorität 1: Kritische Hürden",
-            "Akute Barrieren — höchstes Risiko, empfohlene Behebung vor anderen Punkten",
+            "Systemische Maßnahmen",
+            "Einmal in Vorlage oder Komponente beheben — wirkt auf allen betroffenen Seiten zugleich.",
         )
     };
-    let (high_label, high_desc) = if en {
+    let (local_label, local_desc) = if en {
         (
-            "Priority 2: Usability & Compliance",
-            "Significant barriers with direct usability impact",
+            "Local actions & individual cases",
+            "Targeted corrections on individual pages, images or editorial content.",
         )
     } else {
         (
-            "Priorität 2: Nutzbarkeit & Konformität",
-            "Relevante Barrieren mit direktem Impact auf Nutzbarkeit",
-        )
-    };
-    let (medium_label, medium_desc) = if en {
-        (
-            "Priority 3: Structural Optimizations",
-            "Quality improvements with moderate accessibility benefit",
-        )
-    } else {
-        (
-            "Priorität 3: Strukturelle Optimierungen",
-            "Qualitätsverbesserungen mit moderatem Barrierefreiheits-Nutzen",
-        )
-    };
-    let (low_label, low_desc) = if en {
-        (
-            "Priority 4: Recommended Optimizations",
-            "Fine-tuning and optional improvements",
-        )
-    } else {
-        (
-            "Priorität 4: Ergänzende Optimierungen",
-            "Feinschliff und optionale Verbesserungen",
+            "Lokale Maßnahmen & Einzelfälle",
+            "Punktuelle Korrekturen an einzelnen Seiten, Bildern oder redaktionellen Inhalten.",
         )
     };
 
@@ -169,6 +166,7 @@ pub(super) fn build_actions_block(
             });
             cols.push(RoadmapColumnData {
                 title: label.into(),
+                description: desc.into(),
                 accent_color: color.into(),
                 items: map_items(items),
             });
@@ -176,34 +174,21 @@ pub(super) fn build_actions_block(
     };
 
     push_group(
-        &blockers,
-        blocker_label,
-        blocker_desc,
-        "#dc2626",
-        &mut phase_preview,
-        &mut columns,
-    );
-    push_group(
-        &high_prio,
-        high_label,
-        high_desc,
-        "#f59e0b",
-        &mut phase_preview,
-        &mut columns,
-    );
-    push_group(
-        &medium_prio,
-        medium_label,
-        medium_desc,
+        &systemic,
+        systemic_label,
+        systemic_desc,
+        // 4-color palette INFO blue; literal here because the PDF design module
+        // is `#[cfg(feature = "pdf")]` and the builder also runs without it.
         "#2563eb",
         &mut phase_preview,
         &mut columns,
     );
     push_group(
-        &low_prio,
-        low_label,
-        low_desc,
-        "#6b7280",
+        &local,
+        local_label,
+        local_desc,
+        // 4-color palette NEUTRAL slate (see note above re: pdf feature gate).
+        "#475569",
         &mut phase_preview,
         &mut columns,
     );

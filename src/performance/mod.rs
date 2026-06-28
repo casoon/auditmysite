@@ -27,7 +27,9 @@ pub use coverage::{
 };
 pub use critical_chain::{analyze_critical_chain, ChainNode, CriticalChain};
 pub use minification::{analyze_minification, MinificationAnalysis, UnminifiedAsset};
-pub use render_blocking::{analyze_render_blocking, BlockingResource, RenderBlockingAnalysis};
+pub use render_blocking::{
+    analyze_render_blocking, render_blocking_suggestions, BlockingResource, RenderBlockingAnalysis,
+};
 pub use scoring::{calculate_performance_score, PerformanceGrade, PerformanceScore};
 pub use third_party::{analyze_third_party_attribution, ThirdPartyAttribution, ThirdPartyOrigin};
 pub use vitals::{

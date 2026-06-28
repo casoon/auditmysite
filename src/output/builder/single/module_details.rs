@@ -126,7 +126,15 @@ fn build_performance_details(
                         format!("{:.1} KB", rb.first_party_bytes as f64 / 1024.0),
                     ));
                 }
-                render_blocking_suggestions = rb.suggestions.clone();
+                // Re-derive localized suggestions from the structured counts
+                // (rb.suggestions is canonical English for the JSON, #406).
+                render_blocking_suggestions = crate::performance::render_blocking_suggestions(
+                    rb.blocking_scripts.len(),
+                    rb.blocking_css.len(),
+                    rb.third_party_bytes,
+                    rb.third_party_origin_count,
+                    locale == "en",
+                );
             }
         }
 
@@ -137,14 +145,18 @@ fn build_performance_details(
 
         // When render-blocking resources exist but all vitals are good, clarify that
         // they had no measured impact on this run (fast server / warm cache).
+        let en = locale == "en";
         if has_render_blocking && cwv_all_good && !render_blocking_suggestions.is_empty() {
-            render_blocking_suggestions.push(
+            render_blocking_suggestions.push(if en {
+                "No measurable impact on the measured vitals — still worth fixing preventively, \
+                 since slow connections or cold caches can be affected more severely."
+                    .to_string()
+            } else {
                 "Kein messbarer Einfluss auf die gemessenen Vitals — trotzdem vorbeugend beheben, \
                  da langsame Verbindungen oder kalte Caches stärker betroffen sein können."
-                    .to_string(),
-            );
+                    .to_string()
+            });
         }
-        let en = locale == "en";
         let base_perf = module_interpretation(&normalized.normalized, "performance", locale);
         // Decision + wording live in the domain layer (#406); the builder only
         // supplies the viewport flags and the worst throttled LCP.

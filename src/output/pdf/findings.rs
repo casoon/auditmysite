@@ -413,9 +413,23 @@ pub(super) fn render_finding_technical(
         }
         if hidden > 0 {
             let msg = if en {
-                format!("{hidden} more occurrence(s) documented in the technical appendix.")
+                format!(
+                    "{hidden} more {} documented in the technical appendix.",
+                    if hidden == 1 {
+                        "occurrence"
+                    } else {
+                        "occurrences"
+                    }
+                )
             } else {
-                format!("{hidden} weitere(s) Vorkommen im technischen Anhang dokumentiert.")
+                format!(
+                    "{hidden} {} im technischen Anhang dokumentiert.",
+                    if hidden == 1 {
+                        "weiteres Vorkommen"
+                    } else {
+                        "weitere Vorkommen"
+                    }
+                )
             };
             builder = builder.add_component(Callout::info(&msg));
         }

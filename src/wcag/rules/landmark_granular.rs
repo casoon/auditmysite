@@ -689,7 +689,7 @@ pub fn check_skip_link(tree: &AXTree) -> WcagResults {
                 RULE_SKIP_LINK.name,
                 RULE_SKIP_LINK.level,
                 RULE_SKIP_LINK.severity,
-                "Page has navigation landmark(s) but no skip-navigation link was found",
+                "Page has navigation landmarks but no skip-navigation link was found",
                 "root",
             )
             .with_fix(

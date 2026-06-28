@@ -432,8 +432,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Use CSS variables for a consistent color palette.",
             responsible_role: Role::DesignUx,
             effort_estimate: Effort::Medium,
-            example_bad: Some("color: #999999; background: #ffffff; /* Kontrast 2.8:1 */"),
-            example_good: Some("color: #595959; background: #ffffff; /* Kontrast 7:1 */"),
+            example_bad: Some("color: #999999; background: #ffffff; /* contrast 2.8:1 */"),
+            example_good: Some("color: #595959; background: #ffffff; /* contrast 7:1 */"),
             example_decorative: None,
         },
     ),
@@ -925,8 +925,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Do not skip levels. Verify the heading outline with a browser extension.",
             responsible_role: Role::Editorial,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<div class=\"big-title\">Überschrift</div>"),
-            example_good: Some("<h1>Hauptüberschrift</h1>\n<h2>Abschnitt</h2>\n<h3>Unterabschnitt</h3>"),
+            example_bad: Some("<div class=\"big-title\">Heading</div>"),
+            example_good: Some("<h1>Page title</h1>\n<h2>Section</h2>\n<h3>Subsection</h3>"),
             example_decorative: None,
         },
     ),
@@ -1055,8 +1055,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Better: omit aria-label entirely when the visible text is sufficient.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<button aria-label=\"Menü schließen\">X</button>"),
-            example_good: Some("<button aria-label=\"Schließen\">Schließen</button>"),
+            example_bad: Some("<button aria-label=\"Close menu\">X</button>"),
+            example_good: Some("<button aria-label=\"Close\">Close</button>"),
             example_decorative: None,
         },
     ),
@@ -1285,7 +1285,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
             example_bad: Some("<button><svg>...</svg></button>"),
-            example_good: Some("<button aria-label=\"Menü öffnen\"><svg aria-hidden=\"true\">...</svg></button>"),
+            example_good: Some("<button aria-label=\"Open menu\"><svg aria-hidden=\"true\">...</svg></button>"),
             example_decorative: None,
         },
     ),
@@ -1326,8 +1326,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  either be removed from tab order or hidden completely.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<button aria-hidden=\"true\">Menü</button>"),
-            example_good: Some("<button aria-hidden=\"true\" tabindex=\"-1\">Menü</button>"),
+            example_bad: Some("<button aria-hidden=\"true\">Menu</button>"),
+            example_good: Some("<button aria-hidden=\"true\" tabindex=\"-1\">Menu</button>"),
             example_decorative: None,
         },
     ),
@@ -1368,8 +1368,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Use native elements or valid roles (e.g. role=\"button\").",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<span aria-label=\"Menü\">...</span>"),
-            example_good: Some("<button aria-label=\"Menü\">...</button>"),
+            example_bad: Some("<span aria-label=\"Menu\">...</span>"),
+            example_good: Some("<button aria-label=\"Menu\">...</button>"),
             example_decorative: None,
         },
     ),
@@ -1410,8 +1410,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  popovers need aria-label, aria-labelledby, or another suitable name.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<button popovertarget=\"menu\">Menü</button>\n<div id=\"menu\">...</div>"),
-            example_good: Some("<button popovertarget=\"menu\">Menü</button>\n<div id=\"menu\" popover aria-label=\"Menü\">...</div>"),
+            example_bad: Some("<button popovertarget=\"menu\">Menu</button>\n<div id=\"menu\">...</div>"),
+            example_good: Some("<button popovertarget=\"menu\">Menu</button>\n<div id=\"menu\" popover aria-label=\"Menu\">...</div>"),
             example_decorative: None,
         },
     ),
@@ -1512,8 +1512,8 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
                  Screen readers like NVDA/JAWS jump with H-keys — gaps create dead spots.",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<h1>Seitentitel</h1>\n<h3>Abschnitt</h3>"),
-            example_good: Some("<h1>Seitentitel</h1>\n<h2>Abschnitt</h2>"),
+            example_bad: Some("<h1>Page title</h1>\n<h3>Section</h3>"),
+            example_good: Some("<h1>Page title</h1>\n<h2>Section</h2>"),
             example_decorative: None,
         },
     ),
@@ -1540,6 +1540,25 @@ mod tests {
             assert!(!de.is_empty(), "{rule_id}: empty DE recommendation");
             assert!(!en.is_empty(), "{rule_id}: empty EN recommendation");
             assert_ne!(de, en, "{rule_id}: DE and EN recommendation identical");
+        }
+    }
+
+    /// Code examples are single-source and land in the canonical-English JSON
+    /// (`fix_guidance[].code_example`), so they must not contain German text
+    /// (#406). Guards against re-introducing leaks like "Menü öffnen".
+    #[test]
+    fn code_examples_are_canonical_english() {
+        let has_umlaut = |s: &str| s.chars().any(|c| "äöüßÄÖÜ".contains(c));
+        for (rule_id, expl) in EXPLANATIONS {
+            for example in [expl.example_bad, expl.example_good, expl.example_decorative]
+                .into_iter()
+                .flatten()
+            {
+                assert!(
+                    !has_umlaut(example),
+                    "{rule_id}: code example contains German text: {example}"
+                );
+            }
         }
     }
 }

@@ -7,23 +7,22 @@ pub(in crate::output::pdf) fn render_ux(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let ux_title = i18n.t("section-ux");
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    let ux_takeaway = super::first_sentence(&ux.interpretation);
+    builder = super::module_chapter_opener(builder, &ux_title, &ux_takeaway, is_first);
     builder = builder
         .add_component(
-            ScoreCard::new(&ux_title, ux.score)
+            ScoreCard::new(super::module_score_caption(i18n), ux.score)
                 .with_description(i18n.t("label-heuristic-indicator"))
-                .with_thresholds(80, 50),
+                .with_thresholds(75, 40),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-ux-overview-title"),
                 ux.interpretation
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
@@ -40,7 +39,7 @@ pub(in crate::output::pdf) fn render_ux(
     for dim in &ux.dimensions {
         let name = crate::ux::ux_dimension_name(dim.kind, en);
         let summary = crate::ux::ux_dimension_summary(dim.kind, dim.score, en);
-        kv = kv.add(name, format!("{}/100 — {}", dim.score, summary));
+        kv = kv.add(name, format!("{} — {}", dim.score, summary));
     }
     builder = builder.add_component(kv);
 
@@ -75,23 +74,22 @@ pub(in crate::output::pdf) fn render_journey(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let journey_title = i18n.t("section-journey");
-    if !is_first {
-        builder = builder.add_component(PageBreak::new());
-    }
+    let journey_takeaway = super::first_sentence(&journey.interpretation);
+    builder = super::module_chapter_opener(builder, &journey_title, &journey_takeaway, is_first);
     builder = builder
         .add_component(
-            ScoreCard::new(&journey_title, journey.score)
+            ScoreCard::new(super::module_score_caption(i18n), journey.score)
                 .with_description(i18n.t("label-heuristic-indicator"))
-                .with_thresholds(80, 50),
+                .with_thresholds(75, 40),
         )
         .add_component(
             Label::new(format!(
-                "ℹ {}: {}",
+                "{}: {}",
                 i18n.t("pdf-journey-overview-title"),
                 journey.interpretation
             ))
             .with_size("10.5pt")
-            .with_color("#475569"),
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
         .add_component(module_customer_context(
             i18n,
@@ -114,7 +112,7 @@ pub(in crate::output::pdf) fn render_journey(
         let summary = crate::journey::journey_dimension_summary(dim.kind, dim.score, en);
         kv = kv.add(
             format!("{} ({}%)", name, dim.weight_pct),
-            format!("{}/100 — {}", dim.score, summary),
+            format!("{} — {}", dim.score, summary),
         );
     }
     builder = builder.add_component(kv);

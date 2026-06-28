@@ -343,15 +343,25 @@ fn check_required_owned_elements(
             RULE_META.level,
             Severity::High,
             format!(
-                "Element with role '{}' is missing required child role(s): {}",
+                "Element with role '{}' is missing required child {}: {}",
                 role,
+                if required_child_roles.len() == 1 {
+                    "role"
+                } else {
+                    "roles"
+                },
                 required_child_roles.join(", ")
             ),
             &node.node_id,
         )
         .with_role(node.role.clone())
         .with_fix(format!(
-            "Add child elements with role(s): {}",
+            "Add child elements with {}: {}",
+            if required_child_roles.len() == 1 {
+                "role"
+            } else {
+                "roles"
+            },
             required_child_roles.join(", ")
         ))
         .with_help_url("https://www.w3.org/TR/wai-aria-1.2/#mustContain");

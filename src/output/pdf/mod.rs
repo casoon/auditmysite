@@ -7,7 +7,7 @@ mod appendix;
 mod batch;
 mod batch_report;
 mod cover;
-mod design;
+pub(crate) mod design;
 mod detail_modules;
 mod diagnosis;
 mod findings;
@@ -18,15 +18,14 @@ mod wcag_coverage;
 pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, Divider, PageBreak, TableOfContents,
+    ChecklistPanel, ChecklistRow, PageBreak, TableOfContents,
 };
 use renderreport::components::text::Label;
-use renderreport::prelude::Image;
+use renderreport::components::{CoverModuleGauge, CoverPage};
 use renderreport::prelude::*;
 
 // Re-export helpers used by sibling sub-modules via `super::`.
 use self::appendix::{cover_logo_asset, register_cover_logo_asset};
-use self::cover::build_cover_score_row_gauges;
 use self::diagnosis::{business_relevance, format_word_count, output_scope_callout};
 use self::helpers::{create_engine, extract_domain};
 use self::single_report::{
@@ -99,152 +98,68 @@ fn build_single_report(
             "A technical auditing platform by casoon.de",
         );
 
-    let cover_logo_asset = self::appendix::cover_logo_asset(config);
-    builder = self::appendix::register_cover_logo_asset(builder, config, cover_logo_asset);
     builder = register_page_screenshot_assets(builder, report)?;
 
-    // ── Cover Page ───────────────────────────────────────────────────
+    // ── Cover Page (single composed component) ───────────────────────
     let en = i18n.locale() == "en";
-    let certificate_label =
-        self::cover::certificate_label_localized(&vm.cover.certificate, i18n.locale());
-    let risk_summary_text = if en {
-        let noun = if vm.cover.total_issues == 1 {
-            "accessibility issue"
-        } else {
-            "accessibility issues"
-        };
-        format!(
-            "Status: {}  ·  {} {} ({} Critical/High)",
-            certificate_label, vm.cover.total_issues, noun, vm.cover.critical_issues
+    let overall_score = vm.summary.overall_score;
+    let band_phrase = self::cover::cover_band_phrase(overall_score, en);
+    let domain = extract_domain(&vm.cover.domain);
+    let module_gauges: Vec<CoverModuleGauge> = vm
+        .modules
+        .dashboard
+        .iter()
+        .map(|m| CoverModuleGauge::new(m.name.clone(), m.score))
+        .collect();
+    let (score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit) = if en {
+        (
+            "OVERALL SCORE",
+            "FINDINGS",
+            "MODULES AT A GLANCE",
+            "Critical",
+            "0 Critical",
         )
     } else {
-        let noun = if vm.cover.total_issues == 1 {
-            "Accessibility-Befund"
-        } else {
-            "Accessibility-Befunde"
-        };
-        format!(
-            "Status: {}  ·  {} {} ({} kritisch/hoch)",
-            certificate_label, vm.cover.total_issues, noun, vm.cover.critical_issues
+        (
+            "GESAMTSCORE",
+            "BEFUNDE",
+            "MODULE IM ÜBERBLICK",
+            "kritisch",
+            "0 kritisch",
         )
     };
 
-    builder = builder
-        .add_component(Image::new(cover_logo_asset).with_width("120pt"))
-        .add_component(
-            Label::new(&vm.executive.cover_eyebrow)
-                .with_size("10pt")
-                .bold()
-                .with_color("#0f766e"),
-        )
-        .add_component(Label::new(&vm.cover.title).with_size("34pt").bold())
-        .add_component(
-            Label::new(format!(
-                "{}  ·  {}",
-                extract_domain(&vm.cover.domain),
-                vm.cover.date
-            ))
-            .with_size("14pt")
-            .bold()
-            .with_color("#0f766e"),
-        )
-        .add_component(
-            Label::new(&risk_summary_text)
-                .with_size("11pt")
-                .bold()
-                .with_color("#475569"),
-        )
-        .add_component(
-            Label::new(&vm.executive.cover_kicker)
-                .with_size("12pt")
-                .with_color("#475569"),
-        );
-
-    builder = builder.add_component(build_cover_score_row_gauges(
-        &vm.cover,
-        &vm.summary,
-        &vm.modules.dashboard,
-        &i18n,
-    ));
-
-    let dominant_cause_text = if vm.severity.component_issues > 0 {
-        let comp_ch_occurrences: usize = vm
-            .findings
-            .all_findings
-            .iter()
-            .filter(|f| {
-                f.is_component_issue
-                    && (f.severity == crate::wcag::Severity::Critical
-                        || f.severity == crate::wcag::Severity::High)
-            })
-            .map(|f| f.occurrence_count)
-            .sum();
-        let total_ch_occurrences: usize = vm
-            .findings
-            .all_findings
-            .iter()
-            .filter(|f| {
-                f.severity == crate::wcag::Severity::Critical
-                    || f.severity == crate::wcag::Severity::High
-            })
-            .map(|f| f.occurrence_count)
-            .sum();
-        let share_pct = if total_ch_occurrences > 0 {
-            (comp_ch_occurrences * 100)
-                .checked_div(total_ch_occurrences)
-                .unwrap_or(0)
-        } else {
-            0
-        };
-        let is_en = i18n.locale() == "en";
-        if is_en {
-            if vm.severity.component_issues == 1 {
-                format!(
-                    "Main cause: 1 component error causes {}% of all critical/high findings.",
-                    share_pct
-                )
-            } else {
-                format!(
-                    "Main cause: {} component errors cause {}% of all critical/high findings.",
-                    vm.severity.component_issues, share_pct
-                )
-            }
-        } else {
-            if vm.severity.component_issues == 1 {
-                format!("Hauptursache: 1 Komponentenfehler verursacht {} % aller kritischen/hohen Befunde.", share_pct)
-            } else {
-                format!("Hauptursache: {} Komponentenfehler verursachen {} % aller kritischen/hohen Befunde.", vm.severity.component_issues, share_pct)
-            }
-        }
+    // White-label: only a user-supplied custom logo takes the brand slot on the
+    // cover; the default keeps the clean text brand (no auto wordmark image).
+    let cover_logo_asset = self::appendix::cover_logo_asset(config);
+    let custom_logo = if cover_logo_asset == CUSTOM_COVER_LOGO_ASSET {
+        builder = self::appendix::register_cover_logo_asset(builder, config, cover_logo_asset);
+        Some(cover_logo_asset)
     } else {
-        String::new()
+        None
     };
 
-    if !dominant_cause_text.is_empty() {
-        builder = builder.add_component(Divider {
-            style: "solid".to_string(),
-            thickness: "0pt".to_string(),
-            color: Some("#ffffff".to_string()),
-            spacing_above: "40pt".to_string(),
-            spacing_below: "0pt".to_string(),
-        });
-        builder = builder.add_component(
-            Label::new(dominant_cause_text)
-                .with_size("11pt")
-                .bold()
-                .with_color("#b91c1c"),
-        );
+    let mut cover = CoverPage::new(&vm.cover.title, &domain, overall_score, &vm.cover.grade)
+        .with_brand(&vm.cover.brand)
+        .with_subtitle(&vm.executive.cover_kicker)
+        .with_date(&vm.cover.date)
+        .with_band_phrase(band_phrase)
+        .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
+        .with_module_gauges(module_gauges)
+        .with_labels(score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit);
+    if let Some(logo) = custom_logo {
+        cover = cover.with_logo(logo);
     }
+    builder = builder.add_component(cover);
 
-    // --- Page 2: Management Summary ---
-    builder = builder.add_component(PageBreak::new());
+    // --- Page 2: Management Summary (CoverPage already emits a page break) ---
     builder = render_management_page(builder, &vm, &i18n);
 
     if vm.meta.report_level != ReportLevel::Executive {
         // --- Page 3: Table of Contents ---
         builder = builder.add_component(PageBreak::new());
         let toc_title = if en { "Contents" } else { "Inhalt" };
-        builder = builder.add_component(TableOfContents::new().with_title(toc_title));
+        builder = builder.add_component(TableOfContents::new().with_title(toc_title).with_depth(2));
 
         // --- Part 1: Befunde nach Ursache (Divider) ---
         let (p1_title, p1_intro, p1_audience_title, p1_audience_body) = if en {
