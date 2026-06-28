@@ -5,7 +5,7 @@
 [![CI](https://github.com/casoon/auditmysite/actions/workflows/ci.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/ci.yml)
 [![Release](https://github.com/casoon/auditmysite/actions/workflows/release.yml/badge.svg)](https://github.com/casoon/auditmysite/actions/workflows/release.yml)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-BSL--1.1-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-BUSL--1.1-blue.svg)](LICENSE)
 
 ## Overview
 
@@ -291,6 +291,7 @@ Heuristic (indicator scores — tendency, not measurements):
 - Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
 - Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
+- Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (PDP, cart, checkout, category), and rolls findings up across a batch. Derive-only — no extra browser interaction.
 
 ### Accessibility Journey Layer
 
@@ -357,9 +358,13 @@ The `Baseline` type in the `audit` module supports `from_violations`, `diff`, `l
 
 Single-page reports and sitemap/batch reports are intentionally different.
 
-**Single-page report** is structured in two layers:
-- Top (decision layer): hero block with score + risk level, top 3 problems, next 3 steps, overall assessment (UX/Accessibility, Technik/Sicherheit, SEO)
-- Bottom (implementation layer): task block ("Was jetzt tun?" with role, effort, impact, priority), module overview, key findings, technical implementation details, detailed metrics
+**Single-page report** is a product-grade PDF organized as a top-down narrative:
+- Cover: a composed dashboard — dominant overall score with a score-band label (no A–F grade, no "/100"), a module gauge strip, and the WCAG findings scope.
+- Management view: severity counters, a "quality profile" spider radar, and strengths / optimization cards.
+- Module chapters: each module is its own chapter with a magazine-style opener and a one-line key takeaway. AI Visibility, Content Visibility, and Source Quality are merged into a single "KI & Vertrauen" (AI & Trust) chapter.
+- Action plan: recommendations as action cards grouped by where the problem lives (systemic vs. local), without time or effort estimates, plus a root-cause distribution chart.
+
+The design follows a consistent four-color status system; reports use no emoji and report effort by priority rather than by time windows.
 
 **Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics.
 
