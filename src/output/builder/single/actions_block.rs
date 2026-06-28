@@ -177,7 +177,9 @@ pub(super) fn build_actions_block(
         &systemic,
         systemic_label,
         systemic_desc,
-        crate::output::pdf::design::tokens::INFO,
+        // 4-color palette INFO blue; literal here because the PDF design module
+        // is `#[cfg(feature = "pdf")]` and the builder also runs without it.
+        "#2563eb",
         &mut phase_preview,
         &mut columns,
     );
@@ -185,7 +187,8 @@ pub(super) fn build_actions_block(
         &local,
         local_label,
         local_desc,
-        crate::output::pdf::design::tokens::NEUTRAL,
+        // 4-color palette NEUTRAL slate (see note above re: pdf feature gate).
+        "#475569",
         &mut phase_preview,
         &mut columns,
     );
