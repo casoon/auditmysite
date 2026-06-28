@@ -21,10 +21,8 @@ use auditmysite::audit::{
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::{Args, OutputFormat, RequestMode};
 use auditmysite::error::{AuditError, Result};
-use auditmysite::output::format_json_cached;
 use auditmysite::util::truncate_url;
 
-use crate::output_paths::output_text;
 use crate::plan::{print_batch_audit_plan, print_single_audit_plan};
 use crate::report_writers::{
     output_batch_as_single_reports, output_batch_report, output_screen_reader_sidecar,
@@ -94,8 +92,11 @@ pub async fn run_single_mode(
 
                 match args.effective_format() {
                     OutputFormat::Json => {
-                        let output = format_json_cached(&cached.audit, true)?;
-                        output_text(&output, &args.output, "JSON", args.quiet)?;
+                        // Build the JSON from the hydrated full report (not the
+                        // normalized-only `cached.audit`) so `detail.modules`
+                        // carries the same module data the PDF renders (#404) —
+                        // a cache hit must not drop the module blob.
+                        output_single_report(&report, args, Some(&verdict_result))?;
                         output_screen_reader_sidecar(&report, args)?;
                     }
                     OutputFormat::Table
