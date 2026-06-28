@@ -129,16 +129,28 @@ fn build_single_report(
         )
     };
 
-    builder = builder.add_component(
-        CoverPage::new(&vm.cover.title, &domain, overall_score, &vm.cover.grade)
-            .with_brand(&vm.cover.brand)
-            .with_subtitle(&vm.executive.cover_kicker)
-            .with_date(&vm.cover.date)
-            .with_band_phrase(band_phrase)
-            .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
-            .with_module_gauges(module_gauges)
-            .with_labels(score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit),
-    );
+    // White-label: only a user-supplied custom logo takes the brand slot on the
+    // cover; the default keeps the clean text brand (no auto wordmark image).
+    let cover_logo_asset = self::appendix::cover_logo_asset(config);
+    let custom_logo = if cover_logo_asset == CUSTOM_COVER_LOGO_ASSET {
+        builder = self::appendix::register_cover_logo_asset(builder, config, cover_logo_asset);
+        Some(cover_logo_asset)
+    } else {
+        None
+    };
+
+    let mut cover = CoverPage::new(&vm.cover.title, &domain, overall_score, &vm.cover.grade)
+        .with_brand(&vm.cover.brand)
+        .with_subtitle(&vm.executive.cover_kicker)
+        .with_date(&vm.cover.date)
+        .with_band_phrase(band_phrase)
+        .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
+        .with_module_gauges(module_gauges)
+        .with_labels(score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit);
+    if let Some(logo) = custom_logo {
+        cover = cover.with_logo(logo);
+    }
+    builder = builder.add_component(cover);
 
     // --- Page 2: Management Summary (CoverPage already emits a page break) ---
     builder = render_management_page(builder, &vm, &i18n);
