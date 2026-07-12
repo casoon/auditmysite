@@ -910,6 +910,7 @@ mod tests {
             report.timestamp,
             &crate::AXTree::new(),
             "en",
+            None,
         ));
         report
     }

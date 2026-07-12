@@ -319,6 +319,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
             artifacts.audit.timestamp,
             &artifacts.snapshot.ax_tree,
             locale,
+            None,
         )),
     };
 
@@ -340,6 +341,7 @@ pub fn hydrate_cached_report(report: &mut AuditReport, snapshot: &SnapshotArtifa
             report.timestamp,
             &snapshot.ax_tree,
             locale,
+            report.patterns.as_ref(),
         ));
     }
 }

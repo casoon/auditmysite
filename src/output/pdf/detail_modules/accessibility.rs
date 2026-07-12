@@ -146,6 +146,7 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
 pub(in crate::output::pdf) fn render_screen_reader_section(
     mut builder: renderreport::engine::ReportBuilder,
     sr: &crate::screen_reader::SrAuditReport,
+    patterns: Option<&crate::patterns::PatternAnalysis>,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::screen_reader::BfsgVerdict;
@@ -241,11 +242,14 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     // reading sequence and navigation views.
     let items: Vec<crate::screen_reader::ReadingItem> =
         sr.reading_sequence.iter().map(|a| a.item.clone()).collect();
+    let has_disclosure_menu_pattern =
+        patterns.is_some_and(|patterns| patterns.has_recognized("DisclosureMenu"));
     let localized_issues = crate::screen_reader::analyze_reading_sequence(
         &items,
         &sr.navigation_views,
         i18n.locale(),
         i18n.locale() == "en",
+        has_disclosure_menu_pattern,
     );
 
     if !localized_issues.is_empty() {

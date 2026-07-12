@@ -284,7 +284,14 @@ fn tables(items: &[ReadingItem]) -> Vec<TableNavItem> {
 fn is_landmark_role(role: &str) -> bool {
     matches!(
         role,
-        "banner" | "navigation" | "main" | "contentinfo" | "complementary" | "search" | "form"
+        "banner"
+            | "navigation"
+            | "main"
+            | "contentinfo"
+            | "complementary"
+            | "search"
+            | "form"
+            | "region"
     )
 }
 

@@ -60,6 +60,7 @@ mod tests {
             chrono::DateTime::<chrono::Utc>::UNIX_EPOCH,
             &tree,
             "de",
+            None,
         );
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("sr-audit.json");

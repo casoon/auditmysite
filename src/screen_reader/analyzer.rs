@@ -23,6 +23,7 @@ pub fn analyze_reading_sequence(
     views: &NavigationViews,
     detect_locale: &str,
     message_en: bool,
+    has_disclosure_menu_pattern: bool,
 ) -> Vec<SrAuditIssue> {
     let stopwords = localized_stopwords(detect_locale);
     let en = message_en;
@@ -34,7 +35,7 @@ pub fn analyze_reading_sequence(
     detect_announcement_deserts(items, en, &mut issues);
     detect_skipped_heading_levels(views, en, &mut issues);
     detect_heading_order_issues(views, en, &mut issues);
-    detect_missing_required_landmarks(views, en, &mut issues);
+    detect_missing_required_landmarks(views, has_disclosure_menu_pattern, en, &mut issues);
     detect_unlabeled_duplicate_landmarks(views, en, &mut issues);
     detect_tab_stop_count(items, en, &mut issues);
     detect_empty_interactive_elements(items, en, &mut issues);
@@ -258,6 +259,7 @@ fn detect_unlabeled_duplicate_landmarks(
 
 fn detect_missing_required_landmarks(
     views: &NavigationViews,
+    has_disclosure_menu_pattern: bool,
     en: bool,
     issues: &mut Vec<SrAuditIssue>,
 ) {
@@ -297,6 +299,18 @@ fn detect_missing_required_landmarks(
             .iter()
             .any(|l| l.role == *role && l.quality != LandmarkQuality::MissingMain);
         if !present {
+            // A recognized disclosure/hamburger-menu trigger means the nav is
+            // most likely just collapsed at capture time, not truly absent —
+            // the static AXTree doesn't reflect the post-toggle DOM (#504).
+            if *role == "navigation" && has_disclosure_menu_pattern {
+                issues.push(SrAuditIssue {
+                    wcag_criterion: Some("1.3.6".into()),
+                    severity: "low".into(),
+                    affected_node_ids: vec![],
+                    message: navigation_behind_disclosure_message(en),
+                });
+                continue;
+            }
             issues.push(SrAuditIssue {
                 wcag_criterion: Some("1.3.6".into()),
                 severity: "medium".into(),
@@ -304,6 +318,20 @@ fn detect_missing_required_landmarks(
                 message: message.to_string(),
             });
         }
+    }
+}
+
+fn navigation_behind_disclosure_message(en: bool) -> String {
+    if en {
+        "No navigation landmark present in the captured accessibility tree, but a disclosure/menu \
+         trigger was recognized — the navigation is likely collapsed rather than missing. Confirm \
+         it becomes reachable once expanded."
+            .to_string()
+    } else {
+        "Keine Navigations-Landmark im erfassten Accessibility-Tree vorhanden, aber ein Ausklapp-/\
+         Menü-Element wurde erkannt — die Navigation ist vermutlich eingeklappt statt fehlend. \
+         Prüfen, ob sie nach dem Ausklappen erreichbar ist."
+            .to_string()
     }
 }
 
@@ -485,6 +513,8 @@ fn is_orientation_item(item: &ReadingItem) -> bool {
                     | "contentinfo"
                     | "complementary"
                     | "search"
+                    | "region"
+                    | "form"
             )
         )
 }
@@ -562,7 +592,7 @@ mod tests {
             item(2, "button", Some("Menü öffnen"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(issues
             .iter()
@@ -583,7 +613,7 @@ mod tests {
             item(4, "heading", Some("Deep"), false, vec!["level=3"]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(issues
             .iter()
@@ -603,7 +633,7 @@ mod tests {
             item(4, "button", Some("Suche öffnen"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(issues.is_empty());
     }
@@ -630,7 +660,7 @@ mod tests {
             ));
         }
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "en", true);
+        let issues = analyze_reading_sequence(&items, &views, "en", true, false);
         assert!(!issues.is_empty(), "scenario should produce issues");
         for issue in &issues {
             assert!(
@@ -645,7 +675,7 @@ mod tests {
     fn detects_missing_required_landmarks() {
         let items = vec![item(0, "main", Some("Inhalt"), false, vec![])];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         let landmark_issues: Vec<_> = issues
             .iter()
@@ -659,6 +689,24 @@ mod tests {
     }
 
     #[test]
+    fn downgrades_missing_navigation_when_disclosure_menu_pattern_recognized() {
+        let items = vec![item(0, "main", Some("Inhalt"), false, vec![])];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, true);
+
+        let nav_issue = issues
+            .iter()
+            .find(|i| i.wcag_criterion.as_deref() == Some("1.3.6") && i.message.contains("Menü"))
+            .expect("expected a downgraded navigation issue");
+        assert_eq!(nav_issue.severity, "low");
+
+        // Banner/contentinfo are still reported at their normal severity.
+        assert!(issues
+            .iter()
+            .any(|i| i.wcag_criterion.as_deref() == Some("1.3.6") && i.severity == "medium"));
+    }
+
+    #[test]
     fn no_landmark_issues_when_all_required_present() {
         let items = vec![
             item(0, "banner", Some("Header"), false, vec![]),
@@ -667,7 +715,7 @@ mod tests {
             item(3, "contentinfo", Some("Footer"), false, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(!issues
             .iter()
@@ -681,7 +729,7 @@ mod tests {
             item(1, "link", Some("\u{E003}"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(issues.iter().any(|i| i.message.contains("Icon-Font")));
     }
@@ -693,7 +741,7 @@ mod tests {
             item(1, "link", Some("Kontakt"), true, vec![]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(!issues.iter().any(|i| i.message.contains("Icon-Font")));
     }
@@ -709,7 +757,7 @@ mod tests {
             item(128, "heading", Some("Title"), false, vec!["level=1"]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         let order_issues: Vec<_> = issues
             .iter()
@@ -734,7 +782,7 @@ mod tests {
             item(20, "heading", Some("Sub"), false, vec!["level=2"]),
         ];
         let views = navigation_views(&items);
-        let issues = analyze_reading_sequence(&items, &views, "de", false);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(!issues.iter().any(|i| {
             i.wcag_criterion.as_deref() == Some("1.3.1")

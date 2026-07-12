@@ -1006,13 +1006,15 @@ fn aggregate_report(
         wcag_results,
         duration_ms,
     );
-    report = report.with_patterns(pattern_analysis);
-    report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+    let sr_audit = crate::screen_reader::build_sr_audit_report(
         url,
         report.timestamp,
         &snapshot.ax_tree,
         &config.lang,
-    ));
+        Some(&pattern_analysis),
+    );
+    report = report.with_patterns(pattern_analysis);
+    report.screen_reader_audit = Some(sr_audit);
 
     if let Some(performance) = snapshot.performance.clone() {
         report = report.with_performance(performance);
@@ -1336,6 +1338,7 @@ mod tests {
             debug_typ: false,
             export_snapshot: None,
             request_mode: crate::cli::RequestMode::Browser,
+            report_mode: false,
         };
 
         let config = PipelineConfig::from(&args);

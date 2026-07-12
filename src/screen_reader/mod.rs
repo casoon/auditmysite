@@ -29,18 +29,32 @@ use crate::i18n::I18n;
 /// the generic-link-text stopword list and scoring name quality), independent
 /// of the English message language — so German pages keep flagging generic
 /// German link texts even though messages are stored in English.
+///
+/// `pattern_analysis`, when available, lets the missing-navigation-landmark
+/// check (#504) recognize a collapsed hamburger/disclosure menu instead of
+/// reporting the navigation as unreachable — the static AXTree captured
+/// before interaction never contains the collapsed nav.
 pub fn build_sr_audit_report(
     url: &str,
     timestamp: chrono::DateTime<chrono::Utc>,
     tree: &AXTree,
     detect_locale: &str,
+    pattern_analysis: Option<&crate::patterns::PatternAnalysis>,
 ) -> SrAuditReport {
     let i18n = I18n::new("en").expect("english locale parses");
     let reading_items = linearize(tree);
     let navigation_views = navigation_views(&reading_items);
+    let has_disclosure_menu_pattern =
+        pattern_analysis.is_some_and(|patterns| patterns.has_recognized("DisclosureMenu"));
     // Detection uses the page/run language so generic link-text stopwords match;
     // messages are baked in canonical English for the language-neutral struct.
-    let issues = analyze_reading_sequence(&reading_items, &navigation_views, detect_locale, true);
+    let issues = analyze_reading_sequence(
+        &reading_items,
+        &navigation_views,
+        detect_locale,
+        true,
+        has_disclosure_menu_pattern,
+    );
     let bfsg_compliance = bfsg_compliance(&issues);
     let reading_sequence = reading_items
         .iter()

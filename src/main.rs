@@ -47,7 +47,12 @@ async fn main() {
         cfg.apply_to_args_with_sources(&mut args, interactive_from_cli);
     }
 
+    let report_mode = args.report_mode;
     let exit_code = match run(args, &config, request_mode_from_cli).await {
+        // --report-mode: report generation succeeded, so exit 0 regardless of
+        // the accessibility/verdict policy result (#503). Technical failures
+        // below still exit non-zero.
+        Ok(_) if report_mode => 0,
         Ok(verdict) => verdict.exit_code(),
         Err(e) => {
             error!("{}", e);

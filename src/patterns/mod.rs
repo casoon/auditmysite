@@ -111,6 +111,11 @@ impl PatternAnalysis {
             confidence,
         });
     }
+
+    /// Whether a pattern with the given name was recognized (any confidence).
+    pub fn has_recognized(&self, pattern: &str) -> bool {
+        self.recognized.iter().any(|r| r.pattern == pattern)
+    }
 }
 
 /// Run all pattern detectors against an AXTree.

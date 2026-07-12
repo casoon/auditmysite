@@ -547,7 +547,7 @@ pub(super) fn render_tech_details(
 
     // Screen-reader reading-order audit (#411)
     if let Some(sr) = report.screen_reader_audit.as_ref() {
-        builder = render_screen_reader_section(builder, sr, i18n);
+        builder = render_screen_reader_section(builder, sr, report.patterns.as_ref(), i18n);
     }
 
     builder

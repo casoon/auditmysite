@@ -262,6 +262,18 @@ pub struct Args {
     /// Use `--request-mode bot` to skip the prompt and identify as an audit bot.
     #[arg(long, default_value = "browser", value_enum)]
     pub request_mode: RequestMode,
+
+    /// Exit 0 whenever the requested report artifacts were written successfully,
+    /// regardless of the computed verdict (PASS/WARN/FAIL).
+    ///
+    /// Without this flag, the process exit code encodes the verdict (0/1/2),
+    /// which is useful for CI gates but forces report-generation and batch-ranking
+    /// consumers to special-case non-zero exits. Technical/runtime failures
+    /// (browser errors, timeouts, invalid arguments, write failures) still exit
+    /// non-zero either way. The verdict itself is unaffected and still appears
+    /// in CLI, JSON and PDF output.
+    #[arg(long, global = true)]
+    pub report_mode: bool,
 }
 
 /// Subcommands
@@ -581,6 +593,15 @@ mod tests {
     }
 
     #[test]
+    fn test_report_mode_defaults_to_false_and_can_be_enabled() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert!(!args.report_mode);
+
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--report-mode"]);
+        assert!(args.report_mode);
+    }
+
+    #[test]
     fn test_help_does_not_reference_removed_formats_or_flags() {
         let mut command = Args::command();
         let help = command.render_long_help().to_string();
@@ -641,6 +662,7 @@ mod tests {
             debug_typ: false,
             export_snapshot: None,
             request_mode: RequestMode::Browser,
+            report_mode: false,
         }
     }
 
