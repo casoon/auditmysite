@@ -103,7 +103,11 @@ pub fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
             );
             outputs
         }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
+        OutputFormat::Json
+        | OutputFormat::Ai
+        | OutputFormat::Table
+        | OutputFormat::Summary
+        | OutputFormat::Sarif => {
             let mut outputs = match args.output.as_ref() {
                 Some(path) => vec![path.display().to_string()],
                 None => vec!["stdout".to_string()],
@@ -137,12 +141,14 @@ pub fn planned_batch_outputs(args: &Args) -> Vec<String> {
                 path.with_extension("json").display().to_string(),
             ]
         }
-        OutputFormat::Json | OutputFormat::Ai | OutputFormat::Table | OutputFormat::Summary => {
-            match args.output.as_ref() {
-                Some(path) => vec![path.display().to_string()],
-                None => vec!["stdout".to_string()],
-            }
-        }
+        OutputFormat::Json
+        | OutputFormat::Ai
+        | OutputFormat::Table
+        | OutputFormat::Summary
+        | OutputFormat::Sarif => match args.output.as_ref() {
+            Some(path) => vec![path.display().to_string()],
+            None => vec!["stdout".to_string()],
+        },
     }
 }
 

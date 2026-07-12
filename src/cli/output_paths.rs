@@ -99,6 +99,7 @@ pub fn per_page_output_path(
         OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
         OutputFormat::Ai => PathBuf::from(format!("{subject}-{date}-single-report-ai.json")),
         OutputFormat::Summary => PathBuf::from(format!("{subject}-{date}-summary.json")),
+        OutputFormat::Sarif => PathBuf::from(format!("{subject}-{date}-single-report.sarif")),
     };
     match filename.file_name() {
         Some(name) => base_dir.join(name),

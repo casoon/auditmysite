@@ -12,8 +12,8 @@ use auditmysite::error::{AuditError, Result};
 #[cfg(feature = "pdf")]
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{
-    export_snapshot_yaml, export_sr_audit, format_ai_json, format_batch_table, format_summary,
-    print_batch_table, print_report, UnifiedReport,
+    export_snapshot_yaml, export_sr_audit, format_ai_json, format_batch_table, format_sarif,
+    format_summary, print_batch_table, print_report, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
 use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
@@ -125,6 +125,14 @@ pub fn output_single_report(
                     reason: e.to_string(),
                 })?;
             output_text(&output, &args.output, "summary JSON", args.quiet)?;
+        }
+        OutputFormat::Sarif => {
+            let normalized = normalize(report);
+            let output =
+                format_sarif(&[&normalized.normalized]).map_err(|e| AuditError::OutputError {
+                    reason: e.to_string(),
+                })?;
+            output_text(&output, &args.output, "SARIF", args.quiet)?;
         }
     }
     output_screen_reader_sidecar(report, args)?;
@@ -239,6 +247,14 @@ pub fn output_batch_report(
                 .collect();
             let combined = format!("[\n{}\n]", summaries.join(",\n"));
             output_text(&combined, &args.output, "summary JSON batch", args.quiet)?;
+        }
+        OutputFormat::Sarif => {
+            let normalized_reports: Vec<_> = batch_report.reports.iter().map(normalize).collect();
+            let refs: Vec<_> = normalized_reports.iter().map(|n| &n.normalized).collect();
+            let output = format_sarif(&refs).map_err(|e| AuditError::OutputError {
+                reason: e.to_string(),
+            })?;
+            output_text(&output, &args.output, "SARIF batch", args.quiet)?;
         }
     }
     Ok(())

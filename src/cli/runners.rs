@@ -102,7 +102,8 @@ pub async fn run_single_mode(
                     OutputFormat::Table
                     | OutputFormat::Pdf
                     | OutputFormat::Ai
-                    | OutputFormat::Summary => {
+                    | OutputFormat::Summary
+                    | OutputFormat::Sarif => {
                         output_single_report(&report, args, Some(&verdict_result))?;
                     }
                 }

@@ -391,6 +391,9 @@ pub enum OutputFormat {
     /// Compact summary JSON for ranking dashboards (lastAudit-compatible)
     #[value(name = "summary")]
     Summary,
+    /// SARIF 2.1.0 output for GitHub Code Scanning and other SARIF consumers
+    #[value(name = "sarif")]
+    Sarif,
 }
 
 /// Report detail level for PDF reports
@@ -437,6 +440,7 @@ impl std::fmt::Display for OutputFormat {
             OutputFormat::Pdf => write!(f, "pdf"),
             OutputFormat::Ai => write!(f, "ai"),
             OutputFormat::Summary => write!(f, "summary"),
+            OutputFormat::Sarif => write!(f, "sarif"),
         }
     }
 }

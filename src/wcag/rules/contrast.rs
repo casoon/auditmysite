@@ -449,9 +449,11 @@ impl ContrastRule {
         if verdict == ContrastVerdict::Pass {
             return None;
         }
+        let apca_lc = apca_contrast(&fg_eff, &bg_eff);
         Some(Self::build_violation(
             style,
             final_ratio,
+            apca_lc,
             is_large,
             is_warning,
             level,
@@ -461,9 +463,11 @@ impl ContrastRule {
     }
 
     /// Build a contrast violation from evaluated element data.
+    #[allow(clippy::too_many_arguments)]
     fn build_violation(
         style: &ComputedStyles,
         final_ratio: f64,
+        apca_lc: f64,
         is_large: bool,
         is_warning: bool,
         level: WcagLevel,
@@ -475,17 +479,19 @@ impl ContrastRule {
 
         let message = if is_warning {
             format!(
-                "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). Background includes an image or gradient and needs manual review.",
+                "Potential insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). APCA Lc {:.1} (supplementary, not a conformance gate). Background includes an image or gradient and needs manual review.",
                 final_ratio,
                 if is_large { "large " } else { "" },
-                threshold
+                threshold,
+                apca_lc,
             )
         } else {
             format!(
-                "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1)",
+                "Insufficient color contrast ratio: {:.2}:1 ({}text, requires {}:1). APCA Lc {:.1} (supplementary, not a conformance gate).",
                 final_ratio,
                 if is_large { "large " } else { "" },
-                threshold
+                threshold,
+                apca_lc,
             )
         };
 
@@ -678,6 +684,79 @@ impl Color {
             ((v + 0.055) / 1.055).powf(2.4)
         }
     }
+
+    /// APCA's own luminance-like value Y: a straight gamma-2.4 power curve on
+    /// sRGB channel values, with APCA's slightly different channel
+    /// coefficients — not the piecewise sRGB→linear curve `relative_luminance`
+    /// uses for the WCAG 2.x ratio. Two distinct formulas by design; do not
+    /// substitute one for the other.
+    fn apca_luminance(&self) -> f64 {
+        const R_CO: f64 = 0.2126729;
+        const G_CO: f64 = 0.7151522;
+        const B_CO: f64 = 0.0721750;
+        (self.r as f64 / 255.0).powf(2.4) * R_CO
+            + (self.g as f64 / 255.0).powf(2.4) * G_CO
+            + (self.b as f64 / 255.0).powf(2.4) * B_CO
+    }
+}
+
+/// APCA (Accessible Perceptual Contrast Algorithm) lightness contrast, Lc.
+///
+/// Reference implementation: APCA-W3 0.1.9 ("Bridge-PVR", Myndex). Supplied
+/// as supplementary information alongside the WCAG 2.x ratio — APCA is not
+/// yet a WCAG conformance requirement, so it never gates `verdict()`. Unlike
+/// the WCAG ratio, APCA is signed: positive Lc means dark text on a light
+/// background, negative means light text on a dark background, and the
+/// scale (roughly -108..108) is not directly comparable to the WCAG 1:1–21:1
+/// ratio.
+pub fn apca_contrast(text: &Color, background: &Color) -> f64 {
+    const BLACK_THRESHOLD: f64 = 0.022;
+    const BLACK_CLAMP: f64 = 1.414;
+    const DELTA_Y_MIN: f64 = 0.0005;
+    const NORM_BG: f64 = 0.56;
+    const NORM_TEXT: f64 = 0.57;
+    const REV_TEXT: f64 = 0.62;
+    const REV_BG: f64 = 0.65;
+    const SCALE_BOW: f64 = 1.14;
+    const SCALE_WOB: f64 = 1.14;
+    const LO_BOW_OFFSET: f64 = 0.027;
+    const LO_WOB_OFFSET: f64 = 0.027;
+    const LO_CLIP: f64 = 0.1;
+
+    fn clamp_black(y: f64) -> f64 {
+        if y > BLACK_THRESHOLD {
+            y
+        } else {
+            y + (BLACK_THRESHOLD - y).powf(BLACK_CLAMP)
+        }
+    }
+
+    let txt_y = clamp_black(text.apca_luminance());
+    let bg_y = clamp_black(background.apca_luminance());
+
+    if (bg_y - txt_y).abs() < DELTA_Y_MIN {
+        return 0.0;
+    }
+
+    let output = if bg_y > txt_y {
+        // Normal polarity: dark text on a light background.
+        let sapc = (bg_y.powf(NORM_BG) - txt_y.powf(NORM_TEXT)) * SCALE_BOW;
+        if sapc < LO_CLIP {
+            0.0
+        } else {
+            sapc - LO_BOW_OFFSET
+        }
+    } else {
+        // Reverse polarity: light text on a dark background.
+        let sapc = (bg_y.powf(REV_BG) - txt_y.powf(REV_TEXT)) * SCALE_WOB;
+        if sapc > -LO_CLIP {
+            0.0
+        } else {
+            sapc + LO_WOB_OFFSET
+        }
+    };
+
+    output * 100.0
 }
 
 fn to_base64(bytes: &[u8]) -> String {
@@ -864,6 +943,38 @@ mod tests {
             ContrastRule::verdict(3.0, false, WcagLevel::AA, false),
             ContrastVerdict::Violation
         );
+    }
+
+    #[test]
+    fn apca_contrast_black_on_white_matches_reference() {
+        let black = Color::new(0, 0, 0);
+        let white = Color::new(255, 255, 255);
+        let lc = apca_contrast(&black, &white);
+        // Published APCA reference value for black-on-white is ~106.
+        assert!((lc - 106.0).abs() < 1.0, "expected ~106, got {lc}");
+    }
+
+    #[test]
+    fn apca_contrast_white_on_black_matches_reference() {
+        let white = Color::new(255, 255, 255);
+        let black = Color::new(0, 0, 0);
+        let lc = apca_contrast(&white, &black);
+        // Published APCA reference value for white-on-black is ~-107.9.
+        assert!((lc + 107.9).abs() < 1.0, "expected ~-107.9, got {lc}");
+    }
+
+    #[test]
+    fn apca_contrast_sign_reflects_polarity() {
+        let dark_text_light_bg = apca_contrast(&Color::new(50, 50, 50), &Color::new(240, 240, 240));
+        let light_text_dark_bg = apca_contrast(&Color::new(240, 240, 240), &Color::new(50, 50, 50));
+        assert!(dark_text_light_bg > 0.0);
+        assert!(light_text_dark_bg < 0.0);
+    }
+
+    #[test]
+    fn apca_contrast_same_color_is_zero() {
+        let gray = Color::new(128, 128, 128);
+        assert_eq!(apca_contrast(&gray, &gray), 0.0);
     }
 
     #[test]
