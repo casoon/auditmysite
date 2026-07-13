@@ -42,7 +42,7 @@ use crate::performance::{prepare_coverage_collection, prepare_vitals_collection}
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
 use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
-use crate::wcag::{self, Violation, WcagResults};
+use crate::wcag::{self, Severity, Violation, WcagResults};
 
 // ── Viewport helpers ──────────────────────────────────────────────────────────
 
@@ -956,9 +956,12 @@ async fn run_rules(
 /// so if check_all emitted a 3.1.1 violation, query the DOM and remove it
 /// when a valid lang attribute is present.
 async fn apply_lang_attribute_check(page: &Page, results: &mut WcagResults) {
-    if !results.violations.iter().any(|v| v.rule == "3.1.1") {
-        return;
-    }
+    // The AX-tree-based check_language (language.rs) reads the AX `language`
+    // property, which Chrome can synthesize from locale/context even when the
+    // author never set a `lang` attribute — making the tree-based check blind
+    // to the most common 3.1.1 violation (#QA-001). The DOM `lang`/`xml:lang`
+    // attribute is authoritative, so it can both clear a false-positive AND
+    // add a violation the tree-based check missed.
     let has_lang = page
         .evaluate(
             "document.documentElement.getAttribute('lang') || \
@@ -972,9 +975,33 @@ async fn apply_lang_attribute_check(page: &Page, results: &mut WcagResults) {
             l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-')
         })
         .unwrap_or(false);
+
+    let has_violation = results.violations.iter().any(|v| v.rule == "3.1.1");
+
     if has_lang {
-        results.violations.retain(|v| v.rule != "3.1.1");
-        results.passes += 1;
+        if has_violation {
+            results.violations.retain(|v| v.rule != "3.1.1");
+            results.passes += 1;
+        }
+    } else if !has_violation {
+        results.violations.push(
+            Violation::new(
+                crate::wcag::rules::LANGUAGE_RULE.id,
+                crate::wcag::rules::LANGUAGE_RULE.name,
+                crate::wcag::rules::LANGUAGE_RULE.level,
+                Severity::High,
+                "Page is missing a valid lang attribute on the html element",
+                "document",
+            )
+            .with_fix("Add a valid lang attribute to the <html> element, e.g., <html lang=\"en\">")
+            .with_rule_id(crate::wcag::rules::LANGUAGE_RULE.axe_id)
+            // "document" isn't a real AX node id, so enrich_violations_with_page
+            // can't resolve a backend_dom_node_id for it — without an explicit
+            // selector it demotes the violation to a Warning (ghost element),
+            // silently dropping it from findings[] despite this fix (#QA-001).
+            .with_selector("html")
+            .with_help_url(crate::wcag::rules::LANGUAGE_RULE.help_url),
+        );
     }
 }
 

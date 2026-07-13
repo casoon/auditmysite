@@ -6,12 +6,19 @@
 //! Level A
 //!
 //! Note: Full on-input testing requires behavioral analysis via CDP.
-//! This rule checks for common patterns: select elements and radio buttons
-//! that may trigger form submission or navigation without explicit submit.
+//! This rule checks for common DOM patterns: select elements and radio
+//! buttons that may trigger form submission or navigation without an
+//! explicit submit.
+//!
+//! DOM-level rule: `onchange` is an HTML attribute, never exposed as an AX
+//! property — an earlier tree-based implementation of this check read a
+//! non-existent AX property and never fired in production (#QA-030).
 
-use crate::accessibility::AXTree;
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     id: "3.2.2",
@@ -24,134 +31,148 @@ pub const ON_INPUT_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag322", "cat.keyboard"],
 };
 
-pub fn check_on_input(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
+const ON_INPUT_CAP: usize = 250;
 
-    // Track if the page has forms with submit buttons
-    let has_submit_button = tree.iter().any(|n| {
-        let role = n.role.as_deref().unwrap_or("");
-        let name_lower = n.name.as_deref().unwrap_or("").to_lowercase();
-        role == "button"
-            && (name_lower.contains("submit")
-                || name_lower.contains("send")
-                || name_lower.contains("go")
-                || name_lower.contains("search")
-                || name_lower.contains("absenden"))
-    });
+const ON_INPUT_BODY: &str = r#"
+  function accessibleName(el) {
+    var label = el.getAttribute('aria-label');
+    if (label && label.trim()) return label.trim();
+    var labelledby = el.getAttribute('aria-labelledby');
+    if (labelledby) {
+      var ref = document.getElementById(labelledby.split(/\s+/)[0]);
+      if (ref && ref.textContent.trim()) return ref.textContent.trim();
+    }
+    if (el.id) {
+      var forLabel = document.querySelector('label[for="' + CSS.escape(el.id) + '"]');
+      if (forLabel && forLabel.textContent.trim()) return forLabel.textContent.trim();
+    }
+    var parentLabel = el.closest('label');
+    if (parentLabel && parentLabel.textContent.trim()) return parentLabel.textContent.trim();
+    return (el.textContent || '').trim();
+  }
 
-    for node in tree.form_controls() {
-        if node.ignored {
-            continue;
+  function isChangeControl(el) {
+    if (el.tagName === 'SELECT') return true;
+    var role = (el.getAttribute('role') || '').toLowerCase();
+    return role === 'combobox' || role === 'listbox';
+  }
+
+  function isRadio(el) {
+    if (el.tagName === 'INPUT' && (el.getAttribute('type') || '').toLowerCase() === 'radio') {
+      return true;
+    }
+    return (el.getAttribute('role') || '').toLowerCase() === 'radio';
+  }
+
+  var navigationHints = ['sort', 'filter', 'language', 'country', 'region', 'navigate', 'redirect', 'go to'];
+  var submitHints = ['submit', 'send', 'go', 'search', 'absenden'];
+
+  var hasSubmitButton = false;
+  var buttons = document.querySelectorAll('button, input[type="submit"], [role="button"]');
+  for (var b = 0; b < buttons.length; b++) {
+    var btnName = accessibleName(buttons[b]).toLowerCase();
+    if (submitHints.some(function(h) { return btnName.indexOf(h) !== -1; })) {
+      hasSubmitButton = true;
+      break;
+    }
+  }
+
+  var issues = [];
+  var controls = document.querySelectorAll('select, [role="combobox"], [role="listbox"], input[type="radio"], [role="radio"]');
+  for (var i = 0; i < controls.length && issues.length < CAP; i++) {
+    var el = controls[i];
+    var name = accessibleName(el);
+    var nameLower = name.toLowerCase();
+
+    if (isChangeControl(el) && el.hasAttribute('onchange')) {
+      issues.push({ kind: 'onchange', role: (el.getAttribute('role') || el.tagName.toLowerCase()), selector: __amsCssSelector(el) });
+      continue;
+    }
+
+    if ((isChangeControl(el) || isRadio(el)) && !hasSubmitButton) {
+      if (navigationHints.some(function(h) { return nameLower.indexOf(h) !== -1; })) {
+        issues.push({
+          kind: 'navigation',
+          role: (el.getAttribute('role') || el.tagName.toLowerCase()),
+          name: nameLower,
+          selector: __amsCssSelector(el)
+        });
+      }
+    }
+  }
+
+  return { issues: issues };
+"#;
+
+pub async fn check_on_input_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &ON_INPUT_BODY.replace("CAP", &ON_INPUT_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("on-input JS failed: {}", e);
+            return vec![];
         }
+    };
 
-        let role = node.role.as_deref().unwrap_or("");
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
 
-        // Check for onchange handlers on select elements
-        let has_change_handler = node.get_property_str("onchange").is_some();
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
 
-        if has_change_handler && matches!(role, "combobox" | "listbox") {
-            let violation = Violation::new(
-                ON_INPUT_RULE.id,
-                ON_INPUT_RULE.name,
-                ON_INPUT_RULE.level,
-                Severity::Medium,
-                format!(
-                    "{} element has onchange handler — may cause unexpected context change",
-                    role
-                ),
-                node.node_id.clone(),
-            )
-            .with_role(node.role.clone())
-            .with_name(node.name.clone())
-            .with_fix("Use a submit button instead of auto-submitting on selection change")
-            .with_help_url(ON_INPUT_RULE.help_url);
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let kind = issue.get("kind")?.as_str()?;
+            let role = issue.get("role").and_then(|v| v.as_str()).unwrap_or("");
+            let selector = issue.get("selector")?.as_str()?.to_string();
 
-            results.add_violation(violation);
-        }
+            let (message, severity, fix) = if kind == "onchange" {
+                (
+                    format!(
+                        "{} element has onchange handler — may cause unexpected context change",
+                        role
+                    ),
+                    Severity::Medium,
+                    "Use a submit button instead of auto-submitting on selection change",
+                )
+            } else {
+                let name = issue.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                (
+                    format!(
+                        "{} '{}' may trigger navigation on change without explicit submit",
+                        role, name
+                    ),
+                    Severity::Low,
+                    "Add a submit button or notify users that selection will change context",
+                )
+            };
 
-        // Check for select/radio elements in forms without submit buttons
-        if matches!(role, "combobox" | "listbox" | "radio") && !has_submit_button {
-            // This is a heuristic: forms without submit buttons may auto-submit on change
-            // Only flag if the control appears to be in a navigation/filter context
-            let name_lower = node.name.as_deref().unwrap_or("").to_lowercase();
-            let navigation_hints = [
-                "sort", "filter", "language", "country", "region", "navigate", "redirect", "go to",
-            ];
-
-            if navigation_hints.iter().any(|h| name_lower.contains(h)) {
-                let violation = Violation::new(
+            Some(
+                Violation::new(
                     ON_INPUT_RULE.id,
                     ON_INPUT_RULE.name,
                     ON_INPUT_RULE.level,
-                    Severity::Low,
-                    format!(
-                        "{} '{}' may trigger navigation on change without explicit submit",
-                        role, name_lower
-                    ),
-                    node.node_id.clone(),
+                    severity,
+                    message,
+                    selector.clone(),
                 )
-                .with_role(node.role.clone())
-                .with_name(node.name.clone())
-                .with_fix("Add a submit button or notify users that selection will change context")
-                .with_help_url(ON_INPUT_RULE.help_url);
-
-                results.add_violation(violation);
-            }
-        }
-    }
-
-    results
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
-
-    fn select_node(id: &str, name: &str, has_onchange: bool) -> AXNode {
-        let mut properties = vec![];
-        if has_onchange {
-            properties.push(AXProperty {
-                name: "onchange".to_string(),
-                value: AXValue::String("submit()".to_string()),
-            });
-        }
-        AXNode {
-            node_id: id.to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("combobox".to_string()),
-            name: Some(name.to_string()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties,
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
-
-    #[test]
-    fn test_select_without_onchange() {
-        let tree = AXTree::from_nodes(vec![select_node("1", "Category", false)]);
-        let results = check_on_input(&tree);
-        assert_eq!(results.violations.len(), 0);
-    }
-
-    #[test]
-    fn test_select_with_onchange() {
-        let tree = AXTree::from_nodes(vec![select_node("1", "Category", true)]);
-        let results = check_on_input(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("onchange"));
-    }
-
-    #[test]
-    fn test_navigation_select_without_submit() {
-        let tree = AXTree::from_nodes(vec![select_node("1", "Sort by", false)]);
-        let results = check_on_input(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("sort by"));
-    }
+                .with_selector(selector)
+                .with_fix(fix)
+                .with_rule_id(ON_INPUT_RULE.axe_id)
+                .with_help_url(ON_INPUT_RULE.help_url),
+            )
+        })
+        .collect()
 }

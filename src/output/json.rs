@@ -524,8 +524,11 @@ impl UnifiedReport {
             accessibility_score,
             overall_score: overall_score_batch,
             score: overall_score_batch,
-            grade: AccessibilityScorer::calculate_grade(accessibility_score as f32).to_string(),
-            certificate: AccessibilityScorer::calculate_certificate(accessibility_score as f32)
+            // Grade/certificate derive from the same field as `score`/`overall_score`
+            // (overall_score_batch), consistent with single-report semantics where
+            // grade is derived from overall_score, not accessibility_score alone.
+            grade: AccessibilityScorer::calculate_grade(overall_score_batch as f32).to_string(),
+            certificate: AccessibilityScorer::calculate_certificate(overall_score_batch as f32)
                 .to_string(),
             risk_level: batch_report.summary.risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
@@ -661,8 +664,10 @@ impl UnifiedReport {
                     crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
                 )
         });
+        // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
+        // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
-            page.overall_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+            page.accessibility_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
         );
         let violated_rule_count = page.violated_rule_count;
         let (top_recurring_rules, _) =
@@ -754,8 +759,10 @@ impl UnifiedReport {
                     crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
                 )
         });
+        // Pass criterion: accessibility score ≥ 80, no critical findings, no legal
+        // exposure. Must match the batch criterion in audit/report.rs (#253).
         let passed = usize::from(
-            page.overall_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
+            page.accessibility_score >= 80 && page.severity_counts.critical == 0 && no_legal_flags,
         );
         let violated_rule_count = page.violated_rule_count;
         let (top_recurring_rules, _) = compute_recurring_rules(std::slice::from_ref(normalized));

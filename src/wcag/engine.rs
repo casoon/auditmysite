@@ -17,24 +17,21 @@ pub use super::rules::{
     check_visual_presentation_with_page,
 };
 use super::rules::{
-    check_accessible_name, check_aria_allowed_attr, check_aria_naming_rules,
-    check_aria_prohibited_attr, check_aria_relationships, check_aria_required_attr,
-    check_aria_required_parent, check_aria_roles, check_bypass_blocks, check_dialog_rules,
-    check_error_identification, check_focus_order, check_focus_visible, check_form_rules,
-    check_headings, check_help, check_image_input_rules, check_info_relationships,
-    check_input_purpose, check_instructions, check_keyboard, check_label_title_only, check_labels,
-    check_landmark_banner_is_top_level, check_landmark_banner_present,
-    check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
-    check_landmark_main_present, check_landmark_no_duplicate_banner,
-    check_landmark_no_duplicate_contentinfo, check_landmark_no_duplicate_main,
-    check_landmark_unique, check_landmarks, check_language, check_language_extended,
+    check_accessible_name, check_aria_naming_rules, check_aria_prohibited_attr,
+    check_aria_relationships, check_aria_required_attr, check_aria_required_parent,
+    check_aria_roles, check_bypass_blocks, check_dialog_rules, check_error_identification,
+    check_focus_order, check_focus_visible, check_form_rules, check_headings, check_help,
+    check_info_relationships, check_input_purpose, check_instructions, check_keyboard,
+    check_label_title_only, check_labels, check_landmark_banner_is_top_level,
+    check_landmark_banner_present, check_landmark_contentinfo_is_top_level,
+    check_landmark_main_is_top_level, check_landmark_main_present,
+    check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
+    check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_language,
     check_link_purpose, check_link_purpose_link_only, check_list_structure,
-    check_media_alternative, check_media_rules, check_meta_viewport_large, check_non_text_contrast,
-    check_on_focus, check_on_input, check_page_titled, check_parsing, check_region,
-    check_resize_text, check_section_headings, check_server_side_image_map, check_skip_link,
-    check_status_messages, check_summary_name, check_svg_rules, check_table_extended,
-    check_table_rules, check_text_alternatives, check_unusual_words, check_wcag22_rules,
-    check_widget_rules,
+    check_media_alternative, check_media_rules, check_non_text_contrast, check_page_titled,
+    check_parsing, check_region, check_section_headings, check_skip_link, check_status_messages,
+    check_summary_name, check_svg_rules, check_table_extended, check_table_rules,
+    check_text_alternatives, check_unusual_words, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -128,17 +125,10 @@ macro_rules! run_if_allowed {
 fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilterConfig) {
     // 1.1.1 Non-text Content (Level A)
     run_if_allowed!(filter, "image-alt", check_text_alternatives, results, tree);
-    // 1.1.1 Area / input[type=image] / object alternatives (Level A)
-    run_if_allowed!(filter, "area-alt", check_image_input_rules, results, tree);
-
-    // 1.1.1 Server-side image maps (Level A)
-    run_if_allowed!(
-        filter,
-        "server-side-image-map",
-        check_server_side_image_map,
-        results,
-        tree
-    );
+    // 1.1.1 Area / input[type=image] / object alternatives, and server-side
+    // image maps, now run as DOM page rules (check_image_input_rules_with_page /
+    // check_server_side_image_map_with_page in PAGE_RULES) — htmlTag/type/ismap
+    // are not AX properties (#QA-030).
 
     // 1.3.1 Info and Relationships (Level A)
     run_if_allowed!(
@@ -163,8 +153,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
 
     // 3.1.1 Language of Page (Level A)
     run_if_allowed!(filter, "html-has-lang", check_language, results, tree);
-    // 3.1.1 Valid lang attribute + xml:lang mismatch (Level A)
-    run_if_allowed!(filter, "valid-lang", check_language_extended, results, tree);
+    // 3.1.1 Valid lang attribute + xml:lang mismatch now run as a DOM page
+    // rule (check_language_extended_with_page in PAGE_RULES) — the AX tree
+    // has no `lang`/`xmlLang` properties (#QA-030).
 
     // 3.3.2 Labels or Instructions (Level A)
     run_if_allowed!(filter, "label", check_instructions, results, tree);
@@ -192,23 +183,9 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // could not separate visible label from accessible name and only ever
     // produced passes, so it was removed (#443).
 
-    // 3.2.1 On Focus (Level A)
-    run_if_allowed!(
-        filter,
-        "focus-no-context-change",
-        check_on_focus,
-        results,
-        tree
-    );
-
-    // 3.2.2 On Input (Level A)
-    run_if_allowed!(
-        filter,
-        "input-no-context-change",
-        check_on_input,
-        results,
-        tree
-    );
+    // 3.2.1 On Focus and 3.2.2 On Input now run as DOM page rules
+    // (check_on_focus_with_page / check_on_input_with_page in PAGE_RULES) —
+    // onfocus/onchange/autofocus are HTML attributes, never AX properties (#QA-030).
 
     // 4.1.2 Name, Role, Value (Level A)
     run_if_allowed!(filter, "label", check_labels, results, tree);
@@ -216,14 +193,10 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
     // 4.1.2 ARIA Role Validity (Level A)
     run_if_allowed!(filter, "aria-roles", check_aria_roles, results, tree);
 
-    // 4.1.2 ARIA Allowed Attributes (Level A)
-    run_if_allowed!(
-        filter,
-        "aria-allowed-attr",
-        check_aria_allowed_attr,
-        results,
-        tree
-    );
+    // 4.1.2 ARIA Allowed Attributes now runs as a DOM page rule
+    // (check_aria_allowed_attr_with_page in PAGE_RULES) — the tree-based
+    // check guarded on prop.name.starts_with("aria-"), which is never true
+    // for CDP property names and had no DOM fallback (#QA-030).
 
     // 4.1.2 ARIA Required Attributes (Level A)
     run_if_allowed!(
@@ -383,10 +356,12 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
         tree
     );
 
-    // 1.3.1 Extended Table Header Rules (Level A) - P1
+    // 1.3.1 th-has-data-cells (Level A) - P1. td-headers-attr now runs as a
+    // DOM page rule (check_table_headers_attr_with_page in PAGE_RULES) —
+    // `headers` is not an AX property (#QA-030).
     run_if_allowed!(
         filter,
-        "td-headers-attr",
+        "th-has-data-cells",
         check_table_extended,
         results,
         tree
@@ -406,9 +381,6 @@ fn run_level_a_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFilt
 
     // 4.1.1 Parsing (Level A) — aria-owns duplicate target detection
     run_if_allowed!(filter, "duplicate-id-aria", check_parsing, results, tree);
-
-    // Best Practice / WCAG 2.2 (Level A subset)
-    run_if_allowed!(filter, "empty-heading", check_wcag22_rules, results, tree);
 }
 
 /// Run all Level AA rules
@@ -425,17 +397,9 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
         tree
     );
 
-    // 1.4.4 Resize Text (Level AA)
-    run_if_allowed!(filter, "meta-viewport", check_resize_text, results, tree);
-
-    // 1.4.4 Viewport Large Scale restriction (Level AA)
-    run_if_allowed!(
-        filter,
-        "meta-viewport-large",
-        check_meta_viewport_large,
-        results,
-        tree
-    );
+    // 1.4.4 Resize Text and Viewport Large Scale restriction now run as DOM
+    // page rules (check_resize_text_with_page / check_meta_viewport_large_with_page
+    // in PAGE_RULES) — the AX tree has no `viewport` property (#QA-030).
 
     // 1.4.11 Non-text Contrast (Level AA)
     run_if_allowed!(

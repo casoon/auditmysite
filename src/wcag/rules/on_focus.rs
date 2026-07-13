@@ -5,12 +5,18 @@
 //! Level A
 //!
 //! Note: Full on-focus testing requires behavioral analysis via CDP.
-//! This rule checks for common patterns in the AX tree that may indicate
+//! This rule checks for common DOM patterns that may indicate
 //! focus-triggered context changes.
+//!
+//! DOM-level rule: `onfocus`/`autofocus` are HTML attributes, never exposed
+//! as AX properties — an earlier tree-based implementation of this check
+//! read non-existent AX properties and never fired in production (#QA-030).
 
-use crate::accessibility::AXTree;
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const ON_FOCUS_RULE: RuleMetadata = RuleMetadata {
     id: "3.2.1",
@@ -23,129 +29,126 @@ pub const ON_FOCUS_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag321", "cat.keyboard"],
 };
 
-pub fn check_on_focus(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
+const ON_FOCUS_CAP: usize = 250;
 
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
+const ON_FOCUS_BODY: &str = r#"
+  var interactiveTags = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY'];
+  var interactiveRoles = [
+    'button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'menuitemcheckbox',
+    'menuitemradio', 'tab', 'textbox', 'combobox', 'searchbox', 'slider', 'spinbutton'
+  ];
+  var textboxLikeTags = ['INPUT', 'TEXTAREA', 'SELECT'];
+  var textboxLikeRoles = ['textbox', 'searchbox', 'combobox'];
+
+  function isInteractive(el) {
+    if (interactiveTags.indexOf(el.tagName) !== -1) return true;
+    var role = (el.getAttribute('role') || '').toLowerCase();
+    return interactiveRoles.indexOf(role) !== -1;
+  }
+
+  function isTextboxLike(el) {
+    if (textboxLikeTags.indexOf(el.tagName) !== -1) return true;
+    var role = (el.getAttribute('role') || '').toLowerCase();
+    return textboxLikeRoles.indexOf(role) !== -1;
+  }
+
+  var issues = [];
+
+  var focusHandlerElems = document.querySelectorAll('[onfocus]');
+  for (var i = 0; i < focusHandlerElems.length && issues.length < CAP; i++) {
+    var el = focusHandlerElems[i];
+    if (!isInteractive(el)) {
+      issues.push({
+        kind: 'onfocus',
+        role: (el.getAttribute('role') || el.tagName.toLowerCase()),
+        selector: __amsCssSelector(el)
+      });
+    }
+  }
+
+  var autofocusElems = document.querySelectorAll('[autofocus]');
+  for (var j = 0; j < autofocusElems.length && issues.length < CAP; j++) {
+    var ael = autofocusElems[j];
+    if (!isTextboxLike(ael)) {
+      issues.push({
+        kind: 'autofocus',
+        role: (ael.getAttribute('role') || ael.tagName.toLowerCase()),
+        selector: __amsCssSelector(ael)
+      });
+    }
+  }
+
+  return { issues: issues };
+"#;
+
+pub async fn check_on_focus_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &ON_FOCUS_BODY.replace("CAP", &ON_FOCUS_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("on-focus JS failed: {}", e);
+            return vec![];
         }
+    };
 
-        let role = node.role.as_deref().unwrap_or("");
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
 
-        // Check for onfocus handlers on non-interactive elements
-        // In AX tree, this may appear as an event handler property
-        let has_focus_handler = node.get_property_str("onfocus").is_some();
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
 
-        if has_focus_handler && !node.is_interactive() {
-            let violation = Violation::new(
-                ON_FOCUS_RULE.id,
-                ON_FOCUS_RULE.name,
-                ON_FOCUS_RULE.level,
-                Severity::High,
-                format!(
-                    "Non-interactive {} element has onfocus handler which may cause context change",
-                    role
-                ),
-                node.node_id.clone(),
-            )
-            .with_role(node.role.clone())
-            .with_name(node.name.clone())
-            .with_fix(
-                "Remove onfocus handlers that cause context changes, or use interactive elements",
-            )
-            .with_help_url(ON_FOCUS_RULE.help_url);
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let kind = issue.get("kind")?.as_str()?;
+            let role = issue.get("role").and_then(|v| v.as_str()).unwrap_or("");
+            let selector = issue.get("selector")?.as_str()?.to_string();
 
-            results.add_violation(violation);
-        }
-
-        // Check for autofocus on elements other than the first form field
-        // Autofocus can unexpectedly move focus context
-        if node.get_property_bool("autofocus") == Some(true) {
-            // Autofocus is acceptable on the first form field but problematic elsewhere
-            // We flag it as a warning for manual review
-            if !matches!(role, "textbox" | "searchbox" | "combobox") {
-                let violation = Violation::new(
-                    ON_FOCUS_RULE.id,
-                    ON_FOCUS_RULE.name,
-                    ON_FOCUS_RULE.level,
-                    Severity::Medium,
+            let (message, severity, fix) = if kind == "onfocus" {
+                (
+                    format!(
+                        "Non-interactive {} element has onfocus handler which may cause context change",
+                        role
+                    ),
+                    Severity::High,
+                    "Remove onfocus handlers that cause context changes, or use interactive elements",
+                )
+            } else {
+                (
                     format!(
                         "{} element has autofocus which may cause unexpected context change",
                         role
                     ),
-                    node.node_id.clone(),
+                    Severity::Medium,
+                    "Avoid autofocus on non-input elements as it can disorient users",
                 )
-                .with_role(node.role.clone())
-                .with_name(node.name.clone())
-                .with_fix("Avoid autofocus on non-input elements as it can disorient users")
-                .with_help_url(ON_FOCUS_RULE.help_url);
+            };
 
-                results.add_violation(violation);
-            }
-        }
-    }
-
-    results
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
-
-    fn node_with_autofocus(id: &str, role: &str) -> AXNode {
-        AXNode {
-            node_id: id.to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some(role.to_string()),
-            name: Some("Test".to_string()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![AXProperty {
-                name: "autofocus".to_string(),
-                value: AXValue::Bool(true),
-            }],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
-
-    #[test]
-    fn test_no_autofocus() {
-        let tree = AXTree::from_nodes(vec![AXNode {
-            node_id: "1".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("button".to_string()),
-            name: Some("Submit".to_string()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }]);
-        let results = check_on_focus(&tree);
-        assert_eq!(results.violations.len(), 0);
-    }
-
-    #[test]
-    fn test_autofocus_on_textbox_ok() {
-        let tree = AXTree::from_nodes(vec![node_with_autofocus("1", "textbox")]);
-        let results = check_on_focus(&tree);
-        assert_eq!(results.violations.len(), 0);
-    }
-
-    #[test]
-    fn test_autofocus_on_button() {
-        let tree = AXTree::from_nodes(vec![node_with_autofocus("1", "button")]);
-        let results = check_on_focus(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("autofocus"));
-    }
+            Some(
+                Violation::new(
+                    ON_FOCUS_RULE.id,
+                    ON_FOCUS_RULE.name,
+                    ON_FOCUS_RULE.level,
+                    severity,
+                    message,
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix(fix)
+                .with_rule_id(ON_FOCUS_RULE.axe_id)
+                .with_help_url(ON_FOCUS_RULE.help_url),
+            )
+        })
+        .collect()
 }

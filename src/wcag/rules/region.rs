@@ -158,8 +158,10 @@ pub fn check_region(tree: &AXTree) -> WcagResults {
 /// These are meant to precede landmarks and must not be flagged as "not in a
 /// landmark region".
 fn is_skip_link(node: &crate::accessibility::AXNode) -> bool {
-    // href starts with '#' (in-page fragment) is a strong signal
-    if let Some(href) = node.get_property_str("href") {
+    // href starts with '#' (in-page fragment) is a strong signal. CDP exposes
+    // a link's target as the "url" property, not "href" (#QA-032) —
+    // landmark_granular.rs's equivalent check already tries "url" first.
+    if let Some(href) = node.get_property_str("url") {
         if href.starts_with('#') {
             return true;
         }
@@ -301,7 +303,7 @@ mod tests {
         let mut skip = make_node("skip", "link", Some("1"), vec![]);
         skip.name = Some("Skip".into());
         skip.properties.push(AXProperty {
-            name: "href".into(),
+            name: "url".into(),
             value: AXValue::String("#main-content".into()),
         });
         nodes.push(skip);

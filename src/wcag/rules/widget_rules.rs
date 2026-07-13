@@ -2,6 +2,9 @@
 //!
 //! Checks complex ARIA widget patterns: tabs, comboboxes, sliders, tree items.
 
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
@@ -45,16 +48,29 @@ pub fn check_widget_rules(tree: &AXTree) -> WcagResults {
 
         match role {
             "tablist" => check_tablist_has_tabpanel(node, has_tabpanel, &mut results),
-            "tab" => check_tab_selected_state(node, &mut results),
+            // "tab" selected-state validation moved to
+            // check_tab_selected_state_with_page (DOM-based) — Chrome
+            // synthesizes a default `selected: false` AX property for tabs
+            // even when the author never set `aria-selected`, so AX-tree
+            // presence-checking can never observe the missing-attribute case
+            // (#QA-031, confirmed via live fixture).
             "combobox" => check_combobox_has_options(node, tree, &mut results),
             "slider" => check_slider_has_value(node, &mut results),
-            "treeitem" => check_treeitem_in_tree(node, tree, &mut results),
+            // "treeitem" required-ancestor validation lives exclusively in
+            // aria_required_parent.rs — this file used to duplicate it via
+            // check_treeitem_in_tree (#QA-009 cleanup, same class as #QA-033).
             _ => {}
         }
     }
 
     results
 }
+
+/// Custom, stable identifiers (not real axe-core rule ids) so these checks get
+/// their own taxonomy entry instead of collapsing into the shared 4.1.2 bucket.
+const TABLIST_TABPANEL_AXE_ID: &str = "aria-tablist-tabpanel";
+const COMBOBOX_OPTIONS_AXE_ID: &str = "aria-combobox-options";
+const TAB_SELECTED_STATE_AXE_ID: &str = "aria-tab-selected-state";
 
 /// tablist must be accompanied by at least one tabpanel in the tree
 fn check_tablist_has_tabpanel(node: &AXNode, has_tabpanel: bool, results: &mut WcagResults) {
@@ -70,6 +86,7 @@ fn check_tablist_has_tabpanel(node: &AXNode, has_tabpanel: bool, results: &mut W
         .with_role(node.role.clone())
         .with_name(node.name.clone())
         .with_fix("Add elements with role=\"tabpanel\" that correspond to each tab in the tablist")
+        .with_rule_id(TABLIST_TABPANEL_AXE_ID)
         .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/tabs/");
 
         results.add_violation(violation);
@@ -78,28 +95,76 @@ fn check_tablist_has_tabpanel(node: &AXNode, has_tabpanel: bool, results: &mut W
     }
 }
 
-/// Each tab must expose a selected/aria-selected state
-fn check_tab_selected_state(node: &AXNode, results: &mut WcagResults) {
-    let has_selected = node.has_property("selected");
+const TAB_SELECTED_STATE_CAP: usize = 250;
 
-    if !has_selected {
-        let violation = Violation::new(
-            RULE_META.id,
-            RULE_META.name,
-            RULE_META.level,
-            Severity::Low,
-            "Tab is missing selected state indication",
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_name(node.name.clone())
-        .with_fix("Add aria-selected=\"true\" or aria-selected=\"false\" to each tab element")
-        .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/tabs/");
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
+const TAB_SELECTED_STATE_BODY: &str = r#"
+  var issues = [];
+  var elems = document.querySelectorAll('[role="tab"]');
+  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+    var el = elems[i];
+    if (!el.hasAttribute('aria-selected')) {
+      issues.push({ selector: __amsCssSelector(el) });
     }
+  }
+  return { issues: issues };
+"#;
+
+/// Each tab must expose an `aria-selected` state. DOM-level: Chrome
+/// synthesizes a default `selected: false` AX property for `role="tab"`
+/// elements even when the author never set `aria-selected`, so AX-tree
+/// presence-checking can't distinguish "not set" from "explicitly false"
+/// (#QA-031, confirmed via live fixture — same class as
+/// `check_checked_state_with_page`).
+pub async fn check_tab_selected_state_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &TAB_SELECTED_STATE_BODY.replace("CAP", &TAB_SELECTED_STATE_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("tab-selected-state JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+
+            Some(
+                Violation::new(
+                    RULE_META.id,
+                    RULE_META.name,
+                    RULE_META.level,
+                    Severity::Low,
+                    "Tab is missing selected state indication",
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_rule_id(TAB_SELECTED_STATE_AXE_ID)
+                .with_fix(
+                    "Add aria-selected=\"true\" or aria-selected=\"false\" to each tab element",
+                )
+                .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/tabs/"),
+            )
+        })
+        .collect()
 }
 
 /// combobox must have a descendant listbox or option
@@ -120,6 +185,7 @@ fn check_combobox_has_options(node: &AXNode, tree: &AXTree, results: &mut WcagRe
         .with_fix(
             "Add a popup element with role=\"listbox\" containing role=\"option\" elements, or use aria-controls to reference the listbox",
         )
+        .with_rule_id(COMBOBOX_OPTIONS_AXE_ID)
         .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/combobox/");
 
         results.add_violation(violation);
@@ -155,30 +221,6 @@ fn check_slider_has_value(node: &AXNode, results: &mut WcagResults) {
     }
 }
 
-/// treeitem must have a tree or group ancestor
-fn check_treeitem_in_tree(node: &AXNode, tree: &AXTree, results: &mut WcagResults) {
-    let has_tree_ancestor = has_ancestor_with_role(node, &["tree", "group"], tree);
-
-    if !has_tree_ancestor {
-        let violation = Violation::new(
-            RULE_META.id,
-            RULE_META.name,
-            RULE_META.level,
-            Severity::Medium,
-            "Tree item is not contained within a tree element",
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_name(node.name.clone())
-        .with_fix("Ensure role=\"treeitem\" elements are nested inside a role=\"tree\" container")
-        .with_help_url("https://www.w3.org/WAI/ARIA/apg/patterns/treeview/");
-
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
-    }
-}
-
 /// Check if any of the given roles exist in the subtree (depth-limited)
 fn has_any_role_in_subtree(tree: &AXTree, node: &AXNode, roles: &[&str], depth: usize) -> bool {
     if depth == 0 {
@@ -194,26 +236,6 @@ fn has_any_role_in_subtree(tree: &AXTree, node: &AXNode, roles: &[&str], depth: 
             }
         }
     }
-    false
-}
-
-/// Walk up the ancestor chain and check for a matching role
-fn has_ancestor_with_role(node: &AXNode, roles: &[&str], tree: &AXTree) -> bool {
-    let mut current_parent_id = node.parent_id.as_deref();
-
-    while let Some(parent_id) = current_parent_id {
-        if let Some(parent) = tree.get_node(parent_id) {
-            if let Some(parent_role) = parent.role.as_deref() {
-                if roles.contains(&parent_role) {
-                    return true;
-                }
-            }
-            current_parent_id = parent.parent_id.as_deref();
-        } else {
-            break;
-        }
-    }
-
     false
 }
 
@@ -274,20 +296,9 @@ mod tests {
             .any(|v| v.message.contains("no associated tab panels")));
     }
 
-    #[test]
-    fn test_tab_without_selected_state_flagged() {
-        let nodes = vec![
-            make_node("tl", "tablist", Some("Tabs"), None, vec!["t1"]),
-            make_node("t1", "tab", Some("Tab 1"), Some("tl"), vec![]),
-            make_node("tp", "tabpanel", Some("Panel"), None, vec![]),
-        ];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_widget_rules(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("missing selected state")));
-    }
+    // check_tab_selected_state_with_page (tab aria-selected) is DOM-based
+    // and needs a live Page — not unit-tested here; covered by live
+    // verification instead (see plans/quality-audit-backlog.md, #QA-031).
 
     #[test]
     fn test_slider_without_value_flagged() {

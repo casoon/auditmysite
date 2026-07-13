@@ -673,7 +673,17 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                     }
                 }
             }
-            let axe_id = taxonomy_rule.and_then(|r| r.axe_id).map(String::from);
+            // Prefer the violation's own axe/rule id over the taxonomy rule's
+            // axe_id: a merged group can still contain violations from
+            // several rule files sharing one taxonomy entry by design (see
+            // `wcag_group_key`), and the taxonomy's axe_id is only ever
+            // representative of ONE of them — reporting it regardless of
+            // which check actually fired misattributes the finding for any
+            // axe-parity consumer (SARIF, Studio) (#QA-011).
+            let axe_id = first
+                .rule_id
+                .clone()
+                .or_else(|| taxonomy_rule.and_then(|r| r.axe_id).map(String::from));
             // Use the max severity across all violation instances for this rule.
             // Rules deliberately use Low for minor sub-cases (e.g. empty lists, multiple h1);
             // the taxonomy severity is a classification label, not a floor override (#288).
@@ -756,19 +766,25 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
 }
 
 fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
-    match violation.rule_id.as_deref() {
-        Some(
-            "frame-title"
-            | "form-no-submit"
-            | "landmark-main-present"
-            | "landmark-unique"
-            | "presentation-semantic-children",
-        ) => violation
-            .rule_id
-            .as_deref()
-            .unwrap_or(violation.rule.as_str()),
-        _ => violation.rule.as_str(),
+    // Prefer the violation's own axe/rule id as the group key whenever the
+    // taxonomy has a dedicated entry for it. Several distinct checks share
+    // one raw WCAG success criterion (e.g. many 4.1.2 checks: missing name,
+    // invalid role, required-parent, required-attr, …); grouping by the raw
+    // criterion alone collapsed them into a single merged finding that took
+    // one arbitrary check's title/severity/fix guidance — including
+    // escalating the whole group to the max severity of its worst member
+    // (#QA-009). Falls back to the raw criterion id so checks that share a
+    // taxonomy entry by design (e.g. several "missing accessible name"
+    // checks under 4.1.2) still group together as intended. This also
+    // subsumes what used to be a hardcoded 5-entry escape hatch for a few
+    // rules that needed it — any axe id with a dedicated LEGACY_WCAG_MAP
+    // entry gets the same treatment now.
+    if let Some(axe_id) = violation.rule_id.as_deref() {
+        if RuleLookup::by_legacy_wcag_id(axe_id).is_some() {
+            return axe_id;
+        }
     }
+    violation.rule.as_str()
 }
 
 /// (title, technical_impact) for an SEO heading-issue type, in the requested
@@ -1021,13 +1037,17 @@ fn build_module_scores(
     });
 
     if let Some(ref perf) = report.performance {
+        // No Core Web Vitals could be measured (e.g. collection failed) — a
+        // score of 0 here means "not measured", not "unusably slow". Exclude
+        // it from the weighted overall score rather than tanking it (#QA-023).
+        let measured = perf.score.metrics_available > 0;
         module_scores.push(ModuleScoreEntry {
             name: "Performance".to_string(),
             score: perf.score.overall,
             grade: AccessibilityScorer::calculate_grade(perf.score.overall as f32).to_string(),
             weight_pct: 20,
-            contributes_to_overall: true,
-            measurement_type: "measured".to_string(),
+            contributes_to_overall: measured,
+            measurement_type: if measured { "measured" } else { "not_measured" }.to_string(),
         });
     }
     if let Some(ref seo) = report.discoverability.seo {
@@ -2600,6 +2620,62 @@ mod tests {
         assert!(!json.contains("\"animations\""));
         assert!(!json.contains("\"measurement_warnings\""));
         assert!(json.contains("\"score\""));
+    }
+
+    #[test]
+    fn test_unmeasured_performance_excluded_from_overall_score() {
+        // QA-023: a performance module that ran but collected zero Core Web
+        // Vitals must not drag the overall score down as if it scored 0 — it
+        // should be excluded from the weighted sum (measurement_type
+        // "not_measured"), so a clean a11y page keeps its overall score.
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        )
+        .with_performance(PerformanceResults {
+            vitals: WebVitals::default(),
+            score: PerformanceScore {
+                overall: 0,
+                grade: PerformanceGrade::Bronze,
+                lcp_score: None,
+                fcp_score: None,
+                cls_score: None,
+                interactivity_score: None,
+                si_score: None,
+                metrics_available: 0,
+                size_penalty: None,
+                js_penalty: None,
+                request_penalty: None,
+                dom_penalty: None,
+                is_capped: None,
+            },
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+            measurement_warnings: vec![],
+        });
+
+        let norm = normalize(&report).normalized;
+
+        let perf_entry = norm
+            .module_scores
+            .iter()
+            .find(|m| m.name == "Performance")
+            .expect("performance module entry must be present");
+        assert!(!perf_entry.contributes_to_overall);
+        assert_eq!(perf_entry.measurement_type, "not_measured");
+
+        // Overall score must match the accessibility-only score, not be
+        // dragged down by an unmeasured 0-scored performance module.
+        assert_eq!(norm.overall_score, norm.score);
     }
 
     #[test]

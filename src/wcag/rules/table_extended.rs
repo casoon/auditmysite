@@ -5,6 +5,17 @@
 //!
 //! - `td-headers-attr`:   cells that reference non-existent or empty header IDs
 //! - `th-has-data-cells`: header cells that have no corresponding data cells
+//!
+//! `td-headers-attr` is a DOM-level rule (see `check_table_headers_attr_with_page`
+//! below): the AX tree exposes no `headers` property (an earlier tree-based
+//! implementation matched it against `aria-owns` instead, which is a
+//! different relationship attribute entirely, and never fired correctly in
+//! production — #QA-030). `th-has-data-cells` is a genuine tree-structure
+//! question (do header/data cells coexist under one table) and stays
+//! AX-tree-based.
+
+use chromiumoxide::Page;
+use tracing::warn;
 
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
@@ -22,6 +33,108 @@ pub const RULE_TD_HEADERS_ATTR: RuleMetadata = RuleMetadata {
     axe_id: "td-headers-attr",
     tags: &["wcag2a", "wcag131", "cat.tables"],
 };
+
+const TD_HEADERS_ATTR_CAP: usize = 250;
+
+const TD_HEADERS_ATTR_BODY: &str = r#"
+  var issues = [];
+  var cells = document.querySelectorAll('[headers]');
+  for (var i = 0; i < cells.length && issues.length < CAP; i++) {
+    var cell = cells[i];
+    var table = cell.closest('table, [role="grid"], [role="table"], [role="treegrid"]');
+    var refs = (cell.getAttribute('headers') || '').trim().split(/\s+/).filter(Boolean);
+
+    if (refs.length === 0) {
+      issues.push({ selector: __amsCssSelector(cell), kind: 'empty' });
+      continue;
+    }
+
+    var invalidRef = null;
+    for (var r = 0; r < refs.length; r++) {
+      var ref = document.getElementById(refs[r]);
+      var tag = ref ? ref.tagName : null;
+      var role = ref ? (ref.getAttribute('role') || '').toLowerCase() : '';
+      var isHeaderCell = tag === 'TH' || role === 'columnheader' || role === 'rowheader';
+      if (!ref || (table && !table.contains(ref)) || !isHeaderCell) {
+        invalidRef = refs[r];
+        break;
+      }
+    }
+    if (invalidRef) {
+      issues.push({ selector: __amsCssSelector(cell), kind: 'invalid', ref: invalidRef });
+    }
+  }
+  return { issues: issues };
+"#;
+
+/// Check that cells using the `headers` attribute only reference valid
+/// header cells (`<th>` or role=columnheader/rowheader) within the same table.
+pub async fn check_table_headers_attr_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &TD_HEADERS_ATTR_BODY.replace("CAP", &TD_HEADERS_ATTR_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("td-headers-attr JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+            let kind = issue.get("kind")?.as_str()?;
+
+            let (message, fix) = if kind == "empty" {
+                (
+                    "Table cell has an empty headers attribute".to_string(),
+                    "Remove the headers attribute or reference valid th/header cell IDs",
+                )
+            } else {
+                let r#ref = issue.get("ref").and_then(|v| v.as_str()).unwrap_or("");
+                (
+                    format!(
+                        "Table cell references header ID \"{}\" which does not exist in this table",
+                        r#ref
+                    ),
+                    "Ensure the headers attribute only references IDs of <th> elements in the same table",
+                )
+            };
+
+            Some(
+                Violation::new(
+                    RULE_TD_HEADERS_ATTR.id,
+                    RULE_TD_HEADERS_ATTR.name,
+                    RULE_TD_HEADERS_ATTR.level,
+                    RULE_TD_HEADERS_ATTR.severity,
+                    message,
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix(fix)
+                .with_rule_id(RULE_TD_HEADERS_ATTR.axe_id)
+                .with_help_url(RULE_TD_HEADERS_ATTR.help_url),
+            )
+        })
+        .collect()
+}
 
 pub const RULE_TH_HAS_DATA_CELLS: RuleMetadata = RuleMetadata {
     id: "1.3.1",
@@ -60,70 +173,8 @@ pub fn check_table_extended(tree: &AXTree) -> WcagResults {
         let mut data_cells: Vec<&AXNode> = Vec::new();
         collect_table_cells(tree, node, &mut header_cells, &mut data_cells, 0);
 
-        // ── td-headers-attr ───────────────────────────────────────────────
-        // Check any cell that has a "headers" property; verify each referenced
-        // ID exists as a header cell within this table.
-        let header_ids: std::collections::HashSet<&str> =
-            header_cells.iter().map(|h| h.node_id.as_str()).collect();
-
-        for cell in data_cells.iter().chain(header_cells.iter()) {
-            let has_header_rel = cell.has_property("headers") || cell.has_property("owns");
-            if !has_header_rel {
-                continue;
-            }
-            let refs: Vec<&str> = if let Some(hdrs) = cell.get_property_str("headers") {
-                hdrs.split_whitespace().collect()
-            } else {
-                cell.get_property_idrefs("owns")
-            };
-            {
-                if refs.is_empty() {
-                    // empty headers attribute
-                    results.add_violation(
-                        Violation::new(
-                            RULE_TD_HEADERS_ATTR.id,
-                            RULE_TD_HEADERS_ATTR.name,
-                            RULE_TD_HEADERS_ATTR.level,
-                            RULE_TD_HEADERS_ATTR.severity,
-                            "Table cell has an empty headers attribute",
-                            &cell.node_id,
-                        )
-                        .with_role(cell.role.clone())
-                        .with_fix(
-                            "Remove the headers attribute or reference valid th/header cell IDs",
-                        )
-                        .with_rule_id(RULE_TD_HEADERS_ATTR.axe_id)
-                        .with_help_url(RULE_TD_HEADERS_ATTR.help_url),
-                    );
-                } else {
-                    let mut all_valid = true;
-                    for ref_id in &refs {
-                        if !header_ids.contains(ref_id) {
-                            all_valid = false;
-                            results.add_violation(
-                                Violation::new(
-                                    RULE_TD_HEADERS_ATTR.id,
-                                    RULE_TD_HEADERS_ATTR.name,
-                                    RULE_TD_HEADERS_ATTR.level,
-                                    RULE_TD_HEADERS_ATTR.severity,
-                                    format!(
-                                        "Table cell references header ID \"{}\" which does not exist in this table",
-                                        ref_id
-                                    ),
-                                    &cell.node_id,
-                                )
-                                .with_role(cell.role.clone())
-                                .with_fix("Ensure the headers attribute only references IDs of <th> elements in the same table")
-                                .with_rule_id(RULE_TD_HEADERS_ATTR.axe_id).with_help_url(RULE_TD_HEADERS_ATTR.help_url),
-                            );
-                        }
-                    }
-                    if all_valid {
-                        results.passes += 1;
-                    }
-                }
-            }
-        }
+        // td-headers-attr now runs as a DOM page rule
+        // (check_table_headers_attr_with_page) — see module docs.
 
         // ── th-has-data-cells ─────────────────────────────────────────────
         // Each header cell should have at least one data cell in the same table.
@@ -241,24 +292,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_dangling_headers_ref_flagged() {
-        let mut table = node("t", "table", None, vec![]);
-        let header = node("hdr", "columnheader", Some("t"), vec![]);
-        let data = node(
-            "d1",
-            "gridcell",
-            Some("t"),
-            vec![("headers", "nonexistent-id")],
-        );
-        table.child_ids = vec!["hdr".into(), "d1".into()];
-        let tree = AXTree::from_nodes(vec![table, header, data]);
-        let r = check_table_extended(&tree);
-        assert!(
-            r.violations
-                .iter()
-                .any(|v| v.rule_id.as_deref() == Some("td-headers-attr")),
-            "dangling headers reference should be flagged"
-        );
-    }
+    // td-headers-attr moved to the DOM-based check_table_headers_attr_with_page
+    // (#QA-030 — `headers` is not an AX property) and needs a live Page, so
+    // it isn't unit-tested here; covered by live verification instead.
 }

@@ -26,6 +26,44 @@ use crate::seo::{
     extract_page_topics,
 };
 
+/// Canonical kind for page-type distribution insights (#406: message-baked, locale derived at render time).
+enum DistributionInsightKind {
+    HighThinContentShare,
+    NoEditorialContent,
+    MarketingDominated,
+    Balanced,
+}
+
+fn distribution_insight_text(kind: DistributionInsightKind, en: bool) -> String {
+    match (kind, en) {
+        (DistributionInsightKind::HighThinContentShare, false) => {
+            "Hoher Anteil an Thin-Content-Seiten: Das kann Informationswert und SEO-Potenzial begrenzen."
+        }
+        (DistributionInsightKind::HighThinContentShare, true) => {
+            "High share of thin-content pages: this can limit informational value and SEO potential."
+        }
+        (DistributionInsightKind::NoEditorialContent, false) => {
+            "Editoriale Inhaltsseiten fehlen: Wissensaufbau und Suchintentionen werden kaum bedient."
+        }
+        (DistributionInsightKind::NoEditorialContent, true) => {
+            "No editorial content pages: knowledge-building and informational search intents are barely served."
+        }
+        (DistributionInsightKind::MarketingDominated, false) => {
+            "Marketing- und Landingpages dominieren: Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren."
+        }
+        (DistributionInsightKind::MarketingDominated, true) => {
+            "Marketing and landing pages dominate: more structured in-depth content would balance the domain."
+        }
+        (DistributionInsightKind::Balanced, false) => {
+            "Die Seitentypen sind insgesamt ausgewogen verteilt, ohne klar dominierende Schwachmuster."
+        }
+        (DistributionInsightKind::Balanced, true) => {
+            "Page types are distributed in a balanced way overall, without a clearly dominant weak pattern."
+        }
+    }
+    .to_string()
+}
+
 /// Build a complete presentation model from a batch audit report
 pub fn build_batch_presentation(batch: &BatchReport) -> BatchPresentation {
     let i18n = I18n::new("de").expect("default locale must always load");
@@ -290,6 +328,7 @@ pub fn build_batch_presentation_with_normalized(
         }
     };
 
+    let en = i18n.locale() == "en";
     let mut page_type_counts: HashMap<String, usize> = HashMap::new();
     let mut page_semantic_scores: Vec<(String, String, u32)> = Vec::new();
     let mut thin_pages = 0usize;
@@ -302,7 +341,6 @@ pub fn build_batch_presentation_with_normalized(
             .as_ref()
             .and_then(|seo| seo.content_profile.as_ref())
         {
-            let en = i18n.locale() == "en";
             let label = profile
                 .page_classification
                 .primary_type
@@ -338,28 +376,28 @@ pub fn build_batch_presentation_with_normalized(
 
     let mut distribution_insights = Vec::new();
     if thin_pages > 0 && (thin_pages as f64 / batch.summary.total_urls as f64) >= 0.2 {
-        distribution_insights.push(
-            "Hoher Anteil an Thin-Content-Seiten: Das kann Informationswert und SEO-Potenzial begrenzen."
-                .to_string(),
-        );
+        distribution_insights.push(distribution_insight_text(
+            DistributionInsightKind::HighThinContentShare,
+            en,
+        ));
     }
     if editorial_pages == 0 {
-        distribution_insights.push(
-            "Editoriale Inhaltsseiten fehlen: Wissensaufbau und Suchintentionen werden kaum bedient."
-                .to_string(),
-        );
+        distribution_insights.push(distribution_insight_text(
+            DistributionInsightKind::NoEditorialContent,
+            en,
+        ));
     }
     if marketing_pages > 0 && (marketing_pages as f64 / batch.summary.total_urls as f64) >= 0.5 {
-        distribution_insights.push(
-            "Marketing- und Landingpages dominieren: Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren."
-                .to_string(),
-        );
+        distribution_insights.push(distribution_insight_text(
+            DistributionInsightKind::MarketingDominated,
+            en,
+        ));
     }
     if distribution_insights.is_empty() && !page_type_distribution.is_empty() {
-        distribution_insights.push(
-            "Die Seitentypen sind insgesamt ausgewogen verteilt, ohne klar dominierende Schwachmuster."
-                .to_string(),
-        );
+        distribution_insights.push(distribution_insight_text(
+            DistributionInsightKind::Balanced,
+            en,
+        ));
     }
 
     page_semantic_scores.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
@@ -634,21 +672,7 @@ pub fn build_batch_presentation_with_normalized(
     // Critical is always surfaced regardless of page share.
     let (risk_level, risk_summary) = {
         use crate::audit::normalized::RiskLevel;
-        let page_count = normalized_reports.len().max(1);
-        let worst = {
-            let mut counts = std::collections::HashMap::new();
-            for r in normalized_reports.iter() {
-                *counts.entry(r.risk.level).or_insert(0usize) += 1;
-            }
-            [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
-                .iter()
-                .copied()
-                .find(|&lvl| {
-                    let n = *counts.get(&lvl).unwrap_or(&0);
-                    lvl == RiskLevel::Critical || n * 5 >= page_count
-                })
-                .unwrap_or(RiskLevel::Low)
-        };
+        let worst = crate::audit::compute_worst_risk(normalized_reports);
         let level_str = worst.label_localized(i18n);
         let en = i18n.locale() == "en";
         let summary = match (worst, en) {
@@ -1452,5 +1476,21 @@ mod duplicate_content_tests {
             "Batch presentation must expose module score aggregates"
         );
         assert_eq!(pres.portfolio_summary.total_urls, 2);
+    }
+
+    #[test]
+    fn distribution_insight_text_en_has_no_german_umlauts() {
+        for kind in [
+            DistributionInsightKind::HighThinContentShare,
+            DistributionInsightKind::NoEditorialContent,
+            DistributionInsightKind::MarketingDominated,
+            DistributionInsightKind::Balanced,
+        ] {
+            let text = distribution_insight_text(kind, true);
+            assert!(
+                !text.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
+                "EN distribution insight must not contain German characters: {text}"
+            );
+        }
     }
 }

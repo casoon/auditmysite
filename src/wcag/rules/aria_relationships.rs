@@ -1,9 +1,20 @@
 //! WCAG 4.1.2 - ARIA Relationship Attributes
 //!
-//! Checks for empty ARIA relationship attributes and duplicate node IDs,
-//! which can break programmatic relationships between elements.
-
-use std::collections::HashMap;
+//! Checks for empty ARIA relationship attributes, which break programmatic
+//! relationships between elements.
+//!
+//! This file used to also detect duplicate `id` attributes via
+//! `node.get_property_str("id")` — dead code, since CDP never exposes a
+//! generic `id` AX property, and duplicate-ID detection already has a
+//! working, dedicated implementation in `parsing.rs` (axe ids `duplicate-id`
+//! / `duplicate-id-aria`). Removed as part of #QA-009's cleanup.
+//!
+//! The empty-relationship check itself was also dead code (#QA-030): it read
+//! CDP AX properties by their `aria-`-prefixed HTML attribute names, but CDP
+//! exposes them unprefixed (`controls`, `owns`, `activedescendant`), and via
+//! `get_property_str` which returns `None` for the `AXValue::Node` values real
+//! relationship properties carry. Fixed to read the correct property names
+//! via `get_property_idrefs`, which handles both value shapes.
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -15,40 +26,29 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     name: "ARIA Relationships",
     level: WcagLevel::A,
     severity: Severity::Medium,
-    description: "ARIA relationship attributes must reference valid, non-empty targets and IDs must be unique",
+    description: "ARIA relationship attributes must reference valid, non-empty targets",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
     axe_id: "aria-valid-attr",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
-/// ARIA relationship attributes that must not be empty when present
+/// ARIA relationship attributes that must not be empty when present.
+/// (CDP AX property name, HTML attribute name for messages)
 const EMPTY_RELATIONSHIP_ATTRS: &[(&str, &str)] = &[
-    (
-        "aria-controls",
-        "aria-controls references a controlled element but the value is empty",
-    ),
-    (
-        "aria-owns",
-        "aria-owns references owned elements but the value is empty",
-    ),
-    (
-        "aria-activedescendant",
-        "aria-activedescendant references an active element but the value is empty",
-    ),
+    ("controls", "aria-controls"),
+    ("owns", "aria-owns"),
+    ("activedescendant", "aria-activedescendant"),
 ];
 
-/// Check ARIA relationship attributes for empty values and duplicate IDs
+/// Check ARIA relationship attributes for empty values
 ///
 /// # Arguments
 /// * `tree` - The accessibility tree to check
 ///
 /// # Returns
-/// Results with violations for empty ARIA relationships and duplicate IDs
+/// Results with violations for empty ARIA relationships
 pub fn check_aria_relationships(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
-
-    // Track IDs for duplicate detection: id value -> list of node_ids that have it
-    let mut id_map: HashMap<String, Vec<String>> = HashMap::new();
 
     for node in tree.iter() {
         if node.ignored {
@@ -57,62 +57,30 @@ pub fn check_aria_relationships(tree: &AXTree) -> WcagResults {
         results.nodes_checked += 1;
 
         // Check each relationship attribute for empty values
-        for (attr_name, message) in EMPTY_RELATIONSHIP_ATTRS {
-            if let Some(val) = node.get_property_str(attr_name) {
-                if val.trim().is_empty() {
-                    let violation = Violation::new(
-                        RULE_META.id,
-                        RULE_META.name,
-                        RULE_META.level,
-                        Severity::Medium,
-                        *message,
-                        &node.node_id,
-                    )
-                    .with_role(node.role.clone())
-                    .with_fix(format!(
-                        "Either provide a valid ID reference for {} or remove the attribute",
-                        attr_name
-                    ))
-                    .with_help_url(RULE_META.help_url);
-
-                    results.add_violation(violation);
-                } else {
-                    results.passes += 1;
-                }
+        for (prop_name, attr_name) in EMPTY_RELATIONSHIP_ATTRS {
+            if !node.has_property(prop_name) {
+                continue;
             }
-        }
-
-        // Collect `id` property values for duplicate detection
-        if let Some(id_val) = node.get_property_str("id") {
-            if !id_val.trim().is_empty() {
-                id_map
-                    .entry(id_val.to_string())
-                    .or_default()
-                    .push(node.node_id.clone());
-            }
-        }
-    }
-
-    // Report duplicate IDs
-    for (id_val, node_ids) in &id_map {
-        if node_ids.len() > 1 {
-            for ax_node_id in node_ids {
+            if node.get_property_idrefs(prop_name).is_empty() {
                 let violation = Violation::new(
                     RULE_META.id,
-                    "Duplicate ID",
+                    RULE_META.name,
                     RULE_META.level,
-                    Severity::High,
-                    format!(
-                        "Duplicate id attribute found: '{}' (appears {} times)",
-                        id_val,
-                        node_ids.len()
-                    ),
-                    ax_node_id,
+                    Severity::Medium,
+                    format!("{} references a target but the value is empty", attr_name),
+                    &node.node_id,
                 )
-                .with_fix("Ensure each id attribute value is unique within the page")
-                .with_help_url("https://www.w3.org/TR/WCAG21/#parsing");
+                .with_role(node.role.clone())
+                .with_fix(format!(
+                    "Either provide a valid ID reference for {} or remove the attribute",
+                    attr_name
+                ))
+                .with_rule_id(RULE_META.axe_id)
+                .with_help_url(RULE_META.help_url);
 
                 results.add_violation(violation);
+            } else {
+                results.passes += 1;
             }
         }
     }
@@ -153,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_empty_aria_controls_flagged() {
-        let node = make_node_with_prop("1", "button", "aria-controls", "");
+        let node = make_node_with_prop("1", "button", "controls", "");
         let tree = AXTree::from_nodes(vec![node]);
         let results = check_aria_relationships(&tree);
         assert!(
@@ -167,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_empty_aria_owns_flagged() {
-        let node = make_node_with_prop("1", "combobox", "aria-owns", "");
+        let node = make_node_with_prop("1", "combobox", "owns", "");
         let tree = AXTree::from_nodes(vec![node]);
         let results = check_aria_relationships(&tree);
         assert!(
@@ -181,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_empty_aria_activedescendant_flagged() {
-        let node = make_node_with_prop("1", "listbox", "aria-activedescendant", "");
+        let node = make_node_with_prop("1", "listbox", "activedescendant", "");
         let tree = AXTree::from_nodes(vec![node]);
         let results = check_aria_relationships(&tree);
         assert!(
@@ -195,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_valid_aria_controls_passes() {
-        let node = make_node_with_prop("1", "button", "aria-controls", "my-panel");
+        let node = make_node_with_prop("1", "button", "controls", "my-panel");
         let tree = AXTree::from_nodes(vec![node]);
         let results = check_aria_relationships(&tree);
         assert!(
@@ -208,35 +176,49 @@ mod tests {
     }
 
     #[test]
-    fn test_duplicate_ids_flagged() {
-        let node1 = make_node_with_prop("1", "button", "id", "my-id");
-        let node2 = make_node_with_prop("2", "link", "id", "my-id");
-        let tree = AXTree::from_nodes(vec![node1, node2]);
-        let results = check_aria_relationships(&tree);
-        let dup_violations: Vec<_> = results
-            .violations
-            .iter()
-            .filter(|v| v.message.contains("Duplicate id"))
-            .collect();
-        assert_eq!(
-            dup_violations.len(),
-            2,
-            "Both nodes with duplicate ID should be flagged"
-        );
-    }
-
-    #[test]
-    fn test_unique_ids_pass() {
-        let node1 = make_node_with_prop("1", "button", "id", "btn-1");
-        let node2 = make_node_with_prop("2", "link", "id", "link-1");
-        let tree = AXTree::from_nodes(vec![node1, node2]);
+    fn test_empty_node_relationship_flagged() {
+        // Real CDP traffic carries relationship properties as AXValue::Node,
+        // not AXValue::String — an empty related_nodes list must still be
+        // flagged (#QA-030 regression check for the get_property_str bug).
+        let mut node = make_node("1", "button");
+        node.properties.push(AXProperty {
+            name: "controls".to_string(),
+            value: AXValue::Node {
+                related_nodes: vec![],
+            },
+        });
+        let tree = AXTree::from_nodes(vec![node]);
         let results = check_aria_relationships(&tree);
         assert!(
             results
                 .violations
                 .iter()
-                .all(|v| !v.message.contains("Duplicate id")),
-            "Unique IDs should not produce violations"
+                .any(|v| v.message.contains("aria-controls")),
+            "Empty related_nodes (AXValue::Node shape) should be flagged"
+        );
+    }
+
+    #[test]
+    fn test_valid_node_relationship_passes() {
+        let mut node = make_node("1", "button");
+        node.properties.push(AXProperty {
+            name: "controls".to_string(),
+            value: AXValue::Node {
+                related_nodes: vec![crate::accessibility::RelatedNode {
+                    backend_dom_node_id: None,
+                    idref: Some("panel-1".to_string()),
+                    text: None,
+                }],
+            },
+        });
+        let tree = AXTree::from_nodes(vec![node]);
+        let results = check_aria_relationships(&tree);
+        assert!(
+            results
+                .violations
+                .iter()
+                .all(|v| !v.message.contains("aria-controls")),
+            "Non-empty related_nodes should not be flagged"
         );
     }
 }

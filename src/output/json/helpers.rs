@@ -426,7 +426,12 @@ pub(super) fn avg_module_score(pages: &[PageEntry], name: &str) -> Option<u32> {
     if scores.is_empty() {
         None
     } else {
-        Some(scores.iter().sum::<u32>() / scores.len() as u32)
+        // Round rather than truncate so this matches the PDF's module-average
+        // computation (builder/batch.rs) — truncation could show a different
+        // score band (e.g. 74 amber vs 75 green) for the same underlying value
+        // (#QA-026).
+        let sum: u32 = scores.iter().sum();
+        Some((sum as f64 / scores.len() as f64).round() as u32)
     }
 }
 

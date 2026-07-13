@@ -4,12 +4,18 @@
 //! assistive technology up to 200 percent without loss of content or functionality.
 //! Level AA
 //!
-//! Note: Full resize testing requires viewport manipulation via CDP.
-//! This rule checks for common patterns that prevent text resizing.
+//! This is a DOM-level rule: it reads the actual `<meta name="viewport">`
+//! tag's `content` attribute via CDP (shared with `meta_viewport_large.rs`,
+//! which covers the same tag at a stricter 500% best-practice threshold).
+//! The AX tree does not expose a `viewport` property — an earlier tree-based
+//! implementation of this check read a non-existent AX property and never
+//! fired in production (#QA-030).
 
-use crate::accessibility::AXTree;
+use chromiumoxide::Page;
+
+use super::meta_viewport_large::{is_viewport_restricted, read_viewport_content};
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
     id: "1.4.4",
@@ -22,114 +28,48 @@ pub const RESIZE_TEXT_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2aa", "wcag144", "cat.sensory-and-visual-cues"],
 };
 
-pub fn check_resize_text(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
+/// Check that the viewport meta tag allows zoom to at least 200%
+/// (`maximum-scale` >= 2, `user-scalable` not disabled).
+pub async fn check_resize_text_with_page(page: &Page) -> Vec<Violation> {
+    let content = match read_viewport_content(page).await {
+        Some(c) => c,
+        None => return vec![],
+    };
 
-    // Check the root WebArea for viewport meta that prevents zooming
-    if let Some(root) = tree.root() {
-        // Check for user-scalable=no or maximum-scale < 2 in viewport meta
-        // This info may be in properties or the tree structure
-        let viewport_info = root.get_property_str("viewport");
-        if let Some(viewport) = viewport_info {
-            let vp_lower = viewport.to_lowercase();
-            if vp_lower.contains("user-scalable=no") || vp_lower.contains("user-scalable=0") {
-                let violation = Violation::new(
-                    RESIZE_TEXT_RULE.id,
-                    RESIZE_TEXT_RULE.name,
-                    RESIZE_TEXT_RULE.level,
-                    Severity::High,
-                    "Viewport meta tag prevents user scaling (user-scalable=no)",
-                    root.node_id.clone(),
-                )
-                .with_fix("Remove user-scalable=no from viewport meta tag to allow text resizing")
-                .with_help_url(RESIZE_TEXT_RULE.help_url);
+    let content_lower = content.to_lowercase();
+    let mut violations = Vec::new();
 
-                results.add_violation(violation);
-            }
-
-            // Check maximum-scale
-            if let Some(max_scale_pos) = vp_lower.find("maximum-scale=") {
-                let value_str = &vp_lower[max_scale_pos + 14..];
-                let value_end = value_str
-                    .find(|c: char| !c.is_ascii_digit() && c != '.')
-                    .unwrap_or(value_str.len());
-                if let Ok(max_scale) = value_str[..value_end].parse::<f32>() {
-                    if max_scale < 2.0 {
-                        let violation = Violation::new(
-                            RESIZE_TEXT_RULE.id,
-                            RESIZE_TEXT_RULE.name,
-                            RESIZE_TEXT_RULE.level,
-                            Severity::Medium,
-                            format!(
-                                "Viewport maximum-scale={:.1} is less than 2.0, limiting text resize",
-                                max_scale
-                            ),
-                            root.node_id.clone(),
-                        )
-                        .with_fix("Set maximum-scale to at least 2.0 or remove it entirely")
-                        .with_help_url(RESIZE_TEXT_RULE.help_url);
-
-                        results.add_violation(violation);
-                    }
-                }
-            }
-        }
+    if content_lower.contains("user-scalable=no") || content_lower.contains("user-scalable=0") {
+        violations.push(
+            Violation::new(
+                RESIZE_TEXT_RULE.id,
+                RESIZE_TEXT_RULE.name,
+                RESIZE_TEXT_RULE.level,
+                Severity::High,
+                "Viewport meta tag prevents user scaling (user-scalable=no)",
+                "meta[name=viewport]",
+            )
+            .with_selector("meta[name=viewport]")
+            .with_fix("Remove user-scalable=no from the viewport meta tag to allow text resizing")
+            .with_rule_id(RESIZE_TEXT_RULE.axe_id)
+            .with_help_url(RESIZE_TEXT_RULE.help_url),
+        );
+    } else if is_viewport_restricted(&content, 2.0) {
+        violations.push(
+            Violation::new(
+                RESIZE_TEXT_RULE.id,
+                RESIZE_TEXT_RULE.name,
+                RESIZE_TEXT_RULE.level,
+                Severity::Medium,
+                "Viewport maximum-scale is less than 2.0, limiting text resize",
+                "meta[name=viewport]",
+            )
+            .with_selector("meta[name=viewport]")
+            .with_fix("Set maximum-scale to at least 2.0 or remove it entirely")
+            .with_rule_id(RESIZE_TEXT_RULE.axe_id)
+            .with_help_url(RESIZE_TEXT_RULE.help_url),
+        );
     }
 
-    results
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
-
-    fn root_with_viewport(viewport: &str) -> AXNode {
-        AXNode {
-            node_id: "root".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("WebArea".to_string()),
-            name: Some("Test Page".to_string()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![AXProperty {
-                name: "viewport".to_string(),
-                value: AXValue::String(viewport.to_string()),
-            }],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
-
-    #[test]
-    fn test_no_viewport_restriction() {
-        let tree = AXTree::from_nodes(vec![root_with_viewport(
-            "width=device-width, initial-scale=1",
-        )]);
-        let results = check_resize_text(&tree);
-        assert_eq!(results.violations.len(), 0);
-    }
-
-    #[test]
-    fn test_user_scalable_no() {
-        let tree = AXTree::from_nodes(vec![root_with_viewport(
-            "width=device-width, user-scalable=no",
-        )]);
-        let results = check_resize_text(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("user-scalable=no"));
-    }
-
-    #[test]
-    fn test_maximum_scale_too_low() {
-        let tree = AXTree::from_nodes(vec![root_with_viewport(
-            "width=device-width, maximum-scale=1.0",
-        )]);
-        let results = check_resize_text(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("maximum-scale"));
-    }
+    violations
 }

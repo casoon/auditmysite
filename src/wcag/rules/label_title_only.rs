@@ -56,23 +56,26 @@ pub fn check_label_title_only(tree: &AXTree) -> WcagResults {
         // If the node has a name and its source is Title, flag it.
         // Also use a pragmatic fallback: if name_source is unavailable,
         // check whether the node has a "title" property whose value
-        // matches the accessible name, and no aria-label/aria-labelledby.
+        // matches the accessible name, and no aria-labelledby.
+        //
+        // (This fallback used to also check for "label"/"aria-label"
+        // properties as a way to rule out aria-label being the real name
+        // source — neither is a real CDP AX property name, so that check was
+        // an always-true no-op. Removed rather than fixed: when
+        // name_source is genuinely unavailable, there's no name_source-based
+        // signal left to distinguish an aria-label-driven name from a
+        // title-driven one; see #QA-032.)
         let is_title_only = if node.name_source == Some(NameSource::Title) {
             true
         } else if node.has_name() && node.name_source.is_none() {
             // Fallback heuristic
             let title_val = node.get_property_str("title");
-            let has_aria_label = ["label", "aria-label"].iter().any(|name| {
-                node.get_property_str(name)
-                    .is_some_and(|v| !v.trim().is_empty())
-            });
-            let has_aria_labelledby = node.has_property("labelledby")
-                || node
-                    .get_property_str("aria-labelledby")
-                    .is_some_and(|v| !v.trim().is_empty());
+            // `has_property("labelledby")` is the real (unprefixed) CDP name;
+            // the aria-prefixed form is never emitted (#QA-032).
+            let has_aria_labelledby = node.has_property("labelledby");
 
             if let (Some(name), Some(title)) = (node.name.as_deref(), title_val) {
-                name == title && !has_aria_label && !has_aria_labelledby
+                name == title && !has_aria_labelledby
             } else {
                 false
             }
@@ -207,20 +210,11 @@ mod tests {
             .any(|v| v.rule_id.as_deref() == Some("label-title-only")));
     }
 
-    #[test]
-    fn test_fallback_heuristic_with_aria_label_passes() {
-        // Has title matching name, but also has aria-label
-        let node = input_node(
-            "1",
-            "searchbox",
-            Some("Search site"),
-            None,
-            vec![("title", "Search site"), ("label", "Search site")],
-        );
-        let tree = AXTree::from_nodes(vec![node]);
-        let r = check_label_title_only(&tree);
-        assert!(r.violations.is_empty());
-    }
+    // A previous test here asserted that a "label"/"aria-label" AX property
+    // suppressed the title-only fallback heuristic. Neither is a real CDP
+    // property (#QA-032) — the test was self-consistent (its own fixture
+    // used the same made-up property name the code checked) but never
+    // reflected real Chrome behavior. Removed along with the dead check.
 
     #[test]
     fn test_non_input_role_not_flagged() {

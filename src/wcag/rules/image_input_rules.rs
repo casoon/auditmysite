@@ -4,10 +4,18 @@
 //! - `area-alt`:        <area> elements in image maps must have alt text
 //! - `input-image-alt`: <input type="image"> must have alt text
 //! - `object-alt`:      <object> elements must have a text alternative
+//!
+//! DOM-level rule: `htmlTag`/`type` are not AX properties (the AX tree
+//! synthesizes an accessible name for `<input type="image">` from its `alt`
+//! attribute directly, and never exposes the tag/type), so an earlier
+//! tree-based implementation of this check never fired in production
+//! (#QA-030).
 
-use crate::accessibility::{AXNode, AXTree};
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const RULE_AREA_ALT: RuleMetadata = RuleMetadata {
     id: "1.1.1",
@@ -42,211 +50,112 @@ pub const RULE_OBJECT_ALT: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.text-alternatives"],
 };
 
+const IMAGE_INPUT_CAP: usize = 250;
+
+const IMAGE_INPUT_BODY: &str = r#"
+  var issues = [];
+
+  var areas = document.querySelectorAll('area[href]');
+  for (var i = 0; i < areas.length && issues.length < CAP; i++) {
+    var area = areas[i];
+    var alt = (area.getAttribute('alt') || '').trim();
+    if (!alt) {
+      issues.push({ kind: 'area', selector: __amsCssSelector(area) });
+    }
+  }
+
+  var inputImages = document.querySelectorAll('input[type="image"]');
+  for (var j = 0; j < inputImages.length && issues.length < CAP; j++) {
+    var input = inputImages[j];
+    var inputAlt = (input.getAttribute('alt') || '').trim();
+    var ariaLabel = (input.getAttribute('aria-label') || '').trim();
+    if (!inputAlt && !ariaLabel) {
+      issues.push({ kind: 'input-image', selector: __amsCssSelector(input) });
+    }
+  }
+
+  var objects = document.querySelectorAll('object, embed');
+  for (var k = 0; k < objects.length && issues.length < CAP; k++) {
+    var obj = objects[k];
+    var text = (obj.textContent || '').trim();
+    var objAriaLabel = (obj.getAttribute('aria-label') || '').trim();
+    var title = (obj.getAttribute('title') || '').trim();
+    if (!text && !objAriaLabel && !title) {
+      issues.push({ kind: 'object', selector: __amsCssSelector(obj) });
+    }
+  }
+
+  return { issues: issues };
+"#;
+
 /// Run all image-input/object text-alternative checks.
-pub fn check_image_input_rules(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
+pub async fn check_image_input_rules_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &IMAGE_INPUT_BODY.replace("CAP", &IMAGE_INPUT_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
 
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("image-input JS failed: {}", e);
+            return vec![];
         }
-        results.nodes_checked += 1;
+    };
 
-        let role = match node.role.as_deref() {
-            Some(r) => r,
-            None => continue,
-        };
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
 
-        // area elements appear as "link" in the AX tree; identify by axe-hint or description
-        if role == "link" && is_area_element(node) && !node.has_name() {
-            let v = Violation::new(
-                RULE_AREA_ALT.id,
-                RULE_AREA_ALT.name,
-                RULE_AREA_ALT.level,
-                RULE_AREA_ALT.severity,
-                "Active <area> element is missing alternative text",
-                &node.node_id,
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let kind = issue.get("kind")?.as_str()?;
+            let selector = issue.get("selector")?.as_str()?.to_string();
+
+            let (rule, message, fix) = match kind {
+                "area" => (
+                    &RULE_AREA_ALT,
+                    "Active <area> element is missing alternative text".to_string(),
+                    "Add an alt attribute to the <area> element describing its destination",
+                ),
+                "input-image" => (
+                    &RULE_INPUT_IMAGE_ALT,
+                    "Image submit button is missing alternative text".to_string(),
+                    "Add an alt attribute to the <input type=\"image\"> element \
+                     describing the button action",
+                ),
+                "object" => (
+                    &RULE_OBJECT_ALT,
+                    "<object> element is missing a text alternative".to_string(),
+                    "Provide a text alternative inside the <object> element or via aria-label",
+                ),
+                _ => return None,
+            };
+
+            Some(
+                Violation::new(
+                    rule.id,
+                    rule.name,
+                    rule.level,
+                    rule.severity,
+                    message,
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix(fix)
+                .with_rule_id(rule.axe_id)
+                .with_help_url(rule.help_url),
             )
-            .with_role(node.role.clone())
-            .with_fix("Add an alt attribute to the <area> element describing its destination")
-            .with_help_url(RULE_AREA_ALT.help_url);
-            results.add_violation(v);
-        }
-        // input[type=image] typically surfaces as a button role with "type" property "image"
-        else if is_input_image(node) && !node.has_name() {
-            let v = Violation::new(
-                RULE_INPUT_IMAGE_ALT.id,
-                RULE_INPUT_IMAGE_ALT.name,
-                RULE_INPUT_IMAGE_ALT.level,
-                RULE_INPUT_IMAGE_ALT.severity,
-                "Image submit button is missing alternative text",
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_fix(
-                "Add an alt attribute to the <input type=\"image\"> element \
-                 describing the button action",
-            )
-            .with_help_url(RULE_INPUT_IMAGE_ALT.help_url);
-            results.add_violation(v);
-        }
-        // object elements exposed as various roles; check via description/name conventions
-        else if is_object_element(node) && !node.has_name() {
-            let v = Violation::new(
-                RULE_OBJECT_ALT.id,
-                RULE_OBJECT_ALT.name,
-                RULE_OBJECT_ALT.level,
-                RULE_OBJECT_ALT.severity,
-                "<object> element is missing a text alternative",
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_fix("Provide a text alternative inside the <object> element or via aria-label")
-            .with_help_url(RULE_OBJECT_ALT.help_url);
-            results.add_violation(v);
-        }
-    }
-
-    results
-}
-
-/// Heuristic: an AX link node that is an area element.
-/// Chrome CDP sometimes sets a "type" or "htmlTag" property, or the description contains "area".
-fn is_area_element(node: &AXNode) -> bool {
-    // Check property "htmlTag" = "AREA" (set by some CDP versions)
-    if let Some(tag) = node.get_property_str("htmlTag") {
-        return tag.eq_ignore_ascii_case("area");
-    }
-    // Fallback: description contains "area" hint
-    if let Some(ref desc) = node.description {
-        return desc.to_lowercase().contains("area");
-    }
-    false
-}
-
-/// Heuristic: input[type=image] — role "button" with type property "image".
-fn is_input_image(node: &AXNode) -> bool {
-    if !matches!(node.role.as_deref(), Some("button")) {
-        return false;
-    }
-    if let Some(t) = node.get_property_str("type") {
-        return t.eq_ignore_ascii_case("image");
-    }
-    false
-}
-
-/// Heuristic: <object> element — exposed as "group" or no particular role,
-/// with a "htmlTag" = "OBJECT" or "EMBED" property.
-fn is_object_element(node: &AXNode) -> bool {
-    if let Some(tag) = node.get_property_str("htmlTag") {
-        let tag = tag.to_uppercase();
-        return tag == "OBJECT" || tag == "EMBED";
-    }
-    false
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXValue};
-
-    fn node(id: &str, role: &str, name: Option<&str>, props: Vec<(&str, &str)>) -> AXNode {
-        AXNode {
-            node_id: id.into(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some(role.into()),
-            name: name.map(String::from),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: props
-                .into_iter()
-                .map(|(k, v)| AXProperty {
-                    name: k.into(),
-                    value: AXValue::String(v.into()),
-                })
-                .collect(),
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
-
-    #[test]
-    fn test_input_image_without_alt_flagged() {
-        let n = node("1", "button", None, vec![("type", "image")]);
-        let tree = AXTree::from_nodes(vec![n]);
-        let results = check_image_input_rules(&tree);
-        assert!(
-            results
-                .violations
-                .iter()
-                .any(|v| v.rule_id.as_deref() == Some("input-image-alt")
-                    || v.rule_name == "Image Button Alternative Text"),
-            "input[type=image] without name should be flagged"
-        );
-    }
-
-    #[test]
-    fn test_input_image_with_alt_passes() {
-        let n = node("1", "button", Some("Submit form"), vec![("type", "image")]);
-        let tree = AXTree::from_nodes(vec![n]);
-        let results = check_image_input_rules(&tree);
-        assert!(results.violations.is_empty());
-    }
-
-    #[test]
-    fn test_object_without_alt_flagged() {
-        let n = node("1", "group", None, vec![("htmlTag", "OBJECT")]);
-        let tree = AXTree::from_nodes(vec![n]);
-        let results = check_image_input_rules(&tree);
-        assert!(
-            results
-                .violations
-                .iter()
-                .any(|v| v.rule_name == "Object Alternative Text"),
-            "object without name should be flagged"
-        );
-    }
-
-    #[test]
-    fn test_object_with_name_passes() {
-        let n = node(
-            "1",
-            "group",
-            Some("Product demo video"),
-            vec![("htmlTag", "OBJECT")],
-        );
-        let tree = AXTree::from_nodes(vec![n]);
-        let results = check_image_input_rules(&tree);
-        assert!(results.violations.is_empty());
-    }
-
-    #[test]
-    fn test_area_without_alt_flagged() {
-        let n = node("1", "link", None, vec![("htmlTag", "AREA")]);
-        let tree = AXTree::from_nodes(vec![n]);
-        let results = check_image_input_rules(&tree);
-        assert!(
-            results
-                .violations
-                .iter()
-                .any(|v| v.rule_name == "Area Alternative Text"),
-            "area without alt should be flagged"
-        );
-    }
-
-    #[test]
-    fn test_area_with_alt_passes() {
-        let n = node(
-            "1",
-            "link",
-            Some("Go to contact page"),
-            vec![("htmlTag", "AREA")],
-        );
-        let tree = AXTree::from_nodes(vec![n]);
-        let results = check_image_input_rules(&tree);
-        assert!(results.violations.is_empty());
-    }
+        })
+        .collect()
 }

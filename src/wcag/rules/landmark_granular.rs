@@ -654,11 +654,8 @@ pub fn check_skip_link(tree: &AXTree) -> WcagResults {
             return false;
         }
         let name = n.name.as_deref().unwrap_or("").to_lowercase();
-        let href = n
-            .get_property_str("url")
-            .or_else(|| n.get_property_str("href"))
-            .unwrap_or("")
-            .to_lowercase();
+        // CDP exposes a link's target as "url", never "href" (#QA-032).
+        let href = n.get_property_str("url").unwrap_or("").to_lowercase();
 
         let name_hints = [
             "skip",

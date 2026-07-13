@@ -4,10 +4,16 @@
 //! Server-side image maps are inaccessible because the coordinates are sent
 //! to the server and keyboard users cannot interact with them meaningfully.
 //! Recommends replacing with client-side image maps or text links.
+//!
+//! DOM-level rule: `ismap` is a boolean HTML attribute, never exposed as an
+//! AX property — an earlier tree-based implementation of this check read a
+//! non-existent AX property and never fired in production (#QA-030).
 
-use crate::accessibility::AXTree;
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const RULE_SERVER_SIDE_IMAGE_MAP: RuleMetadata = RuleMetadata {
     id: "1.1.1",
@@ -21,156 +27,64 @@ pub const RULE_SERVER_SIDE_IMAGE_MAP: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag111", "cat.images"],
 };
 
+const SERVER_SIDE_IMAGE_MAP_CAP: usize = 250;
+
+const SERVER_SIDE_IMAGE_MAP_BODY: &str = r#"
+  var issues = [];
+  var images = document.querySelectorAll('img[ismap]');
+  for (var i = 0; i < images.length && issues.length < CAP; i++) {
+    issues.push({ selector: __amsCssSelector(images[i]) });
+  }
+  return { issues: issues };
+"#;
+
 /// Check for server-side image maps (`<img ismap>`).
-pub fn check_server_side_image_map(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
+pub async fn check_server_side_image_map_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &SERVER_SIDE_IMAGE_MAP_BODY.replace("CAP", &SERVER_SIDE_IMAGE_MAP_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
 
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("server-side-image-map JS failed: {}", e);
+            return vec![];
         }
-        results.nodes_checked += 1;
+    };
 
-        let role = match node.role.as_deref() {
-            Some(r) => r.to_lowercase(),
-            None => continue,
-        };
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
 
-        // <img> elements appear as "image" or "img" in the AX tree
-        if role == "image" || role == "img" {
-            // Check for ismap property being true
-            let has_ismap = node.get_property_bool("ismap").unwrap_or(false)
-                || node
-                    .get_property_str("ismap")
-                    .is_some_and(|v| v.eq_ignore_ascii_case("true") || v == "1");
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
 
-            if has_ismap {
-                results.add_violation(
-                    Violation::new(
-                        RULE_SERVER_SIDE_IMAGE_MAP.id,
-                        RULE_SERVER_SIDE_IMAGE_MAP.name,
-                        RULE_SERVER_SIDE_IMAGE_MAP.level,
-                        RULE_SERVER_SIDE_IMAGE_MAP.severity,
-                        "Image uses a server-side image map (ismap attribute), which is inaccessible to keyboard and screen reader users",
-                        &node.node_id,
-                    )
-                    .with_role(node.role.clone())
-                    .with_fix("Replace server-side image map with client-side image map or text links")
-                    .with_rule_id(RULE_SERVER_SIDE_IMAGE_MAP.axe_id)
-                    .with_help_url(RULE_SERVER_SIDE_IMAGE_MAP.help_url),
-                );
-            } else {
-                results.passes += 1;
-            }
-        }
-    }
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
 
-    results
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
-
-    fn img_node(id: &str, name: Option<&str>, ismap: Option<bool>) -> AXNode {
-        let mut props = vec![];
-        if let Some(val) = ismap {
-            props.push(AXProperty {
-                name: "ismap".into(),
-                value: AXValue::Bool(val),
-            });
-        }
-        AXNode {
-            node_id: id.into(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".into()),
-            name: name.map(String::from),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: props,
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
-    }
-
-    #[test]
-    fn test_server_side_image_map_flagged() {
-        let tree = AXTree::from_nodes(vec![img_node("1", Some("Map"), Some(true))]);
-        let r = check_server_side_image_map(&tree);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("server-side-image-map")));
-    }
-
-    #[test]
-    fn test_image_without_ismap_passes() {
-        let tree = AXTree::from_nodes(vec![img_node("1", Some("Photo"), None)]);
-        let r = check_server_side_image_map(&tree);
-        assert!(r.violations.is_empty());
-        assert!(r.passes >= 1);
-    }
-
-    #[test]
-    fn test_image_with_ismap_false_passes() {
-        let tree = AXTree::from_nodes(vec![img_node("1", Some("Photo"), Some(false))]);
-        let r = check_server_side_image_map(&tree);
-        assert!(r.violations.is_empty());
-        assert!(r.passes >= 1);
-    }
-
-    #[test]
-    fn test_ismap_string_true_flagged() {
-        let node = AXNode {
-            node_id: "1".into(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".into()),
-            name: Some("Map".into()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![AXProperty {
-                name: "ismap".into(),
-                value: AXValue::String("true".into()),
-            }],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        };
-        let tree = AXTree::from_nodes(vec![node]);
-        let r = check_server_side_image_map(&tree);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("server-side-image-map")));
-    }
-
-    #[test]
-    fn test_non_image_role_ignored() {
-        let node = AXNode {
-            node_id: "1".into(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("button".into()),
-            name: Some("Click".into()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![AXProperty {
-                name: "ismap".into(),
-                value: AXValue::Bool(true),
-            }],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        };
-        let tree = AXTree::from_nodes(vec![node]);
-        let r = check_server_side_image_map(&tree);
-        assert!(r.violations.is_empty());
-    }
+            Some(
+                Violation::new(
+                    RULE_SERVER_SIDE_IMAGE_MAP.id,
+                    RULE_SERVER_SIDE_IMAGE_MAP.name,
+                    RULE_SERVER_SIDE_IMAGE_MAP.level,
+                    RULE_SERVER_SIDE_IMAGE_MAP.severity,
+                    "Image uses a server-side image map (ismap attribute), which is inaccessible to keyboard and screen reader users",
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix("Replace server-side image map with client-side image map or text links")
+                .with_rule_id(RULE_SERVER_SIDE_IMAGE_MAP.axe_id)
+                .with_help_url(RULE_SERVER_SIDE_IMAGE_MAP.help_url),
+            )
+        })
+        .collect()
 }

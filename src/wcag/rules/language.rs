@@ -59,6 +59,12 @@ pub fn check_language(tree: &AXTree) -> WcagResults {
             "document",
         )
         .with_fix("Add a valid lang attribute to the <html> element, e.g., <html lang=\"en\">")
+        .with_rule_id(LANGUAGE_RULE.axe_id)
+        // "document" isn't a real AX node id, so enrich_violations_with_page
+        // can't resolve a backend_dom_node_id for it — without an explicit
+        // selector it demotes the violation to a Warning (ghost element),
+        // silently dropping it from findings[] whenever this check does fire.
+        .with_selector("html")
         .with_help_url(LANGUAGE_RULE.help_url);
 
         results.add_violation(violation);

@@ -1,9 +1,17 @@
 //! WCAG 2.4.3 Focus Order
 //!
 //! If a Web page can be navigated sequentially and the navigation sequences
-//! affect meaning or operation, focusable components receive focus in an order
-//! that preserves meaning and operability.
+//! affect meaning or operation, focusable components receive focus in an
+//! order that preserves meaning and operability.
 //! Level A
+//!
+//! The positive-tabindex check is a DOM-level rule: `tabindex` is not exposed
+//! as an AX property, so it must be read from the live DOM via CDP (#QA-030).
+//! It used to be duplicated in `keyboard.rs` under 2.1.1 — positive tabindex
+//! is a focus-*order* problem, so this file is now its single home.
+
+use chromiumoxide::Page;
+use tracing::warn;
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -20,54 +28,91 @@ pub const FOCUS_ORDER_RULE: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag243", "cat.keyboard"],
 };
 
+const POSITIVE_TABINDEX_CAP: usize = 250;
+
+const POSITIVE_TABINDEX_BODY: &str = r#"
+  var issues = [];
+  var total = 0;
+  var elems = document.querySelectorAll('[tabindex]');
+  for (var i = 0; i < elems.length; i++) {
+    var el = elems[i];
+    if (el.tabIndex > 0) {
+      total++;
+      if (issues.length < CAP) {
+        issues.push({ selector: __amsCssSelector(el), tabindex: el.tabIndex });
+      }
+    }
+  }
+  return { count: total, issues: issues };
+"#;
+
+/// Check for elements with a positive `tabindex`, which disrupts the natural
+/// (DOM-order) focus sequence.
+pub async fn check_positive_tabindex_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        &POSITIVE_TABINDEX_BODY.replace("CAP", &POSITIVE_TABINDEX_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("positive-tabindex JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let selector = issue.get("selector")?.as_str()?.to_string();
+            let tabindex = issue.get("tabindex").and_then(|v| v.as_i64()).unwrap_or(0);
+
+            Some(
+                Violation::new(
+                    FOCUS_ORDER_RULE.id,
+                    FOCUS_ORDER_RULE.name,
+                    FOCUS_ORDER_RULE.level,
+                    Severity::High,
+                    format!(
+                        "Element has positive tabindex={} which disrupts natural focus order",
+                        tabindex
+                    ),
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix("Remove positive tabindex values. Use tabindex=\"0\" for natural order or tabindex=\"-1\" for programmatic focus only")
+                .with_rule_id(FOCUS_ORDER_RULE.axe_id)
+                .with_help_url(FOCUS_ORDER_RULE.help_url),
+            )
+        })
+        .collect()
+}
+
+/// Check for focusable elements inside `aria-hidden` containers.
+/// Tree-based: `hidden` is a real CDP AX property (unlike `tabindex`).
 pub fn check_focus_order(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
-    let mut positive_tabindexes: Vec<(i64, String, Option<String>)> = Vec::new();
-
     for node in tree.iter() {
         if node.ignored {
             continue;
         }
 
-        // Detect positive tabindex values which disrupt natural focus order
-        if let Some(tabindex) = node.get_property_int("tabindex") {
-            if tabindex > 0 {
-                positive_tabindexes.push((tabindex, node.node_id.clone(), node.role.clone()));
-            }
-        }
-    }
-
-    // Flag all elements with positive tabindex
-    for (tabindex, node_id, role) in &positive_tabindexes {
-        let violation = Violation::new(
-            FOCUS_ORDER_RULE.id,
-            FOCUS_ORDER_RULE.name,
-            FOCUS_ORDER_RULE.level,
-            Severity::High,
-            format!(
-                "Element has positive tabindex={} which disrupts natural focus order",
-                tabindex
-            ),
-            node_id.clone(),
-        )
-        .with_role(role.clone())
-        .with_fix("Remove positive tabindex values. Use tabindex=\"0\" for natural order or tabindex=\"-1\" for programmatic focus only")
-        .with_help_url(FOCUS_ORDER_RULE.help_url);
-
-        results.add_violation(violation);
-    }
-
-    // Check for focusable elements inside aria-hidden containers
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
-        }
-
-        let is_aria_hidden = node.get_property_bool("hidden").unwrap_or(false)
-            || node
-                .get_property_str("aria-hidden")
-                .is_some_and(|v| v.eq_ignore_ascii_case("true"));
+        let is_aria_hidden = node.get_property_bool("hidden").unwrap_or(false);
 
         if is_aria_hidden && node.is_focusable() {
             let violation = Violation::new(
@@ -97,7 +142,12 @@ mod tests {
     use super::*;
     use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 
-    fn node_with_tabindex(id: &str, role: &str, tabindex: i64) -> AXNode {
+    fn node_with_hidden_and_focusable(
+        id: &str,
+        role: &str,
+        hidden: bool,
+        focusable: bool,
+    ) -> AXNode {
         AXNode {
             node_id: id.to_string(),
             ignored: false,
@@ -107,10 +157,16 @@ mod tests {
             name_source: None,
             description: None,
             value: None,
-            properties: vec![AXProperty {
-                name: "tabindex".to_string(),
-                value: AXValue::Int(tabindex),
-            }],
+            properties: vec![
+                AXProperty {
+                    name: "hidden".to_string(),
+                    value: AXValue::Bool(hidden),
+                },
+                AXProperty {
+                    name: "focusable".to_string(),
+                    value: AXValue::Bool(focusable),
+                },
+            ],
             child_ids: vec![],
             parent_id: None,
             backend_dom_node_id: None,
@@ -118,32 +174,28 @@ mod tests {
     }
 
     #[test]
-    fn test_no_positive_tabindex() {
-        let tree = AXTree::from_nodes(vec![
-            node_with_tabindex("1", "button", 0),
-            node_with_tabindex("2", "link", 0),
-        ]);
+    fn test_focusable_in_hidden_context_flagged() {
+        let tree = AXTree::from_nodes(vec![node_with_hidden_and_focusable(
+            "1", "button", true, true,
+        )]);
+        let results = check_focus_order(&tree);
+        assert_eq!(results.violations.len(), 1);
+    }
+
+    #[test]
+    fn test_focusable_not_hidden_passes() {
+        let tree = AXTree::from_nodes(vec![node_with_hidden_and_focusable(
+            "1", "button", false, true,
+        )]);
         let results = check_focus_order(&tree);
         assert_eq!(results.violations.len(), 0);
     }
 
     #[test]
-    fn test_positive_tabindex_violation() {
-        let tree = AXTree::from_nodes(vec![
-            node_with_tabindex("1", "button", 5),
-            node_with_tabindex("2", "link", 3),
-        ]);
-        let results = check_focus_order(&tree);
-        assert_eq!(results.violations.len(), 2);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("tabindex=5")));
-    }
-
-    #[test]
-    fn test_negative_tabindex_ok() {
-        let tree = AXTree::from_nodes(vec![node_with_tabindex("1", "div", -1)]);
+    fn test_hidden_not_focusable_passes() {
+        let tree = AXTree::from_nodes(vec![node_with_hidden_and_focusable(
+            "1", "button", true, false,
+        )]);
         let results = check_focus_order(&tree);
         assert_eq!(results.violations.len(), 0);
     }

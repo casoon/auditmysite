@@ -637,6 +637,12 @@ pub struct BatchSummary {
     /// all pages (legal exposure indicator).
     #[serde(default)]
     pub legal_flags: usize,
+    /// Sum of blocking-interaction-issue occurrences (unlabeled interactive
+    /// elements, 4.1.2/2.1.1) across all pages. Mirrors the single-page
+    /// `RiskAssessment.blocking_issues` signal so the batch CI verdict can
+    /// fail on it too (#QA-028).
+    #[serde(default)]
+    pub blocking_issues: usize,
     /// Worst-case risk level across all audited pages.
     #[serde(default)]
     pub risk: crate::audit::normalized::RiskLevel,
@@ -711,27 +717,55 @@ pub fn compute_recurring_rules(
 
 /// Count the number of distinct WCAG Level-A rules with High/Critical severity
 /// that appear across any of the given reports (legal exposure indicator).
+///
+/// Also accounts for legal exposure raised purely by the screen-reader BFSG
+/// verdict (`RiskAssessment.legal_flags` can exceed the page's own WCAG
+/// Level-A finding count, see `audit::normalized::compute_risk`). That signal
+/// has no WCAG rule id of its own, so it is represented as a synthetic member
+/// of the same distinct-signal set whenever it fires on at least one page —
+/// otherwise a page could FAIL its single-page verdict on this signal while
+/// contributing nothing to the batch's legal_flags summary (#QA-024).
 fn compute_legal_flags(reports: &[crate::audit::normalized::NormalizedReport]) -> usize {
     use crate::taxonomy::Severity;
     use std::collections::HashSet;
 
-    reports
+    let mut rule_ids: HashSet<&str> = reports
         .iter()
         .flat_map(|r| r.findings.iter())
         .filter(|f| {
             f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
         })
         .map(|f| f.rule_id.as_str())
-        .collect::<HashSet<_>>()
-        .len()
+        .collect();
+
+    let sr_only_legal_exposure = reports.iter().any(|r| {
+        let findings_based = r
+            .findings
+            .iter()
+            .filter(|f| {
+                f.wcag_level == "A" && matches!(f.severity, Severity::Critical | Severity::High)
+            })
+            .count();
+        r.risk.legal_flags > findings_based
+    });
+    if sr_only_legal_exposure {
+        rule_ids.insert("screen_reader.bfsg_noncompliant");
+    }
+
+    rule_ids.len()
 }
 
 /// Compute the worst-case risk level across a set of normalized reports.
 ///
 /// Critical: any page is Critical.
-/// High: ≥ 20% of pages are High.
-/// Medium: ≥ 20% of pages are Medium.
+/// High: ≥ 20% of pages are High (or worse).
+/// Medium: ≥ 20% of pages are Medium or worse.
 /// Low: otherwise.
+///
+/// Severity buckets are cumulative — a High-risk page also counts toward the
+/// Medium threshold — so e.g. 1 High + 1 Medium page out of 10 (20% elevated)
+/// correctly escalates to Medium instead of each bucket independently missing
+/// the 20% cutoff and silently reporting Low (#QA-022).
 pub fn compute_worst_risk(
     reports: &[crate::audit::normalized::NormalizedReport],
 ) -> crate::audit::normalized::RiskLevel {
@@ -744,14 +778,19 @@ pub fn compute_worst_risk(
         *counts.entry(r.risk.level).or_insert(0) += 1;
     }
 
-    [RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium]
-        .iter()
-        .copied()
-        .find(|&lvl| {
-            let n = *counts.get(&lvl).unwrap_or(&0);
-            n > 0 && (lvl == RiskLevel::Critical || n * 5 >= page_count)
-        })
-        .unwrap_or(RiskLevel::Low)
+    let critical = *counts.get(&RiskLevel::Critical).unwrap_or(&0);
+    let high = *counts.get(&RiskLevel::High).unwrap_or(&0);
+    let medium = *counts.get(&RiskLevel::Medium).unwrap_or(&0);
+
+    if critical > 0 {
+        RiskLevel::Critical
+    } else if high * 5 >= page_count {
+        RiskLevel::High
+    } else if (high + medium) * 5 >= page_count {
+        RiskLevel::Medium
+    } else {
+        RiskLevel::Low
+    }
 }
 
 impl BatchReport {
@@ -767,20 +806,14 @@ impl BatchReport {
             .map(|r| crate::audit::normalized::normalize(r).normalized)
             .collect();
         // Pass criterion: accessibility score ≥ 80, no critical findings, and
-        // no WCAG-Level-A high/critical findings (i.e. no legal exposure).
-        // See issue #253.
+        // no legal exposure. See issue #253. Uses the page's own risk
+        // assessment (`r.risk.legal_flags`) rather than recomputing from
+        // findings, so screen-reader-derived legal exposure (#484) is not
+        // silently dropped in batch mode while it fails the single-page
+        // verdict (#QA-024).
         let passed = normalized_reports
             .iter()
-            .filter(|r| {
-                let no_legal_flags = !r.findings.iter().any(|f| {
-                    f.wcag_level == "A"
-                        && matches!(
-                            f.severity,
-                            crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High,
-                        )
-                });
-                r.score >= 80 && r.severity_counts.critical == 0 && no_legal_flags
-            })
+            .filter(|r| r.score >= 80 && r.severity_counts.critical == 0 && r.risk.legal_flags == 0)
             .count();
         let failed = total_urls - passed;
 
@@ -803,6 +836,10 @@ impl BatchReport {
         let (top_recurring_rules, violated_rule_count) =
             compute_recurring_rules(&normalized_reports);
         let legal_flags = compute_legal_flags(&normalized_reports);
+        let blocking_issues = normalized_reports
+            .iter()
+            .map(|r| r.risk.blocking_issues)
+            .sum();
         let risk = compute_worst_risk(&normalized_reports);
         let verdict_key = {
             let s = average_score.round() as u32;
@@ -830,6 +867,7 @@ impl BatchReport {
                 top_recurring_rules,
                 violated_rule_count,
                 legal_flags,
+                blocking_issues,
                 risk,
                 verdict_key,
             },

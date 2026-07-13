@@ -1240,6 +1240,51 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     ),
     // ── 4. Robust ───────────────────────────────────────────────────────────
     (
+        "4.1.1",
+        RuleExplanation {
+            customer_title: "Doppelte IDs im Dokument",
+            customer_title_en: "Duplicate IDs in the document",
+            customer_description:
+                "Mehrere Elemente auf der Seite tragen dieselbe id. IDs müssen im \
+                 gesamten Dokument eindeutig sein, damit assistive Technologien \
+                 Referenzen (z. B. aria-owns, aria-labelledby) korrekt auflösen können.",
+            customer_description_en:
+                "Multiple elements on the page share the same id. IDs must be unique \
+                 across the entire document so assistive technologies can correctly \
+                 resolve references (e.g. aria-owns, aria-labelledby).",
+            user_impact:
+                "Screenreader können den Accessibility-Tree nicht korrekt aufbauen und \
+                 überspringen Elemente oder springen zum falschen Ziel.",
+            user_impact_en:
+                "Screen readers cannot correctly build the accessibility tree and skip \
+                 elements or jump to the wrong target.",
+            typical_cause:
+                "Wiederholt eingebundene Komponenten oder Templates (z. B. Menüpunkte, \
+                 Widgets), die eine statische ID statt einer pro Instanz eindeutigen ID \
+                 verwenden.",
+            typical_cause_en:
+                "Repeatedly embedded components or templates (e.g. menu items, widgets) \
+                 that use a static ID instead of a per-instance unique ID.",
+            recommendation:
+                "Jede ID nur einmal im Dokument vergeben. Bei wiederverwendeten \
+                 Komponenten die ID dynamisch generieren (z. B. mit Index oder Slug).",
+            recommendation_en:
+                "Assign each ID only once per document. For reused components, generate \
+                 the ID dynamically (e.g. with an index or slug).",
+            technical_note:
+                "IDs eindeutig machen, etwa durch Anhängen eines Index oder einer \
+                 eindeutigen Kennung pro Komponenteninstanz.",
+            technical_note_en:
+                "Make IDs unique, e.g. by appending an index or a unique identifier per \
+                 component instance.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: None,
+            example_good: None,
+            example_decorative: None,
+        },
+    ),
+    (
         "4.1.2",
         RuleExplanation {
             customer_title: "Fehlende Name/Rolle bei Bedienelementen",
@@ -1532,6 +1577,7 @@ mod tests {
             "a11y.aria_hidden_focus.invalid",
             "a11y.aria_prohibited_attr.invalid",
             "a11y.modern_attributes.invalid",
+            "a11y.parsing.invalid",
         ] {
             let expl = get_explanation(rule_id)
                 .unwrap_or_else(|| panic!("missing explanation for {rule_id}"));

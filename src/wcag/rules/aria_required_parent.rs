@@ -19,15 +19,23 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
 
-/// Roles and the parent roles they must be nested within
+/// Roles and the parent roles they must be nested within.
+///
+/// Consolidated from the formerly-duplicate `check_required_context` in
+/// aria_roles.rs (#QA-033), which independently re-implemented this check
+/// against a slightly different table — both ran on every audit, so a single
+/// orphaned `tab` produced two Critical findings. This table is the union of
+/// both: `listitem`+"group", `option`+"combobox", `menuitemradio`+"radiogroup",
+/// and `cell` are the entries aria_roles.rs additionally covered.
 const REQUIRED_PARENTS: &[(&str, &[&str])] = &[
-    ("listitem", &["list"]),
+    ("listitem", &["list", "group"]),
     ("menuitem", &["menu", "menubar", "group"]),
     ("menuitemcheckbox", &["menu", "menubar", "group"]),
-    ("menuitemradio", &["menu", "menubar", "group"]),
-    ("option", &["listbox", "group"]),
+    ("menuitemradio", &["menu", "menubar", "group", "radiogroup"]),
+    ("option", &["listbox", "group", "combobox"]),
     ("tab", &["tablist"]),
     ("treeitem", &["tree", "group"]),
+    ("cell", &["row"]),
     ("gridcell", &["row"]),
     ("row", &["grid", "treegrid", "table", "rowgroup"]),
     ("rowgroup", &["grid", "treegrid", "table"]),
@@ -164,5 +172,33 @@ mod tests {
         let tree = AXTree::from_nodes(nodes);
         let results = check_aria_required_parent(&tree);
         assert_eq!(results.violations.len(), 0);
+    }
+
+    #[test]
+    fn test_listitem_without_list_parent_flagged() {
+        let nodes = vec![
+            make_node("1", "WebArea", None, vec!["2"]),
+            make_node("2", "listitem", Some("1"), vec![]),
+        ];
+        let tree = AXTree::from_nodes(nodes);
+        let results = check_aria_required_parent(&tree);
+        assert_eq!(results.violations.len(), 1);
+        assert!(results.violations[0]
+            .message
+            .contains("must be contained in a parent"));
+    }
+
+    #[test]
+    fn test_cell_without_row_parent_flagged() {
+        // Consolidated from aria_roles.rs's formerly-duplicate REQUIRED_CONTEXT
+        // table (#QA-033), which additionally covered "cell".
+        let nodes = vec![
+            make_node("1", "WebArea", None, vec!["2"]),
+            make_node("2", "cell", Some("1"), vec![]),
+        ];
+        let tree = AXTree::from_nodes(nodes);
+        let results = check_aria_required_parent(&tree);
+        assert_eq!(results.violations.len(), 1);
+        assert!(results.violations[0].message.contains("row"));
     }
 }

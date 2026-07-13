@@ -10,9 +10,9 @@ use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue, NameSource
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
 use auditmysite::wcag::rules::{
-    check_aria_roles, check_focus_order, check_headings, check_info_relationships,
-    check_label_title_only, check_language, check_link_purpose, check_list_structure,
-    check_page_titled, check_resize_text, check_text_alternatives, Color, ContrastRule,
+    check_aria_required_parent, check_aria_roles, check_focus_order, check_headings,
+    check_info_relationships, check_label_title_only, check_language, check_link_purpose,
+    check_list_structure, check_page_titled, check_text_alternatives, Color, ContrastRule,
 };
 
 // ---------------------------------------------------------------------------
@@ -65,15 +65,6 @@ fn doc_with_lang(id: &str, lang: Option<&str>) -> AXNode {
             value: AXValue::String(l.to_string()),
         });
     }
-    n
-}
-
-fn root_with_viewport(viewport: &str) -> AXNode {
-    let mut n = node("root", "WebArea", Some("Test Page"));
-    n.properties.push(AXProperty {
-        name: "viewport".to_string(),
-        value: AXValue::String(viewport.to_string()),
-    });
     n
 }
 
@@ -385,43 +376,27 @@ fn test_412_valid_role_passes() {
     assert_eq!(results.violations.len(), 0);
 }
 
-#[test]
-fn test_412_invalid_role_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "superbutton", Some("Fake Button"))]);
-    let results = check_aria_roles(&tree);
-    assert!(!results.violations.is_empty());
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("invalid ARIA role")));
-}
+// Invalid-role detection moved to check_invalid_role_with_page (DOM-based,
+// #QA-030) — needs a live Page, not unit-tested here.
 
-#[test]
-fn test_412_invalid_aria_attribute_flagged() {
-    let mut n = node("1", "button", Some("Click me"));
-    n.properties.push(AXProperty {
-        name: "aria-notvalid".to_string(),
-        value: AXValue::String("true".to_string()),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_aria_roles(&tree);
-    assert!(results
-        .violations
-        .iter()
-        .any(|v| v.message.contains("invalid ARIA attribute")));
-}
+// Invalid-ARIA-attribute-name detection moved to
+// check_invalid_aria_attribute_name_with_page (DOM-based, #QA-030) — needs
+// a live Page, not unit-tested here.
 
 #[test]
 fn test_412_listitem_without_list_context_flagged() {
+    // Required-parent-context validation lives exclusively in
+    // check_aria_required_parent — aria_roles.rs used to duplicate it
+    // (#QA-033), which is why this test called check_aria_roles before.
     let tree = AXTree::from_nodes(vec![
         node_with_children("1", "WebArea", Some("Page"), vec!["2"]),
         node_with_parent("2", "listitem", Some("Item"), "1"),
     ]);
-    let results = check_aria_roles(&tree);
+    let results = check_aria_required_parent(&tree);
     assert!(results
         .violations
         .iter()
-        .any(|v| v.message.contains("required parent context")));
+        .any(|v| v.message.contains("must be contained in a parent")));
 }
 
 #[test]
@@ -444,11 +419,11 @@ fn test_412_listitem_with_list_parent_passes() {
             n
         },
     ]);
-    let results = check_aria_roles(&tree);
+    let results = check_aria_required_parent(&tree);
     let context_violations: Vec<_> = results
         .violations
         .iter()
-        .filter(|v| v.message.contains("required parent context") && v.node_id == "3")
+        .filter(|v| v.node_id == "3")
         .collect();
     assert!(
         context_violations.is_empty(),
@@ -456,47 +431,10 @@ fn test_412_listitem_with_list_parent_passes() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// 1.4.4 Resize Text — check_resize_text
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_144_normal_viewport_passes() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport(
-        "width=device-width, initial-scale=1",
-    )]);
-    let results = check_resize_text(&tree);
-    assert_eq!(results.violations.len(), 0);
-}
-
-#[test]
-fn test_144_user_scalable_no_flagged() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport(
-        "width=device-width, user-scalable=no",
-    )]);
-    let results = check_resize_text(&tree);
-    assert_eq!(results.violations.len(), 1);
-    assert!(results.violations[0].message.contains("user-scalable=no"));
-}
-
-#[test]
-fn test_144_maximum_scale_too_low_flagged() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport(
-        "width=device-width, maximum-scale=1.0",
-    )]);
-    let results = check_resize_text(&tree);
-    assert_eq!(results.violations.len(), 1);
-    assert!(results.violations[0].message.contains("maximum-scale"));
-}
-
-#[test]
-fn test_144_maximum_scale_sufficient_passes() {
-    let tree = AXTree::from_nodes(vec![root_with_viewport(
-        "width=device-width, maximum-scale=2.0",
-    )]);
-    let results = check_resize_text(&tree);
-    assert_eq!(results.violations.len(), 0);
-}
+// 1.4.4 Resize Text is now a DOM page rule (check_resize_text_with_page in
+// meta_viewport_large.rs/resize_text.rs, registered in PAGE_RULES) — it needs
+// a live Page and is covered by page_rules.rs's own unit tests plus live
+// verification, not a tree-based unit test here (#QA-030).
 
 // ---------------------------------------------------------------------------
 // 1.4.3 Contrast helpers — Color parsing and contrast ratio calculation
@@ -822,64 +760,19 @@ fn test_131_empty_list_flagged() {
 
 // ---------------------------------------------------------------------------
 // 2.4.3 Focus Order — check_focus_order
+//
+// Positive-tabindex detection moved to focus_order.rs's own DOM-based
+// check_positive_tabindex_with_page (#QA-030 — tabindex is not an AX
+// property) and is covered by that module's own tests, which don't need a
+// live Page for the pure `hidden`+`focusable` tree logic tested here.
 // ---------------------------------------------------------------------------
-
-#[test]
-fn test_243_positive_tabindex_flagged() {
-    let mut n = node("1", "link", Some("Home"));
-    n.properties.push(AXProperty {
-        name: "tabindex".to_string(),
-        value: AXValue::Int(5),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_focus_order(&tree);
-    assert!(
-        results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("tabindex=5")),
-        "Positive tabindex should be flagged"
-    );
-}
-
-#[test]
-fn test_243_zero_tabindex_passes() {
-    let mut n = node("1", "link", Some("Home"));
-    n.properties.push(AXProperty {
-        name: "tabindex".to_string(),
-        value: AXValue::Int(0),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_focus_order(&tree);
-    assert_eq!(
-        results.violations.len(),
-        0,
-        "tabindex=0 should not produce focus-order violations"
-    );
-}
-
-#[test]
-fn test_243_negative_tabindex_passes() {
-    let mut n = node("1", "link", Some("Home"));
-    n.properties.push(AXProperty {
-        name: "tabindex".to_string(),
-        value: AXValue::Int(-1),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_focus_order(&tree);
-    assert_eq!(
-        results.violations.len(),
-        0,
-        "tabindex=-1 should not produce focus-order violations"
-    );
-}
 
 #[test]
 fn test_243_focusable_in_aria_hidden_flagged() {
     let mut n = node("1", "button", Some("Hidden button"));
     n.properties.push(AXProperty {
-        name: "aria-hidden".to_string(),
-        value: AXValue::String("true".to_string()),
+        name: "hidden".to_string(),
+        value: AXValue::Bool(true),
     });
     n.properties.push(AXProperty {
         name: "focusable".to_string(),
@@ -956,24 +849,10 @@ fn test_131_title_heuristic_flagged() {
     );
 }
 
-#[test]
-fn test_131_title_heuristic_with_aria_label_passes() {
-    let mut n = node("1", "textbox", Some("Enter email"));
-    n.properties.push(AXProperty {
-        name: "title".to_string(),
-        value: AXValue::String("Enter email".to_string()),
-    });
-    n.properties.push(AXProperty {
-        name: "aria-label".to_string(),
-        value: AXValue::String("Enter email".to_string()),
-    });
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_label_title_only(&tree);
-    assert!(
-        results.violations.is_empty(),
-        "Input with aria-label in addition to title should not be flagged"
-    );
-}
+// A previous test here asserted that an "aria-label" AX property suppressed
+// the title-only fallback heuristic. That property name is never real CDP
+// data (#QA-032) — removed along with the corresponding dead check in
+// label_title_only.rs.
 
 // ---------------------------------------------------------------------------
 // Scenario tests — determinism guard for complete page mocks
@@ -1208,16 +1087,30 @@ fn scenario_heading_skip_fires_only_131() {
     );
 }
 
-/// Page with an invalid ARIA role and a focusable element inside aria-hidden.
-/// Rules 4.1.2 (invalid role) and 2.4.3 (focusable+aria-hidden) must both fire.
-/// No other rules should fire (baseline is otherwise clean).
+/// Page with a menu missing its required menuitem children and a focusable
+/// element inside aria-hidden. Rules 4.1.2 (required owned elements) and
+/// 2.4.3 (focusable+aria-hidden) must both fire. No other rules should fire
+/// (baseline is otherwise clean).
+///
+/// (Invalid-*role* and invalid-*attribute-name* detection moved to DOM page
+/// rules — check_invalid_role_with_page / check_invalid_aria_attribute_name_
+/// with_page, #QA-030 — so this scenario now exercises the still-tree-based
+/// required-owned-elements check instead. A "list" fixture was tried first
+/// but also trips list_structure.rs's own 1.3.1 empty-list check — "menu" is
+/// not touched by any other module.)
 #[test]
 fn scenario_broken_aria_fires_412_and_243() {
+    let empty_menu = {
+        let mut n = node("menu1", "menu", Some("Empty menu"));
+        n.child_ids = vec!["btn1".into()];
+        n
+    };
+    let non_menuitem_child = node("btn1", "paragraph", Some("Not a menuitem"));
     let hidden_focusable = {
         let mut n = node("btn2", "button", Some("Hidden action"));
         n.properties.push(AXProperty {
-            name: "aria-hidden".to_string(),
-            value: AXValue::String("true".to_string()),
+            name: "hidden".to_string(),
+            value: AXValue::Bool(true),
         });
         n.properties.push(AXProperty {
             name: "focusable".to_string(),
@@ -1227,10 +1120,8 @@ fn scenario_broken_aria_fires_412_and_243() {
     };
     let tree = page_with_main_content(vec![
         ("h1", heading("h1", 1, Some("Dashboard"))),
-        (
-            "btn1",
-            focusable("btn1", "superwidget", Some("Custom Button")),
-        ), // invalid role → 4.1.2
+        ("menu1", empty_menu), // menu without menuitem children → 4.1.2
+        ("btn1", non_menuitem_child),
         ("btn2", hidden_focusable), // focusable + aria-hidden → 2.4.3
     ]);
     let rules = fired_rules(&tree, WcagLevel::AA);

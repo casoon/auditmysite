@@ -3,7 +3,7 @@
 //! Labels or instructions are provided when content requires user input.
 //! Level A
 
-use crate::accessibility::{AXNode, AXTree};
+use crate::accessibility::{AXNode, AXTree, NameSource};
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
 
@@ -34,7 +34,6 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
         // Check form inputs
         if is_form_input(&role_lower) {
             let has_label = has_accessible_label(node);
-            let has_placeholder_text = has_placeholder(node);
             let has_instructions = has_instructions_or_hint(node);
 
             if !has_label {
@@ -55,8 +54,15 @@ pub fn check_instructions(tree: &AXTree) -> WcagResults {
                 continue;
             }
 
-            // Check if placeholder is used as the only label
-            if !has_label && has_placeholder_text && !has_instructions {
+            // Placeholder used as the only label: Chrome computes the
+            // accessible name FROM the placeholder in this case, so `name`
+            // is non-empty (has_label above is true) — name_source is the
+            // only reliable signal, not a `placeholder` AX property (which
+            // doesn't exist; the old `has_placeholder_text` check based on
+            // it was dead code, on top of being structurally unreachable
+            // here since it re-tested `!has_label` after already requiring
+            // `has_label` above) (#QA-030).
+            if node.name_source == Some(NameSource::Placeholder) && !has_instructions {
                 let violation = Violation::new(
                     INSTRUCTIONS_RULE.id,
                     INSTRUCTIONS_RULE.name,
@@ -504,6 +510,34 @@ mod tests {
             .violations
             .iter()
             .any(|v| v.message.contains("no accessible label")));
+    }
+
+    #[test]
+    fn test_placeholder_only_label_flagged() {
+        // Regression check for #QA-030: name_source == Placeholder must be
+        // detected even though the AX tree's `name` is non-empty (Chrome
+        // computes it from the placeholder) and there is no real AX
+        // "placeholder" property to read.
+        let mut node = create_input("1", "textbox", Some("Email address"));
+        node.name_source = Some(NameSource::Placeholder);
+        let tree = AXTree::from_nodes(vec![node]);
+        let results = check_instructions(&tree);
+        assert!(results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Placeholder used as only label")));
+    }
+
+    #[test]
+    fn test_labelled_input_not_flagged_as_placeholder_only() {
+        let mut node = create_input("1", "textbox", Some("Email address"));
+        node.name_source = Some(NameSource::RelatedElement);
+        let tree = AXTree::from_nodes(vec![node]);
+        let results = check_instructions(&tree);
+        assert!(!results
+            .violations
+            .iter()
+            .any(|v| v.message.contains("Placeholder used as only label")));
     }
 
     #[test]

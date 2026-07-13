@@ -1,7 +1,18 @@
 //! WCAG 4.1.2 - ARIA Role Validity
 //!
-//! Validates that ARIA roles are valid, that required owned elements are present,
-//! and that elements appear in the correct parent context.
+//! Validates that ARIA roles are valid and that required owned elements are
+//! present. Required-parent-context validation lives in
+//! `aria_required_parent.rs` to avoid double-reporting the same violation.
+//!
+//! Invalid-role detection (`check_invalid_role_with_page`) is a DOM-level
+//! rule: Chrome repairs an invalid explicit `role="..."` attribute before
+//! exposing the element in the AX tree (falling back to the native/implicit
+//! role or `generic`), so a tree-based check can never observe the
+//! author's mistake — an earlier implementation only ever false-positived on
+//! Chrome-internal AX roles missing from its allowlist (#QA-030).
+
+use chromiumoxide::Page;
+use tracing::warn;
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -13,188 +24,11 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     name: "ARIA Role Validity",
     level: WcagLevel::A,
     severity: Severity::High,
-    description: "ARIA roles must be valid, and elements must appear in the required context",
+    description: "ARIA roles must be valid and required owned elements must be present",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
     axe_id: "aria-roles",
     tags: &["wcag2a", "wcag412", "cat.aria"],
 };
-
-/// All valid ARIA roles per the ARIA 1.2 specification
-const VALID_ARIA_ROLES: &[&str] = &[
-    // Landmark roles
-    "banner",
-    "complementary",
-    "contentinfo",
-    "form",
-    "main",
-    "navigation",
-    "region",
-    "search",
-    // Document structure
-    "article",
-    "blockquote",
-    "caption",
-    "cell",
-    "columnheader",
-    "definition",
-    "code",
-    "mark",
-    "deletion",
-    "directory",
-    "document",
-    "emphasis",
-    "feed",
-    "figure",
-    "generic",
-    "group",
-    "heading",
-    "img",
-    "image",
-    "insertion",
-    "list",
-    "listitem",
-    "log",
-    "marquee",
-    "math",
-    "meter",
-    "none",
-    "note",
-    "paragraph",
-    "presentation",
-    "row",
-    "rowgroup",
-    "rowheader",
-    "scrollbar",
-    "separator",
-    "status",
-    "strong",
-    "subscript",
-    "superscript",
-    "table",
-    "term",
-    "time",
-    "toolbar",
-    "tooltip",
-    // Widget roles
-    "button",
-    "checkbox",
-    "combobox",
-    "grid",
-    "gridcell",
-    "link",
-    "listbox",
-    "menu",
-    "menubar",
-    "menuitem",
-    "menuitemcheckbox",
-    "menuitemradio",
-    "option",
-    "progressbar",
-    "radio",
-    "radiogroup",
-    "slider",
-    "spinbutton",
-    "switch",
-    "tab",
-    "tablist",
-    "tabpanel",
-    "textbox",
-    "tree",
-    "treegrid",
-    "treeitem",
-    // Live region roles
-    "alert",
-    "alertdialog",
-    "dialog",
-    // Additional common roles
-    "application",
-    "searchbox",
-    "spinbutton",
-    "term",
-    // Browser-native roles that appear in AX trees
-    "WebArea",
-    "RootWebArea",
-    "Iframe",
-    "StaticText",
-    "InlineTextBox",
-    "LineBreak",
-    "SVGRoot",
-    "SvgRoot",
-    "Canvas",
-    "EmbeddedObject",
-    "LayoutTable",
-    "LayoutTableRow",
-    "LayoutTableCell",
-    "Unknown",
-    // Browser-internal implicit roles (not author errors)
-    "ListMarker",            // ::marker pseudo-elements
-    "sectionheader",         // implicit role of <header>
-    "sectionfooter",         // implicit role of <footer>
-    "DisclosureTriangle",    // implicit role of <summary>
-    "Details",               // implicit role of <details>
-    "Pre",                   // implicit role of <pre>
-    "TitleBar",              // implicit role of window title bars (embedded)
-    "DescriptionList",       // implicit role of <dl>
-    "DescriptionListDetail", // implicit role of <dd>
-    "DescriptionListTerm",   // implicit role of <dt>
-];
-
-/// Valid `aria-*` attribute names per the ARIA 1.2 specification
-const VALID_ARIA_ATTRIBUTES: &[&str] = &[
-    "aria-activedescendant",
-    "aria-atomic",
-    "aria-autocomplete",
-    "aria-braillelabel",
-    "aria-brailleroledescription",
-    "aria-busy",
-    "aria-checked",
-    "aria-colcount",
-    "aria-colindex",
-    "aria-colindextext",
-    "aria-colspan",
-    "aria-controls",
-    "aria-current",
-    "aria-describedby",
-    "aria-description",
-    "aria-details",
-    "aria-disabled",
-    "aria-dropeffect",
-    "aria-errormessage",
-    "aria-expanded",
-    "aria-flowto",
-    "aria-grabbed",
-    "aria-haspopup",
-    "aria-hidden",
-    "aria-invalid",
-    "aria-keyshortcuts",
-    "aria-label",
-    "aria-labelledby",
-    "aria-level",
-    "aria-live",
-    "aria-modal",
-    "aria-multiline",
-    "aria-multiselectable",
-    "aria-orientation",
-    "aria-owns",
-    "aria-placeholder",
-    "aria-posinset",
-    "aria-pressed",
-    "aria-readonly",
-    "aria-relevant",
-    "aria-required",
-    "aria-roledescription",
-    "aria-rowcount",
-    "aria-rowindex",
-    "aria-rowindextext",
-    "aria-rowspan",
-    "aria-selected",
-    "aria-setsize",
-    "aria-sort",
-    "aria-valuemax",
-    "aria-valuemin",
-    "aria-valuenow",
-    "aria-valuetext",
-];
 
 /// Roles that require specific child roles to be present
 /// (role, required_child_roles)
@@ -214,23 +48,6 @@ const REQUIRED_OWNED_ELEMENTS: &[(&str, &[&str])] = &[
     ("tablist", &["tab"]),
 ];
 
-/// Roles that require a specific parent role
-/// (role, required_parent_roles)
-const REQUIRED_CONTEXT: &[(&str, &[&str])] = &[
-    ("listitem", &["list", "group"]),
-    ("option", &["listbox", "combobox"]),
-    ("menuitem", &["menu", "menubar", "group"]),
-    ("menuitemcheckbox", &["menu", "menubar", "group"]),
-    ("menuitemradio", &["menu", "menubar", "group", "radiogroup"]),
-    ("tab", &["tablist"]),
-    ("treeitem", &["tree", "group"]),
-    ("row", &["table", "grid", "treegrid", "rowgroup"]),
-    ("cell", &["row"]),
-    ("columnheader", &["row"]),
-    ("rowheader", &["row"]),
-    ("gridcell", &["row"]),
-];
-
 /// Check ARIA role validity across the accessibility tree
 pub fn check_aria_roles(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
@@ -246,61 +63,217 @@ pub fn check_aria_roles(tree: &AXTree) -> WcagResults {
             None => continue,
         };
 
-        // Check for invalid roles
-        check_invalid_role(node, role, &mut results);
+        // Invalid-role detection now runs as a DOM page rule
+        // (check_invalid_role_with_page) — Chrome repairs invalid roles
+        // before AX extraction, so this tree-based check could only ever
+        // false-positive on Chrome-internal roles (#QA-030).
 
-        // Check for invalid aria-* attributes
-        check_invalid_aria_attributes(node, &mut results);
+        // Invalid-aria-attribute-name detection now runs as a DOM page rule
+        // (check_invalid_aria_attribute_name_with_page) — CDP never exposes
+        // aria-*-prefixed property names, so this was dead code (#QA-030).
 
         // Check for missing required owned elements
         check_required_owned_elements(node, role, tree, &mut results);
 
-        // Check for missing required context (parent)
-        check_required_context(node, role, tree, &mut results);
+        // Required-parent-context is checked exclusively by
+        // aria_required_parent.rs — this file used to duplicate it via
+        // `check_required_context`, causing every violation to be reported
+        // twice (#QA-033).
     }
 
     results
 }
 
-fn check_invalid_role(node: &crate::accessibility::AXNode, role: &str, results: &mut WcagResults) {
-    if !VALID_ARIA_ROLES.contains(&role) {
-        let violation = Violation::new(
-            RULE_META.id,
-            RULE_META.name,
-            RULE_META.level,
-            Severity::High,
-            format!("Element has invalid ARIA role: '{}'", role),
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_name(node.name.clone())
-        .with_fix("Use a valid ARIA role from the ARIA specification")
-        .with_help_url("https://www.w3.org/TR/wai-aria-1.2/#role_definitions");
+const INVALID_ROLE_CAP: usize = 250;
 
-        results.add_violation(violation);
-    } else {
-        results.passes += 1;
+/// Real ARIA 1.2 role list (abstract roles excluded — authors must not use
+/// them). Deliberately does NOT include Chrome-internal AX roles
+/// (WebArea, LayoutTable, StaticText, …) since those never appear as an
+/// author-set `role="..."` attribute value in the DOM.
+const VALID_DOM_ARIA_ROLES_JS: &str = r#"
+  var validRoles = [
+    'alert','alertdialog','application','article','banner','blockquote','button',
+    'caption','cell','checkbox','code','columnheader','combobox','complementary',
+    'contentinfo','definition','deletion','dialog','directory','document','emphasis',
+    'feed','figure','form','generic','grid','gridcell','group','heading','img',
+    'insertion','link','list','listbox','listitem','log','main','mark','marquee',
+    'math','menu','menubar','menuitem','menuitemcheckbox','menuitemradio','meter',
+    'navigation','none','note','option','paragraph','presentation','progressbar',
+    'radio','radiogroup','region','row','rowgroup','rowheader','scrollbar','search',
+    'searchbox','separator','slider','spinbutton','status','strong','subscript',
+    'superscript','switch','tab','table','tablist','tabpanel','term','textbox',
+    'time','timer','toolbar','tooltip','tree','treegrid','treeitem'
+  ];
+"#;
+
+const INVALID_ROLE_BODY: &str = r#"
+  var issues = [];
+  var elems = document.querySelectorAll('[role]');
+  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+    var el = elems[i];
+    var roles = (el.getAttribute('role') || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    for (var r = 0; r < roles.length; r++) {
+      if (validRoles.indexOf(roles[r]) === -1) {
+        issues.push({ role: roles[r], selector: __amsCssSelector(el) });
+        break;
+      }
     }
+  }
+  return { issues: issues };
+"#;
+
+/// Check that explicit `role="..."` attribute values are valid ARIA roles.
+pub async fn check_invalid_role_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        VALID_DOM_ARIA_ROLES_JS,
+        &INVALID_ROLE_BODY.replace("CAP", &INVALID_ROLE_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("invalid-role JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let role = issue.get("role")?.as_str()?;
+            let selector = issue.get("selector")?.as_str()?.to_string();
+
+            Some(
+                Violation::new(
+                    RULE_META.id,
+                    RULE_META.name,
+                    RULE_META.level,
+                    Severity::High,
+                    format!("Element has invalid ARIA role: '{}'", role),
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix("Use a valid ARIA role from the ARIA specification")
+                .with_rule_id(RULE_META.axe_id)
+                .with_help_url("https://www.w3.org/TR/wai-aria-1.2/#role_definitions"),
+            )
+        })
+        .collect()
 }
 
-fn check_invalid_aria_attributes(node: &crate::accessibility::AXNode, results: &mut WcagResults) {
-    for prop in &node.properties {
-        if prop.name.starts_with("aria-") && !VALID_ARIA_ATTRIBUTES.contains(&prop.name.as_str()) {
-            let violation = Violation::new(
-                RULE_META.id,
-                RULE_META.name,
-                RULE_META.level,
-                Severity::High,
-                format!("Element has invalid ARIA attribute: '{}'", prop.name),
-                &node.node_id,
-            )
-            .with_role(node.role.clone())
-            .with_fix("Use a valid aria-* attribute from the ARIA specification")
-            .with_help_url("https://www.w3.org/TR/wai-aria-1.2/#state_prop_def");
+/// Distinct from `RULE_META.axe_id` ("aria-roles", owned by `check_invalid_role`) —
+/// this check validates ARIA attribute *names* (misspelled/non-existent
+/// aria-* attributes), a different problem from an invalid role value. Not a
+/// real axe-core rule id (axe folds this into `aria-valid-attr`, which this
+/// codebase's `aria_relationships.rs` already uses for an unrelated check —
+/// see #QA-009 remaining scope), so this is a custom, stable identifier.
+const INVALID_ARIA_ATTR_NAME_AXE_ID: &str = "aria-attr-name-invalid";
 
-            results.add_violation(violation);
-        }
+const INVALID_ATTR_NAME_CAP: usize = 250;
+
+const VALID_ARIA_ATTRIBUTES_JS: &str = r#"
+  var validAttrs = [
+    'aria-activedescendant', 'aria-atomic', 'aria-autocomplete', 'aria-braillelabel',
+    'aria-brailleroledescription', 'aria-busy', 'aria-checked', 'aria-colcount',
+    'aria-colindex', 'aria-colindextext', 'aria-colspan', 'aria-controls', 'aria-current',
+    'aria-describedby', 'aria-description', 'aria-details', 'aria-disabled',
+    'aria-dropeffect', 'aria-errormessage', 'aria-expanded', 'aria-flowto', 'aria-grabbed',
+    'aria-haspopup', 'aria-hidden', 'aria-invalid', 'aria-keyshortcuts', 'aria-label',
+    'aria-labelledby', 'aria-level', 'aria-live', 'aria-modal', 'aria-multiline',
+    'aria-multiselectable', 'aria-orientation', 'aria-owns', 'aria-placeholder',
+    'aria-posinset', 'aria-pressed', 'aria-readonly', 'aria-relevant', 'aria-required',
+    'aria-roledescription', 'aria-rowcount', 'aria-rowindex', 'aria-rowindextext',
+    'aria-rowspan', 'aria-selected', 'aria-setsize', 'aria-sort', 'aria-valuemax',
+    'aria-valuemin', 'aria-valuenow', 'aria-valuetext'
+  ];
+"#;
+
+const INVALID_ATTR_NAME_BODY: &str = r#"
+  var issues = [];
+  var elems = document.querySelectorAll('*');
+  for (var i = 0; i < elems.length && issues.length < CAP; i++) {
+    var el = elems[i];
+    var attrs = el.attributes;
+    for (var a = 0; a < attrs.length; a++) {
+      var name = attrs[a].name;
+      if (name.indexOf('aria-') !== 0) continue;
+      if (validAttrs.indexOf(name) === -1) {
+        issues.push({ attr: name, selector: __amsCssSelector(el) });
+        if (issues.length >= CAP) break;
+      }
     }
+  }
+  return { issues: issues };
+"#;
+
+/// Check that `aria-*` attribute names are recognized ARIA 1.2 attributes
+/// (catches misspellings/non-existent attributes). DOM-level: CDP never
+/// exposes `aria-`-prefixed AX property names, so a tree-based check here
+/// was dead code (#QA-030).
+pub async fn check_invalid_aria_attribute_name_with_page(page: &Page) -> Vec<Violation> {
+    let js = [
+        "(function() {",
+        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
+        VALID_ARIA_ATTRIBUTES_JS,
+        &INVALID_ATTR_NAME_BODY.replace("CAP", &INVALID_ATTR_NAME_CAP.to_string()),
+        "})()",
+    ]
+    .concat();
+
+    let result = match page.evaluate(js.as_str()).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("invalid-aria-attribute-name JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let issues = match val.get("issues").and_then(|v| v.as_array()) {
+        Some(arr) => arr.clone(),
+        None => return vec![],
+    };
+
+    issues
+        .iter()
+        .filter_map(|issue| {
+            let attr = issue.get("attr")?.as_str()?;
+            let selector = issue.get("selector")?.as_str()?.to_string();
+
+            Some(
+                Violation::new(
+                    RULE_META.id,
+                    RULE_META.name,
+                    RULE_META.level,
+                    Severity::High,
+                    format!("Element has invalid ARIA attribute: '{}'", attr),
+                    selector.clone(),
+                )
+                .with_selector(selector)
+                .with_fix("Use a valid aria-* attribute from the ARIA specification")
+                .with_rule_id(INVALID_ARIA_ATTR_NAME_AXE_ID)
+                .with_help_url("https://www.w3.org/TR/wai-aria-1.2/#state_prop_def"),
+            )
+        })
+        .collect()
 }
 
 fn check_required_owned_elements(
@@ -370,70 +343,6 @@ fn check_required_owned_elements(
     }
 }
 
-fn check_required_context(
-    node: &crate::accessibility::AXNode,
-    role: &str,
-    tree: &AXTree,
-    results: &mut WcagResults,
-) {
-    let required = REQUIRED_CONTEXT.iter().find(|(r, _)| *r == role);
-
-    let (_, required_parent_roles) = match required {
-        Some(r) => r,
-        None => return,
-    };
-
-    // Walk up the tree to find a matching parent role
-    let has_valid_context = has_ancestor_with_role(node, required_parent_roles, tree);
-
-    if !has_valid_context {
-        let violation = Violation::new(
-            RULE_META.id,
-            "ARIA Required Context Role",
-            RULE_META.level,
-            Severity::High,
-            format!(
-                "Element with role '{}' is not in required parent context: {}",
-                role,
-                required_parent_roles.join(", ")
-            ),
-            &node.node_id,
-        )
-        .with_role(node.role.clone())
-        .with_fix(format!(
-            "Place this element inside a parent with role: {}",
-            required_parent_roles.join(", ")
-        ))
-        .with_help_url("https://www.w3.org/TR/wai-aria-1.2/#scope");
-
-        results.add_violation(violation);
-    }
-}
-
-/// Walk up the tree to check if any ancestor has one of the specified roles
-fn has_ancestor_with_role(
-    node: &crate::accessibility::AXNode,
-    roles: &[&str],
-    tree: &AXTree,
-) -> bool {
-    let mut current_parent_id = node.parent_id.as_deref();
-
-    while let Some(parent_id) = current_parent_id {
-        if let Some(parent) = tree.nodes.get(parent_id) {
-            if let Some(parent_role) = parent.role.as_deref() {
-                if roles.contains(&parent_role) {
-                    return true;
-                }
-            }
-            current_parent_id = parent.parent_id.as_deref();
-        } else {
-            break;
-        }
-    }
-
-    false
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -467,16 +376,8 @@ mod tests {
         assert_eq!(results.violations.len(), 0);
     }
 
-    #[test]
-    fn test_invalid_role_flagged() {
-        let nodes = vec![make_node("1", "not-a-real-role", None, vec![])];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_aria_roles(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("invalid ARIA role")));
-    }
+    // Invalid-role detection moved to check_invalid_role_with_page (DOM-based,
+    // #QA-030) — not unit-tested here since it needs a live Page.
 
     #[test]
     fn test_list_without_listitem_flagged() {
@@ -513,48 +414,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_listitem_without_list_parent_flagged() {
-        let nodes = vec![
-            make_node("1", "WebArea", None, vec!["2"]),
-            make_node("2", "listitem", Some("1"), vec![]),
-        ];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_aria_roles(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("required parent context")));
-    }
-
-    #[test]
-    fn test_disclosure_triangle_role_is_valid() {
-        // Chrome exposes <summary> as role="DisclosureTriangle" internally.
-        // This must not be flagged as an invalid author-set role.
-        let nodes = vec![make_node("1", "DisclosureTriangle", None, vec![])];
-        let tree = AXTree::from_nodes(nodes);
-        let results = check_aria_roles(&tree);
-        assert!(
-            !results
-                .violations
-                .iter()
-                .any(|v| v.message.contains("invalid ARIA role")),
-            "DisclosureTriangle is a browser-internal role and must be accepted"
-        );
-    }
-
-    #[test]
-    fn test_invalid_aria_attribute_flagged() {
-        let mut node = make_node("1", "button", None, vec![]);
-        node.properties.push(AXProperty {
-            name: "aria-notavalidattr".to_string(),
-            value: AXValue::String("true".to_string()),
-        });
-        let tree = AXTree::from_nodes(vec![node]);
-        let results = check_aria_roles(&tree);
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("invalid ARIA attribute")));
-    }
+    // Invalid-ARIA-attribute-name detection moved to
+    // check_invalid_aria_attribute_name_with_page (DOM-based, #QA-030) —
+    // needs a live Page, not unit-tested here.
 }

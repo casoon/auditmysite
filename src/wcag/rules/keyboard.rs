@@ -32,6 +32,11 @@ pub const NO_KEYBOARD_TRAP_RULE: RuleMetadata = RuleMetadata {
 };
 
 /// Check for keyboard accessibility issues
+///
+/// Positive-tabindex detection used to live here too, but `tabindex` is not
+/// an AX property (dead code, #QA-030) and the concern is really about focus
+/// *order*, not keyboard operability — it is now the sole responsibility of
+/// `focus_order.rs`'s DOM-based `check_positive_tabindex_with_page` (2.4.3).
 pub fn check_keyboard(tree: &AXTree) -> WcagResults {
     let mut results = WcagResults::new();
 
@@ -41,28 +46,6 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
         }
 
         results.nodes_checked += 1;
-
-        // Check for elements with positive tabindex (disrupts natural tab order)
-        if let Some(tabindex) = node.get_property_int("tabindex") {
-            if tabindex > 0 {
-                let violation = Violation::new(
-                    KEYBOARD_RULE.id,
-                    KEYBOARD_RULE.name,
-                    KEYBOARD_RULE.level,
-                    Severity::Medium,
-                    format!("Positive tabindex ({}) disrupts natural tab order", tabindex),
-                    &node.node_id,
-                )
-                .with_role(node.role.clone())
-                .with_name(node.name.clone())
-                .with_fix("Use tabindex=\"0\" for focusable elements or tabindex=\"-1\" for programmatic focus")
-                .with_help_url(KEYBOARD_RULE.help_url);
-
-                results.add_violation(violation);
-            } else {
-                results.passes += 1;
-            }
-        }
 
         // Check for non-interactive elements made focusable without proper role
         if is_focusable_without_interactive_role(node) {
@@ -152,6 +135,9 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
 
 /// Check if element is focusable but lacks interactive role
 fn is_focusable_without_interactive_role(node: &crate::accessibility::AXNode) -> bool {
+    // `tabindex` is not an AX property (#QA-030) — this branch is dead, but
+    // `focusable` is a real, Chrome-computed property that already reflects
+    // tabindex's effect on focusability, so coverage is not fully lost.
     let tabindex = node.get_property_int("tabindex");
     let has_focusable_tabindex = tabindex.map(|t| t >= 0).unwrap_or(false);
     let is_focusable = node.get_property_bool("focusable").unwrap_or(false);
@@ -244,43 +230,14 @@ mod tests {
         }
     }
 
-    fn create_node_with_tabindex(id: &str, role: &str, tabindex: i64) -> AXNode {
-        let mut node = create_test_node(id, role, None);
-        node.properties.push(AXProperty {
-            name: "tabindex".to_string(),
-            value: AXValue::Int(tabindex),
-        });
-        node
-    }
-
     #[test]
     fn test_keyboard_rule_metadata() {
         assert_eq!(KEYBOARD_RULE.id, "2.1.1");
         assert_eq!(KEYBOARD_RULE.level, WcagLevel::A);
     }
 
-    #[test]
-    fn test_positive_tabindex_violation() {
-        let tree = AXTree::from_nodes(vec![create_node_with_tabindex("1", "generic", 5)]);
-
-        let results = check_keyboard(&tree);
-        assert!(!results.violations.is_empty());
-        assert!(results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("Positive tabindex")));
-    }
-
-    #[test]
-    fn test_zero_tabindex_no_violation() {
-        let tree = AXTree::from_nodes(vec![create_node_with_tabindex("1", "button", 0)]);
-
-        let results = check_keyboard(&tree);
-        assert!(!results
-            .violations
-            .iter()
-            .any(|v| v.message.contains("Positive tabindex")));
-    }
+    // Positive-tabindex detection moved to focus_order.rs's DOM-based
+    // check_positive_tabindex_with_page (2.4.3) — see that module's tests.
 
     fn create_node_with_focusable(id: &str, role: &str, focusable: bool) -> AXNode {
         let mut node = create_test_node(id, role, None);

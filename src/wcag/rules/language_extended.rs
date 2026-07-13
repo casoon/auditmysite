@@ -3,10 +3,19 @@
 //! Extends the basic `html-has-lang` (3.1.1) check with:
 //! - `valid-lang`:              the lang attribute must be a recognised BCP 47 primary subtag
 //! - `html-xml-lang-mismatch`: when both lang and xml:lang are present they must agree
+//!
+//! DOM-level rule: reads `<html lang>`/`<html xml:lang>` directly via CDP.
+//! The AX tree exposes a synthesized `language` property (see `language.rs`,
+//! #QA-001), not the raw `lang`/`xmlLang` attribute values this check needs
+//! to validate — an earlier tree-based implementation read AX property names
+//! (`lang`, `xmlLang`) that don't exist at all, and so never fired in
+//! production (#QA-030).
 
-use crate::accessibility::AXTree;
+use chromiumoxide::Page;
+use tracing::warn;
+
 use crate::cli::WcagLevel;
-use crate::wcag::types::{RuleMetadata, Severity, Violation, WcagResults};
+use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const RULE_VALID_LANG: RuleMetadata = RuleMetadata {
     id: "3.1.1",
@@ -30,77 +39,10 @@ pub const RULE_LANG_MISMATCH: RuleMetadata = RuleMetadata {
     tags: &["wcag2a", "wcag311", "cat.language"],
 };
 
-/// Run extended language-related checks.
-pub fn check_language_extended(tree: &AXTree) -> WcagResults {
-    let mut results = WcagResults::new();
-
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
-        }
-        let role = match node.role.as_deref() {
-            Some(r) => r,
-            None => continue,
-        };
-        if role.to_lowercase() != "rootwebarea" && role.to_lowercase() != "document" {
-            continue;
-        }
-        results.nodes_checked += 1;
-
-        let lang = node.get_property_str("lang").unwrap_or("").to_string();
-        let xml_lang = node
-            .get_property_str("xmlLang")
-            .or_else(|| node.get_property_str("xml:lang"))
-            .unwrap_or("")
-            .to_string();
-
-        // 1. Validate primary subtag if present
-        if !lang.is_empty() && !is_valid_primary_subtag(primary_subtag(&lang)) {
-            let v = Violation::new(
-                RULE_VALID_LANG.id,
-                RULE_VALID_LANG.name,
-                RULE_VALID_LANG.level,
-                RULE_VALID_LANG.severity,
-                format!(
-                    "lang=\"{}\" is not a recognised BCP 47 primary language subtag",
-                    lang
-                ),
-                &node.node_id,
-            )
-            .with_fix("Use a valid BCP 47 primary subtag such as lang=\"en\" or lang=\"de\"")
-            .with_help_url(RULE_VALID_LANG.help_url);
-            results.add_violation(v);
-        } else if !lang.is_empty() {
-            results.passes += 1;
-        }
-
-        // 2. Mismatch between lang and xml:lang
-        if !lang.is_empty() && !xml_lang.is_empty() {
-            let primary_a = primary_subtag(&lang).to_lowercase();
-            let primary_b = primary_subtag(&xml_lang).to_lowercase();
-            if primary_a != primary_b {
-                let v = Violation::new(
-                    RULE_LANG_MISMATCH.id,
-                    RULE_LANG_MISMATCH.name,
-                    RULE_LANG_MISMATCH.level,
-                    RULE_LANG_MISMATCH.severity,
-                    format!(
-                        "lang=\"{}\" and xml:lang=\"{}\" specify different primary languages",
-                        lang, xml_lang
-                    ),
-                    &node.node_id,
-                )
-                .with_fix("Ensure lang and xml:lang use the same primary language subtag")
-                .with_help_url(RULE_LANG_MISMATCH.help_url);
-                results.add_violation(v);
-            } else {
-                results.passes += 1;
-            }
-        }
-    }
-
-    results
-}
+const LANG_ATTRS_JS: &str = "({ \
+    lang: document.documentElement.getAttribute('lang') || '', \
+    xmlLang: document.documentElement.getAttribute('xml:lang') || '' \
+})";
 
 /// Extract the primary subtag from a BCP 47 tag (everything before the first `-`).
 fn primary_subtag(tag: &str) -> &str {
@@ -113,83 +55,92 @@ fn is_valid_primary_subtag(subtag: &str) -> bool {
     (2..=3).contains(&len) && subtag.chars().all(|c| c.is_ascii_alphabetic())
 }
 
+/// Run extended language-related checks against the live DOM.
+pub async fn check_language_extended_with_page(page: &Page) -> Vec<Violation> {
+    let result = match page.evaluate(LANG_ATTRS_JS).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("language-extended JS failed: {}", e);
+            return vec![];
+        }
+    };
+
+    let val = match result.value() {
+        Some(v) => v.clone(),
+        None => return vec![],
+    };
+
+    let lang = val.get("lang").and_then(|v| v.as_str()).unwrap_or("");
+    let xml_lang = val.get("xmlLang").and_then(|v| v.as_str()).unwrap_or("");
+
+    let mut violations = Vec::new();
+
+    // 1. Validate primary subtag if present
+    if !lang.is_empty() && !is_valid_primary_subtag(primary_subtag(lang)) {
+        violations.push(
+            Violation::new(
+                RULE_VALID_LANG.id,
+                RULE_VALID_LANG.name,
+                RULE_VALID_LANG.level,
+                RULE_VALID_LANG.severity,
+                format!(
+                    "lang=\"{}\" is not a recognised BCP 47 primary language subtag",
+                    lang
+                ),
+                "html",
+            )
+            .with_selector("html")
+            .with_fix("Use a valid BCP 47 primary subtag such as lang=\"en\" or lang=\"de\"")
+            .with_rule_id(RULE_VALID_LANG.axe_id)
+            .with_help_url(RULE_VALID_LANG.help_url),
+        );
+    }
+
+    // 2. Mismatch between lang and xml:lang
+    if !lang.is_empty() && !xml_lang.is_empty() {
+        let primary_a = primary_subtag(lang).to_lowercase();
+        let primary_b = primary_subtag(xml_lang).to_lowercase();
+        if primary_a != primary_b {
+            violations.push(
+                Violation::new(
+                    RULE_LANG_MISMATCH.id,
+                    RULE_LANG_MISMATCH.name,
+                    RULE_LANG_MISMATCH.level,
+                    RULE_LANG_MISMATCH.severity,
+                    format!(
+                        "lang=\"{}\" and xml:lang=\"{}\" specify different primary languages",
+                        lang, xml_lang
+                    ),
+                    "html",
+                )
+                .with_selector("html")
+                .with_fix("Ensure lang and xml:lang use the same primary language subtag")
+                .with_rule_id(RULE_LANG_MISMATCH.axe_id)
+                .with_help_url(RULE_LANG_MISMATCH.help_url),
+            );
+        }
+    }
+
+    violations
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::accessibility::{AXNode, AXProperty, AXValue};
 
-    fn doc_node(lang: Option<&str>, xml_lang: Option<&str>) -> AXNode {
-        let mut props = vec![];
-        if let Some(l) = lang {
-            props.push(AXProperty {
-                name: "lang".into(),
-                value: AXValue::String(l.into()),
-            });
-        }
-        if let Some(x) = xml_lang {
-            props.push(AXProperty {
-                name: "xmlLang".into(),
-                value: AXValue::String(x.into()),
-            });
-        }
-        AXNode {
-            node_id: "doc".into(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("RootWebArea".into()),
-            name: Some("Test".into()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: props,
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: None,
-        }
+    #[test]
+    fn test_is_valid_primary_subtag() {
+        assert!(is_valid_primary_subtag("en"));
+        assert!(is_valid_primary_subtag("deu"));
+        assert!(!is_valid_primary_subtag(""));
+        assert!(!is_valid_primary_subtag("x"));
+        assert!(!is_valid_primary_subtag("toolong"));
     }
 
     #[test]
-    fn test_valid_lang_passes() {
-        let tree = AXTree::from_nodes(vec![doc_node(Some("en"), None)]);
-        let r = check_language_extended(&tree);
-        assert!(r.violations.is_empty());
-        assert_eq!(r.passes, 1);
-    }
-
-    #[test]
-    fn test_valid_lang_with_region_passes() {
-        let tree = AXTree::from_nodes(vec![doc_node(Some("en-US"), None)]);
-        let r = check_language_extended(&tree);
-        assert!(r.violations.is_empty());
-    }
-
-    #[test]
-    fn test_invalid_lang_flagged() {
-        let tree = AXTree::from_nodes(vec![doc_node(Some("x"), None)]);
-        let r = check_language_extended(&tree);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.rule_name == "Valid Language Code"));
-    }
-
-    #[test]
-    fn test_lang_mismatch_flagged() {
-        let tree = AXTree::from_nodes(vec![doc_node(Some("en"), Some("de"))]);
-        let r = check_language_extended(&tree);
-        assert!(r
-            .violations
-            .iter()
-            .any(|v| v.rule_name == "Language Attribute Mismatch"));
-    }
-
-    #[test]
-    fn test_lang_no_mismatch_when_equal() {
-        let tree = AXTree::from_nodes(vec![doc_node(Some("en"), Some("en-US"))]);
-        let r = check_language_extended(&tree);
-        assert!(!r
-            .violations
-            .iter()
-            .any(|v| v.rule_name == "Language Attribute Mismatch"));
+    fn test_primary_subtag_extraction() {
+        assert_eq!(primary_subtag("en-US"), "en");
+        assert_eq!(primary_subtag("zh-Hans"), "zh");
+        assert_eq!(primary_subtag("de"), "de");
     }
 }

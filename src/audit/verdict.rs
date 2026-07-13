@@ -102,8 +102,9 @@ pub fn compute_verdict(normalized: &NormalizedReport, config: &VerdictConfig) ->
 /// Compute verdict for a batch audit from its summary.
 pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> VerdictResult {
     let fail_on_legal = config.fail_on_legal_flags.unwrap_or(true);
+    let fail_on_blocking = config.fail_on_blocking_issues.unwrap_or(true);
     let warn_below = config.warn_below_score.unwrap_or(70);
-    let average_score = summary.average_score as u32;
+    let average_score = summary.average_score.round() as u32;
 
     let mut fail_reasons = Vec::new();
 
@@ -111,6 +112,12 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
         fail_reasons.push(format!(
             "legal_flags: {} (across all pages)",
             summary.legal_flags
+        ));
+    }
+    if fail_on_blocking && summary.blocking_issues > 0 {
+        fail_reasons.push(format!(
+            "blocking_issues: {} (across all pages)",
+            summary.blocking_issues
         ));
     }
     if let Some(threshold) = config.fail_below_score {
