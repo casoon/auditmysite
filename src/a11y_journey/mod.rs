@@ -81,20 +81,17 @@ fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
 
 /// Commerce-specific gate for journeys that must never run outside their
 /// intended shop context, on top of `journey_allowed`'s mode check — e.g.
-/// `AddToCart` only makes sense (and is only safe to interpret) on a
-/// detected shop's product-detail page.
+/// `AddToCart`/`QuantityStepper` only make sense (and are only safe to
+/// interpret) on a detected shop's product-detail page. Both are restricted
+/// to `ProductDetail` only — `CommercePageKind::Cart` was removed (see its
+/// doc comment): this tool has no cross-page cart/session state, so a cart
+/// page reached cold is (almost) always empty, meaning a Cart-gated
+/// `QuantityStepper` run would essentially never find a real line item to
+/// test in practice.
 fn commerce_gate_allows(journey: JourneyKind, commerce: Option<&CommerceAnalysis>) -> bool {
     match journey {
-        JourneyKind::AddToCart => commerce
+        JourneyKind::AddToCart | JourneyKind::QuantityStepper => commerce
             .map(|c| c.page_kind == CommercePageKind::ProductDetail)
-            .unwrap_or(false),
-        JourneyKind::QuantityStepper => commerce
-            .map(|c| {
-                matches!(
-                    c.page_kind,
-                    CommercePageKind::ProductDetail | CommercePageKind::Cart
-                )
-            })
             .unwrap_or(false),
         _ => true,
     }

@@ -52,19 +52,6 @@ impl AuditModule for CommerceModule {
             })
             .unwrap_or_default();
 
-        // Broader visible-text corpus (all announced node names) for payment /
-        // free-shipping / guest-checkout keyword detection.
-        let page_texts: Vec<String> = report
-            .screen_reader_audit
-            .as_ref()
-            .map(|sr| {
-                sr.reading_sequence
-                    .iter()
-                    .filter_map(|a| a.item.name.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
-
         let is_ecommerce_stack = report
             .discoverability
             .tech_stack
@@ -82,7 +69,6 @@ impl AuditModule for CommerceModule {
                 &url,
                 &seo.structured_data,
                 &anchor_texts,
-                &page_texts,
                 is_ecommerce_stack,
             )
         });

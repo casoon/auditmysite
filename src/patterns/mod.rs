@@ -108,7 +108,7 @@ pub enum JourneyKind {
     /// context — see `a11y_journey::run`).
     AddToCart,
     /// Commerce-only: gated at journey-run time on a detected shop +
-    /// `CommercePageKind::ProductDetail` or `::Cart`.
+    /// `CommercePageKind::ProductDetail`.
     QuantityStepper,
 }
 

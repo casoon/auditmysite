@@ -52,7 +52,7 @@ src/
 ├── screen_reader/       # Screen-reader reading-order primitives
 ├── ai_visibility/       # AI/LLM discoverability analysis
 ├── content_visibility/  # Cross-module signal aggregation (SEO+AI+Quality)
-├── commerce/            # Shop audit (derive-only, shop-gated): product schema-completeness, mandatory/trust-page links, page-kind (PDP/Cart/Checkout/Category), batch roll-up
+├── commerce/            # Shop audit (derive-only, shop-gated): product schema-completeness, mandatory/trust-page links, page-kind (PDP/Category only — Cart/Checkout removed, unreachable in this tool's stateless single-page model), batch roll-up
 ├── source_quality/      # Source quality signals (headers, schema, HTTPS)
 ├── tech_stack/          # CMS/framework detection from in-page signals
 ├── patterns/            # UI pattern detection (nav, accordion, modal, …)
