@@ -13,6 +13,12 @@
 
 use crate::audit::PerformanceResults;
 
+/// Worst-case throttled LCP (ms) above which the interpretation prose names a
+/// "late LCP under throttling" qualifier. Shared with the throttled-table
+/// cross-reference footnote in `output::pdf::detail_modules::performance` so
+/// both agree on when a worst-case LCP claim is being made and quoted.
+pub const LATE_THROTTLED_LCP_THRESHOLD_MS: f64 = 4000.0;
+
 /// A concrete weak metric worth naming alongside the score band.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PerfCriticalQualifier {
@@ -46,7 +52,7 @@ pub fn derive_performance_qualifiers(
     if let Some(nodes) = p.vitals.dom_nodes.filter(|n| *n > 3000) {
         critical.push(PerfCriticalQualifier::HighDomComplexity(nodes));
     }
-    if throttled_lcp_max > 4000.0 {
+    if throttled_lcp_max > LATE_THROTTLED_LCP_THRESHOLD_MS {
         critical.push(PerfCriticalQualifier::LateThrottledLcp(throttled_lcp_max));
     }
     let rb_count = p

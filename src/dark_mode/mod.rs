@@ -150,22 +150,280 @@ pub struct DarkModeIssue {
     pub kind: DarkModeIssueKind,
     pub description: String,
     pub severity: String,
+    /// Affected CSS selectors (only populated for the contrast-regression kinds).
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub selectors: Vec<String>,
 }
 
 /// Issue category for dark mode problems.
+///
+/// Carries the dynamic data (counts, flags, per-mode results) needed to
+/// re-derive the human-readable text in any language via
+/// [`dark_mode_issue_text`]. `description` on [`DarkModeIssue`] stores the
+/// canonical-English rendering (baked at construction time); the PDF layer
+/// re-derives localized text from `kind` + `selectors` at render time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DarkModeIssueKind {
     NoDarkModeSupport,
     NoColorSchemeDeclaration,
     NoMetaColorScheme,
-    DarkModeContrastFailure,
-    IncompleteImplementation,
+    /// Class-based dark mode detected (html.dark / [data-theme="dark"]) — contrast
+    /// checking via CDP emulation is not possible for this implementation style.
+    ClassBasedDarkModeDetected,
+    /// Dark mode is implemented, but few color-related CSS custom properties were found.
+    FewColorCustomProperties,
     NoPrintStylesheet,
-    PrintLayoutRisk,
+    PrintLayoutRisk {
+        chrome_hidden: bool,
+        clipped_elements: u32,
+    },
     NoForcedColorsSupport,
     ForcedColorsFocusRisk,
-    ColorVisionDeficiencyContrastFailure,
+    ColorVisionDeficiencyContrastFailure {
+        /// (mode label, new contrast violation count) pairs.
+        affected_modes: Vec<(String, u32)>,
+    },
+    /// Elements that pass contrast in light mode but fail in dark mode.
+    DarkOnlyContrastRegression {
+        count: u32,
+    },
+    /// Elements with insufficient contrast in both light and dark mode.
+    BothModesContrastFailure {
+        count: u32,
+    },
+    /// Elements with contrast issues only in light mode (dark mode resolves them).
+    LightOnlyContrastImproved {
+        count: u32,
+    },
+}
+
+/// The single source of truth for [`DarkModeIssue`] description text.
+///
+/// Returns the German or English sentence for the given `kind`. `selectors`
+/// is only consulted for the contrast-regression kinds
+/// (`DarkOnlyContrastRegression` / `BothModesContrastFailure`); pass an empty
+/// slice for all other kinds. Analysis calls this with `en = true` to bake
+/// canonical English into stored structs; the PDF layer calls it with the
+/// run locale to re-derive localized text.
+pub fn dark_mode_issue_text(kind: &DarkModeIssueKind, selectors: &[String], en: bool) -> String {
+    match kind {
+        DarkModeIssueKind::NoDarkModeSupport => if en {
+            "No @media (prefers-color-scheme: dark) rules found. Users with system dark mode \
+             enabled will receive the light view."
+        } else {
+            "Es wurden keine @media (prefers-color-scheme: dark)-Regeln gefunden. Nutzerinnen \
+             und Nutzer mit aktiviertem System-Dunkelmodus erhalten weiterhin die helle Ansicht."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::NoColorSchemeDeclaration => if en {
+            "No `color-scheme: dark light` declared on :root. The browser will not use native \
+             dark mode colors for scrollbars, form controls, and other UI elements."
+        } else {
+            "Es ist kein `color-scheme: dark light` auf :root deklariert. Der Browser verwendet \
+             dadurch keine nativen Dunkelmodus-Farben für Scrollbalken, Formularelemente und \
+             andere UI-Komponenten."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::NoMetaColorScheme => if en {
+            "No <meta name=\"color-scheme\"> found. Without this meta tag the browser cannot \
+             optimize rendering behavior before the CSSOM is built."
+        } else {
+            "Es fehlt ein <meta name=\"color-scheme\">-Tag. Ohne dieses Tag kann der Browser das \
+             Rendering-Verhalten nicht optimieren, bevor das CSSOM aufgebaut ist."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::ClassBasedDarkModeDetected => if en {
+            "Class-based dark mode detected (html.dark / [data-theme=\"dark\"]). Contrast \
+             checking in dark mode via CDP emulation is not possible — only \
+             @media (prefers-color-scheme: dark) can be tested automatically."
+        } else {
+            "Es wurde ein klassenbasierter Dunkelmodus erkannt (html.dark / \
+             [data-theme=\"dark\"]). Eine automatisierte Kontrastprüfung im Dunkelmodus ist \
+             damit nicht möglich — testbar per CDP-Emulation ist nur \
+             @media (prefers-color-scheme: dark)."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::FewColorCustomProperties => if en {
+            "Few CSS custom properties for colors detected. Complete dark mode implementations \
+             typically use CSS variables (--color-*) on :root and override them inside the \
+             media query."
+        } else {
+            "Es wurden nur wenige CSS Custom Properties für Farben gefunden. Vollständige \
+             Dunkelmodus-Implementierungen nutzen typischerweise CSS-Variablen (--color-*) auf \
+             :root und überschreiben sie innerhalb der Media Query."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::NoPrintStylesheet => if en {
+            "No print stylesheet rules detected. Printed or PDF-saved pages may unnecessarily \
+             include navigation, cookie banners, or interactive elements."
+        } else {
+            "Es wurden keine Print-Stylesheet-Regeln gefunden. Gedruckte oder als PDF \
+             gespeicherte Seiten enthalten dadurch möglicherweise unnötig Navigation, \
+             Cookie-Banner oder interaktive Elemente."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::PrintLayoutRisk {
+            chrome_hidden,
+            clipped_elements,
+        } => {
+            if en {
+                format!(
+                    "Print stylesheet detected but the print layout appears risky: interactive \
+                 chrome hidden = {}, potentially clipped elements = {}.",
+                    if *chrome_hidden { "yes" } else { "no" },
+                    clipped_elements
+                )
+            } else {
+                format!(
+                    "Ein Print-Stylesheet ist vorhanden, das Druck-Layout wirkt jedoch riskant: \
+                 interaktive Bedienelemente ausgeblendet = {}, potenziell abgeschnittene \
+                 Elemente = {}.",
+                    if *chrome_hidden { "ja" } else { "nein" },
+                    clipped_elements
+                )
+            }
+        }
+
+        DarkModeIssueKind::NoForcedColorsSupport => if en {
+            "No targeted forced-colors rules detected. Windows high-contrast users may lose \
+             focus indicators, borders, or status surfaces when colors are defined purely \
+             visually."
+        } else {
+            "Es wurden keine gezielten Forced-Colors-Regeln gefunden. Nutzerinnen und Nutzer des \
+             Windows-Hochkontrastmodus verlieren dadurch möglicherweise Fokusindikatoren, Rahmen \
+             oder Statusflächen, wenn Farben rein visuell definiert sind."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::ForcedColorsFocusRisk => if en {
+            "Forced-colors rules detected, but focusable elements do not consistently retain \
+             visible borders, backgrounds, or outlines under emulation."
+        } else {
+            "Es sind Forced-Colors-Regeln vorhanden, fokussierbare Elemente behalten unter \
+             Emulation jedoch nicht durchgängig sichtbare Rahmen, Hintergründe oder Outlines."
+        }
+        .to_string(),
+
+        DarkModeIssueKind::ColorVisionDeficiencyContrastFailure { affected_modes } => {
+            let joined = affected_modes
+                .iter()
+                .map(|(mode, count)| format!("{mode} ({count})"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            if en {
+                format!(
+                    "Additional contrast failures under color vision deficiency emulation: \
+                     {joined}. Review these elements with non-color state cues and more robust \
+                     color values."
+                )
+            } else {
+                format!(
+                    "Unter Simulation von Farbsehschwächen treten zusätzliche Kontrastausfälle \
+                     auf: {joined}. Diese Elemente sollten zusätzliche, nicht-farbliche \
+                     Zustandshinweise und robustere Farbwerte erhalten."
+                )
+            }
+        }
+
+        DarkModeIssueKind::DarkOnlyContrastRegression { count } => {
+            let suffix = selector_suffix(selectors, en);
+            let count = *count;
+            if en {
+                let noun = if count == 1 { "element" } else { "elements" };
+                format!(
+                    "{count} {noun} lose contrast in dark mode (dark mode regression). These \
+                     elements pass in light mode but fall below the WCAG minimum contrast in \
+                     dark mode.{suffix}"
+                )
+            } else if count == 1 {
+                format!(
+                    "1 Element verliert im Dunkelmodus an Kontrast (Dunkelmodus-Regression). Es \
+                     liegt im hellen Modus im gültigen Bereich, unterschreitet im Dunkelmodus \
+                     jedoch den WCAG-Mindestkontrast.{suffix}"
+                )
+            } else {
+                format!(
+                    "{count} Elemente verlieren im Dunkelmodus an Kontrast \
+                     (Dunkelmodus-Regression). Sie liegen im hellen Modus im gültigen Bereich, \
+                     unterschreiten im Dunkelmodus jedoch den WCAG-Mindestkontrast.{suffix}"
+                )
+            }
+        }
+
+        DarkModeIssueKind::BothModesContrastFailure { count } => {
+            let suffix = selector_suffix(selectors, en);
+            let count = *count;
+            if en {
+                let phrase = if count == 1 {
+                    "element has"
+                } else {
+                    "elements have"
+                };
+                format!(
+                    "{count} {phrase} insufficient contrast in both color modes (light and \
+                     dark). The dark mode implementation does not adjust the colors of these \
+                     elements sufficiently.{suffix}"
+                )
+            } else if count == 1 {
+                format!(
+                    "1 Element hat in beiden Farbmodi (hell und dunkel) unzureichenden Kontrast. \
+                     Die Dunkelmodus-Implementierung passt die Farbe dieses Elements nicht \
+                     ausreichend an.{suffix}"
+                )
+            } else {
+                format!(
+                    "{count} Elemente haben in beiden Farbmodi (hell und dunkel) unzureichenden \
+                     Kontrast. Die Dunkelmodus-Implementierung passt die Farben dieser Elemente \
+                     nicht ausreichend an.{suffix}"
+                )
+            }
+        }
+
+        DarkModeIssueKind::LightOnlyContrastImproved { count } => {
+            let count = *count;
+            if en {
+                let phrase = if count == 1 {
+                    "element has"
+                } else {
+                    "elements have"
+                };
+                format!(
+                    "{count} {phrase} contrast issues only in light mode — dark mode resolves \
+                     them. Consider adjusting the light mode colors accordingly."
+                )
+            } else if count == 1 {
+                "1 Element hat nur im hellen Modus Kontrastprobleme — der Dunkelmodus behebt es. \
+                 Die Farben im hellen Modus sollten entsprechend angepasst werden."
+                    .to_string()
+            } else {
+                format!(
+                    "{count} Elemente haben nur im hellen Modus Kontrastprobleme — der \
+                     Dunkelmodus behebt sie. Die Farben im hellen Modus sollten entsprechend \
+                     angepasst werden."
+                )
+            }
+        }
+    }
+}
+
+/// Format up to `max` selectors from an iterator as a locale-appropriate suffix string.
+fn selector_suffix(selectors: &[String], en: bool) -> String {
+    if selectors.is_empty() {
+        return String::new();
+    }
+    let list = selectors.join(", ");
+    if en {
+        format!(" Affected elements: {list}.")
+    } else {
+        format!(" Betroffene Elemente: {list}.")
+    }
 }
 
 // ─── Main entry point ────────────────────────────────────────────────────────
@@ -290,111 +548,126 @@ fn build_issues(
     let mut issues: Vec<DarkModeIssue> = Vec::new();
 
     if !info.has_dark_media_query && !info.has_class_based_dark_mode {
+        let kind = DarkModeIssueKind::NoDarkModeSupport;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::NoDarkModeSupport,
-            description: "No @media (prefers-color-scheme: dark) rules found. \
-                          Users with system dark mode enabled will receive the light view."
-                .to_string(),
+            kind,
+            description,
             severity: "medium".to_string(),
+            selectors: Vec::new(),
         });
     }
 
     if !info.has_dark_media_query && info.has_class_based_dark_mode {
+        let kind = DarkModeIssueKind::ClassBasedDarkModeDetected;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::IncompleteImplementation,
-            description: "Class-based dark mode detected (html.dark / [data-theme=\"dark\"]). \
-                          Contrast checking in dark mode via CDP emulation is not possible — \
-                          only @media (prefers-color-scheme: dark) can be tested automatically."
-                .to_string(),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     }
 
     // ── Structural best-practice issues ──────────────────────────────────────
     if (info.has_dark_media_query || info.has_class_based_dark_mode) && !info.color_scheme_css {
+        let kind = DarkModeIssueKind::NoColorSchemeDeclaration;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::NoColorSchemeDeclaration,
-            description: "No `color-scheme: dark light` declared on :root. The browser will not use \
-                          native dark mode colors for scrollbars, form controls, and other UI elements."
-                .to_string(),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     }
     if (info.has_dark_media_query || info.has_class_based_dark_mode)
         && info.meta_color_scheme.is_none()
     {
+        let kind = DarkModeIssueKind::NoMetaColorScheme;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::NoMetaColorScheme,
-            description:
-                "No <meta name=\"color-scheme\"> found. Without this meta tag the browser cannot \
-                          optimize rendering behavior before the CSSOM is built."
-                    .to_string(),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     }
     if (info.has_dark_media_query || info.has_class_based_dark_mode)
         && info.css_custom_properties < 3
     {
+        let kind = DarkModeIssueKind::FewColorCustomProperties;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::IncompleteImplementation,
-            description: "Few CSS custom properties for colors detected. Complete dark mode \
-                          implementations typically use CSS variables (--color-*) on :root \
-                          and override them inside the media query."
-                .to_string(),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     }
 
     // ── Print and forced-colors issues (#436) ────────────────────────────────
     if !print.stylesheet_detected {
+        let kind = DarkModeIssueKind::NoPrintStylesheet;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::NoPrintStylesheet,
-            description: "No print stylesheet rules detected. Printed or PDF-saved pages may unnecessarily include navigation, cookie banners, or interactive elements."
-                .to_string(),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     } else if !print.interactive_chrome_hidden || !print.content_not_clipped {
+        let kind = DarkModeIssueKind::PrintLayoutRisk {
+            chrome_hidden: print.interactive_chrome_hidden,
+            clipped_elements: print.clipped_elements,
+        };
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::PrintLayoutRisk,
-            description: format!(
-                "Print stylesheet detected but the print layout appears risky: interactive chrome hidden = {}, potentially clipped elements = {}.",
-                if print.interactive_chrome_hidden { "yes" } else { "no" },
-                print.clipped_elements
-            ),
-            severity: if print.content_not_clipped { "low" } else { "medium" }.to_string(),
+            kind,
+            description,
+            severity: if print.content_not_clipped {
+                "low"
+            } else {
+                "medium"
+            }
+            .to_string(),
+            selectors: Vec::new(),
         });
     }
 
     if !forced_colors.stylesheet_detected {
+        let kind = DarkModeIssueKind::NoForcedColorsSupport;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::NoForcedColorsSupport,
-            description: "No targeted forced-colors rules detected. Windows high-contrast users may lose focus indicators, borders, or status surfaces when colors are defined purely visually."
-                .to_string(),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     } else if !forced_colors.focus_indicators_visible {
+        let kind = DarkModeIssueKind::ForcedColorsFocusRisk;
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::ForcedColorsFocusRisk,
-            description: "Forced-colors rules detected, but focusable elements do not consistently retain visible borders, backgrounds, or outlines under emulation."
-                .to_string(),
+            kind,
+            description,
             severity: "medium".to_string(),
+            selectors: Vec::new(),
         });
     }
 
-    let affected_modes: Vec<String> = vision_deficiency
+    let affected_modes: Vec<(String, u32)> = vision_deficiency
         .modes
         .iter()
         .filter(|mode| mode.new_contrast_violations > 0)
-        .map(|mode| format!("{} ({})", mode.mode, mode.new_contrast_violations))
+        .map(|mode| (mode.mode.clone(), mode.new_contrast_violations))
         .collect();
     if !affected_modes.is_empty() {
+        let kind = DarkModeIssueKind::ColorVisionDeficiencyContrastFailure { affected_modes };
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::ColorVisionDeficiencyContrastFailure,
-            description: format!(
-                "Additional contrast failures under color vision deficiency emulation: {}. Review these elements with non-color state cues and more robust color values.",
-                affected_modes.join(", ")
-            ),
+            kind,
+            description,
             severity: "medium".to_string(),
+            selectors: Vec::new(),
         });
     }
 
@@ -402,82 +675,66 @@ fn build_issues(
 
     // Dark-only regressions: these elements were fine in light mode but break in dark mode
     if dark_only > 0 {
-        let selectors = selector_list(
+        let selectors = collect_selectors(
             contrast_violations
                 .iter()
                 .filter(|v| v.mode == DarkContrastMode::DarkOnly),
             5,
         );
+        let kind = DarkModeIssueKind::DarkOnlyContrastRegression { count: dark_only };
+        let description = dark_mode_issue_text(&kind, &selectors, true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::DarkModeContrastFailure,
-            description: format!(
-                "{dark_only} {} lose contrast in dark mode (dark mode regression). \
-                 These elements pass in light mode but fall below the WCAG minimum contrast \
-                 in dark mode.{selectors}",
-                if dark_only == 1 {
-                    "element"
-                } else {
-                    "elements"
-                }
-            ),
+            kind,
+            description,
             severity: "high".to_string(),
+            selectors,
         });
     }
 
     // Violations present in both modes: dark mode doesn't fix the underlying problem
     let both = dark_contrast_count.saturating_sub(dark_only);
     if both > 0 {
-        let selectors = selector_list(
+        let selectors = collect_selectors(
             contrast_violations
                 .iter()
                 .filter(|v| v.mode == DarkContrastMode::LightAndDark),
             5,
         );
+        let kind = DarkModeIssueKind::BothModesContrastFailure { count: both };
+        let description = dark_mode_issue_text(&kind, &selectors, true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::DarkModeContrastFailure,
-            description: format!(
-                "{both} {} insufficient contrast in both color modes (light and dark). \
-                 The dark mode implementation does not adjust the colors of these elements sufficiently.{selectors}",
-                if both == 1 { "element has" } else { "elements have" }
-            ),
+            kind,
+            description,
             severity: "high".to_string(),
+            selectors,
         });
     }
 
     // Light-only: informational (dark mode actually improves these)
     if light_only > 0 {
+        let kind = DarkModeIssueKind::LightOnlyContrastImproved { count: light_only };
+        let description = dark_mode_issue_text(&kind, &[], true);
         issues.push(DarkModeIssue {
-            kind: DarkModeIssueKind::DarkModeContrastFailure,
-            description: format!(
-                "{light_only} {} contrast issues only in light mode — dark mode resolves them. \
-                 Consider adjusting the light mode colors accordingly.",
-                if light_only == 1 {
-                    "element has"
-                } else {
-                    "elements have"
-                }
-            ),
+            kind,
+            description,
             severity: "low".to_string(),
+            selectors: Vec::new(),
         });
     }
 
     issues
 }
 
-/// Format up to `max` selectors from an iterator as a readable suffix string.
-fn selector_list<'a>(iter: impl Iterator<Item = &'a DarkContrastViolation>, max: usize) -> String {
-    let selectors: Vec<&str> = iter
-        .filter_map(|v| v.selector.as_deref())
+/// Collect up to `max` non-empty selectors from an iterator of contrast violations.
+fn collect_selectors<'a>(
+    iter: impl Iterator<Item = &'a DarkContrastViolation>,
+    max: usize,
+) -> Vec<String> {
+    iter.filter_map(|v| v.selector.as_deref())
         .filter(|s| !s.is_empty())
         .take(max)
-        .collect();
-
-    if selectors.is_empty() {
-        return String::new();
-    }
-
-    let list = selectors.join(", ");
-    format!(" Betroffene Elemente: {list}.")
+        .map(|s| s.to_string())
+        .collect()
 }
 
 // ─── Violation classification ─────────────────────────────────────────────────
@@ -1312,9 +1569,12 @@ mod tests {
             &vision_default(),
         );
         assert!(
-            issues
-                .iter()
-                .all(|i| !matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure)),
+            issues.iter().all(|i| !matches!(
+                i.kind,
+                DarkModeIssueKind::DarkOnlyContrastRegression { .. }
+                    | DarkModeIssueKind::BothModesContrastFailure { .. }
+                    | DarkModeIssueKind::LightOnlyContrastImproved { .. }
+            )),
             "no contrast issue expected when violations=0"
         );
     }
@@ -1342,7 +1602,7 @@ mod tests {
         );
         let contrast_issues: Vec<_> = issues
             .iter()
-            .filter(|i| matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure))
+            .filter(|i| matches!(i.kind, DarkModeIssueKind::BothModesContrastFailure { .. }))
             .collect();
 
         assert!(
@@ -1379,7 +1639,7 @@ mod tests {
         );
         let regression = issues
             .iter()
-            .find(|i| matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure));
+            .find(|i| matches!(i.kind, DarkModeIssueKind::DarkOnlyContrastRegression { .. }));
 
         assert!(
             regression.is_some(),
@@ -1420,7 +1680,7 @@ mod tests {
         );
         let contrast_issue = issues
             .iter()
-            .find(|i| matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure))
+            .find(|i| matches!(i.kind, DarkModeIssueKind::BothModesContrastFailure { .. }))
             .expect("contrast issue must exist");
 
         assert!(
@@ -1497,7 +1757,7 @@ mod tests {
         );
         let light_issue = issues
             .iter()
-            .find(|i| matches!(i.kind, DarkModeIssueKind::DarkModeContrastFailure));
+            .find(|i| matches!(i.kind, DarkModeIssueKind::LightOnlyContrastImproved { .. }));
 
         assert!(light_issue.is_some());
         assert_eq!(light_issue.unwrap().severity, "low");
@@ -1555,8 +1815,8 @@ mod tests {
         assert!(
             issues
                 .iter()
-                .any(|i| matches!(i.kind, DarkModeIssueKind::IncompleteImplementation)),
-            "class-based dark mode should report IncompleteImplementation"
+                .any(|i| matches!(i.kind, DarkModeIssueKind::ClassBasedDarkModeDetected)),
+            "class-based dark mode should report ClassBasedDarkModeDetected"
         );
     }
 
@@ -1642,7 +1902,45 @@ mod tests {
 
         assert!(issues.iter().any(|i| matches!(
             i.kind,
-            DarkModeIssueKind::ColorVisionDeficiencyContrastFailure
+            DarkModeIssueKind::ColorVisionDeficiencyContrastFailure { .. }
         )));
+    }
+
+    #[test]
+    fn english_issue_text_carries_no_german_umlauts() {
+        // Guard against German leaking into EN reports (#406): exercise every
+        // DarkModeIssueKind with en=true and assert no German umlauts/ß appear.
+        let selectors = vec!["h1.hero".to_string(), "p.caption".to_string()];
+        let kinds = vec![
+            DarkModeIssueKind::NoDarkModeSupport,
+            DarkModeIssueKind::NoColorSchemeDeclaration,
+            DarkModeIssueKind::NoMetaColorScheme,
+            DarkModeIssueKind::ClassBasedDarkModeDetected,
+            DarkModeIssueKind::FewColorCustomProperties,
+            DarkModeIssueKind::NoPrintStylesheet,
+            DarkModeIssueKind::PrintLayoutRisk {
+                chrome_hidden: false,
+                clipped_elements: 3,
+            },
+            DarkModeIssueKind::NoForcedColorsSupport,
+            DarkModeIssueKind::ForcedColorsFocusRisk,
+            DarkModeIssueKind::ColorVisionDeficiencyContrastFailure {
+                affected_modes: vec![("protanopia".to_string(), 2)],
+            },
+            DarkModeIssueKind::DarkOnlyContrastRegression { count: 1 },
+            DarkModeIssueKind::DarkOnlyContrastRegression { count: 3 },
+            DarkModeIssueKind::BothModesContrastFailure { count: 1 },
+            DarkModeIssueKind::BothModesContrastFailure { count: 3 },
+            DarkModeIssueKind::LightOnlyContrastImproved { count: 1 },
+            DarkModeIssueKind::LightOnlyContrastImproved { count: 3 },
+        ];
+
+        for kind in &kinds {
+            let text = dark_mode_issue_text(kind, &selectors, true);
+            assert!(
+                !text.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "EN dark-mode issue text contains German umlaut ({kind:?}): {text}"
+            );
+        }
     }
 }

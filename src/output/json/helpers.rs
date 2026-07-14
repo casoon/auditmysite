@@ -9,7 +9,7 @@ pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary 
     WcagCoverageSummary {
         level: format!("WCAG 2.1 {level}"),
         automated_criteria: automated,
-        manual_review_criteria: crate::wcag::coverage::MANUAL_REVIEW_CRITERIA.len(),
+        manual_review_criteria: crate::wcag::coverage::manual_review_criteria().len(),
         total_wcag_aa_criteria: total,
         note: "Automated score covers detectable criteria only; context-dependent WCAG criteria require manual review.".to_string(),
     }

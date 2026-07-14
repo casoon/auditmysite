@@ -1490,14 +1490,25 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                 "Strukturierte Daten vorhanden"
             },
             has_any,
-            Some(if has_any {
-                let n = seo.structured_data.json_ld.len();
-                let noun = if n == 1 { "Schema" } else { "Schemas" };
-                format!("{} {}", n, noun)
-            } else if en {
-                "no structured data".to_string()
+            Some(if !has_any {
+                if en {
+                    "no structured data".to_string()
+                } else {
+                    "keine strukturierten Daten".to_string()
+                }
             } else {
-                "keine strukturierten Daten".to_string()
+                let n = seo.structured_data.json_ld.len();
+                if n > 0 {
+                    let noun = if n == 1 { "Schema" } else { "Schemas" };
+                    format!("{} {}", n, noun)
+                } else if en {
+                    // has_structured_data is true via microdata/RDFa, but
+                    // json_ld is empty — the count only tracks JSON-LD, so
+                    // "0 Schemas" would contradict the passing checkmark above.
+                    "structured data detected (microdata/RDFa, no JSON-LD)".to_string()
+                } else {
+                    "strukturierte Daten erkannt (Microdata/RDFa, kein JSON-LD)".to_string()
+                }
             }),
         ),
         check(
@@ -2108,6 +2119,7 @@ mod tests {
                 length: 5,
                 is_question: false,
                 in_faq_context: false,
+                word_count_after: 0,
             },
             HeadingInfo {
                 level: 2,
@@ -2115,6 +2127,7 @@ mod tests {
                 length: 1,
                 is_question: false,
                 in_faq_context: false,
+                word_count_after: 0,
             },
             HeadingInfo {
                 level: 2,
@@ -2122,6 +2135,7 @@ mod tests {
                 length: 1,
                 is_question: false,
                 in_faq_context: false,
+                word_count_after: 0,
             },
             HeadingInfo {
                 level: 3,
@@ -2129,6 +2143,7 @@ mod tests {
                 length: 1,
                 is_question: false,
                 in_faq_context: false,
+                word_count_after: 0,
             },
         ];
         seo.headings.total_count = seo.headings.headings.len();

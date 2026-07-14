@@ -543,7 +543,12 @@ pub async fn audit_page(
         }
         mobile_wcag.extend_findings(reflow_violations);
         // check_reflow_with_page leaves the viewport at 320px — restore mobile
-        let _ = set_viewport(page, Viewport::Mobile).await;
+        if let Err(e) = set_viewport(page, Viewport::Mobile).await {
+            warn!(
+                "Failed to restore mobile viewport after reflow check: {}",
+                e
+            );
+        }
     }
 
     // ── Merge ─────────────────────────────────────────────────────────────────
@@ -1206,7 +1211,12 @@ async fn collect_throttled_performance(
     }
 
     // Restore mobile viewport for screenshot capture that follows.
-    let _ = set_viewport(page, Viewport::Mobile).await;
+    if let Err(e) = set_viewport(page, Viewport::Mobile).await {
+        warn!(
+            "Failed to restore mobile viewport after throttled pass: {}",
+            e
+        );
+    }
 
     // Restore unthrottled state for any subsequent operations.
     if !results.is_empty() {

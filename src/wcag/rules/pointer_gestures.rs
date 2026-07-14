@@ -1,4 +1,4 @@
-//! WCAG 2.5.1 Pointer Gestures (Level AAA)
+//! WCAG 2.5.1 Pointer Gestures (Level A)
 //!
 //! All functionality that uses multipoint or path-based gestures for operation
 //! can be operated with a single pointer without a path-based gesture.
@@ -11,12 +11,12 @@ use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
 pub const POINTER_GESTURES_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.1",
     name: "Pointer Gestures",
-    level: WcagLevel::AAA,
+    level: WcagLevel::A,
     severity: Severity::Medium,
     description: "All functionality can be operated with single-pointer gestures",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/pointer-gestures.html",
     axe_id: "pointer-gestures",
-    tags: &["wcag2aaa", "wcag251", "cat.sensory-and-visual-cues"],
+    tags: &["wcag2a", "wcag251", "cat.sensory-and-visual-cues"],
 };
 
 const POINTER_GESTURES_JS: &str = r#"

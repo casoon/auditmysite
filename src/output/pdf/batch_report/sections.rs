@@ -490,7 +490,7 @@ pub(super) fn render_batch_decision_actions(
         table = table.add_row(vec![
             format!("{} — {}", group.title, root),
             severity_label_i18n(group.severity, i18n),
-            group.expected_impact.clone(),
+            crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en),
             effort_label_i18n(group.effort, i18n),
             format!(
                 "{} occurrences / {} URLs",

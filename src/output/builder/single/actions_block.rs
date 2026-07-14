@@ -99,6 +99,8 @@ pub(super) fn build_actions_block(
                     user_effect,
                     risk_effect,
                     conversion_effect,
+                    occurrence_count: i.occurrence_count,
+                    rule_id: i.rule_id.clone(),
                 }
             })
             .collect()
@@ -107,7 +109,7 @@ pub(super) fn build_actions_block(
     // #8: group the roadmap by WHERE the problem lives, not by abstract
     // priority. Pull from the already-deduped, priority-sorted buckets so the
     // most urgent action stays first within each level.
-    let systemic: Vec<ActionItem> = blockers
+    let mut systemic: Vec<ActionItem> = blockers
         .iter()
         .chain(&high_prio)
         .chain(&medium_prio)
@@ -115,6 +117,10 @@ pub(super) fn build_actions_block(
         .filter(|i| i.is_systemic)
         .cloned()
         .collect();
+    // Re-sort the systemic column by root-cause occurrence count so the
+    // biggest root cause leads the list — a stable sort keeps the existing
+    // execution_priority ordering as the tie-break for equal counts (#3 fix).
+    systemic.sort_by_key(|i| std::cmp::Reverse(i.occurrence_count));
     let local: Vec<ActionItem> = blockers
         .iter()
         .chain(&high_prio)

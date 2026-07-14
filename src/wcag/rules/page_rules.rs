@@ -33,17 +33,19 @@ use super::{
     check_identify_purpose_with_page, check_image_input_rules_with_page,
     check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
     check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
-    check_location_with_page, check_meta_viewport_large_with_page,
-    check_modern_attributes_with_page, check_motion_actuation_with_page,
-    check_no_interruptions_with_page, check_no_timing_with_page, check_on_focus_with_page,
-    check_on_input_with_page, check_orientation_with_page, check_page_titled_with_page,
-    check_parsing_with_page, check_pointer_cancellation_with_page,
-    check_pointer_gestures_with_page, check_positive_tabindex_with_page,
-    check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
-    check_reduced_motion_with_page, check_resize_text_with_page,
+    check_location_with_page, check_meaningful_sequence_with_page,
+    check_meta_viewport_large_with_page, check_modern_attributes_with_page,
+    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
+    check_non_text_contrast_css_with_page, check_on_focus_with_page, check_on_input_with_page,
+    check_orientation_with_page, check_page_titled_with_page, check_parsing_with_page,
+    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
+    check_positive_tabindex_with_page, check_presentation_semantic_children_with_page,
+    check_re_authenticate_with_page, check_reduced_motion_with_page,
+    check_redundant_entry_with_page, check_resize_text_with_page,
     check_same_origin_iframes_with_page, check_server_side_image_map_with_page,
     check_tab_selected_state_with_page, check_table_headers_attr_with_page,
-    check_target_size_enhanced_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
+    check_text_spacing_with_page, check_timeouts_with_page, check_timing_with_page,
     check_use_of_color_with_page, check_visual_presentation_with_page,
 };
 use crate::wcag::engine::check_click_handlers_with_page;
@@ -116,6 +118,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_form_no_submit_with_page(p)),
     },
     PageRuleEntry {
+        rule_id: "3.3.7/redundant-entry",
+        name: "redundant-entry",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_redundant_entry_with_page(p)),
+    },
+    PageRuleEntry {
         rule_id: "1.3.1/presentation-semantic-children",
         name: "presentation semantic children",
         min_level: WcagLevel::A,
@@ -126,6 +134,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "landmark DOM",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_landmarks_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "1.3.2/meaningful-sequence",
+        name: "meaningful-sequence (CSS order)",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_meaningful_sequence_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/modern-attributes",
@@ -217,6 +231,33 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_tab_selected_state_with_page(p)),
     },
+    // 2.5.1-2.5.4 are official WCAG 2.1 Level A criteria (only 2.5.5/2.5.6 are
+    // AAA) — previously misclassified as AAA here and in each rule's own
+    // RULE_META, which meant they silently never ran at the default AA level.
+    PageRuleEntry {
+        rule_id: "2.5.1/pointer-gestures",
+        name: "pointer-gestures",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_pointer_gestures_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "2.5.2/pointer-cancellation",
+        name: "pointer-cancellation",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "2.5.3/label-in-name",
+        name: "label-in-name",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_label_in_name_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "2.5.4/motion-actuation",
+        name: "motion-actuation",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_motion_actuation_with_page(p)),
+    },
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.4.4/meta-viewport",
@@ -243,6 +284,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_focus_visible_css_with_page(p)),
     },
     PageRuleEntry {
+        rule_id: "1.4.11/non-text-contrast-css",
+        name: "CSS non-text contrast",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_non_text_contrast_css_with_page(p)),
+    },
+    PageRuleEntry {
         rule_id: "2.3.3/reduced-motion",
         name: "reduced-motion",
         min_level: WcagLevel::AA,
@@ -253,6 +300,18 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "content-on-hover",
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_content_on_hover_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "2.5.8/target-size-minimum",
+        name: "target-size-minimum",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_target_size_minimum_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "1.4.12/text-spacing",
+        name: "text-spacing",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_text_spacing_with_page(p)),
     },
     // ── Level AAA only ────────────────────────────────────────────────────────
     PageRuleEntry {
@@ -302,30 +361,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "location",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_location_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.1/pointer-gestures",
-        name: "pointer-gestures",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_pointer_gestures_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.2/pointer-cancellation",
-        name: "pointer-cancellation",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.3/label-in-name",
-        name: "label-in-name",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_label_in_name_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.5.4/motion-actuation",
-        name: "motion-actuation",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_motion_actuation_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "2.5.5/target-size-enhanced",
@@ -386,7 +421,11 @@ mod tests {
         // + invalid-role + checked-state + aria-allowed-attr
         // + invalid-aria-attribute-name (#QA-030) = 26
         // + tab-selected-state (#QA-031) = 27
-        assert_eq!(count, 27);
+        // + pointer-gestures/pointer-cancellation/label-in-name/motion-actuation
+        // (2.5.1-2.5.4 are Level A per WCAG 2.1, were misclassified as AAA) = 31
+        // + redundant-entry (3.3.7, WCAG 2.2 A) = 32
+        // + meaningful-sequence (1.3.2, WCAG 2.1 A) = 33
+        assert_eq!(count, 33);
     }
 
     #[test]
@@ -395,8 +434,12 @@ mod tests {
             .iter()
             .filter(|r| WcagLevel::AA >= r.min_level)
             .count();
-        // 27 A + 4 original AA + 2 viewport zoom checks (#QA-030) = 33.
-        assert_eq!(count, 33);
+        // 33 A + 4 original AA + 2 viewport zoom checks (#QA-030)
+        // + target-size-minimum (2.5.8, WCAG 2.2 AA)
+        // + text-spacing (1.4.12, WCAG 2.1 AA) = 41.
+        // + non-text-contrast-css (1.4.11, replaces the vacuous AX-tree-only
+        //   check_non_text_contrast — see non_text_contrast_css.rs) = 42.
+        assert_eq!(count, 42);
     }
 
     #[test]

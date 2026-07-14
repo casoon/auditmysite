@@ -14,7 +14,9 @@
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{focus, stability};
 use crate::taxonomy::Severity;
@@ -275,62 +277,46 @@ pub async fn run(
 
     // Violation: none of the three signals are present.
     if !title_changed && !heading_changed && !focus_moved {
-        findings.push(InteractiveFinding {
-            category: "SpaNavigation".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("before_spa_nav".to_string()),
-            after_snapshot_label: Some("after_spa_nav".to_string()),
-            message: format!(
-                "After SPA navigation neither the page title \
-                (before: {title_before:?}) nor the H1 heading changed, and focus \
-                remained in the same place. Screen readers will not announce \
-                the new content."
-            ),
-            fix_suggestion: Some(
-                "After each client-side navigation: (1) update document.title, \
-                (2) move focus to the <main> element or the new H1 heading, \
-                (3) alternatively populate an aria-live region with the new page name."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "SpaNavigation",
+            InteractiveFindingKind::SpaNoAnnouncementSignal,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            Some("before_spa_nav".to_string()),
+            Some("after_spa_nav".to_string()),
+            InteractiveFindingValues {
+                title_before: Some(title_before.clone()),
+                ..Default::default()
+            },
+        ));
     } else if !title_changed {
         // Partial: heading or focus changed but title didn't.
-        findings.push(InteractiveFinding {
-            category: "SpaNavigation".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("before_spa_nav".to_string()),
-            after_snapshot_label: Some("after_spa_nav".to_string()),
-            message: format!(
-                "After SPA navigation document.title remains unchanged ({title_before:?}). \
-                Screen readers often primarily announce page transitions via the title."
-            ),
-            fix_suggestion: Some(
-                "Update document.title to the new page name after every client-side navigation."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "SpaNavigation",
+            InteractiveFindingKind::SpaTitleUnchanged,
+            None,
+            Severity::Medium,
+            journey_name.clone(),
+            Some("before_spa_nav".to_string()),
+            Some("after_spa_nav".to_string()),
+            InteractiveFindingValues {
+                title_before: Some(title_before.clone()),
+                ..Default::default()
+            },
+        ));
     } else if !focus_moved {
         // Title and/or heading changed, but focus stayed — weaker warning.
-        findings.push(InteractiveFinding {
-            category: "SpaNavigation".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("before_spa_nav".to_string()),
-            after_snapshot_label: Some("after_spa_nav".to_string()),
-            message: "After SPA navigation focus is not moved to the new main area. \
-                Keyboard users must manually navigate to the new content."
-                .to_string(),
-            fix_suggestion: Some(
-                "After navigation, move focus to the <main> element or the first \
-                H1 heading of the new content."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "SpaNavigation",
+            InteractiveFindingKind::SpaFocusNotMoved,
+            None,
+            Severity::Medium,
+            journey_name.clone(),
+            Some("before_spa_nav".to_string()),
+            Some("after_spa_nav".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     Ok(Some((trace, findings)))

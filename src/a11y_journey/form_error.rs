@@ -13,7 +13,9 @@
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{focus, pointer, stability};
 use crate::patterns::JourneyCandidate;
@@ -195,71 +197,49 @@ pub async fn test(
 
         // No navigation and neither aria-invalid nor a live region appeared:
         // the form swallowed the error silently.
-        findings.push(InteractiveFinding {
-            category: "FormError".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("before_submit".to_string()),
-            after_snapshot_label: Some("after_submit_click".to_string()),
-            message: "Form errors are not announced via a live region (role=\"alert\" or \
-                aria-live) and aria-invalid is not set. \
-                Screen reader users receive no feedback when a required field \
-                is left empty."
-                .to_string(),
-            fix_suggestion: Some(
-                "Output error messages inside a role=\"alert\" element and set \
-                aria-invalid=\"true\" on each invalid field."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FormError",
+            InteractiveFindingKind::FormErrorSilentFailure,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            Some("before_submit".to_string()),
+            Some("after_submit_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
         return Ok((trace, findings));
     }
 
     // aria-invalid appeared but no live announcement.
     if new_invalid && !new_live {
-        findings.push(InteractiveFinding {
-            category: "FormError".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("before_submit".to_string()),
-            after_snapshot_label: Some("after_submit_click".to_string()),
-            message: "aria-invalid is set after submission, but no live region \
-                (role=\"alert\" or aria-live) announces the error. \
-                Screen reader users will only notice the error state when they \
-                explicitly navigate back to the field."
-                .to_string(),
-            fix_suggestion: Some(
-                "Add a role=\"alert\" container that outputs the error message \
-                after form submission."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FormError",
+            InteractiveFindingKind::FormErrorInvalidWithoutLiveRegion,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            Some("before_submit".to_string()),
+            Some("after_submit_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // Invalid fields not linked to their error message.
     if new_invalid && linked_after < invalid_after {
         let unlinked = invalid_after - linked_after;
-        findings.push(InteractiveFinding {
-            category: "FormError".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("before_submit".to_string()),
-            after_snapshot_label: Some("after_submit_click".to_string()),
-            message: format!(
-                "{unlinked} {} with aria-invalid=\"true\" are not linked to their error \
-                message via aria-describedby or aria-errormessage. \
-                Screen reader users hear the error state but cannot associate it with the field.",
-                if unlinked == 1 { "field" } else { "fields" }
-            ),
-            fix_suggestion: Some(
-                "Add aria-describedby=\"error-message-id\" on each field with \
-                aria-invalid=\"true\"."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FormError",
+            InteractiveFindingKind::FormErrorUnlinkedFields,
+            None,
+            Severity::Medium,
+            journey_name.clone(),
+            Some("before_submit".to_string()),
+            Some("after_submit_click".to_string()),
+            InteractiveFindingValues {
+                count: Some(unlinked as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     Ok((trace, findings))

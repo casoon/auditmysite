@@ -988,19 +988,13 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
     let seo = report.discoverability.seo.as_ref();
 
     let headings: Vec<chunks::HeadingInfo> = seo.map_or(vec![], |s| {
-        let h = &s.headings.headings;
-        h.iter()
-            .map(|heading| {
-                // Estimate word count between headings
-                let total_words = s.technical.word_count;
-                let n = h.len() as u32;
-                let words_per_section = total_words.checked_div(n).unwrap_or(total_words);
-
-                chunks::HeadingInfo {
-                    text: heading.text.clone(),
-                    level: heading.level as u32,
-                    word_count_after: words_per_section,
-                }
+        s.headings
+            .headings
+            .iter()
+            .map(|heading| chunks::HeadingInfo {
+                text: heading.text.clone(),
+                level: heading.level as u32,
+                word_count_after: heading.word_count_after,
             })
             .collect()
     });

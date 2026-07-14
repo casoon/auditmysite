@@ -55,11 +55,20 @@ impl PooledPage {
 impl Drop for PooledPage {
     fn drop(&mut self) {
         if let Some(page) = self.page.take() {
-            let pool = Arc::clone(&self.pool);
-            // Spawn a task to return the page to the pool
-            tokio::spawn(async move {
-                pool.return_page(page).await;
-            });
+            // `tokio::spawn` panics if no runtime is active for this thread —
+            // normally guaranteed for the program's whole lifetime, but not
+            // during process shutdown/panic-unwind after the runtime itself
+            // has already been torn down (#QA-041). Skip the spawn rather
+            // than panic in that case; the page (and its Chrome tab) is
+            // simply leaked, same as if the process were killed outright.
+            if tokio::runtime::Handle::try_current().is_ok() {
+                let pool = Arc::clone(&self.pool);
+                tokio::spawn(async move {
+                    pool.return_page(page).await;
+                });
+            } else {
+                warn!("No active tokio runtime; dropping page without returning it to the pool");
+            }
         }
     }
 }
@@ -97,13 +106,34 @@ impl BrowserPoolInner {
             }
             Ok(Err(e)) => {
                 warn!("Failed to reset page: {}", e);
-                self.semaphore.add_permits(1);
+                self.discard_page(page).await;
             }
             Err(_) => {
                 warn!("Page reset timed out after 10s, discarding page");
-                self.semaphore.add_permits(1);
+                self.discard_page(page).await;
             }
         }
+    }
+
+    /// Discard a page that couldn't be reset for reuse: close its Chrome tab
+    /// and give back its slot in `pages_created`, not just its semaphore
+    /// permit (#QA-040). Without the `pages_created` decrement, every page
+    /// lost this way permanently shrinks the pool's effective capacity —
+    /// `acquire()`'s "shouldn't happen" exhaustion branch was actually
+    /// reachable once enough pages were discarded on a long batch run,
+    /// collapsing concurrency to zero with free semaphore permits sitting
+    /// unused. `page.close()` is itself timeout-guarded since a page
+    /// unresponsive enough to fail the reset above may also fail to close;
+    /// the bookkeeping happens either way so a hung close can't reintroduce
+    /// the same exhaustion bug.
+    async fn discard_page(&self, page: Page) {
+        match tokio::time::timeout(Duration::from_secs(5), page.close()).await {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => warn!("Failed to close discarded page: {}", e),
+            Err(_) => warn!("Closing discarded page timed out after 5s"),
+        }
+        self.pages_created.fetch_sub(1, Ordering::SeqCst);
+        self.semaphore.add_permits(1);
     }
 }
 

@@ -11,13 +11,13 @@ use crate::wcag::types::{RuleMetadata, Severity, Violation};
 
 pub const LABEL_IN_NAME_PAGE_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.3",
-    name: "Label in Name (Enhanced)",
-    level: WcagLevel::AAA,
+    name: "Label in Name",
+    level: WcagLevel::A,
     severity: Severity::Medium,
     description: "The accessible name of a button contains its visible label text",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/label-in-name.html",
     axe_id: "label-content-name-mismatch",
-    tags: &["wcag2aaa", "wcag253", "cat.semantics"],
+    tags: &["wcag2a", "wcag253", "cat.semantics"],
 };
 
 const LABEL_IN_NAME_JS: &str = r#"

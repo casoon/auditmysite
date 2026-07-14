@@ -191,14 +191,14 @@ pub(super) fn render_finding_technical(
             "{}{} — WCAG {} ({})",
             severity_prefix, group.title, group.wcag_criterion, group.wcag_level
         )
+    } else if group.title.is_empty() {
+        // Raw internal rule ids (e.g. "seo.headings.multiple_h1") are never
+        // customer-facing prose — only fall back to one when there's truly no
+        // title to show at all, and even then, don't also glue it onto a
+        // perfectly good title as an unexplained suffix (#QA-039 report review).
+        format!("{}{}", severity_prefix, group.rule_id)
     } else {
-        format!(
-            "{}{}{} — {}",
-            severity_prefix,
-            group.title,
-            if group.title.is_empty() { "" } else { " — " },
-            group.rule_id
-        )
+        format!("{}{}", severity_prefix, group.title)
     };
     builder = builder.add_component(
         Label::new(&header)
@@ -270,30 +270,38 @@ pub(super) fn render_finding_technical(
     }
     builder = builder.add_component(meta_kv);
 
-    if !group.expected_impact.is_empty() || !group.complexity_reason.is_empty() {
+    // `expected_impact`/`complexity_reason` are re-derived here from the
+    // stable `..._kind` in the run language rather than printed from the
+    // `FindingGroup` string fields verbatim — those stay canonical English
+    // (mirroring the JSON), so printing them directly leaked raw English
+    // prose into otherwise fully German reports (#406).
+    let expected_impact =
+        crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en);
+    let complexity_reason = crate::audit::normalized::complexity_text(group.complexity_kind, en);
+    if !expected_impact.is_empty() || !complexity_reason.is_empty() {
         let mut assessment = KeyValueList::new().with_title(if i18n.locale() == "en" {
             "Action assessment"
         } else {
             "Maßnahmenbewertung"
         });
-        if !group.expected_impact.is_empty() {
+        if !expected_impact.is_empty() {
             assessment = assessment.add(
                 if i18n.locale() == "en" {
                     "Expected effect"
                 } else {
                     "Erwartete Wirkung"
                 },
-                &group.expected_impact,
+                &expected_impact,
             );
         }
-        if !group.complexity_reason.is_empty() {
+        if !complexity_reason.is_empty() {
             assessment = assessment.add(
                 if i18n.locale() == "en" {
                     "Complexity reason"
                 } else {
                     "Komplexitätsgrund"
                 },
-                &group.complexity_reason,
+                &complexity_reason,
             );
         }
         if group.verification == "manual_review_recommended" {
@@ -313,8 +321,21 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(assessment);
     }
 
+    // Findings with no real DOM evidence (e.g. SEO heading findings, whose
+    // `OccurrenceDetail` has no selector at all — see `aggregate_seo_findings`)
+    // fall back to using the internal issue-type token as both `node_id` and
+    // `selector`, which is how `build_location_hints`'s fallback resolves it.
+    // Applying DOM-evidence components (element-type extraction, a "location"
+    // table/snapshot, selector-pattern clustering) to that token produces
+    // nonsense like "Element-Typen: 1× multiple" or "Fundstelle: multiple_h1" —
+    // skip all of them when no occurrence actually has real location data.
+    let has_real_location = group
+        .representative_occurrences
+        .iter()
+        .any(|occ| occ.selector != occ.node_id);
+
     // AffectedElements: element-type summary + deduplicated selector list
-    if !group.representative_occurrences.is_empty() {
+    if has_real_location {
         // Count occurrences per element type
         let mut type_counts: std::collections::BTreeMap<&str, usize> =
             std::collections::BTreeMap::new();
@@ -361,7 +382,7 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(url_list);
     }
 
-    if !group.representative_occurrences.is_empty() {
+    if has_real_location {
         let mut table = renderreport::components::AuditTable::new(vec![
             renderreport::components::TableColumn::new(i18n.t("finding-location"))
                 .with_width("26%"),
@@ -435,7 +456,7 @@ pub(super) fn render_finding_technical(
         }
     }
 
-    if !group.pattern_clusters.is_empty() {
+    if has_real_location && !group.pattern_clusters.is_empty() {
         let mut table = renderreport::components::AuditTable::new(vec![
             renderreport::components::TableColumn::new(i18n.t("finding-pattern")).with_width("70%"),
             renderreport::components::TableColumn::new(i18n.t("finding-occurrences"))
@@ -450,6 +471,7 @@ pub(super) fn render_finding_technical(
             ]);
         }
         builder = builder.add_component(table);
+        builder = builder.add_component(Callout::info(i18n.t("finding-frequent-patterns-note")));
     }
 
     if let Some(ref cause) = group.structural_cause {
@@ -525,7 +547,12 @@ mod tests {
             verification: String::new(),
             complexity: String::new(),
             complexity_reason: String::new(),
+            complexity_kind: crate::audit::normalized::ComplexityKind::LowScope,
             expected_impact: String::new(),
+            expected_impact_kind: crate::audit::normalized::ExpectedImpactKind::Other {
+                occurrence_count: 1,
+                score_effect: crate::audit::normalized::ScoreEffect::Low,
+            },
             bfsg_relevance: String::new(),
             remediation_priority: String::new(),
             occurrence_count: 1,

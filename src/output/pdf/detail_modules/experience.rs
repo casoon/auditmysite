@@ -38,7 +38,11 @@ pub(in crate::output::pdf) fn render_ux(
     let mut kv = KeyValueList::new().with_title(i18n.t("ux-dimensions"));
     for dim in &ux.dimensions {
         let name = crate::ux::ux_dimension_name(dim.kind, en);
-        let summary = crate::ux::ux_dimension_summary(dim.kind, dim.score, en);
+        let has_flagged_issue = ux
+            .issues
+            .iter()
+            .any(|issue| issue.kind.dimension() == dim.kind);
+        let summary = crate::ux::ux_dimension_summary(dim.kind, dim.score, en, has_flagged_issue);
         kv = kv.add(name, format!("{} — {}", dim.score, summary));
     }
     builder = builder.add_component(kv);

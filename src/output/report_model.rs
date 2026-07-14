@@ -452,6 +452,10 @@ pub struct RoadmapItemData {
     pub risk_effect: String,
     /// Conversion/UX effect (e.g. "Verbessert Orientierung und Klickrate")
     pub conversion_effect: String,
+    /// Occurrence count of the underlying `FindingGroup` (see `ActionItem`).
+    pub occurrence_count: usize,
+    /// Rule ID of the underlying `FindingGroup` (see `ActionItem`).
+    pub rule_id: String,
 }
 
 /// A single phase in the visual phase overview (shown before the detailed roadmap)
@@ -509,7 +513,13 @@ pub struct FindingGroup {
     pub verification: String,
     pub complexity: String,
     pub complexity_reason: String,
+    /// Stable identifier for `complexity_reason`'s sentence shape (for
+    /// localized re-derivation at render time, #406).
+    pub complexity_kind: crate::audit::normalized::ComplexityKind,
     pub expected_impact: String,
+    /// Stable identifier for `expected_impact`'s sentence shape (for
+    /// localized re-derivation at render time, #406).
+    pub expected_impact_kind: crate::audit::normalized::ExpectedImpactKind,
     pub bfsg_relevance: String,
     pub remediation_priority: String,
     pub occurrence_count: usize,
@@ -877,6 +887,14 @@ pub struct ActionItem {
     /// (fix once, applies everywhere) vs. a local/individual occurrence. Drives
     /// the action plan's "by problem level" grouping.
     pub is_systemic: bool,
+    /// Occurrence count of the underlying `FindingGroup` — used to order the
+    /// action plan by real-world impact and to trace an action back to its
+    /// root cause in the root-cause analysis section.
+    pub occurrence_count: usize,
+    /// Rule ID of the underlying `FindingGroup` — used to look up the
+    /// matching root-cause letter (A, B, C…) assigned in the root-cause
+    /// analysis section.
+    pub rule_id: String,
 }
 
 pub struct RoleAssignment {

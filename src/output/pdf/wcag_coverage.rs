@@ -18,7 +18,7 @@ pub(super) fn render_wcag_coverage_section(
     report: &AuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    use crate::wcag::coverage::{coverage_stats, AUTOMATED_CRITERIA, MANUAL_REVIEW_CRITERIA};
+    use crate::wcag::coverage::{automated_criteria, coverage_stats, manual_review_criteria};
 
     let en = i18n.locale() == "en";
 
@@ -65,21 +65,24 @@ pub(super) fn render_wcag_coverage_section(
         format!("Automatisch geprüft ({})", automated)
     };
     let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");
-    for (c, l) in AUTOMATED_CRITERIA.iter() {
+    for (c, l) in automated_criteria().iter() {
         tag_cloud = tag_cloud.add(format!("WCAG {} ({})", c, l), "good");
     }
     builder = builder.add_component(tag_cloud);
 
     let manual_title = if en {
-        format!("Requires manual review ({})", MANUAL_REVIEW_CRITERIA.len())
+        format!(
+            "Requires manual review ({})",
+            manual_review_criteria().len()
+        )
     } else {
         format!(
             "Manuelle Prüfung erforderlich ({})",
-            MANUAL_REVIEW_CRITERIA.len()
+            manual_review_criteria().len()
         )
     };
     let mut manual_cloud = TagCloud::new().with_title(&manual_title).with_gap("5pt");
-    for (c, l, name) in MANUAL_REVIEW_CRITERIA.iter() {
+    for (c, l, name) in manual_review_criteria().iter() {
         manual_cloud = manual_cloud.add(format!("{c} ({l}) – {name}"), "info");
     }
     builder = builder.add_component(manual_cloud);

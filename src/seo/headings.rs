@@ -39,6 +39,10 @@ pub struct HeadingInfo {
     /// Whether heading sits inside an FAQ context (e.g. details/summary or class/id containing faq)
     #[serde(default)]
     pub in_faq_context: bool,
+    /// Word count of the visible text between this heading and the next heading
+    /// (or end of the content area if it's the last one)
+    #[serde(default)]
+    pub word_count_after: u32,
 }
 
 /// Heading-related SEO issue
@@ -58,8 +62,12 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
 
     let js_code = r#"
     (() => {
-        const headings = [];
-        document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(h => {
+        const headingEls = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+        const countWords = (s) => {
+            const t = s.trim();
+            return t.length ? t.split(/\s+/).length : 0;
+        };
+        const headings = headingEls.map((h, i) => {
             const level = parseInt(h.tagName.charAt(1));
             const text = h.textContent.trim();
             const is_question = text.endsWith('?');
@@ -71,7 +79,31 @@ pub async fn analyze_heading_structure(page: &Page) -> Result<HeadingStructure> 
                 h.closest('[class*="faq"]') ||
                 h.closest('[id*="faq"]')
             );
-            headings.push({ level, text, length: text.length, is_question, in_faq_context });
+
+            // Word count of the visible text between this heading and the next
+            // heading (or end of the content area for the last heading).
+            let word_count_after = 0;
+            try {
+                const range = document.createRange();
+                range.setStartAfter(h);
+                const next = headingEls[i + 1];
+                if (next) {
+                    range.setEndBefore(next);
+                } else if (document.body.lastChild) {
+                    range.setEndAfter(document.body.lastChild);
+                } else {
+                    range.setEnd(document.body, 0);
+                }
+                const frag = range.cloneContents();
+                const container = document.createElement('div');
+                container.appendChild(frag);
+                container.querySelectorAll('script, style, noscript').forEach(e => e.remove());
+                word_count_after = countWords(container.textContent || '');
+            } catch (e) {
+                word_count_after = 0;
+            }
+
+            return { level, text, length: text.length, is_question, in_faq_context, word_count_after };
         });
         return JSON.stringify(headings);
     })()
@@ -210,6 +242,7 @@ mod tests {
             length: 12,
             is_question: false,
             in_faq_context: false,
+            word_count_after: 0,
         };
 
         assert_eq!(heading.level, 1);
@@ -225,6 +258,7 @@ mod tests {
                 length: 76,
                 is_question: true,
                 in_faq_context: false,
+                word_count_after: 0,
             },
             HeadingInfo {
                 level: 2,
@@ -232,6 +266,7 @@ mod tests {
                 length: 82,
                 is_question: false,
                 in_faq_context: false,
+                word_count_after: 0,
             }
         ];
         let res = check_headings_structure(headings);

@@ -37,6 +37,22 @@ pub struct CarbonEstimate {
     pub model: String,
 }
 
+impl CarbonEstimate {
+    /// Formats `grams_co2e_per_view` for display. Truncating a genuinely small
+    /// but nonzero footprint to two decimals reads as "0.00 g" — i.e. "no
+    /// footprint" — rather than "very small footprint" (same failure class as
+    /// the root-cause share-percentage truncation, see
+    /// `output/pdf/single_report.rs`). Near-zero values get a "< 0.01"
+    /// qualifier instead; all other values keep the normal two-decimal format.
+    pub fn format_grams(&self) -> String {
+        if self.grams_co2e_per_view > 0.0 && self.grams_co2e_per_view < 0.005 {
+            "< 0.01".to_string()
+        } else {
+            format!("{:.2}", self.grams_co2e_per_view)
+        }
+    }
+}
+
 /// Resource breakdown by type
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResourceBreakdown {
@@ -348,8 +364,8 @@ fn generate_recommendations(
 
     if carbon.grams_co2e_per_view > 1.0 {
         recommendations.push(format!(
-            "Estimated carbon footprint is {:.2} g CO2e per view ({}). Reduce transfer bytes to improve sustainability.",
-            carbon.grams_co2e_per_view, carbon.rating
+            "Estimated carbon footprint is {} g CO2e per view ({}). Reduce transfer bytes to improve sustainability.",
+            carbon.format_grams(), carbon.rating
         ));
     }
 
@@ -442,6 +458,30 @@ mod tests {
 
         assert_eq!(estimate.rating, "A+");
         assert!(estimate.grams_co2e_per_view < 0.1);
+    }
+
+    #[test]
+    fn test_format_grams_discloses_near_zero_instead_of_truncating() {
+        let near_zero = CarbonEstimate {
+            grams_co2e_per_view: 0.003,
+            rating: "A+".to_string(),
+            model: String::new(),
+        };
+        assert_eq!(near_zero.format_grams(), "< 0.01");
+
+        let normal = CarbonEstimate {
+            grams_co2e_per_view: 0.42,
+            rating: "A".to_string(),
+            model: String::new(),
+        };
+        assert_eq!(normal.format_grams(), "0.42");
+
+        let zero = CarbonEstimate {
+            grams_co2e_per_view: 0.0,
+            rating: "A+".to_string(),
+            model: String::new(),
+        };
+        assert_eq!(zero.format_grams(), "0.00");
     }
 
     #[test]

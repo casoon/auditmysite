@@ -68,13 +68,34 @@ impl From<&Args> for BatchConfig {
     }
 }
 
+/// Error from a single URL audit within a batch.
+///
+/// Preserves the structured `AuditError` produced by the pipeline instead of
+/// erasing it to a string. `Other` only exists for the defensive (effectively
+/// unreachable — see `audit_url_with_pool`) case where the retry loop runs out
+/// of attempts without ever capturing an `AuditError`.
+#[derive(Debug)]
+pub enum BatchAuditError {
+    Audit(AuditError),
+    Other(String),
+}
+
+impl std::fmt::Display for BatchAuditError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BatchAuditError::Audit(e) => write!(f, "{e}"),
+            BatchAuditError::Other(s) => write!(f, "{s}"),
+        }
+    }
+}
+
 /// Result of a single URL audit within a batch
 #[derive(Debug)]
 pub struct BatchResult {
     /// The URL that was audited
     pub url: String,
     /// The audit result (success or error)
-    pub result: std::result::Result<AuditReport, String>,
+    pub result: std::result::Result<AuditReport, BatchAuditError>,
 }
 
 /// Progress callback type: (current, total, url, error_message)
@@ -139,9 +160,10 @@ pub async fn run_concurrent_batch(
                     }
                 }
                 Err(e) => {
-                    warn!("[{}/{}] Failed: {} - {}", current, total, url, e);
+                    let msg = e.to_string();
+                    warn!("[{}/{}] Failed: {} - {}", current, total, url, msg);
                     if let Some(ref cb) = progress {
-                        cb(current, total, &url, Some(e));
+                        cb(current, total, &url, Some(&msg));
                     }
                 }
             }
@@ -197,7 +219,10 @@ pub async fn run_concurrent_batch(
 
     let batch_errors = errors
         .into_iter()
-        .map(|(url, error)| BatchError { url, error })
+        .map(|(url, error)| BatchError {
+            url,
+            error: error.to_string(),
+        })
         .collect();
 
     Ok(BatchReport::from_reports(
@@ -391,7 +416,7 @@ async fn audit_url_with_pool(
     url: &str,
     config: &PipelineConfig,
 ) -> BatchResult {
-    let mut last_error = None;
+    let mut last_error: Option<AuditError> = None;
     // Total budget per attempt: generous multiple of the navigation timeout so that
     // a hung page (browser tab unresponsive, CDP stream frozen) cannot block the
     // whole batch forever via in_flight.next().await.
@@ -430,26 +455,26 @@ async fn audit_url_with_pool(
                     result: Ok(report),
                 };
             }
-            Err(
-                ref e @ AuditError::AuditTimeout { .. }
-                | ref e @ AuditError::PageLoadTimeout { .. },
-            ) => {
+            Err(e @ (AuditError::AuditTimeout { .. } | AuditError::PageLoadTimeout { .. })) => {
                 // Timeouts are not transient — retrying the same URL with the same
                 // budget is unlikely to succeed. Bail immediately.
                 return BatchResult {
                     url: url.to_string(),
-                    result: Err(e.to_string()),
+                    result: Err(BatchAuditError::Audit(e)),
                 };
             }
             Err(e) => {
-                last_error = Some(e.to_string());
+                last_error = Some(e);
             }
         }
     }
 
     BatchResult {
         url: url.to_string(),
-        result: Err(last_error.unwrap_or_else(|| "Unknown error".to_string())),
+        result: Err(match last_error {
+            Some(e) => BatchAuditError::Audit(e),
+            None => BatchAuditError::Other("Unknown error".to_string()),
+        }),
     }
 }
 
@@ -489,7 +514,11 @@ pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
     // Try to detect if this is a sitemap index
     if content.contains("<sitemapindex") {
         info!("Detected sitemap index, extracting sitemap URLs...");
-        let sitemap_urls = extract_sitemap_urls(&content)?;
+        let sitemap_urls =
+            extract_sitemap_urls(&content).map_err(|reason| AuditError::SitemapParseFailed {
+                url: sitemap_url.to_string(),
+                reason,
+            })?;
 
         let mut all_urls = Vec::new();
         for sm_url in sitemap_urls {
@@ -503,7 +532,10 @@ pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
     }
 
     // Regular sitemap - extract URLs
-    let urls = extract_loc_urls(&content)?;
+    let urls = extract_loc_urls(&content).map_err(|reason| AuditError::SitemapParseFailed {
+        url: sitemap_url.to_string(),
+        reason,
+    })?;
     info!("Found {} URLs in sitemap", urls.len());
 
     Ok(urls)
@@ -535,13 +567,46 @@ pub async fn count_sitemap_entries_shallow(sitemap_url: &str) -> Option<usize> {
 /// Extract all <loc> URLs from sitemap XML content.
 /// Handles both `<url><loc>` (regular sitemaps) and `<sitemap><loc>` (sitemap indexes).
 /// Robust against inline elements, CDATA sections, and varying whitespace.
-fn extract_sitemap_urls(content: &str) -> Result<Vec<String>> {
-    Ok(extract_all_loc_values(content))
+///
+/// Only called once the caller has already confirmed `<sitemapindex` is present, so
+/// an empty result here means the index itself has no `<loc>` entries — genuinely
+/// malformed, not just an edge case — and is reported as an error rather than
+/// silently returning no sub-sitemaps (#QA-042).
+fn extract_sitemap_urls(content: &str) -> std::result::Result<Vec<String>, String> {
+    let urls = extract_all_loc_values(content);
+    if urls.is_empty() {
+        return Err("sitemap index contains no <loc> entries for nested sitemaps".to_string());
+    }
+    Ok(urls)
 }
 
-/// Extract <url><loc> URLs from a sitemap
-fn extract_loc_urls(content: &str) -> Result<Vec<String>> {
-    Ok(extract_all_loc_values(content))
+/// Extract <url><loc> URLs from a sitemap.
+///
+/// A zero-URL result is ambiguous on its own: it's the expected shape for a
+/// genuinely empty (but valid) sitemap, but it's also what an HTML error page or
+/// wrong content-type served with HTTP 200 produces, since `extract_all_loc_values`
+/// is a plain substring scan with no content-type awareness (#QA-042). Distinguish
+/// the two with a cheap "does this look like sitemap XML at all" check, so a broken
+/// sitemap URL surfaces as a distinct parse failure instead of a silent "0 URLs".
+fn extract_loc_urls(content: &str) -> std::result::Result<Vec<String>, String> {
+    let urls = extract_all_loc_values(content);
+    if urls.is_empty() && !looks_like_sitemap_xml(content) {
+        return Err(
+            "response does not look like sitemap XML (no <urlset>/<loc> markers found) — \
+             the sitemap URL may be returning an error page or the wrong content type"
+                .to_string(),
+        );
+    }
+    Ok(urls)
+}
+
+/// Cheap heuristic: does this content look like it's at least trying to be sitemap
+/// XML? Only checked against the head of the document — the actual `<loc>` scan
+/// already covers the full content.
+fn looks_like_sitemap_xml(content: &str) -> bool {
+    // `get` (not slicing) since a byte-500 cut could land mid-character.
+    let head = content.get(..content.len().min(500)).unwrap_or(content);
+    head.contains("<?xml") || head.contains("<urlset") || head.contains("<sitemapindex")
 }
 
 /// Extract all <loc>...</loc> values from XML content.
@@ -669,6 +734,32 @@ mod tests {
         let urls = extract_loc_urls(sitemap).unwrap();
         assert_eq!(urls.len(), 1);
         assert_eq!(urls[0], "https://example.com/cdata");
+    }
+
+    #[test]
+    fn test_genuinely_empty_sitemap_is_not_an_error() {
+        // Valid XML, zero <url> entries — must stay Ok(vec![]), not an error (#QA-042).
+        let sitemap = r#"<?xml version="1.0"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"#;
+        let urls = extract_loc_urls(sitemap).unwrap();
+        assert!(urls.is_empty());
+    }
+
+    #[test]
+    fn test_html_error_page_is_a_distinct_parse_failure() {
+        // An HTML error page served with HTTP 200 instead of XML must not be
+        // silently treated as "0 URLs" (#QA-042).
+        let html = "<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>";
+        let result = extract_loc_urls(html);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_malformed_sitemap_index_is_a_distinct_parse_failure() {
+        // <sitemapindex> present but no <loc> entries inside it.
+        let index = r#"<?xml version="1.0"?><sitemapindex></sitemapindex>"#;
+        let result = extract_sitemap_urls(index);
+        assert!(result.is_err());
     }
 
     #[test]

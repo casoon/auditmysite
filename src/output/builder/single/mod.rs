@@ -15,7 +15,7 @@ use self::diagnosis::{
     build_thematic_clusters,
 };
 use self::executive::{build_executive_narrative, build_positive_signals};
-use self::findings::finding_group_from_normalized;
+use self::findings::{finding_group_from_normalized, recompute_occurrence_derived_fields};
 use self::methodology::{build_appendix_block_from_normalized, build_methodology};
 use self::module_details::build_module_details_from_normalized;
 use self::modules_block::build_modules_block_from_normalized;
@@ -92,6 +92,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 } else {
                     existing.occurrence_count += group.occurrence_count;
                 }
+                recompute_occurrence_derived_fields(existing, &i18n);
             } else {
                 seen.insert(key, deduped.len());
                 deduped.push(group);
@@ -885,6 +886,7 @@ mod tests {
             .interactive_findings
             .push(crate::audit::normalized::InteractiveFinding {
                 category: "SkipLink".to_string(),
+                kind: crate::audit::normalized::InteractiveFindingKind::SkipLinkFocusNotMoved,
                 maps_to_finding: None,
                 severity: Severity::High,
                 journey: "skip_link".to_string(),
@@ -892,6 +894,7 @@ mod tests {
                 after_snapshot_label: Some("after".to_string()),
                 message: "Skip link does not move focus".to_string(),
                 fix_suggestion: Some("Move focus to the main content target".to_string()),
+                values: crate::audit::normalized::InteractiveFindingValues::default(),
             });
         report.accessibility_journey = Some(crate::audit::normalized::AccessibilityJourney {
             traces: vec![crate::audit::normalized::JourneyTrace {

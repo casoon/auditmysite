@@ -1,9 +1,9 @@
-//! Audit module trait and supporting types (scaffold for #330 / Phase A1).
+//! Audit module trait and supporting types (#330, Catalog-Refactoring Phase A).
 //!
-//! Defines the shape that every audit module will conform to once Phase A is
-//! complete. This file is purely additive — no existing module uses it yet and
-//! `pipeline.rs` is untouched. Migration of the 15 existing modules onto this
-//! trait happens in A3 (collection modules) and A4 (post-processing modules).
+//! Defines the shape every audit module conforms to. All collection and
+//! post-processing modules implement this trait (see e.g. `security::module`,
+//! `performance::module`), and `pipeline.rs` drives the catalog built on top
+//! of it — this is load-bearing, not unused scaffolding.
 //!
 //! Design choices:
 //! - `async_trait` is used so the trait stays dyn-compatible — A2 builds a

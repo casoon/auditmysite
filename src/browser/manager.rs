@@ -427,7 +427,7 @@ impl BrowserManager {
     }
 
     /// Close the browser gracefully
-    pub async fn close(self) -> Result<()> {
+    pub async fn close(mut self) -> Result<()> {
         info!("Closing browser...");
 
         if let Ok(pages) = self.browser.pages().await {
@@ -436,6 +436,17 @@ impl BrowserManager {
                     warn!("Failed to close page: {}", e);
                 }
             }
+        }
+
+        // Close the Chrome process explicitly so chromiumoxide's own `Drop`
+        // (which runs when `self.browser` is dropped below) sees the child
+        // already exited instead of logging its own "was not closed
+        // manually" warning on every single run.
+        if let Err(e) = self.browser.close().await {
+            warn!("Failed to close browser: {}", e);
+        }
+        if let Err(e) = self.browser.wait().await {
+            warn!("Failed to wait for browser process exit: {}", e);
         }
 
         if let Err(e) = std::fs::remove_dir_all(&self.user_data_dir) {
@@ -448,6 +459,27 @@ impl BrowserManager {
 
         info!("Browser closed");
         Ok(())
+    }
+}
+
+impl Drop for BrowserManager {
+    fn drop(&mut self) {
+        // `close()` already removes the profile directory on the graceful
+        // path; this is a backstop for panics and early returns that skip
+        // it, so a crashed audit doesn't leak a Chrome profile directory
+        // under the OS temp dir forever (#QA-041). Only synchronous
+        // filesystem cleanup is possible here — `Drop` can't run the async
+        // CDP page-close calls `close()` does, but the Chrome child process
+        // itself is already handled by `Browser`'s own `kill_on_drop`.
+        if self.user_data_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&self.user_data_dir) {
+                warn!(
+                    "Failed to remove browser profile directory {} on drop: {}",
+                    self.user_data_dir.display(),
+                    e
+                );
+            }
+        }
     }
 }
 

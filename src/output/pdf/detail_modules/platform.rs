@@ -36,7 +36,8 @@ pub(in crate::output::pdf) fn render_security(
         .count();
     builder = builder.add_component(
         MetricStrip::new(vec![
-            MetricStripItem::new("Header", format!("{}/9", header_count)).with_accent("#0f766e"),
+            MetricStripItem::new("Header", format!("{}/{}", header_count, sec.headers.len()))
+                .with_accent("#0f766e"),
             MetricStripItem::new(
                 "HTTPS",
                 if sec

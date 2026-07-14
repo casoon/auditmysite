@@ -1,5 +1,34 @@
 use super::*;
 
+/// Human-readable label for a throttle profile shown in the throttled-network
+/// table. `ThrottledPerfEntry::profile_name` is `format!("{:?}", ThrottleProfile)`
+/// (see `output::builder::single::module_details`) — "Slow3G"/"Fast3G" already
+/// read fine, but "LhMobile" is an internal preset name, not something a report
+/// reader recognizes. Presentation-only: the underlying enum/JSON value is
+/// untouched.
+fn display_profile_label(profile_name: &str) -> &str {
+    match profile_name {
+        "LhMobile" => "Lighthouse Mobile",
+        other => other,
+    }
+}
+
+/// Finds the throttled-profile row with the worst (highest) LCP, parsed back
+/// out of its formatted `"{ms} ms"` display string. Used to cross-reference
+/// the overview prose's worst-case LCP claim to the actual table row it comes
+/// from, without hardcoding which profile that is (issue #polish).
+fn worst_throttled_lcp(profiles: &[ThrottledPerfEntry]) -> Option<(&str, f64)> {
+    profiles
+        .iter()
+        .filter_map(|p| {
+            p.lcp
+                .strip_suffix(" ms")
+                .and_then(|ms| ms.parse::<f64>().ok())
+                .map(|ms| (p.profile_name.as_str(), ms))
+        })
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+}
+
 pub(in crate::output::pdf) fn render_performance(
     mut builder: renderreport::engine::ReportBuilder,
     perf: &PerformancePresentation,
@@ -20,6 +49,22 @@ pub(in crate::output::pdf) fn render_performance(
     let perf_takeaway = super::first_sentence(&perf.interpretation);
     builder = super::module_chapter_opener(builder, &perf_section_title, &perf_takeaway, is_first);
 
+    // If the interpretation prose names a worst-case throttled LCP (see
+    // `audit::performance_interpretation::LATE_THROTTLED_LCP_THRESHOLD_MS`),
+    // cross-reference which profile/table row that number actually comes
+    // from — the throttled table appears a page later with no link back
+    // otherwise.
+    let mut perf_overview_text = perf.interpretation.clone();
+    if let Some((profile_name, ms)) = worst_throttled_lcp(&perf.throttled_profiles) {
+        if ms > crate::audit::performance_interpretation::LATE_THROTTLED_LCP_THRESHOLD_MS {
+            perf_overview_text.push(' ');
+            perf_overview_text.push_str(&i18n.t_args(
+                "perf-worst-case-xref",
+                &[("profile", display_profile_label(profile_name).to_string())],
+            ));
+        }
+    }
+
     builder = builder
         .add_component(
             ScoreCard::new(super::module_score_caption(i18n), perf.score)
@@ -31,7 +76,7 @@ pub(in crate::output::pdf) fn render_performance(
             Label::new(format!(
                 "{}: {}",
                 i18n.t("pdf-perf-overview-title"),
-                perf.interpretation
+                perf_overview_text
             ))
             .with_size("10.5pt")
             .with_color(crate::output::pdf::design::tokens::NEUTRAL),
@@ -184,7 +229,7 @@ pub(in crate::output::pdf) fn render_performance(
         .with_title(&title);
         for entry in &perf.throttled_profiles {
             table = table.add_row(vec![
-                entry.profile_name.clone(),
+                display_profile_label(&entry.profile_name).to_string(),
                 entry.lcp.clone(),
                 entry.tbt.clone(),
                 entry.cls.clone(),
@@ -436,4 +481,52 @@ pub(in crate::output::pdf) fn render_performance(
     }
 
     builder
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_profile_label_relabels_only_lh_mobile() {
+        assert_eq!(display_profile_label("LhMobile"), "Lighthouse Mobile");
+        assert_eq!(display_profile_label("Slow3G"), "Slow3G");
+        assert_eq!(display_profile_label("Fast3G"), "Fast3G");
+        assert_eq!(display_profile_label("Unthrottled"), "Unthrottled");
+    }
+
+    fn entry(profile_name: &str, lcp: &str) -> ThrottledPerfEntry {
+        ThrottledPerfEntry {
+            profile_name: profile_name.to_string(),
+            lcp: lcp.to_string(),
+            tbt: "0 ms".to_string(),
+            cls: "0.000".to_string(),
+            score: 50,
+        }
+    }
+
+    #[test]
+    fn worst_throttled_lcp_picks_the_highest_value_regardless_of_order() {
+        let profiles = vec![
+            entry("Fast3G", "1224 ms"),
+            entry("Slow3G", "6000 ms"),
+            entry("LhMobile", "1500 ms"),
+        ];
+        let (profile, ms) = worst_throttled_lcp(&profiles).expect("worst entry");
+        assert_eq!(profile, "Slow3G");
+        assert_eq!(ms, 6000.0);
+    }
+
+    #[test]
+    fn worst_throttled_lcp_skips_unparseable_rows() {
+        let profiles = vec![entry("Slow3G", "\u{2014}"), entry("Fast3G", "1224 ms")];
+        let (profile, ms) = worst_throttled_lcp(&profiles).expect("worst entry");
+        assert_eq!(profile, "Fast3G");
+        assert_eq!(ms, 1224.0);
+    }
+
+    #[test]
+    fn worst_throttled_lcp_none_when_empty() {
+        assert!(worst_throttled_lcp(&[]).is_none());
+    }
 }

@@ -4,8 +4,22 @@
 //! keyboard focus indicator is visible.
 //! Level AA
 //!
-//! Note: Full focus-visible checking requires CSS inspection via CDP.
-//! This rule checks for common AX tree patterns that indicate focus issues.
+//! Note: Full focus-visible checking requires CSS inspection via CDP — see
+//! `focus_visible_css.rs` for the check that inspects `:focus` stylesheet
+//! rules for suppressed outlines. This AX-tree-only rule is limited to the
+//! degenerate case of a page with no focusable elements at all.
+//!
+//! An earlier version of this rule also flagged natively-focusable roles
+//! (button/link/radio/…) carrying `tabindex="-1"` as removed from the tab
+//! order. That check never fired against real CDP data — Chrome's
+//! Accessibility tree does not expose a `tabindex` AX property (`focusable`
+//! only reflects whether the element can receive focus at all, not whether
+//! it is in the sequential tab order) — and, had it worked, it would have
+//! misflagged the widely-recommended "roving tabindex" ARIA pattern (e.g.
+//! WAI-ARIA APG radio groups and menus, where every non-active item
+//! legitimately carries `tabindex="-1"`). Reachability via tabindex is
+//! already covered under 2.1.1 by `keyboard.rs`/`click_handlers.rs`, so the
+//! dead branch was removed rather than reimplemented here.
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -37,48 +51,6 @@ pub fn check_focus_visible(tree: &AXTree) -> WcagResults {
         }
 
         focusable_count += 1;
-
-        // Check for tabindex=-1 on normally-focusable interactive elements
-        // which removes them from tab order (potential focus visibility issue)
-        let role = node.role.as_deref().unwrap_or("");
-        let is_natively_focusable = matches!(
-            role,
-            "button"
-                | "link"
-                | "textbox"
-                | "searchbox"
-                | "combobox"
-                | "listbox"
-                | "checkbox"
-                | "radio"
-                | "switch"
-                | "slider"
-                | "menuitem"
-        );
-
-        if is_natively_focusable {
-            if let Some(tabindex) = node.get_property_int("tabindex") {
-                if tabindex == -1 {
-                    let violation = Violation::new(
-                        FOCUS_VISIBLE_RULE.id,
-                        FOCUS_VISIBLE_RULE.name,
-                        FOCUS_VISIBLE_RULE.level,
-                        Severity::Medium,
-                        format!(
-                            "Interactive {} element removed from tab order (tabindex=-1)",
-                            role
-                        ),
-                        node.node_id.clone(),
-                    )
-                    .with_role(node.role.clone())
-                    .with_name(node.name.clone())
-                    .with_fix("Ensure interactive elements remain keyboard accessible unless there's a valid reason to remove them")
-                    .with_help_url(FOCUS_VISIBLE_RULE.help_url);
-
-                    results.add_violation(violation);
-                }
-            }
-        }
     }
 
     // If there are no focusable elements at all on the page, that's a problem
@@ -91,6 +63,7 @@ pub fn check_focus_visible(tree: &AXTree) -> WcagResults {
             "Page has no focusable interactive elements",
             "root",
         )
+        .with_selector("root")
         .with_fix("Ensure interactive elements are keyboard focusable")
         .with_help_url(FOCUS_VISIBLE_RULE.help_url);
 
@@ -142,11 +115,22 @@ mod tests {
         assert_eq!(results.violations.len(), 0);
     }
 
+    /// Regression guard: `tabindex="-1"` on a normally-focusable role must
+    /// NOT be flagged. This used to raise a "removed from tab order"
+    /// violation, but that check read an AX `tabindex` property Chrome's
+    /// CDP Accessibility tree never actually populates (so it was dead code
+    /// in production), and — had it worked — it would have misflagged the
+    /// widely-recommended "roving tabindex" ARIA pattern (e.g. radio groups
+    /// and menus, where every non-active item legitimately carries
+    /// `tabindex="-1"`). See module docs.
     #[test]
-    fn test_button_removed_from_tab_order() {
-        let tree = AXTree::from_nodes(vec![interactive_node("1", "button", Some(-1))]);
+    fn test_tabindex_minus_one_is_not_flagged() {
+        let tree = AXTree::from_nodes(vec![
+            interactive_node("1", "radio", Some(0)),
+            interactive_node("2", "radio", Some(-1)),
+            interactive_node("3", "radio", Some(-1)),
+        ]);
         let results = check_focus_visible(&tree);
-        assert_eq!(results.violations.len(), 1);
-        assert!(results.violations[0].message.contains("tabindex=-1"));
+        assert_eq!(results.violations.len(), 0);
     }
 }

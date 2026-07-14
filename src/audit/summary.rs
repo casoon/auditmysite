@@ -592,7 +592,8 @@ fn build_problem_type_label(
 mod tests {
     use super::*;
     use crate::audit::normalized::{
-        NormalizedFinding, NormalizedReport, ReportVisibilityData, ScoreImpactData, SeverityCounts,
+        ComplexityKind, ExpectedImpactKind, NormalizedFinding, NormalizedReport,
+        ReportVisibilityData, ScoreEffect, ScoreImpactData, SeverityCounts,
     };
     use crate::taxonomy::Severity;
     use crate::WcagLevel;
@@ -635,7 +636,13 @@ mod tests {
             verification: "automatically_confirmed".into(),
             complexity: "low".into(),
             complexity_reason: "Test fixture".into(),
+            complexity_kind: ComplexityKind::LowScope,
             expected_impact: "Test fixture".into(),
+            expected_impact_kind: ExpectedImpactKind::Wcag {
+                occurrence_count: count,
+                score_effect: ScoreEffect::Low,
+                wcag_level: "A".into(),
+            },
             bfsg_relevance: "medium".into(),
             remediation_priority: "normal".into(),
             occurrences: vec![],

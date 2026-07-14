@@ -1562,6 +1562,143 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    (
+        "seo.headings.missing_h1",
+        RuleExplanation {
+            customer_title: "Fehlende H1-Überschrift",
+            customer_title_en: "Missing H1 heading",
+            customer_description:
+                "Der Seite fehlt eine H1-Überschrift. Ohne sie ist der Seitenzweck für \
+                 Suchmaschinen und Screenreader-Nutzer nicht auf den ersten Blick erkennbar.",
+            customer_description_en:
+                "The page has no H1 heading. Without one, its purpose isn't immediately \
+                 recognizable to search engines or screen reader users.",
+            user_impact:
+                "Screenreader-Nutzer, die sich per Überschriftenliste orientieren, finden \
+                 keinen Einstiegspunkt, der das Hauptthema der Seite benennt.",
+            user_impact_en:
+                "Screen reader users who orient via the heading list find no entry point \
+                 naming the page's main topic.",
+            typical_cause:
+                "Das Seitentemplate setzt keine H1, oder ein Baustein, der normalerweise \
+                 die H1 liefert, wurde entfernt oder falsch konfiguriert.",
+            typical_cause_en:
+                "The page template doesn't emit an H1, or a component that normally \
+                 supplies it was removed or misconfigured.",
+            recommendation:
+                "Jeder Seite genau eine H1 geben, die das Hauptthema benennt und möglichst \
+                 weit oben im Inhalt steht.",
+            recommendation_en:
+                "Give every page exactly one H1 naming the main topic, placed near the top \
+                 of the content.",
+            technical_note:
+                "WCAG 1.3.1 (Info and Relationships, Level A) und gängige SEO-Praxis \
+                 verlangen eine eindeutige, programmatisch erkennbare H1 pro Seite.",
+            technical_note_en:
+                "WCAG 1.3.1 (Info and Relationships, Level A) and standard SEO practice \
+                 both expect one unambiguous, programmatically determinable H1 per page.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<div class=\"page-title\">Page title</div>"),
+            example_good: Some("<h1>Page title</h1>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "seo.headings.multiple_h1",
+        RuleExplanation {
+            customer_title: "Mehrere H1-Überschriften",
+            customer_title_en: "Multiple H1 headings",
+            customer_description:
+                "Die Seite enthält mehr als eine H1-Überschrift. Das untergräbt die \
+                 inhaltliche Hierarchie — Suchmaschinen und Screenreader können keinen \
+                 eindeutigen Hauptfokus der Seite ableiten.",
+            customer_description_en:
+                "The page contains more than one H1 heading. This undermines the content \
+                 hierarchy — search engines and screen readers cannot derive a single main \
+                 focus for the page.",
+            user_impact:
+                "Screenreader-Nutzer, die per Überschriftenliste navigieren, sehen mehrere \
+                 gleichrangige Haupttitel und können das eigentliche Seitenthema nicht \
+                 eindeutig zuordnen.",
+            user_impact_en:
+                "Screen reader users navigating via the heading list see several \
+                 equally-ranked top-level titles and can't reliably identify the page's \
+                 actual topic.",
+            typical_cause:
+                "Ein wiederverwendbarer Baustein (z. B. ein Hero- oder Logo-Bereich) setzt \
+                 selbst eine H1, unabhängig davon, ob die Seite bereits eine eigene hat.",
+            typical_cause_en:
+                "A reusable component (e.g. a hero or logo block) emits its own H1 \
+                 regardless of whether the page already has one.",
+            recommendation:
+                "Genau eine H1 pro Seite verwenden. Wiederverwendbare Bausteine sollten \
+                 ihre Überschriftenebene konfigurierbar machen statt sie fest auf H1 zu setzen.",
+            recommendation_en:
+                "Use exactly one H1 per page. Reusable components should make their \
+                 heading level configurable rather than hard-coding H1.",
+            technical_note:
+                "WCAG 1.3.1 (Info and Relationships, Level A) und SEO-Praxis erwarten eine \
+                 eindeutige H1 pro Seite; mehrere H1 gelten als schwaches Strukturmerkmal.",
+            technical_note_en:
+                "WCAG 1.3.1 (Info and Relationships, Level A) and SEO practice both expect \
+                 a single H1 per page; multiple H1s are treated as a weak structural signal.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<h1>Site name</h1>\n...\n<h1>Article title</h1>"),
+            example_good: Some("<h1>Article title</h1>\n<p class=\"site-name\">Site name</p>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "seo.headings.empty_heading",
+        RuleExplanation {
+            customer_title: "Leere Überschrift",
+            customer_title_en: "Empty heading",
+            customer_description:
+                "Eine Überschrift auf der Seite enthält keinen Text. Leere Überschriften \
+                 erzeugen Navigationsprobleme für Screenreader-Nutzer und werden von \
+                 Suchmaschinen als schwaches Signal gewertet.",
+            customer_description_en:
+                "A heading on the page contains no text. Empty headings cause navigation \
+                 problems for screen reader users and are treated as a weak signal by \
+                 search engines.",
+            user_impact:
+                "Screenreader-Nutzer, die per Überschrift springen, landen auf einem \
+                 unbenannten Punkt ohne erkennbaren Inhalt.",
+            user_impact_en:
+                "Screen reader users jumping by heading land on an unnamed point with no \
+                 recognizable content.",
+            typical_cause:
+                "Eine Komponente rendert ihr Überschriften-Element unabhängig davon, ob ein \
+                 Titel-Feld im CMS befüllt wurde, oder der Text wird ausschließlich über ein \
+                 Hintergrundbild statt echten Text vermittelt.",
+            typical_cause_en:
+                "A component renders its heading element regardless of whether the CMS \
+                 title field was filled in, or the text is conveyed only via a background \
+                 image instead of real text.",
+            recommendation:
+                "Leere Überschriften-Elemente entfernen oder mit echtem, beschreibendem \
+                 Text befüllen. Komponenten sollten das Überschriften-Element nur rendern, \
+                 wenn ein Titel vorhanden ist.",
+            recommendation_en:
+                "Remove empty heading elements or fill them with real, descriptive text. \
+                 Components should only render the heading element when a title is present.",
+            technical_note:
+                "WCAG 1.3.1 (Info and Relationships, Level A) und 2.4.6 (Headings and \
+                 Labels, Level AA) erfordern, dass Überschriften einen erkennbaren, \
+                 programmatisch verfügbaren Text tragen.",
+            technical_note_en:
+                "WCAG 1.3.1 (Info and Relationships, Level A) and 2.4.6 (Headings and \
+                 Labels, Level AA) require headings to carry recognizable, programmatically \
+                 available text.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<h2></h2>"),
+            example_good: Some("<h2>Section title</h2>"),
+            example_decorative: None,
+        },
+    ),
 ];
 
 #[cfg(test)]

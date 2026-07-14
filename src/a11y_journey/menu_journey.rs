@@ -3,7 +3,9 @@
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{focus, keyboard, pointer, stability};
 use crate::patterns::JourneyCandidate;
@@ -96,22 +98,16 @@ pub async fn test(
     });
 
     if !menu_visible {
-        findings.push(InteractiveFinding {
-            category: "MenuJourney".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_open_click".to_string()),
-            message: "Menu trigger was clicked but menu did not open. \
-                Keyboard users cannot access menu items."
-                .to_string(),
-            fix_suggestion: Some(
-                "Set aria-expanded=\"true\" on the trigger and make the menu items visible \
-                when the trigger is activated."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "MenuJourney",
+            InteractiveFindingKind::MenuNotOpened,
+            None,
+            Severity::Medium,
+            journey_name.clone(),
+            None,
+            Some("after_open_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
         return Ok((trace, findings));
     }
 
@@ -139,20 +135,16 @@ pub async fn test(
     // Focus in menu is recommended but not always enforced — emit as Info.
     let _ = expanded_before; // unused for now
     if !focus_in_menu {
-        findings.push(InteractiveFinding {
-            category: "MenuJourney".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Low,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_open_click".to_string()),
-            message: "After opening menu, focus did not move to menu items. \
-                Keyboard users may not know the menu opened."
-                .to_string(),
-            fix_suggestion: Some(
-                "Move focus to the first menu item after the menu opens.".to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "MenuJourney",
+            InteractiveFindingKind::MenuFocusNotMoved,
+            None,
+            Severity::Low,
+            journey_name.clone(),
+            None,
+            Some("after_open_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // Press Escape and verify menu closes.
@@ -192,20 +184,16 @@ pub async fn test(
     });
 
     if !menu_closed {
-        findings.push(InteractiveFinding {
-            category: "MenuJourney".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name,
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_escape".to_string()),
-            message: "Escape key does not close the menu.".to_string(),
-            fix_suggestion: Some(
-                "Add a keydown handler that closes the menu and returns focus to the trigger \
-                when Escape is pressed."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "MenuJourney",
+            InteractiveFindingKind::MenuEscapeNotClosing,
+            None,
+            Severity::High,
+            journey_name,
+            None,
+            Some("after_escape".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     Ok((trace, findings))

@@ -12,13 +12,21 @@
 use chromiumoxide::cdp::browser_protocol::dom::{
     BackendNodeId, DescribeNodeParams, GetOuterHtmlParams, ResolveNodeParams,
 };
-use chromiumoxide::cdp::js_protocol::runtime::CallFunctionOnParams;
+use chromiumoxide::cdp::js_protocol::runtime::{CallFunctionOnParams, RemoteObjectId};
 use chromiumoxide::Page;
 use tracing::warn;
 
 use super::code_gen::{generate_suggested_code, truncate_html};
 use super::tree::AXTree;
 use crate::wcag::types::Violation;
+
+/// Identifies the DOM node evidence should be resolved from: either a plain
+/// backend node id, or a live JS object reference (used when we've redirected
+/// to a shadow host — see [`effective_node_ref`]).
+enum NodeRef {
+    Backend(i64),
+    Object(RemoteObjectId),
+}
 
 // ─── Public entry point ──────────────────────────────────────────────────────
 
@@ -51,7 +59,9 @@ pub async fn enrich_violations_with_page(
             }
         };
 
-        match describe_node_selector(page, backend_id).await {
+        let node_ref = effective_node_ref(page, backend_id).await;
+
+        match describe_node_selector(page, &node_ref).await {
             Some(sel) => {
                 violation
                     .evidence
@@ -69,7 +79,7 @@ pub async fn enrich_violations_with_page(
         }
 
         // Fetch outer HTML and generate a concrete code fix
-        if let Some(raw_html) = get_outer_html(page, backend_id).await {
+        if let Some(raw_html) = get_outer_html(page, &node_ref).await {
             // Two 1.1.1 false-positive classes are demoted to warnings so they do
             // not inflate violation counts or scoring (#487):
             //   1. Lazy-load <img> placeholders (data-src/data-srcset/lazyload)
@@ -139,13 +149,76 @@ fn is_decorative_svg_icon(html: &str) -> bool {
 
 // ─── CDP element resolution ───────────────────────────────────────────────────
 
-/// Call CDP `DOM.describeNode` for the given backend node ID and build a
-/// human-readable selector string from the returned element data.
-/// Falls back to a parent-context lookup for bare elements with no id/class/attrs.
-async fn describe_node_selector(page: &Page, backend_node_id: i64) -> Option<String> {
-    let params = DescribeNodeParams::builder()
-        .backend_node_id(BackendNodeId::new(backend_node_id))
-        .build();
+/// Detects whether `backend_node_id` refers to a node inside a shadow root —
+/// e.g. Chrome's own UA-internal rendering for `<input type="image">`, whose
+/// exposed "image" AX node resolves to an internal shadow element that
+/// doesn't exist anywhere in the author's markup (#QA-037: a finding cited
+/// `<img id="alttext-image" …>`, a Chrome-internal broken-image placeholder,
+/// while the actual authored element — the `<input type="image">` itself —
+/// was reported correctly by a separate DOM-based check). When found,
+/// redirects evidence resolution to the shadow host element instead, which
+/// IS part of the author's DOM. Falls back to the original backend node id
+/// on any resolution failure or when the node isn't inside a shadow root.
+async fn effective_node_ref(page: &Page, backend_node_id: i64) -> NodeRef {
+    let fallback = NodeRef::Backend(backend_node_id);
+
+    let Some(object_id) = resolve_object_id(page, &fallback).await else {
+        return fallback;
+    };
+
+    let js = r#"function() {
+        var root = this.getRootNode();
+        return (root && root.host) ? root.host : null;
+    }"#;
+    let Ok(call) = CallFunctionOnParams::builder()
+        .function_declaration(js)
+        .object_id(object_id)
+        .build()
+    else {
+        return fallback;
+    };
+
+    let Ok(result) = page.execute(call).await else {
+        return fallback;
+    };
+
+    match result.result.result.object_id.clone() {
+        Some(host_object_id) => NodeRef::Object(host_object_id),
+        None => fallback,
+    }
+}
+
+/// Resolve a [`NodeRef`] to a live JS object id, via `DOM.resolveNode` for a
+/// backend node id or directly for an already-resolved object reference.
+async fn resolve_object_id(page: &Page, node_ref: &NodeRef) -> Option<RemoteObjectId> {
+    match node_ref {
+        NodeRef::Object(object_id) => Some(object_id.clone()),
+        NodeRef::Backend(id) => {
+            let resolve = ResolveNodeParams::builder()
+                .backend_node_id(BackendNodeId::new(*id))
+                .build();
+
+            let resolved = page
+                .execute(resolve)
+                .await
+                .map_err(|e| warn!("DOM.resolveNode failed: {}", e))
+                .ok()?;
+
+            resolved.object.object_id.clone()
+        }
+    }
+}
+
+/// Call CDP `DOM.describeNode` for the given node and build a human-readable
+/// selector string from the returned element data. Falls back to a
+/// parent-context lookup for bare elements with no id/class/attrs.
+async fn describe_node_selector(page: &Page, node_ref: &NodeRef) -> Option<String> {
+    let builder = DescribeNodeParams::builder();
+    let builder = match node_ref {
+        NodeRef::Backend(id) => builder.backend_node_id(BackendNodeId::new(*id)),
+        NodeRef::Object(object_id) => builder.object_id(object_id.clone()),
+    };
+    let params = builder.build();
 
     let response = page
         .execute(params)
@@ -205,7 +278,7 @@ async fn describe_node_selector(page: &Page, backend_node_id: i64) -> Option<Str
     // If we have just a bare tag (no distinguishing info), try to get parent context
     // via DOM.resolveNode + Runtime.callFunctionOn so the developer can locate it.
     if selector == tag {
-        if let Some(ctx) = parent_context_selector(page, backend_node_id).await {
+        if let Some(ctx) = parent_context_selector(page, node_ref).await {
             return Some(ctx);
         }
     }
@@ -213,21 +286,10 @@ async fn describe_node_selector(page: &Page, backend_node_id: i64) -> Option<Str
     Some(selector)
 }
 
-/// Use `DOM.resolveNode` → `Runtime.callFunctionOn` to run JS on the element
-/// and return `"parentSel > tag"` (e.g. `a.nav-link > svg`).
-async fn parent_context_selector(page: &Page, backend_node_id: i64) -> Option<String> {
-    // Resolve backend node ID to a JS remote object
-    let resolve = ResolveNodeParams::builder()
-        .backend_node_id(BackendNodeId::new(backend_node_id))
-        .build();
-
-    let resolved = page
-        .execute(resolve)
-        .await
-        .map_err(|e| warn!("DOM.resolveNode failed: {}", e))
-        .ok()?;
-
-    let object_id = resolved.object.object_id.clone()?;
+/// Use `Runtime.callFunctionOn` to run JS on the element and return
+/// `"parentSel > tag"` (e.g. `a.nav-link > svg`).
+async fn parent_context_selector(page: &Page, node_ref: &NodeRef) -> Option<String> {
+    let object_id = resolve_object_id(page, node_ref).await?;
 
     // Run JS on the element: returns a precise path up to 3 levels deep,
     // including :nth-of-type when siblings of the same tag exist.
@@ -290,12 +352,15 @@ async fn parent_context_selector(page: &Page, backend_node_id: i64) -> Option<St
         .map(|s| s.to_string())
 }
 
-/// Call CDP `DOM.getOuterHTML` for the given backend node ID.
+/// Call CDP `DOM.getOuterHTML` for the given node.
 /// Returns the raw HTML string, or `None` on failure.
-async fn get_outer_html(page: &Page, backend_node_id: i64) -> Option<String> {
-    let params = GetOuterHtmlParams::builder()
-        .backend_node_id(BackendNodeId::new(backend_node_id))
-        .build();
+async fn get_outer_html(page: &Page, node_ref: &NodeRef) -> Option<String> {
+    let builder = GetOuterHtmlParams::builder();
+    let builder = match node_ref {
+        NodeRef::Backend(id) => builder.backend_node_id(BackendNodeId::new(*id)),
+        NodeRef::Object(object_id) => builder.object_id(object_id.clone()),
+    };
+    let params = builder.build();
 
     let response = page
         .execute(params)

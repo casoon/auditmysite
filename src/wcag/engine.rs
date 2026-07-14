@@ -28,10 +28,10 @@ use super::rules::{
     check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
     check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_language,
     check_link_purpose, check_link_purpose_link_only, check_list_structure,
-    check_media_alternative, check_media_rules, check_non_text_contrast, check_page_titled,
-    check_parsing, check_region, check_section_headings, check_skip_link, check_status_messages,
-    check_summary_name, check_svg_rules, check_table_extended, check_table_rules,
-    check_text_alternatives, check_unusual_words, check_widget_rules,
+    check_media_alternative, check_media_rules, check_page_titled, check_parsing, check_region,
+    check_section_headings, check_skip_link, check_status_messages, check_summary_name,
+    check_svg_rules, check_table_extended, check_table_rules, check_text_alternatives,
+    check_unusual_words, check_widget_rules,
 };
 use super::types::WcagResults;
 use crate::accessibility::AXTree;
@@ -401,14 +401,10 @@ fn run_level_aa_rules(tree: &AXTree, results: &mut WcagResults, filter: &RuleFil
     // page rules (check_resize_text_with_page / check_meta_viewport_large_with_page
     // in PAGE_RULES) — the AX tree has no `viewport` property (#QA-030).
 
-    // 1.4.11 Non-text Contrast (Level AA)
-    run_if_allowed!(
-        filter,
-        "non-text-contrast",
-        check_non_text_contrast,
-        results,
-        tree
-    );
+    // 1.4.11 Non-text Contrast (Level AA) now runs as a DOM page rule
+    // (check_non_text_contrast_css_with_page in PAGE_RULES) — the AX tree
+    // has no CSS/color data, so a tree-only check could not verify real
+    // contrast (#QA-non-text-contrast).
 
     // 2.4.6 Headings and Labels (Level AA)
     run_if_allowed!(filter, "heading-order", check_headings, results, tree);

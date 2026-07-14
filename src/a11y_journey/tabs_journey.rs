@@ -3,7 +3,9 @@
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{focus, keyboard, pointer, stability};
 use crate::patterns::JourneyCandidate;
@@ -110,22 +112,16 @@ pub async fn test(
     });
 
     if !selection_moved {
-        findings.push(InteractiveFinding {
-            category: "TabsJourney".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: Some("after_first_tab_click".to_string()),
-            after_snapshot_label: None,
-            message: "Arrow key navigation does not move selection between tabs. \
-                Keyboard users cannot navigate the tab list."
-                .to_string(),
-            fix_suggestion: Some(
-                "Implement the roving tabindex pattern: ArrowRight moves focus and \
-                aria-selected to the next tab."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "TabsJourney",
+            InteractiveFindingKind::TabsSelectionNotMoved,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            Some("after_first_tab_click".to_string()),
+            None,
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // Check: focus is on a tab element after the arrow key press.
@@ -139,21 +135,16 @@ pub async fn test(
         .unwrap_or(false);
 
     if !focus_on_tab {
-        findings.push(InteractiveFinding {
-            category: "TabsJourney".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name,
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: "After pressing ArrowRight in the tab list, focus is not on a tab element."
-                .to_string(),
-            fix_suggestion: Some(
-                "Ensure arrow key navigation also moves focus (not just selection) \
-                to the next tab in the roving tabindex pattern."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "TabsJourney",
+            InteractiveFindingKind::TabsFocusNotOnTab,
+            None,
+            Severity::Medium,
+            journey_name,
+            None,
+            None,
+            InteractiveFindingValues::default(),
+        ));
     }
 
     Ok((trace, findings))

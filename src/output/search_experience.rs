@@ -43,6 +43,9 @@ pub fn build_search_experience(
     });
 
     if let Some(ux) = normalized.raw_ux {
+        let has_issue_for = |kind: crate::ux::UxDimensionKind| {
+            ux.issues.iter().any(|issue| issue.kind.dimension() == kind)
+        };
         components.push(SearchExperienceComponent {
             label: if en {
                 "Content clarity".into()
@@ -57,6 +60,7 @@ pub fn build_search_experience(
                 ux.content_clarity.kind,
                 ux.content_clarity.score,
                 en,
+                has_issue_for(ux.content_clarity.kind),
             ),
         });
         components.push(SearchExperienceComponent {
@@ -71,6 +75,7 @@ pub fn build_search_experience(
                 ux.trust_signals.kind,
                 ux.trust_signals.score,
                 en,
+                has_issue_for(ux.trust_signals.kind),
             ),
         });
         components.push(SearchExperienceComponent {
@@ -85,6 +90,7 @@ pub fn build_search_experience(
                 ux.visual_hierarchy.kind,
                 ux.visual_hierarchy.score,
                 en,
+                has_issue_for(ux.visual_hierarchy.kind),
             ),
         });
     } else if let Some(profile) = seo.content_profile.as_ref() {
@@ -309,7 +315,8 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<St
                 crate::ux::ux_dimension_summary(
                     ux.content_clarity.kind,
                     ux.content_clarity.score,
-                    en
+                    en,
+                    false,
                 )
             ));
         }
@@ -322,7 +329,12 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<St
                     "Vertrauenssignale"
                 },
                 ux.trust_signals.score,
-                crate::ux::ux_dimension_summary(ux.trust_signals.kind, ux.trust_signals.score, en)
+                crate::ux::ux_dimension_summary(
+                    ux.trust_signals.kind,
+                    ux.trust_signals.score,
+                    en,
+                    false,
+                )
             ));
         }
     }

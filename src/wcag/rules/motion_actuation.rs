@@ -1,4 +1,4 @@
-//! WCAG 2.5.4 Motion Actuation (Level AAA)
+//! WCAG 2.5.4 Motion Actuation (Level A)
 //!
 //! Functionality that can be operated by device motion or user motion can also
 //! be operated by user interface components, and responding to the motion can
@@ -12,12 +12,12 @@ use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
 pub const MOTION_ACTUATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.4",
     name: "Motion Actuation",
-    level: WcagLevel::AAA,
+    level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Functionality triggered by device motion can also be activated by UI components",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/motion-actuation.html",
     axe_id: "motion-actuation",
-    tags: &["wcag2aaa", "wcag254", "cat.sensory-and-visual-cues"],
+    tags: &["wcag2a", "wcag254", "cat.sensory-and-visual-cues"],
 };
 
 const MOTION_ACTUATION_JS: &str = r#"

@@ -41,10 +41,14 @@ pub fn generate_suggested_code(
         "3.1.1" => suggest_lang(html_snippet),
         "1.4.3" | "1.4.6" => suggest_contrast(fix_suggestion),
         "4.1.2" => suggest_name_role_value(html_snippet, role),
-        "2.4.4" | "2.4.9" => suggest_link_purpose(html_snippet),
         "1.3.1" => suggest_form_label(html_snippet, role),
         "2.1.1" | "2.1.3" => suggest_keyboard(html_snippet, role),
         "1.3.5" => suggest_autocomplete(html_snippet),
+        // 2.4.4/2.4.9 (link purpose) has no generator: a meaningful accessible
+        // name requires knowing the link's actual destination/intent, which
+        // can't be inferred from the HTML alone — a placeholder like
+        // "Link target" would be exactly as non-descriptive as the violation
+        // itself (#QA-039 report review).
         _ => None,
     }
 }
@@ -132,15 +136,6 @@ fn suggest_name_role_value(html_snippet: Option<&str>, role: Option<&str>) -> Op
 
     // Generic names require page-specific intent. Avoid emitting placeholder
     // text into JSON/PDF when no concrete label can be inferred.
-    None
-}
-
-fn suggest_link_purpose(html_snippet: Option<&str>) -> Option<String> {
-    let html = html_snippet?;
-    if html.contains("<a ") || html.starts_with("<a>") {
-        let fixed = inject_attribute(html, "aria-label", "Link target");
-        return Some(fixed);
-    }
     None
 }
 

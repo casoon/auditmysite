@@ -86,10 +86,15 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
     let shown = deduped.len().min(10);
     for (finding, count) in &deduped[..shown] {
         let sev = map_severity(&finding.severity);
-        let body = if let Some(ref fix) = finding.fix_suggestion {
-            format!("{} — {}", finding.message, fix)
+        // Re-derive message/fix_suggestion in the run language. The stored
+        // `finding.message`/`finding.fix_suggestion` are baked in canonical
+        // English (#406); the PDF localizes them from `kind` + `values`.
+        let (message, fix_suggestion) =
+            crate::audit::normalized::interactive_finding_text(finding.kind, &finding.values, en);
+        let body = if let Some(fix) = fix_suggestion {
+            format!("{} — {}", message, fix)
         } else {
-            finding.message.clone()
+            message
         };
         let label = journey_category_label(&finding.category, i18n);
         let title = if *count > 1 {

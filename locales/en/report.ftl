@@ -301,6 +301,7 @@ perf-capped-size = The performance score was capped at { $cap } due to a very la
 perf-capped-js = The performance score was capped at { $cap } due to a critical JavaScript size ({ $size } MB).
 perf-capped-requests = The performance score was capped at { $cap } due to a high request count ({ $count }).
 perf-capped-dom = The performance score was capped at { $cap } due to extremely high DOM complexity ({ $nodes } nodes).
+perf-worst-case-xref = ({ $profile } profile, see the "{ pdf-perf-throttled-title }" table below)
 
 # SEO section
 seo-score-card = Technical SEO
@@ -356,6 +357,7 @@ finding-occurrence = Occurrence
 finding-suggested-fix = Suggested code fix
 finding-pattern = Pattern
 finding-frequent-patterns = Frequent patterns
+finding-frequent-patterns-note = This table groups occurrences by structural similarity (same element and selector pattern) across the page, not by exact value match — its counts can therefore differ from an individual finding's own occurrence count.
 finding-reference = Reference
 
 # SEO / Tracking section

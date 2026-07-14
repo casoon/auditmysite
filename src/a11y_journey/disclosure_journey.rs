@@ -3,7 +3,9 @@
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{pointer, stability};
 use crate::patterns::JourneyCandidate;
@@ -95,21 +97,16 @@ pub async fn test(
     });
 
     if !opened {
-        findings.push(InteractiveFinding {
-            category: "StateTransition".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_open_click".to_string()),
-            message: "Disclosure button was clicked but aria-expanded did not change. \
-                State transition is not announced to screen readers."
-                .to_string(),
-            fix_suggestion: Some(
-                "Toggle aria-expanded=\"true|false\" on the button in the click handler."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "StateTransition",
+            InteractiveFindingKind::DisclosureNotOpened,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            None,
+            Some("after_open_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
         // Skip the second click if the first didn't work.
         return Ok((trace, findings));
     }
@@ -153,19 +150,16 @@ pub async fn test(
     });
 
     if !closed {
-        findings.push(InteractiveFinding {
-            category: "StateTransition".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name,
-            before_snapshot_label: Some("after_open_click".to_string()),
-            after_snapshot_label: Some("after_close_click".to_string()),
-            message: "Disclosure does not toggle closed on second activation.".to_string(),
-            fix_suggestion: Some(
-                "Ensure the click handler toggles aria-expanded between true and false."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "StateTransition",
+            InteractiveFindingKind::DisclosureNotClosed,
+            None,
+            Severity::Medium,
+            journey_name,
+            Some("after_open_click".to_string()),
+            Some("after_close_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     Ok((trace, findings))

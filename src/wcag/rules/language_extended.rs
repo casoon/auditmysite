@@ -1,8 +1,15 @@
-//! WCAG 3.1.2 - Language of Parts + lang attribute validity
+//! WCAG 3.1.1 - Language of Page (lang attribute validity)
 //!
 //! Extends the basic `html-has-lang` (3.1.1) check with:
 //! - `valid-lang`:              the lang attribute must be a recognised BCP 47 primary subtag
 //! - `html-xml-lang-mismatch`: when both lang and xml:lang are present they must agree
+//!
+//! Despite the module name, this does not implement 3.1.2 Language of Parts
+//! (per-element `lang` switches for foreign-language passages) — both checks
+//! below are tagged and scored as 3.1.1 (see `RULE_VALID_LANG`/
+//! `RULE_LANG_MISMATCH`), consistent with `taxonomy/rules.rs` and
+//! `page_rules.rs` (`"3.1.1/language-extended"`). A real 3.1.2 check would
+//! need per-element lang-switch detection, which this module does not do.
 //!
 //! DOM-level rule: reads `<html lang>`/`<html xml:lang>` directly via CDP.
 //! The AX tree exposes a synthesized `language` property (see `language.rs`,

@@ -122,7 +122,9 @@ pub(super) fn finding_group_from_normalized(
         verification: f.verification.clone(),
         complexity: f.complexity.clone(),
         complexity_reason: f.complexity_reason.clone(),
+        complexity_kind: f.complexity_kind,
         expected_impact: f.expected_impact.clone(),
+        expected_impact_kind: f.expected_impact_kind.clone(),
         bfsg_relevance: f.bfsg_relevance.clone(),
         remediation_priority: f.remediation_priority.clone(),
         occurrence_count: f.occurrence_count,
@@ -153,4 +155,48 @@ pub(super) fn finding_group_from_normalized(
         criticality_tier: classify_criticality_tier(&f.category, &f.wcag_level),
         narrative,
     }
+}
+
+/// Recompute the fields that `finding_group_from_normalized` derives from
+/// `occurrence_count` after a post-hoc title-based merge changes it (see
+/// `mod.rs`'s dedup pass) — without this, a merged card shows the new summed
+/// `occurrence_count` in its header while `structural_cause`/`affected_elements`
+/// still reflect only the first source finding's original, smaller count,
+/// producing a self-contradictory card (e.g. header "36 Vorkommen" next to a
+/// "Root Cause" callout that says "22 Vorkommen"). Mirrors the exact threshold
+/// logic in `finding_group_from_normalized` above.
+///
+/// `expected_impact`/`complexity_reason` (the raw English `String` fields) are
+/// NOT rewritten here: the PDF layer (`pdf/findings.rs`) never reads them
+/// directly — it always re-derives the displayed sentence from
+/// `complexity_kind`/`expected_impact_kind` in the run language (#406). What
+/// DOES need recomputing after a merge is the `occurrence_count` embedded in
+/// those `..._kind` values, so the re-derived sentence reflects the merged
+/// total instead of the pre-merge count.
+pub(super) fn recompute_occurrence_derived_fields(group: &mut FindingGroup, i18n: &I18n) {
+    group.affected_elements = group.occurrence_count;
+    group.additional_occurrences = group
+        .occurrence_count
+        .saturating_sub(group.representative_occurrences.len());
+    group.complexity_kind = group
+        .complexity_kind
+        .with_occurrence_count(group.occurrence_count);
+    group.expected_impact_kind = group
+        .expected_impact_kind
+        .clone()
+        .with_occurrence_count(group.occurrence_count);
+    group.structural_cause = if group.occurrence_count >= 10 {
+        Some(i18n.t_args(
+            "finding-structural-cause-component",
+            &[("count", group.occurrence_count.to_string())],
+        ))
+    } else if group.occurrence_count >= 5 {
+        Some(i18n.t_args(
+            "finding-structural-cause-shared",
+            &[("count", group.occurrence_count.to_string())],
+        ))
+    } else {
+        None
+    };
+    group.is_component_issue = group.occurrence_count >= 10;
 }

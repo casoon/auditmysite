@@ -17,7 +17,9 @@
 use std::collections::HashMap;
 
 use crate::accessibility::AXTree;
-use crate::audit::normalized::InteractiveFinding;
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues,
+};
 use crate::i18n::I18n;
 use crate::taxonomy::Severity;
 
@@ -114,25 +116,20 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
                 .collect()
         };
         let example_str = examples.join(", ");
-        findings.push(InteractiveFinding {
-            category: "LinkText".to_string(),
-            maps_to_finding: Some("a11y.link_purpose.weak".to_string()),
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: format!(
-                "{count} {} carry generic or non-descriptive text \
-                ({example_str}). Without surrounding context they are indistinguishable for \
-                screen reader users and do not satisfy WCAG 2.4.4.",
-                if count == 1 { "link" } else { "links" }
-            ),
-            fix_suggestion: Some(
-                "Write link text that is meaningful without the surrounding page context, \
-                e.g. 'Learn more about accessibility' instead of 'Learn more'."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "LinkText",
+            InteractiveFindingKind::LinkTextGeneric,
+            Some("a11y.link_purpose.weak".to_string()),
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues {
+                count: Some(count as u32),
+                examples: Some(example_str),
+                ..Default::default()
+            },
+        ));
     }
 
     // Duplicate link names — aggregate once.
@@ -149,29 +146,20 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
             .take(3)
             .map(|(n, c)| format!("'{n}' (x{c})"))
             .collect();
-        findings.push(InteractiveFinding {
-            category: "LinkText".to_string(),
-            maps_to_finding: Some("a11y.link_purpose.weak".to_string()),
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: format!(
-                "{count} {} appear 3 or more times on the page: {}. \
-                If they point to different targets, screen reader users cannot distinguish them.",
-                if count == 1 {
-                    "link text"
-                } else {
-                    "link texts"
-                },
-                examples.join(", ")
-            ),
-            fix_suggestion: Some(
-                "Replace repeated link texts with unique wording or supplement the visible \
-                text with aria-label / aria-labelledby."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "LinkText",
+            InteractiveFindingKind::LinkTextDuplicate,
+            Some("a11y.link_purpose.weak".to_string()),
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues {
+                count: Some(count as u32),
+                examples: Some(examples.join(", ")),
+                ..Default::default()
+            },
+        ));
     }
 
     findings
@@ -192,41 +180,34 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
 
     // Check: no h1.
     if !levels.contains(&1) {
-        findings.push(InteractiveFinding {
-            category: "HeadingOutline".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: "The page has no H1 heading. Screen reader users cannot \
-                identify the main structure of the page without an H1."
-                .to_string(),
-            fix_suggestion: Some(
-                "Use exactly one H1 heading per page that describes the main content.".to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "HeadingOutline",
+            InteractiveFindingKind::HeadingMissingH1,
+            None,
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // Check: multiple h1.
     let h1_count = levels.iter().filter(|&&l| l == 1).count();
     if h1_count > 1 {
-        findings.push(InteractiveFinding {
-            category: "HeadingOutline".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: format!(
-                "{h1_count} H1 headings found. Multiple H1 elements make it harder for \
-                screen reader users to orient themselves."
-            ),
-            fix_suggestion: Some(
-                "Use only one H1 heading per page. Mark further top-level headings as H2."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "HeadingOutline",
+            InteractiveFindingKind::HeadingMultipleH1,
+            None,
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues {
+                count: Some(h1_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     // Check: level skips (e.g. h1 -> h3 without h2).
@@ -245,23 +226,19 @@ fn check_heading_outline(tree: &AXTree) -> Vec<InteractiveFinding> {
             .take(3)
             .map(|(from, to)| format!("H{from}→H{to}"))
             .collect();
-        findings.push(InteractiveFinding {
-            category: "HeadingOutline".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: format!(
-                "Heading hierarchy skips levels ({}). Screen reader users may not be able \
-                to reliably parse the page structure.",
-                examples.join(", ")
-            ),
-            fix_suggestion: Some(
-                "Never skip heading levels. After H1 comes H2, after H2 comes H3, and so on."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "HeadingOutline",
+            InteractiveFindingKind::HeadingLevelSkip,
+            None,
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues {
+                examples: Some(examples.join(", ")),
+                ..Default::default()
+            },
+        ));
     }
 
     findings
@@ -298,67 +275,55 @@ fn check_landmarks(tree: &AXTree) -> Vec<InteractiveFinding> {
 
     // main must exist.
     if role_counts.get("main").copied().unwrap_or(0) == 0 {
-        findings.push(InteractiveFinding {
-            category: "Landmark".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: "No <main> landmark found. Screen reader users cannot \
-                jump directly to the main content."
-                .to_string(),
-            fix_suggestion: Some(
-                "Wrap the main content in a <main> element or set role=\"main\" \
-                on the appropriate container."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "Landmark",
+            InteractiveFindingKind::LandmarkMissingMain,
+            None,
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // Multiple navigation landmarks should each have a distinct accessible name.
     let nav_count = role_counts.get("navigation").copied().unwrap_or(0);
     let nav_named = role_named_counts.get("navigation").copied().unwrap_or(0);
     if nav_count > 1 && nav_named < nav_count {
-        findings.push(InteractiveFinding {
-            category: "Landmark".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: "link_inventory".to_string(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: format!(
-                "{nav_count} navigation landmarks without distinct labels. \
-                Screen reader users cannot tell which navigation covers which area."
-            ),
-            fix_suggestion: Some(
-                "Label each <nav> region with an aria-label, \
-                e.g. aria-label=\"Main navigation\" and aria-label=\"Footer navigation\"."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "Landmark",
+            InteractiveFindingKind::LandmarkNavWithoutLabels,
+            None,
+            Severity::Medium,
+            "link_inventory".to_string(),
+            None,
+            None,
+            InteractiveFindingValues {
+                count: Some(nav_count as u32),
+                ..Default::default()
+            },
+        ));
     }
 
     // Unique landmarks must appear at most once.
     for role in UNIQUE_LANDMARKS {
         let count = role_counts.get(role).copied().unwrap_or(0);
         if count > 1 {
-            findings.push(InteractiveFinding {
-                category: "Landmark".to_string(),
-                maps_to_finding: None,
-                severity: Severity::Medium,
-                journey: "link_inventory".to_string(),
-                before_snapshot_label: None,
-                after_snapshot_label: None,
-                message: format!(
-                    "Landmark role \"{role}\" appears {count}× on the page. \
-                    This role should only occur once per page."
-                ),
-                fix_suggestion: Some(format!(
-                    "Use only one element with role=\"{role}\" (or the corresponding \
-                    HTML element) per page."
-                )),
-            });
+            findings.push(InteractiveFinding::new(
+                "Landmark",
+                InteractiveFindingKind::LandmarkDuplicateUnique,
+                None,
+                Severity::Medium,
+                "link_inventory".to_string(),
+                None,
+                None,
+                InteractiveFindingValues {
+                    role: Some(role.to_string()),
+                    count: Some(count as u32),
+                    ..Default::default()
+                },
+            ));
         }
     }
 

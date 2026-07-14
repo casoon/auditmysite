@@ -477,7 +477,6 @@ pub(in crate::output::pdf) fn render_content_visibility(
             if !signal.evidence.is_empty() {
                 let mut kv = KeyValueList::new();
                 for ev in &signal.evidence {
-                    let source_label = format!("{:?}", ev.source);
                     let mut detail = String::new();
                     if let Some(ref fp) = ev.field_path {
                         detail.push_str(fp);
@@ -488,12 +487,19 @@ pub(in crate::output::pdf) fn render_content_visibility(
                         }
                         detail.push_str(val);
                     }
+                    // No real field_path/value_excerpt to show — omit the row
+                    // entirely rather than falling back to the debug-derived
+                    // source label as both key and value (e.g. "HttpHeader
+                    // HttpHeader", zero added information).
                     if detail.is_empty() {
-                        detail = source_label.clone();
+                        continue;
                     }
+                    let source_label = format!("{:?}", ev.source);
                     kv = kv.add(&source_label, &detail);
                 }
-                builder = builder.add_component(kv);
+                if !kv.items.is_empty() {
+                    builder = builder.add_component(kv);
+                }
             }
         }
     }

@@ -29,6 +29,7 @@ const FOCUS_OUTLINE_JS: &str = r#"
 (function() {
   let suppressedRules = [];
   let hasFocusVisible = false;
+  let hasCompensating = false;
   try {
     for (const sheet of Array.from(document.styleSheets)) {
       let rules;
@@ -45,19 +46,24 @@ const FOCUS_OUTLINE_JS: &str = r#"
       for (const rule of flatten(rules)) {
         const sel = (rule.selectorText || '').toLowerCase();
         if (sel.includes(':focus-visible')) hasFocusVisible = true;
-        if (!sel.includes(':focus')) continue;
+        if (!sel.includes(':focus') || sel.includes(':focus-within')) continue;
         if (sel.includes(':focus-visible')) continue; // :focus-visible alone is fine
         const style = rule.style;
         if (!style) continue;
-        const outline = style.outline || style.outlineStyle || style.outlineWidth || '';
-        const suppresses = outline === 'none' || outline === '0' || outline === '0px' ||
-          (style.outlineStyle === 'none') || (style.outlineWidth === '0' || style.outlineWidth === '0px');
-        if (!suppresses) continue;
-        // Compensating indicator?
+        // Compensating indicator? Tracked globally: a site commonly resets
+        // `outline: none` in one rule (e.g. a global reset) and declares the
+        // replacement indicator in another rule with a different selector
+        // (e.g. `a:focus, button:focus { box-shadow: ... }`). Requiring the
+        // compensation to live in the *same* rule as the suppression produced
+        // false positives on that widespread pattern.
         const hasBorder = style.border && style.border !== 'none' && style.border !== '0' && style.border !== '';
         const hasBoxShadow = style.boxShadow && style.boxShadow !== 'none' && style.boxShadow !== '';
         const hasBg = style.backgroundColor && style.backgroundColor !== '' && style.backgroundColor !== 'transparent';
-        if (!hasBorder && !hasBoxShadow && !hasBg) {
+        if (hasBorder || hasBoxShadow || hasBg) hasCompensating = true;
+        const outline = style.outline || style.outlineStyle || style.outlineWidth || '';
+        const suppresses = outline === 'none' || outline === '0' || outline === '0px' ||
+          (style.outlineStyle === 'none') || (style.outlineWidth === '0' || style.outlineWidth === '0px');
+        if (suppresses && !hasBorder && !hasBoxShadow && !hasBg) {
           suppressedRules.push(sel);
         }
       }
@@ -66,6 +72,7 @@ const FOCUS_OUTLINE_JS: &str = r#"
   return {
     suppressed: suppressedRules.length > 0,
     hasFocusVisible,
+    hasCompensating,
     detail: suppressedRules.slice(0, 3).join(', ')
   };
 })()
@@ -100,6 +107,18 @@ pub async fn check_focus_visible_css_with_page(page: &Page) -> Vec<Violation> {
         return vec![];
     }
 
+    // A compensating indicator declared elsewhere on the page (e.g. a global
+    // `outline: none` reset paired with a separate `a:focus, button:focus {
+    // box-shadow: ... }` rule) means keyboard focus is still visible overall,
+    // even though no single rule pairs suppression with compensation.
+    let has_compensating = val
+        .get("hasCompensating")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if has_compensating {
+        return vec![];
+    }
+
     let detail = val
         .get("detail")
         .and_then(|v| v.as_str())
@@ -121,6 +140,7 @@ pub async fn check_focus_visible_css_with_page(page: &Page) -> Vec<Violation> {
         ),
         "stylesheet",
     )
+    .with_selector("stylesheet")
     .with_fix(
         "Either keep the default outline, or pair `outline: none` with `border`, `box-shadow`, or `background-color` on `:focus`. Better: scope suppression to `:focus:not(:focus-visible)` so keyboard focus still shows.",
     )

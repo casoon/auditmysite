@@ -15,8 +15,8 @@
   "frozen_numbers": {
     "wcag_version": "WCAG 2.1 AA",
     "wcag_aa_total_criteria": 50,
-    "automated_wcag_aa_criteria": 27,
-    "manual_review_criteria": 16,
+    "automated_wcag_aa_criteria": 35,
+    "manual_review_criteria": 11,
     "stable_parity_fixture": "tests/fixtures/parity_gaps.html",
     "stable_parity_fixture_expected_axe_ids": [
       "aria-hidden-focus",

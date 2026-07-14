@@ -2,7 +2,9 @@
 
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{focus, pointer, stability};
 use crate::patterns::JourneyCandidate;
@@ -67,22 +69,16 @@ pub async fn test(
     });
 
     if focus_on_body {
-        findings.push(InteractiveFinding {
-            category: "SkipLink".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name,
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_skip_link".to_string()),
-            message: "Skip link is present but does not move focus to the target. \
-                Keyboard users cannot bypass navigation."
-                .to_string(),
-            fix_suggestion: Some(
-                "Ensure the skip link target has tabindex=\"-1\" and receives focus via \
-                an anchor link, or explicitly call target.focus() after navigation."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "SkipLink",
+            InteractiveFindingKind::SkipLinkFocusNotMoved,
+            None,
+            Severity::High,
+            journey_name,
+            None,
+            Some("after_skip_link".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     Ok((trace, findings))

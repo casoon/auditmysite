@@ -353,8 +353,19 @@ pub fn source_quality_signal_text(
             }
         }
         StructuredData => {
-            if present {
+            if present && !values.schema_types.is_empty() {
                 format!("Schema.org: {}", values.schema_types.join(", "))
+            } else if present {
+                // has_structured_data is true via microdata/RDFa, but
+                // schema_types only tracks JSON-LD @type values — a bare
+                // "Schema.org:" with nothing after the colon would read as
+                // broken rather than as "detected, just not via JSON-LD".
+                if en {
+                    "Schema.org: structured data detected (microdata/RDFa, no JSON-LD types)".into()
+                } else {
+                    "Schema.org: strukturierte Daten erkannt (Microdata/RDFa, keine JSON-LD-Typen)"
+                        .into()
+                }
             } else if en {
                 "No structured data".into()
             } else {
@@ -1296,6 +1307,7 @@ mod tests {
         let mut report = minimal_report();
         report.interactive_findings.push(InteractiveFinding {
             category: "Landmark".to_string(),
+            kind: crate::audit::normalized::InteractiveFindingKind::LandmarkMissingMain,
             maps_to_finding: None,
             severity: Severity::Medium,
             journey: "link_inventory".to_string(),
@@ -1303,6 +1315,7 @@ mod tests {
             after_snapshot_label: None,
             message: "Kein <main>-Landmark gefunden.".to_string(),
             fix_suggestion: None,
+            values: crate::audit::normalized::InteractiveFindingValues::default(),
         });
 
         let analysis = analyze_source_quality(&report);

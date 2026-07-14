@@ -273,11 +273,16 @@ pub fn ux_dimension_name(kind: UxDimensionKind, _en: bool) -> &'static str {
 /// The single source of truth for dimension `summary` text. Analysis calls it
 /// with `en = true` to bake canonical English; the PDF layer re-derives in the
 /// run language.
-pub fn ux_dimension_summary(kind: UxDimensionKind, score: u32, en: bool) -> String {
+pub fn ux_dimension_summary(
+    kind: UxDimensionKind,
+    score: u32,
+    en: bool,
+    has_flagged_issue: bool,
+) -> String {
     use UxDimensionKind::*;
     let high = score >= 85;
     let mid = score >= 60;
-    match kind {
+    let base = match kind {
         CtaClarity => {
             if high {
                 if en {
@@ -373,8 +378,25 @@ pub fn ux_dimension_summary(kind: UxDimensionKind, score: u32, en: bool) -> Stri
                 "Hohe Komplexität — Seite wirkt überladen"
             }
         }
+    };
+
+    // A high score can still coexist with a flagged issue for the exact same
+    // dimension (score thresholds and issue detection are independent
+    // signals) — say so explicitly rather than reading as an unqualified,
+    // contradicted "all clear" (#QA-039 report review).
+    if high && has_flagged_issue {
+        format!(
+            "{} {}",
+            base,
+            if en {
+                "— with one flagged exception below."
+            } else {
+                "— mit einer unten aufgeführten Ausnahme."
+            }
+        )
+    } else {
+        base.to_string()
     }
-    .to_string()
 }
 
 /// The single source of truth for UX issue `problem`/`impact`/`recommendation`.
@@ -659,7 +681,10 @@ fn build_dimension(kind: UxDimensionKind, score: u32, weight: f64) -> UxDimensio
         name: ux_dimension_name(kind, true).to_string(),
         score,
         weight,
-        summary: ux_dimension_summary(kind, score, true),
+        // `false`: this bakes the canonical JSON summary for this dimension in
+        // isolation, before the aggregated `issues` list exists to check
+        // against. The PDF layer re-derives with the real flag (#406).
+        summary: ux_dimension_summary(kind, score, true, false),
     }
 }
 
@@ -1143,8 +1168,16 @@ mod tests {
 
         // Dimension summary localizes.
         assert_eq!(
-            ux_dimension_summary(UxDimensionKind::TrustSignals, 95, false),
+            ux_dimension_summary(UxDimensionKind::TrustSignals, 95, false, false),
             "Vertrauenssignale vorhanden (Kontakt, Impressum, Datenschutz)"
         );
+    }
+
+    #[test]
+    fn dimension_summary_notes_a_flagged_exception_on_an_otherwise_high_score() {
+        let plain = ux_dimension_summary(UxDimensionKind::CtaClarity, 91, false, false);
+        let with_exception = ux_dimension_summary(UxDimensionKind::CtaClarity, 91, false, true);
+        assert_ne!(plain, with_exception);
+        assert!(with_exception.starts_with(&plain));
     }
 }

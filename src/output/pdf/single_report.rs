@@ -654,31 +654,56 @@ fn render_findings_section(
             .collect();
 
         // Overview row so the classification header carries substance instead of
-        // sitting alone on an otherwise blank page.
-        let systemic_total = systemic_mandatory.len() + systemic_optimization.len();
-        let local_total = local_mandatory.len() + local_optimization.len();
+        // sitting alone on an otherwise blank page. One tile per rendered
+        // category below (rather than two combined totals) so each number
+        // maps 1:1 to the heading it belongs to — a combined "Einzelfälle"
+        // total previously hid the fact that its optimization share is
+        // rendered chapters later under a differently-named heading (#local
+        // vs. #systemic classification page).
         builder = builder.add_component(
             MetricStrip::new(vec![
                 MetricStripItem::new(
                     if en {
-                        "Systemic component issues"
+                        "Systemic (mandatory)"
                     } else {
-                        "Systemische Komponentenfehler"
+                        "Systemisch (Pflicht)"
                     },
-                    systemic_total.to_string(),
+                    systemic_mandatory.len().to_string(),
                 )
-                .with_accent(if systemic_total > 0 {
+                .with_accent(if !systemic_mandatory.is_empty() {
                     design::tokens::INFO
                 } else {
                     design::tokens::SUCCESS
                 }),
                 MetricStripItem::new(
                     if en {
-                        "Individual cases"
+                        "Systemic (optimization)"
                     } else {
-                        "Einzelfälle"
+                        "Systemisch (Optimierung)"
                     },
-                    local_total.to_string(),
+                    systemic_optimization.len().to_string(),
+                )
+                .with_accent(design::tokens::NEUTRAL),
+                MetricStripItem::new(
+                    if en {
+                        "Local (mandatory)"
+                    } else {
+                        "Lokal (Pflicht)"
+                    },
+                    local_mandatory.len().to_string(),
+                )
+                .with_accent(if !local_mandatory.is_empty() {
+                    design::tokens::INFO
+                } else {
+                    design::tokens::SUCCESS
+                }),
+                MetricStripItem::new(
+                    if en {
+                        "Local (optimization)"
+                    } else {
+                        "Lokal (Optimierung)"
+                    },
+                    local_optimization.len().to_string(),
                 )
                 .with_accent(design::tokens::NEUTRAL),
             ])
@@ -1212,6 +1237,63 @@ fn render_active_module_section(
     (builder, false)
 }
 
+/// Max number of root causes assigned a letter (A, B, C…) in the root-cause
+/// analysis section. Shared with `render_timeframe_roadmap` so both sections
+/// agree on which letter identifies which cause.
+const ROOT_CAUSE_SHOWN: usize = 6;
+
+/// WCAG-Mandatory-tier findings sorted by occurrence count (descending) — the
+/// exact pool `render_root_cause_analysis` assigns letters A, B, C… from.
+fn mandatory_root_causes(vm: &ReportViewModel) -> Vec<&FindingGroup> {
+    let mut findings: Vec<&FindingGroup> = vm
+        .findings
+        .all_findings
+        .iter()
+        .filter(|f| f.occurrence_count > 0 && f.criticality_tier == CriticalityTier::Mandatory)
+        .collect();
+    findings.sort_by_key(|f| std::cmp::Reverse(f.occurrence_count));
+    findings
+}
+
+/// Shorten a finding title for inline display next to a letter code (chart
+/// labels, table cells) — same char-based ellipsis truncation pattern used
+/// elsewhere in the PDF layer.
+fn truncate_title(value: &str, max_chars: usize) -> String {
+    let count = value.chars().count();
+    if count <= max_chars {
+        return value.to_string();
+    }
+    value
+        .chars()
+        .take(max_chars.saturating_sub(1))
+        .collect::<String>()
+        + "…"
+}
+
+/// `rule_id -> (letter, occurrence_count, share_pct)` for the top
+/// `ROOT_CAUSE_SHOWN` mandatory root causes. Used by `render_timeframe_roadmap`
+/// to tag systemic actions with the root cause they resolve, so the two
+/// sections never disagree on which letter is which.
+fn root_cause_lookup(
+    findings: &[&FindingGroup],
+) -> std::collections::HashMap<String, (char, usize, i64)> {
+    let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
+    findings
+        .iter()
+        .enumerate()
+        .take(ROOT_CAUSE_SHOWN)
+        .map(|(idx, f)| {
+            let letter = (b'A' + idx as u8) as char;
+            let share_pct = if total_occurrences > 0 {
+                (f.occurrence_count as f64 * 100.0 / total_occurrences as f64).round() as i64
+            } else {
+                0
+            };
+            (f.rule_id.clone(), (letter, f.occurrence_count, share_pct))
+        })
+        .collect()
+}
+
 pub(super) fn render_root_cause_analysis(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -1239,13 +1321,7 @@ pub(super) fn render_root_cause_analysis(
 
     // Only WCAG/Mandatory findings — scope matches the header "N Accessibility-Befunde" count.
     // SEO findings (Optimization tier) appear in their own section below.
-    let mut findings: Vec<&FindingGroup> = vm
-        .findings
-        .all_findings
-        .iter()
-        .filter(|f| f.occurrence_count > 0 && f.criticality_tier == CriticalityTier::Mandatory)
-        .collect();
-    findings.sort_by_key(|f| std::cmp::Reverse(f.occurrence_count));
+    let findings = mandatory_root_causes(vm);
 
     if findings.is_empty() {
         let msg = if en {
@@ -1267,7 +1343,19 @@ pub(super) fn render_root_cause_analysis(
     let mut chart_data: Vec<(String, f64)> = Vec::new();
     let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
 
-    for (idx, finding) in findings.iter().enumerate().take(6) {
+    // Rounded (not truncating) share so a small-but-real cause reads as "1 %"
+    // rather than a self-contradictory "0 %" next to its own listed row.
+    let share_pct = |occurrences: usize| -> i64 {
+        if total_occurrences > 0 {
+            (occurrences as f64 * 100.0 / total_occurrences as f64).round() as i64
+        } else {
+            0
+        }
+    };
+
+    let mut shown_occurrences = 0usize;
+
+    for (idx, finding) in findings.iter().enumerate().take(ROOT_CAUSE_SHOWN) {
         let letter = (b'A' + idx as u8) as char;
         let item_title = format!(
             "{} {}: {} Vorkommen — {}",
@@ -1277,24 +1365,41 @@ pub(super) fn render_root_cause_analysis(
             finding.title
         );
         list = list.add_item(&item_title);
+        shown_occurrences += finding.occurrence_count;
 
-        let share_pct = if total_occurrences > 0 {
-            (finding.occurrence_count * 100)
-                .checked_div(total_occurrences)
-                .unwrap_or(0)
-        } else {
-            0
-        };
-
+        // Repeat the clear-text title next to the letter — otherwise the chart
+        // and table only carry "Ursache A", forcing readers to flip back to
+        // the list above to remember what it refers to.
+        let short_title = truncate_title(&finding.title, 45);
         table_rows.push(vec![
-            format!("{} {}", if en { "Component" } else { "Ursache" }, letter),
+            format!("{letter} — {short_title}"),
             finding.occurrence_count.to_string(),
-            format!("{} %", share_pct),
+            format!("{} %", share_pct(finding.occurrence_count)),
         ]);
         chart_data.push((
-            format!("{} {}", if en { "Cause" } else { "Ursache" }, letter),
+            format!("{letter} — {short_title}"),
             finding.occurrence_count as f64,
         ));
+    }
+
+    // Findings beyond the top ROOT_CAUSE_SHOWN would otherwise inflate
+    // `total_occurrences` (the true, honest denominator) with no visible row
+    // to account for them — the displayed shares silently failed to sum to
+    // 100 %. Disclose the remainder explicitly instead (#QA-039 report review).
+    if findings.len() > ROOT_CAUSE_SHOWN {
+        let remaining_causes = findings.len() - ROOT_CAUSE_SHOWN;
+        let remaining_occurrences = total_occurrences - shown_occurrences;
+        let label = if en {
+            format!("Other ({remaining_causes} further causes)")
+        } else {
+            format!("Sonstige ({remaining_causes} weitere Ursachen)")
+        };
+        table_rows.push(vec![
+            label.clone(),
+            remaining_occurrences.to_string(),
+            format!("{} %", share_pct(remaining_occurrences)),
+        ]);
+        chart_data.push((label, remaining_occurrences as f64));
     }
 
     builder = builder.add_component(list);
@@ -1339,10 +1444,13 @@ pub(super) fn render_timeframe_roadmap(
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
     let title = if en { "Action Plan" } else { "Maßnahmenplan" };
+    // Disclose the scope mismatch with the root-cause section above: this plan
+    // also includes SEO/Optimization-tier actions, which are not part of the
+    // WCAG-only root-cause count (#5 fix).
     let subtitle = if en {
-        "Recommended actions grouped by where the problem lives."
+        "Recommended actions grouped by where the problem lives — including supplementary SEO and quality recommendations without legal relevance."
     } else {
-        "Empfohlene Maßnahmen, gruppiert nach Ebene des Problems."
+        "Empfohlene Maßnahmen, gruppiert nach Ebene des Problems — inklusive ergänzender SEO- und Qualitätsempfehlungen ohne Rechtsbezug."
     };
 
     builder = builder.add_component(PageBreak::new()).add_component(
@@ -1362,6 +1470,12 @@ pub(super) fn render_timeframe_roadmap(
         return builder;
     }
 
+    // Same letter assignment as `render_root_cause_analysis`, so an action
+    // tied to root cause "A" always points at the same finding the reader saw
+    // lettered "A" above (#2 fix).
+    let root_causes = mandatory_root_causes(vm);
+    let root_cause_by_rule = root_cause_lookup(&root_causes);
+
     // One level group per column (systemic vs. local), each action as a clean
     // recommendation card — no time/effort badges, just what to do and why.
     for col in columns {
@@ -1369,11 +1483,21 @@ pub(super) fn render_timeframe_roadmap(
             SectionHeaderSplit::new(col.title.clone(), col.description.clone()).with_level(3),
         );
         for item in &col.items {
-            let why = if !item.benefit.is_empty() {
+            let mut why = if !item.benefit.is_empty() {
                 item.benefit.clone()
             } else {
                 item.risk_effect.clone()
             };
+            if let Some((letter, occurrence_count, share_pct)) =
+                root_cause_by_rule.get(&item.rule_id)
+            {
+                let tag = if en {
+                    format!("→ Root Cause {letter}, {occurrence_count} occurrences ({share_pct}%)")
+                } else {
+                    format!("→ Ursache {letter}, {occurrence_count} Vorkommen ({share_pct} %)")
+                };
+                why = format!("{why}\n\n{tag}");
+            }
             builder = builder.add_component(RecommendationCard::new(item.action.clone(), why));
         }
     }

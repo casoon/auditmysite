@@ -68,6 +68,8 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
             execution_priority: group.execution_priority,
             effort: group.effort,
             is_systemic: group.is_component_issue,
+            occurrence_count: group.occurrence_count,
+            rule_id: group.rule_id.clone(),
         };
         match group.effort {
             Effort::Quick => quick_wins.push(item),

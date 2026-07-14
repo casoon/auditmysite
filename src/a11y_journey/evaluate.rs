@@ -12,7 +12,9 @@
 //! - tab order vs. DOM order (`tab_walk_order`, separate evaluator)
 
 use crate::accessibility::{FocusIndicatorStatus, FocusSnapshot};
-use crate::audit::normalized::{InteractiveFinding, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyTrace,
+};
 use crate::taxonomy::Severity;
 
 /// Evaluate a tab-walk trace and its per-step focus snapshots.
@@ -34,87 +36,67 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
         };
 
         if snap.aria_hidden_chain {
-            findings.push(InteractiveFinding {
-                category: "HiddenFocusable".to_string(),
-                maps_to_finding: Some("a11y.aria_hidden_focus.invalid".to_string()),
-                severity: Severity::High,
-                journey: trace.journey.clone(),
-                before_snapshot_label: None,
-                after_snapshot_label: step.snapshot_label.clone(),
-                message: format!(
-                    "Keyboard focus lands on an element inside an aria-hidden \
-                     region ({selector}). Screen reader users reach an element \
-                     that is hidden from the accessibility tree."
-                ),
-                fix_suggestion: Some(
-                    "Remove the element from the aria-hidden region or set \
-                     tabindex=\"-1\" on it."
-                        .to_string(),
-                ),
-            });
+            findings.push(InteractiveFinding::new(
+                "HiddenFocusable",
+                InteractiveFindingKind::HiddenFocusableAriaHidden,
+                Some("a11y.aria_hidden_focus.invalid".to_string()),
+                Severity::High,
+                trace.journey.clone(),
+                None,
+                step.snapshot_label.clone(),
+                InteractiveFindingValues {
+                    selector: Some(selector.clone()),
+                    ..Default::default()
+                },
+            ));
         } else if snap.inert_chain {
-            findings.push(InteractiveFinding {
-                category: "HiddenFocusable".to_string(),
-                maps_to_finding: Some("a11y.aria_hidden_focus.invalid".to_string()),
-                severity: Severity::High,
-                journey: trace.journey.clone(),
-                before_snapshot_label: None,
-                after_snapshot_label: step.snapshot_label.clone(),
-                message: format!(
-                    "Keyboard focus lands on an element inside an inert \
-                     region ({selector}). Inert regions should not be \
-                     reachable by keyboard."
-                ),
-                fix_suggestion: Some(
-                    "Remove the element from the inert region or \
-                     correct the tabindex/focus chain."
-                        .to_string(),
-                ),
-            });
+            findings.push(InteractiveFinding::new(
+                "HiddenFocusable",
+                InteractiveFindingKind::HiddenFocusableInert,
+                Some("a11y.aria_hidden_focus.invalid".to_string()),
+                Severity::High,
+                trace.journey.clone(),
+                None,
+                step.snapshot_label.clone(),
+                InteractiveFindingValues {
+                    selector: Some(selector.clone()),
+                    ..Default::default()
+                },
+            ));
         } else if snap.hidden_by_style {
-            findings.push(InteractiveFinding {
-                category: "HiddenFocusable".to_string(),
+            findings.push(InteractiveFinding::new(
+                "HiddenFocusable",
+                InteractiveFindingKind::HiddenFocusableStyle,
                 // CSS-hidden elements (display:none / visibility:hidden / opacity:0) are a
                 // different failure type from aria-hidden-focus — no existing static rule covers
                 // this exact case, so there is nothing to reference.
-                maps_to_finding: None,
-                severity: Severity::Medium,
-                journey: trace.journey.clone(),
-                before_snapshot_label: None,
-                after_snapshot_label: step.snapshot_label.clone(),
-                message: format!(
-                    "Keyboard focus lands on a visually hidden element \
-                     ({selector}: display:none, visibility:hidden, or \
-                     opacity:0). Keyboard users lose orientation."
-                ),
-                fix_suggestion: Some(
-                    "Remove the element from the tab sequence (tabindex=\"-1\") \
-                     or make it visible before it receives focus."
-                        .to_string(),
-                ),
-            });
+                None,
+                Severity::Medium,
+                trace.journey.clone(),
+                None,
+                step.snapshot_label.clone(),
+                InteractiveFindingValues {
+                    selector: Some(selector.clone()),
+                    ..Default::default()
+                },
+            ));
         } else if matches!(
             snap.focus_indicator,
             Some(FocusIndicatorStatus::NotDetected)
         ) {
-            findings.push(InteractiveFinding {
-                category: "FocusIndicator".to_string(),
-                maps_to_finding: None,
-                severity: Severity::Medium,
-                journey: trace.journey.clone(),
-                before_snapshot_label: None,
-                after_snapshot_label: step.snapshot_label.clone(),
-                message: format!(
-                    "Element ({selector}) shows no visible focus indicator when focused \
-                     (no outline, no box-shadow, no border change). \
-                     Keyboard users lose orientation."
-                ),
-                fix_suggestion: Some(
-                    "Add a CSS :focus-visible rule with a clear outline, \
-                     box-shadow, or border change compared to the unfocused state."
-                        .to_string(),
-                ),
-            });
+            findings.push(InteractiveFinding::new(
+                "FocusIndicator",
+                InteractiveFindingKind::FocusIndicatorNotDetected,
+                None,
+                Severity::Medium,
+                trace.journey.clone(),
+                None,
+                step.snapshot_label.clone(),
+                InteractiveFindingValues {
+                    selector: Some(selector.clone()),
+                    ..Default::default()
+                },
+            ));
         }
     }
 
@@ -175,27 +157,22 @@ pub fn tab_walk_order(trace: &JourneyTrace, dom_order: &[String]) -> Vec<Interac
         .collect::<Vec<_>>()
         .join(", ");
     let count = reverse_jumps.len();
-    let suffix = if count > 3 { " (…)" } else { "" };
 
-    vec![InteractiveFinding {
-        category: "TabOrder".to_string(),
-        maps_to_finding: None,
-        severity: Severity::Medium,
-        journey: trace.journey.clone(),
-        before_snapshot_label: None,
-        after_snapshot_label: None,
-        message: format!(
-            "Tab order deviates from DOM order: {count} backward {} \
-             observed. First affected elements: {preview}{suffix}. \
-             Keyboard users may not be able to follow the reading flow.",
-            if count == 1 { "jump" } else { "jumps" }
-        ),
-        fix_suggestion: Some(
-            "Avoid negative or high tabindex values. \
-             Arrange the reading/DOM order to match the visual order."
-                .to_string(),
-        ),
-    }]
+    vec![InteractiveFinding::new(
+        "TabOrder",
+        InteractiveFindingKind::TabOrderBackwardJumps,
+        None,
+        Severity::Medium,
+        trace.journey.clone(),
+        None,
+        None,
+        InteractiveFindingValues {
+            count: Some(count as u32),
+            examples: Some(preview),
+            truncated: Some(count > 3),
+            ..Default::default()
+        },
+    )]
 }
 
 #[cfg(test)]

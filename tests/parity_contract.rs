@@ -1,5 +1,5 @@
 use auditmysite::taxonomy::rules::RULES;
-use auditmysite::wcag::coverage::{coverage_stats, MANUAL_REVIEW_CRITERIA};
+use auditmysite::wcag::coverage::{coverage_stats, manual_review_criteria};
 use serde_json::Value;
 
 fn contract() -> Value {
@@ -27,7 +27,7 @@ fn frozen_landing_page_numbers_match_wcag_coverage_manifest() {
     );
     assert_eq!(
         frozen["manual_review_criteria"].as_u64(),
-        Some(MANUAL_REVIEW_CRITERIA.len() as u64),
+        Some(manual_review_criteria().len() as u64),
         "landing-page manual-review count must match the manifest"
     );
 }

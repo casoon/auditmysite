@@ -3,7 +3,9 @@
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 
-use crate::audit::normalized::{InteractiveFinding, JourneyStep, JourneyTrace};
+use crate::audit::normalized::{
+    InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyStep, JourneyTrace,
+};
 use crate::error::Result;
 use crate::interaction::{focus, keyboard, pointer, stability};
 use crate::patterns::JourneyCandidate;
@@ -77,22 +79,16 @@ pub async fn test(
     });
 
     if !focus_in_dialog {
-        findings.push(InteractiveFinding {
-            category: "FocusTrap".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_open_click".to_string()),
-            message: "After opening modal, focus did not move inside the dialog. \
-                Keyboard users cannot interact with it."
-                .to_string(),
-            fix_suggestion: Some(
-                "Move focus to the first focusable element inside the dialog when it opens, \
-                or to the dialog element itself (tabindex=\"-1\")."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FocusTrap",
+            InteractiveFindingKind::FocusTrapNotEntered,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            None,
+            Some("after_open_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // 2. Check background is inert/aria-hidden.
@@ -104,22 +100,16 @@ pub async fn test(
     .unwrap_or(true); // If we can't read, don't emit a false positive.
 
     if !background_hidden {
-        findings.push(InteractiveFinding {
-            category: "FocusTrap".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_open_click".to_string()),
-            message:
-                "Background content is not hidden from assistive technology when modal is open."
-                    .to_string(),
-            fix_suggestion: Some(
-                "Set aria-hidden=\"true\" on the application root when a modal is open, \
-                or use the inert attribute."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FocusTrap",
+            InteractiveFindingKind::FocusTrapBackgroundNotHidden,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            None,
+            Some("after_open_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // 3. Focus trap check: press Tab 3 times, verify focus stays in dialog.
@@ -158,22 +148,16 @@ pub async fn test(
     }
 
     if focus_escaped {
-        findings.push(InteractiveFinding {
-            category: "FocusTrap".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: None,
-            message: "Focus is not trapped inside the modal dialog. \
-                Keyboard users can navigate to background content."
-                .to_string(),
-            fix_suggestion: Some(
-                "Intercept Tab and Shift+Tab inside the dialog to cycle focus among \
-                dialog descendants only."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FocusTrap",
+            InteractiveFindingKind::FocusTrapEscaped,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            None,
+            None,
+            InteractiveFindingValues::default(),
+        ));
     }
 
     // 4. Press Escape and check modal closes.
@@ -212,21 +196,16 @@ pub async fn test(
     });
 
     if !dialog_closed {
-        findings.push(InteractiveFinding {
-            category: "FocusTrap".to_string(),
-            maps_to_finding: None,
-            severity: Severity::High,
-            journey: journey_name.clone(),
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_escape".to_string()),
-            message: "Escape key does not close the modal. Keyboard users cannot dismiss it."
-                .to_string(),
-            fix_suggestion: Some(
-                "Add a keydown handler on the dialog or document that calls close() \
-                or hides the dialog when Escape is pressed."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FocusTrap",
+            InteractiveFindingKind::FocusTrapEscapeNotClosing,
+            None,
+            Severity::High,
+            journey_name.clone(),
+            None,
+            Some("after_escape".to_string()),
+            InteractiveFindingValues::default(),
+        ));
         return Ok((trace, findings));
     }
 
@@ -252,22 +231,16 @@ pub async fn test(
             .unwrap_or(false);
 
     if focus_on_body {
-        findings.push(InteractiveFinding {
-            category: "FocusRestoration".to_string(),
-            maps_to_finding: None,
-            severity: Severity::Medium,
-            journey: journey_name,
-            before_snapshot_label: None,
-            after_snapshot_label: Some("after_escape".to_string()),
-            message: "After closing the modal, focus returned to body instead of the trigger. \
-                Keyboard users lose their place on the page."
-                .to_string(),
-            fix_suggestion: Some(
-                "Store a reference to the trigger element before opening the dialog and \
-                call trigger.focus() when the dialog closes."
-                    .to_string(),
-            ),
-        });
+        findings.push(InteractiveFinding::new(
+            "FocusRestoration",
+            InteractiveFindingKind::FocusRestorationLostToBody,
+            None,
+            Severity::Medium,
+            journey_name,
+            None,
+            Some("after_escape".to_string()),
+            InteractiveFindingValues::default(),
+        ));
     }
 
     Ok((trace, findings))

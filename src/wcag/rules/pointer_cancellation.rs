@@ -1,4 +1,4 @@
-//! WCAG 2.5.2 Pointer Cancellation (Level AAA)
+//! WCAG 2.5.2 Pointer Cancellation (Level A)
 //!
 //! For functionality that can be operated using a single pointer, at least one
 //! of the following is true: no down-event, abort or undo, up reversal, or essential.
@@ -11,12 +11,12 @@ use crate::wcag::types::{FindingKind, RuleMetadata, Severity, Violation};
 pub const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
     id: "2.5.2",
     name: "Pointer Cancellation",
-    level: WcagLevel::AAA,
+    level: WcagLevel::A,
     severity: Severity::Medium,
     description: "Actions are not triggered on the down-event unless essential",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/pointer-cancellation.html",
     axe_id: "pointer-cancellation",
-    tags: &["wcag2aaa", "wcag252", "cat.sensory-and-visual-cues"],
+    tags: &["wcag2a", "wcag252", "cat.sensory-and-visual-cues"],
 };
 
 const POINTER_CANCELLATION_JS: &str = r#"

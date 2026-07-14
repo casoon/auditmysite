@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 use crate::taxonomy::{
     criterion_for_rule, principle_for_criterion, RuleLookup, Scaling, ScoreImpact, WcagPrinciple,
 };
-use crate::wcag::coverage::AUTOMATED_CRITERIA;
+use crate::wcag::coverage::automated_criteria;
 use crate::wcag::types::{Severity, Violation};
 
 /// Number of automatically-checked WCAG criteria belonging to a principle.
 fn checked_criteria_count(principle: WcagPrinciple) -> usize {
-    AUTOMATED_CRITERIA
+    automated_criteria()
         .iter()
         .filter(|(c, _)| principle_for_criterion(c) == Some(principle))
         .count()

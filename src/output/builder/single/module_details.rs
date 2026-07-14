@@ -2,6 +2,7 @@ use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::audit::performance_interpretation::{
     append_performance_qualifiers_text, performance_gap_text,
 };
+use crate::dark_mode::dark_mode_issue_text;
 use crate::i18n::I18n;
 use crate::output::report_model::{
     AnimationPresentation, CoveragePresentation, CriticalChainPresentation, DarkModePresentation,
@@ -80,10 +81,7 @@ fn build_performance_details(
         if let Some(ref cw) = p.content_weight {
             additional.push((
                 "CO2e pro View".to_string(),
-                format!(
-                    "{:.2} g ({})",
-                    cw.carbon.grams_co2e_per_view, cw.carbon.rating
-                ),
+                format!("{} g ({})", cw.carbon.format_grams(), cw.carbon.rating),
             ));
         }
 
@@ -1244,7 +1242,11 @@ fn build_mobile_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<Mo
     })
 }
 
-fn build_dark_mode_details(normalized: &AuditContext<'_>) -> Option<DarkModePresentation> {
+fn build_dark_mode_details(
+    normalized: &AuditContext<'_>,
+    i18n: &I18n,
+) -> Option<DarkModePresentation> {
+    let en = i18n.locale() == "en";
     normalized.raw_dark_mode.map(|dm| DarkModePresentation {
         supported: dm.supported,
         score: dm.score,
@@ -1277,7 +1279,12 @@ fn build_dark_mode_details(normalized: &AuditContext<'_>) -> Option<DarkModePres
         issues: dm
             .issues
             .iter()
-            .map(|i| (i.severity.clone(), i.description.clone()))
+            .map(|i| {
+                (
+                    i.severity.clone(),
+                    dark_mode_issue_text(&i.kind, &i.selectors, en),
+                )
+            })
             .collect(),
     })
 }
@@ -1446,7 +1453,7 @@ pub(super) fn build_module_details_from_normalized(
     let seo = build_seo_details(normalized, i18n);
     let security = build_security_details(normalized, i18n);
     let mobile = build_mobile_details(normalized, i18n);
-    let dark_mode = build_dark_mode_details(normalized);
+    let dark_mode = build_dark_mode_details(normalized, i18n);
     let ux = build_ux_details(normalized, i18n);
     let journey = build_journey_details(normalized, i18n);
 
