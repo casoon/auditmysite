@@ -17,6 +17,9 @@ pub struct ReportConfig {
     pub level: ReportLevel,
     pub logo_path: Option<PathBuf>,
     pub locale: String,
+    /// Opt-in regulatory PDF appendix section (see `--annex`). `None` by
+    /// default — these sections are not part of the default report.
+    pub annex: Option<crate::cli::AnnexKind>,
 }
 
 impl Default for ReportConfig {
@@ -25,6 +28,7 @@ impl Default for ReportConfig {
             level: ReportLevel::Standard,
             logo_path: None,
             locale: "de".to_string(),
+            annex: None,
         }
     }
 }

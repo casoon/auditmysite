@@ -1697,8 +1697,12 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 first.level.to_string().as_str(),
             );
             let expected_impact = expected_impact_text(&expected_impact_kind, true);
-            let bfsg_relevance =
-                derive_bfsg_relevance("wcag", first.level.to_string().as_str(), severity);
+            let bfsg_relevance = derive_bfsg_relevance(
+                "wcag",
+                &first.rule,
+                first.level.to_string().as_str(),
+                severity,
+            );
             let remediation_priority =
                 derive_remediation_priority(severity, occurrence_count, &complexity);
 
@@ -1839,7 +1843,7 @@ fn aggregate_seo_findings(
         let expected_impact_kind =
             derive_expected_impact(first.severity, occurrence_count, "seo", "");
         let expected_impact = expected_impact_text(&expected_impact_kind, true);
-        let bfsg_relevance = derive_bfsg_relevance("seo", "", first.severity);
+        let bfsg_relevance = derive_bfsg_relevance("seo", "", "", first.severity);
         let remediation_priority =
             derive_remediation_priority(first.severity, occurrence_count, &complexity);
         findings.push(NormalizedFinding {
@@ -3134,8 +3138,24 @@ fn derive_expected_impact(
     }
 }
 
-fn derive_bfsg_relevance(category: &str, wcag_level: &str, severity: Severity) -> String {
+/// `wcag_criterion` gates against `EN301549_WEB_CLAUSES`: a criterion not in
+/// that 50-entry WCAG 2.1 A/AA table (AAA criteria, WCAG-2.2-only criteria
+/// such as 2.5.8) is not covered by EN 301 549 V3.2.1 and returns "low"
+/// regardless of level/severity, rather than "medium" purely from its level
+/// string matching "A"/"AA".
+fn derive_bfsg_relevance(
+    category: &str,
+    wcag_criterion: &str,
+    wcag_level: &str,
+    severity: Severity,
+) -> String {
     if category != "wcag" {
+        return "low".to_string();
+    }
+    if !crate::wcag::en301549::EN301549_WEB_CLAUSES
+        .iter()
+        .any(|c| c.wcag == wcag_criterion)
+    {
         return "low".to_string();
     }
     match (wcag_level, severity) {

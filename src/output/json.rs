@@ -29,9 +29,9 @@ mod helpers;
 use detail::{build_batch_detail, build_page, DetailContext};
 use helpers::{
     aggregate_occurrences, aggregate_severity, avg_module_score, batch_report_timestamp,
-    build_accessibility_score_breakdown, build_decision_actions, build_internal_comparison,
-    build_management_risks, build_wcag_coverage_for_level, build_wcag_coverage_summary,
-    normalized_module_score,
+    build_accessibility_score_breakdown, build_decision_actions, build_en301549_batch_rollup,
+    build_internal_comparison, build_management_risks, build_wcag_coverage_for_level,
+    build_wcag_coverage_summary, normalized_module_score,
 };
 
 #[cfg(test)]
@@ -134,6 +134,13 @@ pub struct UnifiedSummary {
     /// across multiple pages (batch only; always empty on single reports).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub template_clusters: Vec<crate::audit::TemplateCluster>,
+    /// Domain-wide EN 301 549 clause roll-up: worst status per clause across
+    /// all pages plus the affected-page count (batch only; always empty on
+    /// single reports, which carry the full per-page annex under
+    /// `pages[0].detail.en301549_annex` instead). Never empty for a batch
+    /// report with ≥1 page — all 50 clauses are always represented.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub en301549_rollup: Vec<En301549BatchClauseRollup>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -194,6 +201,73 @@ pub struct WcagCoverageSummary {
     pub manual_review_criteria: usize,
     pub total_wcag_aa_criteria: usize,
     pub note: String,
+}
+
+/// EN 301 549 (chapter 9, "Web") clause annex — technical evidence only, not
+/// a Barrierefreiheitserklärung. Canonical English (#406); always present on
+/// single-report `detail` (never gated behind a flag — cheap, derived,
+/// additive). The PDF section built from the same data IS flag-gated (see
+/// `--annex en301549`).
+#[derive(Debug, Serialize)]
+pub struct En301549Annex {
+    pub standard_version: &'static str,
+    pub mapping_version: u32,
+    /// Fixed scope label for this annex: the automatically testable subset
+    /// of EN 301 549 chapter 9 (Web).
+    pub scope: &'static str,
+    pub clauses: Vec<En301549ClauseEntry>,
+    /// Count of WCAG findings whose criterion is outside the 50-clause WCAG
+    /// 2.1 A/AA table (AAA criteria, WCAG-2.2-only criteria) — excluded from
+    /// `clauses` but not silently dropped.
+    pub out_of_standard_findings: usize,
+    pub out_of_scope_chapters: Vec<OutOfScopeChapterEntry>,
+    /// Cautious, non-legal-conclusion disclaimer. Needs lawyer review before
+    /// customer-facing use — see the module-level note in `wcag::en301549`.
+    pub disclaimer: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct En301549ClauseEntry {
+    pub en_clause: &'static str,
+    pub wcag: &'static str,
+    pub level: &'static str,
+    pub title: &'static str,
+    pub status: En301549ClauseStatusKind,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub findings: Vec<En301549FindingRef>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum En301549ClauseStatusKind {
+    ViolationsFound,
+    NoViolationsAutomated,
+    ManualReviewRequired,
+}
+
+#[derive(Debug, Serialize)]
+pub struct En301549FindingRef {
+    pub rule_id: String,
+    pub occurrences: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OutOfScopeChapterEntry {
+    pub chapter: &'static str,
+    pub title: &'static str,
+}
+
+/// Batch-only, domain-wide roll-up for one EN 301 549 clause: the worst
+/// status observed across all audited pages, plus how many pages actually
+/// have a confirmed violation for it.
+#[derive(Debug, Serialize)]
+pub struct En301549BatchClauseRollup {
+    pub en_clause: &'static str,
+    pub wcag: &'static str,
+    pub level: &'static str,
+    pub title: &'static str,
+    pub status: En301549ClauseStatusKind,
+    pub affected_pages: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -320,6 +394,10 @@ pub struct PageDetail {
     /// Fix guidance entries — always present (may be an empty array when there
     /// are no findings). See issue #253.
     pub fix_guidance: Vec<FixGuidance>,
+    /// EN 301 549 (chapter 9, "Web") clause annex — always present, in single
+    /// AND batch reports (same "always present" rule as `fix_guidance`,
+    /// issue #256). See `En301549Annex` doc comment.
+    pub en301549_annex: En301549Annex,
     pub modules: ModuleBlob,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub confidence_summary: Vec<OutputConfidenceSignal>,
@@ -544,6 +622,7 @@ impl UnifiedReport {
             violated_rule_count: batch_report.summary.violated_rule_count,
             top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
             template_clusters: batch_report.summary.template_clusters.clone(),
+            en301549_rollup: build_en301549_batch_rollup(&normalized_reports),
             performance_score: avg_module_score(&pages, "Performance"),
             seo_score: avg_module_score(&pages, "SEO"),
             security_score: avg_module_score(&pages, "Security"),
@@ -694,6 +773,7 @@ impl UnifiedReport {
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),
+            en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(&ctx.normalized, "Performance"),
             seo_score: normalized_module_score(&ctx.normalized, "SEO"),
             security_score: normalized_module_score(&ctx.normalized, "Security"),
@@ -789,6 +869,7 @@ impl UnifiedReport {
             violated_rule_count,
             top_recurring_rules,
             template_clusters: Vec::new(),
+            en301549_rollup: Vec::new(),
             performance_score: normalized_module_score(normalized, "Performance"),
             seo_score: normalized_module_score(normalized, "SEO"),
             security_score: normalized_module_score(normalized, "Security"),

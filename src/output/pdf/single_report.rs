@@ -22,11 +22,12 @@ use super::detail_modules::{
     render_security, render_seo, render_source_quality, render_tech_stack, render_ux,
 };
 use super::diagnosis::render_diagnosis_section;
+use super::en301549::render_en301549_annex;
 use super::findings::render_finding_technical;
 use super::helpers::map_severity;
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
-use crate::cli::ReportLevel;
+use crate::cli::{AnnexKind, ReportLevel};
 use crate::i18n::I18n;
 use crate::output::module::active_report_modules;
 use crate::output::report_model::*;
@@ -571,6 +572,8 @@ pub(super) fn render_appendix_full(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     report: &AuditReport,
+    findings: &[crate::audit::normalized::NormalizedFinding],
+    config: &ReportConfig,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
@@ -594,6 +597,11 @@ pub(super) fn render_appendix_full(
     // WCAG Coverage (issue #37)
     if vm.meta.report_level != ReportLevel::Executive {
         builder = render_wcag_coverage_section(builder, report, i18n);
+
+        // EN 301 549 clause annex — opt-in only (see `--annex en301549`).
+        if config.annex == Some(AnnexKind::En301549) {
+            builder = render_en301549_annex(builder, findings, i18n);
+        }
     }
 
     // Methodology / disclaimer text blocks

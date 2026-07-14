@@ -72,6 +72,7 @@ pub fn output_single_report(
                     level: args.report_level,
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
+                    annex: args.annex,
                 };
                 let pdf_bytes = generate_pdf(report, &config).map_err(|e| {
                     AuditError::ReportGenerationFailed {
@@ -192,6 +193,7 @@ pub fn output_batch_report(
                     level: args.report_level,
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
+                    annex: args.annex,
                 };
                 let pdf_bytes = generate_batch_pdf(batch_report, &config).map_err(|e| {
                     AuditError::ReportGenerationFailed {

@@ -256,6 +256,18 @@ pub struct Args {
     #[arg(long, value_name = "PATH")]
     pub export_snapshot: Option<PathBuf>,
 
+    /// Include an additional regulatory appendix section in the PDF report.
+    ///
+    /// Opt-in only — this section is not part of the default report ("Zusatz").
+    /// `en301549` adds an EN 301 549 (chapter 9, "Web") clause mapping: which
+    /// clauses have automatically detected violations, which were checked
+    /// automatically with no violations found, and which require manual
+    /// review, plus a disclaimer and the chapters outside this tool's scope.
+    /// The underlying `en301549_annex` JSON data is always included regardless
+    /// of this flag — it only gates the optional PDF section.
+    #[arg(long, value_enum)]
+    pub annex: Option<AnnexKind>,
+
     /// How the browser should identify itself when making requests.
     ///
     /// In interactive mode this is prompted automatically.
@@ -361,6 +373,15 @@ impl InteractiveMode {
     pub fn is_enabled(self) -> bool {
         !matches!(self, InteractiveMode::Off)
     }
+}
+
+/// Optional regulatory PDF appendix sections (opt-in, see `--annex`).
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AnnexKind {
+    /// EN 301 549 (chapter 9, "Web") clause mapping annex.
+    #[value(name = "en301549")]
+    En301549,
 }
 
 impl std::fmt::Display for WcagLevel {
@@ -665,6 +686,7 @@ mod tests {
             logo: None,
             debug_typ: false,
             export_snapshot: None,
+            annex: None,
             request_mode: RequestMode::Browser,
             report_mode: false,
         }

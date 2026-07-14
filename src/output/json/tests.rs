@@ -599,6 +599,107 @@ fn test_batch_page_detail_omitted_when_none() {
 }
 
 #[test]
+fn test_en301549_annex_present_on_single_detail() {
+    use crate::taxonomy::Severity;
+    use crate::wcag::Violation;
+
+    let mut results = WcagResults::new();
+    results.add_violation(Violation::new(
+        "1.1.1",
+        "Non-text Content",
+        WcagLevel::A,
+        Severity::High,
+        "Missing alt",
+        "n1",
+    ));
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        500,
+    );
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let page = first_page(&unified);
+    let detail = page.detail.as_ref().expect("single report has detail");
+    let annex = &detail.en301549_annex;
+
+    assert_eq!(annex.clauses.len(), 50);
+    assert_eq!(
+        annex.standard_version,
+        crate::wcag::en301549::EN301549_VERSION
+    );
+    assert_eq!(
+        annex.mapping_version,
+        crate::wcag::en301549::EN301549_MAPPING_VERSION
+    );
+    assert!(!annex.disclaimer.is_empty());
+
+    let clause_111 = annex
+        .clauses
+        .iter()
+        .find(|c| c.wcag == "1.1.1")
+        .expect("1.1.1 present");
+    assert!(matches!(
+        clause_111.status,
+        crate::output::json::En301549ClauseStatusKind::ViolationsFound
+    ));
+    assert_eq!(clause_111.findings.len(), 1);
+
+    // Summary-level batch roll-up must stay empty on single reports — the
+    // full per-page annex lives under detail instead (see doc comment on
+    // `UnifiedSummary::en301549_rollup`).
+    assert!(unified.summary.en301549_rollup.is_empty());
+}
+
+#[test]
+fn test_en301549_batch_rollup_present_and_page_detail_carries_full_annex() {
+    let reports: Vec<AuditReport> = (0..3)
+        .map(|i| {
+            AuditReport::new(
+                format!("https://example.com/{i}"),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            )
+        })
+        .collect();
+    let batch = crate::audit::BatchReport::from_reports(reports, vec![], 0);
+    let unified = UnifiedReport::batch(&batch);
+
+    assert_eq!(unified.summary.en301549_rollup.len(), 50);
+    for rollup in &unified.summary.en301549_rollup {
+        assert_eq!(rollup.affected_pages, 0, "no violations were seeded");
+    }
+
+    for page in &unified.pages {
+        let detail = page.detail.as_ref().expect("batch page detail present");
+        assert_eq!(detail.en301549_annex.clauses.len(), 50);
+    }
+}
+
+/// English-locale guard (#406): the EN 301 549 annex (disclaimer + titles)
+/// must contain no German umlauts/ß anywhere in the single-report JSON.
+#[test]
+fn test_en301549_annex_en_guard_no_umlauts() {
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        WcagResults::new(),
+        500,
+    );
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let page = first_page(&unified);
+    let annex_json = serde_json::to_string(&page.detail.as_ref().unwrap().en301549_annex).unwrap();
+    let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
+    assert!(
+        !has_umlaut(&annex_json),
+        "en301549_annex must be canonical English, found umlaut/ß in: {annex_json}"
+    );
+}
+
+#[test]
 fn test_collection_errors_absent_when_empty() {
     let report = AuditReport::new(
         "https://example.com".to_string(),
@@ -663,6 +764,7 @@ fn test_collection_errors_serialized_when_present() {
             violated_rule_count: 0,
             top_recurring_rules: vec![],
             template_clusters: vec![],
+            en301549_rollup: vec![],
             performance_score: None,
             seo_score: None,
             security_score: None,

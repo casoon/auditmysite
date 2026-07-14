@@ -1424,6 +1424,7 @@ mod tests {
             logo: None,
             debug_typ: false,
             export_snapshot: None,
+            annex: None,
             request_mode: crate::cli::RequestMode::Browser,
             report_mode: false,
         };

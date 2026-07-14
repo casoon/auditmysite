@@ -46,8 +46,17 @@ fn build_batch_report(
             "A technical auditing platform by casoon.de",
         );
 
+    let normalized_reports: Vec<crate::audit::normalized::NormalizedReport> = batch
+        .reports
+        .iter()
+        .map(|r| crate::audit::normalize(r).normalized)
+        .collect();
+    let en301549_rollup = crate::wcag::en301549::derive_batch_rollup(
+        normalized_reports.iter().map(|r| r.findings.as_slice()),
+    );
+
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
-    builder = render_batch_status_section(builder, &pres, &i18n);
+    builder = render_batch_status_section(builder, &pres, &en301549_rollup, config, &i18n);
     builder = render_batch_module_portfolio(builder, &pres, &i18n);
     builder = render_batch_audit_flags(builder, batch, &i18n);
     builder = render_batch_url_ranking(builder, &pres, &i18n);

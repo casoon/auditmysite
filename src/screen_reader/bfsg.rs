@@ -1,4 +1,19 @@
+//! Thin delegating wrapper over the canonical `wcag::en301549` mapping.
+//!
+//! The WCAG↔EN 301 549 table used to live only here; it has been promoted to
+//! `crate::wcag::en301549` (single canonical source, with clause titles and a
+//! pure status roll-up over findings). This module keeps its existing public
+//! API (`map_to_bfsg`, `wcag_21_aa_criteria`, `WcagCriterionMapping`,
+//! `BfsgMapping`) so `BfsgViolation.bfsg_reference` and other consumers are
+//! unaffected.
+//!
+//! `BFSG_PARAGRAPH_WEB` stays local and unverified — it is NOT propagated
+//! into the new `wcag::en301549` module or the EN 301 549 annex; see that
+//! module's doc comment.
+
 use serde::{Deserialize, Serialize};
+
+use crate::wcag::en301549::EN301549_WEB_CLAUSES;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BfsgMapping {
@@ -10,7 +25,7 @@ pub struct BfsgMapping {
 pub const BFSG_PARAGRAPH_WEB: &str = "§12 Abs. 1";
 
 pub fn map_to_bfsg(wcag: &str) -> Option<BfsgMapping> {
-    WCAG_21_AA_CRITERIA
+    wcag_21_aa_criteria()
         .iter()
         .find(|criterion| criterion.wcag == wcag)
         .map(|criterion| BfsgMapping {
@@ -20,218 +35,24 @@ pub fn map_to_bfsg(wcag: &str) -> Option<BfsgMapping> {
         })
 }
 
-pub fn wcag_21_aa_criteria() -> &'static [WcagCriterionMapping] {
-    WCAG_21_AA_CRITERIA
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WcagCriterionMapping {
     pub wcag: &'static str,
     pub en_301549_clause: &'static str,
 }
 
-pub const WCAG_21_AA_CRITERIA: &[WcagCriterionMapping] = &[
-    WcagCriterionMapping {
-        wcag: "1.1.1",
-        en_301549_clause: "9.1.1.1",
-    },
-    WcagCriterionMapping {
-        wcag: "1.2.1",
-        en_301549_clause: "9.1.2.1",
-    },
-    WcagCriterionMapping {
-        wcag: "1.2.2",
-        en_301549_clause: "9.1.2.2",
-    },
-    WcagCriterionMapping {
-        wcag: "1.2.3",
-        en_301549_clause: "9.1.2.3",
-    },
-    WcagCriterionMapping {
-        wcag: "1.2.4",
-        en_301549_clause: "9.1.2.4",
-    },
-    WcagCriterionMapping {
-        wcag: "1.2.5",
-        en_301549_clause: "9.1.2.5",
-    },
-    WcagCriterionMapping {
-        wcag: "1.3.1",
-        en_301549_clause: "9.1.3.1",
-    },
-    WcagCriterionMapping {
-        wcag: "1.3.2",
-        en_301549_clause: "9.1.3.2",
-    },
-    WcagCriterionMapping {
-        wcag: "1.3.3",
-        en_301549_clause: "9.1.3.3",
-    },
-    WcagCriterionMapping {
-        wcag: "1.3.4",
-        en_301549_clause: "9.1.3.4",
-    },
-    WcagCriterionMapping {
-        wcag: "1.3.5",
-        en_301549_clause: "9.1.3.5",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.1",
-        en_301549_clause: "9.1.4.1",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.2",
-        en_301549_clause: "9.1.4.2",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.3",
-        en_301549_clause: "9.1.4.3",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.4",
-        en_301549_clause: "9.1.4.4",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.5",
-        en_301549_clause: "9.1.4.5",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.10",
-        en_301549_clause: "9.1.4.10",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.11",
-        en_301549_clause: "9.1.4.11",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.12",
-        en_301549_clause: "9.1.4.12",
-    },
-    WcagCriterionMapping {
-        wcag: "1.4.13",
-        en_301549_clause: "9.1.4.13",
-    },
-    WcagCriterionMapping {
-        wcag: "2.1.1",
-        en_301549_clause: "9.2.1.1",
-    },
-    WcagCriterionMapping {
-        wcag: "2.1.2",
-        en_301549_clause: "9.2.1.2",
-    },
-    WcagCriterionMapping {
-        wcag: "2.1.4",
-        en_301549_clause: "9.2.1.4",
-    },
-    WcagCriterionMapping {
-        wcag: "2.2.1",
-        en_301549_clause: "9.2.2.1",
-    },
-    WcagCriterionMapping {
-        wcag: "2.2.2",
-        en_301549_clause: "9.2.2.2",
-    },
-    WcagCriterionMapping {
-        wcag: "2.3.1",
-        en_301549_clause: "9.2.3.1",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.1",
-        en_301549_clause: "9.2.4.1",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.2",
-        en_301549_clause: "9.2.4.2",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.3",
-        en_301549_clause: "9.2.4.3",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.4",
-        en_301549_clause: "9.2.4.4",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.5",
-        en_301549_clause: "9.2.4.5",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.6",
-        en_301549_clause: "9.2.4.6",
-    },
-    WcagCriterionMapping {
-        wcag: "2.4.7",
-        en_301549_clause: "9.2.4.7",
-    },
-    WcagCriterionMapping {
-        wcag: "2.5.1",
-        en_301549_clause: "9.2.5.1",
-    },
-    WcagCriterionMapping {
-        wcag: "2.5.2",
-        en_301549_clause: "9.2.5.2",
-    },
-    WcagCriterionMapping {
-        wcag: "2.5.3",
-        en_301549_clause: "9.2.5.3",
-    },
-    WcagCriterionMapping {
-        wcag: "2.5.4",
-        en_301549_clause: "9.2.5.4",
-    },
-    WcagCriterionMapping {
-        wcag: "3.1.1",
-        en_301549_clause: "9.3.1.1",
-    },
-    WcagCriterionMapping {
-        wcag: "3.1.2",
-        en_301549_clause: "9.3.1.2",
-    },
-    WcagCriterionMapping {
-        wcag: "3.2.1",
-        en_301549_clause: "9.3.2.1",
-    },
-    WcagCriterionMapping {
-        wcag: "3.2.2",
-        en_301549_clause: "9.3.2.2",
-    },
-    WcagCriterionMapping {
-        wcag: "3.2.3",
-        en_301549_clause: "9.3.2.3",
-    },
-    WcagCriterionMapping {
-        wcag: "3.2.4",
-        en_301549_clause: "9.3.2.4",
-    },
-    WcagCriterionMapping {
-        wcag: "3.3.1",
-        en_301549_clause: "9.3.3.1",
-    },
-    WcagCriterionMapping {
-        wcag: "3.3.2",
-        en_301549_clause: "9.3.3.2",
-    },
-    WcagCriterionMapping {
-        wcag: "3.3.3",
-        en_301549_clause: "9.3.3.3",
-    },
-    WcagCriterionMapping {
-        wcag: "3.3.4",
-        en_301549_clause: "9.3.3.4",
-    },
-    WcagCriterionMapping {
-        wcag: "4.1.1",
-        en_301549_clause: "9.4.1.1",
-    },
-    WcagCriterionMapping {
-        wcag: "4.1.2",
-        en_301549_clause: "9.4.1.2",
-    },
-    WcagCriterionMapping {
-        wcag: "4.1.3",
-        en_301549_clause: "9.4.1.3",
-    },
-];
+pub fn wcag_21_aa_criteria() -> &'static [WcagCriterionMapping] {
+    static CACHE: std::sync::OnceLock<Vec<WcagCriterionMapping>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| {
+        EN301549_WEB_CLAUSES
+            .iter()
+            .map(|c| WcagCriterionMapping {
+                wcag: c.wcag,
+                en_301549_clause: c.en_clause,
+            })
+            .collect()
+    })
+}
 
 #[cfg(test)]
 mod tests {

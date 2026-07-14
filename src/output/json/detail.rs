@@ -68,6 +68,7 @@ pub(super) fn build_page(
 pub(super) fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
+        en301549_annex: build_en301549_annex(&normalized.findings),
         modules: ModuleBlob::default(),
         confidence_summary: Vec::new(),
         capabilities: Vec::new(),
@@ -86,6 +87,7 @@ pub(super) fn build_detail_cached(
 ) -> PageDetail {
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
+        en301549_annex: build_en301549_annex(&normalized.findings),
         modules: ModuleBlob::default(),
         confidence_summary: Vec::new(),
         capabilities: Vec::new(),
@@ -290,6 +292,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
 
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
+        en301549_annex: build_en301549_annex(&normalized.findings),
         modules,
         confidence_summary: vm
             .methodology

@@ -1,5 +1,6 @@
 use auditmysite::taxonomy::rules::RULES;
 use auditmysite::wcag::coverage::{coverage_stats, manual_review_criteria};
+use auditmysite::wcag::en301549::{EN301549_MAPPING_VERSION, EN301549_WEB_CLAUSES};
 use serde_json::Value;
 
 fn contract() -> Value {
@@ -29,6 +30,25 @@ fn frozen_landing_page_numbers_match_wcag_coverage_manifest() {
         frozen["manual_review_criteria"].as_u64(),
         Some(manual_review_criteria().len() as u64),
         "landing-page manual-review count must match the manifest"
+    );
+}
+
+#[test]
+fn frozen_en301549_numbers_match_mapping_table() {
+    let data = contract();
+    let frozen = data["frozen_numbers"]
+        .as_object()
+        .expect("frozen_numbers object");
+
+    assert_eq!(
+        frozen["en301549_web_clauses"].as_u64(),
+        Some(EN301549_WEB_CLAUSES.len() as u64),
+        "frozen EN 301 549 clause count must match the mapping table — bump deliberately on edit"
+    );
+    assert_eq!(
+        frozen["en301549_mapping_version"].as_u64(),
+        Some(EN301549_MAPPING_VERSION as u64),
+        "frozen EN 301 549 mapping_version must match the table's own version constant"
     );
 }
 

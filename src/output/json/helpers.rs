@@ -4,6 +4,91 @@ pub(super) fn build_wcag_coverage_summary(normalized: &NormalizedReport) -> Wcag
     build_wcag_coverage_for_level(&normalized.wcag_level.to_string())
 }
 
+fn en301549_status_kind(
+    status: crate::wcag::en301549::ClauseStatus,
+) -> crate::output::json::En301549ClauseStatusKind {
+    use crate::output::json::En301549ClauseStatusKind as Kind;
+    use crate::wcag::en301549::ClauseStatus;
+    match status {
+        ClauseStatus::ViolationsFound => Kind::ViolationsFound,
+        ClauseStatus::NoViolationsAutomated => Kind::NoViolationsAutomated,
+        ClauseStatus::ManualReviewRequired => Kind::ManualReviewRequired,
+    }
+}
+
+/// Build the per-page EN 301 549 annex — always present, single AND batch
+/// (same rule as `fix_guidance`, issue #256). Pure projection over the
+/// page's own findings; nothing stored in `NormalizedReport`.
+pub(super) fn build_en301549_annex(
+    findings: &[crate::audit::normalized::NormalizedFinding],
+) -> crate::output::json::En301549Annex {
+    use crate::output::json::{
+        En301549Annex, En301549ClauseEntry, En301549FindingRef, OutOfScopeChapterEntry,
+    };
+    use crate::wcag::en301549::{
+        derive_annex, out_of_standard_finding_count, EN301549_DISCLAIMER_EN,
+        EN301549_MAPPING_VERSION, EN301549_VERSION, OUT_OF_SCOPE_CHAPTERS,
+    };
+
+    let clauses = derive_annex(findings)
+        .into_iter()
+        .map(|r| En301549ClauseEntry {
+            en_clause: r.clause.en_clause,
+            wcag: r.clause.wcag,
+            level: r.clause.wcag_level,
+            title: r.clause.title_en,
+            status: en301549_status_kind(r.status),
+            findings: r
+                .findings
+                .into_iter()
+                .map(|f| En301549FindingRef {
+                    rule_id: f.rule_id,
+                    occurrences: f.occurrences,
+                })
+                .collect(),
+        })
+        .collect();
+
+    En301549Annex {
+        standard_version: EN301549_VERSION,
+        mapping_version: EN301549_MAPPING_VERSION,
+        scope: "web_chapter_9_automated_subset",
+        clauses,
+        out_of_standard_findings: out_of_standard_finding_count(findings),
+        out_of_scope_chapters: OUT_OF_SCOPE_CHAPTERS
+            .iter()
+            .map(|c| OutOfScopeChapterEntry {
+                chapter: c.chapter,
+                title: c.title_en,
+            })
+            .collect(),
+        disclaimer: EN301549_DISCLAIMER_EN.to_string(),
+    }
+}
+
+/// Batch-only domain-wide roll-up: worst status per clause across all pages,
+/// plus the count of pages with a confirmed violation for it. Built next to
+/// `build_management_risks`' `legal_flags` aggregation below, since both fold
+/// over the same `&[NormalizedReport]` batch slice. Thin wrapper over
+/// `wcag::en301549::derive_batch_rollup`, shared with the batch PDF annex.
+pub(super) fn build_en301549_batch_rollup(
+    reports: &[NormalizedReport],
+) -> Vec<crate::output::json::En301549BatchClauseRollup> {
+    use crate::output::json::En301549BatchClauseRollup;
+
+    crate::wcag::en301549::derive_batch_rollup(reports.iter().map(|r| r.findings.as_slice()))
+        .into_iter()
+        .map(|r| En301549BatchClauseRollup {
+            en_clause: r.clause.en_clause,
+            wcag: r.clause.wcag,
+            level: r.clause.wcag_level,
+            title: r.clause.title_en,
+            status: en301549_status_kind(r.status),
+            affected_pages: r.affected_pages,
+        })
+        .collect()
+}
+
 pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary {
     let (automated, total) = crate::wcag::coverage::coverage_stats();
     WcagCoverageSummary {

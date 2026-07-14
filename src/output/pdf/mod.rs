@@ -10,6 +10,7 @@ mod cover;
 pub(crate) mod design;
 mod detail_modules;
 mod diagnosis;
+mod en301549;
 mod findings;
 mod helpers;
 mod single_report;
@@ -269,7 +270,14 @@ fn build_single_report(
     builder = render_module_sections(builder, &vm, report, &i18n);
 
     // --- Appendix: Rohdaten & Methodik ---
-    builder = render_appendix_full(builder, &vm, report, &i18n);
+    builder = render_appendix_full(
+        builder,
+        &vm,
+        report,
+        &normalized.normalized.findings,
+        config,
+        &i18n,
+    );
 
     let built_report = builder.build();
     Ok((engine, built_report))

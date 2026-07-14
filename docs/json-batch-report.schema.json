@@ -102,7 +102,27 @@
           "type": "array",
           "items": { "$ref": "#/$defs/decisionAction" }
         },
-        "commerce": { "type": ["object", "null"] }
+        "commerce": { "type": ["object", "null"] },
+        "en301549_rollup": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/en301549BatchClauseRollup" }
+        }
+      }
+    },
+    "en301549BatchClauseRollup": {
+      "type": "object",
+      "required": ["en_clause", "wcag", "level", "title", "status", "affected_pages"],
+      "additionalProperties": false,
+      "properties": {
+        "en_clause": { "type": "string" },
+        "wcag": { "type": "string" },
+        "level": { "type": "string", "enum": ["A", "AA"] },
+        "title": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["violations_found", "no_violations_automated", "manual_review_required"]
+        },
+        "affected_pages": { "type": "integer", "minimum": 0 }
       }
     },
     "pageEntry": {
