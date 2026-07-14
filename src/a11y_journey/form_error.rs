@@ -242,6 +242,24 @@ pub async fn test(
         ));
     }
 
+    // An error was announced (live region and/or aria-invalid), but focus
+    // stayed on the document body instead of moving to the error — the user
+    // is not led to what needs fixing. Independent of the two checks above
+    // (a form can correctly expose aria-invalid/a live region and still
+    // fail to manage focus).
+    if (new_live || new_invalid) && focus_on_body {
+        findings.push(InteractiveFinding::new(
+            "FormError",
+            InteractiveFindingKind::FormErrorFocusNotManaged,
+            None,
+            Severity::Medium,
+            journey_name.clone(),
+            Some("before_submit".to_string()),
+            Some("after_submit_click".to_string()),
+            InteractiveFindingValues::default(),
+        ));
+    }
+
     Ok((trace, findings))
 }
 

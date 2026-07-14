@@ -629,6 +629,7 @@ pub enum InteractiveFindingKind {
     FormErrorSilentFailure,
     FormErrorInvalidWithoutLiveRegion,
     FormErrorUnlinkedFields,
+    FormErrorFocusNotManaged,
     LinkTextGeneric,
     LinkTextDuplicate,
     HeadingMissingH1,
@@ -1197,6 +1198,30 @@ pub fn interactive_finding_text(
             } else {
                 "aria-describedby=\"error-message-id\" auf jedem Feld mit \
                  aria-invalid=\"true\" ergänzen."
+                    .to_string()
+            }),
+        ),
+        FormErrorFocusNotManaged => (
+            if en {
+                "An error was announced after submission, but keyboard focus stayed on \
+                 the document body instead of moving to the first invalid field or an \
+                 error summary. Screen reader and keyboard users are not led to the \
+                 error and must search for it manually."
+                    .to_string()
+            } else {
+                "Nach dem Absenden wurde ein Fehler angekündigt, der Tastaturfokus blieb \
+                 jedoch auf dem Dokument-Body, statt zum ersten ungültigen Feld oder einer \
+                 Fehlerzusammenfassung zu wechseln. Screenreader- und Tastaturnutzer werden \
+                 nicht zum Fehler geführt und müssen ihn manuell suchen."
+                    .to_string()
+            },
+            Some(if en {
+                "Move focus to the first invalid field or to an error summary \
+                 (e.g. role=\"alert\") after a failed submission."
+                    .to_string()
+            } else {
+                "Fokus nach einem fehlgeschlagenen Absenden zum ersten ungültigen Feld \
+                 oder zu einer Fehlerzusammenfassung (z. B. role=\"alert\") bewegen."
                     .to_string()
             }),
         ),
@@ -3078,6 +3103,7 @@ mod tests {
             FormErrorSilentFailure,
             FormErrorInvalidWithoutLiveRegion,
             FormErrorUnlinkedFields,
+            FormErrorFocusNotManaged,
             LinkTextGeneric,
             LinkTextDuplicate,
             HeadingMissingH1,
