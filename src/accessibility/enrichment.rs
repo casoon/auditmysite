@@ -62,11 +62,24 @@ pub async fn enrich_violations_with_page(
         let node_ref = effective_node_ref(page, backend_id).await;
 
         match describe_node_selector(page, &node_ref).await {
-            Some(sel) => {
+            Some((sel, dom_path)) => {
                 violation
                     .evidence
                     .push(crate::wcag::types::ViolationEvidence::ax_tree(&sel));
                 violation.selector = Some(sel);
+                // A short, always-computed DOM path (evidence-grade findings)
+                // — distinct from `selector`'s tag/id/hint shorthand, this is
+                // the up-to-3-level ancestor chain a developer can paste into
+                // devtools to locate the element.
+                if let Some(path) = dom_path.filter(|p| !p.is_empty()) {
+                    violation
+                        .evidence
+                        .push(crate::wcag::types::ViolationEvidence {
+                            source: "ax_tree".to_string(),
+                            field: Some("dom_path".to_string()),
+                            value: Some(path),
+                        });
+                }
             }
             None => {
                 warn!(
@@ -212,7 +225,16 @@ async fn resolve_object_id(page: &Page, node_ref: &NodeRef) -> Option<RemoteObje
 /// Call CDP `DOM.describeNode` for the given node and build a human-readable
 /// selector string from the returned element data. Falls back to a
 /// parent-context lookup for bare elements with no id/class/attrs.
-async fn describe_node_selector(page: &Page, node_ref: &NodeRef) -> Option<String> {
+///
+/// Returns `(selector, dom_path)`: `selector` is the existing tag/id/hint
+/// shorthand (unchanged behavior); `dom_path` is the up-to-3-level ancestor
+/// chain from [`parent_context_selector`], now always computed (not just as
+/// a bare-tag fallback) so every violation carries a locatable DOM path for
+/// the PDF's evidence block (evidence-grade findings, slice 3).
+async fn describe_node_selector(
+    page: &Page,
+    node_ref: &NodeRef,
+) -> Option<(String, Option<String>)> {
     let builder = DescribeNodeParams::builder();
     let builder = match node_ref {
         NodeRef::Backend(id) => builder.backend_node_id(BackendNodeId::new(*id)),
@@ -275,15 +297,18 @@ async fn describe_node_selector(page: &Page, node_ref: &NodeRef) -> Option<Strin
         base.clone()
     };
 
-    // If we have just a bare tag (no distinguishing info), try to get parent context
-    // via DOM.resolveNode + Runtime.callFunctionOn so the developer can locate it.
+    // Always compute the multi-level ancestor path (dom_path evidence), and —
+    // for a bare tag with no distinguishing info — also use it as the
+    // selector itself, so the developer can still locate the element.
+    let dom_path = parent_context_selector(page, node_ref).await;
+
     if selector == tag {
-        if let Some(ctx) = parent_context_selector(page, node_ref).await {
-            return Some(ctx);
+        if let Some(ctx) = &dom_path {
+            return Some((ctx.clone(), dom_path));
         }
     }
 
-    Some(selector)
+    Some((selector, dom_path))
 }
 
 /// Use `Runtime.callFunctionOn` to run JS on the element and return

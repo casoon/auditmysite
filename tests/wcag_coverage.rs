@@ -21,9 +21,9 @@ use auditmysite::wcag::rules::{
     check_landmark_contentinfo_is_top_level, check_landmark_main_is_top_level,
     check_landmark_no_duplicate_banner, check_landmark_no_duplicate_contentinfo,
     check_landmark_no_duplicate_main, check_landmark_unique, check_landmarks, check_language,
-    check_link_purpose, check_list_structure, check_media_rules, check_non_text_contrast,
-    check_page_titled, check_section_headings, check_svg_rules, check_table_extended,
-    check_table_rules, check_text_alternatives, check_widget_rules,
+    check_link_purpose, check_list_structure, check_media_rules, check_page_titled,
+    check_section_headings, check_svg_rules, check_table_extended, check_table_rules,
+    check_text_alternatives, check_widget_rules,
 };
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,9 @@ rule_smoke_test!(
 );
 rule_smoke_test!(smoke_check_table_extended, check_table_extended);
 rule_smoke_test!(smoke_check_input_purpose, check_input_purpose);
-rule_smoke_test!(smoke_check_non_text_contrast, check_non_text_contrast);
+// non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
+// CDP-based check) — like the other `_with_page` rules, it has no smoke test
+// here (this file is browser-free/AXTree-only); it has its own unit tests.
 rule_smoke_test!(smoke_check_headings, check_headings);
 rule_smoke_test!(smoke_check_focus_visible, check_focus_visible);
 rule_smoke_test!(smoke_check_landmarks, check_landmarks);
@@ -272,16 +274,20 @@ fn test_enabled_only_runs_exactly_those_rules() {
 
 #[test]
 fn test_level_a_does_not_run_aa_rules() {
-    // A tree that would violate AA-only rules (1.4.11 non-text-contrast: a
-    // custom checkbox with no exposed checked state).
-    // (1.4.4 resize-text used to be the example here, but it's now a DOM page
-    // rule — see page_rules.rs's own level-gating tests for that mechanism.)
+    // A tree that would violate an AA-only rule (1.3.5 Identify Input
+    // Purpose: a textbox whose name suggests a user-info field but has no
+    // autocomplete attribute).
+    // (1.4.4 resize-text and 1.4.11 non-text-contrast used to be the example
+    // here; both are now DOM/CDP `_with_page` rules and have their own
+    // level-gating coverage — see page_rules.rs's own level-gating tests for
+    // that mechanism — so this AXTree-only engine test needed a still-AXTree
+    // -based AA rule as its example.)
     let tree = AXTree::from_nodes(vec![AXNode {
         node_id: "root".to_string(),
         ignored: false,
         ignored_reasons: vec![],
-        role: Some("checkbox".to_string()),
-        name: Some("Test checkbox".to_string()),
+        role: Some("textbox".to_string()),
+        name: Some("Email".to_string()),
         name_source: None,
         description: None,
         value: None,
@@ -294,25 +300,25 @@ fn test_level_a_does_not_run_aa_rules() {
     let results_a = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
     let results_aa = check_all_with_config(&tree, WcagLevel::AA, &RuleFilterConfig::default());
 
-    // The 1.4.11 non-text-contrast violation should only appear at AA+
-    let resize_violations_a: Vec<_> = results_a
+    // The 1.3.5 input-purpose violation should only appear at AA+
+    let input_purpose_violations_a: Vec<_> = results_a
         .violations
         .iter()
-        .filter(|v| v.rule == "1.4.11")
+        .filter(|v| v.rule == "1.3.5")
         .collect();
-    let resize_violations_aa: Vec<_> = results_aa
+    let input_purpose_violations_aa: Vec<_> = results_aa
         .violations
         .iter()
-        .filter(|v| v.rule == "1.4.11")
+        .filter(|v| v.rule == "1.3.5")
         .collect();
 
     assert!(
-        resize_violations_a.is_empty(),
-        "Level A should not check 1.4.11 (AA rule)"
+        input_purpose_violations_a.is_empty(),
+        "Level A should not check 1.3.5 (AA rule)"
     );
     assert!(
-        !resize_violations_aa.is_empty(),
-        "Level AA should check 1.4.11"
+        !input_purpose_violations_aa.is_empty(),
+        "Level AA should check 1.3.5"
     );
 }
 
@@ -418,11 +424,6 @@ const REAL_CDP_PROPERTIES: &[&str] = &[
 /// harmless redundant branch alongside a working primary check, or a
 /// tracked, deliberately-deferred item — not a silent gap.
 const KNOWN_EXCEPTIONS: &[(&str, &str)] = &[
-    (
-        "tabindex",
-        "keyboard.rs/focus_visible.rs — dead branch alongside a working \
-         `focusable` read; full DOM conversion tracked, low incremental value",
-    ),
     (
         "inputType",
         "input_purpose.rs — redundant OR-branch; role==\"textbox\" already \

@@ -649,6 +649,10 @@ pub struct BatchSummary {
     /// i18n key for the batch verdict sentence ("verdict-batch-excellent", …).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub verdict_key: String,
+    /// WCAG findings verified to share one template/component root cause
+    /// across multiple pages — see `audit::template_dedup`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub template_clusters: Vec<crate::audit::template_dedup::TemplateCluster>,
 }
 
 /// Compute top-10 recurring WCAG rules and total violated-rule count across
@@ -835,6 +839,8 @@ impl BatchReport {
 
         let (top_recurring_rules, violated_rule_count) =
             compute_recurring_rules(&normalized_reports);
+        let template_clusters =
+            crate::audit::template_dedup::detect_template_clusters(&normalized_reports);
         let legal_flags = compute_legal_flags(&normalized_reports);
         let blocking_issues = normalized_reports
             .iter()
@@ -870,6 +876,7 @@ impl BatchReport {
                 blocking_issues,
                 risk,
                 verdict_key,
+                template_clusters,
             },
             crawl_diagnostics: None,
             sitemap_diagnostics: None,

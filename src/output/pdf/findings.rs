@@ -7,6 +7,7 @@ use renderreport::prelude::*;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::truncate_url;
+use crate::wcag::ViolationEvidence;
 
 use super::helpers::{effort_label_i18n, priority_label_i18n, role_label_i18n};
 
@@ -161,10 +162,40 @@ fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
     }
 }
 
+/// Find a specific `computed`/`ax_tree` evidence value by field name.
+fn evidence_value<'a>(
+    evidence: &'a [ViolationEvidence],
+    source: &str,
+    field: &str,
+) -> Option<&'a str> {
+    evidence
+        .iter()
+        .find(|e| e.source == source && e.field.as_deref() == Some(field))
+        .and_then(|e| e.value.as_deref())
+        .filter(|v| !v.is_empty())
+}
+
+/// "Contrast 2.70:1 (required 4.5:1)" — combines the contrast rule's
+/// `computed` evidence into one localized measured-value line. `None` when
+/// the occurrence carries no computed contrast evidence (i.e. every rule
+/// other than 1.4.3).
+fn contrast_measured_text(evidence: &[ViolationEvidence], en: bool) -> Option<String> {
+    let ratio = evidence_value(evidence, "computed", "contrast_ratio")?;
+    let required = evidence_value(evidence, "computed", "required_ratio");
+    Some(match (required, en) {
+        (Some(req), true) => format!("Contrast {} (required {})", ratio, req),
+        (Some(req), false) => format!("Kontrast {} (erforderlich {})", ratio, req),
+        (None, true) => format!("Contrast {}", ratio),
+        (None, false) => format!("Kontrast {}", ratio),
+    })
+}
+
 pub(super) fn render_finding_technical(
     mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
     i18n: &I18n,
+    report_ts: i64,
+    evidence_seq: &mut usize,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
     let (severity_prefix, color) = match group.severity {
@@ -418,7 +449,44 @@ pub(super) fn render_finding_technical(
                 snapshot = snapshot.add_item("HTML", compact_html(html, 110));
             }
 
+            if let Some(path) = evidence_value(&occ.evidence, "ax_tree", "dom_path") {
+                snapshot = snapshot.add_item(
+                    if en { "DOM path" } else { "DOM-Pfad" },
+                    compact_html(path, 90),
+                );
+            }
+
+            if let Some(measured) = contrast_measured_text(&occ.evidence, en) {
+                snapshot =
+                    snapshot.add_item(if en { "Measured value" } else { "Messwert" }, measured);
+            }
+
             builder = builder.add_component(snapshot);
+
+            // Evidence-grade findings: a cropped, highlighted screenshot of
+            // the element behind this occurrence, if one was captured during
+            // the audit (single-URL PDF only, capped at MAX_ELEMENT_CROPS
+            // report-wide — see `PipelineConfig.capture_element_evidence`).
+            if let Some(bytes) = &occ.evidence_screenshot {
+                let temp_path = std::env::temp_dir()
+                    .join(format!("ams-evidence-{}-{}.png", report_ts, evidence_seq));
+                if std::fs::write(&temp_path, bytes).is_ok() {
+                    let asset_name = format!("/auditmysite-evidence-{}.png", evidence_seq);
+                    builder = builder.asset(asset_name.clone(), temp_path);
+                    let caption = match (occ.evidence_viewport, en) {
+                        (Some("mobile"), true) => "Element on page (mobile viewport)",
+                        (Some("mobile"), false) => "Element auf der Seite (Mobile-Ansicht)",
+                        (_, true) => "Element on page (desktop viewport)",
+                        (_, false) => "Element auf der Seite (Desktop-Ansicht)",
+                    };
+                    builder = builder.add_component(
+                        Image::new(asset_name)
+                            .with_width("55%")
+                            .with_caption(caption),
+                    );
+                }
+                *evidence_seq += 1;
+            }
 
             if let Some(code) = occ
                 .suggested_code

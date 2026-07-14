@@ -234,6 +234,9 @@ pub struct PipelineConfig {
     pub persist_artifacts: bool,
     /// Capture desktop + mobile screenshots for PDF cover page
     pub capture_screenshots: bool,
+    /// Capture cropped element-evidence screenshots for confirmed WCAG
+    /// violations (single-URL PDF only — see evidence-grade findings plan).
+    pub capture_element_evidence: bool,
     /// Attempt to dismiss cookie consent banners before auditing
     pub dismiss_consent: bool,
     /// Accessibility-Journey-Layer mode (off/basic/full).
@@ -346,6 +349,8 @@ impl PipelineConfig {
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
                 && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+            capture_element_evidence: args.url.is_some()
+                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
             dismiss_consent: args.dismiss_consent,
             interactive: args.interactive,
             journey_budget_ms,
@@ -414,6 +419,11 @@ pub async fn audit_page(
     browser: &BrowserManager,
 ) -> Result<(AuditReport, SnapshotData)> {
     let start_time = Instant::now();
+    // Threaded across both viewport passes: caps element-evidence crops at
+    // MAX_ELEMENT_CROPS report-wide and captures each rule at most once
+    // (desktop pass runs first, so it wins when a violation is confirmed in
+    // both viewports — see `merge_wcag_violations` below).
+    let mut evidence_budget = crate::accessibility::ElementEvidenceBudget::new();
 
     // Enable bypassing CSP on the page
     let _ = page.execute(SetBypassCspParams::new(true)).await;
@@ -495,7 +505,15 @@ pub async fn audit_page(
 
     let desktop_config = config.for_viewport(Viewport::Desktop);
     let desktop_snap = extract_snapshot(page, url, Viewport::Desktop, &desktop_config).await?;
-    let desktop_wcag = run_rules(page, &desktop_snap, config, desktop_screenshot.as_ref()).await;
+    let desktop_wcag = run_rules(
+        page,
+        &desktop_snap,
+        config,
+        desktop_screenshot.as_ref(),
+        "desktop",
+        &mut evidence_budget,
+    )
+    .await;
 
     // ── Mobile pass ───────────────────────────────────────────────────────────
     info!("Mobile pass starting for {}", url);
@@ -532,7 +550,15 @@ pub async fn audit_page(
 
     let mobile_config = config.for_viewport(Viewport::Mobile);
     let mobile_snap = extract_snapshot(page, url, Viewport::Mobile, &mobile_config).await?;
-    let mut mobile_wcag = run_rules(page, &mobile_snap, config, mobile_screenshot.as_ref()).await;
+    let mut mobile_wcag = run_rules(
+        page,
+        &mobile_snap,
+        config,
+        mobile_screenshot.as_ref(),
+        "mobile",
+        &mut evidence_budget,
+    )
+    .await;
 
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
@@ -757,6 +783,15 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
             desktop_matched[idx] = true;
             let mut shared = mv.clone();
             shared.tags.push("both-viewports".to_string());
+            // Evidence-grade findings: prefer the desktop crop when a
+            // violation is confirmed in both viewports (owner decision —
+            // desktop crops are larger/more legible; the mobile pass skips
+            // capturing a rule already captured on desktop, so this is
+            // usually a no-op restoring what the mobile clone already lacks).
+            if shared.evidence_screenshot.is_none() {
+                shared.evidence_screenshot = desktop.violations[idx].evidence_screenshot.clone();
+                shared.evidence_viewport = desktop.violations[idx].evidence_viewport;
+            }
             merged.push(shared);
         } else {
             let mut mobile_only = mv.clone();
@@ -922,6 +957,8 @@ async fn run_rules(
     snapshot: &SnapshotData,
     config: &PipelineConfig,
     screenshot: Option<&ViewportScreenshot>,
+    viewport_label: &'static str,
+    evidence_budget: &mut crate::accessibility::ElementEvidenceBudget,
 ) -> WcagResults {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
@@ -954,6 +991,18 @@ async fn run_rules(
     }
 
     enrich_violations_with_page(page, &mut wcag_results.violations, &snapshot.ax_tree).await;
+
+    if config.capture_element_evidence {
+        crate::accessibility::capture_element_evidence(
+            page,
+            &mut wcag_results.violations,
+            &snapshot.ax_tree,
+            viewport_label,
+            evidence_budget,
+        )
+        .await;
+    }
+
     move_demoted_violations_to_warnings(&mut wcag_results);
     wcag_results
 }
@@ -1445,6 +1494,7 @@ mod tests {
             check_stack: false,
             persist_artifacts: true,
             capture_screenshots: false,
+            capture_element_evidence: false,
             dismiss_consent: false,
             interactive: crate::cli::InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
@@ -1495,6 +1545,7 @@ mod tests {
         other.verbose = true;
         other.persist_artifacts = false;
         other.capture_screenshots = true;
+        other.capture_element_evidence = true;
         assert_eq!(base_sig, other.audit_signature());
     }
 

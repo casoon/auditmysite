@@ -517,7 +517,18 @@ impl ContrastRule {
         )
         .with_selector(selector)
         .with_fix(&fix)
-        .with_help_url(CONTRAST_RULE.help_url);
+        .with_help_url(CONTRAST_RULE.help_url)
+        // Measured values as machine-readable evidence (evidence-grade
+        // findings, slice 3) — canonical English, JSON-safe (#406), rendered
+        // in the PDF as "Contrast X:Y (required A:B)" in the run locale.
+        .with_evidence_item(crate::wcag::types::ViolationEvidence::computed(
+            "contrast_ratio",
+            format!("{:.2}:1", final_ratio),
+        ))
+        .with_evidence_item(crate::wcag::types::ViolationEvidence::computed(
+            "required_ratio",
+            format!("{}:1", threshold),
+        ));
 
         if let Some(snippet) = &style.html_snippet {
             violation = violation.with_html_snippet(snippet);
@@ -884,6 +895,63 @@ mod tests {
         let red = Color::new(255, 0, 0);
         let ratio = ContrastRule::calculate_contrast_ratio(&red, &red);
         assert!((ratio - 1.0).abs() < 0.01);
+    }
+
+    fn low_contrast_style(node_id: i64) -> ComputedStyles {
+        let mut properties = std::collections::HashMap::new();
+        properties.insert("color".to_string(), "rgb(200, 200, 200)".to_string());
+        properties.insert(
+            "background-color".to_string(),
+            "rgb(255, 255, 255)".to_string(),
+        );
+        ComputedStyles {
+            node_id,
+            selector: Some("p.low-contrast".to_string()),
+            html_snippet: None,
+            properties,
+        }
+    }
+
+    #[test]
+    fn evaluate_style_attaches_computed_contrast_evidence() {
+        let style = low_contrast_style(1);
+        let sampled: SampledVerdicts = std::collections::HashMap::new();
+        let violation = ContrastRule::evaluate_style(&style, WcagLevel::AA, &sampled)
+            .expect("sub-threshold contrast must produce a violation");
+
+        let contrast_ev = violation
+            .evidence
+            .iter()
+            .find(|e| e.source == "computed" && e.field.as_deref() == Some("contrast_ratio"))
+            .expect("violation must carry computed contrast_ratio evidence");
+        let required_ev = violation
+            .evidence
+            .iter()
+            .find(|e| e.source == "computed" && e.field.as_deref() == Some("required_ratio"))
+            .expect("violation must carry computed required_ratio evidence");
+
+        assert_eq!(required_ev.value.as_deref(), Some("4.5:1"));
+        assert!(contrast_ev.value.as_deref().unwrap().ends_with(":1"));
+    }
+
+    #[test]
+    fn computed_contrast_evidence_has_no_german_umlauts() {
+        // #406 guard: canonical evidence values are locale-neutral
+        // (numeric ratios), never baked with German text.
+        let style = low_contrast_style(2);
+        let sampled: SampledVerdicts = std::collections::HashMap::new();
+        let violation = ContrastRule::evaluate_style(&style, WcagLevel::AA, &sampled)
+            .expect("sub-threshold contrast must produce a violation");
+
+        let has_umlaut = |s: &str| s.chars().any(|c| "äöüÄÖÜß".contains(c));
+        for ev in &violation.evidence {
+            if let Some(value) = &ev.value {
+                assert!(
+                    !has_umlaut(value),
+                    "evidence value contains German umlaut: {value}"
+                );
+            }
+        }
     }
 
     #[test]

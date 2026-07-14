@@ -84,6 +84,7 @@ fn default_config() -> PipelineConfig {
         check_stack: false,
         persist_artifacts: true,
         capture_screenshots: false,
+        capture_element_evidence: false,
         dismiss_consent: false,
         interactive: auditmysite::cli::InteractiveMode::Off,
         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,

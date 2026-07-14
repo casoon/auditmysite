@@ -161,6 +161,9 @@ impl Clone for FindingGroup {
                     message: occ.message.clone(),
                     html_snippet: occ.html_snippet.clone(),
                     suggested_code: occ.suggested_code.clone(),
+                    evidence: occ.evidence.clone(),
+                    evidence_screenshot: occ.evidence_screenshot.clone(),
+                    evidence_viewport: occ.evidence_viewport,
                 })
                 .collect(),
             responsible_role: self.responsible_role,

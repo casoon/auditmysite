@@ -959,6 +959,27 @@ pub struct BatchPresentation {
     pub url_matrix: Vec<UrlMatrixRow>,
     pub appendix: BatchAppendixData,
     pub interactive_summary: Option<InteractiveJourneySummary>,
+    /// WCAG findings verified to share one template/component root cause
+    /// across multiple pages (`audit::template_dedup`), with localized
+    /// wording for the runtime locale.
+    pub template_clusters: Vec<TemplateClusterView>,
+}
+
+/// Localized presentation view of a `audit::template_dedup::TemplateCluster`.
+///
+/// `confidence` is kept as the canonical `"confirmed"` / `"likely"` marker so
+/// render code can key off it (e.g. to decide whether to override a
+/// decision-action row); `headline` and `decision_label` carry the fully
+/// localized sentences for the runtime locale — the strong "resolves N pages"
+/// claim is only ever used for `"confirmed"` clusters, `"likely"` clusters
+/// always read as unconfirmed/probable (see #template-root-cause-dedup).
+pub struct TemplateClusterView {
+    pub rule_id: String,
+    pub selector: String,
+    pub confidence: String,
+    pub affected_pages: usize,
+    pub headline: String,
+    pub decision_label: String,
 }
 
 pub struct ActionPlan {

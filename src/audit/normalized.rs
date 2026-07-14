@@ -275,7 +275,7 @@ impl Default for ReportVisibilityData {
 }
 
 /// Detail eines einzelnen Vorkommens
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OccurrenceDetail {
     pub node_id: String,
     pub message: String,
@@ -292,6 +292,18 @@ pub struct OccurrenceDetail {
     /// Viewport tags, e.g. "mobile-only", "desktop-only", "both-viewports"
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// Machine-readable provenance for this occurrence (DOM path, computed
+    /// measurements like contrast ratio, …) — mirrors `Violation::evidence`.
+    /// Canonical English, JSON-safe (#406); additive JSON field.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<crate::wcag::ViolationEvidence>,
+    /// Cropped element screenshot (evidence-grade findings). In-memory only —
+    /// never part of the JSON report or cache.
+    #[serde(skip)]
+    pub evidence_screenshot: Option<Vec<u8>>,
+    /// Which viewport pass produced `evidence_screenshot`. In-memory only.
+    #[serde(skip)]
+    pub evidence_viewport: Option<&'static str>,
 }
 
 /// Score-Eintrag pro Modul
@@ -1627,6 +1639,9 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                     html_snippet: v.html_snippet.clone(),
                     suggested_code: v.suggested_code.clone(),
                     tags: v.tags.clone(),
+                    evidence: v.evidence.clone(),
+                    evidence_screenshot: v.evidence_screenshot.clone(),
+                    evidence_viewport: v.evidence_viewport,
                 })
                 .collect();
             // Deduplicate fix_suggestion: if all stored occurrences share the same
@@ -1875,6 +1890,7 @@ fn aggregate_seo_findings(
                     html_snippet: None,
                     suggested_code: None,
                     tags: vec!["seo".to_string()],
+                    ..Default::default()
                 })
                 .collect(),
         });

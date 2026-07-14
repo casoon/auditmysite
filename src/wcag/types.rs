@@ -60,6 +60,16 @@ impl ViolationEvidence {
             value,
         }
     }
+
+    /// A value derived from a live measurement (e.g. contrast ratio) rather
+    /// than read directly off the DOM. Canonical English, JSON-safe (#406).
+    pub fn computed(field: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            source: "computed".to_string(),
+            field: Some(field.into()),
+            value: Some(value.into()),
+        }
+    }
 }
 
 /// A WCAG violation found during audit
@@ -110,6 +120,14 @@ pub struct Violation {
     /// Populated incrementally — not all violations carry evidence yet.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence: Vec<ViolationEvidence>,
+    /// Cropped element screenshot captured during enrichment (evidence-grade
+    /// findings). In-memory only — never part of the JSON report or cache.
+    #[serde(skip)]
+    pub evidence_screenshot: Option<Vec<u8>>,
+    /// Which viewport pass produced `evidence_screenshot` ("desktop"/"mobile"),
+    /// used to label the crop's caption in the PDF. In-memory only.
+    #[serde(skip)]
+    pub evidence_viewport: Option<&'static str>,
 }
 
 impl Violation {
@@ -143,6 +161,8 @@ impl Violation {
             suggested_code: None,
             kind: FindingKind::Violation,
             evidence: Vec::new(),
+            evidence_screenshot: None,
+            evidence_viewport: None,
         }
     }
 

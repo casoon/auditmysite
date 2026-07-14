@@ -533,7 +533,12 @@ pub(super) fn render_tech_details(
     if vm.severity.has_issues {
         builder = render_diagnosis_section(builder, &vm.diagnosis, i18n);
     }
-    builder = render_findings_section(builder, vm, en, i18n);
+    // Element-evidence crop temp files are named `ams-evidence-{ts}-{n}.png`,
+    // keyed off the report timestamp (matches `cleanup_screenshot_temps`'s
+    // desktop/mobile naming) plus a per-report sequence number.
+    let report_ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
+    let mut evidence_seq: usize = 0;
+    builder = render_findings_section(builder, vm, en, i18n, report_ts, &mut evidence_seq);
 
     // Interactive Accessibility-Journey findings (Phase 2+)
     if !report.interactive_findings.is_empty() {
@@ -610,6 +615,8 @@ fn render_findings_section(
     vm: &ReportViewModel,
     en: bool,
     i18n: &I18n,
+    report_ts: i64,
+    evidence_seq: &mut usize,
 ) -> renderreport::engine::ReportBuilder {
     if vm.severity.has_issues {
         let (findings_title, findings_intro) = if en {
@@ -740,7 +747,7 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in systemic_mandatory {
-                builder = render_finding_technical(builder, group, i18n);
+                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
             }
         }
 
@@ -770,7 +777,7 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in systemic_optimization {
-                builder = render_finding_technical(builder, group, i18n);
+                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
             }
         }
 
@@ -800,7 +807,7 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in local_mandatory {
-                builder = render_finding_technical(builder, group, i18n);
+                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
             }
         }
 
@@ -830,7 +837,7 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in local_optimization {
-                builder = render_finding_technical(builder, group, i18n);
+                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
             }
         }
         let _ = rendered_categories; // last write is intentional; silence dead-store lint

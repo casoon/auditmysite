@@ -476,16 +476,27 @@ pub(super) fn render_batch_decision_actions(
 
     let mut count = 0;
     for group in pres.top_issues.iter().take(8) {
-        let root = if group.is_component_issue || group.affected_urls.len() > 1 {
+        // A verified template cluster for this rule overrides the loose
+        // occurrence-count heuristic with the evidence-backed claim (and its
+        // confirmed/likely distinction) instead of the vague "likely shared
+        // component/template" label.
+        let cluster = pres
+            .template_clusters
+            .iter()
+            .find(|c| c.rule_id == group.rule_id);
+        let root: String = if let Some(cluster) = cluster {
+            cluster.decision_label.clone()
+        } else if group.is_component_issue || group.affected_urls.len() > 1 {
             if en {
                 "likely shared component/template"
             } else {
                 "vermutlich Komponente/Template"
             }
+            .to_string()
         } else if en {
-            "page-specific"
+            "page-specific".to_string()
         } else {
-            "seitenspezifisch"
+            "seitenspezifisch".to_string()
         };
         table = table.add_row(vec![
             format!("{} — {}", group.title, root),
@@ -1589,6 +1600,19 @@ pub(super) fn render_batch_top_issues(
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-section-most-frequent"), top_intro).with_level(1),
     );
+
+    // Verified template causes — evidence-backed root-cause clusters, ahead
+    // of the plain frequency table so the "one fix, N pages" claims are read
+    // before the raw occurrence counts.
+    if !pres.template_clusters.is_empty() {
+        builder = builder.add_component(TextBlock::new(i18n.t("batch-template-section-intro")));
+        let mut template_kv =
+            KeyValueList::new().with_title(i18n.t("batch-template-section-title"));
+        for cluster in &pres.template_clusters {
+            template_kv = template_kv.add(&cluster.selector, &cluster.headline);
+        }
+        builder = builder.add_component(template_kv);
+    }
 
     // Frequency table
     if !pres.issue_frequency.is_empty() {

@@ -20,6 +20,7 @@ pub mod prioritization;
 mod report;
 mod scoring;
 pub mod summary;
+pub mod template_dedup;
 pub mod verdict;
 
 pub use artifacts::{
@@ -47,4 +48,5 @@ pub use report::{
     ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
+pub use template_dedup::{detect_template_clusters, TemplateCluster};
 pub use verdict::{compute_batch_verdict, compute_verdict, Verdict, VerdictResult};

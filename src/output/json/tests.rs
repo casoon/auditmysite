@@ -662,6 +662,7 @@ fn test_collection_errors_serialized_when_present() {
             failed_url_count: 0,
             violated_rule_count: 0,
             top_recurring_rules: vec![],
+            template_clusters: vec![],
             performance_score: None,
             seo_score: None,
             security_score: None,

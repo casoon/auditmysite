@@ -9,6 +9,7 @@
 //! re-exports the result structs for backward compatibility.
 
 use crate::audit::normalized::OccurrenceDetail;
+use crate::wcag::ViolationEvidence;
 
 /// One representative occurrence chosen to illustrate a finding.
 pub struct RepresentativeOccurrence {
@@ -17,6 +18,14 @@ pub struct RepresentativeOccurrence {
     pub message: String,
     pub html_snippet: Option<String>,
     pub suggested_code: Option<String>,
+    /// Machine-readable provenance (DOM path, computed measurements) carried
+    /// through from `OccurrenceDetail::evidence` (evidence-grade findings).
+    pub evidence: Vec<ViolationEvidence>,
+    /// Cropped element screenshot, if one was captured for this occurrence's
+    /// rule. In-memory only — never serialized.
+    pub evidence_screenshot: Option<Vec<u8>>,
+    /// Which viewport pass produced `evidence_screenshot`.
+    pub evidence_viewport: Option<&'static str>,
 }
 
 /// A group of occurrences sharing a normalized selector pattern.
@@ -75,6 +84,9 @@ pub fn build_representative_occurrences(
             message: occ.message.clone(),
             html_snippet: occ.html_snippet.clone(),
             suggested_code: occ.suggested_code.clone(),
+            evidence: occ.evidence.clone(),
+            evidence_screenshot: occ.evidence_screenshot.clone(),
+            evidence_viewport: occ.evidence_viewport,
         });
 
         if items.len() >= 3 {
@@ -123,7 +135,7 @@ fn representative_selector(occ: &OccurrenceDetail) -> String {
         .to_string()
 }
 
-fn normalize_selector_cluster(selector: &str) -> String {
+pub(crate) fn normalize_selector_cluster(selector: &str) -> String {
     let trimmed = selector.trim();
     if trimmed.is_empty() {
         return "unspecified".to_string();
@@ -268,6 +280,7 @@ mod tests {
                 html_snippet: None,
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-2".into(),
@@ -277,6 +290,7 @@ mod tests {
                 html_snippet: Some("<h1 class=\"hero-title\">Insights</h1>".into()),
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-3".into(),
@@ -288,6 +302,7 @@ mod tests {
                     "<a id=\"cta-primary\" class=\"text-stone-900\">Kontakt</a>".into(),
                 ),
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-4".into(),
@@ -297,6 +312,7 @@ mod tests {
                 html_snippet: None,
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
         ];
 
@@ -319,6 +335,7 @@ mod tests {
                 html_snippet: Some("<h1 class=\"hero-title\">One</h1>".into()),
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-2".into(),
@@ -328,6 +345,7 @@ mod tests {
                 html_snippet: Some("<h1 class=\"hero-title\">Two</h1>".into()),
                 suggested_code: Some("<h1 lang=\"de\">Two</h1>".into()),
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-3".into(),
@@ -337,6 +355,7 @@ mod tests {
                 html_snippet: None,
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
         ];
 
@@ -358,6 +377,7 @@ mod tests {
                 html_snippet: None,
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-2".into(),
@@ -367,6 +387,7 @@ mod tests {
                 html_snippet: None,
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
             OccurrenceDetail {
                 node_id: "node-3".into(),
@@ -376,6 +397,7 @@ mod tests {
                 html_snippet: None,
                 suggested_code: None,
                 tags: vec![],
+                ..Default::default()
             },
         ];
 

@@ -130,6 +130,10 @@ pub struct UnifiedSummary {
     /// Bei Single-Reports bezogen auf die eine Seite; bei Batch über alle Pages aggregiert.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub top_recurring_rules: Vec<RecurringRule>,
+    /// WCAG findings verified to share one template/component root cause
+    /// across multiple pages (batch only; always empty on single reports).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub template_clusters: Vec<crate::audit::TemplateCluster>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -539,6 +543,7 @@ impl UnifiedReport {
             failed_url_count: batch_report.summary.failed,
             violated_rule_count: batch_report.summary.violated_rule_count,
             top_recurring_rules: batch_report.summary.top_recurring_rules.clone(),
+            template_clusters: batch_report.summary.template_clusters.clone(),
             performance_score: avg_module_score(&pages, "Performance"),
             seo_score: avg_module_score(&pages, "SEO"),
             security_score: avg_module_score(&pages, "Security"),
@@ -688,6 +693,7 @@ impl UnifiedReport {
             failed_url_count: 1 - passed,
             violated_rule_count,
             top_recurring_rules,
+            template_clusters: Vec::new(),
             performance_score: normalized_module_score(&ctx.normalized, "Performance"),
             seo_score: normalized_module_score(&ctx.normalized, "SEO"),
             security_score: normalized_module_score(&ctx.normalized, "Security"),
@@ -782,6 +788,7 @@ impl UnifiedReport {
             failed_url_count: 1 - passed,
             violated_rule_count,
             top_recurring_rules,
+            template_clusters: Vec::new(),
             performance_score: normalized_module_score(normalized, "Performance"),
             seo_score: normalized_module_score(normalized, "SEO"),
             security_score: normalized_module_score(normalized, "Security"),

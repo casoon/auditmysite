@@ -723,6 +723,12 @@ pub fn build_batch_presentation_with_normalized(
     .to_string();
 
     let en = i18n.locale() == "en";
+    let template_clusters: Vec<TemplateClusterView> = batch
+        .summary
+        .template_clusters
+        .iter()
+        .map(|cluster| build_template_cluster_view(cluster, batch.summary.total_urls, i18n))
+        .collect();
     BatchPresentation {
         cover: CoverData {
             title: if en {
@@ -788,6 +794,58 @@ pub fn build_batch_presentation_with_normalized(
         url_matrix: build_url_matrix(batch),
         appendix: build_batch_appendix(i18n.locale(), batch, normalized_reports),
         interactive_summary,
+        template_clusters,
+    }
+}
+
+/// Build the localized presentation view for one verified template cluster.
+///
+/// The strong "resolves N pages" claim is only used for `"confirmed"`
+/// clusters; `"likely"` clusters always render with explicit uncertainty
+/// wording so a report never implies more certainty than the evidence
+/// supports (see `plans/template-root-cause-dedup.md`).
+fn build_template_cluster_view(
+    cluster: &crate::audit::TemplateCluster,
+    total_pages: usize,
+    i18n: &I18n,
+) -> TemplateClusterView {
+    let n = cluster.affected_pages.to_string();
+    let total = total_pages.to_string();
+    let confirmed = cluster.confidence == "confirmed";
+
+    let headline = if confirmed {
+        i18n.t_args(
+            "batch-template-confirmed-headline",
+            &[
+                ("selector", cluster.selector.clone()),
+                ("n", n.clone()),
+                ("total", total),
+            ],
+        )
+    } else {
+        i18n.t_args(
+            "batch-template-likely-headline",
+            &[
+                ("selector", cluster.selector.clone()),
+                ("n", n.clone()),
+                ("total", total),
+            ],
+        )
+    };
+
+    let decision_label = if confirmed {
+        i18n.t_args("batch-template-decision-confirmed", &[("n", n)])
+    } else {
+        i18n.t_args("batch-template-decision-likely", &[("n", n)])
+    };
+
+    TemplateClusterView {
+        rule_id: cluster.rule_id.clone(),
+        selector: cluster.selector.clone(),
+        confidence: cluster.confidence.clone(),
+        affected_pages: cluster.affected_pages,
+        headline,
+        decision_label,
     }
 }
 
@@ -1277,6 +1335,11 @@ fn representative_occurrence_from_normalized(
         message: occurrence.message.clone(),
         html_snippet: occurrence.html_snippet.clone(),
         suggested_code: occurrence.suggested_code.clone(),
+        evidence: occurrence.evidence.clone(),
+        // Batch reports never capture element-evidence screenshots
+        // (`capture_element_evidence` is single-URL-only) — always None here.
+        evidence_screenshot: occurrence.evidence_screenshot.clone(),
+        evidence_viewport: occurrence.evidence_viewport,
     }
 }
 

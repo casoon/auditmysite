@@ -56,6 +56,7 @@ mod tests {
             check_stack,
             persist_artifacts: false,
             capture_screenshots: false,
+            capture_element_evidence: false,
             dismiss_consent: false,
             interactive: InteractiveMode::Off,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
