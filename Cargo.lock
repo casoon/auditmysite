@@ -3074,9 +3074,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "renderreport"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "084e101a528497d2b46a904ea8e7d86cb0a382de75c6006401f83511cf577df8"
+checksum = "a86cfd48f098322800ad831e6d41d1d1f921a74bc49030e52186d242127dc03e"
 dependencies = [
  "anyhow",
  "barcoders",
