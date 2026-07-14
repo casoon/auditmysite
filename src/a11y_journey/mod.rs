@@ -7,6 +7,7 @@
 //! Phase 2: tab-walk evaluation, skip-link, disclosure, modal, tabs, menu journeys.
 //! Phase 3: form-error announcement, SPA-navigation detection, link/heading/landmark inventory.
 
+pub mod add_to_cart;
 pub mod disclosure_journey;
 pub mod evaluate;
 pub mod form_error;
@@ -25,6 +26,7 @@ use chromiumoxide::Page;
 use crate::accessibility::AXTree;
 use crate::audit::normalized::{AccessibilityJourney, InteractiveFinding};
 use crate::cli::InteractiveMode;
+use crate::commerce::{CommerceAnalysis, CommercePageKind};
 use crate::error::Result;
 use crate::patterns::{JourneyKind, PatternAnalysis};
 
@@ -45,6 +47,11 @@ pub struct RunContext<'a> {
     pub locale: &'a str,
     /// Maximum wall-clock time the journey phase is allowed to consume.
     pub budget_ms: u64,
+    /// Commerce analysis for this page, when derived (shop context detected).
+    /// Used only to gate commerce-specific journeys (e.g. `AddToCart` to
+    /// `CommercePageKind::ProductDetail`) — `patterns::analyze()` itself has
+    /// no commerce context (it runs before the commerce module derives this).
+    pub commerce: Option<&'a CommerceAnalysis>,
 }
 
 /// Output of one journey run. The trace bundle and findings are kept
@@ -63,8 +70,24 @@ pub const DEFAULT_BUDGET_MS: u64 = 5000;
 fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
     match mode {
         InteractiveMode::Off => false,
-        InteractiveMode::Basic => !matches!(journey, JourneyKind::FormErrorSubmit),
+        InteractiveMode::Basic => !matches!(
+            journey,
+            JourneyKind::FormErrorSubmit | JourneyKind::AddToCart
+        ),
         InteractiveMode::Full => true,
+    }
+}
+
+/// Commerce-specific gate for journeys that must never run outside their
+/// intended shop context, on top of `journey_allowed`'s mode check — e.g.
+/// `AddToCart` only makes sense (and is only safe to interpret) on a
+/// detected shop's product-detail page.
+fn commerce_gate_allows(journey: JourneyKind, commerce: Option<&CommerceAnalysis>) -> bool {
+    match journey {
+        JourneyKind::AddToCart => commerce
+            .map(|c| c.page_kind == CommercePageKind::ProductDetail)
+            .unwrap_or(false),
+        _ => true,
     }
 }
 
@@ -103,13 +126,16 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
         let mut tabs_idx = 0usize;
         let mut menu_idx = 0usize;
         let mut form_idx = 0usize;
+        let mut add_to_cart_idx = 0usize;
 
         for candidate in &patterns.journey_candidates {
             if Instant::now() >= deadline {
                 tracing::info!("Journey budget exhausted, stopping pattern journeys early.");
                 break;
             }
-            if candidate.confidence < 0.7 || !journey_allowed(ctx.mode, candidate.required_journey)
+            if candidate.confidence < 0.7
+                || !journey_allowed(ctx.mode, candidate.required_journey)
+                || !commerce_gate_allows(candidate.required_journey, ctx.commerce)
             {
                 continue;
             }
@@ -144,6 +170,11 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     let idx = form_idx;
                     form_idx += 1;
                     form_error::test(ctx.page, candidate, idx).await
+                }
+                JourneyKind::AddToCart => {
+                    let idx = add_to_cart_idx;
+                    add_to_cart_idx += 1;
+                    add_to_cart::test(ctx.page, candidate, idx).await
                 }
             };
 

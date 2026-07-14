@@ -10,6 +10,7 @@
 //! keyboard focus traversal) is out of scope and remains a manual-review item.
 
 mod accordion;
+mod add_to_cart;
 mod disclosure_menu;
 mod form;
 mod main_navigation;
@@ -21,6 +22,29 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::AXTree;
 use crate::wcag::types::Violation;
+
+/// Purchase-final / booking button names — never a synthetic-click trigger
+/// for any journey candidate, even as a fallback. A live site with session/
+/// autofill (or cart) state could otherwise complete a real transaction.
+/// Shared between `form.rs` (form-error journey) and `add_to_cart.rs` (an
+/// "Add to Cart" button must never double as a "Buy Now"/one-click-purchase
+/// trigger).
+pub(crate) const PURCHASE_FINAL_HINTS: &[&str] = &[
+    "zahlungspflichtig bestellen",
+    "jetzt kaufen",
+    "kaufen",
+    "bestellen",
+    "buy now",
+    "place order",
+    "complete purchase",
+    "complete order",
+    "pay",
+    "checkout",
+    "buchen",
+    "book now",
+    "reservieren",
+    "reserve",
+];
 
 /// Result of running pattern detection against an AXTree.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -64,6 +88,7 @@ pub enum PatternKind {
     Accordion,
     Form,
     SkipLink,
+    AddToCart,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,6 +101,10 @@ pub enum JourneyKind {
     AccordionToggle,
     FormErrorSubmit,
     SkipLinkActivate,
+    /// Commerce-only: gated at journey-run time on a detected shop +
+    /// `CommercePageKind::ProductDetail` (this module has no commerce
+    /// context — see `a11y_journey::run`).
+    AddToCart,
 }
 
 /// A pattern that was recognized in the page.
@@ -128,5 +157,6 @@ pub fn analyze(tree: &AXTree) -> PatternAnalysis {
     skip_link::detect(tree, &mut result);
     accordion::detect(tree, &mut result);
     form::detect(tree, &mut result);
+    add_to_cart::detect(tree, &mut result);
     result
 }

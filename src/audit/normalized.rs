@@ -630,6 +630,8 @@ pub enum InteractiveFindingKind {
     FormErrorInvalidWithoutLiveRegion,
     FormErrorUnlinkedFields,
     FormErrorFocusNotManaged,
+    AddToCartNoStatusAnnouncement,
+    AddToCartNoFeedbackDetected,
     LinkTextGeneric,
     LinkTextDuplicate,
     HeadingMissingH1,
@@ -1222,6 +1224,59 @@ pub fn interactive_finding_text(
             } else {
                 "Fokus nach einem fehlgeschlagenen Absenden zum ersten ungültigen Feld \
                  oder zu einer Fehlerzusammenfassung (z. B. role=\"alert\") bewegen."
+                    .to_string()
+            }),
+        ),
+        AddToCartNoStatusAnnouncement => (
+            if en {
+                "Adding the item to the cart visibly changed the page (e.g. a cart \
+                 counter), but no live region (role=\"status\"/\"alert\" or aria-live) \
+                 announced it and focus did not move into a cart dialog. Screen reader \
+                 users receive no confirmation that the item was added."
+                    .to_string()
+            } else {
+                "Das Hinzufügen zum Warenkorb hat die Seite sichtbar verändert (z. B. \
+                 einen Warenkorb-Zähler), aber keine Live-Region (role=\"status\"/\"alert\" \
+                 oder aria-live) hat dies angekündigt, und der Fokus ist nicht in einen \
+                 Warenkorb-Dialog gewechselt. Screenreader-Nutzer erhalten keine \
+                 Bestätigung, dass der Artikel hinzugefügt wurde."
+                    .to_string()
+            },
+            Some(if en {
+                "Announce the outcome via a role=\"status\" live region (e.g. \"Item \
+                 added to cart\"), or move focus into the cart drawer/dialog when it \
+                 opens."
+                    .to_string()
+            } else {
+                "Das Ergebnis über eine role=\"status\"-Live-Region ankündigen (z. B. \
+                 „Artikel zum Warenkorb hinzugefügt“), oder den Fokus beim Öffnen in den \
+                 Warenkorb-Dialog verschieben."
+                    .to_string()
+            }),
+        ),
+        AddToCartNoFeedbackDetected => (
+            if en {
+                "Clicking the add-to-cart trigger produced no detectable change: no \
+                 live-region announcement, no focus change into a dialog, and no \
+                 recognizable cart-counter update. Manual review is needed to confirm \
+                 whether the action succeeded and how it is communicated."
+                    .to_string()
+            } else {
+                "Der Klick auf den Warenkorb-Button führte zu keiner erkennbaren \
+                 Änderung: keine Live-Region-Ankündigung, kein Fokuswechsel in einen \
+                 Dialog und keine erkennbare Warenkorb-Zähler-Aktualisierung. Eine \
+                 manuelle Prüfung ist nötig, um zu bestätigen, ob die Aktion erfolgreich \
+                 war und wie sie kommuniziert wird."
+                    .to_string()
+            },
+            Some(if en {
+                "Verify manually that adding to cart succeeds and is announced (e.g. \
+                 via a role=\"status\" live region or a focus-managed cart dialog)."
+                    .to_string()
+            } else {
+                "Manuell prüfen, ob das Hinzufügen zum Warenkorb funktioniert und \
+                 angekündigt wird (z. B. über eine role=\"status\"-Live-Region oder \
+                 einen fokusverwalteten Warenkorb-Dialog)."
                     .to_string()
             }),
         ),
@@ -3104,6 +3159,8 @@ mod tests {
             FormErrorInvalidWithoutLiveRegion,
             FormErrorUnlinkedFields,
             FormErrorFocusNotManaged,
+            AddToCartNoStatusAnnouncement,
+            AddToCartNoFeedbackDetected,
             LinkTextGeneric,
             LinkTextDuplicate,
             HeadingMissingH1,

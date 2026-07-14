@@ -13,7 +13,10 @@ use std::collections::HashMap;
 
 use crate::accessibility::{AXNode, AXTree};
 
-use super::{JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind};
+use super::{
+    JourneyCandidate, JourneyKind, PatternAnalysis, PatternConfidence, PatternKind,
+    PURCHASE_FINAL_HINTS,
+};
 
 /// Cap on how many distinct form clusters become journey candidates per page
 /// — keeps the interactive-journey budget bounded on pages with many forms.
@@ -43,26 +46,6 @@ const SUBMIT_HINTS: &[&str] = &[
     "bewerben",
     "kontakt",
     "contact",
-];
-
-/// Purchase-final / booking button names — never used as a synthetic-click
-/// trigger, even as a fallback. Checked against every candidate button, not
-/// just the chosen one, so these can never be selected by any path.
-const PURCHASE_FINAL_HINTS: &[&str] = &[
-    "zahlungspflichtig bestellen",
-    "jetzt kaufen",
-    "kaufen",
-    "bestellen",
-    "buy now",
-    "place order",
-    "complete purchase",
-    "complete order",
-    "pay",
-    "checkout",
-    "buchen",
-    "book now",
-    "reservieren",
-    "reserve",
 ];
 
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {

@@ -678,6 +678,7 @@ pub async fn audit_page(
         initial_url: url,
         locale: &config.lang,
         budget_ms: config.journey_budget_ms,
+        commerce: report.commerce.as_ref(),
     };
     match crate::a11y_journey::run(journey_ctx).await {
         Ok(Some(out)) => {
