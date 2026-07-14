@@ -578,7 +578,11 @@ pdf-seo-meta-description = Description
 pdf-seo-meta-issues-title = Meta tag issues
 pdf-seo-headings = Headings
 pdf-seo-social-tags = Social tags
-pdf-seo-more-signals = { $count } additional signals in the detailed appendix.
+pdf-seo-more-signals =
+    { $count } additional { $count ->
+        [one] signal
+       *[other] signals
+    } in the detailed appendix.
 pdf-seo-ie-title = Image Efficiency
 pdf-seo-ie-total = Total images
 pdf-seo-ie-modern = Modern formats
@@ -697,7 +701,11 @@ pdf-ai-readability = AI readability
 pdf-ai-citability = Citability
 pdf-ai-tech-readability = Technical AI readability
 pdf-ai-policy = AI policy
-pdf-ai-more-signals = { $count } additional signals in the detailed appendix.
+pdf-ai-more-signals =
+    { $count } additional { $count ->
+        [one] signal
+       *[other] signals
+    } in the detailed appendix.
 pdf-ai-sections-title = Sections
 pdf-ai-section-col = Section
 pdf-ai-words-col = Words

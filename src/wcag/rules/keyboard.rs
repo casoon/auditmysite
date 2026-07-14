@@ -135,11 +135,10 @@ pub fn check_keyboard(tree: &AXTree) -> WcagResults {
 
 /// Check if element is focusable but lacks interactive role
 fn is_focusable_without_interactive_role(node: &crate::accessibility::AXNode) -> bool {
-    // `tabindex` is not an AX property (#QA-030) — this branch is dead, but
-    // `focusable` is a real, Chrome-computed property that already reflects
-    // tabindex's effect on focusability, so coverage is not fully lost.
-    let tabindex = node.get_property_int("tabindex");
-    let has_focusable_tabindex = tabindex.map(|t| t >= 0).unwrap_or(false);
+    // `tabindex` is not an AX property (#QA-030); `focusable` is the real,
+    // Chrome-computed property that already reflects tabindex's effect on
+    // focusability, so it fully covers what the removed tabindex read
+    // attempted (see the equivalent fix in `focus_visible.rs`).
     let is_focusable = node.get_property_bool("focusable").unwrap_or(false);
 
     let non_interactive_roles = [
@@ -154,7 +153,7 @@ fn is_focusable_without_interactive_role(node: &crate::accessibility::AXNode) ->
         "presentation",
     ];
 
-    (has_focusable_tabindex || is_focusable)
+    is_focusable
         && node
             .role
             .as_deref()

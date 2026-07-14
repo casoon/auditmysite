@@ -28,7 +28,8 @@ use super::{
     check_abbreviations_with_page, check_aria_allowed_attr_with_page, check_aria_hidden_focus,
     check_aria_prohibited_attr_with_page, check_aria_valid_attr_value_with_page,
     check_background_audio_with_page, check_checked_state_with_page,
-    check_content_on_hover_with_page, check_focus_visible_css_with_page,
+    check_content_on_hover_with_page, check_focus_not_obscured_enhanced_with_page,
+    check_focus_not_obscured_minimum_with_page, check_focus_visible_css_with_page,
     check_form_no_submit_with_page, check_frame_tested_with_page, check_frame_title_with_page,
     check_identify_purpose_with_page, check_image_input_rules_with_page,
     check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
@@ -38,10 +39,10 @@ use super::{
     check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_focus_with_page, check_on_input_with_page,
     check_orientation_with_page, check_page_titled_with_page, check_parsing_with_page,
-    check_pointer_cancellation_with_page, check_pointer_gestures_with_page,
-    check_positive_tabindex_with_page, check_presentation_semantic_children_with_page,
-    check_re_authenticate_with_page, check_reduced_motion_with_page,
-    check_redundant_entry_with_page, check_resize_text_with_page,
+    check_pause_stop_hide_with_page, check_pointer_cancellation_with_page,
+    check_pointer_gestures_with_page, check_positive_tabindex_with_page,
+    check_presentation_semantic_children_with_page, check_re_authenticate_with_page,
+    check_reduced_motion_with_page, check_redundant_entry_with_page, check_resize_text_with_page,
     check_same_origin_iframes_with_page, check_server_side_image_map_with_page,
     check_tab_selected_state_with_page, check_table_headers_attr_with_page,
     check_target_size_enhanced_with_page, check_target_size_minimum_with_page,
@@ -258,6 +259,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_motion_actuation_with_page(p)),
     },
+    PageRuleEntry {
+        rule_id: "2.2.2/pause-stop-hide",
+        name: "pause-stop-hide",
+        min_level: WcagLevel::A,
+        check_fn: |p| Box::pin(check_pause_stop_hide_with_page(p)),
+    },
     // ── Level AA and above ────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.4.4/meta-viewport",
@@ -313,6 +320,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::AA,
         check_fn: |p| Box::pin(check_text_spacing_with_page(p)),
     },
+    PageRuleEntry {
+        rule_id: "2.4.11/focus-not-obscured-minimum",
+        name: "focus-not-obscured-minimum",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_focus_not_obscured_minimum_with_page(p)),
+    },
     // ── Level AAA only ────────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.3.6/identify-purpose",
@@ -367,6 +380,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "target-size-enhanced",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_target_size_enhanced_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "2.4.12/focus-not-obscured-enhanced",
+        name: "focus-not-obscured-enhanced",
+        min_level: WcagLevel::AAA,
+        check_fn: |p| Box::pin(check_focus_not_obscured_enhanced_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "3.1.4/abbreviations",
@@ -425,7 +444,8 @@ mod tests {
         // (2.5.1-2.5.4 are Level A per WCAG 2.1, were misclassified as AAA) = 31
         // + redundant-entry (3.3.7, WCAG 2.2 A) = 32
         // + meaningful-sequence (1.3.2, WCAG 2.1 A) = 33
-        assert_eq!(count, 33);
+        // + pause-stop-hide (2.2.2, WCAG 2.1 A) = 34
+        assert_eq!(count, 34);
     }
 
     #[test]
@@ -439,7 +459,9 @@ mod tests {
         // + text-spacing (1.4.12, WCAG 2.1 AA) = 41.
         // + non-text-contrast-css (1.4.11, replaces the vacuous AX-tree-only
         //   check_non_text_contrast — see non_text_contrast_css.rs) = 42.
-        assert_eq!(count, 42);
+        // + focus-not-obscured-minimum (2.4.11, WCAG 2.2 AA) = 43.
+        // + pause-stop-hide (2.2.2, WCAG 2.1 A, counted here too since AA >= A) = 44.
+        assert_eq!(count, 44);
     }
 
     #[test]

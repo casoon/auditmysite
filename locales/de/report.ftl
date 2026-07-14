@@ -578,7 +578,11 @@ pdf-seo-meta-description = Beschreibung
 pdf-seo-meta-issues-title = Meta-Tag Probleme
 pdf-seo-headings = Überschriften
 pdf-seo-social-tags = Social Tags
-pdf-seo-more-signals = { $count } weitere Signale im detaillierten Anhang.
+pdf-seo-more-signals =
+    { $count } { $count ->
+        [one] weiteres Signal
+       *[other] weitere Signale
+    } im detaillierten Anhang.
 pdf-seo-ie-title = Bild-Effizienz
 pdf-seo-ie-total = Bilder gesamt
 pdf-seo-ie-modern = Moderne Formate
@@ -697,7 +701,11 @@ pdf-ai-readability = KI-Lesbarkeit
 pdf-ai-citability = Zitierbarkeit
 pdf-ai-tech-readability = Technische KI-Lesbarkeit
 pdf-ai-policy = AI-Policy
-pdf-ai-more-signals = { $count } weitere Signale im detaillierten Anhang.
+pdf-ai-more-signals =
+    { $count } { $count ->
+        [one] weiteres Signal
+       *[other] weitere Signale
+    } im detaillierten Anhang.
 pdf-ai-sections-title = Abschnitte
 pdf-ai-section-col = Abschnitt
 pdf-ai-words-col = Wörter
