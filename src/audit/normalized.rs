@@ -632,6 +632,8 @@ pub enum InteractiveFindingKind {
     FormErrorFocusNotManaged,
     AddToCartNoStatusAnnouncement,
     AddToCartNoFeedbackDetected,
+    QuantityStepperKeyboardInoperable,
+    QuantityStepperValueNotExposed,
     LinkTextGeneric,
     LinkTextDuplicate,
     HeadingMissingH1,
@@ -1277,6 +1279,54 @@ pub fn interactive_finding_text(
                 "Manuell prüfen, ob das Hinzufügen zum Warenkorb funktioniert und \
                  angekündigt wird (z. B. über eine role=\"status\"-Live-Region oder \
                  einen fokusverwalteten Warenkorb-Dialog)."
+                    .to_string()
+            }),
+        ),
+        QuantityStepperKeyboardInoperable => (
+            if en {
+                "The quantity control could not be operated by keyboard: it either \
+                 could not receive focus, or its value did not change after pressing \
+                 Arrow Up. Keyboard-only users cannot adjust the quantity."
+                    .to_string()
+            } else {
+                "Das Mengenfeld ließ sich nicht per Tastatur bedienen: Es konnte entweder \
+                 nicht fokussiert werden, oder sein Wert änderte sich nach Drücken von \
+                 Pfeil-nach-oben nicht. Reine Tastaturnutzer können die Menge nicht \
+                 anpassen."
+                    .to_string()
+            },
+            Some(if en {
+                "Ensure the quantity control is a native <input type=\"number\"> or a \
+                 fully keyboard-operable ARIA spinbutton (focusable, responds to Arrow \
+                 Up/Down)."
+                    .to_string()
+            } else {
+                "Sicherstellen, dass das Mengenfeld ein natives <input type=\"number\"> \
+                 oder ein vollständig tastaturbedienbares ARIA-Spinbutton ist \
+                 (fokussierbar, reagiert auf Pfeil-hoch/-runter)."
+                    .to_string()
+            }),
+        ),
+        QuantityStepperValueNotExposed => (
+            if en {
+                "Arrow Up changed the quantity value, but this custom (non-native) \
+                 spinbutton widget did not update aria-valuenow to match. Screen reader \
+                 users hear no change even though the value did change."
+                    .to_string()
+            } else {
+                "Pfeil-nach-oben hat den Mengenwert geändert, aber dieses \
+                 benutzerdefinierte (nicht native) Spinbutton-Widget hat aria-valuenow \
+                 nicht entsprechend aktualisiert. Screenreader-Nutzer hören keine \
+                 Änderung, obwohl sich der Wert geändert hat."
+                    .to_string()
+            },
+            Some(if en {
+                "Update aria-valuenow (and ideally aria-valuetext) on the spinbutton \
+                 element whenever its value changes."
+                    .to_string()
+            } else {
+                "aria-valuenow (und idealerweise aria-valuetext) auf dem \
+                 Spinbutton-Element bei jeder Wertänderung aktualisieren."
                     .to_string()
             }),
         ),
@@ -3161,6 +3211,8 @@ mod tests {
             FormErrorFocusNotManaged,
             AddToCartNoStatusAnnouncement,
             AddToCartNoFeedbackDetected,
+            QuantityStepperKeyboardInoperable,
+            QuantityStepperValueNotExposed,
             LinkTextGeneric,
             LinkTextDuplicate,
             HeadingMissingH1,

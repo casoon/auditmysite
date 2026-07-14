@@ -15,6 +15,7 @@ mod disclosure_menu;
 mod form;
 mod main_navigation;
 mod modal_dialog;
+mod quantity_stepper;
 mod skip_link;
 mod tab_list;
 
@@ -89,6 +90,7 @@ pub enum PatternKind {
     Form,
     SkipLink,
     AddToCart,
+    QuantityStepper,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,6 +107,9 @@ pub enum JourneyKind {
     /// `CommercePageKind::ProductDetail` (this module has no commerce
     /// context — see `a11y_journey::run`).
     AddToCart,
+    /// Commerce-only: gated at journey-run time on a detected shop +
+    /// `CommercePageKind::ProductDetail` or `::Cart`.
+    QuantityStepper,
 }
 
 /// A pattern that was recognized in the page.
@@ -158,5 +163,6 @@ pub fn analyze(tree: &AXTree) -> PatternAnalysis {
     accordion::detect(tree, &mut result);
     form::detect(tree, &mut result);
     add_to_cart::detect(tree, &mut result);
+    quantity_stepper::detect(tree, &mut result);
     result
 }

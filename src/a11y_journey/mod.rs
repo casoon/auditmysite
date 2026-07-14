@@ -14,6 +14,7 @@ pub mod form_error;
 pub mod link_inventory;
 pub mod menu_journey;
 pub mod modal_journey;
+pub mod quantity_stepper;
 pub mod skip_link;
 pub mod spa_navigation;
 pub mod tab_walk;
@@ -72,7 +73,7 @@ fn journey_allowed(mode: InteractiveMode, journey: JourneyKind) -> bool {
         InteractiveMode::Off => false,
         InteractiveMode::Basic => !matches!(
             journey,
-            JourneyKind::FormErrorSubmit | JourneyKind::AddToCart
+            JourneyKind::FormErrorSubmit | JourneyKind::AddToCart | JourneyKind::QuantityStepper
         ),
         InteractiveMode::Full => true,
     }
@@ -86,6 +87,14 @@ fn commerce_gate_allows(journey: JourneyKind, commerce: Option<&CommerceAnalysis
     match journey {
         JourneyKind::AddToCart => commerce
             .map(|c| c.page_kind == CommercePageKind::ProductDetail)
+            .unwrap_or(false),
+        JourneyKind::QuantityStepper => commerce
+            .map(|c| {
+                matches!(
+                    c.page_kind,
+                    CommercePageKind::ProductDetail | CommercePageKind::Cart
+                )
+            })
             .unwrap_or(false),
         _ => true,
     }
@@ -127,6 +136,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
         let mut menu_idx = 0usize;
         let mut form_idx = 0usize;
         let mut add_to_cart_idx = 0usize;
+        let mut quantity_stepper_idx = 0usize;
 
         for candidate in &patterns.journey_candidates {
             if Instant::now() >= deadline {
@@ -175,6 +185,11 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                     let idx = add_to_cart_idx;
                     add_to_cart_idx += 1;
                     add_to_cart::test(ctx.page, candidate, idx).await
+                }
+                JourneyKind::QuantityStepper => {
+                    let idx = quantity_stepper_idx;
+                    quantity_stepper_idx += 1;
+                    quantity_stepper::test(ctx.page, candidate, idx).await
                 }
             };
 
