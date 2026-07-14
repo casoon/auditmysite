@@ -165,16 +165,16 @@ fn build_single_report(
         let (p1_title, p1_intro, p1_audience_title, p1_audience_body) = if en {
             (
                 "Findings by Root Cause",
-                "Distribution of identified template and component issues and prioritized roadmaps.",
+                "Which underlying causes explain the most findings, and the prioritized plan to fix them.",
                 "Audience",
-                "Developers and IT managers. Read this part to understand systemic issues and the remediation roadmap.",
+                "Site owners, decision-makers, and developers. This part explains what is driving the findings and what to do next.",
             )
         } else {
             (
                 "Befunde nach Ursache",
-                "Verteilung der erkannten Template- und Komponentenfehler sowie der priorisierte Maßnahmenplan.",
+                "Welche Ursachen die meisten Befunde erklären – und der priorisierte Plan, sie zu beheben.",
                 "Zielgruppe",
-                "Entwickler und IT-Verantwortliche. Dieser Teil zeigt die systemischen Ursachen und den Ablaufplan.",
+                "Inhaber, Entscheider und Entwickler. Dieser Teil erklärt, was die Befunde verursacht und was als Nächstes zu tun ist.",
             )
         };
         builder = render_part_divider(

@@ -788,6 +788,53 @@ mod tests {
             }
         }
 
+        // 4. explanations.rs customer texts — the per-rule plain-language
+        //    content shown on Chapter 02 finding cards (customer title,
+        //    description, user impact, typical cause, recommendation,
+        //    technical note), one record per rule × locale.
+        for (rule_key, expl) in crate::output::explanations::all() {
+            for locale in ["de", "en"] {
+                records.push(serde_json::json!({
+                    "source": "explanations_rs",
+                    "module": rule_key,
+                    "area_locale": locale,
+                    "customer_title": expl.customer_title_for(locale),
+                    "customer_description": expl.customer_description_for(locale),
+                    "user_impact": expl.user_impact_for(locale),
+                    "typical_cause": expl.typical_cause_for(locale),
+                    "recommendation": expl.recommendation_for(locale),
+                    "technical_note": expl.technical_note_for(locale),
+                }));
+            }
+        }
+
+        // 5. Chapter-opener / part-divider strings touched by the
+        //    plain-language report slice (mirrors the literal text in
+        //    `src/output/pdf/mod.rs` Part-1 divider and
+        //    `src/output/pdf/single_report.rs`'s root-cause section — kept as
+        //    literals here for review since those strings live inline in the
+        //    renderer, not behind a reusable function).
+        let chapter_strings = [
+            ("part1_intro", "de", "Welche Ursachen die meisten Befunde erklären – und der priorisierte Plan, sie zu beheben."),
+            ("part1_intro", "en", "Which underlying causes explain the most findings, and the prioritized plan to fix them."),
+            ("part1_audience", "de", "Inhaber, Entscheider und Entwickler. Dieser Teil erklärt, was die Befunde verursacht und was als Nächstes zu tun ist."),
+            ("part1_audience", "en", "Site owners, decision-makers, and developers. This part explains what is driving the findings and what to do next."),
+            ("root_cause_subtitle", "de", "Viele Einzelbefunde gehen auf wenige wiederkehrende Ursachen zurück – deren Behebung wirkt gebündelt."),
+            ("root_cause_subtitle", "en", "Many individual findings trace back to a few recurring causes — fixing those has a compounding effect."),
+            ("root_cause_lead_in", "de", "Das bedeutet konkret: Ein Fix an der richtigen Stelle – etwa einer wiederverwendeten Komponente oder einem Template – behebt oft mehrere Befunde gleichzeitig, statt jeden einzeln reparieren zu müssen."),
+            ("root_cause_lead_in", "en", "In practice: fixing the right root cause — a shared component or template — often resolves several findings at once, instead of fixing each one individually."),
+            ("seo_schema_tile_note", "de", "Schema.org kennzeichnet strukturierte Daten für Suchmaschinen; der Reifegrad zeigt, wie vollständig sie auf der Seite genutzt werden."),
+            ("seo_schema_tile_note", "en", "Schema.org marks up structured data for search engines; the maturity level shows how completely it is used on the page."),
+        ];
+        for (key, locale, text) in chapter_strings {
+            records.push(serde_json::json!({
+                "source": "chapter_opener_divider",
+                "module": key,
+                "area_locale": locale,
+                "text": text,
+            }));
+        }
+
         // Source map for the fixture-dependent generators not exhaustively
         // enumerated above (each combines profile/threshold inputs).
         let source_map = serde_json::json!([

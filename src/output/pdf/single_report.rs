@@ -538,7 +538,16 @@ pub(super) fn render_tech_details(
     // desktop/mobile naming) plus a per-report sequence number.
     let report_ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
     let mut evidence_seq: usize = 0;
-    builder = render_findings_section(builder, vm, en, i18n, report_ts, &mut evidence_seq);
+    let mut acronyms_expanded = false;
+    builder = render_findings_section(
+        builder,
+        vm,
+        en,
+        i18n,
+        report_ts,
+        &mut evidence_seq,
+        &mut acronyms_expanded,
+    );
 
     // Interactive Accessibility-Journey findings (Phase 2+)
     if !report.interactive_findings.is_empty() {
@@ -617,6 +626,7 @@ fn render_findings_section(
     i18n: &I18n,
     report_ts: i64,
     evidence_seq: &mut usize,
+    acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
     if vm.severity.has_issues {
         let (findings_title, findings_intro) = if en {
@@ -747,7 +757,14 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in systemic_mandatory {
-                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
+                builder = render_finding_technical(
+                    builder,
+                    group,
+                    i18n,
+                    report_ts,
+                    evidence_seq,
+                    acronyms_expanded,
+                );
             }
         }
 
@@ -777,7 +794,14 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in systemic_optimization {
-                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
+                builder = render_finding_technical(
+                    builder,
+                    group,
+                    i18n,
+                    report_ts,
+                    evidence_seq,
+                    acronyms_expanded,
+                );
             }
         }
 
@@ -807,7 +831,14 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in local_mandatory {
-                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
+                builder = render_finding_technical(
+                    builder,
+                    group,
+                    i18n,
+                    report_ts,
+                    evidence_seq,
+                    acronyms_expanded,
+                );
             }
         }
 
@@ -837,7 +868,14 @@ fn render_findings_section(
                     .with_level(2),
             );
             for group in local_optimization {
-                builder = render_finding_technical(builder, group, i18n, report_ts, evidence_seq);
+                builder = render_finding_technical(
+                    builder,
+                    group,
+                    i18n,
+                    report_ts,
+                    evidence_seq,
+                    acronyms_expanded,
+                );
             }
         }
         let _ = rendered_categories; // last write is intentional; silence dead-store lint
@@ -1313,9 +1351,9 @@ pub(super) fn render_root_cause_analysis(
         "Ursachenanalyse"
     };
     let subtitle = if en {
-        "Grouping individual findings into systemic component/template root causes."
+        "Many individual findings trace back to a few recurring causes — fixing those has a compounding effect."
     } else {
-        "Bündelung der Einzelfunde in systemische Komponenten- und Template-Ursachen."
+        "Viele Einzelbefunde gehen auf wenige wiederkehrende Ursachen zurück – deren Behebung wirkt gebündelt."
     };
 
     // No leading PageBreak: the preceding part divider ("Befunde nach Ursache")
@@ -1339,6 +1377,15 @@ pub(super) fn render_root_cause_analysis(
         builder = builder.add_component(Callout::success(msg));
         return builder;
     }
+
+    // Plain lead-in (Rule A): spell out what "root cause" means in practice
+    // before the technical list of causes/components follows below.
+    let lead_in = if en {
+        "In practice: fixing the right root cause — a shared component or template — often resolves several findings at once, instead of fixing each one individually."
+    } else {
+        "Das bedeutet konkret: Ein Fix an der richtigen Stelle – etwa einer wiederverwendeten Komponente oder einem Template – behebt oft mehrere Befunde gleichzeitig, statt jeden einzeln reparieren zu müssen."
+    };
+    builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
 
     // Render root causes (assigning letters A, B, C, etc.)
     let mut list = List::new().with_title(if en {

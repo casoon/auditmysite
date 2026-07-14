@@ -59,6 +59,17 @@ pub(in crate::output::pdf) fn render_seo(
     }
     if !seo_strip.is_empty() {
         builder = builder.add_component(MetricStrip::new(seo_strip).compact());
+        if seo.profile.is_some() {
+            builder = builder.add_component(
+                Label::new(pick(
+                    i18n,
+                    "Schema.org kennzeichnet strukturierte Daten für Suchmaschinen; der Reifegrad zeigt, wie vollständig sie auf der Seite genutzt werden.",
+                    "Schema.org marks up structured data for search engines; the maturity level shows how completely it is used on the page.",
+                ))
+                .with_size("10.5pt")
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+            );
+        }
     }
 
     if !seo.meta_tags.is_empty() {

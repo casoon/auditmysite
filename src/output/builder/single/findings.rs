@@ -52,11 +52,17 @@ pub(super) fn finding_group_from_normalized(
         )
     } else {
         // JSON-stored title/user_impact are canonical English (#406); re-derive
-        // the runtime-locale text from the taxonomy for the report.
-        let (title_loc, user_impact_loc, _technical_loc) = localized_finding_text(locale, f);
+        // the runtime-locale text from the taxonomy for the report. There is no
+        // dedicated "customer description" field in the taxonomy for rules
+        // without a `RuleExplanation` — `technical_impact` is the closest
+        // available substitute that is actually localized DE/EN (`description`
+        // has no English counterpart). Using `f.description` here (canonical
+        // English, #406) would leak raw English prose into German reports —
+        // never do that (Rule C, plain-language report plan).
+        let (title_loc, user_impact_loc, technical_loc) = localized_finding_text(locale, f);
         (
             title_loc,
-            f.description.clone(),
+            technical_loc,
             user_impact_loc.clone(),
             derive_business_impact(
                 i18n,
@@ -199,4 +205,99 @@ pub(super) fn recompute_occurrence_derived_fields(group: &mut FindingGroup, i18n
         None
     };
     group.is_component_issue = group.occurrence_count >= 10;
+}
+
+#[cfg(test)]
+mod fallback_tests {
+    use super::finding_group_from_normalized;
+    use crate::audit::normalized::{
+        ComplexityKind, ExpectedImpactKind, NormalizedFinding, ReportVisibilityData, ScoreEffect,
+        ScoreImpactData,
+    };
+    use crate::i18n::I18n;
+    use crate::wcag::Severity;
+
+    /// `a11y.timing.unadjustable` (WCAG 2.2.1) has no `RuleExplanation` entry
+    /// in `explanations.rs` — a real, currently-uncovered rule (verified by
+    /// auditing `EXPLANATIONS` against the taxonomy), so this exercises the
+    /// `finding_group_from_normalized` fallback branch. `description` is set
+    /// to a raw-English marker that must never surface as `customer_description`.
+    fn uncovered_rule_finding() -> NormalizedFinding {
+        NormalizedFinding {
+            category: "wcag".into(),
+            rule_id: "a11y.timing.unadjustable".into(),
+            wcag_criterion: "2.2.1".into(),
+            axe_id: None,
+            wcag_level: "A".into(),
+            dimension: "Accessibility".into(),
+            subcategory: "Navigation Interaction".into(),
+            issue_class: "Weak".into(),
+            dimension_kind: crate::taxonomy::Dimension::Accessibility,
+            subcategory_kind: crate::taxonomy::Subcategory::NavigationInteraction,
+            issue_class_kind: crate::taxonomy::IssueClass::Weak,
+            severity: Severity::High,
+            user_impact: "Users need more time to enter data and may lose data through timeouts."
+                .into(),
+            technical_impact: "Missing refresh or timeout handling in the script/markup.".into(),
+            score_impact: ScoreImpactData {
+                base_penalty: 3.0,
+                max_penalty: 10.0,
+                scaling: "Logarithmic".into(),
+            },
+            report_visibility: ReportVisibilityData::default(),
+            aggregation_key: "a11y.timing.unadjustable".into(),
+            title: "Non-adjustable time limit".into(),
+            description: "RAW ENGLISH CANARY — must never reach a German customer_description"
+                .into(),
+            help_url: None,
+            occurrence_count: 1,
+            priority_score: 1.0,
+            confidence: "high".into(),
+            false_positive_risk: "low".into(),
+            verification: "automatically_confirmed".into(),
+            complexity: "medium".into(),
+            complexity_reason: "Test fixture".into(),
+            complexity_kind: ComplexityKind::LowScope,
+            expected_impact: "Test fixture".into(),
+            expected_impact_kind: ExpectedImpactKind::Other {
+                occurrence_count: 1,
+                score_effect: ScoreEffect::Low,
+            },
+            bfsg_relevance: "medium".into(),
+            remediation_priority: "normal".into(),
+            occurrences: vec![],
+        }
+    }
+
+    /// Rule C (plain-language report plan): the no-`RuleExplanation` fallback
+    /// must source `customer_description` from the localized taxonomy text,
+    /// never from the raw canonical-English `NormalizedFinding.description`.
+    #[test]
+    fn fallback_customer_description_is_localized_not_raw_english() {
+        let i18n = I18n::new("de").expect("test locale should load");
+        let finding = uncovered_rule_finding();
+        let group = finding_group_from_normalized(&i18n, &finding);
+
+        assert_ne!(group.customer_description, finding.description);
+        assert!(!group.customer_description.is_empty());
+        // The localized taxonomy `technical_impact` for this rule (German).
+        assert_eq!(
+            group.customer_description,
+            "Fehlendes Refresh- oder Timeout-Handling im Script/Markup."
+        );
+    }
+
+    /// Same fallback branch in English: no German umlauts/ß should leak in
+    /// (mirrors the #406 guard-test pattern used elsewhere in the codebase).
+    #[test]
+    fn fallback_customer_description_en_has_no_german_umlauts() {
+        let i18n = I18n::new("en").expect("test locale should load");
+        let finding = uncovered_rule_finding();
+        let group = finding_group_from_normalized(&i18n, &finding);
+
+        assert!(!group.customer_description.is_empty());
+        assert!(!group
+            .customer_description
+            .contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']));
+    }
 }

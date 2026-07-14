@@ -135,6 +135,27 @@ fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
     }
 }
 
+/// Label for the "BFSG/EAA relevance" meta row. Both acronyms are spelled out
+/// once, at their first appearance in the report, then abbreviated on every
+/// later card — readers who start at Chapter 02's first finding get the
+/// expansion, later cards stay compact (Rule B, plain-language report plan).
+fn bfsg_eaa_label(i18n: &I18n, acronyms_expanded: &mut bool) -> &'static str {
+    let en = i18n.locale() == "en";
+    if !*acronyms_expanded {
+        *acronyms_expanded = true;
+        return if en {
+            "BFSG/EAA relevance (German Accessibility Strengthening Act / European Accessibility Act)"
+        } else {
+            "BFSG-/EAA-Relevanz (Barrierefreiheitsstärkungsgesetz / European Accessibility Act)"
+        };
+    }
+    if en {
+        "BFSG/EAA relevance"
+    } else {
+        "BFSG-/EAA-Relevanz"
+    }
+}
+
 fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
     let en = i18n.locale() == "en";
     match (value, en) {
@@ -196,6 +217,7 @@ pub(super) fn render_finding_technical(
     i18n: &I18n,
     report_ts: i64,
     evidence_seq: &mut usize,
+    acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
     let (severity_prefix, color) = match group.severity {
@@ -238,6 +260,25 @@ pub(super) fn render_finding_technical(
             .with_color(color),
     );
 
+    // Plain-language lead-in: what this means and who it affects, in customer
+    // language — shown BEFORE the QA-meta block so every reader sees impact
+    // first, not detection-confidence/false-positive statistics (Rule A/B,
+    // plain-language report plan). `customer_description`/`user_impact` are
+    // already locale-correct here (#406 + the Rule-C fallback fix below).
+    let mut lead_in = String::new();
+    if !group.customer_description.is_empty() {
+        lead_in.push_str(&group.customer_description);
+    }
+    if !group.user_impact.is_empty() {
+        if !lead_in.is_empty() {
+            lead_in.push(' ');
+        }
+        lead_in.push_str(&group.user_impact);
+    }
+    if !lead_in.is_empty() {
+        builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
+    }
+
     let mut meta_kv = KeyValueList::new()
         .add(
             i18n.t("label-priority"),
@@ -276,11 +317,7 @@ pub(super) fn render_finding_technical(
             report_code_label(&group.false_positive_risk, i18n),
         )
         .add(
-            if i18n.locale() == "en" {
-                "BFSG/EAA relevance"
-            } else {
-                "BFSG-/EAA-Relevanz"
-            },
+            bfsg_eaa_label(i18n, acronyms_expanded),
             report_code_label(&group.bfsg_relevance, i18n),
         )
         .add(

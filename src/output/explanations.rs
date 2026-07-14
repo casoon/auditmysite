@@ -109,6 +109,15 @@ impl RuleExplanation {
     }
 }
 
+/// All rule explanations, keyed by WCAG ID or taxonomy rule ID — for review
+/// surfaces that need to enumerate every customer text (e.g.
+/// `export_all_interpretations`). Test-only: no production caller needs the
+/// full list.
+#[cfg(test)]
+pub(crate) fn all() -> &'static [(&'static str, RuleExplanation)] {
+    EXPLANATIONS
+}
+
 /// Look up the explanation for a rule by its WCAG ID (e.g., "1.1.1")
 /// or taxonomy rule ID (e.g., "a11y.alt_text.missing")
 pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
@@ -564,6 +573,52 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Medium,
             example_bad: Some("border: 1px solid #cccccc; /* auf #ffffff = 1.6:1 */"),
             example_good: Some("border: 1px solid #767676; /* auf #ffffff = 4.5:1 */"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "1.4.12",
+        RuleExplanation {
+            customer_title: "Inhalt wird bei größerem Zeilen-/Wortabstand abgeschnitten",
+            customer_title_en: "Content is clipped when text spacing is increased",
+            customer_description:
+                "Wenn Nutzer den Zeilen-, Wort- oder Buchstabenabstand für bessere Lesbarkeit \
+                 erhöhen, schneidet ein Container mit fester Höhe oder overflow:hidden Teile \
+                 des Textes ab.",
+            customer_description_en:
+                "When users increase line, word, or letter spacing for better readability, a \
+                 container with a fixed height or overflow:hidden clips parts of the text.",
+            user_impact:
+                "Nutzer mit Leseschwäche oder Sehbeeinträchtigung, die größere Abstände zur \
+                 besseren Lesbarkeit einstellen, verlieren Inhalte oder können sie nicht mehr \
+                 vollständig lesen.",
+            user_impact_en:
+                "Users with reading difficulties or visual impairments who increase spacing \
+                 for readability lose content or can no longer read it fully.",
+            typical_cause:
+                "Fixe Höhen oder Breiten mit overflow:hidden auf Textcontainern, etwa bei \
+                 Karten, Buttons oder Navigationselementen mit knapp bemessenem Platz.",
+            typical_cause_en:
+                "Fixed heights or widths with overflow:hidden on text containers, e.g. cards, \
+                 buttons, or navigation elements with tightly sized space.",
+            recommendation:
+                "Textcontainer flexibel gestalten (min-height statt fester Höhe, kein \
+                 overflow:hidden auf Textbereichen) und mit den WCAG-Mindestabständen testen.",
+            recommendation_en:
+                "Design text containers flexibly (min-height instead of a fixed height, no \
+                 overflow:hidden on text areas) and test against the WCAG minimum spacing values.",
+            technical_note:
+                "WCAG-1.4.12-Mindestwerte simulieren (Zeilenhöhe 1.5x, Absatzabstand 2x, \
+                 Buchstabenabstand 0.12x, Wortabstand 0.16x der Schriftgröße) und prüfen, ob \
+                 Container Inhalte abschneiden statt zu wachsen.",
+            technical_note_en:
+                "Simulate the WCAG 1.4.12 minimum values (line height 1.5x, paragraph spacing \
+                 2x, letter spacing 0.12x, word spacing 0.16x of font size) and check whether \
+                 containers clip content instead of growing.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("<div style=\"height: 40px; overflow: hidden;\">Langer Textinhalt...</div>"),
+            example_good: Some("<div style=\"min-height: 40px; overflow: visible;\">Langer Textinhalt...</div>"),
             example_decorative: None,
         },
     ),
@@ -1057,6 +1112,48 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<button aria-label=\"Close menu\">X</button>"),
             example_good: Some("<button aria-label=\"Close\">Close</button>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "2.5.8",
+        RuleExplanation {
+            customer_title: "Unzureichende Klickzielgröße",
+            customer_title_en: "Insufficient click target size",
+            customer_description:
+                "Bedienelemente wie Buttons, Links oder Icons haben eine Klickfläche von \
+                 weniger als 24×24 CSS-Pixeln.",
+            customer_description_en:
+                "Interactive elements such as buttons, links, or icons have a clickable area \
+                 smaller than 24×24 CSS pixels.",
+            user_impact:
+                "Nutzer mit motorischen Einschränkungen oder auf Touchscreens treffen kleine \
+                 Zielflächen leicht daneben und lösen versehentlich falsche Aktionen aus.",
+            user_impact_en:
+                "Users with motor impairments or on touchscreens easily miss small target \
+                 areas and accidentally trigger the wrong action.",
+            typical_cause:
+                "Icon-Buttons ohne zusätzliches Padding, dicht gepackte Link- oder \
+                 Icon-Listen, kleine Formularsteuerelemente im mobilen Layout.",
+            typical_cause_en:
+                "Icon buttons without extra padding, tightly packed link or icon lists, small \
+                 form controls in the mobile layout.",
+            recommendation:
+                "Klickflächen auf mindestens 24×24 CSS-Pixel vergrößern, z. B. durch Padding, \
+                 oder ausreichend Abstand zu benachbarten Zielen einhalten.",
+            recommendation_en:
+                "Increase clickable areas to at least 24×24 CSS pixels, e.g. via padding, or \
+                 ensure sufficient spacing to neighboring targets.",
+            technical_note:
+                "Ausnahmen gelten u. a. für Inline-Links im Fließtext und wenn ein \
+                 gleichwertiges, größeres Ziel für dieselbe Funktion existiert.",
+            technical_note_en:
+                "Exceptions apply to, among others, inline links within body text and cases \
+                 where an equivalent, larger target for the same function exists.",
+            responsible_role: Role::DesignUx,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<button style=\"width: 16px; height: 16px; padding: 0;\">×</button>"),
+            example_good: Some("<button style=\"width: 24px; height: 24px; padding: 4px;\">×</button>"),
             example_decorative: None,
         },
     ),
