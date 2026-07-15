@@ -28,8 +28,15 @@ src/
 ├── util.rs              # Utility functions
 │
 ├── cli/                 # Command-line interface
-│   ├── args.rs          # Clap argument parsing
-│   └── config.rs        # auditmysite.toml config support
+│   ├── args.rs          # Clap argument parsing (Args, WcagLevel, OutputFormat, AnnexKind)
+│   ├── config.rs        # auditmysite.toml config support
+│   ├── commands.rs      # Subcommand handlers (browser, doctor, plan)
+│   ├── runners.rs       # Mode runners (single, batch, compare)
+│   ├── report_writers.rs # Output dispatch (single/batch/comparison)
+│   ├── output_paths.rs  # File path generation for reports
+│   ├── plan.rs          # Pre-audit plan/banner printing
+│   ├── doctor.rs        # `auditmysite doctor` diagnostics
+│   └── sitemap_suggest.rs # Sitemap discovery + interactive prompt
 │
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
@@ -37,19 +44,30 @@ src/
 │   ├── installer.rs     # Download browser via `browser install`
 │   ├── resolver.rs      # Browser path resolution
 │   ├── manager.rs       # Browser lifecycle (launch, navigate, close)
-│   └── pool.rs          # Page pool for concurrent audits
+│   ├── pool.rs          # Page pool for concurrent audits
+│   ├── consent.rs       # CMP cookie injection + consent-banner dismissal
+│   ├── throttle.rs      # CPU/network throttling profiles
+│   ├── registry.rs      # Known-browser registry
+│   └── mock.rs          # Test-only mock browser
 │
 ├── accessibility/       # Accessibility Tree handling
 │   ├── mod.rs
 │   ├── extractor.rs     # CDP AXTree extraction
 │   ├── tree.rs          # AXNode, AXTree structures
-│   └── styles.rs        # Computed style extraction
+│   ├── styles.rs        # Computed style extraction
+│   ├── enrichment.rs    # AXNode enrichment (roles, computed properties)
+│   ├── code_gen.rs      # Selector/snippet generation for findings
+│   ├── element_capture.rs # CDP screenshot capture + element highlighting for evidence
+│   ├── snapshot.rs      # Cached snapshot (de)serialization
+│   └── diff.rs          # Snapshot diffing for regression comparisons
 │
 ├── wcag/                # WCAG rule engine
 │   ├── mod.rs
 │   ├── engine.rs        # Rule orchestration
 │   ├── types.rs         # Violation, Severity, WcagResults
-│   └── rules/           # Individual WCAG rules (22 rules)
+│   ├── coverage.rs      # WCAG success-criterion coverage accounting
+│   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation
+│   └── rules/           # Individual WCAG rules (85+ files, Level A/AA/AAA)
 │       ├── text_alternatives.rs  # 1.1.1
 │       ├── contrast.rs           # 1.4.3
 │       ├── keyboard.rs           # 2.1.1
@@ -57,11 +75,16 @@ src/
 │       ├── link_purpose.rs       # 2.4.4
 │       ├── headings.rs           # 2.4.6
 │       ├── labels.rs             # 3.3.2
-│       └── ...
+│       ├── target_size_minimum.rs # 2.5.8
+│       ├── text_spacing.rs       # 1.4.12
+│       └── ... (registered in rules/mod.rs)
 │
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
-│   ├── rules.rs         # Rule definitions with metadata
+│   ├── rules.rs         # Canonical rule list (RULES) with metadata
+│   ├── criteria.rs      # WCAG success-criterion definitions
+│   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
+│   ├── issue_class.rs   # IssueClass enum (Fehlend, Falsch, Unvollständig)
 │   ├── score.rs         # Taxonomy-based score impact helpers
 │   └── severity.rs      # Severity mapping helpers
 │
@@ -69,64 +92,151 @@ src/
 │   ├── mod.rs
 │   ├── pipeline.rs      # Single page audit flow
 │   ├── batch.rs         # Sitemap/batch processing
+│   ├── module.rs        # AuditModule trait + AuditCatalog registry (topo-sorted)
+│   ├── catalog.rs       # Module registration/wiring
 │   ├── report.rs        # AuditReport structure (raw data)
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected)
-│   └── scoring.rs       # Score calculation
+│   ├── scoring.rs       # Score calculation
+│   ├── interpretation.rs # Pre-computed DE/EN interpretation texts
+│   ├── summary.rs       # Cross-page aggregation logic
+│   ├── template_dedup.rs # Template-level root-cause deduplication (batch)
+│   ├── occurrence_analysis.rs # Occurrence counting across categories
+│   ├── prioritization.rs # Fix-guidance prioritization
+│   ├── verdict.rs       # Pass/fail verdict derivation
+│   ├── baseline.rs      # Baseline/compare-mode support
+│   ├── batch_consistency.rs # Cross-page consistency checks
+│   ├── budget.rs        # Concurrency/rate budgeting
+│   ├── crawl.rs         # Link crawling (html5ever-based)
+│   ├── duplicate.rs     # Duplicate-page detection
+│   ├── artifacts.rs     # Cache artifact persistence (--reuse-cache)
+│   └── performance_interpretation.rs # Performance-specific interpretation texts
 │
 ├── output/              # Report generation
 │   ├── mod.rs
 │   ├── cli.rs           # Terminal table output
 │   ├── json.rs          # JSON reports (via NormalizedReport)
+│   ├── json/            # JSON detail/helper builders
 │   ├── sr_audit_json.rs # Standalone screen-reader audit JSON sidecar
-│   ├── pdf.rs           # PDF reports (via renderreport/Typst)
+│   ├── sarif.rs         # SARIF output format
+│   ├── builder/         # AuditReport → PDF ViewModel transformation
+│   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
+│   │   └── single/      # Single-report builder (findings, etc.)
+│   ├── pdf/             # PDF reports (via renderreport/Typst)
+│   │   ├── mod.rs, single_report.rs, batch_report.rs, batch_report/
+│   │   ├── cover.rs, findings.rs, wcag_coverage.rs, en301549.rs
+│   │   ├── diagnosis.rs, appendix.rs, design.rs (4-color law)
+│   │   └── detail_modules/ # Per-module chapter renderers
 │   ├── report_model.rs  # ViewModel structs for PDF
-│   ├── report_builder.rs # AuditReport → ViewModel transformation
+│   ├── explanations.rs  # interpret_score() and shared explanation text
+│   ├── search_experience.rs # Search/AI-visibility presentation helpers
+│   ├── localized.rs     # Locale-aware text helpers
+│   ├── renderer.rs      # Top-level format dispatch
 │   └── snapshot_export.rs # AXTree + journey traces → YAML (--export-snapshot)
 │
 ├── a11y_journey/        # Accessibility Journey Layer (--interactive)
-│   ├── mod.rs           # Orchestrator: run() single entry point
+│   ├── mod.rs           # Orchestrator: run() single entry point, commerce gating
 │   ├── tab_walk.rs      # Tab-order recording + focus evaluation
 │   ├── skip_link.rs     # Skip-link activation journey
 │   ├── disclosure_journey.rs # Accordion/disclosure toggle
 │   ├── modal_journey.rs # Modal focus-trap verification
 │   ├── tabs_journey.rs  # TabList navigation
 │   ├── menu_journey.rs  # DisclosureMenu journey
-│   ├── form_error.rs    # Form-error announcement (submit + ARIA live)
+│   ├── form_error.rs    # Form-error announcement (per-form clustering, multi-form pages)
 │   ├── spa_navigation.rs # SPA single-page navigation detection
 │   ├── link_inventory.rs # Linktext/heading/landmark inventory (pure AXTree)
+│   ├── add_to_cart.rs   # Add-to-cart status/feedback journey (commerce-gated, PDP only)
+│   ├── quantity_stepper.rs # Quantity-stepper keyboard operability (commerce-gated, PDP only)
 │   └── evaluate.rs      # Tab-walk finding evaluation
 │
-├── screen_reader/       # Screen-reader audit primitives
+├── screen_reader/       # Screen-reader reading-order primitives
 │   ├── mod.rs
 │   ├── types.rs         # ReadingItem and ignored-node diagnostics
 │   ├── announcer.rs     # Localized screen-reader announcement strings
 │   ├── navigator.rs     # Virtual SR navigation lists
 │   ├── analyzer.rs      # SR-specific issue detection
-│   ├── bfsg.rs          # WCAG → EN 301 549 → BFSG mapping
+│   ├── bfsg.rs          # Thin wrapper over wcag::en301549 for legacy call sites
 │   └── linearizer.rs    # AXTree DFS reading-order linearization
 │
-├── semantic_eval/       # Semantic AI evaluation (--semantic-eval, optional feature)
-│   ├── mod.rs           # Entry point: run(), SemanticEvalConfig
-│   ├── fastembed_eval.rs # Local multilingual embedding (fastembed)
-│   ├── mistral.rs       # Mistral LLM evaluation (optional API key)
-│   └── prompts.rs       # Prompt templates
+├── best_practices/      # Console errors and vulnerable JS library detection
+│   ├── mod.rs, module.rs
+│   ├── console_errors.rs # CDP-based console error/warning collection
+│   └── vulnerable_libs.rs # Known-CVE JS library detection (jQuery, Bootstrap, ...)
 │
-├── security/            # Security analysis
-│   └── mod.rs           # Headers, SSL, SSRF protection
+├── performance/         # Core Web Vitals, render-blocking, content weight
+│   ├── mod.rs, vitals.rs
+│   ├── animations.rs    # Non-composited animation detection
+│   ├── coverage.rs      # Unused JS/CSS detection via CDP Coverage API
+│   ├── critical_chain.rs # Critical request chain analysis
+│   ├── minification.rs  # Unminified JS/CSS asset detection
+│   └── third_party.rs   # Third-party resource attribution per origin
 │
-├── seo/                 # SEO analysis
-│   ├── mod.rs
+├── seo/                 # Meta, headings, schema, social, technical SEO
+│   ├── mod.rs, module.rs
 │   ├── meta.rs          # Meta tags
 │   ├── headings.rs      # Heading structure
 │   ├── profile.rs       # SEO content profile
+│   ├── schema.rs        # Structured data (JSON-LD/schema.org)
+│   ├── social.rs        # Open Graph / Twitter Card
+│   ├── technical.rs     # robots/canonical/hreflang
+│   ├── page_health.rs   # Aggregated issue collection (collect_issues)
+│   ├── image_efficiency.rs # Image format and resolution analysis
 │   └── ...
 │
-├── performance/         # Performance metrics
-│   ├── mod.rs
-│   ├── vitals.rs        # Core Web Vitals
-│   └── ...
+├── security/            # Security header analysis
+│   └── mod.rs, module.rs
 │
-└── mobile/              # Mobile friendliness
+├── mobile/              # Mobile friendliness analysis
+│   ├── mod.rs, module.rs
+│   └── ux_heuristics.rs
+│
+├── dark_mode/           # Dark mode support detection and contrast
+│   └── mod.rs, module.rs
+│
+├── ux/                  # UX analysis (5 dimensions, saturation curves)
+│   ├── mod.rs, module.rs
+│   ├── analysis.rs
+│   └── scoring.rs
+│
+├── journey/             # User journey analysis, page intent detection
+│   ├── mod.rs, module.rs
+│   ├── analysis.rs
+│   ├── page_intent.rs
+│   └── scoring.rs
+│
+├── ai_visibility/       # AI/LLM discoverability analysis
+│   ├── mod.rs, module.rs
+│   ├── chunks.rs, citation.rs, knowledge_graph.rs, readability.rs
+│
+├── content_visibility/  # Cross-module signal aggregation (SEO+AI+Quality)
+│   └── mod.rs, module.rs
+│
+├── commerce/            # Shop audit (derive-only, shop-gated): product schema-completeness,
+│   └── mod.rs, module.rs # mandatory/trust-page links, page-kind (PDP/Category only), batch roll-up
+│
+├── source_quality/      # Source quality signals (headers, schema, HTTPS)
+│   └── mod.rs, module.rs
+│
+├── tech_stack/          # CMS/framework detection from in-page signals
+│   └── mod.rs, module.rs
+│
+├── patterns/            # UI pattern detection (nav, accordion, modal, ...)
+│   ├── mod.rs           # PatternKind/JourneyKind registry, analyze()
+│   ├── main_navigation.rs, accordion.rs, modal_dialog.rs
+│   ├── disclosure_menu.rs, tab_list.rs, skip_link.rs
+│   ├── form.rs          # Per-form clustering (ancestor_chain_from_root)
+│   ├── add_to_cart.rs   # Add-to-cart button/feedback detection
+│   └── quantity_stepper.rs # Quantity-stepper control detection
+│
+├── interaction/         # Cross-cutting interaction analysis
+│   └── mod.rs, focus.rs, keyboard.rs, pointer.rs, stability.rs
+│
+├── assessment/          # Shared assessment types and evidence model
+│   └── mod.rs
+│
+├── studio/              # Studio contract types (GUI data contract)
+│   └── mod.rs
+│
+└── i18n/                # Project Fluent (.ftl) loader, default language: German
     └── mod.rs
 ```
 
@@ -150,6 +260,14 @@ src/
    │  ├── Level A rules
    │  ├── Level AA rules (if requested)
    │  └── Level AAA rules (if requested)
+   │
+6b. Run optional modules (`--full`, or individually enabled): performance, seo,
+    security, mobile, dark-mode, ux, journey, ai-visibility, content-visibility,
+    source-quality, tech-stack, best-practices, commerce (shop-gated)
+   │
+6c. Run Accessibility Journey Layer (`--interactive off|basic|full`): tab-walk,
+    skip-link, disclosure/modal/tablist/menu journeys, form-error announcement,
+    SPA navigation, commerce-gated add-to-cart/quantity-stepper journeys
    │
 7. Calculate raw score → AuditReport
    │
@@ -281,11 +399,18 @@ Maps WCAG rule IDs to rich metadata:
 
 ```
 tests/
-├── url_validation_tests.rs    # SSRF protection
-├── output_format_tests.rs     # Report generation
-└── error_handling_tests.rs    # Error paths
+├── output_format_tests.rs        # Report generation
+├── error_handling_tests.rs       # Error paths
+├── parity_contract.rs            # Frozen-count guard vs. docs/PARITY_CONTRACT.jsonc
+├── wcag_coverage.rs               # Level A/AA/AAA rule-set coverage checks
+├── wcag_unit_tests.rs             # Per-rule unit tests (fixtures in wcag_fixtures/)
+├── integration_test.rs / integration_mocked.rs # End-to-end pipeline tests
+├── report_consistency_tests.rs   # Score/finding consistency across formats
+├── batch_consistency (see src/audit/batch_consistency.rs)
+├── release_contract_tests.rs     # Release-gate invariants
+└── snapshot_tests.rs              # insta snapshot tests (snapshots/)
 
-src/*/tests (inline)           # Unit tests per module
+src/*/tests (inline)               # Unit tests per module
 ```
 
 Run all tests:
@@ -305,6 +430,9 @@ Key crates:
 - `chromiumoxide` - CDP client
 - `tokio` - Async runtime
 - `clap` - CLI parsing
-- `serde` - Serialization
+- `serde` / `serde_json` - Serialization
 - `tracing` - Logging
-- `renderreport` - PDF generation (Typst-based)
+- `html5ever` / `markup5ever_rcdom` - Local HTML5 parsing (link crawling, no remote validator)
+- `fluent-bundle` / `unic-langid` - i18n (Project Fluent, default language German)
+- `reqwest` (rustls) - Sitemap fetching, Chromium download
+- `renderreport` (optional, `pdf` feature) - PDF generation (Typst-based)
