@@ -209,6 +209,7 @@ Useful flags:
 - `--lang <de|en>`: set the language for PDF reports (default: `de`)
 - `--stack`: enable tech stack detection and stack-specific security probes (included automatically with `--full`)
 - `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs)
+- `--annex en301549`: add an opt-in EN 301 549 (chapter 9, "Web") clause-mapping appendix to the PDF report — a technical building block for a human-authored accessibility statement, not a statement itself. The underlying JSON data (`en301549_annex`) is always present regardless of this flag; it only gates the PDF section.
 
 For the full current interface, use:
 
@@ -245,8 +246,12 @@ Core rules:
 - Contrast minimum (1.4.3) and non-text contrast (1.4.11)
 - Headings and labels (2.4.6)
 - Labels or instructions (3.3.2)
-- Focus order (2.4.3) and focus visible (2.4.7)
+- Focus order (2.4.3), focus visible (2.4.7), and focus not obscured, minimum/enhanced (2.4.11/2.4.12, WCAG 2.2)
 - Label in name (2.5.3)
+- Meaningful sequence — CSS `order` vs. reading-order mismatches (1.3.2)
+- Pause, stop, hide — `<marquee>` and long-running CSS animations without a pause control (2.2.2)
+- Redundant entry — same field requested twice with no reuse/autofill hint (3.3.7, WCAG 2.2)
+- Target size minimum (2.5.8, WCAG 2.2) and text spacing (1.4.12)
 
 ARIA and semantics:
 - ARIA role validation — invalid roles, required owned elements, required context
@@ -261,7 +266,7 @@ ARIA and semantics:
 - Dialog rules — accessible name, aria-modal, alert region labeling
 - Widget rules — tab/tabpanel pairing, selected state, combobox options, slider value, tree context, summary element naming
 - Media rules — application and image-role elements without accessible names
-- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), duplicate IDs (4.1.1), html lang (3.1.1)
+- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), duplicate IDs (4.1.1), document language attribute (3.1.1)
 - SVG rules — SVG image accessible names
 - Server-side image maps — detection and flagging
 - Meta viewport — large maximum-scale restrictions
@@ -291,7 +296,7 @@ Heuristic (indicator scores — tendency, not measurements):
 - Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
 - Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
-- Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (PDP, cart, checkout, category), and rolls findings up across a batch. Derive-only — no extra browser interaction.
+- Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. Derive-only — no extra browser interaction. Product-detail pages also get two commerce-aware interactive journeys — see Accessibility Journey Layer below.
 
 ### Accessibility Journey Layer
 
@@ -301,7 +306,9 @@ Interactive checks run a real browser session after the static AXTree phase. The
 |------|-----------|
 | `off` | No interactive phase — fastest, no browser interaction after initial load |
 | `basic` | Tab-walk (focus order, reverse jumps), skip-link verification, disclosure/accordion, modal focus trap, tab-list, menu journey |
-| `full` (default) | Everything in `basic`, plus: SPA-navigation detection, form-error announcement, link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
+| `full` (default) | Everything in `basic`, plus: SPA-navigation detection, form-error announcement (now covering multiple independent forms per page, e.g. search + login + newsletter), link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
+
+On a detected shop's product-detail page, `full` mode also runs two commerce-aware journeys: an **add-to-cart feedback check** (does adding an item announce the result via a live region or focus-managed dialog, or only update a visual cart badge — SC 4.1.3) and a **quantity-stepper operability check** (can the quantity field be operated by keyboard, and does its value stay exposed to assistive technology — SC 2.1.1/4.1.2). Both are click-only, single-interaction checks — never a real checkout submission, never a filled-in purchase form.
 
 Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. They do not affect the accessibility score or `legal_flags`; critical interactive findings can raise the risk level.
 
@@ -363,10 +370,11 @@ Single-page reports and sitemap/batch reports are intentionally different.
 - Management view: severity counters, a "quality profile" spider radar, and strengths / optimization cards.
 - Module chapters: each module is its own chapter with a magazine-style opener and a one-line key takeaway. AI Visibility, Content Visibility, and Source Quality are merged into a single "KI & Vertrauen" (AI & Trust) chapter.
 - Action plan: recommendations as action cards grouped by where the problem lives (systemic vs. local), without time or effort estimates, plus a root-cause distribution chart.
+- Evidence-grade findings: each finding card can include a cropped, highlighted screenshot of the affected element, its DOM path, and (where applicable, e.g. contrast) the measured vs. required value — so a finding stands on its own without re-running the tool.
 
 The design follows a consistent four-color status system; reports use no emoji and report effort by priority rather than by time windows.
 
-**Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics.
+**Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics. It also verifies which recurring findings share the same underlying template component across pages — reporting "one fix resolves N pages" instead of N near-identical findings, with a confirmed/likely confidence distinction so the claim is never overstated.
 
 Batch reports are not a stack of single-page reports.
 
@@ -390,6 +398,8 @@ Standard accessibility checkers verify individual rules in isolation. `auditmysi
 | Accessible name quality score (not just present/absent) | — | — | ✓ |
 | Landmark navigation strategy (can a SR user reach main content?) | — | — | ✓ |
 | BFSG / EN 301 549 legal mapping per finding | — | — | ✓ |
+
+Every finding also carries a per-criterion EN 301 549 (chapter 9, "Web") clause reference. A structured version — all 50 WCAG 2.1 A/AA clauses split into "violations found", "no violations in the automated scope", or "manual review required", plus which chapters (5–8, 10–13) sit outside this tool's audit scope entirely — is always in the JSON (`en301549_annex`) and can be added to the PDF as an appendix with `--annex en301549`. This is explicitly **not** an accessibility statement and doesn't claim to be one — it's a technical building block for a human-authored one, with an explicit scope disclaimer in both languages.
 
 When the screen reader module runs, a JSON sidecar is written automatically next to the primary report:
 

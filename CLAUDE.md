@@ -211,7 +211,43 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v1.0.0)
+## Current State (v1.1.0)
+- **BFSG / EN 301 549 mapping annex, 2026-07-15 (#en301549):** `src/wcag/en301549.rs` — canonical
+  50-entry WCAG 2.1 A/AA ↔ EN 301 549 (chapter 9, "Web") clause table, `derive_annex`/
+  `derive_batch_rollup` as pure projections over `NormalizedFinding` (nothing new stored on
+  `NormalizedReport`, no cache-signature change). Four-way scope split per clause: violations
+  found / no violations in automated scope / manual review required / (chapter-level, not
+  per-clause) out of audit scope. `screen_reader/bfsg.rs` reduced to a thin wrapper; the
+  legally-unverified `"§12 Abs. 1"` citation stays local there, deliberately not propagated.
+  JSON `en301549_annex` always emitted (`PageDetail`, single + batch) plus a batch
+  `UnifiedSummary.en301549_rollup`; the PDF appendix only renders behind the new opt-in
+  `--annex en301549` flag ("Zusatz", not default-on). Disclaimer text (DE/EN) is a
+  scope-of-testing disclosure only — no statutory citation, no conformity claim — reusing this
+  project's existing "manual audit with assistive technologies (screen reader, keyboard
+  navigation)" wording rather than inventing new phrasing.
+- **Plain-language content in the existing PDF, 2026-07-15:** no separate report variant — the
+  Chapter 02 finding card gained a plain-language lead-in (`customer_description` + `user_impact`)
+  between the header and the QA-meta block (previously not rendered there at all, not just
+  misordered). `finding_group_from_normalized`'s no-`RuleExplanation` fallback no longer leaks raw
+  canonical-English `f.description` into German reports. Part-1 divider reframed as dual-audience
+  ("Inhaber, Entscheider und Entwickler").
+- **Journey × Commerce deepening, 2026-07-14/15:** form-error journey now groups required fields
+  into up to 3 per-form candidates (was one page-wide candidate) and a `PURCHASE_FINAL_HINTS`
+  deny-list guarantees a purchase-final button (e.g. "Jetzt kaufen") is never a synthetic-click
+  target. New commerce-aware journeys on a detected shop's product-detail page under
+  `--interactive full`: add-to-cart feedback (SC 4.1.3) and quantity-stepper operability
+  (SC 2.1.1/4.1.2). **`CommercePageKind::Cart`/`::Checkout` removed entirely** (breaking JSON
+  change) — this tool has no cross-page session/cart state, so a cart/checkout URL reached cold
+  is almost always empty or redirects before rendering anything a page-kind-gated heuristic could
+  act on; confirmed no reference in the sibling `auditmysite_studio` repo before landing.
+- **WCAG coverage + correctness sweep, 2026-07-14:** new rules 1.3.2 Meaningful Sequence, 3.3.7
+  Redundant Entry, 2.4.11/2.4.12 Focus Not Obscured, 2.2.2 Pause/Stop/Hide (automated WCAG-AA
+  count now 36/50, up from 33). Fixed three known-defective rules: `focus_visible_css.rs` (never
+  fired in production — missing evidence selector demoted every finding to a warning),
+  `focus_visible.rs` (dead AX-tree `tabindex` read, removed), `non_text_contrast.rs` (mistagged/
+  dead, replaced by a real CDP-based `non_text_contrast_css.rs`). Closed remaining #406
+  localization gaps (Dark Mode, Tastatur-Journey, `expected_impact`/`complexity_reason`) and
+  several report-wording/readability fixes across Chapters 01–03 of the single report.
 - **Evidence-Grade Findings (single report only) + Template-Root-Cause-Dedup (batch only), 2026-07-14:**
   Single-report finding cards now embed a cropped element screenshot (`src/accessibility/element_capture.rs`,
   gated on single-URL mode via `PipelineConfig.capture_element_evidence`, capped at 12 crops/report,
