@@ -25,15 +25,18 @@ pub const EN301549_MAPPING_VERSION: u32 = 1;
 /// Cautious, non-legal-conclusion disclaimer shown with the EN 301 549 annex
 /// (JSON `en301549_annex.disclaimer` and the PDF annex callout). Single
 /// source of truth for both output layers — do not duplicate this text
-/// elsewhere. No statutory citations, no "compliant"/conformity claims.
-///
-/// **This wording still needs a lawyer's review before customer-facing use**
-/// (see `plans/bfsg-en301549-mapping.md`, "Risks" — legal wording).
-pub const EN301549_DISCLAIMER_DE: &str = "Diese Übersicht ist keine Barrierefreiheitserklärung und ersetzt keine solche. Sie deckt ausschließlich den automatisch prüfbaren Teil von EN 301 549, Kapitel 9 (Web), im geprüften Umfang ab. Kriterien mit manuellem Prüfbedarf sowie die Kapitel 5–8 und 10–13 wurden nicht bewertet. Die Angaben können als technische Zuarbeit für eine Erklärung dienen.";
+/// elsewhere. No statutory citations, no "compliant"/conformity claims — a
+/// scope-of-testing disclosure only, in the same spirit as (and reusing the
+/// exact established wording of) `narrative-next-steps-callout-body` in
+/// `locales/{de,en}/report.ftl` ("manual audit with assistive technologies
+/// (screen reader, keyboard navigation)"), so this isn't a second,
+/// differently-worded version of a disclaimer this project already makes
+/// elsewhere in the report.
+pub const EN301549_DISCLAIMER_DE: &str = "Diese Übersicht ist keine Barrierefreiheitserklärung und ersetzt keine solche. Sie deckt ausschließlich den automatisch prüfbaren Teil von EN 301 549, Kapitel 9 (Web), im geprüften Umfang ab. Kriterien mit manuellem Prüfbedarf sowie die Kapitel 5–8 und 10–13 wurden nicht bewertet. Für eine vollständige Barrierefreiheits-Prüfung ist ergänzend ein manueller Audit mit assistiven Technologien (Screenreader, Tastaturnavigation) erforderlich. Die Angaben können als technische Zuarbeit für eine Erklärung dienen.";
 
 /// English equivalent of `EN301549_DISCLAIMER_DE`, sentence-for-sentence —
 /// no added claims beyond the German draft.
-pub const EN301549_DISCLAIMER_EN: &str = "This overview is not an accessibility statement and does not replace one. It covers only the automatically testable part of EN 301 549, chapter 9 (Web), within the audited scope. Criteria requiring manual review, as well as chapters 5\u{2013}8 and 10\u{2013}13, were not assessed. This information can serve as technical input for drafting a statement.";
+pub const EN301549_DISCLAIMER_EN: &str = "This overview is not an accessibility statement and does not replace one. It covers only the automatically testable part of EN 301 549, chapter 9 (Web), within the audited scope. Criteria requiring manual review, as well as chapters 5\u{2013}8 and 10\u{2013}13, were not assessed. A complete accessibility verification additionally requires a manual audit with assistive technologies (screen reader, keyboard navigation). This information can serve as technical input for drafting a statement.";
 
 /// One WCAG 2.1 A/AA success criterion mapped onto its EN 301 549 clause.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
