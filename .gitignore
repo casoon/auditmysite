@@ -51,6 +51,9 @@ tarpaulin-report.html
 plans/
 todo.md
 
+# Skill eval workspaces (skill-creator convention: <skill-name>-workspace/)
+.claude/skills/*-workspace/
+
 # Node (scripts/ and root)
 /node_modules/
 /package-lock.json
