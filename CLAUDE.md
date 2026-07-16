@@ -219,6 +219,24 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
 ## Current State (v1.1.0)
+- **Report Quality Layer v1.2 — Phase 4: output-coverage matrix, 2026-07-16 (#508, tracking #512):**
+  new `tests/coverage_matrix.rs` — an `#[ignore]`-gated `export_coverage_matrix` test (same pattern
+  as `output::builder::tests::export_all_interpretations`) walks every `AuditCatalog::standard()`
+  module and counts literal id() occurrences across four surfaces (`src/output/pdf/**`,
+  `docs/OUTPUT_CONTRACT.md`, both JSON schemas, `tests/**` + fixture dirs), writing
+  `reports/coverage_matrix.json` for human review. Deliberately **not a CI gate** — a substring
+  count can false-negative on indirection and false-positive on a common word (confirmed: the tool's
+  own doc-comment mentioning "commerce" counts as one of commerce's "fixture references"). Only one
+  hard, always-true assertion ships (`every_catalog_module_has_a_unique_nonempty_id` — a tripwire on
+  the catalog itself, not on coverage outcomes) rather than "every module has PDF coverage", which
+  would immediately fail today. **Real gap the first run surfaced**: `commerce` has 0 PDF references
+  and 0 references anywhere under `tests/` outside its own module directory — the module has JSON
+  output (`src/output/module.rs`, `src/output/json.rs`) but no PDF rendering and no cross-cutting
+  test coverage, despite CLAUDE.md recording it as "COMPLETE, alle Slices 1-4 gemergt". Not fixed as
+  part of #508 (out of scope — #508 is the detection tool, not a mandate to close every gap it
+  finds); flagged here for a deliberate decision on whether that's an intentional Studio/JSON-only
+  scope or a real oversight. `#509`/`#510`/`#511` (AI critic, visual PDF pipeline, feedback corpus)
+  are planned but not started.
 - **Report Quality Layer v1.2 — Phase 2: deterministic report-lint, 2026-07-16 (#507, tracking #512):**
   new `src/lint/` — `lint(report: &serde_json::Value) -> LintReport` runs four registry-driven
   (#506) checks with zero network/Chrome dependency, each producing a `LintFinding{check_id,
