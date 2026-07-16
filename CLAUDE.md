@@ -219,7 +219,22 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
 ## Current State (v1.1.0)
-- **Report Quality Layer v1.2 — Phase 4: output-coverage matrix, 2026-07-16 (#508, tracking #512):**
+- **Report Quality Layer v1.2 — Phase 5 (partial): visual PDF smoke checks, 2026-07-16 (#510,
+  tracking #512):** correction to the original Phase 5 plan — rasterization via `pdftoppm` was
+  **not** greenfield; `src/output/pdf/tests.rs` already had two `pdftoppm`-gated smoke tests
+  (`find_executable("pdftoppm")` skips gracefully when unavailable, matching CI's `pdf-smoke` job
+  which runs `cargo test --features pdf_test`). Extended that existing infra rather than building a
+  new `xtask`: a `png_luma_std_dev` helper (grayscale pixel std-dev via the already-present `image`
+  crate) plus `rasterize_pages`, backing two new tests —
+  `test_single_pdf_technical_pages_are_not_blank_when_pdftoppm_is_available` and
+  `test_batch_pdf_pages_are_not_blank_when_pdftoppm_is_available` (batch PDF rasterization had no
+  test at all before this) — flagging a near-solid-color page (missing font/asset → blank render)
+  without exact pixel-diff, which is deliberately avoided: font hinting/anti-aliasing differs across
+  machines/CI runners, so an exact-match baseline would be flaky by construction. **Not yet done,
+  open design question**: the plan's "visual diffs for stable layout regions" (e.g. cover skeleton)
+  needs a real decision on baseline storage/regeneration workflow and tolerance before implementing
+  — deferred rather than guessed at. Overflow/cut-content/misalignment detection and the semantic/
+  visual AI judgment pass both still route to #509 as originally planned.
   new `tests/coverage_matrix.rs` — an `#[ignore]`-gated `export_coverage_matrix` test (same pattern
   as `output::builder::tests::export_all_interpretations`) walks every `AuditCatalog::standard()`
   module and counts literal id() occurrences across four surfaces (`src/output/pdf/**`,

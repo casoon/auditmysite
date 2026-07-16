@@ -358,6 +358,125 @@ mod tests {
         );
     }
 
+    /// Standard deviation of grayscale pixel values, as a cheap "is there
+    /// real content here" signal. A blank/degenerate page (missing font or
+    /// asset causing empty content) renders as a near-solid color and scores
+    /// close to 0; real report content (text, tables, charts) always has
+    /// substantial variance. Deliberately not an exact pixel-diff — those are
+    /// too flaky across environments (font hinting/anti-aliasing differ by
+    /// machine); this only asks "is content there", not "is it pixel-identical".
+    fn png_luma_std_dev(png_path: &std::path::Path) -> f64 {
+        let bytes = std::fs::read(png_path).expect("rasterized page PNG should be readable");
+        let image =
+            image::load_from_memory(&bytes).expect("rasterized page should be a valid image");
+        let luma = image.to_luma8();
+        let pixels: Vec<f64> = luma.pixels().map(|p| p.0[0] as f64).collect();
+        let mean = pixels.iter().sum::<f64>() / pixels.len() as f64;
+        let variance = pixels.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / pixels.len() as f64;
+        variance.sqrt()
+    }
+
+    /// Rasterizes `pdf` to one PNG per page under `temp_dir` (via `pdftoppm`)
+    /// and returns the produced paths in page order.
+    fn rasterize_pages(
+        pdftoppm: &std::path::Path,
+        pdf: &[u8],
+        temp_dir: &std::path::Path,
+    ) -> Vec<PathBuf> {
+        let pdf_path = temp_dir.join("auditmysite-visual.pdf");
+        let png_prefix = temp_dir.join("auditmysite-visual");
+        std::fs::write(&pdf_path, pdf).expect("PDF fixture should be writable");
+
+        let status = Command::new(pdftoppm)
+            .arg("-png")
+            .arg("-r")
+            .arg("72")
+            .arg(&pdf_path)
+            .arg(&png_prefix)
+            .status()
+            .expect("pdftoppm should run");
+        assert!(status.success(), "pdftoppm failed with {status}");
+
+        let mut pages: Vec<PathBuf> = std::fs::read_dir(temp_dir)
+            .expect("temp dir should be readable")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.starts_with("auditmysite-visual-") && n.ends_with(".png"))
+                    .unwrap_or(false)
+            })
+            .collect();
+        pages.sort();
+        pages
+    }
+
+    #[test]
+    fn test_single_pdf_technical_pages_are_not_blank_when_pdftoppm_is_available() {
+        let Some(pdftoppm) = find_executable("pdftoppm") else {
+            return;
+        };
+
+        let report = pdf_fixture_report();
+        let config = ReportConfig {
+            level: ReportLevel::Technical,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let pages = rasterize_pages(&pdftoppm, &pdf, temp_dir.path());
+        assert!(
+            pages.len() >= 3,
+            "expected at least 3 pages, got {}",
+            pages.len()
+        );
+
+        for page in &pages {
+            let std_dev = png_luma_std_dev(page);
+            assert!(
+                std_dev > 5.0,
+                "page {} looks blank/degenerate (grayscale std dev {std_dev:.2})",
+                page.display()
+            );
+        }
+    }
+
+    #[test]
+    fn test_batch_pdf_pages_are_not_blank_when_pdftoppm_is_available() {
+        let Some(pdftoppm) = find_executable("pdftoppm") else {
+            return;
+        };
+
+        let batch = BatchReport::from_reports(
+            vec![
+                pdf_fixture_report_for_url("https://example.com"),
+                pdf_fixture_report_for_url("https://example.com/about"),
+            ],
+            vec![],
+            2_400,
+        );
+        let pdf = generate_batch_pdf(&batch, &ReportConfig::default()).expect("batch PDF");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let pages = rasterize_pages(&pdftoppm, &pdf, temp_dir.path());
+        assert!(
+            pages.len() >= 3,
+            "expected at least 3 pages, got {}",
+            pages.len()
+        );
+
+        for page in &pages {
+            let std_dev = png_luma_std_dev(page);
+            assert!(
+                std_dev > 5.0,
+                "page {} looks blank/degenerate (grayscale std dev {std_dev:.2})",
+                page.display()
+            );
+        }
+    }
+
     #[test]
     fn test_pdf_technical_contains_violation_criteria() {
         // Every WCAG criterion from the input must appear as text in the rendered PDF.
