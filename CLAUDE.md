@@ -218,6 +218,28 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
+## Report Quality Layer v1.2 — Release-Gate-Policy (#512)
+Bewusste, über alle Phasen hinweg getroffene Entscheidung statt einer nachträglichen Lücke:
+- **Blockierend, auf jedem PR:** `report-lint` (`tests/report_lint_tests.rs`), der Registry-Contract
+  (`tests/registry_contract.rs`) und der Regressionskorpus-Contract
+  (`tests/regression_corpus_contract.rs`) laufen ohne eigenen CI-Job — sie sind netzwerk-/Chrome-/
+  pdf-feature-frei und werden dadurch bereits vom unscoped `cargo test` in den bestehenden Jobs
+  `check` (`--no-default-features`) und `check-all-features` (`--features pdf`) mitgeprüft. Die
+  Blank-Page-Visualprüfung (`test_*_pdf_*_are_not_blank_when_pdftoppm_is_available`) läuft im
+  bestehenden `pdf-smoke`-Job, `pdftoppm`-gated.
+- **Nicht blockierend, manuell/Release-only:** `reports/coverage_matrix.json` (Phase 4/#508) und
+  der `report-critic`-Skill (Phase 6/#509) sind absichtlich keine Gates — ein Substring-Coverage-Scan
+  kann false-negativ/-positiv sein, ein KI-Kritiker braucht eine Modell-Invokation, die kein
+  netzwerk-/API-freier CI-Job leisten kann, ohne genau die Infrastruktur (API-Keys, Kosten,
+  Nicht-Determinismus) wieder einzuführen, die mit der Entfernung von `semantic_eval` bewusst
+  abgebaut wurde. Beide bleiben von Menschen/Agenten auf Anfrage ausgeführte Review-Werkzeuge.
+  Die vollständige Pixel-Diff-Visualpipeline (Phase 5/#510: Baseline-Speicherung/-Regenerierung,
+  Toleranzen für stabile Layout-Regionen) ist **nicht** fertig — offene Design-Entscheidung, siehe
+  Phase-5-Eintrag unten. `v1.2` wird mit dieser Lücke als dokumentierter, akzeptierter Waiver
+  getaggt statt sie zu blockieren: die Blank-Page-Prüfung deckt den schwerwiegendsten Fall (fehlende
+  Fonts/Assets → leere Seite) bereits ab, echte Layout-Feinheiten bleiben vorerst Sache des
+  `report-critic`-Skills.
+
 ## Current State (v1.1.0)
 - **Report Quality Layer v1.2 — Phase 3: Feedback-Korpus, 2026-07-16 (#511, tracking #512):**
   neues `tests/regression_corpus/*.json` (16 Einträge, ein File pro bestätigtem Fall) — Format
