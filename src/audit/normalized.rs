@@ -2205,13 +2205,7 @@ fn build_module_scores(
             }
         };
         let adjusted_ux = ux.score.saturating_sub(a11y_penalty);
-        let adjusted_grade = match adjusted_ux {
-            90..=100 => "A",
-            80..=89 => "B",
-            70..=79 => "C",
-            60..=69 => "D",
-            _ => "F",
-        };
+        let adjusted_grade = crate::registry::LETTER_GRADE.label(adjusted_ux as f32, false);
         module_scores.push(ModuleScoreEntry {
             name: "UX".to_string(),
             score: adjusted_ux,
@@ -2240,13 +2234,7 @@ fn build_module_scores(
             }
         };
         let adjusted_journey = journey.score.saturating_sub(a11y_penalty);
-        let adjusted_grade = match adjusted_journey {
-            90..=100 => "A",
-            80..=89 => "B",
-            70..=79 => "C",
-            60..=69 => "D",
-            _ => "F",
-        };
+        let adjusted_grade = crate::registry::LETTER_GRADE.label(adjusted_journey as f32, false);
         module_scores.push(ModuleScoreEntry {
             name: "Journey".to_string(),
             score: adjusted_journey,

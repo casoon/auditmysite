@@ -158,13 +158,7 @@ impl AccessibilityScorer {
 
     /// Calculate letter grade (A-F) based on score
     pub fn calculate_grade(score: f32) -> &'static str {
-        match score.round() as u32 {
-            90..=100 => "A",
-            80..=89 => "B",
-            70..=79 => "C",
-            60..=69 => "D",
-            _ => "F",
-        }
+        crate::registry::LETTER_GRADE.label(score, false)
     }
 
     /// Calculate certificate level based on score.
@@ -180,13 +174,7 @@ impl AccessibilityScorer {
     /// - AUSBAUFÄHIG: ≥40 (bronze)
     /// - UNGENÜGEND: <40 (failed)
     pub fn calculate_certificate(score: f32) -> &'static str {
-        match score.round() as u32 {
-            90..=100 => "SEHR GUT",
-            75..=89 => "GUT",
-            60..=74 => "STABIL",
-            40..=59 => "AUSBAUFÄHIG",
-            _ => "UNGENÜGEND",
-        }
+        crate::registry::CERTIFICATE.label(score, false)
     }
 
     /// Calculate WCAG principle coverage — a purely informative secondary

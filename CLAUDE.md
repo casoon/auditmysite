@@ -65,6 +65,8 @@ src/
 │
 ├── output/              # Formatters: table, json, pdf
 ├── taxonomy/            # Severity, Dimension, IssueClass enums
+├── registry/            # Canonical metric registry (#506): MetricSpec/BandSet per specialized JSON/PDF/docs number
+├── lint/                # Deterministic report-lint (#507): score/grade/certificate/count-sum checks over JSON reports
 └── i18n/                # Project Fluent (.ftl), default language: German
 ```
 
@@ -74,6 +76,7 @@ src/
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
 - Full audit: `--full` (enables performance, seo, security, mobile)
 - Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
+- Report lint: `auditmysite report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
 - Output formats: `--format {json|table|pdf}`
 
 ## Report Intent
@@ -216,6 +219,83 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
 ## Current State (v1.1.0)
+- **Report Quality Layer v1.2 — Phase 2: deterministic report-lint, 2026-07-16 (#507, tracking #512):**
+  new `src/lint/` — `lint(report: &serde_json::Value) -> LintReport` runs four registry-driven
+  (#506) checks with zero network/Chrome dependency, each producing a `LintFinding{check_id,
+  evidence_path, expected, actual, severity}`: (1) `summary.score`/`summary.overall_score` alias
+  consistency plus single-report summary-vs-page cross-check (the "18/100 vs 20/100" corpus
+  shape); (2) `grade`/`certificate` re-derivable from `overall_score` via the same shared
+  `LETTER_GRADE`/`CERTIFICATE` `BandSet`s the production scorer uses, checked on both `summary`
+  and every page; (3) `severity_counts`/`occurrence_counts.total` equal the sum of their four
+  severity fields, and `violated_rule_count`/`violation_count` match the corresponding scoped
+  total (the "Zähler ohne Scope" corpus shape); (4) the report's own `metric_context` block
+  matches what `REGISTRY` currently generates (catches a stale/cached or hand-edited report).
+  New CLI subcommand `auditmysite report-lint <file> [--fail-on low|medium|high|critical]`
+  (default `high`) prints findings and returns a non-zero exit code (via `AuditError::ConfigError`,
+  exit 3) when the worst finding meets or exceeds the threshold — verified end-to-end against a
+  hand-built broken report before considering this feature done, not just via unit tests.
+  `registry::json_path_candidates` (moved from a private test-only helper in
+  `tests/registry_contract.rs` to `src/registry/paths.rs` so `lint` and the contract test share one
+  implementation) had a latent bug caught while writing paths.rs's own dedicated unit tests:
+  splitting on `" and "` before trimming turned prose like "...score and nested dimension scores"
+  into a second bogus path candidate ("nested") — fixed by dropping the `" and "` split entirely
+  (only `" / "` ever separates two *real* paths in this codebase's `json_path` text; `take_while`
+  alone already stops at the first invalid character, which discards trailing " and ..." prose).
+  Added a 5th check: every `REGISTRY` entry's `docs_url` is a well-formed `<path>#<anchor>`
+  reference (shape only, no filesystem access — a released binary has no guarantee `docs/` exists
+  alongside it; the deeper anchor-resolution check stays in `tests/registry_contract.rs`, which
+  only needs to hold in the dev/CI checkout). `tests/lint_fixtures/*.json` (clean single, 3 broken
+  variants covering score-alias/grade/batch-certificate mismatches) plus `tests/report_lint_tests.rs`
+  spawn the compiled binary end-to-end via `CARGO_BIN_EXE_auditmysite` and assert on exit code +
+  finding check-ids — these fixtures double as the seed for #511's regression corpus. No new CI job
+  was added: since this test file has no network/Chrome/pdf-feature dependency, it's already
+  exercised by the existing unscoped `cargo test` in the `check`/`check-all-features` jobs.
+  Added a 6th, narrowly-scoped PDF-traceability check instead of the originally-sketched "does any
+  number in the PDF appear anywhere in the JSON" scan (rejected: real false-positive risk from
+  dates/page counts/unrelated percentages). New optional `--typst-source <path>` on `report-lint`
+  (the `--debug-typ` Typst source for the same report); when given,
+  `check_pdf_certificate_traceability` computes the certificate token the JSON's `overall_score`
+  implies via the same shared `CERTIFICATE` `BandSet` the PDF itself uses, and checks that exact
+  token is present in the Typst text — presence-only (not "no other certificate word may appear",
+  since a legend explaining the band system may legitimately mention other tokens), `Severity::Low`
+  (advisory, never breaches the default `--fail-on high` on its own). `lint()`'s signature grew a
+  second `Option<&str>` parameter for the Typst text. Two `.typ` fixtures added under
+  `tests/lint_fixtures/`; a first draft of the "broken" fixture accidentally spelled the certificate
+  word out in its own comment ("SEHR GUT" contains "GUT" as a substring) and silently passed —
+  caught only because the CLI integration test asserted on the actual finding appearing, not just
+  the exit code, which is why report-lint's own test fixtures need their negative-case text
+  double-checked for accidental substring self-matches. `#508`–`#511` (coverage matrix, visual PDF
+  pipeline, AI critic, feedback corpus) are planned but not started.
+- **Report Quality Layer v1.2 — Phase 1: canonical metric registry, 2026-07-16 (#506, tracking #512):**
+  new `src/registry/` (`MetricSpec`/`BandSet`/`MetricKind`/`Direction`/`Scope`/`Aggregation`,
+  `REGISTRY` const table) gives every specialized number one machine-readable definition instead of
+  scattered renderer/doc logic. Seeded 1:1 from `src/output/json.rs`'s former hand-written
+  `metric_context()` vec — `metric_context()` now derives `score_definitions`/`count_definitions`
+  from `REGISTRY` instead of the other way around, with the same `field`/`unit`/`meaning` text
+  (zero JSON output change, verified against snapshot/schema/consistency test suites).
+  `docs/OUTPUT_CONTRACT.md` gained a `## Metrics` section with one `<a id>` anchor per registry
+  entry; `tests/registry_contract.rs` (mirrors `tests/parity_contract.rs`'s "contract file + test"
+  shape) checks unique ids, `docs_url` anchors resolve, `reviewed_at` parses as a date, and
+  `json_path` resolves against `docs/json-report.schema.json`/`docs/json-batch-report.schema.json`.
+  **Phase 1 complete (all 7 migration steps):** every one of the ~19 independent score→label/grade
+  definitions found across taxonomy, PDF renderers, and module-specific label functions now
+  references a named `BandSet` in `src/registry/bands.rs` instead of re-coding thresholds —
+  `FIVE_BAND` (90/75/60/40 words), `FIVE_BAND_LETTERS` (same cutoffs, A–F), `LETTER_GRADE`
+  (90/80/70/60, A–F), `SECURITY_GRADE` (90/80/70/60/50, A+–F), `BATCH_GRADE` (95/90/80/70/60,
+  A+–F), `CERTIFICATE` (90/75/60/40, SEHR GUT…UNGENÜGEND — was independently re-implemented in
+  both `audit::scoring::calculate_certificate` and the PDF's `cover::batch_certificate_label`
+  before this migration), `COVER_PHRASE`/`SCORE_RANGE` (90/75/60/40, sentence variants), `MEDAL`
+  (90/80/60, terminal-table GOLD/SILVER/BRONZE/FAILED), `BAR_COLOR_BAND` (90/80/70/50, terminal
+  color only), and `SEO_BAND` (90/70/55/35 — SEO's own family, deliberately kept distinct, not
+  collapsed into `FIVE_BAND`). No threshold values changed; `output::cli::colorize_grade` was
+  deliberately left untouched (keys off an already-resolved grade letter, no threshold to
+  register). Found and flagged but **not fixed** (out of scope for #506):
+  `performance::scoring::PerformanceGrade::emoji()`/`.label()`/`Display` are dead code — never
+  called anywhere reachable in `src/` (JSON serializes the enum variant name directly; the PDF
+  renders scores via the now-migrated `score_band_label`/`score_range_label` instead), so the
+  emoji never actually reaches a report despite existing in source.
+  `#507`–`#511` (report-lint, coverage matrix, visual PDF pipeline, AI critic, feedback corpus)
+  are planned but not started.
 - **BFSG / EN 301 549 mapping annex, 2026-07-15 (#en301549):** `src/wcag/en301549.rs` — canonical
   50-entry WCAG 2.1 A/AA ↔ EN 301 549 (chapter 9, "Web") clause table, `derive_annex`/
   `derive_batch_rollup` as pure projections over `NormalizedFinding` (nothing new stored on

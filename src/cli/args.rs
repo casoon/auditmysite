@@ -308,6 +308,33 @@ pub enum Command {
         /// URL to plan an audit for (required unless --sitemap or --url-file is set)
         url: Option<String>,
     },
+    /// Run deterministic report-lint checks (#507) against a JSON report file.
+    ReportLint {
+        /// Path to a JSON report file (single or batch envelope)
+        input: PathBuf,
+        /// Minimum finding severity that causes a non-zero exit code (default: high)
+        #[arg(long, value_enum)]
+        fail_on: Option<ReportLintFailOn>,
+        /// Path to the `--debug-typ` Typst source for the same report — when
+        /// given, additionally checks the certificate token is traceable to it
+        #[arg(long)]
+        typst_source: Option<PathBuf>,
+    },
+}
+
+/// `--fail-on` threshold for the `report-lint` subcommand.
+///
+/// A separate CLI-facing enum (rather than deriving `clap::ValueEnum` on
+/// `taxonomy::Severity` directly) so the domain type stays free of CLI
+/// concerns, matching how `WcagLevel` is kept distinct from any internal
+/// WCAG-level representation.
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+#[value(rename_all = "lowercase")]
+pub enum ReportLintFailOn {
+    Low,
+    Medium,
+    High,
+    Critical,
 }
 
 /// Browser management actions

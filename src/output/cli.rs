@@ -274,16 +274,12 @@ fn colorize_grade(grade: &str, text: &str) -> colored::ColoredString {
 }
 
 fn bar_color(score: u32, text: &str) -> colored::ColoredString {
-    if score >= 90 {
-        text.green()
-    } else if score >= 80 {
-        text.truecolor(120, 214, 75)
-    } else if score >= 70 {
-        text.yellow()
-    } else if score >= 50 {
-        text.truecolor(255, 165, 0)
-    } else {
-        text.red()
+    match crate::registry::BAR_COLOR_BAND.label(score as f32, false) {
+        "green" => text.green(),
+        "light_green" => text.truecolor(120, 214, 75),
+        "yellow" => text.yellow(),
+        "orange" => text.truecolor(255, 165, 0),
+        _ => text.red(),
     }
 }
 

@@ -25,6 +25,7 @@ Cargo.lock
 *.json
 *.html
 !tests/fixtures/*.html
+!tests/lint_fixtures/*.json
 !scripts/package-lock.json
 
 # Logs

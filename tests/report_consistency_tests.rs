@@ -15,6 +15,7 @@ use auditmysite::output::builder::build_view_model;
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{format_ai_json, format_json_batch, UnifiedReport};
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+use auditmysite::registry::LETTER_GRADE;
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
 use auditmysite::ux::{analyze_ux, UxAnalysis};
@@ -593,14 +594,11 @@ fn test_grade_matches_score() {
         );
         let normalized = normalize(&report);
 
-        // Grade must be consistent with score
-        let grade_from_score = match normalized.normalized.score {
-            90..=100 => "A",
-            80..=89 => "B",
-            70..=79 => "C",
-            60..=69 => "D",
-            _ => "F",
-        };
+        // Grade must be consistent with score, via the same shared BandSet
+        // the production code uses (audit::scoring::AccessibilityScorer::calculate_grade) —
+        // re-deriving the thresholds inline here would silently drift from
+        // the real implementation (#506).
+        let grade_from_score = LETTER_GRADE.label(normalized.normalized.score as f32, false);
 
         assert_eq!(
             normalized.normalized.grade, grade_from_score,

@@ -1278,18 +1278,7 @@ fn render_dual_viewport_summary_section(
 }
 
 fn score_range_label(score: u32, en: bool) -> &'static str {
-    match (score, en) {
-        (90..=u32::MAX, true) => "Excellent range",
-        (75..=89, true) => "Good range",
-        (60..=74, true) => "Needs improvement",
-        (40..=59, true) => "Inadequate range",
-        (_, true) => "Critical range",
-        (90..=u32::MAX, false) => "Sehr guter Bereich",
-        (75..=89, false) => "Guter Bereich",
-        (60..=74, false) => "Verbesserungsbedarf",
-        (40..=59, false) => "Ausbaufähiger Bereich",
-        (_, false) => "Kritischer Bereich",
-    }
+    crate::registry::SCORE_RANGE.label(score as f32, en)
 }
 
 pub(super) fn render_module_sections(

@@ -8,6 +8,6 @@ pub mod doctor;
 
 pub use args::{
     AnnexKind, Args, BrowserAction, Command, InteractiveMode, OutputFormat, ReportLevel,
-    RequestMode, WcagLevel,
+    ReportLintFailOn, RequestMode, WcagLevel,
 };
 pub use config::Config;

@@ -1,0 +1,27 @@
+{
+  "schema_version": "2.0",
+  "report_type": "single",
+  "summary": {
+    "accessibility_score": 82,
+    "overall_score": 82,
+    "score": 82,
+    "grade": "B",
+    "certificate": "GUT",
+    "severity_counts": { "critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3 },
+    "violated_rule_count": 3,
+    "occurrence_counts": { "critical": 1, "high": 3, "medium": 0, "low": 0, "total": 4 },
+    "violation_count": 4
+  },
+  "pages": [
+    {
+      "accessibility_score": 82,
+      "overall_score": 82,
+      "grade": "B",
+      "certificate": "GUT",
+      "severity_counts": { "critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3 },
+      "violated_rule_count": 3,
+      "occurrence_counts": { "critical": 1, "high": 3, "medium": 0, "low": 0, "total": 4 },
+      "violation_count": 4
+    }
+  ]
+}

@@ -14,18 +14,7 @@ use super::design::tokens;
 /// One-line "technical condition" phrase for the dominant cover score, aligned
 /// with the grade bands (Sehr gut ≥ 90 … Kritisch < 40). Localized de/en.
 pub(super) fn cover_band_phrase(score: u32, en: bool) -> &'static str {
-    match (score, en) {
-        (90..=u32::MAX, true) => "Excellent technical condition",
-        (75..=89, true) => "Good technical condition",
-        (60..=74, true) => "Technical condition needs improvement",
-        (40..=59, true) => "Inadequate technical condition",
-        (_, true) => "Critical technical condition",
-        (90..=u32::MAX, false) => "Sehr guter technischer Zustand",
-        (75..=89, false) => "Guter technischer Zustand",
-        (60..=74, false) => "Verbesserungswürdiger Zustand",
-        (40..=59, false) => "Ausbaufähiger technischer Zustand",
-        (_, false) => "Kritischer technischer Zustand",
-    }
+    crate::registry::COVER_PHRASE.label(score as f32, en)
 }
 
 pub(super) fn build_batch_cover_score_row(
@@ -144,22 +133,9 @@ pub(super) fn certificate_accent_color(certificate: &str) -> &'static str {
 }
 
 pub(super) fn batch_grade_label(score: u32) -> &'static str {
-    match score {
-        95..=100 => "A+",
-        90..=94 => "A",
-        80..=89 => "B",
-        70..=79 => "C",
-        60..=69 => "D",
-        _ => "F",
-    }
+    crate::registry::BATCH_GRADE.label(score as f32, false)
 }
 
 pub(super) fn batch_certificate_label(score: u32) -> &'static str {
-    match score {
-        90..=100 => "SEHR GUT",
-        75..=89 => "GUT",
-        60..=74 => "STABIL",
-        40..=59 => "AUSBAUFÄHIG",
-        _ => "UNGENÜGEND",
-    }
+    crate::registry::CERTIFICATE.label(score as f32, false)
 }

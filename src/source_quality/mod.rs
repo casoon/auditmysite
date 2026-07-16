@@ -220,24 +220,9 @@ pub fn source_quality_no_data_label(en: bool) -> String {
 
 /// Localized band label for a dimension score (single source of truth).
 pub fn source_quality_dimension_label(score: u32, en: bool) -> String {
-    if en {
-        match score {
-            90..=100 => "Excellent",
-            75..=89 => "Good",
-            60..=74 => "Needs improvement",
-            40..=59 => "Inadequate",
-            _ => "Critical",
-        }
-    } else {
-        match score {
-            90..=100 => "Sehr gut",
-            75..=89 => "Gut",
-            60..=74 => "Verbesserungswürdig",
-            40..=59 => "Ausbaufähig",
-            _ => "Kritisch",
-        }
-    }
-    .to_string()
+    crate::registry::FIVE_BAND
+        .label(score as f32, en)
+        .to_string()
 }
 
 /// The single source of truth for signal `name`/`detail` text.

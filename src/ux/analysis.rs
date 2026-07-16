@@ -723,14 +723,9 @@ pub fn analyze_ux(tree: &AXTree) -> UxAnalysis {
         (cognitive_load.score, W_COGNITIVE),
     ]);
 
-    let grade = match score {
-        90..=100 => "A",
-        80..=89 => "B",
-        70..=79 => "C",
-        60..=69 => "D",
-        _ => "F",
-    }
-    .to_string();
+    let grade = crate::registry::LETTER_GRADE
+        .label(score as f32, false)
+        .to_string();
 
     info!("UX analysis: score={}, issues={}", score, issues.len());
 

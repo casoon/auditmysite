@@ -140,17 +140,25 @@ pub struct MetricDefinition {
     pub meaning: &'static str,
 }
 
+/// Builds the JSON `metric_context` block from the canonical registry
+/// (`crate::registry::REGISTRY`, #506) instead of a hand-written list, so
+/// every specialized number's unit/meaning text has exactly one definition.
 fn metric_context(report_type: &'static str) -> MetricContext {
-    let accessibility_meaning = if report_type == "batch" {
-        "Average of the canonical page accessibility scores. Each dual-viewport page score is 70% mobile and 30% desktop; single-viewport pages use their measured accessibility score."
-    } else {
-        "Canonical accessibility score. With dual-viewport data it is 70% mobile and 30% desktop; otherwise it is the measured single-viewport score. It covers automatically evaluated WCAG findings only."
-    };
-    let overall_meaning = if report_type == "batch" {
-        "Average of the page-level overall scores across the audited URLs."
-    } else {
-        "Weighted score across contributing measured modules. In a dual-viewport audit, viewport module results are blended first and Security contributes 10% when available."
-    };
+    let mut score_definitions = Vec::new();
+    let mut count_definitions = Vec::new();
+
+    for metric in crate::registry::REGISTRY {
+        let definition = MetricDefinition {
+            field: metric.json_path,
+            unit: metric.unit,
+            meaning: metric.meaning_for(report_type),
+        };
+        if metric.kind == crate::registry::MetricKind::Count {
+            count_definitions.push(definition);
+        } else {
+            score_definitions.push(definition);
+        }
+    }
 
     MetricContext {
         score_scale: ScoreScale {
@@ -158,90 +166,8 @@ fn metric_context(report_type: &'static str) -> MetricContext {
             maximum: 100,
             higher_is_better: true,
         },
-        score_definitions: vec![
-            MetricDefinition {
-                field: "summary.accessibility_score",
-                unit: "points",
-                meaning: accessibility_meaning,
-            },
-            MetricDefinition {
-                field: "summary.overall_score",
-                unit: "points",
-                meaning: overall_meaning,
-            },
-            MetricDefinition {
-                field: "summary.score",
-                unit: "points",
-                meaning: "Compatibility alias for summary.overall_score.",
-            },
-            MetricDefinition {
-                field: "summary.grade / summary.certificate",
-                unit: "classification",
-                meaning: "Classification derived from summary.overall_score; risk gates can restrict the certificate without changing the numeric score.",
-            },
-            MetricDefinition {
-                field: "pages[].module_scores[].score",
-                unit: "points",
-                meaning: "Module-specific 0-100 score. Scores from different modules use different measured or heuristic inputs and are not interchangeable raw measurements.",
-            },
-            MetricDefinition {
-                field: "pages[].detail.modules.*.score and nested dimension scores",
-                unit: "points",
-                meaning: "Module- or dimension-specific 0-100 score; higher is better. The surrounding module and measurement_type identify whether the value is measured or heuristic.",
-            },
-            MetricDefinition {
-                field: "pages[].detail.viewport_scores",
-                unit: "points",
-                meaning: "Desktop and mobile accessibility/overall scores on the 0-100 scale. weighted_overall is the 70% mobile and 30% desktop module blend before the optional Security contribution; the canonical accessibility blend is recorded in score_breakdown.",
-            },
-            MetricDefinition {
-                field: "summary.*_score / pages[].*_score",
-                unit: "points",
-                meaning: "Named module score on the 0-100 scale; higher is better. Throttled and Lighthouse performance scores are lab results, not field/RUM data.",
-            },
-            MetricDefinition {
-                field: "summary.accessibility_score_breakdown[]",
-                unit: "points and percent",
-                meaning: "Accessibility area score (0-100, higher is better), its contribution weight in percent, and estimated_lost_points relative to 100.",
-            },
-            MetricDefinition {
-                field: "pages[].risk.score",
-                unit: "risk points",
-                meaning: "Independent 0-100 risk index; unlike quality scores, higher means more risk. The adjacent level, threshold, and driven_by fields explain its classification.",
-            },
-            MetricDefinition {
-                field: "pages[].principle_coverage.*.ratio",
-                unit: "ratio",
-                meaning: "Share from 0 to 1 of automatically evaluated checks without a finding for that WCAG principle; it is coverage context and does not affect the score.",
-            },
-            MetricDefinition {
-                field: "pages[].findings[].priority_score",
-                unit: "relative priority",
-                meaning: "Unbounded ranking value calculated as severity weight multiplied by occurrence reach and divided by estimated effort; higher values should be addressed earlier and are not percentages.",
-            },
-            MetricDefinition {
-                field: "pages[].findings[].score_impact",
-                unit: "penalty points",
-                meaning: "Rule-specific base and maximum deductions used by accessibility scoring; scaling states how repeated occurrences are condensed.",
-            },
-        ],
-        count_definitions: vec![
-            MetricDefinition {
-                field: "violation_count / occurrence_counts",
-                unit: "WCAG occurrences",
-                meaning: "Affected WCAG element or page occurrences; repeated instances of the same rule count separately.",
-            },
-            MetricDefinition {
-                field: "violated_rule_count / severity_counts",
-                unit: "distinct WCAG finding groups",
-                meaning: "Distinct violated WCAG rule groups, not affected elements.",
-            },
-            MetricDefinition {
-                field: "finding_count / finding_occurrence_count",
-                unit: "all-category findings",
-                meaning: "Finding rows and occurrences across WCAG, SEO, and every other reported category.",
-            },
-        ],
+        score_definitions,
+        count_definitions,
     }
 }
 

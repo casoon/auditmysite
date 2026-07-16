@@ -89,6 +89,16 @@ src/
 │   ├── score.rs         # Taxonomy-based score impact helpers
 │   └── severity.rs      # Severity mapping helpers
 │
+├── registry/            # Canonical metric registry (#506, Report Quality Layer)
+│   ├── mod.rs           # MetricSpec/BandSet/MetricKind/Direction/Scope/Aggregation
+│   ├── metrics.rs       # REGISTRY — one entry per specialized JSON/PDF/docs number
+│   ├── bands.rs         # Named score→label band families (FIVE_BAND, ...)
+│   └── paths.rs         # json_path_candidates() — interprets MetricSpec.json_path text
+│
+├── lint/                # Deterministic report-lint (#507, Report Quality Layer)
+│   ├── mod.rs           # LintFinding/LintReport, lint() entry point
+│   └── checks.rs        # Score/grade/certificate/count-sum/metric_context checks
+│
 ├── audit/               # Audit orchestration
 │   ├── mod.rs
 │   ├── pipeline.rs      # Single page audit flow

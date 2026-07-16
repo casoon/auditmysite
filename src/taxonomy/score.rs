@@ -96,24 +96,12 @@ pub fn score_label(score: u32) -> &'static str {
 
 /// Grade-Buchstabe aus Score
 pub fn score_grade(score: u32) -> &'static str {
-    match score {
-        90..=100 => "A",
-        80..=89 => "B",
-        70..=79 => "C",
-        60..=69 => "D",
-        _ => "F",
-    }
+    crate::registry::LETTER_GRADE.label(score as f32, false)
 }
 
 /// Letter grade for module-level quality indicators.
 pub fn module_score_grade(score: u32) -> &'static str {
-    match score {
-        90..=100 => "A",
-        75..=89 => "B",
-        60..=74 => "C",
-        40..=59 => "D",
-        _ => "F",
-    }
+    crate::registry::FIVE_BAND_LETTERS.label(score as f32, false)
 }
 
 /// Status-Farbe für Score

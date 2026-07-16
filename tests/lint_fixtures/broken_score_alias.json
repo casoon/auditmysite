@@ -1,0 +1,14 @@
+{
+  "schema_version": "2.0",
+  "report_type": "single",
+  "summary": {
+    "accessibility_score": 82,
+    "overall_score": 82,
+    "score": 80,
+    "grade": "B",
+    "certificate": "GUT"
+  },
+  "pages": [
+    { "accessibility_score": 82, "overall_score": 82, "grade": "B", "certificate": "GUT" }
+  ]
+}

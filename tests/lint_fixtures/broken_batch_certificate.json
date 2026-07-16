@@ -1,0 +1,16 @@
+{
+  "schema_version": "2.0",
+  "report_type": "batch",
+  "summary": {
+    "url_count": 2,
+    "accessibility_score": 65,
+    "overall_score": 65,
+    "score": 65,
+    "grade": "D",
+    "certificate": "SEHR GUT"
+  },
+  "pages": [
+    { "url": "https://example.com/a", "accessibility_score": 70, "overall_score": 70, "grade": "C", "certificate": "STABIL" },
+    { "url": "https://example.com/b", "accessibility_score": 60, "overall_score": 60, "grade": "D", "certificate": "STABIL" }
+  ]
+}

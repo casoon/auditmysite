@@ -173,19 +173,7 @@ pub(super) fn module_score_caption(i18n: &I18n) -> &'static str {
 /// bands (Sehr gut ≥ 90 … Kritisch < 40). Replaces the rejected A–F letter
 /// grade as the score-card description. Localized de/en.
 pub(super) fn score_band_label(score: u32, i18n: &I18n) -> &'static str {
-    let en = is_english(i18n);
-    match (score, en) {
-        (90..=u32::MAX, true) => "Excellent",
-        (75..=89, true) => "Good",
-        (60..=74, true) => "Needs improvement",
-        (40..=59, true) => "Inadequate",
-        (_, true) => "Critical",
-        (90..=u32::MAX, false) => "Sehr gut",
-        (75..=89, false) => "Gut",
-        (60..=74, false) => "Verbesserungswürdig",
-        (40..=59, false) => "Ausbaufähig",
-        (_, false) => "Kritisch",
-    }
+    crate::registry::FIVE_BAND.label(score as f32, is_english(i18n))
 }
 
 fn vital_status(rating: &str) -> &'static str {

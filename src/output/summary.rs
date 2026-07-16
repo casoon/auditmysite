@@ -36,12 +36,14 @@ pub struct TopFinding {
 }
 
 fn label_and_medal(score: u32) -> (&'static str, &'static str) {
-    match score {
-        90..=100 => ("GOLD", "gold"),
-        80..=89 => ("SILVER", "silver"),
-        60..=79 => ("BRONZE", "bronze"),
-        _ => ("FAILED", "failed"),
-    }
+    let label = crate::registry::MEDAL.label(score as f32, false);
+    let medal_color = match label {
+        "GOLD" => "gold",
+        "SILVER" => "silver",
+        "BRONZE" => "bronze",
+        _ => "failed",
+    };
+    (label, medal_color)
 }
 
 fn severity_rank(s: &Severity) -> u8 {

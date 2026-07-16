@@ -21,16 +21,12 @@ pub enum SeoScoreBand {
 }
 
 pub fn classify_seo_score(score: u32) -> SeoScoreBand {
-    if score >= 90 {
-        SeoScoreBand::Excellent
-    } else if score >= 70 {
-        SeoScoreBand::Good
-    } else if score >= 55 {
-        SeoScoreBand::Partial
-    } else if score >= 35 {
-        SeoScoreBand::Insufficient
-    } else {
-        SeoScoreBand::Critical
+    match crate::registry::SEO_BAND.label(score as f32, false) {
+        "excellent" => SeoScoreBand::Excellent,
+        "good" => SeoScoreBand::Good,
+        "partial" => SeoScoreBand::Partial,
+        "insufficient" => SeoScoreBand::Insufficient,
+        _ => SeoScoreBand::Critical,
     }
 }
 

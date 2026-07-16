@@ -9,8 +9,10 @@ use auditmysite::browser::{
     detect_all_browsers, find_chrome, resolve_browser, BrowserInstaller, BrowserResolveOptions,
     InstallTarget,
 };
-use auditmysite::cli::{Args, BrowserAction, Command};
+use auditmysite::cli::{Args, BrowserAction, Command, ReportLintFailOn};
 use auditmysite::error::{AuditError, Result};
+use auditmysite::lint::lint;
+use auditmysite::taxonomy::Severity;
 
 use crate::plan::{print_banner, print_batch_audit_plan, print_single_audit_plan};
 
@@ -22,6 +24,71 @@ pub async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
             Ok(0.0)
         }
         Command::Plan { url } => run_plan_command(args, url.as_deref()),
+        Command::ReportLint {
+            input,
+            fail_on,
+            typst_source,
+        } => run_report_lint_command(input, *fail_on, typst_source.as_deref()),
+    }
+}
+
+fn report_lint_fail_on_to_severity(fail_on: Option<ReportLintFailOn>) -> Severity {
+    match fail_on.unwrap_or(ReportLintFailOn::High) {
+        ReportLintFailOn::Low => Severity::Low,
+        ReportLintFailOn::Medium => Severity::Medium,
+        ReportLintFailOn::High => Severity::High,
+        ReportLintFailOn::Critical => Severity::Critical,
+    }
+}
+
+fn run_report_lint_command(
+    input: &std::path::Path,
+    fail_on: Option<ReportLintFailOn>,
+    typst_source: Option<&std::path::Path>,
+) -> Result<f64> {
+    let text = std::fs::read_to_string(input).map_err(|e| AuditError::FileError {
+        path: input.to_path_buf(),
+        reason: e.to_string(),
+    })?;
+    let report: serde_json::Value = serde_json::from_str(&text)?;
+
+    let typst_text = typst_source
+        .map(|path| {
+            std::fs::read_to_string(path).map_err(|e| AuditError::FileError {
+                path: path.to_path_buf(),
+                reason: e.to_string(),
+            })
+        })
+        .transpose()?;
+
+    let result = lint(&report, typst_text.as_deref());
+    let threshold = report_lint_fail_on_to_severity(fail_on);
+
+    if result.is_clean() {
+        println!("{} {}", "report-lint:".cyan().bold(), "no findings".green());
+    } else {
+        println!(
+            "{} {} finding(s)",
+            "report-lint:".cyan().bold(),
+            result.findings.len()
+        );
+        for finding in &result.findings {
+            println!(
+                "  [{}] {} — {}\n      expected: {}\n      actual:   {}",
+                format!("{:?}", finding.severity).to_uppercase(),
+                finding.check_id,
+                finding.evidence_path,
+                finding.expected,
+                finding.actual,
+            );
+        }
+    }
+
+    match result.worst_severity() {
+        Some(worst) if worst >= threshold => Err(AuditError::ConfigError(format!(
+            "report-lint found a {worst:?} finding, at or above --fail-on {threshold:?}"
+        ))),
+        _ => Ok(0.0),
     }
 }
 

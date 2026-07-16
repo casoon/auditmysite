@@ -774,14 +774,9 @@ pub(crate) fn calculate_security_score(
 }
 
 fn calculate_grade(score: u32) -> String {
-    match score {
-        90..=100 => "A+".to_string(),
-        80..=89 => "A".to_string(),
-        70..=79 => "B".to_string(),
-        60..=69 => "C".to_string(),
-        50..=59 => "D".to_string(),
-        _ => "F".to_string(),
-    }
+    crate::registry::SECURITY_GRADE
+        .label(score as f32, false)
+        .to_string()
 }
 
 #[cfg(test)]
