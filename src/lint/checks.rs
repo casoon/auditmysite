@@ -83,11 +83,56 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
 const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_overall_score";
 const CHECK_CERTIFICATE_MATCHES_SCORE: &str = "certificate_matches_overall_score";
 
+/// Risk-gate inputs for a `summary` or `pages[i]` node. `pages[i]` carries a
+/// nested `risk` object with full detail; `summary` only ever carries a flat
+/// `risk_level` string (no aggregate `legal_flags`/`blocking_issues`), so
+/// those default to 0 there — level-only gating (High/Critical) still works.
+fn risk_gate_inputs(node: &Value) -> (Option<&str>, i64, i64) {
+    if let Some(risk) = node.get("risk") {
+        let level = risk.get("level").and_then(Value::as_str);
+        let legal_flags = risk.get("legal_flags").and_then(Value::as_i64).unwrap_or(0);
+        let blocking_issues = risk
+            .get("blocking_issues")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
+        (level, legal_flags, blocking_issues)
+    } else {
+        let level = node.get("risk_level").and_then(Value::as_str);
+        (level, 0, 0)
+    }
+}
+
+/// Certificate values `gate_certificate_by_risk` (`src/audit/normalized.rs`)
+/// can produce from a given score-implied certificate, mirroring its exact
+/// precedence: Critical risk always wins ("NICHT BESTANDEN"); otherwise a
+/// positive certificate gets downgraded to "EINGESCHRÄNKT" when risk is High
+/// or there's any legal/blocking flag. Returns every value that's a legitimate
+/// outcome for this input, not just the one score-based value.
+fn acceptable_certificates(
+    score_based: &'static str,
+    risk_level: Option<&str>,
+    legal_flags: i64,
+    blocking_issues: i64,
+) -> Vec<&'static str> {
+    let mut acceptable = vec![score_based];
+    if risk_level == Some("critical") {
+        acceptable.push("NICHT BESTANDEN");
+    }
+    let is_positive = matches!(score_based, "AUSBAUFÄHIG" | "STABIL" | "GUT" | "SEHR GUT");
+    let does_not_pass = risk_level == Some("high") || legal_flags > 0 || blocking_issues > 0;
+    if is_positive && does_not_pass {
+        acceptable.push("EINGESCHRÄNKT");
+    }
+    acceptable
+}
+
 /// `grade` and `certificate` must be derivable from `overall_score` via the
 /// same shared `BandSet` the production code uses
 /// (`audit::scoring::AccessibilityScorer::calculate_grade`/
 /// `calculate_certificate`) — catches a certificate/grade computed from a
-/// different (e.g. stale or pre-normalization) score base.
+/// different (e.g. stale or pre-normalization) score base. `certificate` may
+/// also legitimately be a risk-gated downgrade of the score-based value; see
+/// [`acceptable_certificates`].
 fn check_grade_and_certificate(
     node: &Value,
     evidence_prefix: &str,
@@ -111,12 +156,15 @@ fn check_grade_and_certificate(
     }
 
     if let Some(certificate) = node.get("certificate").and_then(Value::as_str) {
-        let expected = CERTIFICATE.label(overall as f32, false);
-        if certificate != expected {
+        let score_based = CERTIFICATE.label(overall as f32, false);
+        let (risk_level, legal_flags, blocking_issues) = risk_gate_inputs(node);
+        let acceptable =
+            acceptable_certificates(score_based, risk_level, legal_flags, blocking_issues);
+        if !acceptable.contains(&certificate) {
             findings.push(LintFinding {
                 check_id: CHECK_CERTIFICATE_MATCHES_SCORE,
                 evidence_path: format!("{evidence_prefix}.certificate"),
-                expected: expected.to_string(),
+                expected: acceptable.join(" or "),
                 actual: certificate.to_string(),
                 severity: Severity::Critical,
             });
@@ -151,16 +199,37 @@ fn counts_sum(node: &Value) -> Option<i64> {
     )
 }
 
-fn check_counts_block(
-    node: &Value,
-    block_field: &str,
-    scope_count_field: &str,
+/// How a scoped count field relates to its counts-block total. Exact for a
+/// single page (a page's own distinct-rule count trivially equals its own
+/// `severity_counts.total`); at most equal for a batch `summary`, where the
+/// scoped count is a *globally* distinct count while the counts-block total
+/// is the *sum of per-page* distinct-rule rows — the same rule repeating
+/// across pages inflates the total but not the global distinct count
+/// (confirmed via a real batch report during the #509 report-critic eval).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScopeRelation {
+    Exact,
+    AtMost,
+}
+
+/// Which counts block and scoped-count field this check pass covers, and the
+/// check ids to report under — one spec per (`severity_counts`,
+/// `violated_rule_count`) / (`occurrence_counts`, `violation_count`) pair.
+struct CountsCheckSpec {
+    block_field: &'static str,
+    scope_count_field: &'static str,
     check_total_sum: &'static str,
     check_scope_match: &'static str,
+}
+
+fn check_counts_block(
+    node: &Value,
+    spec: &CountsCheckSpec,
+    scope_relation: ScopeRelation,
     evidence_prefix: &str,
     findings: &mut Vec<LintFinding>,
 ) {
-    let Some(counts) = node.get(block_field) else {
+    let Some(counts) = node.get(spec.block_field) else {
         return;
     };
     let total = counts.get("total").and_then(Value::as_i64);
@@ -168,8 +237,8 @@ fn check_counts_block(
     if let (Some(total), Some(sum)) = (total, counts_sum(counts)) {
         if total != sum {
             findings.push(LintFinding {
-                check_id: check_total_sum,
-                evidence_path: format!("{evidence_prefix}.{block_field}.total"),
+                check_id: spec.check_total_sum,
+                evidence_path: format!("{evidence_prefix}.{}.total", spec.block_field),
                 expected: sum.to_string(),
                 actual: total.to_string(),
                 severity: Severity::High,
@@ -177,14 +246,22 @@ fn check_counts_block(
         }
     }
 
-    if let (Some(scope_count), Some(total)) =
-        (node.get(scope_count_field).and_then(Value::as_i64), total)
-    {
-        if scope_count != total {
+    if let (Some(scope_count), Some(total)) = (
+        node.get(spec.scope_count_field).and_then(Value::as_i64),
+        total,
+    ) {
+        let violated = match scope_relation {
+            ScopeRelation::Exact => scope_count != total,
+            ScopeRelation::AtMost => scope_count > total,
+        };
+        if violated {
             findings.push(LintFinding {
-                check_id: check_scope_match,
-                evidence_path: format!("{evidence_prefix}.{scope_count_field}"),
-                expected: total.to_string(),
+                check_id: spec.check_scope_match,
+                evidence_path: format!("{evidence_prefix}.{}", spec.scope_count_field),
+                expected: match scope_relation {
+                    ScopeRelation::Exact => total.to_string(),
+                    ScopeRelation::AtMost => format!("<= {total}"),
+                },
                 actual: scope_count.to_string(),
                 severity: Severity::Medium,
             });
@@ -195,35 +272,56 @@ fn check_counts_block(
 /// `severity_counts.total`/`occurrence_counts.total` must equal the sum of
 /// their four severity fields, and `violated_rule_count`/`violation_count`
 /// must match the corresponding scoped total — catches a counter whose scope
-/// silently drifted from its label (#511 corpus: "Zähler ohne Scope").
+/// silently drifted from its label (#511 corpus: "Zähler ohne Scope"). At the
+/// batch `summary` level the scoped counts are only bounded above, not exact
+/// — see [`ScopeRelation`].
 fn check_severity_occurrence_sums(report: &Value, findings: &mut Vec<LintFinding>) {
-    let check_node = |node: &Value, evidence_prefix: &str, findings: &mut Vec<LintFinding>| {
+    let is_batch = report.get("report_type").and_then(Value::as_str) == Some("batch");
+
+    const SEVERITY_SPEC: CountsCheckSpec = CountsCheckSpec {
+        block_field: "severity_counts",
+        scope_count_field: "violated_rule_count",
+        check_total_sum: CHECK_SEVERITY_TOTAL_SUM,
+        check_scope_match: CHECK_VIOLATED_RULE_COUNT_SCOPE,
+    };
+    const OCCURRENCE_SPEC: CountsCheckSpec = CountsCheckSpec {
+        block_field: "occurrence_counts",
+        scope_count_field: "violation_count",
+        check_total_sum: CHECK_OCCURRENCE_TOTAL_SUM,
+        check_scope_match: CHECK_VIOLATION_COUNT_SCOPE,
+    };
+
+    let check_node = |node: &Value,
+                      evidence_prefix: &str,
+                      scope_relation: ScopeRelation,
+                      findings: &mut Vec<LintFinding>| {
         check_counts_block(
             node,
-            "severity_counts",
-            "violated_rule_count",
-            CHECK_SEVERITY_TOTAL_SUM,
-            CHECK_VIOLATED_RULE_COUNT_SCOPE,
+            &SEVERITY_SPEC,
+            scope_relation,
             evidence_prefix,
             findings,
         );
         check_counts_block(
             node,
-            "occurrence_counts",
-            "violation_count",
-            CHECK_OCCURRENCE_TOTAL_SUM,
-            CHECK_VIOLATION_COUNT_SCOPE,
+            &OCCURRENCE_SPEC,
+            scope_relation,
             evidence_prefix,
             findings,
         );
     };
 
     if let Some(summary) = report.get("summary") {
-        check_node(summary, "summary", findings);
+        let summary_relation = if is_batch {
+            ScopeRelation::AtMost
+        } else {
+            ScopeRelation::Exact
+        };
+        check_node(summary, "summary", summary_relation, findings);
     }
     if let Some(pages) = report.get("pages").and_then(Value::as_array) {
         for (i, page) in pages.iter().enumerate() {
-            check_node(page, &format!("pages[{i}]"), findings);
+            check_node(page, &format!("pages[{i}]"), ScopeRelation::Exact, findings);
         }
     }
 }
@@ -491,6 +589,42 @@ mod tests {
     }
 
     #[test]
+    fn certificate_downgraded_by_risk_gate_is_not_flagged() {
+        // overall_score 82 implies "GUT", but production code
+        // (gate_certificate_by_risk) downgrades a positive certificate to
+        // "EINGESCHRÄNKT" whenever risk is High -- report-lint must accept
+        // this as a legitimate outcome, not a score/certificate mismatch.
+        let mut report = clean_single_report();
+        report["summary"]["certificate"] = json!("EINGESCHRÄNKT");
+        report["summary"]["risk_level"] = json!("high");
+        report["pages"][0]["certificate"] = json!("EINGESCHRÄNKT");
+        report["pages"][0]["risk"] =
+            json!({"level": "high", "legal_flags": 0, "blocking_issues": 0});
+        let mut findings = Vec::new();
+        run_all_checks(&report, &mut findings);
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f.check_id == CHECK_CERTIFICATE_MATCHES_SCORE),
+            "unexpected findings: {findings:?}"
+        );
+    }
+
+    #[test]
+    fn certificate_still_flagged_when_risk_does_not_justify_downgrade() {
+        // Same downgraded certificate as above, but risk is "low" -- nothing
+        // justifies "EINGESCHRÄNKT" here, so this must still be flagged.
+        let mut report = clean_single_report();
+        report["summary"]["certificate"] = json!("EINGESCHRÄNKT");
+        report["summary"]["risk_level"] = json!("low");
+        let mut findings = Vec::new();
+        run_all_checks(&report, &mut findings);
+        assert!(findings
+            .iter()
+            .any(|f| f.check_id == CHECK_CERTIFICATE_MATCHES_SCORE));
+    }
+
+    #[test]
     fn detects_severity_total_sum_mismatch() {
         let mut report = clean_single_report();
         report["summary"]["severity_counts"]["total"] = json!(99);
@@ -505,6 +639,77 @@ mod tests {
     fn detects_violated_rule_count_scope_mismatch() {
         let mut report = clean_single_report();
         report["summary"]["violated_rule_count"] = json!(99);
+        let mut findings = Vec::new();
+        run_all_checks(&report, &mut findings);
+        assert!(findings
+            .iter()
+            .any(|f| f.check_id == CHECK_VIOLATED_RULE_COUNT_SCOPE));
+    }
+
+    fn clean_batch_report() -> Value {
+        json!({
+            "schema_version": "2.0",
+            "report_type": "batch",
+            "summary": {
+                "accessibility_score": 82,
+                "overall_score": 82,
+                "score": 82,
+                "grade": "B",
+                "certificate": "GUT",
+                // 3 distinct rules across the whole batch (global count), but
+                // severity_counts.total sums per-page distinct-rule rows, so
+                // it's legitimately larger when a rule repeats across pages.
+                "severity_counts": {"critical": 0, "high": 16, "medium": 19, "low": 0, "total": 35},
+                "violated_rule_count": 3,
+                "occurrence_counts": {"critical": 0, "high": 190, "medium": 35, "low": 0, "total": 225},
+                "violation_count": 225
+            },
+            "pages": [
+                {
+                    "accessibility_score": 82,
+                    "overall_score": 82,
+                    "grade": "B",
+                    "certificate": "GUT",
+                    "severity_counts": {"critical": 0, "high": 1, "medium": 1, "low": 0, "total": 2},
+                    "violated_rule_count": 2,
+                    "occurrence_counts": {"critical": 0, "high": 12, "medium": 3, "low": 0, "total": 15},
+                    "violation_count": 15
+                }
+            ]
+        })
+    }
+
+    #[test]
+    fn batch_summary_violated_rule_count_below_severity_total_is_not_flagged() {
+        let mut findings = Vec::new();
+        run_all_checks(&clean_batch_report(), &mut findings);
+        assert!(
+            !findings
+                .iter()
+                .any(|f| f.check_id == CHECK_VIOLATED_RULE_COUNT_SCOPE),
+            "unexpected findings: {findings:?}"
+        );
+    }
+
+    #[test]
+    fn batch_summary_violated_rule_count_above_severity_total_is_still_flagged() {
+        // A global distinct-rule count can never exceed the sum of per-page
+        // distinct-rule rows -- this direction of mismatch is still a real bug.
+        let mut report = clean_batch_report();
+        report["summary"]["violated_rule_count"] = json!(999);
+        let mut findings = Vec::new();
+        run_all_checks(&report, &mut findings);
+        assert!(findings
+            .iter()
+            .any(|f| f.check_id == CHECK_VIOLATED_RULE_COUNT_SCOPE));
+    }
+
+    #[test]
+    fn batch_page_violated_rule_count_mismatch_is_still_flagged_exactly() {
+        // Per-page scope relation stays exact even in a batch report -- only
+        // the top-level summary aggregate gets the relaxed AtMost relation.
+        let mut report = clean_batch_report();
+        report["pages"][0]["violated_rule_count"] = json!(99);
         let mut findings = Vec::new();
         run_all_checks(&report, &mut findings);
         assert!(findings
