@@ -53,6 +53,19 @@ pub enum TechCategory {
     JsLibrary,
 }
 
+impl TechCategory {
+    /// Display label — identical in German and English (proper nouns/acronyms).
+    pub fn label(&self) -> &'static str {
+        match self {
+            TechCategory::Cms => "CMS",
+            TechCategory::Framework => "Framework",
+            TechCategory::StaticSiteGenerator => "Static Site Generator",
+            TechCategory::Ecommerce => "E-Commerce",
+            TechCategory::JsLibrary => "JS Library",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Confidence {

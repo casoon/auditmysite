@@ -103,6 +103,84 @@ mod tests {
         assert_pdf_smoke(&pdf, 15_000);
     }
 
+    /// Regression test for a class of localization leak the existing
+    /// "no umlauts/ß" guard tests structurally cannot catch: hardcoded German
+    /// table labels/words that happen to contain no umlaut or ß (e.g.
+    /// "Vorkommen", "Sprache", "Interne Links"). `pdf_fixture_report()` alone
+    /// carries no SEO data, so `build_seo_details`'s whole English-locale
+    /// code path (identity_facts, page_profile_facts, technical_summary,
+    /// tracking_summary) was previously never exercised by any EN-locale
+    /// test at all.
+    ///
+    /// Note on methodology: a string's presence in `--debug-typ` output does
+    /// NOT by itself prove it renders onto a page — the dump embeds every
+    /// registered renderreport component template verbatim (`include_str!`),
+    /// including ones this report never instantiates. Only assert against
+    /// strings actually reachable through this report's own content-building
+    /// code (as verified here against `build_seo_details`), not raw
+    /// substring presence in the dump.
+    #[test]
+    fn test_seo_details_english_locale_has_no_known_german_leaks() {
+        let report = pdf_fixture_report().with_seo(crate::seo::SeoAnalysis {
+            score: 80,
+            ..Default::default()
+        });
+        let typ = generate_typ(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Technical,
+                locale: "en".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("English Typst source should render");
+
+        // Confirms the English-only branches actually fire (not just "no
+        // German leaked", but "the intended English text is present").
+        for expected in [
+            "Page title",
+            "Content type",
+            "Topic hints",
+            "Page type",
+            "Characteristics",
+            "Classification",
+            "Recommendation",
+            "Language tag",
+            "Word count",
+            "Internal links",
+        ] {
+            assert!(
+                typ.contains(expected),
+                "expected English label {expected:?} in EN-locale Typst source"
+            );
+        }
+
+        // The specific hardcoded-German strings confirmed and fixed in this
+        // session (#511-style regression corpus candidates). Deliberately
+        // excludes "Empfehlung": it also happens to be the unrelated default
+        // fallback text of the (unused) renderreport `dominant-issue-spotlight`
+        // component, which is always present in any --debug-typ dump per the
+        // methodology note above, regardless of this fix.
+        for leaked in [
+            "Seitentitel",
+            "Inhaltstyp",
+            "Themenhinweise",
+            "Seitentyp",
+            "Merkmale",
+            "Einordnung",
+            "Sprachangabe",
+            "Wortanzahl",
+            "Interne Links",
+            "Externe Links",
+            "Vollständigkeit",
+        ] {
+            assert!(
+                !typ.contains(leaked),
+                "German string {leaked:?} leaked into EN-locale Typst source"
+            );
+        }
+    }
+
     #[test]
     fn test_single_pdf_places_json_ld_status_before_schema_inventory() {
         let structured_data = crate::seo::schema::analyze_structured_data_payloads(

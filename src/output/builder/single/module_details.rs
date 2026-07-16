@@ -524,10 +524,16 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
         let seo_score = normalized_module_score(&normalized.normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
         if let Some(ref title) = s.meta.title {
-            meta_tags.push(("Titel".to_string(), title.clone()));
+            meta_tags.push((
+                if en { "Title" } else { "Titel" }.to_string(),
+                title.clone(),
+            ));
         }
         if let Some(ref desc) = s.meta.description {
-            meta_tags.push(("Beschreibung".to_string(), desc.clone()));
+            meta_tags.push((
+                if en { "Description" } else { "Beschreibung" }.to_string(),
+                desc.clone(),
+            ));
         }
         if let Some(ref viewport) = s.meta.viewport {
             meta_tags.push(("Viewport".to_string(), viewport.clone()));
@@ -752,7 +758,11 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                                 .unwrap_or_default()
                         ),
                         SchemaExtracted::FAQPage { question_count, .. } => {
-                            format!("{} Fragen", question_count)
+                            if en {
+                                format!("{} questions", question_count)
+                            } else {
+                                format!("{} Fragen", question_count)
+                            }
                         }
                         SchemaExtracted::Product {
                             name,
@@ -774,7 +784,15 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                         } => format!(
                             "{}{}",
                             name.as_deref().unwrap_or(""),
-                            if *has_search_action { " (Suche)" } else { "" }
+                            if *has_search_action {
+                                if en {
+                                    " (search)"
+                                } else {
+                                    " (Suche)"
+                                }
+                            } else {
+                                ""
+                            }
                         ),
                         SchemaExtracted::WebPage {
                             name,
@@ -806,13 +824,21 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                                 .map(|a| format!(" — {}", a))
                                 .unwrap_or_default(),
                             if *area_served_count > 0 {
-                                format!(" · {} Regionen", area_served_count)
+                                if en {
+                                    format!(" · {} regions", area_served_count)
+                                } else {
+                                    format!(" · {} Regionen", area_served_count)
+                                }
                             } else {
                                 String::new()
                             }
                         ),
                         SchemaExtracted::BreadcrumbList { item_count } => {
-                            format!("{} Ebenen", item_count)
+                            if en {
+                                format!("{} levels", item_count)
+                            } else {
+                                format!("{} Ebenen", item_count)
+                            }
                         }
                         SchemaExtracted::Generic { key_fields } => key_fields
                             .first()
@@ -832,12 +858,17 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 .categories
                 .iter()
                 .map(|cat| {
-                    let rating = match cat.score_pct {
-                        90..=100 => "Sehr gut",
-                        67..=89 => "Gut",
-                        34..=66 => "Teilweise",
-                        1..=33 => "Minimal",
-                        _ => "Fehlt",
+                    let rating = match (cat.score_pct, en) {
+                        (90..=100, true) => "Excellent",
+                        (67..=89, true) => "Good",
+                        (34..=66, true) => "Partial",
+                        (1..=33, true) => "Minimal",
+                        (_, true) => "Missing",
+                        (90..=100, false) => "Sehr gut",
+                        (67..=89, false) => "Gut",
+                        (34..=66, false) => "Teilweise",
+                        (1..=33, false) => "Minimal",
+                        (_, false) => "Fehlt",
                     };
                     (
                         cat.name.clone(),
@@ -883,27 +914,31 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 category_hints: cp.content_identity.category_hints.clone(),
                 identity_facts: vec![
                     (
-                        "Seitentitel".to_string(),
+                        if en { "Page title" } else { "Seitentitel" }.to_string(),
                         cp.content_identity
                             .site_name
                             .clone()
                             .unwrap_or_else(|| "—".to_string()),
                     ),
                     (
-                        "Inhaltstyp".to_string(),
+                        if en { "Content type" } else { "Inhaltstyp" }.to_string(),
                         cp.content_identity.content_type.clone(),
                     ),
                     (
-                        "Sprache".to_string(),
+                        if en { "Language" } else { "Sprache" }.to_string(),
                         cp.content_identity
                             .language
                             .clone()
                             .unwrap_or_else(|| "—".to_string()),
                     ),
                     (
-                        "Themenhinweise".to_string(),
+                        if en { "Topic hints" } else { "Themenhinweise" }.to_string(),
                         if cp.content_identity.category_hints.is_empty() {
-                            "Keine klaren Themenhinweise erkannt".to_string()
+                            if en {
+                                "No clear topic hints detected".to_string()
+                            } else {
+                                "Keine klaren Themenhinweise erkannt".to_string()
+                            }
                         } else {
                             cp.content_identity.category_hints.join(", ")
                         },
@@ -919,20 +954,27 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 optimization_note: page_profile_optimization_note_text(cp, en),
                 page_profile_facts: vec![
                     (
-                        "Seitentyp".to_string(),
+                        if en { "Page type" } else { "Seitentyp" }.to_string(),
                         cp.page_classification.primary_type.label(en).to_string(),
                     ),
                     (
-                        "Merkmale".to_string(),
+                        if en { "Characteristics" } else { "Merkmale" }.to_string(),
                         if cp.page_classification.attributes.is_empty() {
-                            "Keine prägenden Merkmale erkannt".to_string()
+                            if en {
+                                "No defining characteristics detected".to_string()
+                            } else {
+                                "Keine prägenden Merkmale erkannt".to_string()
+                            }
                         } else {
                             format!("{}.", cp.page_classification.attributes.join(", "))
                         },
                     ),
-                    ("Einordnung".to_string(), page_profile_summary_text(cp, en)),
                     (
-                        "Empfehlung".to_string(),
+                        if en { "Classification" } else { "Einordnung" }.to_string(),
+                        page_profile_summary_text(cp, en),
+                    ),
+                    (
+                        if en { "Recommendation" } else { "Empfehlung" }.to_string(),
                         page_profile_optimization_note_text(cp, en),
                     ),
                 ],
@@ -964,26 +1006,52 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
             interpretation: seo_interpretation_text(s, en),
             meta_tags,
             meta_issues,
-            heading_summary: format!(
-                "{} H1-Überschrift(en), {} Überschriften gesamt, {} Probleme",
-                s.headings.h1_count,
-                s.headings.total_count,
-                s.headings.issues.len()
-            ),
-            social_summary: format!(
-                "Open Graph: {}, Twitter Card: {}, Vollständigkeit: {}%",
-                if s.social.open_graph.is_some() {
-                    "vorhanden"
-                } else {
-                    "fehlt"
-                },
-                if s.social.twitter_card.is_some() {
-                    "vorhanden"
-                } else {
-                    "fehlt"
-                },
-                s.social.completeness
-            ),
+            heading_summary: if en {
+                format!(
+                    "{} H1 heading(s), {} headings total, {} issues",
+                    s.headings.h1_count,
+                    s.headings.total_count,
+                    s.headings.issues.len()
+                )
+            } else {
+                format!(
+                    "{} H1-Überschrift(en), {} Überschriften gesamt, {} Probleme",
+                    s.headings.h1_count,
+                    s.headings.total_count,
+                    s.headings.issues.len()
+                )
+            },
+            social_summary: if en {
+                format!(
+                    "Open Graph: {}, Twitter Card: {}, Completeness: {}%",
+                    if s.social.open_graph.is_some() {
+                        "present"
+                    } else {
+                        "missing"
+                    },
+                    if s.social.twitter_card.is_some() {
+                        "present"
+                    } else {
+                        "missing"
+                    },
+                    s.social.completeness
+                )
+            } else {
+                format!(
+                    "Open Graph: {}, Twitter Card: {}, Vollständigkeit: {}%",
+                    if s.social.open_graph.is_some() {
+                        "vorhanden"
+                    } else {
+                        "fehlt"
+                    },
+                    if s.social.twitter_card.is_some() {
+                        "vorhanden"
+                    } else {
+                        "fehlt"
+                    },
+                    s.social.completeness
+                )
+            },
             technical_summary: vec![
                 ("HTTPS".to_string(), yes_no(locale, s.technical.https)),
                 (
@@ -991,32 +1059,65 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     yes_no(locale, s.technical.has_canonical),
                 ),
                 (
-                    "Sprachangabe".to_string(),
+                    if en { "Language tag" } else { "Sprachangabe" }.to_string(),
                     yes_no(locale, s.technical.has_lang),
                 ),
-                ("Wortanzahl".to_string(), s.technical.word_count.to_string()),
                 (
-                    "Interne Links".to_string(),
+                    if en { "Word count" } else { "Wortanzahl" }.to_string(),
+                    s.technical.word_count.to_string(),
+                ),
+                (
+                    if en {
+                        "Internal links"
+                    } else {
+                        "Interne Links"
+                    }
+                    .to_string(),
                     s.technical.internal_links.to_string(),
                 ),
                 (
-                    "Externe Links".to_string(),
+                    if en {
+                        "External links"
+                    } else {
+                        "Externe Links"
+                    }
+                    .to_string(),
                     s.technical.external_links.to_string(),
                 ),
                 (
-                    "Dofollow-Links".to_string(),
+                    if en {
+                        "Dofollow links"
+                    } else {
+                        "Dofollow-Links"
+                    }
+                    .to_string(),
                     s.technical.dofollow_links.to_string(),
                 ),
                 (
-                    "Nofollow-Links".to_string(),
+                    if en {
+                        "Nofollow links"
+                    } else {
+                        "Nofollow-Links"
+                    }
+                    .to_string(),
                     s.technical.nofollow_links.to_string(),
                 ),
                 (
                     "AMP".to_string(),
                     if !s.technical.amp.detected {
-                        "Nicht erkannt".to_string()
+                        if en {
+                            "Not detected".to_string()
+                        } else {
+                            "Nicht erkannt".to_string()
+                        }
                     } else if s.technical.amp.issues.is_empty() {
-                        "Erkannt, Basis-Signale vollständig".to_string()
+                        if en {
+                            "Detected, basic signals complete".to_string()
+                        } else {
+                            "Erkannt, Basis-Signale vollständig".to_string()
+                        }
+                    } else if en {
+                        format!("Detected, {} basic issue(s)", s.technical.amp.issues.len())
                     } else {
                         format!("Erkannt, {} Basisproblem(e)", s.technical.amp.issues.len())
                     },
@@ -1024,20 +1125,37 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
             ],
             tracking_summary: vec![
                 (
-                    "Google Fonts (extern)".to_string(),
+                    if en {
+                        "Google Fonts (external)"
+                    } else {
+                        "Google Fonts (extern)"
+                    }
+                    .to_string(),
                     if s.technical.uses_remote_google_fonts {
                         format!(
-                            "Ja ({})",
+                            "{} ({})",
+                            if en { "Yes" } else { "Ja" },
                             truncate_url_list(&s.technical.google_fonts_sources, 2, 48)
                         )
+                    } else if en {
+                        "No".to_string()
                     } else {
                         "Nein".to_string()
                     },
                 ),
                 (
-                    "Tracking-Cookies".to_string(),
+                    if en {
+                        "Tracking cookies"
+                    } else {
+                        "Tracking-Cookies"
+                    }
+                    .to_string(),
                     if s.technical.tracking_cookies.is_empty() {
-                        "Keine erkannt".to_string()
+                        if en {
+                            "None detected".to_string()
+                        } else {
+                            "Keine erkannt".to_string()
+                        }
                     } else {
                         format!(
                             "{} ({})",
@@ -1052,9 +1170,18 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     },
                 ),
                 (
-                    "Cookie-Inventar".to_string(),
+                    if en {
+                        "Cookie inventory"
+                    } else {
+                        "Cookie-Inventar"
+                    }
+                    .to_string(),
                     if s.technical.cookie_inventory.is_empty() {
-                        "Keine Cookies erkannt".to_string()
+                        if en {
+                            "No cookies detected".to_string()
+                        } else {
+                            "Keine Cookies erkannt".to_string()
+                        }
                     } else {
                         let risky = s
                             .technical
@@ -1068,20 +1195,39 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                                 .iter()
                                 .filter_map(|cookie| cookie.category.as_deref()),
                         )
-                        .map(|summary| format!("; Kategorien: {summary}"))
+                        .map(|summary| {
+                            if en {
+                                format!("; categories: {summary}")
+                            } else {
+                                format!("; Kategorien: {summary}")
+                            }
+                        })
                         .unwrap_or_default();
-                        format!(
-                            "{} Cookies, {} ohne Secure/SameSite-Signal{}",
-                            s.technical.cookie_inventory.len(),
-                            risky,
-                            category_suffix
-                        )
+                        if en {
+                            format!(
+                                "{} cookies, {} without Secure/SameSite signal{}",
+                                s.technical.cookie_inventory.len(),
+                                risky,
+                                category_suffix
+                            )
+                        } else {
+                            format!(
+                                "{} Cookies, {} ohne Secure/SameSite-Signal{}",
+                                s.technical.cookie_inventory.len(),
+                                risky,
+                                category_suffix
+                            )
+                        }
                     },
                 ),
                 (
                     "Browser Storage".to_string(),
                     if s.technical.storage_items.is_empty() {
-                        "Keine Keys erkannt".to_string()
+                        if en {
+                            "No keys detected".to_string()
+                        } else {
+                            "Keine Keys erkannt".to_string()
+                        }
                     } else {
                         format!(
                             "{} ({}){}",
@@ -1098,21 +1244,41 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                                     .iter()
                                     .filter_map(|item| item.category.as_deref()),
                             )
-                            .map(|summary| format!("; Kategorien: {summary}"))
+                            .map(|summary| {
+                                if en {
+                                    format!("; categories: {summary}")
+                                } else {
+                                    format!("; Kategorien: {summary}")
+                                }
+                            })
                             .unwrap_or_default()
                         )
                     },
                 ),
                 (
-                    "Tracking-Signale".to_string(),
+                    if en {
+                        "Tracking signals"
+                    } else {
+                        "Tracking-Signale"
+                    }
+                    .to_string(),
                     if s.technical.tracking_signals.is_empty() {
-                        "Keine erkannt".to_string()
+                        if en {
+                            "None detected".to_string()
+                        } else {
+                            "Keine erkannt".to_string()
+                        }
                     } else {
                         truncate_list(&s.technical.tracking_signals, 3)
                     },
                 ),
                 (
-                    "Consent-Cookies".to_string(),
+                    if en {
+                        "Consent cookies"
+                    } else {
+                        "Consent-Cookies"
+                    }
+                    .to_string(),
                     normalized
                         .normalized
                         .consent_privacy
@@ -1124,22 +1290,53 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                                     .iter()
                                     .filter_map(|cookie| cookie.category.as_deref()),
                             )
-                            .map(|summary| format!("; Kategorien: {summary}"))
+                            .map(|summary| {
+                                if en {
+                                    format!("; categories: {summary}")
+                                } else {
+                                    format!("; Kategorien: {summary}")
+                                }
+                            })
                             .unwrap_or_default();
-                            format!(
-                                "{} vor Interaktion, {} nach Interaktion, {} neu{}",
-                                snapshot.before_interaction.len(),
-                                snapshot.after_interaction.len(),
-                                snapshot.added_after_interaction.len(),
-                                category_suffix
-                            )
+                            if en {
+                                format!(
+                                    "{} before interaction, {} after interaction, {} new{}",
+                                    snapshot.before_interaction.len(),
+                                    snapshot.after_interaction.len(),
+                                    snapshot.added_after_interaction.len(),
+                                    category_suffix
+                                )
+                            } else {
+                                format!(
+                                    "{} vor Interaktion, {} nach Interaktion, {} neu{}",
+                                    snapshot.before_interaction.len(),
+                                    snapshot.after_interaction.len(),
+                                    snapshot.added_after_interaction.len(),
+                                    category_suffix
+                                )
+                            }
                         })
-                        .unwrap_or_else(|| "Nicht erhoben".to_string()),
+                        .unwrap_or_else(|| {
+                            if en {
+                                "Not collected".to_string()
+                            } else {
+                                "Nicht erhoben".to_string()
+                            }
+                        }),
                 ),
                 (
                     "Zaraz".to_string(),
                     if s.technical.zaraz.detected {
-                        format!("Erkannt ({})", truncate_list(&s.technical.zaraz.signals, 2))
+                        if en {
+                            format!(
+                                "Detected ({})",
+                                truncate_list(&s.technical.zaraz.signals, 2)
+                            )
+                        } else {
+                            format!("Erkannt ({})", truncate_list(&s.technical.zaraz.signals, 2))
+                        }
+                    } else if en {
+                        "Not detected".to_string()
                     } else {
                         "Nicht erkannt".to_string()
                     },
@@ -1232,7 +1429,11 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                     (
                         i.issue_type.clone(),
                         i.message.clone(),
-                        i.severity.label().to_string(),
+                        if en {
+                            i.severity.label_en().to_string()
+                        } else {
+                            i.severity.label().to_string()
+                        },
                     )
                 })
                 .collect(),

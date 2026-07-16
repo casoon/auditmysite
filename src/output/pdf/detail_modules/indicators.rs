@@ -119,7 +119,7 @@ pub(in crate::output::pdf) fn render_tech_stack(
             };
             table = table.add_row(vec![
                 tech.name.clone(),
-                format!("{:?}", tech.category),
+                tech.category.label().to_string(),
                 tech.version.clone().unwrap_or_else(|| "—".to_string()),
                 confidence.to_string(),
                 tech.signals.join(", "),
@@ -136,10 +136,15 @@ pub(in crate::output::pdf) fn render_tech_stack(
         ])
         .with_title(i18n.t("pdf-ts-findings-title"));
 
+        let en = i18n.locale() == "en";
         for finding in &ts.findings {
             findings_table = findings_table.add_row(vec![
                 finding.title.clone(),
-                finding.severity.label().to_string(),
+                if en {
+                    finding.severity.label_en().to_string()
+                } else {
+                    finding.severity.label().to_string()
+                },
                 finding.detail.clone(),
             ]);
         }

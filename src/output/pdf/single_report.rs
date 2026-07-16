@@ -269,7 +269,7 @@ pub(super) fn build_top_risks_checklist(vm: &ReportViewModel, i18n: &I18n) -> Ch
     rows.push(
         ChecklistRow::new(
             if en {
-                "3. Conversion & Absprungrate"
+                "3. Conversion & Business Risk"
             } else {
                 "3. Conversion & Business-Risiko"
             },
@@ -1569,10 +1569,11 @@ pub(super) fn render_root_cause_analysis(
     for (idx, finding) in findings.iter().enumerate().take(ROOT_CAUSE_SHOWN) {
         let letter = (b'A' + idx as u8) as char;
         let item_title = format!(
-            "{} {}: {} Vorkommen — {}",
+            "{} {}: {} {} — {}",
             if en { "Root Cause" } else { "Ursache" },
             letter,
             finding.occurrence_count,
+            if en { "occurrences" } else { "Vorkommen" },
             finding.title
         );
         list = list.add_item(&item_title);
