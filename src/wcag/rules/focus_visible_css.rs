@@ -81,12 +81,22 @@ const FOCUS_OUTLINE_JS: &str = r#"
 pub async fn check_focus_visible_css_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(FOCUS_OUTLINE_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_VISIBLE_CSS_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_VISIBLE_CSS_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let suppressed = val

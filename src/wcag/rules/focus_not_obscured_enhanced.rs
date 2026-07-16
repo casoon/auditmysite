@@ -135,17 +135,32 @@ const FOCUS_OBSCURED_JS: &str = r#"
 pub async fn check_focus_not_obscured_enhanced_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(FOCUS_OBSCURED_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let overlays_json = match val.get("overlays").and_then(|v| v.as_array()) {
         Some(a) => a,
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
     if overlays_json.is_empty() {
         return vec![];
@@ -164,7 +179,12 @@ pub async fn check_focus_not_obscured_enhanced_with_page(page: &Page) -> Vec<Vio
 
     let focusables_json = match val.get("focusables").and_then(|v| v.as_array()) {
         Some(a) => a.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
 
     let mut violations = Vec::new();

@@ -19,6 +19,155 @@ use crate::seo::SeoAnalysis;
 use crate::ux::UxAnalysis;
 use crate::wcag::WcagResults;
 
+/// Execution state shared by modules, subchecks and the overall audit.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionStatus {
+    Completed,
+    Partial,
+    Failed,
+    Skipped,
+    NotApplicable,
+    #[default]
+    NotRequested,
+}
+
+/// One recorded module or sub-analysis run. `reason_code` is stable and safe
+/// for public JSON; `message` is deliberately short and sanitized.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ModuleRun {
+    pub module: String,
+    pub status: ExecutionStatus,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub viewports: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subchecks: Vec<SubcheckRun>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SubcheckRun {
+    pub subcheck: String,
+    pub status: ExecutionStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+}
+
+/// Requested audit scope, independent of whether the measurements succeeded.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AuditScope {
+    #[serde(default)]
+    pub requested_modules: Vec<String>,
+    pub full_audit: bool,
+    pub interactive_mode: String,
+    pub journey_budget_ms: u64,
+    #[serde(default)]
+    pub throttling_profiles: Vec<String>,
+    #[serde(default)]
+    pub viewports: Vec<ViewportDefinition>,
+    pub dismiss_consent: bool,
+    pub capture_screenshots: bool,
+    pub capture_element_evidence: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewportDefinition {
+    pub name: String,
+    pub width: u32,
+    pub height: u32,
+    pub device_scale_factor: f64,
+}
+
+/// Public, reproducibility-oriented browser information. Executable paths and
+/// launch flags intentionally stay out of the report.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExecutionEnvironment {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_version: Option<String>,
+    pub headless: bool,
+    #[serde(default)]
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NavigationSnapshot {
+    pub requested_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub final_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_document_status: Option<u16>,
+    #[serde(default)]
+    pub redirect_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ready_state: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stability: Vec<crate::interaction::stability::StabilityProvenance>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditedContentState {
+    BeforeConsent,
+    AfterConsent,
+    #[default]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ConsentAuditState {
+    pub detected: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cmp: Option<String>,
+    pub dismissal_requested: bool,
+    pub dismissed: bool,
+    pub audited_content_state: AuditedContentState,
+    #[serde(default)]
+    pub status: Option<crate::browser::consent::ConsentHandlingStatus>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditQualityStatus {
+    #[default]
+    Complete,
+    Partial,
+    Insufficient,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AuditQuality {
+    pub status: AuditQualityStatus,
+    pub qualified_results: bool,
+    #[serde(default)]
+    pub failed_rule_checks: usize,
+    #[serde(default)]
+    pub partial_or_failed_modules: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reasons: Vec<String>,
+}
+
+/// Complete execution/provenance block persisted with the raw audit report.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AuditExecution {
+    #[serde(default)]
+    pub scope: AuditScope,
+    #[serde(default)]
+    pub environment: ExecutionEnvironment,
+    #[serde(default)]
+    pub navigation: NavigationSnapshot,
+    #[serde(default)]
+    pub consent: ConsentAuditState,
+    #[serde(default)]
+    pub module_runs: Vec<ModuleRun>,
+    #[serde(default)]
+    pub quality: AuditQuality,
+}
+
 /// Performance vitals measured under a single network throttle profile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThrottledPerfResult {
@@ -101,6 +250,7 @@ pub struct ViewportAuditData {
     pub ux: Option<crate::ux::UxAnalysis>,
     pub journey: Option<crate::journey::JourneyAnalysis>,
     pub screenshot: Option<ViewportScreenshot>,
+    pub module_runs: Vec<ModuleRun>,
 }
 
 /// Dual-viewport raw results — desktop and mobile passes.
@@ -126,6 +276,17 @@ pub struct ViewportScores {
     pub mobile: ViewportScoreSet,
     /// 70 % mobile + 30 % desktop (before security adjustment)
     pub weighted_overall: u32,
+}
+
+impl ViewportScores {
+    /// Canonical accessibility score for a dual-viewport audit.
+    ///
+    /// The calculation uses the same displayed integer viewport scores that
+    /// are serialized to JSON, so readers can reproduce the result exactly.
+    pub fn weighted_accessibility(&self) -> u32 {
+        (self.mobile.accessibility as f64 * 0.7 + self.desktop.accessibility as f64 * 0.3).round()
+            as u32
+    }
 }
 
 /// User-experience signals grouped together: mobile friendliness, dark-mode
@@ -161,6 +322,10 @@ pub struct AccessibilitySection {
     pub statistics: ViolationStatistics,
     /// Number of AXTree nodes analyzed
     pub nodes_analyzed: usize,
+    /// Audit execution scope, provenance and completeness. Kept alongside the
+    /// core result so older raw-report caches can default it safely.
+    #[serde(default)]
+    pub execution: AuditExecution,
 }
 
 /// Discoverability signals grouped together: how findable and machine-readable
@@ -327,6 +492,7 @@ impl AuditReport {
                 certificate,
                 statistics,
                 nodes_analyzed,
+                execution: AuditExecution::default(),
             },
             duration_ms,
             performance: None,
@@ -653,6 +819,8 @@ pub struct BatchSummary {
     /// across multiple pages — see `audit::template_dedup`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub template_clusters: Vec<crate::audit::template_dedup::TemplateCluster>,
+    #[serde(default)]
+    pub audit_quality: AuditQuality,
 }
 
 /// Compute top-10 recurring WCAG rules and total violated-rule count across
@@ -847,6 +1015,36 @@ impl BatchReport {
             .map(|r| r.risk.blocking_issues)
             .sum();
         let risk = compute_worst_risk(&normalized_reports);
+        let audit_quality = {
+            let failed_rule_checks = normalized_reports
+                .iter()
+                .map(|report| report.execution.quality.failed_rule_checks)
+                .sum();
+            let partial_or_failed_modules = normalized_reports
+                .iter()
+                .map(|report| report.execution.quality.partial_or_failed_modules)
+                .sum();
+            let status = if normalized_reports
+                .iter()
+                .any(|report| report.execution.quality.status == AuditQualityStatus::Insufficient)
+            {
+                AuditQualityStatus::Insufficient
+            } else if normalized_reports
+                .iter()
+                .any(|report| report.execution.quality.status == AuditQualityStatus::Partial)
+            {
+                AuditQualityStatus::Partial
+            } else {
+                AuditQualityStatus::Complete
+            };
+            AuditQuality {
+                status,
+                qualified_results: status != AuditQualityStatus::Complete,
+                failed_rule_checks,
+                partial_or_failed_modules,
+                reasons: Vec::new(),
+            }
+        };
         let verdict_key = {
             let s = average_score.round() as u32;
             if s >= 90 {
@@ -877,6 +1075,7 @@ impl BatchReport {
                 risk,
                 verdict_key,
                 template_clusters,
+                audit_quality,
             },
             crawl_diagnostics: None,
             sitemap_diagnostics: None,

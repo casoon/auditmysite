@@ -52,13 +52,23 @@ pub async fn check_server_side_image_map_with_page(page: &Page) -> Vec<Violation
         Ok(r) => r,
         Err(e) => {
             warn!("server-side-image-map JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "server-side-image-map",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure_for(
+                "server-side-image-map",
+                crate::cli::WcagLevel::A,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let issues = match val.get("issues").and_then(|v| v.as_array()) {

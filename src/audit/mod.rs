@@ -40,12 +40,15 @@ pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
 pub use normalized::{normalize, AuditContext, NormalizedReport};
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
-    compute_recurring_rules, compute_worst_risk, AccessibilitySection, AuditReport, BatchError,
-    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentCookieSignal,
-    ConsentPrivacySnapshot, CrawlDiagnostics, DiscoverabilitySection, DualViewportResults,
-    ExperienceSection, PageScreenshots, PerformanceResults, RecurringRule, RedirectChain,
-    SampleMetadata, ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, ThrottledPerfResult,
-    ViewportAuditData, ViewportScoreSet, ViewportScores, ViewportScreenshot,
+    compute_recurring_rules, compute_worst_risk, AccessibilitySection, AuditExecution,
+    AuditQuality, AuditQualityStatus, AuditReport, AuditScope, AuditedContentState, BatchError,
+    BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, ConsentAuditState,
+    ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDiagnostics, DiscoverabilitySection,
+    DualViewportResults, ExecutionEnvironment, ExecutionStatus, ExperienceSection, ModuleRun,
+    NavigationSnapshot, PageScreenshots, PerformanceResults, RecurringRule, RedirectChain,
+    SampleMetadata, ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, SubcheckRun,
+    ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportScoreSet, ViewportScores,
+    ViewportScreenshot,
 };
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use template_dedup::{detect_template_clusters, TemplateCluster};

@@ -165,19 +165,37 @@ const FOCUS_OBSCURED_JS: &str = r#"
 "#;
 
 pub async fn check_focus_not_obscured_minimum_with_page(page: &Page) -> Vec<Violation> {
+    if let Some(findings) = focus_walk_findings(page).await {
+        return findings;
+    }
     let result = match page.evaluate(FOCUS_OBSCURED_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_MINIMUM_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_MINIMUM_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let overlays_json = match val.get("overlays").and_then(|v| v.as_array()) {
         Some(a) => a,
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_MINIMUM_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
     if overlays_json.is_empty() {
         return vec![];
@@ -196,7 +214,12 @@ pub async fn check_focus_not_obscured_minimum_with_page(page: &Page) -> Vec<Viol
 
     let focusables_json = match val.get("focusables").and_then(|v| v.as_array()) {
         Some(a) => a.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &FOCUS_NOT_OBSCURED_MINIMUM_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
 
     let mut violations = Vec::new();
@@ -262,6 +285,92 @@ pub async fn check_focus_not_obscured_minimum_with_page(page: &Page) -> Vec<Viol
         }
     }
     violations
+}
+
+/// Bounded focus/scroll walk. `elementsFromPoint` supplies the browser's paint
+/// order, avoiding geometric false positives from overlays that are behind the
+/// focused control. The previous static geometry path remains a fallback when
+/// this live probe cannot execute.
+async fn focus_walk_findings(page: &Page) -> Option<Vec<Violation>> {
+    let value = page
+        .evaluate(
+            r#"
+            (() => {
+              const originalX = scrollX, originalY = scrollY, original = document.activeElement;
+              const selectorFor = element => element.id
+                ? `${element.tagName.toLowerCase()}#${CSS.escape(element.id)}`
+                : element.tagName.toLowerCase();
+              const selector = 'a[href],button,input:not([type="hidden"]),select,textarea,[tabindex]:not([tabindex="-1"]),[contenteditable="true"]';
+              const controls = [...document.querySelectorAll(selector)].filter(element => {
+                const style = getComputedStyle(element);
+                const rect = element.getBoundingClientRect();
+                return !element.disabled && style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 3 && rect.height > 3;
+              }).slice(0, 60);
+              const findings = [];
+              for (const control of controls) {
+                control.focus({preventScroll: true});
+                control.scrollIntoView({block: 'nearest', inline: 'nearest'});
+                const rect = control.getBoundingClientRect();
+                const points = [
+                  [rect.left + 1, rect.top + 1], [rect.right - 1, rect.top + 1],
+                  [rect.left + 1, rect.bottom - 1], [rect.right - 1, rect.bottom - 1],
+                  [rect.left + rect.width / 2, rect.top + rect.height / 2]
+                ].filter(([x,y]) => x >= 0 && y >= 0 && x < innerWidth && y < innerHeight);
+                if (!points.length) continue;
+                const blockers = points.map(([x,y]) => {
+                  const painted = document.elementsFromPoint(x, y);
+                  const controlIndex = painted.findIndex(element => element === control || control.contains(element));
+                  if (controlIndex <= 0) return null;
+                  return painted.slice(0, controlIndex).find(element => {
+                    if (element.contains(control) || control.contains(element)) return false;
+                    const style = getComputedStyle(element);
+                    return style.position === 'fixed' || style.position === 'sticky';
+                  }) || null;
+                });
+                if (blockers.every(Boolean)) {
+                  findings.push({control: selectorFor(control), blocker: selectorFor(blockers[0])});
+                  if (findings.length >= 5) break;
+                }
+              }
+              scrollTo(originalX, originalY);
+              if (original && original.focus) original.focus({preventScroll:true});
+              return { findings };
+            })()
+            "#,
+        )
+        .await
+        .ok()?
+        .value()
+        .cloned()?;
+    let findings = value.get("findings")?.as_array()?;
+    Some(
+        findings
+            .iter()
+            .filter_map(|finding| {
+                let selector = finding.get("control")?.as_str()?;
+                let blocker = finding.get("blocker")?.as_str()?;
+                Some(
+                    Violation::new(
+                        FOCUS_NOT_OBSCURED_MINIMUM_RULE.id,
+                        FOCUS_NOT_OBSCURED_MINIMUM_RULE.name,
+                        FOCUS_NOT_OBSCURED_MINIMUM_RULE.level,
+                        FOCUS_NOT_OBSCURED_MINIMUM_RULE.severity,
+                        format!(
+                            "Keyboard focus on {selector} is entirely hidden in paint order by fixed or sticky element {blocker} after scrolling it into view."
+                        ),
+                        selector,
+                    )
+                    .with_selector(selector)
+                    .with_rule_id(FOCUS_NOT_OBSCURED_MINIMUM_RULE.axe_id)
+                    .with_kind(crate::wcag::types::FindingKind::Warning)
+                    .with_fix(
+                        "Reserve space for sticky content or add scroll-padding/scroll-margin so focused controls remain visible",
+                    )
+                    .with_help_url(FOCUS_NOT_OBSCURED_MINIMUM_RULE.help_url),
+                )
+            })
+            .collect(),
+    )
 }
 
 #[cfg(test)]

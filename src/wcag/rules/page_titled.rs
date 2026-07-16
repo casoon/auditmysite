@@ -35,7 +35,7 @@ pub fn check_page_titled(tree: &AXTree) -> WcagResults {
                 if let Some(ref name) = node.name {
                     let title = name.trim();
                     // Check if title exists and is meaningful
-                    if !title.is_empty() && !is_generic_title(title) {
+                    if !title.is_empty() && !is_generic_title(title) && !is_url_like_title(title) {
                         return true;
                     }
                 }
@@ -51,7 +51,24 @@ pub fn check_page_titled(tree: &AXTree) -> WcagResults {
                 || node.role.as_deref().map(|r| r.to_lowercase()) == Some("document".to_string())
         });
 
-        if found_document {
+        let url_fallback = tree.iter().any(|node| {
+            matches!(node.role.as_deref(), Some("RootWebArea") | Some("document"))
+                && node.name.as_deref().is_some_and(is_url_like_title)
+        });
+        if url_fallback {
+            results.add_not_testable(
+                Violation::new(
+                    PAGE_TITLED_RULE.id,
+                    PAGE_TITLED_RULE.name,
+                    PAGE_TITLED_RULE.level,
+                    Severity::Low,
+                    "The AXTree exposes a URL-like document name; the DOM title check is authoritative.",
+                    "document",
+                )
+                .with_kind(crate::wcag::types::FindingKind::NotTestable)
+                .with_rule_id(PAGE_TITLED_RULE.axe_id),
+            );
+        } else if found_document {
             let violation = Violation::new(
                 PAGE_TITLED_RULE.id,
                 PAGE_TITLED_RULE.name,
@@ -85,7 +102,7 @@ pub async fn check_page_titled_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("document-title DOM JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for("document-title", crate::cli::WcagLevel::A, "page_evaluation_failed")];
         }
     };
 
@@ -139,6 +156,12 @@ fn is_generic_title(title: &str) -> bool {
     generic_titles.iter().any(|&g| title_lower == g)
 }
 
+fn is_url_like_title(title: &str) -> bool {
+    let title = title.trim();
+    url::Url::parse(title).is_ok()
+        || (title.starts_with("www.") && !title.chars().any(char::is_whitespace))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,6 +213,17 @@ mod tests {
         let tree = AXTree::from_nodes(vec![create_document_node("1", None)]);
         let results = check_page_titled(&tree);
         assert!(!results.violations.is_empty());
+    }
+
+    #[test]
+    fn url_like_axtree_name_is_not_accepted_as_a_page_title() {
+        let tree = AXTree::from_nodes(vec![create_document_node(
+            "1",
+            Some("https://example.com/path"),
+        )]);
+        let results = check_page_titled(&tree);
+        assert!(results.violations.is_empty());
+        assert_eq!(results.not_testables.len(), 1);
     }
 
     #[test]

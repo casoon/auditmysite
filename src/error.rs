@@ -9,6 +9,9 @@ use thiserror::Error;
 /// Main error type for the auditmysite application
 #[derive(Debug, Error)]
 pub enum AuditError {
+    /// The process received an operating-system shutdown signal.
+    #[error("Audit interrupted by {signal}; in-progress work was discarded")]
+    Interrupted { signal: String },
     /// No compatible Chromium-based browser found on the system
     #[error("No compatible browser found!\n\nSupported browsers: Chrome, Edge, Chromium\n\nInstallation options:\n  macOS:   brew install --cask google-chrome\n  Linux:   sudo apt install chromium-browser\n  Windows: Download from https://www.google.com/chrome/\n\nOr install a managed browser:\n  auditmysite browser install\n\nOr specify manually:\n  auditmysite --browser-path /path/to/chrome <url>\n\nRun diagnostics:\n  auditmysite doctor")]
     ChromeNotFound,

@@ -5,6 +5,7 @@
 //! focused on bootstrap and dispatch.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use chrono::Local;
@@ -17,7 +18,7 @@ use auditmysite::error::{AuditError, Result};
 pub fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bool) -> Result<()> {
     if let Some(path) = path {
         fs::create_dir_all(output_directory(path))?;
-        fs::write(path, content).map_err(|e| AuditError::FileError {
+        atomic_write(path, content.as_bytes()).map_err(|e| AuditError::FileError {
             path: path.clone(),
             reason: e.to_string(),
         })?;
@@ -37,9 +38,9 @@ pub fn output_text(content: &str, path: &Option<PathBuf>, label: &str, quiet: bo
 
 /// Write binary content to `path`.
 #[cfg(feature = "pdf")]
-pub fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) -> Result<()> {
+pub fn output_bytes(content: &[u8], path: &Path, label: &str, quiet: bool) -> Result<()> {
     fs::create_dir_all(output_directory(path))?;
-    fs::write(path, content)?;
+    atomic_write(path, content)?;
     if !quiet {
         println!(
             "{} {} report saved to {}",
@@ -49,6 +50,33 @@ pub fn output_bytes(content: &[u8], path: &PathBuf, label: &str, quiet: bool) ->
         );
     }
     Ok(())
+}
+
+fn atomic_write(path: &Path, content: &[u8]) -> std::io::Result<()> {
+    let directory = output_directory(path);
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("report");
+    let temporary_path = directory.join(format!(
+        ".{name}.{}.{}.partial",
+        std::process::id(),
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    ));
+    let result = (|| {
+        let mut temporary = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary_path)?;
+        temporary.write_all(content)?;
+        temporary.sync_all()?;
+        drop(temporary);
+        fs::rename(&temporary_path, path)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result
 }
 
 /// Return the parent directory of `path`, defaulting to `"."`.
@@ -216,5 +244,15 @@ mod tests {
             default_screen_reader_json_output_path(pdf),
             PathBuf::from("reports/casoon-2026-01-01-single-report-screen-reader-audit.json")
         );
+    }
+
+    #[test]
+    fn atomic_write_replaces_complete_files_without_leaving_partial_output() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("report.json");
+        atomic_write(&path, b"first").unwrap();
+        atomic_write(&path, b"second").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"second");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
     }
 }

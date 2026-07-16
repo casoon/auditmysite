@@ -6,9 +6,9 @@
 //! each other.
 //!
 //! This annex is technical evidence only — never a Barrierefreiheitserklärung.
-//! **The disclaimer wording below needs a lawyer's review before
-//! customer-facing use** (see `wcag::en301549` module doc and
-//! `plans/bfsg-en301549-mapping.md`, "Risks").
+//! Its disclaimer describes the automated scope and the need for additional
+//! manual testing; it makes no statutory citation, conformity claim or
+//! harmonization claim.
 
 use renderreport::components::advanced::{List, SectionHeaderSplit};
 use renderreport::components::text::Label;
@@ -31,6 +31,7 @@ use crate::wcag::en301549::{
 pub(super) fn render_en301549_annex(
     mut builder: renderreport::engine::ReportBuilder,
     findings: &[NormalizedFinding],
+    rule_outcomes: &[crate::wcag::RuleOutcome],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
@@ -107,9 +108,44 @@ pub(super) fn render_en301549_annex(
         builder = builder.add_component(table);
     }
 
+    let failed_criteria: std::collections::BTreeSet<&str> = rule_outcomes
+        .iter()
+        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .filter_map(|outcome| outcome.wcag_criterion.as_deref())
+        .collect();
+    let incomplete: Vec<_> = rollups
+        .iter()
+        .filter(|rollup| {
+            !matches!(rollup.status, ClauseStatus::ViolationsFound)
+                && failed_criteria.contains(rollup.clause.wcag)
+        })
+        .collect();
+    if !incomplete.is_empty() {
+        let mut cloud = TagCloud::new()
+            .with_title(if en {
+                format!("Automated evaluation incomplete ({})", incomplete.len())
+            } else {
+                format!(
+                    "Automatisierte Prüfung unvollständig ({})",
+                    incomplete.len()
+                )
+            })
+            .with_gap("5pt");
+        for rollup in &incomplete {
+            cloud = cloud.add(
+                format!("{} ({})", rollup.clause.en_clause, rollup.clause.wcag),
+                "warn",
+            );
+        }
+        builder = builder.add_component(cloud);
+    }
+
     let no_violations: Vec<_> = rollups
         .iter()
-        .filter(|r| matches!(r.status, ClauseStatus::NoViolationsAutomated))
+        .filter(|r| {
+            matches!(r.status, ClauseStatus::NoViolationsAutomated)
+                && !failed_criteria.contains(r.clause.wcag)
+        })
         .collect();
     if !no_violations.is_empty() {
         let cloud_title = if en {

@@ -59,7 +59,10 @@ impl ContrastRule {
             Ok(s) => s,
             Err(e) => {
                 warn!("Failed to extract text styles: {}", e);
-                return Vec::new();
+                return vec![crate::wcag::technical_rule_failure(
+                    &CONTRAST_RULE,
+                    "style_extraction_failed",
+                )];
             }
         };
 

@@ -20,7 +20,7 @@ fn en301549_status_kind(
 /// (same rule as `fix_guidance`, issue #256). Pure projection over the
 /// page's own findings; nothing stored in `NormalizedReport`.
 pub(super) fn build_en301549_annex(
-    findings: &[crate::audit::normalized::NormalizedFinding],
+    normalized: &NormalizedReport,
 ) -> crate::output::json::En301549Annex {
     use crate::output::json::{
         En301549Annex, En301549ClauseEntry, En301549FindingRef, OutOfScopeChapterEntry,
@@ -30,22 +30,42 @@ pub(super) fn build_en301549_annex(
         EN301549_MAPPING_VERSION, EN301549_VERSION, OUT_OF_SCOPE_CHAPTERS,
     };
 
-    let clauses = derive_annex(findings)
+    let clauses = derive_annex(&normalized.findings)
         .into_iter()
-        .map(|r| En301549ClauseEntry {
-            en_clause: r.clause.en_clause,
-            wcag: r.clause.wcag,
-            level: r.clause.wcag_level,
-            title: r.clause.title_en,
-            status: en301549_status_kind(r.status),
-            findings: r
-                .findings
-                .into_iter()
-                .map(|f| En301549FindingRef {
-                    rule_id: f.rule_id,
-                    occurrences: f.occurrences,
-                })
-                .collect(),
+        .map(|r| {
+            let failed = normalized.rule_outcomes.iter().any(|outcome| {
+                outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
+                    && outcome.status == crate::wcag::RuleOutcomeStatus::Failed
+            });
+            let completed = normalized.rule_outcomes.iter().any(|outcome| {
+                outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
+                    && outcome.status != crate::wcag::RuleOutcomeStatus::Failed
+            });
+            let base = en301549_status_kind(r.status);
+            let status = if base == crate::output::json::En301549ClauseStatusKind::ViolationsFound {
+                base
+            } else if failed && completed {
+                crate::output::json::En301549ClauseStatusKind::PartialAutomatedEvaluation
+            } else if failed {
+                crate::output::json::En301549ClauseStatusKind::NotEvaluated
+            } else {
+                base
+            };
+            En301549ClauseEntry {
+                en_clause: r.clause.en_clause,
+                wcag: r.clause.wcag,
+                level: r.clause.wcag_level,
+                title: r.clause.title_en,
+                status,
+                findings: r
+                    .findings
+                    .into_iter()
+                    .map(|f| En301549FindingRef {
+                        rule_id: f.rule_id,
+                        occurrences: f.occurrences,
+                    })
+                    .collect(),
+            }
         })
         .collect();
 
@@ -54,7 +74,7 @@ pub(super) fn build_en301549_annex(
         mapping_version: EN301549_MAPPING_VERSION,
         scope: "web_chapter_9_automated_subset",
         clauses,
-        out_of_standard_findings: out_of_standard_finding_count(findings),
+        out_of_standard_findings: out_of_standard_finding_count(&normalized.findings),
         out_of_scope_chapters: OUT_OF_SCOPE_CHAPTERS
             .iter()
             .map(|c| OutOfScopeChapterEntry {
@@ -78,13 +98,37 @@ pub(super) fn build_en301549_batch_rollup(
 
     crate::wcag::en301549::derive_batch_rollup(reports.iter().map(|r| r.findings.as_slice()))
         .into_iter()
-        .map(|r| En301549BatchClauseRollup {
-            en_clause: r.clause.en_clause,
-            wcag: r.clause.wcag,
-            level: r.clause.wcag_level,
-            title: r.clause.title_en,
-            status: en301549_status_kind(r.status),
-            affected_pages: r.affected_pages,
+        .map(|r| {
+            let failed = reports.iter().any(|report| {
+                report.rule_outcomes.iter().any(|outcome| {
+                    outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
+                        && outcome.status == crate::wcag::RuleOutcomeStatus::Failed
+                })
+            });
+            let completed = reports.iter().any(|report| {
+                report.rule_outcomes.iter().any(|outcome| {
+                    outcome.wcag_criterion.as_deref() == Some(r.clause.wcag)
+                        && outcome.status != crate::wcag::RuleOutcomeStatus::Failed
+                })
+            });
+            let base = en301549_status_kind(r.status);
+            let status = if base == crate::output::json::En301549ClauseStatusKind::ViolationsFound {
+                base
+            } else if failed && completed {
+                crate::output::json::En301549ClauseStatusKind::PartialAutomatedEvaluation
+            } else if failed {
+                crate::output::json::En301549ClauseStatusKind::NotEvaluated
+            } else {
+                base
+            };
+            En301549BatchClauseRollup {
+                en_clause: r.clause.en_clause,
+                wcag: r.clause.wcag,
+                level: r.clause.wcag_level,
+                title: r.clause.title_en,
+                status,
+                affected_pages: r.affected_pages,
+            }
         })
         .collect()
 }
@@ -434,38 +478,16 @@ pub(super) fn risk_level_from_optional_score(score: Option<u32>) -> String {
     .to_string()
 }
 
-/// Number of distinct violated rules across all finding categories (issue #254).
-pub(super) fn distinct_rule_count(
+/// Number of distinct violated WCAG rules.
+pub(super) fn distinct_wcag_rule_count(
     findings: &[crate::audit::normalized::NormalizedFinding],
 ) -> usize {
     findings
         .iter()
+        .filter(|finding| finding.category == "wcag")
         .map(|f| f.rule_id.as_str())
         .collect::<std::collections::HashSet<_>>()
         .len()
-}
-
-/// Occurrence counts across ALL finding categories (WCAG + SEO), by severity
-/// (issue #255). Distinct from `NormalizedReport.occurrence_counts`, which stays
-/// WCAG-only because it drives risk classification (`SiteState`).
-pub(super) fn all_category_occurrence_counts(
-    findings: &[crate::audit::normalized::NormalizedFinding],
-) -> crate::audit::normalized::SeverityCounts {
-    use crate::taxonomy::Severity;
-    let occ = |sev: Severity| -> usize {
-        findings
-            .iter()
-            .filter(|f| f.severity == sev)
-            .map(|f| f.occurrence_count)
-            .sum()
-    };
-    crate::audit::normalized::SeverityCounts {
-        critical: occ(Severity::Critical),
-        high: occ(Severity::High),
-        medium: occ(Severity::Medium),
-        low: occ(Severity::Low),
-        total: findings.iter().map(|f| f.occurrence_count).sum(),
-    }
 }
 
 pub(super) fn aggregate_severity(pages: &[PageEntry]) -> crate::audit::normalized::SeverityCounts {

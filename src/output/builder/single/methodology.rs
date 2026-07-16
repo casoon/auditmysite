@@ -38,12 +38,15 @@ pub(super) fn build_appendix_block_from_normalized(
 
     let has_violations = !violations.is_empty();
 
+    let score_methodology = if locale == "en" {
+        "Score calculation: each accessibility viewport starts at 100 points; taxonomy-defined, rule-specific penalties with logarithmic scaling account for repeated violations. With desktop and mobile data, the canonical accessibility score is 70% mobile plus 30% desktop. The consolidated finding list supports evidence and remediation and does not create a third score. Conflicting signals are flagged but do not alter the score retrospectively."
+    } else {
+        "Score-Berechnung: Jeder Barrierefreiheits-Viewport startet bei 100 Punkten; taxonomiebasierte, regelspezifische Abzüge mit logarithmischer Skalierung berücksichtigen wiederholte Verstöße. Bei Desktop- und Mobile-Daten ist der kanonische Barrierefreiheits-Score 70 % Mobile plus 30 % Desktop. Die zusammengeführte Befundliste dient Evidenz und Maßnahmenplanung und erzeugt keinen dritten Score. Widersprüchliche Signale werden markiert, verändern den Score aber nicht nachträglich."
+    };
+
     AppendixBlock {
         violations,
-        score_methodology: "Score-Berechnung: Basis 100 Punkte. Abzug auf Basis der Taxonomie-Regel-Definitionen \
-            mit regelspezifischen Penalties und logarithmischer Skalierung für wiederholte Verstöße. \
-            Konfligierende Signale werden als Hinweis markiert, verändern den Score jedoch nicht nachträglich."
-            .to_string(),
+        score_methodology: score_methodology.to_string(),
         has_violations,
     }
 }
@@ -55,36 +58,50 @@ pub(super) fn build_methodology(
     let locale = i18n.locale();
     let en = locale == "en";
     let active_modules = normalized
-        .module_scores
+        .execution
+        .module_runs
         .iter()
-        .map(|m| m.name.clone())
+        .filter(|run| {
+            matches!(
+                run.status,
+                crate::audit::ExecutionStatus::Completed | crate::audit::ExecutionStatus::Partial
+            )
+        })
+        .map(|run| run.module.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let requested_modules = normalized.execution.scope.requested_modules.join(", ");
+    let failed_modules = normalized
+        .execution
+        .module_runs
+        .iter()
+        .filter(|run| run.status == crate::audit::ExecutionStatus::Failed)
+        .map(|run| run.module.as_str())
         .collect::<Vec<_>>()
         .join(", ");
 
     let scope = if en {
         format!(
-            "Automated audit of {} for accessibility per WCAG 2.1 (level {}). \
-             Performance, SEO, security and mobile usability were also analyzed.",
-            normalized.url, normalized.wcag_level
+            "Automated audit of {} for accessibility per WCAG 2.1 (level {}). Requested modules: {}.",
+            normalized.url, normalized.wcag_level, requested_modules
         )
     } else {
         format!(
-            "Automatisierte Prüfung der Seite {} auf Barrierefreiheit nach WCAG 2.1 (Level {}). \
-             Zusätzlich wurden Performance, SEO, Sicherheit und mobile Nutzbarkeit analysiert.",
-            normalized.url, normalized.wcag_level
+            "Automatisierte Prüfung der Seite {} auf Barrierefreiheit nach WCAG 2.1 (Level {}). Angeforderte Module: {}.",
+            normalized.url, normalized.wcag_level, requested_modules
         )
     };
+    let executed_rules = normalized
+        .rule_outcomes
+        .iter()
+        .filter(|outcome| outcome.status != crate::wcag::RuleOutcomeStatus::Skipped)
+        .count();
     let method = if en {
-        "The audit was performed via the Chrome DevTools Protocol (CDP) and the browser's native \
-         accessibility tree. 21 WCAG rules were checked automatically against the page content."
-            .to_string()
+        format!("The audit was performed via the Chrome DevTools Protocol (CDP) and the browser's native accessibility tree. {executed_rules} automated rule executions were recorded across the configured viewports.")
     } else {
-        "Die Prüfung erfolgte über den Chrome DevTools Protocol (CDP) und den \
-         nativen Accessibility Tree des Browsers. 21 WCAG-Regeln wurden automatisiert \
-         gegen den Seiteninhalt geprüft."
-            .to_string()
+        format!("Die Prüfung erfolgte über das Chrome DevTools Protocol (CDP) und den nativen Accessibility Tree des Browsers. Über die konfigurierten Viewports wurden {executed_rules} automatisierte Regelausführungen erfasst.")
     };
-    let limitations = if en {
+    let mut limitations = if en {
         "Automated tests can detect about 30–40% of all accessibility issues. Complex aspects \
          such as correct tab order, meaningful alt texts, or understandable language additionally \
          require manual review."
@@ -95,6 +112,13 @@ pub(super) fn build_methodology(
          verständliche Sprache erfordern zusätzlich manuelle Prüfung."
             .to_string()
     };
+    if normalized.execution.quality.qualified_results {
+        limitations.push_str(if en {
+            " This run is incomplete: scores describe only the successfully measured scope."
+        } else {
+            " Dieser Lauf ist unvollständig: Die Scores beschreiben nur den erfolgreich gemessenen Umfang."
+        });
+    }
     let disclaimer = if en {
         "This report represents an automated technical analysis. It does not replace a complete \
          WCAG 2.1 conformance assessment. A legally defensible accessibility statement requires a \
@@ -192,6 +216,46 @@ pub(super) fn build_methodology(
 
     let runtime_unit = "s";
 
+    let accessibility_score_value = normalized
+        .viewport_scores
+        .as_ref()
+        .map(|scores| {
+            if en {
+                format!(
+                    "{} / 100 — 70% mobile ({}) + 30% desktop ({})",
+                    normalized.score, scores.mobile.accessibility, scores.desktop.accessibility
+                )
+            } else {
+                format!(
+                    "{} / 100 — 70 % Mobile ({}) + 30 % Desktop ({})",
+                    normalized.score, scores.mobile.accessibility, scores.desktop.accessibility
+                )
+            }
+        })
+        .unwrap_or_else(|| format!("{} / 100", normalized.score));
+    let all_occurrences: usize = normalized
+        .findings
+        .iter()
+        .map(|finding| finding.occurrence_count)
+        .sum();
+    let counting_value = if en {
+        format!(
+            "{} distinct WCAG finding groups, {} WCAG occurrences; {} finding rows and {} occurrences across all categories",
+            normalized.severity_counts.total,
+            normalized.occurrence_counts.total,
+            normalized.findings.len(),
+            all_occurrences
+        )
+    } else {
+        format!(
+            "{} unterschiedliche WCAG-Befundgruppen, {} WCAG-Vorkommen; {} Befundzeilen und {} Vorkommen über alle Kategorien",
+            normalized.severity_counts.total,
+            normalized.occurrence_counts.total,
+            normalized.findings.len(),
+            all_occurrences
+        )
+    };
+
     MethodologyBlock {
         scope,
         method,
@@ -199,10 +263,11 @@ pub(super) fn build_methodology(
         disclaimer,
         audit_facts: vec![
             (
-                key("Primärscore", "Primary score"),
-                format!("Accessibility {} / 100", normalized.score),
+                key("Barrierefreiheits-Score", "Accessibility score"),
+                accessibility_score_value,
             ),
             (key("Gesamtscore", "Overall score"), total_score_value),
+            (key("Zählweise", "Counting method"), counting_value),
             (
                 key("WCAG-Level", "WCAG level"),
                 normalized.wcag_level.to_string(),
@@ -220,6 +285,18 @@ pub(super) fn build_methodology(
                 ),
             ),
             (key("Aktive Module", "Active modules"), active_modules),
+            (
+                key("Fehlgeschlagene Module", "Failed modules"),
+                if failed_modules.is_empty() {
+                    key("Keine", "None")
+                } else {
+                    failed_modules
+                },
+            ),
+            (
+                key("Audit-Qualität", "Audit quality"),
+                format!("{:?}", normalized.execution.quality.status),
+            ),
             (
                 key("Audit-Hinweise", "Audit notes"),
                 normalized.audit_flags.len().to_string(),

@@ -128,13 +128,23 @@ pub async fn check_tab_selected_state_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("tab-selected-state JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "tab-selected-state",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure_for(
+                "tab-selected-state",
+                crate::cli::WcagLevel::A,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let issues = match val.get("issues").and_then(|v| v.as_array()) {

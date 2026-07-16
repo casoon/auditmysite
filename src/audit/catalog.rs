@@ -225,7 +225,55 @@ impl AuditCatalog {
         let ordered = self.topo_sorted()?;
         for module in ordered {
             if module.is_enabled(cfg) {
-                module.derive(report, &cfg.lang)?;
+                let derive_module = matches!(
+                    module.id(),
+                    "source_quality" | "ai_visibility" | "content_visibility" | "commerce"
+                );
+                match module.derive(report, &cfg.lang) {
+                    Ok(()) if derive_module => {
+                        let available = match module.id() {
+                            "source_quality" => report.discoverability.source_quality.is_some(),
+                            "ai_visibility" => report.discoverability.ai_visibility.is_some(),
+                            "content_visibility" => {
+                                report.discoverability.content_visibility.is_some()
+                            }
+                            "commerce" => report.commerce.is_some(),
+                            _ => false,
+                        };
+                        report
+                            .accessibility
+                            .execution
+                            .module_runs
+                            .push(crate::audit::ModuleRun {
+                                module: module.id().to_string(),
+                                status: if available {
+                                    crate::audit::ExecutionStatus::Completed
+                                } else {
+                                    crate::audit::ExecutionStatus::NotApplicable
+                                },
+                                reason_code: (!available)
+                                    .then(|| "no_applicable_signals".to_string()),
+                                ..Default::default()
+                            });
+                    }
+                    Ok(()) => {}
+                    Err(e) => {
+                        warn!("module '{}' derive failed: {}", module.id(), e);
+                        report
+                            .accessibility
+                            .execution
+                            .module_runs
+                            .push(crate::audit::ModuleRun {
+                                module: module.id().to_string(),
+                                status: crate::audit::ExecutionStatus::Failed,
+                                reason_code: Some("module_derivation_failed".to_string()),
+                                message: Some(
+                                    "The derived module could not be completed.".to_string(),
+                                ),
+                                ..Default::default()
+                            });
+                    }
+                }
             }
         }
         Ok(())

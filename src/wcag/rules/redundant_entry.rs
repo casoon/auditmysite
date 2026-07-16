@@ -252,17 +252,32 @@ const REDUNDANT_ENTRY_JS: &str = r#"
 pub async fn check_redundant_entry_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(REDUNDANT_ENTRY_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &REDUNDANT_ENTRY_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &REDUNDANT_ENTRY_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let forms_json = match val.get("forms").and_then(|v| v.as_array()) {
         Some(a) => a,
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &REDUNDANT_ENTRY_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
 
     let forms: Vec<FormData> = forms_json

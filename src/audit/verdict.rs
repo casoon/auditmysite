@@ -72,6 +72,12 @@ pub fn compute_verdict(normalized: &NormalizedReport, config: &VerdictConfig) ->
     }
 
     let mut warn_reasons = Vec::new();
+    if normalized.execution.quality.qualified_results {
+        warn_reasons.push(format!(
+            "audit_quality: {:?}",
+            normalized.execution.quality.status
+        ));
+    }
     if normalized.score < warn_below {
         warn_reasons.push(format!(
             "score {} < warn_below_score {}",
@@ -137,6 +143,9 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
     }
 
     let mut warn_reasons = Vec::new();
+    if summary.audit_quality.qualified_results {
+        warn_reasons.push(format!("audit_quality: {:?}", summary.audit_quality.status));
+    }
     if average_score < warn_below {
         warn_reasons.push(format!(
             "average score {} < warn_below_score {}",
@@ -170,5 +179,43 @@ pub fn compute_batch_verdict(summary: &BatchSummary, config: &VerdictConfig) -> 
             verdict: Verdict::Pass,
             reasons: vec![],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn incomplete_batch_cannot_pass_unqualified() {
+        let summary = BatchSummary {
+            total_urls: 1,
+            passed: 1,
+            failed: 0,
+            average_score: 100.0,
+            total_violations: 0,
+            top_recurring_rules: Vec::new(),
+            violated_rule_count: 0,
+            legal_flags: 0,
+            blocking_issues: 0,
+            risk: crate::audit::normalized::RiskLevel::Low,
+            verdict_key: String::new(),
+            template_clusters: Vec::new(),
+            audit_quality: crate::audit::AuditQuality {
+                status: crate::audit::AuditQualityStatus::Partial,
+                qualified_results: true,
+                failed_rule_checks: 0,
+                partial_or_failed_modules: 1,
+                reasons: vec!["module_runs_incomplete".to_string()],
+            },
+        };
+
+        let result = compute_batch_verdict(&summary, &VerdictConfig::default());
+
+        assert_eq!(result.verdict, Verdict::Warn);
+        assert!(result
+            .reasons
+            .iter()
+            .any(|reason| reason.starts_with("audit_quality:")));
     }
 }

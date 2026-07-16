@@ -26,7 +26,9 @@
 //!     // Configure the audit
 //!     let config = PipelineConfig {
 //!         wcag_level: WcagLevel::AA,
+//!         full_audit: false,
 //!         timeout_secs: 30,
+//!         stability_budget_ms: 1500,
 //!         verbose: false,
 //!         check_performance: false,
 //!         check_seo: false,

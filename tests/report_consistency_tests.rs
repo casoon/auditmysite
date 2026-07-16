@@ -371,7 +371,7 @@ fn test_severity_counts_match_findings() {
     );
 }
 
-// ─── SEO-inclusive count tests (#254, #255) ───────────────────────
+// ─── WCAG/all-category count separation ──────────────────────────
 
 fn make_report_with_seo_finding() -> AuditReport {
     use auditmysite::seo::{HeadingIssue, HeadingStructure};
@@ -401,7 +401,7 @@ fn make_report_with_seo_finding() -> AuditReport {
 }
 
 #[test]
-fn test_json_counts_include_seo_findings() {
+fn test_json_separates_wcag_counts_from_all_category_findings() {
     let report = make_report_with_seo_finding();
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
@@ -428,23 +428,28 @@ fn test_json_counts_include_seo_findings() {
         .count();
     assert!(seo_rules > 0, "test report must contain SEO findings");
 
-    // violated_rule_count + violation_count + occurrence_counts span all categories (#254/#255)
-    assert_eq!(page.violated_rule_count, total_rules);
-    assert_eq!(page.violation_count, total_occurrences);
-    assert_eq!(page.occurrence_counts.total, total_occurrences);
-
-    // severity_counts stays WCAG-only (legal/risk semantics)
     let wcag_rules = normalized
         .normalized
         .findings
         .iter()
         .filter(|f| f.category == "wcag")
         .count();
+    let wcag_occurrences: usize = normalized
+        .normalized
+        .findings
+        .iter()
+        .filter(|f| f.category == "wcag")
+        .map(|f| f.occurrence_count)
+        .sum();
+
+    assert_eq!(page.violated_rule_count, wcag_rules);
+    assert_eq!(page.violation_count, wcag_occurrences);
+    assert_eq!(page.occurrence_counts.total, wcag_occurrences);
     assert_eq!(page.severity_counts.total, wcag_rules);
-    assert!(
-        page.violated_rule_count > page.severity_counts.total,
-        "SEO findings must lift violated_rule_count above WCAG-only severity_counts"
-    );
+    assert_eq!(page.finding_count, normalized.normalized.findings.len());
+    assert_eq!(page.finding_occurrence_count, total_occurrences);
+    assert_eq!(total_rules, page.finding_count);
+    assert_eq!(page.occurrence_counts_scope, "wcag_only");
 }
 
 #[test]

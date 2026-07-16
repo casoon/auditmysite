@@ -123,6 +123,10 @@ pub struct Args {
     #[arg(short = 't', long, value_name = "SECS")]
     pub timeout: Option<u64>,
 
+    /// Maximum wait for late hydration and DOM stabilization after navigation.
+    #[arg(long, default_value = "1500", value_name = "MS", global = true)]
+    pub stability_budget_ms: u64,
+
     /// Disable sandbox mode (required for Docker/root)
     ///
     /// WARNING: Reduces security. Only use in containerized environments.
@@ -660,6 +664,7 @@ mod tests {
             crawl_depth: 2,
             concurrency: None,
             timeout: None,
+            stability_budget_ms: 1500,
             no_sandbox: false,
             disable_images: false,
             verbose: false,

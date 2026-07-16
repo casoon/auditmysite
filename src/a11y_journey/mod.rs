@@ -109,6 +109,8 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
 
     let deadline = Instant::now() + std::time::Duration::from_millis(ctx.budget_ms);
     let mut out = RunOutput::default();
+    out.journey.execution.mode = format!("{:?}", ctx.mode).to_lowercase();
+    out.journey.execution.budget_ms = ctx.budget_ms;
 
     let max_steps = match ctx.mode {
         InteractiveMode::Off => 0,
@@ -117,12 +119,39 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     };
 
     // ── Tab walk + evaluation ────────────────────────────────────────────────
-    let record = tab_walk::record(ctx.page, max_steps).await?;
-    out.findings
-        .extend(evaluate::tab_walk(&record.trace, &record.snapshots));
-    out.findings
-        .extend(evaluate::tab_walk_order(&record.trace, &record.dom_order));
-    out.journey.traces.push(record.trace);
+    out.journey.execution.candidates_detected += 1;
+    out.journey.execution.attempted += 1;
+    match tab_walk::record(ctx.page, max_steps).await {
+        Ok(record) => {
+            out.findings
+                .extend(evaluate::tab_walk(&record.trace, &record.snapshots));
+            out.findings
+                .extend(evaluate::tab_walk_order(&record.trace, &record.dom_order));
+            out.journey.focus_evidence = record.snapshots;
+            out.journey.traces.push(record.trace);
+            out.journey.execution.completed += 1;
+            out.journey
+                .execution
+                .runs
+                .push(crate::audit::normalized::JourneyRun {
+                    journey: "tab_walk".to_string(),
+                    status: crate::audit::ExecutionStatus::Completed,
+                    reason_code: None,
+                });
+        }
+        Err(e) => {
+            tracing::warn!("Tab-walk journey failed: {}", e);
+            out.journey.execution.failed += 1;
+            out.journey
+                .execution
+                .runs
+                .push(crate::audit::normalized::JourneyRun {
+                    journey: "tab_walk".to_string(),
+                    status: crate::audit::ExecutionStatus::Failed,
+                    reason_code: Some("tab_walk_failed".to_string()),
+                });
+        }
+    }
 
     // ── Pattern-based journeys ───────────────────────────────────────────────
     if let Some(patterns) = ctx.patterns {
@@ -135,17 +164,47 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
         let mut add_to_cart_idx = 0usize;
         let mut quantity_stepper_idx = 0usize;
 
-        for candidate in &patterns.journey_candidates {
+        out.journey.execution.candidates_detected += patterns.journey_candidates.len();
+        for (candidate_index, candidate) in patterns.journey_candidates.iter().enumerate() {
             if Instant::now() >= deadline {
                 tracing::info!("Journey budget exhausted, stopping pattern journeys early.");
+                out.journey.execution.budget_exhausted = true;
+                for remaining in &patterns.journey_candidates[candidate_index..] {
+                    out.journey.execution.skipped += 1;
+                    out.journey
+                        .execution
+                        .runs
+                        .push(crate::audit::normalized::JourneyRun {
+                            journey: format!("{:?}", remaining.required_journey).to_lowercase(),
+                            status: crate::audit::ExecutionStatus::Skipped,
+                            reason_code: Some("budget_exhausted".to_string()),
+                        });
+                }
                 break;
             }
-            if candidate.confidence < 0.7
-                || !journey_allowed(ctx.mode, candidate.required_journey)
-                || !commerce_gate_allows(candidate.required_journey, ctx.commerce)
-            {
+            let skip_reason = if candidate.confidence < 0.7 {
+                Some("low_confidence")
+            } else if !journey_allowed(ctx.mode, candidate.required_journey) {
+                Some("mode_excluded")
+            } else if !commerce_gate_allows(candidate.required_journey, ctx.commerce) {
+                Some("commerce_gate")
+            } else {
+                None
+            };
+            if let Some(reason) = skip_reason {
+                out.journey.execution.skipped += 1;
+                out.journey
+                    .execution
+                    .runs
+                    .push(crate::audit::normalized::JourneyRun {
+                        journey: format!("{:?}", candidate.required_journey).to_lowercase(),
+                        status: crate::audit::ExecutionStatus::Skipped,
+                        reason_code: Some(reason.to_string()),
+                    });
                 continue;
             }
+
+            out.journey.execution.attempted += 1;
 
             let result = match candidate.required_journey {
                 JourneyKind::SkipLinkActivate => {
@@ -192,11 +251,29 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
 
             match result {
                 Ok((trace, findings)) => {
+                    out.journey.execution.completed += 1;
+                    out.journey
+                        .execution
+                        .runs
+                        .push(crate::audit::normalized::JourneyRun {
+                            journey: trace.journey.clone(),
+                            status: crate::audit::ExecutionStatus::Completed,
+                            reason_code: None,
+                        });
                     out.journey.traces.push(trace);
                     out.findings.extend(findings);
                 }
                 Err(e) => {
                     tracing::warn!("Journey {:?} failed: {}", candidate.required_journey, e);
+                    out.journey.execution.failed += 1;
+                    out.journey
+                        .execution
+                        .runs
+                        .push(crate::audit::normalized::JourneyRun {
+                            journey: format!("{:?}", candidate.required_journey).to_lowercase(),
+                            status: crate::audit::ExecutionStatus::Failed,
+                            reason_code: Some("journey_execution_failed".to_string()),
+                        });
                 }
             }
         }
@@ -205,16 +282,58 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     // ── SPA-Navigation detection (Phase 3) ───────────────────────────────────
     // Full mode only: emits findings when actual SPA navigation is observed.
     if matches!(ctx.mode, InteractiveMode::Full) && Instant::now() < deadline {
+        out.journey.execution.candidates_detected += 1;
+        out.journey.execution.attempted += 1;
         match spa_navigation::run(ctx.page, ctx.initial_url).await {
             Ok(Some((trace, findings))) => {
+                out.journey.execution.completed += 1;
+                out.journey
+                    .execution
+                    .runs
+                    .push(crate::audit::normalized::JourneyRun {
+                        journey: trace.journey.clone(),
+                        status: crate::audit::ExecutionStatus::Completed,
+                        reason_code: None,
+                    });
                 out.journey.traces.push(trace);
                 out.findings.extend(findings);
             }
-            Ok(None) => {} // not an SPA or no candidate links found
+            Ok(None) => {
+                out.journey.execution.skipped += 1;
+                out.journey
+                    .execution
+                    .runs
+                    .push(crate::audit::normalized::JourneyRun {
+                        journey: "spa_navigation".to_string(),
+                        status: crate::audit::ExecutionStatus::NotApplicable,
+                        reason_code: Some("no_spa_candidate".to_string()),
+                    });
+            }
             Err(e) => {
                 tracing::warn!("SPA-navigation journey failed: {}", e);
+                out.journey.execution.failed += 1;
+                out.journey
+                    .execution
+                    .runs
+                    .push(crate::audit::normalized::JourneyRun {
+                        journey: "spa_navigation".to_string(),
+                        status: crate::audit::ExecutionStatus::Failed,
+                        reason_code: Some("spa_navigation_failed".to_string()),
+                    });
             }
         }
+    } else if matches!(ctx.mode, InteractiveMode::Full) {
+        out.journey.execution.budget_exhausted = true;
+        out.journey.execution.candidates_detected += 1;
+        out.journey.execution.skipped += 1;
+        out.journey
+            .execution
+            .runs
+            .push(crate::audit::normalized::JourneyRun {
+                journey: "spa_navigation".to_string(),
+                status: crate::audit::ExecutionStatus::Skipped,
+                reason_code: Some("budget_exhausted".to_string()),
+            });
     }
 
     // ── Link/Heading/Landmark inventory (Phase 3, Stufe B — pure AXTree) ────
@@ -253,5 +372,32 @@ mod tests {
             InteractiveMode::Full,
             JourneyKind::FormErrorSubmit
         ));
+    }
+
+    #[test]
+    fn compact_focus_evidence_is_part_of_public_journey_json() {
+        let journey = crate::audit::normalized::AccessibilityJourney {
+            execution: crate::audit::normalized::JourneyExecution {
+                mode: "basic".to_string(),
+                budget_ms: 1_000,
+                candidates_detected: 1,
+                attempted: 1,
+                completed: 1,
+                ..Default::default()
+            },
+            traces: Vec::new(),
+            focus_evidence: vec![crate::accessibility::FocusSnapshot {
+                selector: Some("#submit".to_string()),
+                visible: true,
+                in_viewport: true,
+                focus_indicator: Some(crate::accessibility::FocusIndicatorStatus::Detected),
+                ..Default::default()
+            }],
+        };
+
+        let value = serde_json::to_value(journey).unwrap();
+        assert_eq!(value["execution"]["completed"], 1);
+        assert_eq!(value["focus_evidence"][0]["selector"], "#submit");
+        assert_eq!(value["focus_evidence"][0]["visible"], true);
     }
 }

@@ -49,7 +49,7 @@ pub struct CommerceAnalysis {
 /// this tool audits one page per visit with no cross-page session/cart state,
 /// so a cart or checkout URL reached cold is (almost) always empty or redirects
 /// before rendering anything meaningful — there was never real content for any
-/// page-kind-gated heuristic to act on. See `plans/journey-commerce-deepening.md`.
+/// page-kind-gated heuristic to act on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommercePageKind {
@@ -575,6 +575,9 @@ mod tests {
             has_structured_data: true,
             rich_snippets_potential: vec![],
             schema_issues: vec![],
+            rule_assessments: vec![],
+            fit_assessment: None,
+            ..Default::default()
         }
     }
 
@@ -585,6 +588,9 @@ mod tests {
             has_structured_data: false,
             rich_snippets_potential: vec![],
             schema_issues: vec![],
+            rule_assessments: vec![],
+            fit_assessment: None,
+            ..Default::default()
         }
     }
 

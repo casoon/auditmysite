@@ -222,6 +222,16 @@ mod tests {
             normalized.normalized.score
         );
         assert_eq!(pres.url_ranking[0].grade, normalized.normalized.grade);
+        let average_overall = pres.portfolio_summary.average_overall_score as f32;
+        assert_eq!(
+            pres.portfolio_summary.grade,
+            crate::audit::AccessibilityScorer::calculate_grade(average_overall).to_string()
+        );
+        assert_eq!(
+            pres.portfolio_summary.certificate,
+            crate::audit::AccessibilityScorer::calculate_certificate(average_overall).to_string(),
+            "batch PDF classification must use the same overall-score basis as batch JSON"
+        );
         assert_eq!(
             pres.url_details[0].module_scores.len(),
             normalized.normalized.module_scores.len()

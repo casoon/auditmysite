@@ -11,6 +11,9 @@ pub mod page_health;
 pub mod profile;
 pub mod robots;
 pub mod schema;
+pub mod schema_fit;
+pub mod schema_parity;
+pub mod schema_rules;
 pub mod serp;
 mod social;
 pub mod technical;
@@ -27,6 +30,14 @@ pub use page_health::{
 pub use profile::{build_content_profile, SeoContentProfile};
 pub use robots::{audit_robots_txt, infer_robots_policy, BotClass, RobotsAudit, RobotsGroup};
 pub use schema::{detect_structured_data, SchemaType, StructuredData};
+pub use schema_fit::{
+    assess_schema_fit, assess_schema_fit_with_facts, SchemaCoverageStatus, SchemaFitAssessment,
+    SchemaFitStatus, SchemaPageKind,
+};
+pub use schema_parity::{ContentParityAssessment, ContentParityStatus, VisibleSchemaFacts};
+pub use schema_rules::{
+    SchemaFeature, SchemaFeatureAvailability, SchemaRequirementStatus, SchemaRuleAssessment,
+};
 pub use serp::{build_serp_analysis, SerpAnalysis, SerpSignal, SerpSignalStatus};
 pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
 pub use technical::{analyze_technical_seo, collect_technical_issues, TechnicalSeo};

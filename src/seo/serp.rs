@@ -50,7 +50,7 @@ pub struct SerpAnalysis {
     pub pass_count: u32,
     pub warning_count: u32,
     pub fail_count: u32,
-    /// Rich result types eligible based on detected schema
+    /// Rich-result-related schema types detected; this is not an eligibility claim.
     pub rich_result_types: Vec<String>,
 }
 

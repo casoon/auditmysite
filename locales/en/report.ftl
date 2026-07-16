@@ -150,7 +150,8 @@ cover-card-certificate = Certificate
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = critical/high
-cover-card-average = Average
+cover-card-average = Average overall score
+batch-cover-overall-score-note = Average of the module-weighted overall scores for all audited URLs (0–100; higher is better).
 cover-card-urls = URLs
 cover-card-violations-suffix = violations
 batch-cover-eyebrow = Automated batch audit report
@@ -286,7 +287,7 @@ label-heuristic-indicator = Heuristic estimate based on structural signals
 
 # Performance section
 perf-score-card = Performance score
-perf-technical-indicators = Technical indicators
+perf-technical-indicators = Supporting measurements
 perf-lab-data-note = Lab data
 perf-lab-data-body = The headline Core Web Vitals (LCP, CLS, TBT) are measured locally in headless Chrome under a real slow-4G throttle (CDP: 1.6 Mbps, 150 ms latency, 4x CPU slowdown). These values can differ from Google PageSpeed / Lighthouse: PageSpeed measures unthrottled and simulates the throttle in software (the Lantern model), whereas we throttle for real — the real measurement often reads more optimistically, LCP especially. Only field data (CrUX/real-user monitoring) reflects the actual user experience; the "performance under throttled conditions" table below shows the range across several network profiles. Metrics marked "lab estimate" (INP, TTI, Speed Index) are derived approximations, not direct measurements.
 perf-render-blocking-analysis = Render-blocking analysis
@@ -348,7 +349,7 @@ finding-occurrences = Occurrences
 finding-element-types = Element types
 finding-affected-selectors = Affected selectors
 finding-recommendation = Recommendation
-finding-wrong = ✕ Wrong
+finding-wrong = ✗ Wrong
 finding-right = ✓ Correct
 finding-location = Location
 finding-note = Note
@@ -564,6 +565,22 @@ pdf-perf-min-saving-col = Savings
 pdf-perf-cov-title = Code Coverage
 pdf-perf-cov-js-used = JS used
 pdf-perf-cov-css-used = CSS used
+pdf-perf-resource-focus-title = Largest directly actionable lever
+pdf-perf-resource-focus = Minifying { $count } files can remove an estimated { $savings } KB from the delivered code. This reduces payload and parsing work without removing functionality. Remeasure under the same conditions afterwards.
+pdf-perf-resource-note = JS heap is an observation without a universal threshold; growth and peaks during interactions matter. CO2e per view is a modeled estimate classified by the stated efficiency grade.
+pdf-perf-resource-note-heap = JS heap is an observation without a universal threshold; growth and peaks during interactions matter.
+pdf-perf-resource-note-carbon = CO2e per view is a modeled estimate classified by the stated efficiency grade.
+pdf-perf-coverage-clean-title = Code usage looks healthy
+pdf-perf-coverage-clean = No meaningful unused JavaScript was captured during this run. Code removal is therefore not the main lever right now. Coverage only applies to the tested page state.
+pdf-perf-coverage-focus-title = Reduce unused code
+pdf-perf-coverage-focus = In the tested page state, { $unused } KB of JavaScript remained unused. Defer modules that are not needed or remove them from the bundle, then remeasure.
+pdf-perf-bottleneck-critical-title = Interpretation: the page becomes usable late
+pdf-perf-bottleneck-critical = Critical measurements: { $metrics }. They indicate too much browser and loading work before the page becomes usable. { $action }
+pdf-perf-bottleneck-warning-title = Interpretation: review the loading path
+pdf-perf-bottleneck-warning = Notable measurements: { $metrics }. { $action }
+pdf-perf-bottleneck-dom-action = First simplify the DOM and reduce blocking loading paths; then remeasure under the same conditions.
+pdf-perf-bottleneck-load-action = First review large or blocking resources and third-party dependencies; then remeasure under the same conditions.
+pdf-perf-priority-actions = Prioritized actions
 pdf-perf-anim-title = Non-composited Animations
 pdf-perf-anim-total = Total
 pdf-perf-anim-properties = Properties
@@ -593,7 +610,8 @@ pdf-seo-ie-natural = Natural
 pdf-seo-ie-displayed = Displayed
 pdf-serp-summary = { $total } signals checked — { $pass } OK, { $warning } warnings, { $fail } failures.
 pdf-serp-category = Category
-pdf-serp-rich-results-text = Rich result types possible: { $types }
+pdf-serp-rich-result-types-title = Detected rich-result types
+pdf-serp-rich-results-text = These schema types can be associated with enhanced search appearances: { $types }. Type detection alone does not confirm eligibility.
 pdf-section-clean = No significant issues found within the audited scope.
 pdf-ph-issue = Issue
 pdf-ph-w3c-title = W3C HTML validator
@@ -628,8 +646,50 @@ pdf-seo-profile-content-type = Content type
 pdf-seo-profile-language = Language
 pdf-seo-profile-schema-types = Schema types
 pdf-seo-profile-schema-type-col = Schema type
-pdf-seo-profile-completeness = Completeness
+pdf-seo-profile-completeness = Field coverage
 pdf-seo-profile-structured-data-title = Structured data ({ $label })
+pdf-seo-schema-status-title = JSON-LD status
+pdf-seo-schema-status-ok =
+    { $nodes ->
+        [one] One evaluable schema node detected.
+       *[other] { $nodes } evaluable schema nodes detected.
+    } The JSON-LD is syntactically and structurally sound; content suitability is assessed separately.
+pdf-seo-schema-status-issues =
+    { $nodes ->
+        [one] One evaluable schema node detected.
+       *[other] { $nodes } evaluable schema nodes detected.
+    } { $issues ->
+        [one] One syntax or structure issue is present.
+       *[other] { $issues } syntax or structure issues are present.
+    } Faulty blocks or nodes cannot be interpreted reliably by search systems.
+pdf-seo-schema-status-non-jsonld = Structured data detected as Microdata or RDFa. The format was detected but not validated in detail.
+pdf-seo-schema-status-none = No structured data detected. Whether a useful schema is missing depends on the actual page type.
+pdf-seo-schema-status-check = Check
+pdf-seo-schema-status-detail = Impact
+pdf-seo-schema-issues-title = Detected structure issues
+pdf-seo-schema-fit-title = Page type and schema fit
+pdf-seo-schema-fit-page-type = Detected page type
+pdf-seo-schema-fit-confidence = Detection confidence
+pdf-seo-schema-fit-expected = Plausible primary schemas
+pdf-seo-schema-fit-detected = Detected primary schemas
+pdf-seo-schema-fit-none = None
+pdf-seo-schema-rule-title = Feature-specific schema requirements
+pdf-seo-schema-rule-feature = Schema and search feature
+pdf-seo-schema-rule-status = Requirement status
+pdf-seo-schema-rule-detail = Details
+pdf-seo-schema-rule-limited = limited visibility
+pdf-seo-schema-review-title = Context and content review
+pdf-seo-schema-review-feature-col = Schema / feature
+pdf-seo-schema-review-detail-col = Manual review
+pdf-seo-schema-parity-title = Visible-content parity
+pdf-seo-schema-parity-property-col = Schema / property
+pdf-seo-schema-parity-status-col = Status
+pdf-seo-schema-parity-evidence-col = Short evidence
+pdf-seo-schema-rule-context-dependent = only for matching page context
+pdf-seo-schema-rule-missing-required = Missing required properties: { $fields }
+pdf-seo-schema-rule-missing-recommended = Recommended properties not present: { $fields }
+pdf-seo-schema-rule-not-evaluated = The stricter check is applied only when the page context is clearly established.
+pdf-seo-schema-rule-complete = Complete within the automatically testable scope.
 pdf-seo-profile-rating = Rating
 pdf-seo-profile-classification = Classification
 pdf-seo-profile-strength-title = SEO signal strength (overall: { $pct }%)

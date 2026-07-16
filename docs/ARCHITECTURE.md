@@ -74,6 +74,7 @@ src/
 │       ├── bypass_blocks.rs      # 2.4.1
 │       ├── link_purpose.rs       # 2.4.4
 │       ├── headings.rs           # 2.4.6
+│       ├── language_of_parts.rs  # Conservative language-change check for 3.1.2
 │       ├── labels.rs             # 3.3.2
 │       ├── target_size_minimum.rs # 2.5.8
 │       ├── text_spacing.rs       # 1.4.12
@@ -176,6 +177,9 @@ src/
 │   ├── headings.rs      # Heading structure
 │   ├── profile.rs       # SEO content profile
 │   ├── schema.rs        # Structured data (JSON-LD/schema.org)
+│   ├── schema_rules.rs  # Feature-specific required/recommended property rules
+│   ├── schema_fit.rs    # Page-intent and URL based primary-schema fit
+│   ├── schema_parity.rs # Conservative visible-content vs. JSON-LD comparison
 │   ├── social.rs        # Open Graph / Twitter Card
 │   ├── technical.rs     # robots/canonical/hreflang
 │   ├── page_health.rs   # Aggregated issue collection (collect_issues)
@@ -228,7 +232,7 @@ src/
 │   └── quantity_stepper.rs # Quantity-stepper control detection
 │
 ├── interaction/         # Cross-cutting interaction analysis
-│   └── mod.rs, focus.rs, keyboard.rs, pointer.rs, stability.rs
+│   └── mod.rs, focus.rs, keyboard.rs, pointer.rs, stability.rs # Bounded DOM/app-ready settling
 │
 ├── assessment/          # Shared assessment types and evidence model
 │   └── mod.rs
@@ -270,10 +274,14 @@ src/
     SPA navigation, commerce-gated add-to-cart/quantity-stepper journeys
    │
 7. Calculate raw score → AuditReport
+   │  └── Preserve requested scope, module/subcheck runs, rule outcomes,
+   │      navigation, consent state, environment and audit quality
    │
 8. Normalize: AuditReport → NormalizedReport
    │  ├── Apply score corrections (e.g. 3.1.1 lang suppression)
    │  ├── Enrich findings with taxonomy fields
+   │  ├── Normalize warnings/manual-review items separately from violations
+   │  ├── Retain Journey execution coverage and compact focus evidence
    │  └── Compute grade + certificate from corrected score
    │
 9. Generate report (JSON/PDF/Table)
@@ -307,6 +315,7 @@ src/
 Central data layer between raw `AuditReport` and output formats:
 - Applies score corrections (e.g. 3.1.1 language suppression)
 - Enriches violations with taxonomy metadata (dimension, subcategory, issue_class, etc.)
+- Carries explicit audit quality, module/rule execution status, accessibility assessments, and Journey coverage
 - Computes grade and certificate from corrected score
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
 

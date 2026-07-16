@@ -115,18 +115,18 @@ fn build_single_report(
     let (score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit) = if en {
         (
             "OVERALL SCORE",
-            "FINDINGS",
-            "MODULES AT A GLANCE",
-            "Critical",
-            "0 Critical",
+            "WCAG OCCURRENCES",
+            "MODULES · 0–100, HIGHER IS BETTER",
+            "critical/high",
+            "0 critical/high",
         )
     } else {
         (
             "GESAMTSCORE",
-            "BEFUNDE",
-            "MODULE IM ÜBERBLICK",
-            "kritisch",
-            "0 kritisch",
+            "WCAG-VORKOMMEN",
+            "MODULE · 0–100, HÖHER IST BESSER",
+            "kritisch/hoch",
+            "0 kritisch/hoch",
         )
     };
 
@@ -332,6 +332,8 @@ fn audit_flag_title(kind: &str, en: bool) -> &'static str {
         ("conflicting_signal", false) => "Widersprüchliches Signal",
         ("viewport_gap", true) => "Desktop/mobile difference",
         ("viewport_gap", false) => "Desktop-/Mobile-Unterschied",
+        ("incomplete_audit", true) => "Incomplete measurement scope",
+        ("incomplete_audit", false) => "Unvollständiger Messumfang",
         ("consent_wall_artifact", true) => "Consent wall artifact",
         ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
         (_, true) => "Audit note",
@@ -349,6 +351,8 @@ fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool
         ("conflicting_signal", false) => "Zwei Prüfungen melden unterschiedliche Signale. Dieses Ergebnis sollte als Prüfhilfe statt als endgültige Aussage gelesen werden.".to_string(),
         ("viewport_gap", true) => "Desktop and mobile results differ strongly. The page experience should be checked separately for both viewports.".to_string(),
         ("viewport_gap", false) => "Desktop- und Mobile-Ergebnis unterscheiden sich deutlich. Die Nutzung sollte für beide Ansichten getrennt geprüft werden.".to_string(),
+        ("incomplete_audit", true) => "One or more requested checks could not be completed. Scores describe only the successfully measured scope.".to_string(),
+        ("incomplete_audit", false) => "Eine oder mehrere angeforderte Prüfungen konnten nicht abgeschlossen werden. Die Scores beschreiben nur den erfolgreich gemessenen Umfang.".to_string(),
         _ => flag.message.clone(),
     }
 }
@@ -371,6 +375,41 @@ fn cleanup_screenshot_temps(report: &AuditReport) {
     }
 }
 
+/// Target width:height ratio for the mobile device-preview crop, derived
+/// from the `DevicePreview` component's own layout (70/30 desktop/mobile
+/// column split at a shared box height — see `device_preview.typ`): the
+/// mobile column is `(1-0.7)/0.7 ≈ 0.43` as wide as the desktop column, and
+/// desktop's 1280:800 screenshot already fits its column without cropping,
+/// so mobile's target ratio is `0.43 * (1280/800)`.
+const MOBILE_PREVIEW_CROP_RATIO: f64 = 0.686;
+
+/// The raw mobile screenshot is a full-viewport capture (e.g. 390×844 CSS px
+/// at 2x DPR), several times taller than it is wide. Typst's box+clip
+/// overflow handling for an image this much taller than its display box was
+/// observed to lose the *top* of the image — exactly the page header a
+/// reader most needs to see — instead of reliably keeping it in frame (see
+/// `device_preview.typ`). Crop to a display-appropriate aspect ratio here,
+/// in Rust, so the asset handed to Typst rarely needs any further clipping.
+fn crop_mobile_preview(png_bytes: &[u8]) -> Vec<u8> {
+    let Ok(img) = image::load_from_memory(png_bytes) else {
+        return png_bytes.to_vec();
+    };
+    let (width, height) = (img.width(), img.height());
+    let target_height = ((width as f64) / MOBILE_PREVIEW_CROP_RATIO).round() as u32;
+    if target_height >= height {
+        return png_bytes.to_vec();
+    }
+    let cropped = img.crop_imm(0, 0, width, target_height);
+    let mut out = Vec::new();
+    if cropped
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+        .is_err()
+    {
+        return png_bytes.to_vec();
+    }
+    out
+}
+
 fn register_page_screenshot_assets(
     mut builder: renderreport::engine::ReportBuilder,
     report: &AuditReport,
@@ -384,7 +423,7 @@ fn register_page_screenshot_assets(
     let mobile_path = std::env::temp_dir().join(format!("ams-mobile-{}.png", ts));
 
     std::fs::write(&desktop_path, &shots.desktop)?;
-    std::fs::write(&mobile_path, &shots.mobile)?;
+    std::fs::write(&mobile_path, crop_mobile_preview(&shots.mobile))?;
 
     builder = builder
         .asset(PAGE_DESKTOP_SCREENSHOT_ASSET, desktop_path)

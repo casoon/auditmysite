@@ -116,6 +116,24 @@ macro_rules! run_if_allowed {
     ($filter:expr, $axe_id:expr, $check_fn:expr, $results:expr, $tree:expr) => {
         if $filter.should_run($axe_id) {
             let rule_results = $check_fn($tree);
+            let finding_count = rule_results.violations.len();
+            let status = if finding_count > 0 {
+                crate::wcag::RuleOutcomeStatus::ViolationsFound
+            } else if !rule_results.warnings.is_empty() {
+                crate::wcag::RuleOutcomeStatus::Warning
+            } else if !rule_results.not_testables.is_empty() {
+                crate::wcag::RuleOutcomeStatus::ManualReviewRequired
+            } else {
+                crate::wcag::RuleOutcomeStatus::NoViolationDetected
+            };
+            $results.rule_outcomes.push(crate::wcag::RuleOutcome {
+                rule_id: $axe_id.to_string(),
+                status,
+                wcag_criterion: crate::taxonomy::criterion_for_rule($axe_id),
+                viewport: None,
+                reason_code: None,
+                finding_count,
+            });
             $results.merge(rule_results);
         }
     };

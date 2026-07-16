@@ -274,7 +274,9 @@ pub(in crate::output::pdf) fn render_serp(
             "pdf-serp-rich-results-text",
             &[("types", serp.rich_result_types.join(", "))],
         );
-        builder = builder.add_component(Callout::info(&text).with_title("Rich Results"));
+        builder = builder.add_component(
+            Callout::info(&text).with_title(i18n.t("pdf-serp-rich-result-types-title")),
+        );
     }
 
     builder
@@ -563,6 +565,96 @@ pub(in crate::output::pdf) fn render_seo_profile(
         );
     }
     builder = builder.add_component(identity);
+
+    // JSON-LD parsing/normalization belongs next to the schema inventory: it
+    // qualifies whether the following nodes could be evaluated at all.
+    let schema_status_title = i18n.t("pdf-seo-schema-status-title");
+    builder = if profile.schema_status_has_errors {
+        builder.add_component(
+            Callout::warning(&profile.schema_status_summary).with_title(&schema_status_title),
+        )
+    } else if profile.schema_status_has_json_ld {
+        builder.add_component(
+            Callout::success(&profile.schema_status_summary).with_title(&schema_status_title),
+        )
+    } else {
+        builder.add_component(
+            Callout::info(&profile.schema_status_summary).with_title(&schema_status_title),
+        )
+    };
+
+    if !profile.schema_status_rows.is_empty() {
+        let mut status_table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("pdf-seo-schema-status-check")).with_width("28%"),
+            TableColumn::new(i18n.t("pdf-seo-schema-status-detail")).with_width("72%"),
+        ])
+        .with_title(i18n.t("pdf-seo-schema-issues-title"));
+        for (label, detail) in &profile.schema_status_rows {
+            status_table = status_table.add_row(vec![label.as_str(), detail.as_str()]);
+        }
+        builder = builder.add_component(status_table);
+    }
+
+    // Semantic page fit follows parse status: only structurally evaluable data
+    // should be interpreted against the visible page purpose.
+    if let Some(summary) = &profile.schema_fit_summary {
+        let fit_title = i18n.t("pdf-seo-schema-fit-title");
+        builder = if profile.schema_fit_is_warning {
+            builder.add_component(Callout::warning(summary).with_title(&fit_title))
+        } else if profile.schema_fit_is_success {
+            builder.add_component(Callout::success(summary).with_title(&fit_title))
+        } else {
+            builder.add_component(Callout::info(summary).with_title(&fit_title))
+        };
+
+        if !profile.schema_fit_facts.is_empty() {
+            let mut fit_facts = KeyValueList::new();
+            for (label, value) in &profile.schema_fit_facts {
+                fit_facts = fit_facts.add(label, value);
+            }
+            builder = builder.add_component(fit_facts);
+        }
+    }
+
+    if !profile.schema_rule_rows.is_empty() {
+        let mut rule_table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("pdf-seo-schema-rule-feature")).with_width("27%"),
+            TableColumn::new(i18n.t("pdf-seo-schema-rule-status")).with_width("28%"),
+            TableColumn::new(i18n.t("pdf-seo-schema-rule-detail")).with_width("45%"),
+        ])
+        .with_title(i18n.t("pdf-seo-schema-rule-title"));
+        for (feature, status, detail) in &profile.schema_rule_rows {
+            rule_table =
+                rule_table.add_row(vec![feature.as_str(), status.as_str(), detail.as_str()]);
+        }
+        builder = builder.add_component(rule_table);
+    }
+
+    if !profile.schema_manual_review_rows.is_empty() {
+        let mut review_table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("pdf-seo-schema-review-feature-col")).with_width("30%"),
+            TableColumn::new(i18n.t("pdf-seo-schema-review-detail-col")).with_width("70%"),
+        ])
+        .with_title(i18n.t("pdf-seo-schema-review-title"));
+        for (feature, detail) in &profile.schema_manual_review_rows {
+            review_table = review_table.add_row(vec![feature.as_str(), detail.as_str()]);
+        }
+        builder = builder.add_component(review_table);
+    }
+
+    if !profile.schema_parity_rows.is_empty() {
+        let mut parity_table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("pdf-seo-schema-parity-property-col")).with_width("27%"),
+            TableColumn::new(i18n.t("pdf-seo-schema-parity-status-col")).with_width("23%"),
+            TableColumn::new(i18n.t("pdf-seo-schema-parity-evidence-col")).with_width("50%"),
+        ])
+        .with_title(i18n.t("pdf-seo-schema-parity-title"));
+        for (property, status, evidence) in &profile.schema_parity_rows {
+            parity_table =
+                parity_table.add_row(vec![property.as_str(), status.as_str(), evidence.as_str()]);
+        }
+        builder = builder.add_component(parity_table);
+    }
 
     // Schema Inventory
     if !profile.schema_rows.is_empty() {

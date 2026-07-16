@@ -90,9 +90,9 @@ fn build_severity_counter_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStri
     let items = vec![
         MetricStripItem::new(
             if en {
-                "Findings total"
+                "WCAG occurrences"
             } else {
-                "Befunde gesamt"
+                "WCAG-Vorkommen"
             },
             vm.severity.total.to_string(),
         )
@@ -600,9 +600,16 @@ pub(super) fn render_appendix_full(
 
         // EN 301 549 clause annex — opt-in only (see `--annex en301549`).
         if config.annex == Some(AnnexKind::En301549) {
-            builder = render_en301549_annex(builder, findings, i18n);
+            builder = render_en301549_annex(
+                builder,
+                findings,
+                &report.accessibility.wcag_results.rule_outcomes,
+                i18n,
+            );
         }
     }
+
+    builder = render_assessment_and_execution_notes(builder, report, i18n);
 
     // Methodology / disclaimer text blocks
     let limitations_title = i18n.t("callout-limitations-title");
@@ -623,6 +630,102 @@ pub(super) fn render_appendix_full(
 
     // Complete violations list
     builder = render_appendix_section(builder, vm, i18n);
+
+    builder
+}
+
+fn render_assessment_and_execution_notes(
+    mut builder: renderreport::engine::ReportBuilder,
+    report: &AuditReport,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let wcag = &report.accessibility.wcag_results;
+    if !wcag.warnings.is_empty() || !wcag.not_testables.is_empty() {
+        let mut rows = Vec::new();
+        for finding in wcag.not_testables.iter().take(20) {
+            let recommendation = crate::output::explanations::get_explanation(
+                finding.rule_id.as_deref().unwrap_or(&finding.rule),
+            )
+            .map(|explanation| explanation.recommendation_for(i18n.locale()).to_string())
+            .or_else(|| finding.fix_suggestion.clone())
+            .unwrap_or_else(|| {
+                if en {
+                    "Verify this criterion manually on the rendered page.".to_string()
+                } else {
+                    "Dieses Kriterium manuell an der gerenderten Seite prüfen.".to_string()
+                }
+            });
+            rows.push(
+                ChecklistRow::new(
+                    format!(
+                        "{} · {}",
+                        finding.rule,
+                        if en {
+                            "Manual review"
+                        } else {
+                            "Manuelle Prüfung"
+                        }
+                    ),
+                    recommendation,
+                )
+                .with_status("warn"),
+            );
+        }
+        for finding in wcag
+            .warnings
+            .iter()
+            .take(20usize.saturating_sub(rows.len()))
+        {
+            let text = finding.fix_suggestion.clone().unwrap_or_else(|| {
+                if en {
+                    "Confirm this heuristic signal manually.".to_string()
+                } else {
+                    "Dieses heuristische Signal manuell bestätigen.".to_string()
+                }
+            });
+            rows.push(
+                ChecklistRow::new(
+                    format!(
+                        "{} · {}",
+                        finding.rule,
+                        if en { "Warning" } else { "Hinweis" }
+                    ),
+                    text,
+                )
+                .with_status("warn"),
+            );
+        }
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Manual review and heuristic signals"
+        } else {
+            "Manuelle Prüfpunkte und heuristische Hinweise"
+        }));
+    }
+
+    if let Some(journey) = report.accessibility_journey.as_ref() {
+        let execution = &journey.execution;
+        let text = if en {
+            format!(
+                "Interactive coverage: {} of {} attempted journeys completed; {} failed, {} skipped{}.",
+                execution.completed,
+                execution.attempted,
+                execution.failed,
+                execution.skipped,
+                if execution.budget_exhausted { "; budget exhausted" } else { "" }
+            )
+        } else {
+            format!(
+                "Interaktive Abdeckung: {} von {} versuchten Journeys abgeschlossen; {} fehlgeschlagen, {} übersprungen{}.",
+                execution.completed,
+                execution.attempted,
+                execution.failed,
+                execution.skipped,
+                if execution.budget_exhausted { "; Budget ausgeschöpft" } else { "" }
+            )
+        };
+        builder = builder.add_component(Label::new(text).with_size("10.5pt").with_color("#475569"));
+    }
 
     builder
 }
@@ -1059,77 +1162,134 @@ fn render_dual_viewport_summary_section(
         );
     }
 
-    let mut rows = Vec::new();
+    // A bordered panel here reads as its own boxed widget that then trails
+    // into the blank rest of the (short) divider page — a compact strip
+    // reads as part of the divider's own content instead, and names the
+    // metric ("Accessibility-Score", not a bare "93/100") so it doesn't need
+    // a caller to already know what dual-viewport scoring means.
+    builder = builder.add_component(
+        Label::new(if en {
+            "Dual viewport summary"
+        } else {
+            "Dual-Viewport-Zusammenfassung"
+        })
+        .bold()
+        .with_size("10.5pt"),
+    );
+
+    let mut items = Vec::new();
     if let (Some(desktop), Some(mobile)) = (vm.cover.desktop_score, vm.cover.mobile_score) {
-        rows.push(
-            ChecklistRow::new(
+        items.push(
+            MetricStripItem::new(
                 if en {
-                    "Desktop viewport"
+                    "Accessibility - Desktop"
                 } else {
-                    "Desktop-Viewport"
+                    "Barrierefreiheit - Desktop"
                 },
-                format!("{desktop}/100"),
+                format!("{desktop} / 100"),
             )
-            .with_status(if desktop >= 75 { "good" } else { "warn" }),
+            .with_unit(score_range_label(desktop, en))
+            .with_accent(design::score_color(desktop as u8)),
         );
-        rows.push(
-            ChecklistRow::new(
+        items.push(
+            MetricStripItem::new(
                 if en {
-                    "Mobile viewport"
+                    "Accessibility - Mobile"
                 } else {
-                    "Mobile-Viewport"
+                    "Barrierefreiheit - Mobile"
                 },
-                format!("{mobile}/100"),
+                format!("{mobile} / 100"),
             )
-            .with_status(if mobile >= 75 { "good" } else { "warn" }),
+            .with_unit(score_range_label(mobile, en))
+            .with_accent(design::score_color(mobile as u8)),
+        );
+        items.push(
+            MetricStripItem::new(
+                if en {
+                    "Accessibility - overall"
+                } else {
+                    "Barrierefreiheit - Gesamt"
+                },
+                format!("{} / 100", vm.summary.score),
+            )
+            .with_unit(if en {
+                "70/30 weighted"
+            } else {
+                "70/30 gewichtet"
+            })
+            .with_accent(design::score_color(vm.summary.score as u8)),
         );
     }
+    if !has_scores
+        && matches!(
+            report.screenshot_status,
+            crate::audit::ScreenshotStatus::Captured
+        )
+    {
+        items.push(
+            MetricStripItem::new(
+                if en { "Preview" } else { "Vorschau" },
+                if en { "Captured" } else { "Erfasst" },
+            )
+            .with_accent(design::tokens::SUCCESS),
+        );
+    }
+    if !items.is_empty() {
+        builder = builder.add_component(MetricStrip::new(items).compact());
+    }
 
-    let screenshot_status = match &report.screenshot_status {
-        crate::audit::ScreenshotStatus::Captured => Some(
-            if en {
-                "Screenshots captured"
-            } else {
-                "Screenshots erfasst"
-            }
-            .to_string(),
-        ),
-        crate::audit::ScreenshotStatus::Failed(reason) => Some(if en {
+    if let crate::audit::ScreenshotStatus::Failed(reason) = &report.screenshot_status {
+        builder = builder.add_component(Callout::warning(if en {
             format!("Screenshot capture failed: {reason}")
         } else {
             format!("Screenshot-Erfassung fehlgeschlagen: {reason}")
-        }),
-        crate::audit::ScreenshotStatus::NotRequested => None,
-    };
-    if let Some(status) = screenshot_status {
-        rows.push(
-            ChecklistRow::new(if en { "Preview" } else { "Vorschau" }, status).with_status(
-                if report.page_screenshots.is_some() {
-                    "good"
-                } else {
-                    "warn"
-                },
-            ),
-        );
+        }));
     }
 
-    rows.push(
-        ChecklistRow::new(
-            if en { "Interpretation" } else { "Einordnung" },
+    let occurrence_context = report
+        .dual_viewport
+        .as_ref()
+        .map(|dual| {
+            let desktop = dual.desktop.wcag_results.violations.len();
+            let mobile = dual.mobile.wcag_results.violations.len();
+            let combined = vm.severity.total;
             if en {
-                "JSON detail includes a compact dual_viewport summary with per-viewport finding counts and module availability."
+                format!("WCAG occurrences before cross-viewport consolidation: {desktop} on desktop and {mobile} on mobile. The normalized combined finding list contains {combined} occurrences; this count is used for evidence and remediation, not as a third score. ")
             } else {
-                "Das JSON-Detail enthält eine kompakte dual_viewport-Zusammenfassung mit Befundzahlen und Modulverfügbarkeit je Viewport."
-            },
+                format!("WCAG-Vorkommen vor der ansichtsübergreifenden Zusammenführung: {desktop} auf Desktop und {mobile} auf Mobile. Die normalisierte gemeinsame Befundliste enthält {combined} Vorkommen; diese Anzahl dient Evidenz und Maßnahmenplanung, nicht als dritter Score. ")
+            }
+        })
+        .unwrap_or_default();
+    let explanation = if en {
+        format!(
+            "Each viewport accessibility score reflects the severity and variety of automatically detected WCAG findings; 100 means no issue was detected within the automated scope. Lower values mean more remediation pressure. {occurrence_context}The displayed accessibility overall score is calculated from mobile at 70% and desktop at 30%."
         )
-        .with_status("info"),
-    );
-
-    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        "Dual viewport summary"
     } else {
-        "Dual-Viewport-Zusammenfassung"
-    }))
+        format!(
+            "Jeder Barrierefreiheits-Score bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. {occurrence_context}Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet."
+        )
+    };
+
+    builder.add_component(
+        Label::new(explanation)
+            .with_size("9pt")
+            .with_color(design::tokens::MUTED),
+    )
+}
+
+fn score_range_label(score: u32, en: bool) -> &'static str {
+    match (score, en) {
+        (90..=u32::MAX, true) => "Excellent range",
+        (75..=89, true) => "Good range",
+        (60..=74, true) => "Needs improvement",
+        (40..=59, true) => "Inadequate range",
+        (_, true) => "Critical range",
+        (90..=u32::MAX, false) => "Sehr guter Bereich",
+        (75..=89, false) => "Guter Bereich",
+        (60..=74, false) => "Verbesserungsbedarf",
+        (40..=59, false) => "Ausbaufähiger Bereich",
+        (_, false) => "Kritischer Bereich",
+    }
 }
 
 pub(super) fn render_module_sections(
@@ -1178,7 +1338,7 @@ pub(super) fn render_module_sections(
                         "Quellenqualität, KI-Lesbarkeit und Content-Sichtbarkeit — Vertrauens- und Auffindbarkeits-Indikatoren."
                     },
                 )
-                .with_eyebrow(if en { "AI & TRUST" } else { "KI & VERTRAUEN" })
+                .with_eyebrow(if en { "TRUST" } else { "VERTRAUEN" })
                 .with_level(2),
             );
             ki_opened = true;
@@ -1368,7 +1528,7 @@ pub(super) fn render_root_cause_analysis(
     // already opened the page — an extra break left that divider page 3/4 empty.
     builder = builder.add_component(
         SectionHeaderSplit::new(title, subtitle)
-            .with_eyebrow(if en { "ROOT CAUSE" } else { "URSACHENANALYSE" })
+            .with_eyebrow(if en { "ROOT CAUSE" } else { "URSACHEN" })
             .with_level(2),
     );
 
@@ -1475,7 +1635,8 @@ pub(super) fn render_root_cause_analysis(
             } else {
                 "Verteilung der Vorkommen nach Ursache"
             })
-            .add_series("occurrences", chart_data),
+            .add_series("occurrences", chart_data)
+            .horizontal(),
         );
     }
 
@@ -1517,7 +1678,7 @@ pub(super) fn render_timeframe_roadmap(
 
     builder = builder.add_component(PageBreak::new()).add_component(
         SectionHeaderSplit::new(title, subtitle)
-            .with_eyebrow(if en { "ROADMAP" } else { "MASSNAHMENPLAN" })
+            .with_eyebrow(if en { "ROADMAP" } else { "MASSNAHMEN" })
             .with_level(2),
     );
 

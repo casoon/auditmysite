@@ -13,8 +13,18 @@ pub(super) fn extract_domain(url: &str) -> String {
 
 /// Create engine with proper font configuration for German text
 pub(super) fn create_engine() -> anyhow::Result<renderreport::Engine> {
+    use renderreport::components::ComponentId;
     use renderreport::theme::{Theme, TokenValue};
     let mut engine = renderreport::Engine::new()?;
+
+    engine.components_mut().register(
+        ComponentId::new("section-header-split"),
+        include_str!("templates/section_header_split.typ").to_string(),
+    );
+    engine.components_mut().register(
+        ComponentId::new("metric-strip"),
+        include_str!("templates/metric_strip.typ").to_string(),
+    );
 
     let mut theme = Theme::default_theme();
     theme
@@ -93,5 +103,36 @@ pub(super) fn score_quality_color(score: u32) -> &'static str {
         70..=84 => tokens::SUCCESS,
         50..=69 => tokens::WARN_DEEP,
         _ => tokens::DANGER,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::create_engine;
+    use renderreport::components::ComponentId;
+
+    #[test]
+    fn section_eyebrow_uses_light_spacious_typography() {
+        let engine = create_engine().expect("PDF engine");
+        let template = engine
+            .components()
+            .get_template(&ComponentId::new("section-header-split"))
+            .expect("section header template");
+
+        assert!(template.contains("weight: \"regular\""));
+        assert!(template.contains("tracking: 0.20em"));
+        assert!(template.contains("#v(spacing-3)"));
+    }
+
+    #[test]
+    fn metric_value_and_context_share_a_bottom_alignment() {
+        let engine = create_engine().expect("PDF engine");
+        let template = engine
+            .components()
+            .get_template(&ComponentId::new("metric-strip"))
+            .expect("metric strip template");
+
+        assert!(template.contains("align: bottom + left"));
+        assert!(!template.contains("pad(top: 3pt)"));
     }
 }

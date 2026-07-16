@@ -150,7 +150,8 @@ cover-card-certificate = Auditstatus
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = kritisch/hoch
-cover-card-average = Durchschnitt
+cover-card-average = Gesamtscore Ø
+batch-cover-overall-score-note = Mittelwert der modulgewichteten Gesamtscores aller geprüften URLs (0–100; höher ist besser).
 cover-card-urls = URLs
 cover-card-violations-suffix = Verstöße
 batch-cover-eyebrow = Automatisierter Batch-Audit-Report
@@ -286,7 +287,7 @@ label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Sign
 
 # Performance section
 perf-score-card = Performance Score
-perf-technical-indicators = Technische Indikatoren
+perf-technical-indicators = Begleitende Messwerte
 perf-lab-data-note = Lab-Daten
 perf-lab-data-body = Die zentralen Core Web Vitals (LCP, CLS, TBT) werden lokal in Headless-Chrome unter einer realen Slow-4G-Drosselung gemessen (CDP: 1,6 Mbps, 150 ms Latenz, vierfache CPU-Drosselung). Diese Werte können von Google PageSpeed / Lighthouse abweichen: PageSpeed misst ungedrosselt und simuliert die Drosselung rechnerisch (Lantern-Modell), während wir real drosseln — die reale Messung fällt häufig optimistischer aus, besonders beim LCP. Maßgeblich für die tatsächliche Nutzererfahrung sind allein Felddaten (CrUX/Real-User-Monitoring); die Tabelle „Performance unter gedrosselten Bedingungen" weiter unten zeigt die Bandbreite über mehrere Netzprofile. Mit „Lab-Schätzung" markierte Kennzahlen (INP, TTI, Speed Index) sind abgeleitete Näherungen, keine direkten Messwerte.
 perf-render-blocking-analysis = Render-Blocking Analyse
@@ -348,7 +349,7 @@ finding-occurrences = Vorkommen
 finding-element-types = Element-Typen
 finding-affected-selectors = Betroffene Selektoren
 finding-recommendation = Empfehlung
-finding-wrong = ✕ Falsch
+finding-wrong = ✗ Falsch
 finding-right = ✓ Richtig
 finding-location = Fundstelle
 finding-note = Hinweis
@@ -564,6 +565,22 @@ pdf-perf-min-saving-col = Einsparung
 pdf-perf-cov-title = Code-Abdeckung
 pdf-perf-cov-js-used = JS genutzt
 pdf-perf-cov-css-used = CSS genutzt
+pdf-perf-resource-focus-title = Größter direkt nutzbarer Hebel
+pdf-perf-resource-focus = Durch die Minifizierung von { $count } Dateien lassen sich voraussichtlich { $savings } KB aus dem ausgelieferten Code entfernen. Das reduziert Datenmenge und Parsing-Aufwand, ohne Funktionen zu streichen. Danach unter denselben Bedingungen erneut messen.
+pdf-perf-resource-note = JS-Heap ist ein Beobachtungswert ohne universellen Grenzwert; relevant sind Wachstum und Spitzen bei Interaktionen. CO2e pro View ist eine modellierte Schätzung und wird durch die angegebene Effizienzklasse eingeordnet.
+pdf-perf-resource-note-heap = JS-Heap ist ein Beobachtungswert ohne universellen Grenzwert; relevant sind Wachstum und Spitzen bei Interaktionen.
+pdf-perf-resource-note-carbon = CO2e pro View ist eine modellierte Schätzung und wird durch die angegebene Effizienzklasse eingeordnet.
+pdf-perf-coverage-clean-title = Code-Nutzung unauffällig
+pdf-perf-coverage-clean = Im Messlauf wurde kein nennenswerter ungenutzter JavaScript-Code erfasst. Code-Reduktion ist damit aktuell kein Haupthebel. Die Abdeckung gilt nur für den geprüften Seitenzustand.
+pdf-perf-coverage-focus-title = Ungenutzten Code reduzieren
+pdf-perf-coverage-focus = Im geprüften Seitenzustand blieben { $unused } KB JavaScript ungenutzt. Nicht benötigte Module später laden oder aus dem Bundle entfernen und anschließend erneut messen.
+pdf-perf-bottleneck-critical-title = Einordnung: Seite wird spät nutzbar
+pdf-perf-bottleneck-critical = Kritische Messwerte: { $metrics }. Sie zeigen zu viel Browser- und Ladearbeit vor der Nutzbarkeit. { $action }
+pdf-perf-bottleneck-warning-title = Einordnung: Ladepfad prüfen
+pdf-perf-bottleneck-warning = Auffällige Messwerte: { $metrics }. { $action }
+pdf-perf-bottleneck-dom-action = Zuerst DOM-Struktur verschlanken und blockierende Ladepfade reduzieren; danach unter denselben Bedingungen erneut messen.
+pdf-perf-bottleneck-load-action = Zuerst große oder blockierende Ressourcen sowie Drittanbieter-Abhängigkeiten prüfen; danach unter denselben Bedingungen erneut messen.
+pdf-perf-priority-actions = Priorisierte Maßnahmen
 pdf-perf-anim-title = Nicht-composited Animationen
 pdf-perf-anim-total = Gesamt
 pdf-perf-anim-properties = Eigenschaften
@@ -593,7 +610,8 @@ pdf-seo-ie-natural = Nativ
 pdf-seo-ie-displayed = Angezeigt
 pdf-serp-summary = { $total } Signale geprüft — { $pass } OK, { $warning } Warnungen, { $fail } Fehler.
 pdf-serp-category = Kategorie
-pdf-serp-rich-results-text = Rich-Result-Typen möglich: { $types }
+pdf-serp-rich-result-types-title = Erkannte Rich-Result-Typen
+pdf-serp-rich-results-text = Diese Schema-Typen können zu Suchdarstellungen mit Zusatzinformationen gehören: { $types }. Die Typ-Erkennung allein bestätigt keine Eignung.
 pdf-section-clean = Im geprüften Umfang keine wesentlichen Auffälligkeiten festgestellt.
 pdf-ph-issue = Problem
 pdf-ph-w3c-title = W3C HTML Validator
@@ -628,8 +646,50 @@ pdf-seo-profile-content-type = Inhaltstyp
 pdf-seo-profile-language = Sprache
 pdf-seo-profile-schema-types = Schema-Typen
 pdf-seo-profile-schema-type-col = Schema-Typ
-pdf-seo-profile-completeness = Vollständigkeit
+pdf-seo-profile-completeness = Feldabdeckung
 pdf-seo-profile-structured-data-title = Strukturierte Daten ({ $label })
+pdf-seo-schema-status-title = JSON-LD-Status
+pdf-seo-schema-status-ok =
+    { $nodes ->
+        [one] Ein auswertbarer Schema-Knoten erkannt.
+       *[other] { $nodes } auswertbare Schema-Knoten erkannt.
+    } JSON-LD ist syntaktisch und strukturell unauffällig; die inhaltliche Eignung wird getrennt bewertet.
+pdf-seo-schema-status-issues =
+    { $nodes ->
+        [one] Ein auswertbarer Schema-Knoten erkannt.
+       *[other] { $nodes } auswertbare Schema-Knoten erkannt.
+    } { $issues ->
+        [one] Ein Syntax-/Strukturproblem liegt vor.
+       *[other] { $issues } Syntax-/Strukturprobleme liegen vor.
+    } Fehlerhafte Blöcke oder Knoten sind für Suchsysteme nicht zuverlässig interpretierbar.
+pdf-seo-schema-status-non-jsonld = Strukturierte Daten als Microdata oder RDFa erkannt. Dieses Format wurde erkannt, aber nicht inhaltlich validiert.
+pdf-seo-schema-status-none = Keine strukturierten Daten erkannt. Ob ein Schema sinnvoll fehlt, hängt vom tatsächlichen Seitentyp ab.
+pdf-seo-schema-status-check = Prüfung
+pdf-seo-schema-status-detail = Auswirkung
+pdf-seo-schema-issues-title = Festgestellte Strukturprobleme
+pdf-seo-schema-fit-title = Seitentyp und Schema-Eignung
+pdf-seo-schema-fit-page-type = Erkannter Seitentyp
+pdf-seo-schema-fit-confidence = Erkennungssicherheit
+pdf-seo-schema-fit-expected = Plausible Haupt-Schemas
+pdf-seo-schema-fit-detected = Erkannte Haupt-Schemas
+pdf-seo-schema-fit-none = Keine
+pdf-seo-schema-rule-title = Funktionsbezogene Schema-Anforderungen
+pdf-seo-schema-rule-feature = Schema und Suchfunktion
+pdf-seo-schema-rule-status = Anforderungsstatus
+pdf-seo-schema-rule-detail = Details
+pdf-seo-schema-rule-limited = eingeschränkte Sichtbarkeit
+pdf-seo-schema-review-title = Kontext- und Inhaltsprüfung
+pdf-seo-schema-review-feature-col = Schema / Merkmal
+pdf-seo-schema-review-detail-col = Manuell zu prüfen
+pdf-seo-schema-parity-title = Abgleich mit sichtbaren Inhalten
+pdf-seo-schema-parity-property-col = Schema / Feld
+pdf-seo-schema-parity-status-col = Status
+pdf-seo-schema-parity-evidence-col = Kurzbeleg
+pdf-seo-schema-rule-context-dependent = nur bei passendem Seitenkontext
+pdf-seo-schema-rule-missing-required = Fehlende Pflichtangaben: { $fields }
+pdf-seo-schema-rule-missing-recommended = Nicht vorhandene empfohlene Angaben: { $fields }
+pdf-seo-schema-rule-not-evaluated = Die strengere Prüfung wird erst bei eindeutig passendem Seitenkontext angewendet.
+pdf-seo-schema-rule-complete = Im automatisiert prüfbaren Umfang vollständig.
 pdf-seo-profile-rating = Bewertung
 pdf-seo-profile-classification = Einstufung
 pdf-seo-profile-strength-title = SEO-Signalstärke (Gesamt: { $pct }%)

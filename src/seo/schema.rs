@@ -17,11 +17,25 @@ pub struct StructuredData {
     pub types: Vec<SchemaType>,
     /// Has any structured data
     pub has_structured_data: bool,
-    /// Rich snippets potential
+    /// Detected schema types associated with rich-result features.
+    /// Kept under its legacy field name for JSON compatibility.
     pub rich_snippets_potential: Vec<String>,
     /// Validation issues: missing required properties per schema block
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub schema_issues: Vec<SchemaIssue>,
+    /// Feature-specific required/recommended property assessment per node.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rule_assessments: Vec<crate::seo::schema_rules::SchemaRuleAssessment>,
+    /// Fit between visible page intent and the detected primary schema.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fit_assessment: Option<crate::seo::schema_fit::SchemaFitAssessment>,
+    /// Conservative comparisons between visible content and JSON-LD values.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content_parity: Vec<crate::seo::schema_parity::ContentParityAssessment>,
+    /// Collection-only input for page-type derivation; full visible values are
+    /// intentionally not duplicated in the public JSON report.
+    #[serde(skip)]
+    pub(crate) visible_facts: crate::seo::schema_parity::VisibleSchemaFacts,
 }
 
 /// A required-property validation issue for a JSON-LD block
@@ -33,7 +47,8 @@ pub struct SchemaIssue {
     pub severity: SchemaIssueSeverity,
     /// Machine-readable issue key
     pub issue_type: String,
-    /// Human-readable description
+    /// Canonical-English description for language-independent JSON output.
+    /// PDF output re-derives localized text via [`schema_issue_text`].
     pub message: String,
 }
 
@@ -42,6 +57,124 @@ pub struct SchemaIssue {
 pub enum SchemaIssueSeverity {
     Required,
     Recommended,
+}
+
+/// Localize a schema issue from its stable machine-readable key.
+pub fn schema_issue_text(issue: &SchemaIssue, en: bool) -> String {
+    let schema_type = if issue.schema_type.is_empty() {
+        "JSON-LD"
+    } else {
+        issue.schema_type.as_str()
+    };
+
+    match issue.issue_type.as_str() {
+        "jsonld_parse_error" => {
+            if en {
+                "The JSON-LD block contains invalid JSON and cannot be evaluated.".to_string()
+            } else {
+                "Der JSON-LD-Block enthält ungültiges JSON und kann nicht ausgewertet werden."
+                    .to_string()
+            }
+        }
+        "jsonld_invalid_root" => {
+            if en {
+                "The JSON-LD root must be an object or an array of objects.".to_string()
+            } else {
+                "Die JSON-LD-Wurzel muss ein Objekt oder eine Liste von Objekten sein.".to_string()
+            }
+        }
+        "jsonld_missing_context" => {
+            if en {
+                "No schema.org @context was found; schema terms cannot be interpreted reliably."
+                    .to_string()
+            } else {
+                "Kein schema.org-@context gefunden; die Schema-Begriffe sind nicht zuverlässig interpretierbar."
+                    .to_string()
+            }
+        }
+        "jsonld_missing_type" => {
+            if en {
+                "A JSON-LD node has no @type and cannot be assigned to a schema type.".to_string()
+            } else {
+                "Ein JSON-LD-Knoten hat keinen @type und kann keinem Schema-Typ zugeordnet werden."
+                    .to_string()
+            }
+        }
+        "jsonld_graph_not_array" => {
+            if en {
+                "The @graph value must be an array of JSON-LD nodes.".to_string()
+            } else {
+                "Der Wert von @graph muss eine Liste von JSON-LD-Knoten sein.".to_string()
+            }
+        }
+        "jsonld_empty_document" => {
+            if en {
+                "The JSON-LD block contains no nodes.".to_string()
+            } else {
+                "Der JSON-LD-Block enthält keine Knoten.".to_string()
+            }
+        }
+        issue_type => {
+            if let Some(prop) = issue_type.strip_prefix("schema_recommended_missing_") {
+                if en {
+                    format!("{schema_type}: recommended property \"{prop}\" is missing")
+                } else {
+                    format!("{schema_type}: Empfohlenes Feld \"{prop}\" fehlt")
+                }
+            } else if let Some(prop) = issue_type.strip_prefix("schema_missing_") {
+                if en {
+                    format!("{schema_type}: required property \"{prop}\" is missing")
+                } else {
+                    format!("{schema_type}: Pflichtfeld \"{prop}\" fehlt")
+                }
+            } else {
+                issue.message.clone()
+            }
+        }
+    }
+}
+
+/// Short localized label for report tables.
+pub fn schema_issue_label(issue: &SchemaIssue, en: bool) -> &'static str {
+    match issue.issue_type.as_str() {
+        "jsonld_parse_error" => {
+            if en {
+                "JSON syntax"
+            } else {
+                "JSON-Syntax"
+            }
+        }
+        "jsonld_invalid_root" => {
+            if en {
+                "Root structure"
+            } else {
+                "Wurzelstruktur"
+            }
+        }
+        "jsonld_missing_context" => {
+            if en {
+                "Schema context"
+            } else {
+                "Schema-Kontext"
+            }
+        }
+        "jsonld_missing_type" => {
+            if en {
+                "Schema type"
+            } else {
+                "Schema-Typ"
+            }
+        }
+        "jsonld_graph_not_array" => "@graph",
+        "jsonld_empty_document" => {
+            if en {
+                "Empty block"
+            } else {
+                "Leerer Block"
+            }
+        }
+        _ => "Schema.org",
+    }
 }
 
 /// JSON-LD schema data
@@ -72,6 +205,13 @@ pub enum SchemaType {
     Event,
     Recipe,
     VideoObject,
+    CollectionPage,
+    ItemList,
+    ProfilePage,
+    JobPosting,
+    SoftwareApplication,
+    WebApplication,
+    MobileApplication,
     WebPage,
     WebSite,
     BreadcrumbList,
@@ -98,6 +238,13 @@ impl std::str::FromStr for SchemaType {
             "Event" => SchemaType::Event,
             "Recipe" => SchemaType::Recipe,
             "VideoObject" => SchemaType::VideoObject,
+            "CollectionPage" => SchemaType::CollectionPage,
+            "ItemList" => SchemaType::ItemList,
+            "ProfilePage" => SchemaType::ProfilePage,
+            "JobPosting" => SchemaType::JobPosting,
+            "SoftwareApplication" => SchemaType::SoftwareApplication,
+            "WebApplication" => SchemaType::WebApplication,
+            "MobileApplication" => SchemaType::MobileApplication,
             "WebPage" => SchemaType::WebPage,
             "WebSite" => SchemaType::WebSite,
             "BreadcrumbList" => SchemaType::BreadcrumbList,
@@ -124,6 +271,13 @@ impl SchemaType {
             Self::Event => "Event",
             Self::Recipe => "Recipe",
             Self::VideoObject => "VideoObject",
+            Self::CollectionPage => "CollectionPage",
+            Self::ItemList => "ItemList",
+            Self::ProfilePage => "ProfilePage",
+            Self::JobPosting => "JobPosting",
+            Self::SoftwareApplication => "SoftwareApplication",
+            Self::WebApplication => "WebApplication",
+            Self::MobileApplication => "MobileApplication",
             Self::WebPage => "WebPage",
             Self::WebSite => "WebSite",
             Self::BreadcrumbList => "BreadcrumbList",
@@ -171,10 +325,17 @@ impl SchemaType {
             SchemaType::Recipe => Some("Recipe Rich Snippet"),
             SchemaType::Event => Some("Event Rich Snippet"),
             SchemaType::FAQPage => Some("FAQ Rich Snippet"),
-            SchemaType::HowTo => Some("How-To Rich Snippet"),
+            // Google removed HowTo rich results; keep the schema in the
+            // inventory without presenting it as a current search feature.
+            SchemaType::HowTo => None,
             SchemaType::Review | SchemaType::AggregateRating => Some("Review Rich Snippet"),
             SchemaType::BreadcrumbList => Some("Breadcrumb Rich Snippet"),
             SchemaType::VideoObject => Some("Video Rich Snippet"),
+            SchemaType::ProfilePage => Some("Profile Page Rich Snippet"),
+            SchemaType::JobPosting => Some("Job Posting Rich Snippet"),
+            SchemaType::SoftwareApplication
+            | SchemaType::WebApplication
+            | SchemaType::MobileApplication => Some("Software App Rich Snippet"),
             SchemaType::LocalBusiness => Some("Local Business Rich Snippet"),
             _ => None,
         }
@@ -189,14 +350,10 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
     (() => {
         const result = { jsonLd: [], microdata: false, rdfa: false };
 
-        // Find JSON-LD scripts
+        // Return raw script contents. Rust owns parsing and normalization so
+        // top-level arrays, @graph and parse failures share one testable path.
         document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
-            try {
-                const content = JSON.parse(script.textContent);
-                result.jsonLd.push(content);
-            } catch (e) {
-                result.jsonLd.push({ error: 'Invalid JSON', raw: script.textContent.substring(0, 200) });
-            }
+            result.jsonLd.push(script.textContent || '');
         });
 
         // Check for microdata
@@ -217,253 +374,316 @@ pub async fn detect_structured_data(page: &Page) -> Result<StructuredData> {
     let json_str = js_result.value().and_then(|v| v.as_str()).unwrap_or("{}");
 
     let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
-
-    let mut json_ld = Vec::new();
-    let mut types = Vec::new();
-    let mut rich_snippets_potential = Vec::new();
-
-    // Parse JSON-LD schemas
-    if let Some(schemas) = parsed["jsonLd"].as_array() {
-        for schema in schemas {
-            let is_valid = schema.get("error").is_none();
-
-            // Extract @type (can be string or array)
-            let schema_types = extract_types(schema);
-
-            for type_str in &schema_types {
-                let schema_type: SchemaType = type_str
-                    .parse()
-                    .unwrap_or(SchemaType::Other(type_str.to_string()));
-
-                if let Some(rich_snippet) = schema_type.rich_snippet_type() {
-                    if !rich_snippets_potential.contains(&rich_snippet.to_string()) {
-                        rich_snippets_potential.push(rich_snippet.to_string());
-                    }
-                }
-
-                if !types.contains(&schema_type) {
-                    types.push(schema_type);
-                }
-            }
-
-            json_ld.push(JsonLdSchema {
-                schema_type: schema_types.first().cloned().unwrap_or_default(),
-                schema_types,
-                content: schema.clone(),
-                is_valid,
-            });
-
-            // Expand @graph items into separate entries so property validation
-            // can check each typed item individually
-            if is_valid {
-                if let Some(graph) = schema["@graph"].as_array() {
-                    for graph_item in graph {
-                        let item_types: Vec<String> = if let Some(s) = graph_item["@type"].as_str()
-                        {
-                            vec![s.to_string()]
-                        } else if let Some(arr) = graph_item["@type"].as_array() {
-                            arr.iter()
-                                .filter_map(|v| v.as_str().map(String::from))
-                                .collect()
-                        } else {
-                            vec![]
-                        };
-                        if item_types.is_empty() {
-                            continue;
-                        }
-                        json_ld.push(JsonLdSchema {
-                            schema_type: item_types.first().cloned().unwrap_or_default(),
-                            schema_types: item_types,
-                            content: graph_item.clone(),
-                            is_valid: true,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    let has_structured_data = !json_ld.is_empty()
-        || parsed["microdata"].as_bool().unwrap_or(false)
-        || parsed["rdfa"].as_bool().unwrap_or(false);
+    let scripts: Vec<String> = parsed["jsonLd"]
+        .as_array()
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut structured_data = analyze_structured_data_payloads(
+        &scripts,
+        parsed["microdata"].as_bool().unwrap_or(false),
+        parsed["rdfa"].as_bool().unwrap_or(false),
+    );
+    structured_data.visible_facts =
+        crate::seo::schema_parity::extract_visible_schema_facts(page).await?;
+    structured_data.content_parity = crate::seo::schema_parity::assess_content_parity(
+        &structured_data.json_ld,
+        &structured_data.visible_facts,
+    );
 
     info!(
         "Structured data: {} JSON-LD schemas, {} types, {} rich snippet opportunities",
-        json_ld.len(),
-        types.len(),
-        rich_snippets_potential.len()
+        structured_data
+            .json_ld
+            .iter()
+            .filter(|schema| schema.is_valid && !schema.schema_types.is_empty())
+            .count(),
+        structured_data.types.len(),
+        structured_data.rich_snippets_potential.len()
     );
 
-    let schema_issues = json_ld
-        .iter()
-        .flat_map(validate_schema_properties)
-        .collect();
+    Ok(structured_data)
+}
 
-    Ok(StructuredData {
+pub(crate) fn analyze_structured_data_payloads(
+    scripts: &[String],
+    has_microdata: bool,
+    has_rdfa: bool,
+) -> StructuredData {
+    let mut json_ld = Vec::new();
+    let mut schema_issues = Vec::new();
+
+    for (block_index, raw) in scripts.iter().enumerate() {
+        match serde_json::from_str::<serde_json::Value>(raw) {
+            Ok(value) => {
+                normalize_json_ld_document(&value, block_index, &mut json_ld, &mut schema_issues)
+            }
+            Err(error) => {
+                json_ld.push(JsonLdSchema {
+                    schema_type: String::new(),
+                    schema_types: Vec::new(),
+                    content: serde_json::json!({
+                        "raw": raw.chars().take(200).collect::<String>()
+                    }),
+                    is_valid: false,
+                });
+                schema_issues.push(SchemaIssue {
+                    schema_type: "JSON-LD".to_string(),
+                    severity: SchemaIssueSeverity::Required,
+                    issue_type: "jsonld_parse_error".to_string(),
+                    message: format!(
+                        "JSON-LD block {} contains invalid JSON: {}",
+                        block_index + 1,
+                        error
+                    ),
+                });
+            }
+        }
+    }
+
+    let mut types = Vec::new();
+    let mut rich_snippets_potential = Vec::new();
+    for schema in json_ld.iter().filter(|schema| schema.is_valid) {
+        for type_str in &schema.schema_types {
+            let schema_type: SchemaType = type_str
+                .parse()
+                .unwrap_or(SchemaType::Other(type_str.to_string()));
+            if let Some(rich_snippet) = schema_type.rich_snippet_type() {
+                if !rich_snippets_potential
+                    .iter()
+                    .any(|item| item == rich_snippet)
+                {
+                    rich_snippets_potential.push(rich_snippet.to_string());
+                }
+            }
+            if !types.contains(&schema_type) {
+                types.push(schema_type);
+            }
+        }
+    }
+
+    let rule_assessments = build_rule_assessments(
+        &json_ld,
+        crate::seo::schema_rules::ProductRuleContext::Indeterminate,
+    );
+    schema_issues.extend(rule_assessments.iter().flat_map(rule_assessment_issues));
+
+    StructuredData {
         json_ld,
         types,
-        has_structured_data,
+        has_structured_data: !scripts.is_empty() || has_microdata || has_rdfa,
         rich_snippets_potential,
         schema_issues,
-    })
+        rule_assessments,
+        fit_assessment: None,
+        content_parity: Vec::new(),
+        visible_facts: crate::seo::schema_parity::VisibleSchemaFacts::default(),
+    }
 }
 
-fn validate_schema_properties(schema: &JsonLdSchema) -> Vec<SchemaIssue> {
-    if !schema.is_valid {
-        return vec![];
+pub(crate) fn refresh_rule_assessments(
+    structured_data: &mut StructuredData,
+    product_context: crate::seo::schema_rules::ProductRuleContext,
+) {
+    structured_data
+        .schema_issues
+        .retain(|issue| !issue.issue_type.starts_with("schema_rule_"));
+    structured_data.rule_assessments =
+        build_rule_assessments(&structured_data.json_ld, product_context);
+    structured_data.schema_issues.extend(
+        structured_data
+            .rule_assessments
+            .iter()
+            .flat_map(rule_assessment_issues),
+    );
+}
+
+fn build_rule_assessments(
+    schemas: &[JsonLdSchema],
+    product_context: crate::seo::schema_rules::ProductRuleContext,
+) -> Vec<crate::seo::schema_rules::SchemaRuleAssessment> {
+    schemas
+        .iter()
+        .enumerate()
+        .filter(|(_, schema)| schema.is_valid)
+        .flat_map(|(node_index, schema)| {
+            schema.schema_types.iter().flat_map(move |schema_type| {
+                crate::seo::schema_rules::assess_node(
+                    node_index,
+                    schema_type,
+                    &schema.content,
+                    product_context,
+                )
+            })
+        })
+        .collect()
+}
+
+fn rule_assessment_issues(
+    assessment: &crate::seo::schema_rules::SchemaRuleAssessment,
+) -> Vec<SchemaIssue> {
+    if assessment.requirement_status
+        != crate::seo::schema_rules::SchemaRequirementStatus::MissingRequiredProperties
+    {
+        return Vec::new();
     }
 
-    let required: &[(&str, &[&str])] = &[
-        ("Article", &["headline", "image", "author", "datePublished"]),
-        (
-            "BlogPosting",
-            &["headline", "image", "author", "datePublished"],
-        ),
-        (
-            "NewsArticle",
-            &["headline", "image", "author", "datePublished"],
-        ),
-        ("Product", &["name", "image", "offers"]),
-        ("FAQPage", &["mainEntity"]),
-        ("BreadcrumbList", &["itemListElement"]),
-        ("LocalBusiness", &["name", "address"]),
-        ("Organization", &["name", "url"]),
-        ("Event", &["name", "startDate", "location"]),
-        (
-            "VideoObject",
-            &["name", "description", "thumbnailUrl", "uploadDate"],
-        ),
-        (
-            "Recipe",
-            &["name", "image", "recipeIngredient", "recipeInstructions"],
-        ),
-        ("HowTo", &["name"]),
-        ("Review", &["author"]),
-    ];
-    let recommended: &[(&str, &[&str])] = &[
-        (
-            "Article",
-            &[
-                "dateModified",
-                "publisher",
-                "description",
-                "mainEntityOfPage",
-            ],
-        ),
-        (
-            "BlogPosting",
-            &[
-                "dateModified",
-                "publisher",
-                "description",
-                "mainEntityOfPage",
-            ],
-        ),
-        (
-            "NewsArticle",
-            &[
-                "dateModified",
-                "publisher",
-                "description",
-                "mainEntityOfPage",
-            ],
-        ),
-        (
-            "Product",
-            &["description", "sku", "brand", "aggregateRating", "review"],
-        ),
-        ("FAQPage", &[]),
-        ("BreadcrumbList", &[]),
-        (
-            "LocalBusiness",
-            &["telephone", "url", "openingHours", "geo", "aggregateRating"],
-        ),
-        ("Organization", &["logo", "sameAs", "contactPoint"]),
-        (
-            "Event",
-            &[
-                "endDate",
-                "image",
-                "description",
-                "offers",
-                "performer",
-                "eventStatus",
-                "eventAttendanceMode",
-            ],
-        ),
-        (
-            "Recipe",
-            &[
-                "author",
-                "datePublished",
-                "prepTime",
-                "cookTime",
-                "totalTime",
-                "nutrition",
-                "aggregateRating",
-                "video",
-            ],
-        ),
-    ];
+    assessment
+        .missing_required
+        .iter()
+        .map(|property| SchemaIssue {
+            schema_type: assessment.schema_type.clone(),
+            severity: SchemaIssueSeverity::Required,
+            issue_type: format!(
+                "schema_rule_missing_{}_{}",
+                assessment.feature.key(),
+                property
+                    .chars()
+                    .map(|character| {
+                        if character.is_ascii_alphanumeric() {
+                            character
+                        } else {
+                            '_'
+                        }
+                    })
+                    .collect::<String>()
+                    .trim_matches('_')
+            ),
+            message: format!(
+                "{}: required property condition \"{}\" is not met for {}",
+                assessment.schema_type,
+                property,
+                assessment.feature.label(true)
+            ),
+        })
+        .collect()
+}
 
-    let types_to_check: Vec<String> = if schema.schema_types.is_empty() {
-        schema
-            .schema_type
-            .split('/')
-            .next_back()
-            .map(|s| vec![s.to_string()])
-            .unwrap_or_default()
-    } else {
-        schema
-            .schema_types
-            .iter()
-            .map(|t| t.split('/').next_back().unwrap_or(t).to_string())
-            .collect()
+fn normalize_json_ld_document(
+    value: &serde_json::Value,
+    block_index: usize,
+    schemas: &mut Vec<JsonLdSchema>,
+    issues: &mut Vec<SchemaIssue>,
+) {
+    match value {
+        serde_json::Value::Array(items) => {
+            if items.is_empty() {
+                issues.push(structural_issue(
+                    "jsonld_empty_document",
+                    format!("JSON-LD block {} contains no nodes", block_index + 1),
+                ));
+                return;
+            }
+            for item in items {
+                normalize_json_ld_root(item, false, schemas, issues);
+            }
+        }
+        serde_json::Value::Object(_) => {
+            normalize_json_ld_root(value, false, schemas, issues);
+        }
+        _ => issues.push(structural_issue(
+            "jsonld_invalid_root",
+            format!(
+                "JSON-LD block {} has a non-object root value",
+                block_index + 1
+            ),
+        )),
+    }
+}
+
+fn normalize_json_ld_root(
+    value: &serde_json::Value,
+    context_inherited: bool,
+    schemas: &mut Vec<JsonLdSchema>,
+    issues: &mut Vec<SchemaIssue>,
+) {
+    let Some(object) = value.as_object() else {
+        issues.push(structural_issue(
+            "jsonld_invalid_root",
+            "JSON-LD array entries must be objects".to_string(),
+        ));
+        return;
     };
 
-    let mut issues = Vec::new();
-    for type_name in types_to_check {
-        if let Some((_, props)) = required.iter().find(|(name, _)| *name == type_name) {
-            for prop in *props {
-                if !has_schema_property(&schema.content, prop) {
-                    issues.push(SchemaIssue {
-                        schema_type: type_name.to_string(),
-                        severity: SchemaIssueSeverity::Required,
-                        issue_type: format!("schema_missing_{}", prop),
-                        message: format!(
-                            "{}: Pflichtfeld \"{}\" fehlt im JSON-LD",
-                            type_name, prop
-                        ),
-                    });
-                }
-            }
+    let has_context = context_inherited || has_schema_org_context(object.get("@context"));
+    if !has_context {
+        issues.push(structural_issue(
+            "jsonld_missing_context",
+            "No schema.org @context found for JSON-LD node".to_string(),
+        ));
+    }
+
+    let root_types = extract_types(value);
+    let graph = object.get("@graph");
+
+    if !root_types.is_empty() {
+        schemas.push(JsonLdSchema {
+            schema_type: root_types.first().cloned().unwrap_or_default(),
+            schema_types: root_types,
+            content: value.clone(),
+            is_valid: true,
+        });
+    } else if graph.is_none() {
+        schemas.push(JsonLdSchema {
+            schema_type: String::new(),
+            schema_types: Vec::new(),
+            content: value.clone(),
+            is_valid: true,
+        });
+        issues.push(structural_issue(
+            "jsonld_missing_type",
+            "JSON-LD node has no @type".to_string(),
+        ));
+    }
+
+    if let Some(graph) = graph {
+        let Some(items) = graph.as_array() else {
+            issues.push(structural_issue(
+                "jsonld_graph_not_array",
+                "JSON-LD @graph value is not an array".to_string(),
+            ));
+            return;
+        };
+        if items.is_empty() {
+            issues.push(structural_issue(
+                "jsonld_empty_document",
+                "JSON-LD @graph contains no nodes".to_string(),
+            ));
         }
-        if let Some((_, props)) = recommended.iter().find(|(name, _)| *name == type_name) {
-            for prop in *props {
-                if !has_schema_property(&schema.content, prop) {
-                    issues.push(SchemaIssue {
-                        schema_type: type_name.to_string(),
-                        severity: SchemaIssueSeverity::Recommended,
-                        issue_type: format!("schema_recommended_missing_{}", prop),
-                        message: format!(
-                            "{}: Empfohlenes Feld \"{}\" fehlt im JSON-LD",
-                            type_name, prop
-                        ),
-                    });
-                }
-            }
+        for item in items {
+            normalize_json_ld_root(item, has_context, schemas, issues);
         }
     }
-    issues
 }
 
-fn has_schema_property(content: &serde_json::Value, prop: &str) -> bool {
-    match content.get(prop) {
-        Some(serde_json::Value::Null) | None => false,
-        Some(serde_json::Value::String(s)) => !s.trim().is_empty(),
-        Some(serde_json::Value::Array(items)) => !items.is_empty(),
-        Some(serde_json::Value::Object(map)) => !map.is_empty(),
-        Some(_) => true,
+fn structural_issue(issue_type: &str, message: String) -> SchemaIssue {
+    SchemaIssue {
+        schema_type: "JSON-LD".to_string(),
+        severity: SchemaIssueSeverity::Required,
+        issue_type: issue_type.to_string(),
+        message,
+    }
+}
+
+fn has_schema_org_context(context: Option<&serde_json::Value>) -> bool {
+    match context {
+        Some(serde_json::Value::String(value)) => {
+            matches!(
+                value.trim_end_matches('/'),
+                "https://schema.org" | "http://schema.org"
+            )
+        }
+        Some(serde_json::Value::Array(values)) => values
+            .iter()
+            .any(|value| has_schema_org_context(Some(value))),
+        Some(serde_json::Value::Object(values)) => values
+            .get("@vocab")
+            .is_some_and(|value| has_schema_org_context(Some(value))),
+        _ => false,
     }
 }
 
@@ -471,28 +691,73 @@ fn extract_types(schema: &serde_json::Value) -> Vec<String> {
     let mut types = Vec::new();
 
     if let Some(type_str) = schema["@type"].as_str() {
-        types.push(type_str.to_string());
+        if let Some(normalized) = normalize_schema_type(type_str) {
+            types.push(normalized);
+        }
     } else if let Some(type_arr) = schema["@type"].as_array() {
         for t in type_arr {
             if let Some(s) = t.as_str() {
-                types.push(s.to_string());
+                if let Some(normalized) = normalize_schema_type(s) {
+                    types.push(normalized);
+                }
             }
-        }
-    }
-
-    // Also check @graph
-    if let Some(graph) = schema["@graph"].as_array() {
-        for item in graph {
-            types.extend(extract_types(item));
         }
     }
 
     types
 }
 
+fn normalize_schema_type(value: &str) -> Option<String> {
+    let trimmed = value.trim().trim_end_matches('/');
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(
+        trimmed
+            .rsplit(['/', '#'])
+            .next()
+            .unwrap_or(trimmed)
+            .to_string(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn astro_structured_data_exports_work_inline_and_as_graph_without_runtime_dependency() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/astro_structured_data_components.json"
+        ))
+        .unwrap();
+        let components = fixture["components"].as_array().unwrap();
+        let inline = fixture["inline"].as_array().unwrap();
+        assert_eq!(components.len(), 18);
+        assert_eq!(inline.len(), 17); // SchemaGraph is the graph container.
+
+        for item in inline {
+            let payload = item["payload"].to_string();
+            let data = analyze_structured_data_payloads(&[payload], false, false);
+            assert!(
+                !data.json_ld.is_empty(),
+                "{} inline fixture",
+                item["component"]
+            );
+            assert!(!data
+                .schema_issues
+                .iter()
+                .any(|issue| issue.issue_type.starts_with("jsonld_")));
+        }
+
+        let graph = fixture["useGraph"].to_string();
+        let data = analyze_structured_data_payloads(&[graph], false, false);
+        assert_eq!(data.json_ld.len(), inline.len());
+        assert!(!data
+            .schema_issues
+            .iter()
+            .any(|issue| issue.issue_type.starts_with("jsonld_")));
+    }
 
     #[test]
     fn test_schema_type_from_str() {
@@ -521,6 +786,7 @@ mod tests {
             Some("Product Rich Snippet")
         );
         assert_eq!(SchemaType::Organization.rich_snippet_type(), None);
+        assert_eq!(SchemaType::HowTo.rich_snippet_type(), None);
     }
 
     #[test]
@@ -534,69 +800,206 @@ mod tests {
     }
 
     #[test]
-    fn product_schema_requires_offers_for_rich_result_eligibility() {
-        let schema = JsonLdSchema {
-            schema_type: "Product".to_string(),
-            schema_types: vec!["Product".to_string()],
-            content: serde_json::json!({
+    fn product_schema_accepts_review_instead_of_offer() {
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
                 "@type": "Product",
                 "name": "Audit",
-                "image": "https://example.com/audit.png"
-            }),
-            is_valid: true,
-        };
+                "review": {"@type": "Review", "author": {"@type": "Person", "name": "Ada"}}
+            })
+            .to_string()],
+            false,
+            false,
+        );
 
-        let issues = validate_schema_properties(&schema);
-
-        assert!(issues.iter().any(|issue| {
-            issue.schema_type == "Product"
-                && issue.severity == SchemaIssueSeverity::Required
-                && issue.issue_type == "schema_missing_offers"
-        }));
+        assert!(!data.schema_issues.iter().any(|issue| issue
+            .issue_type
+            .starts_with("schema_rule_missing_product_snippet")));
     }
 
     #[test]
     fn article_schema_reports_recommended_properties_separately() {
-        let schema = JsonLdSchema {
-            schema_type: "Article".to_string(),
-            schema_types: vec!["Article".to_string()],
-            content: serde_json::json!({
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
                 "@type": "Article",
                 "headline": "Accessibility audit",
                 "image": "https://example.com/article.png",
                 "author": { "@type": "Person", "name": "Ada" },
                 "datePublished": "2026-01-01"
-            }),
-            is_valid: true,
-        };
+            })
+            .to_string()],
+            false,
+            false,
+        );
 
-        let issues = validate_schema_properties(&schema);
-
-        assert!(!issues
+        assert!(!data
+            .schema_issues
             .iter()
             .any(|issue| issue.severity == SchemaIssueSeverity::Required));
-        assert!(issues.iter().any(|issue| {
-            issue.severity == SchemaIssueSeverity::Recommended
-                && issue.issue_type == "schema_recommended_missing_dateModified"
-        }));
+        assert!(data.rule_assessments[0]
+            .missing_recommended
+            .contains(&"dateModified".to_string()));
     }
 
     #[test]
     fn empty_schema_properties_count_as_missing() {
-        let schema = JsonLdSchema {
-            schema_type: "BreadcrumbList".to_string(),
-            schema_types: vec!["BreadcrumbList".to_string()],
-            content: serde_json::json!({
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
                 "@type": "BreadcrumbList",
                 "itemListElement": []
-            }),
-            is_valid: true,
-        };
+            })
+            .to_string()],
+            false,
+            false,
+        );
 
-        let issues = validate_schema_properties(&schema);
+        assert!(data.schema_issues.iter().any(|issue| {
+            issue.severity == SchemaIssueSeverity::Required
+                && issue
+                    .issue_type
+                    .starts_with("schema_rule_missing_breadcrumb_itemListElement")
+        }));
+    }
 
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].issue_type, "schema_missing_itemListElement");
-        assert_eq!(issues[0].severity, SchemaIssueSeverity::Required);
+    #[test]
+    fn graph_nodes_are_normalized_once_without_container_false_positives() {
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "Product",
+                        "name": "Gadget",
+                        "image": "https://example.com/gadget.jpg",
+                        "offers": {"@type": "Offer", "price": "29.99", "priceCurrency": "EUR"}
+                    },
+                    {
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://example.com"},
+                            {"@type": "ListItem", "position": 2, "name": "Products"}
+                        ]
+                    }
+                ]
+            })
+            .to_string()],
+            false,
+            false,
+        );
+
+        assert_eq!(data.json_ld.len(), 2);
+        assert_eq!(data.json_ld[0].schema_type, "Product");
+        assert_eq!(data.json_ld[1].schema_type, "BreadcrumbList");
+        assert!(!data
+            .schema_issues
+            .iter()
+            .any(|issue| issue.severity == SchemaIssueSeverity::Required));
+    }
+
+    #[test]
+    fn top_level_array_is_expanded_into_individual_nodes() {
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!([
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebSite",
+                    "name": "Example",
+                    "url": "https://example.com"
+                },
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": "About",
+                    "url": "https://example.com/about"
+                }
+            ])
+            .to_string()],
+            false,
+            false,
+        );
+
+        assert_eq!(data.json_ld.len(), 2);
+        assert_eq!(data.types, vec![SchemaType::WebSite, SchemaType::WebPage]);
+    }
+
+    #[test]
+    fn invalid_json_is_preserved_as_a_visible_structural_issue() {
+        let data = analyze_structured_data_payloads(
+            &[r#"{"@context":"https://schema.org","@type":"Product""#.to_string()],
+            false,
+            false,
+        );
+
+        assert!(data.has_structured_data);
+        assert_eq!(data.json_ld.len(), 1);
+        assert!(!data.json_ld[0].is_valid);
+        assert!(data
+            .schema_issues
+            .iter()
+            .any(|issue| issue.issue_type == "jsonld_parse_error"));
+        assert!(data.schema_issues[0].message.starts_with("JSON-LD block 1"));
+    }
+
+    #[test]
+    fn stored_schema_issue_messages_remain_canonical_english() {
+        let data = analyze_structured_data_payloads(
+            &[
+                serde_json::json!({
+                    "@context": "https://schema.org",
+                    "@type": "Product",
+                    "name": "Incomplete product"
+                })
+                .to_string(),
+                r#"{"@type":"Product""#.to_string(),
+            ],
+            false,
+            false,
+        );
+
+        assert!(data
+            .schema_issues
+            .iter()
+            .all(|issue| !issue.message.contains("Pflichtfeld")
+                && !issue.message.contains("Empfohlenes Feld")
+                && !issue.message.contains("ungültig")));
+    }
+
+    #[test]
+    fn full_schema_type_iri_is_normalized_to_known_type() {
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "https://schema.org/Product",
+                "name": "Gadget",
+                "image": "https://example.com/gadget.jpg",
+                "offers": {"@type": "Offer", "price": "29.99", "priceCurrency": "EUR"}
+            })
+            .to_string()],
+            false,
+            false,
+        );
+
+        assert_eq!(data.json_ld[0].schema_type, "Product");
+        assert_eq!(data.types, vec![SchemaType::Product]);
+    }
+
+    #[test]
+    fn missing_context_and_type_are_reported_separately() {
+        let data = analyze_structured_data_payloads(
+            &[serde_json::json!({"name": "Untyped node"}).to_string()],
+            false,
+            false,
+        );
+
+        let issue_types: Vec<_> = data
+            .schema_issues
+            .iter()
+            .map(|issue| issue.issue_type.as_str())
+            .collect();
+        assert!(issue_types.contains(&"jsonld_missing_context"));
+        assert!(issue_types.contains(&"jsonld_missing_type"));
     }
 }

@@ -39,6 +39,23 @@ pub(in crate::output::pdf) fn render_search_experience(
             &sx.interpretation,
         ));
 
+    // Warnings before the breakdown table: `module_customer_context` above just
+    // made a claim ("shows visible improvement potential") with no specifics —
+    // the reader needs the concrete reason right there, not several paragraphs
+    // and a methodology table later. The breakdown table still follows as the
+    // full supporting detail, not as the reader's only path to the "why".
+    if !sx.warnings.is_empty() {
+        let mut list = List::new().with_title(if en {
+            "What still goes wrong"
+        } else {
+            "Was noch schief läuft"
+        });
+        for warning in &sx.warnings {
+            list = list.add_item(warning);
+        }
+        builder = builder.add_component(list);
+    }
+
     if !sx.components.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(if en { "Component" } else { "Bestandteil" }).with_width("28%"),
@@ -60,18 +77,6 @@ pub(in crate::output::pdf) fn render_search_experience(
             ]);
         }
         builder = builder.add_component(table);
-    }
-
-    if !sx.warnings.is_empty() {
-        let mut list = List::new().with_title(if en {
-            "What still goes wrong"
-        } else {
-            "Was noch schief läuft"
-        });
-        for warning in &sx.warnings {
-            list = list.add_item(warning);
-        }
-        builder = builder.add_component(list);
     }
 
     builder

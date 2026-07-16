@@ -701,24 +701,8 @@ fn build_schema_inventory(seo: &SeoAnalysis, en: bool) -> SchemaInventory {
             }
         }
 
-        // Process @graph items
-        if let Some(graph) = json_ld.content["@graph"].as_array() {
-            for item in graph {
-                let mut item_types = Vec::new();
-                if let Some(item_type) = item["@type"].as_str() {
-                    item_types.push(item_type.to_string());
-                } else if let Some(arr) = item["@type"].as_array() {
-                    item_types.extend(arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())));
-                }
-
-                for item_type in item_types {
-                    if let Some(d) = analyze_schema(&item_type, item, en) {
-                        schemas.push(d);
-                        break;
-                    }
-                }
-            }
-        }
+        // `schema::detect_structured_data` already flattens @graph documents.
+        // Re-walking graph members here would duplicate inventory rows.
     }
 
     let total_count = schemas.len();
@@ -733,7 +717,8 @@ fn analyze_schema(
     content: &serde_json::Value,
     en: bool,
 ) -> Option<SchemaDetail> {
-    let (expected, extracted) = match schema_type {
+    let expected = crate::seo::schema_rules::inventory_fields(schema_type);
+    let extracted = match schema_type {
         "Organization" => analyze_organization(content),
         "LocalBusiness" => analyze_local_business(content),
         "ProfessionalService"
@@ -757,7 +742,7 @@ fn analyze_schema(
 
     let mut present = Vec::new();
     let mut missing = Vec::new();
-    for field in &expected {
+    for field in expected {
         if !content[field].is_null() {
             present.push(field.to_string());
         } else {
@@ -781,15 +766,13 @@ fn str_opt(v: &serde_json::Value, key: &str) -> Option<String> {
     v[key].as_str().map(|s| s.to_string())
 }
 
-fn analyze_organization(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec!["name", "url", "logo", "address", "telephone", "sameAs"];
-
+fn analyze_organization(v: &serde_json::Value) -> SchemaExtracted {
     let address = v["address"]["streetAddress"]
         .as_str()
         .map(|s| s.to_string())
         .or_else(|| str_opt(v, "address"));
 
-    let extracted = SchemaExtracted::Organization {
+    SchemaExtracted::Organization {
         name: str_opt(v, "name"),
         url: str_opt(v, "url"),
         logo: v["logo"]
@@ -798,22 +781,10 @@ fn analyze_organization(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtr
             .or_else(|| str_opt(&v["logo"], "url")),
         address,
         phone: str_opt(v, "telephone"),
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_local_business(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec![
-        "name",
-        "address",
-        "telephone",
-        "openingHours",
-        "priceRange",
-        "geo",
-        "sameAs",
-        "url",
-    ];
-
+fn analyze_local_business(v: &serde_json::Value) -> SchemaExtracted {
     let addr = &v["address"];
     let address = addr["streetAddress"]
         .as_str()
@@ -881,7 +852,7 @@ fn analyze_local_business(v: &serde_json::Value) -> (Vec<&'static str>, SchemaEx
                 .map(|r| format!("{:.1}", r))
         });
 
-    let extracted = SchemaExtracted::LocalBusiness {
+    SchemaExtracted::LocalBusiness {
         name: str_opt(v, "name"),
         address,
         postal_code,
@@ -898,20 +869,10 @@ fn analyze_local_business(v: &serde_json::Value) -> (Vec<&'static str>, SchemaEx
         latitude,
         longitude,
         aggregate_rating,
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_article(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec![
-        "headline",
-        "author",
-        "datePublished",
-        "dateModified",
-        "publisher",
-        "image",
-    ];
-
+fn analyze_article(v: &serde_json::Value) -> SchemaExtracted {
     let author = v["author"]["name"]
         .as_str()
         .map(|s| s.to_string())
@@ -922,19 +883,16 @@ fn analyze_article(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted
         .map(|s| s.to_string())
         .or_else(|| str_opt(v, "publisher"));
 
-    let extracted = SchemaExtracted::Article {
+    SchemaExtracted::Article {
         headline: str_opt(v, "headline"),
         author,
         date_published: str_opt(v, "datePublished"),
         date_modified: str_opt(v, "dateModified"),
         publisher,
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_faq(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec!["mainEntity"];
-
+fn analyze_faq(v: &serde_json::Value) -> SchemaExtracted {
     let mut questions = Vec::new();
     if let Some(entities) = v["mainEntity"].as_array() {
         for entity in entities {
@@ -944,16 +902,13 @@ fn analyze_faq(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
         }
     }
 
-    let extracted = SchemaExtracted::FAQPage {
+    SchemaExtracted::FAQPage {
         question_count: questions.len(),
         questions,
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_product(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec!["name", "offers", "image", "aggregateRating"];
-
+fn analyze_product(v: &serde_json::Value) -> SchemaExtracted {
     let offers = &v["offers"];
     let price = offers["price"]
         .as_str()
@@ -971,98 +926,68 @@ fn analyze_product(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted
                 .map(|r| format!("{:.1}", r))
         });
 
-    let extracted = SchemaExtracted::Product {
+    SchemaExtracted::Product {
         name: str_opt(v, "name"),
         price,
         currency,
         rating,
         availability,
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_website(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec!["name", "url", "potentialAction"];
-
+fn analyze_website(v: &serde_json::Value) -> SchemaExtracted {
     let has_search_action = v["potentialAction"]["@type"]
         .as_str()
         .map(|t| t == "SearchAction")
         .unwrap_or(false);
 
-    let extracted = SchemaExtracted::WebSite {
+    SchemaExtracted::WebSite {
         name: str_opt(v, "name"),
         url: str_opt(v, "url"),
         has_search_action,
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_webpage(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec![
-        "name",
-        "description",
-        "url",
-        "image",
-        "inLanguage",
-        "author",
-        "publisher",
-    ];
-
+fn analyze_webpage(v: &serde_json::Value) -> SchemaExtracted {
     let author = v["author"]["name"]
         .as_str()
         .map(|s| s.to_string())
         .or_else(|| str_opt(v, "author"));
 
-    let extracted = SchemaExtracted::WebPage {
+    SchemaExtracted::WebPage {
         name: str_opt(v, "name"),
         url: str_opt(v, "url"),
         author,
         in_language: str_opt(v, "inLanguage"),
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_service(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec![
-        "name",
-        "description",
-        "url",
-        "telephone",
-        "address",
-        "serviceType",
-        "areaServed",
-        "priceRange",
-    ];
-
+fn analyze_service(v: &serde_json::Value) -> SchemaExtracted {
     let address = v["address"]["streetAddress"]
         .as_str()
         .map(|s| s.to_string())
         .or_else(|| str_opt(v, "address"));
     let area_served_count = v["areaServed"].as_array().map(|arr| arr.len()).unwrap_or(0);
 
-    let extracted = SchemaExtracted::Service {
+    SchemaExtracted::Service {
         name: str_opt(v, "name"),
         address,
         phone: str_opt(v, "telephone"),
         price_range: str_opt(v, "priceRange"),
         area_served_count,
-    };
-    (expected, extracted)
+    }
 }
 
-fn analyze_breadcrumb(v: &serde_json::Value) -> (Vec<&'static str>, SchemaExtracted) {
-    let expected = vec!["itemListElement"];
-
+fn analyze_breadcrumb(v: &serde_json::Value) -> SchemaExtracted {
     let item_count = v["itemListElement"]
         .as_array()
         .map(|arr| arr.len())
         .unwrap_or(0);
 
-    let extracted = SchemaExtracted::BreadcrumbList { item_count };
-    (expected, extracted)
+    SchemaExtracted::BreadcrumbList { item_count }
 }
 
-fn analyze_generic(v: &serde_json::Value, en: bool) -> (Vec<&'static str>, SchemaExtracted) {
+fn analyze_generic(v: &serde_json::Value, en: bool) -> SchemaExtracted {
     let mut key_fields = Vec::new();
     if let Some(obj) = v.as_object() {
         for (key, val) in obj {
@@ -1102,7 +1027,7 @@ fn analyze_generic(v: &serde_json::Value, en: bool) -> (Vec<&'static str>, Schem
         }
     }
 
-    (vec![], SchemaExtracted::Generic { key_fields })
+    SchemaExtracted::Generic { key_fields }
 }
 
 // ─── Signal Strength Builder ────────────────────────────────────────────────
@@ -1497,10 +1422,26 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                     "keine strukturierten Daten".to_string()
                 }
             } else {
-                let n = seo.structured_data.json_ld.len();
+                let n = seo
+                    .structured_data
+                    .json_ld
+                    .iter()
+                    .filter(|schema| schema.is_valid && !schema.schema_types.is_empty())
+                    .count();
                 if n > 0 {
                     let noun = if n == 1 { "Schema" } else { "Schemas" };
                     format!("{} {}", n, noun)
+                } else if seo
+                    .structured_data
+                    .json_ld
+                    .iter()
+                    .any(|schema| !schema.is_valid)
+                {
+                    if en {
+                        "JSON-LD detected but not evaluable".to_string()
+                    } else {
+                        "JSON-LD erkannt, aber nicht auswertbar".to_string()
+                    }
                 } else if en {
                     // has_structured_data is true via microdata/RDFa, but
                     // json_ld is empty — the count only tracks JSON-LD, so
@@ -1513,17 +1454,27 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         ),
         check(
             if en {
-                "Rich-snippet eligible"
+                "Rich-result type detected"
             } else {
-                "Rich-Snippet-fähig"
+                "Rich-Result-Typ erkannt"
             },
             has_rich,
             Some(if has_rich {
-                seo.structured_data.rich_snippets_potential.join(", ")
+                if en {
+                    format!(
+                        "{} (type detection only; eligibility also requires complete, matching content)",
+                        seo.structured_data.rich_snippets_potential.join(", ")
+                    )
+                } else {
+                    format!(
+                        "{} (nur Typ-Erkennung; Eignung erfordert zusätzlich vollständige, passende Inhalte)",
+                        seo.structured_data.rich_snippets_potential.join(", ")
+                    )
+                }
             } else if en {
-                "no rich-snippet types detected".to_string()
+                "no rich-result types detected".to_string()
             } else {
-                "keine Rich-Snippet-Typen erkannt".to_string()
+                "keine Rich-Result-Typen erkannt".to_string()
             }),
         ),
         check(
@@ -1687,47 +1638,77 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         }
     }
 
-    // Required-property validation issues from schema.rs
-    if !seo.structured_data.schema_issues.is_empty() {
-        // Group missing fields by schema type for a compact summary
-        let mut by_type: std::collections::BTreeMap<&str, (Vec<&str>, Vec<&str>)> =
-            std::collections::BTreeMap::new();
-        for issue in &seo.structured_data.schema_issues {
-            let entry = by_type
-                .entry(issue.schema_type.as_str())
-                .or_insert_with(|| (Vec::new(), Vec::new()));
-            let field = issue.message.split('"').nth(1).unwrap_or("?");
-            match issue.severity {
-                crate::seo::schema::SchemaIssueSeverity::Required => entry.0.push(field),
-                crate::seo::schema::SchemaIssueSeverity::Recommended => entry.1.push(field),
-            }
+    let structural_issues: Vec<_> = seo
+        .structured_data
+        .schema_issues
+        .iter()
+        .filter(|issue| issue.issue_type.starts_with("jsonld_"))
+        .collect();
+    if !structural_issues.is_empty() {
+        checks.push(check(
+            if en {
+                "JSON-LD syntax and structure"
+            } else {
+                "JSON-LD-Syntax und -Struktur"
+            },
+            false,
+            Some(
+                structural_issues
+                    .iter()
+                    .map(|issue| crate::seo::schema::schema_issue_text(issue, en))
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            ),
+        ));
+    }
+
+    for assessment in &seo.structured_data.rule_assessments {
+        use crate::seo::schema_rules::SchemaRequirementStatus;
+
+        if matches!(
+            assessment.requirement_status,
+            SchemaRequirementStatus::NotEvaluated | SchemaRequirementStatus::RecommendationsOnly
+        ) {
+            continue;
         }
-        for (type_name, (required, recommended)) in &by_type {
-            let mut detail_parts = Vec::new();
-            if !required.is_empty() {
-                detail_parts.push(if en {
-                    format!("Missing required: {}", required.join(", "))
-                } else {
-                    format!("Pflichtfelder fehlen: {}", required.join(", "))
-                });
+        let passed =
+            assessment.requirement_status != SchemaRequirementStatus::MissingRequiredProperties;
+        let detail = if !assessment.missing_required.is_empty() {
+            if en {
+                format!(
+                    "Missing required: {}",
+                    assessment.missing_required.join(", ")
+                )
+            } else {
+                format!(
+                    "Pflichtangaben fehlen: {}",
+                    assessment.missing_required.join(", ")
+                )
             }
-            if !recommended.is_empty() {
-                detail_parts.push(if en {
-                    format!("Recommended missing: {}", recommended.join(", "))
-                } else {
-                    format!("Empfohlene Felder fehlen: {}", recommended.join(", "))
-                });
+        } else if !assessment.missing_recommended.is_empty() {
+            if en {
+                format!(
+                    "Recommended properties not present: {}",
+                    assessment.missing_recommended.join(", ")
+                )
+            } else {
+                format!(
+                    "Empfohlene Angaben nicht vorhanden: {}",
+                    assessment.missing_recommended.join(", ")
+                )
             }
-            checks.push(check(
-                &if en {
-                    format!("{} required fields complete", type_name)
-                } else {
-                    format!("{} Pflichtfelder vollständig", type_name)
-                },
-                false,
-                Some(detail_parts.join("; ")),
-            ));
-        }
+        } else {
+            assessment.status_text(en).to_string()
+        };
+        checks.push(check(
+            &format!(
+                "{}: {}",
+                assessment.schema_type,
+                assessment.feature.label(en)
+            ),
+            passed,
+            Some(detail),
+        ));
     }
 
     let score_pct = category_score(&checks);
@@ -1871,7 +1852,7 @@ fn count_techniques(seo: &SeoAnalysis) -> u32 {
     if seo.technical.internal_links >= 3 {
         count += 1;
     }
-    // 12. Rich-Snippet-fähig
+    // 12. Rich-result-related schema type detected (not an eligibility claim)
     if !seo.structured_data.rich_snippets_potential.is_empty() {
         count += 1;
     }
@@ -1973,6 +1954,29 @@ mod tests {
         } else {
             panic!("Expected FAQPage extraction");
         }
+    }
+
+    #[test]
+    fn test_schema_inventory_uses_flattened_graph_nodes_once() {
+        let mut seo = minimal_seo();
+        seo.structured_data = crate::seo::schema::analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
+                "@graph": [
+                    {"@type": "WebSite", "name": "Example", "url": "https://example.com"},
+                    {"@type": "WebPage", "name": "About", "url": "https://example.com/about"}
+                ]
+            })
+            .to_string()],
+            false,
+            false,
+        );
+
+        let profile = build_content_profile(&seo, "en");
+
+        assert_eq!(profile.schema_inventory.total_count, 2);
+        assert_eq!(profile.schema_inventory.schemas[0].schema_type, "WebSite");
+        assert_eq!(profile.schema_inventory.schemas[1].schema_type, "WebPage");
     }
 
     #[test]

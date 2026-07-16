@@ -6,6 +6,7 @@
 //! 3. Detection only: warn in report if banner is still visible after audit
 
 use chromiumoxide::Page;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
 pub struct ConsentResult {
@@ -14,6 +15,47 @@ pub struct ConsentResult {
     pub cmp_name: Option<String>,
     /// Whether we successfully dismissed the banner
     pub dismissed: bool,
+    pub status: ConsentHandlingStatus,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConsentHandlingStatus {
+    NotDetected,
+    Detected,
+    Dismissed,
+    DismissFailed,
+    Unknown,
+}
+
+impl ConsentResult {
+    pub fn merge(&mut self, other: ConsentResult) {
+        self.banner_detected |= other.banner_detected;
+        if self.cmp_name.is_none() {
+            self.cmp_name = other.cmp_name;
+        }
+        self.dismissed |= other.dismissed;
+        self.evidence.extend(other.evidence);
+        self.evidence.sort();
+        self.evidence.dedup();
+        self.status = if self.dismissed {
+            ConsentHandlingStatus::Dismissed
+        } else if self.banner_detected
+            && matches!(self.status, ConsentHandlingStatus::DismissFailed)
+            || matches!(other.status, ConsentHandlingStatus::DismissFailed)
+        {
+            ConsentHandlingStatus::DismissFailed
+        } else if self.banner_detected {
+            ConsentHandlingStatus::Detected
+        } else if matches!(self.status, ConsentHandlingStatus::Unknown)
+            || matches!(other.status, ConsentHandlingStatus::Unknown)
+        {
+            ConsentHandlingStatus::Unknown
+        } else {
+            ConsentHandlingStatus::NotDetected
+        };
+    }
 }
 
 /// Inject consent cookies for all known CMPs for the target URL.
@@ -83,12 +125,23 @@ pub async fn inject_consent_cookies(page: &Page, url: &str) {
 /// After page load: detect visible consent banner and optionally dismiss it via JS click.
 /// Returns a ConsentResult describing what was found and done.
 pub async fn handle_post_navigation(page: &Page, try_dismiss: bool) -> ConsentResult {
-    let detected = detect_consent_banner(page).await;
-    if !detected {
+    let (detected, evidence) = detect_consent_banner(page).await;
+    if detected == Some(false) {
         return ConsentResult {
             banner_detected: false,
             cmp_name: None,
             dismissed: false,
+            status: ConsentHandlingStatus::NotDetected,
+            evidence: evidence.into_iter().collect(),
+        };
+    }
+    if detected.is_none() {
+        return ConsentResult {
+            banner_detected: false,
+            cmp_name: None,
+            dismissed: false,
+            status: ConsentHandlingStatus::Unknown,
+            evidence: vec!["Consent detection could not be evaluated".to_string()],
         };
     }
 
@@ -103,6 +156,8 @@ pub async fn handle_post_navigation(page: &Page, try_dismiss: bool) -> ConsentRe
             banner_detected: true,
             cmp_name,
             dismissed: false,
+            status: ConsentHandlingStatus::Detected,
+            evidence: evidence.into_iter().collect(),
         };
     }
 
@@ -119,11 +174,17 @@ pub async fn handle_post_navigation(page: &Page, try_dismiss: bool) -> ConsentRe
         banner_detected: true,
         cmp_name,
         dismissed,
+        status: if dismissed {
+            ConsentHandlingStatus::Dismissed
+        } else {
+            ConsentHandlingStatus::DismissFailed
+        },
+        evidence: evidence.into_iter().collect(),
     }
 }
 
 /// Detect if a consent banner/dialog is currently visible on the page.
-async fn detect_consent_banner(page: &Page) -> bool {
+async fn detect_consent_banner(page: &Page) -> (Option<bool>, Option<String>) {
     let js = r#"
 (function() {
     // Check visible role=dialog elements with consent-related content
@@ -135,7 +196,7 @@ async fn detect_consent_banner(page: &Page) -> bool {
             if (text.includes('cookie') || text.includes('consent') || text.includes('datenschutz') ||
                 text.includes('privacy') || text.includes('daten') || text.includes('accept') ||
                 text.includes('akzeptieren') || text.includes('zustimmen')) {
-                return true;
+                return { detected: true, evidence: 'visible consent-related dialog' };
             }
         }
     }
@@ -164,19 +225,30 @@ async fn detect_consent_banner(page: &Page) -> bool {
             const el = document.querySelector(sel);
             if (el) {
                 const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) return true;
+                if (rect.width > 0 && rect.height > 0) return { detected: true, evidence: 'visible CMP or consent container: ' + sel };
             }
         } catch(e) {}
     }
-    return false;
+    return { detected: false, evidence: 'no visible allowlisted or heuristic consent surface' };
 })()
 "#;
 
-    page.evaluate(js)
+    let value = page
+        .evaluate(js)
         .await
         .ok()
-        .and_then(|r| r.value().and_then(|v| v.as_bool()))
-        .unwrap_or(false)
+        .and_then(|result| result.value().cloned());
+    (
+        value
+            .as_ref()
+            .and_then(|value| value.get("detected"))
+            .and_then(|value| value.as_bool()),
+        value
+            .as_ref()
+            .and_then(|value| value.get("evidence"))
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
+    )
 }
 
 /// Identify which CMP is present.

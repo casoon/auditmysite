@@ -104,6 +104,123 @@ mod tests {
     }
 
     #[test]
+    fn test_single_pdf_places_json_ld_status_before_schema_inventory() {
+        let structured_data = crate::seo::schema::analyze_structured_data_payloads(
+            &[
+                serde_json::json!({
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": "Example",
+                    "url": "https://example.com"
+                })
+                .to_string(),
+                r#"{"@context":"https://schema.org","@type":"Product""#.to_string(),
+            ],
+            false,
+            false,
+        );
+        let seo = crate::seo::SeoAnalysis {
+            structured_data,
+            score: 73,
+            ..Default::default()
+        };
+        let report = pdf_fixture_report().with_seo(seo);
+        let typ = generate_typ(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Technical,
+                locale: "de".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("Typst source should render");
+
+        let status = typ.find("JSON-LD-Status").expect("JSON-LD status missing");
+        let inventory = typ
+            .find("Strukturierte Daten (1 Schema)")
+            .expect("schema inventory missing");
+        assert!(status < inventory, "status must precede schema inventory");
+        assert!(typ.contains("ungültiges JSON"));
+    }
+
+    #[test]
+    fn test_single_pdf_places_page_fit_and_feature_rules_before_inventory() {
+        let mut structured_data = crate::seo::schema::analyze_structured_data_payloads(
+            &[serde_json::json!({
+                "@context": "https://schema.org",
+                "@type": "Product",
+                "name": "Example product",
+                "offers": {"@type": "Offer", "price": "19.99"}
+            })
+            .to_string()],
+            false,
+            false,
+        );
+        let fit = crate::seo::schema_fit::assess_schema_fit(
+            "https://example.com/produkt/example",
+            crate::journey::PageIntent::Shop,
+            &structured_data,
+        );
+        crate::seo::schema::refresh_rule_assessments(&mut structured_data, fit.product_context());
+        structured_data.rule_assessments[0]
+            .manual_review
+            .push("Confirm that marked-up details are visible.".to_string());
+        structured_data.content_parity = vec![crate::seo::schema_parity::ContentParityAssessment {
+            node_index: 0,
+            schema_type: "Product".to_string(),
+            property: "name".to_string(),
+            status: crate::seo::schema_parity::ContentParityStatus::Mismatch,
+            schema_value: Some("Example product".to_string()),
+            visible_value: Some("Different visible title".to_string()),
+            evidence: "Schema and visible title differ".to_string(),
+        }];
+        structured_data.fit_assessment = Some(fit);
+
+        let report = pdf_fixture_report().with_seo(crate::seo::SeoAnalysis {
+            structured_data,
+            score: 73,
+            ..Default::default()
+        });
+        let typ = generate_typ(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Technical,
+                locale: "de".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("Typst source should render");
+
+        let status = typ.find("JSON-LD-Status").expect("JSON-LD status missing");
+        let fit = typ
+            .find("Seitentyp und Schema-Eignung")
+            .expect("schema fit missing");
+        let rules = typ
+            .find("Funktionsbezogene Schema-Anforderungen")
+            .expect("feature rules missing");
+        let inventory = typ
+            .find("Strukturierte Daten (1 Schema)")
+            .expect("schema inventory missing");
+        let manual_review = typ
+            .find("Kontext- und Inhaltsprüfung")
+            .expect("manual-review table missing");
+        let content_parity = typ
+            .find("Abgleich mit sichtbaren Inhalten")
+            .expect("content-parity table missing");
+
+        assert!(
+            status < fit
+                && fit < rules
+                && rules < manual_review
+                && manual_review < content_parity
+                && content_parity < inventory
+        );
+        assert!(typ.contains("Merchant Listing"));
+        assert!(typ.contains("Pflichtangaben fehlen"));
+        assert!(typ.contains("Schema: Example product; sichtbar: Different visible title"));
+    }
+
+    #[test]
     fn test_pdf_german_and_english_outputs_differ() {
         // Locale-aware narrative must produce different PDF bytes.
         let report = pdf_fixture_report();
@@ -386,6 +503,108 @@ mod tests {
             text.contains("Slow3G") && text.contains("3200 ms") && text.contains("180 ms"),
             "Expected throttled-performance values in PDF text"
         );
+    }
+
+    #[test]
+    fn test_pdf_interprets_performance_resources_and_bottlenecks() {
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+        let report = pdf_fixture_report_rich().with_performance(crate::audit::PerformanceResults {
+            vitals: crate::performance::WebVitals {
+                dom_nodes: Some(12_485),
+                load_time: Some(7_280.0),
+                dom_content_loaded: Some(4_756.0),
+                js_heap_size: Some(9_961_472),
+                ..crate::performance::WebVitals::default()
+            },
+            score: crate::performance::PerformanceScore {
+                overall: 38,
+                grade: crate::performance::PerformanceGrade::NeedsImprovement,
+                lcp_score: None,
+                fcp_score: None,
+                cls_score: None,
+                interactivity_score: None,
+                si_score: None,
+                metrics_available: 0,
+                size_penalty: None,
+                js_penalty: None,
+                request_penalty: None,
+                dom_penalty: None,
+                is_capped: None,
+            },
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: Some(crate::performance::MinificationAnalysis {
+                unminified_scripts: vec![crate::performance::UnminifiedAsset {
+                    url: "https://www.inros-lackner.de/assets/app/build/index-noncritical.js"
+                        .to_string(),
+                    kind: "script".to_string(),
+                    decoded_bytes: 305_818,
+                    transfer_bytes: 80_000,
+                    savings_bytes: 203_878,
+                }],
+                unminified_styles: vec![crate::performance::UnminifiedAsset {
+                    url: "https://www.inros-lackner.de/assets/app/build/index.css?v=1".to_string(),
+                    kind: "css".to_string(),
+                    decoded_bytes: 454_810,
+                    transfer_bytes: 110_000,
+                    savings_bytes: 303_514,
+                }],
+                total_savings_bytes: 507_392,
+                total_unminified_count: 2,
+                legacy_scripts: vec![],
+                total_legacy_wasted_bytes: 0,
+            }),
+            animations: None,
+            coverage: Some(crate::performance::CoverageAnalysis {
+                unused_js: crate::performance::UnusedJsAnalysis {
+                    scripts: vec![],
+                    total_bytes: 760_628,
+                    unused_bytes: 0,
+                    used_pct: 100.0,
+                },
+                unused_css: crate::performance::UnusedCssAnalysis {
+                    total_rules: 0,
+                    used_rules: 0,
+                    used_pct: None,
+                    measurement: "not_available".to_string(),
+                },
+                measurement_warnings: vec![],
+            }),
+            measurement_warnings: vec![],
+        });
+        let pdf = generate_pdf(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Standard,
+                ..ReportConfig::default()
+            },
+        )
+        .expect("performance preview PDF");
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("performance-interpretation.pdf");
+        let text_path = temp_dir.path().join("performance-interpretation.txt");
+        std::fs::write(&pdf_path, pdf).expect("write performance PDF");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&text_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(text_path).expect("read PDF text");
+        for expected in [
+            "Größter direkt nutzbarer Hebel",
+            "Code-Nutzung unauffällig",
+            "Ziel: max. 800",
+            "Priorisierte Maßnahmen",
+        ] {
+            assert!(
+                text.contains(expected),
+                "missing PDF interpretation: {expected}"
+            );
+        }
     }
 
     #[test]
@@ -815,12 +1034,27 @@ mod tests {
 
     #[test]
     fn test_typ_renders_device_preview_when_screenshots_are_available() {
+        use crate::audit::{ViewportScoreSet, ViewportScores};
+
         let mut report = pdf_fixture_report_rich();
         report.page_screenshots = Some(PageScreenshots {
             desktop: tiny_png_bytes().to_vec(),
             mobile: tiny_png_bytes().to_vec(),
         });
         report.screenshot_status = ScreenshotStatus::Captured;
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 20,
+                performance: None,
+                overall: 20,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 20,
+                performance: None,
+                overall: 20,
+            },
+            weighted_overall: 20,
+        });
 
         let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
         let desktop_path = std::env::temp_dir().join(format!("ams-desktop-{}.png", ts));
@@ -831,7 +1065,14 @@ mod tests {
         assert!(typ.contains("device-preview"));
         assert!(typ.contains(PAGE_DESKTOP_SCREENSHOT_ASSET));
         assert!(typ.contains(PAGE_MOBILE_SCREENSHOT_ASSET));
-        assert!(typ.contains("Screenshots erfasst"));
+        // With viewport scores available, the compact strip contains the three
+        // score values while the captured images provide the visual preview.
+        assert!(typ.contains("Barrierefreiheit"));
+        assert!(typ.contains("Desktop"));
+        assert!(typ.contains("Mobile"));
+        assert!(typ.contains("Barrierefreiheit - Gesamt"));
+        assert!(typ.contains("70/30 gewichtet"));
+        assert!(typ.contains("Barrierefreiheits-Gesamtwert"));
         assert!(
             !desktop_path.exists() && !mobile_path.exists(),
             "temporary screenshot assets should be removed after Typst rendering"
@@ -969,6 +1210,66 @@ mod tests {
                 "module '{name}' score {score} (JSON) must appear in the Teil 3 detail"
             );
         }
+    }
+
+    #[test]
+    fn test_dual_viewport_accessibility_score_is_identical_in_json_and_pdf() {
+        use crate::audit::{ViewportScoreSet, ViewportScores};
+
+        let mut report = pdf_fixture_report_rich();
+        // Simulate the former bug: a score recomputed from the merged finding
+        // union differed from the two viewport scores shown later in the PDF.
+        report.accessibility.score = 12.0;
+        report.viewport_scores = Some(ViewportScores {
+            desktop: ViewportScoreSet {
+                accessibility: 80,
+                performance: None,
+                overall: 80,
+            },
+            mobile: ViewportScoreSet {
+                accessibility: 20,
+                performance: None,
+                overall: 20,
+            },
+            weighted_overall: 38,
+        });
+
+        let normalized = crate::audit::normalize(&report);
+        let unified = crate::output::UnifiedReport::single(&normalized, &report);
+        assert_eq!(unified.summary.accessibility_score, 38);
+        assert_eq!(unified.pages[0].accessibility_score, 38);
+        assert_eq!(
+            unified.pages[0]
+                .module_scores
+                .iter()
+                .find(|module| module.name == "Accessibility")
+                .map(|module| module.score),
+            Some(38)
+        );
+
+        let typ =
+            unescape_typ(&generate_typ(&report, &ReportConfig::default()).expect("Typst source"));
+        assert!(typ.contains("Barrierefreiheit - Gesamt"));
+        assert!(part_has_value(&typ, 38));
+        assert!(typ.contains("70/30 gewichtet"));
+    }
+
+    #[test]
+    fn test_screen_reader_quality_numbers_explain_scale_and_counts() {
+        let mut report = pdf_fixture_report_rich();
+        report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+            &report.url,
+            report.timestamp,
+            &crate::AXTree::new(),
+            "de",
+            None,
+        ));
+
+        let typ =
+            unescape_typ(&generate_typ(&report, &ReportConfig::default()).expect("Typst source"));
+        assert!(typ.contains("Heading-Qualität"));
+        assert!(typ.contains("Qualitätswerte nutzen eine Skala von 0–100"));
+        assert!(typ.contains("reine Anzahlen, keine Qualitätswerte"));
     }
 
     fn forbidden_typst_patterns() -> &'static [(&'static str, &'static str)] {

@@ -226,10 +226,19 @@ JSON output is treated as an automation contract.
 - Single report schema: [docs/json-report.schema.json](docs/json-report.schema.json)
 - Batch report schema: [docs/json-batch-report.schema.json](docs/json-batch-report.schema.json)
 
-Key top-level fields in a single-page report:
+Key fields in a single-page report:
+- `metric_context` — machine-readable definitions for the 0–100 score scale and the report's scoped count fields
 - `findings` — static WCAG violations and SEO findings
 - `interactive_findings` — journey-phase results (link texts, landmarks, heading outline, focus order, modal traps …); present when `--interactive basic|full` was used
 - `accessibility_journey` — structured trace of each journey (steps, snapshots, durations); present when `--interactive basic|full` was used
+- `audit_scope` and `execution_environment` — requested modules, viewports, throttle profiles, interaction mode, browser context, and live/cache provenance
+- `audit_quality` plus `pages[].detail.module_runs` and `pages[].detail.rule_outcomes` — distinguish complete, partial, failed, skipped, and non-applicable checks so a measurement failure cannot look like a clean result
+- `pages[].detail.accessibility_assessments` — structured warnings, manual-review items, and positive signals kept separate from confirmed violations and scoring
+- `artifacts` — descriptors for separately written evidence or screen-reader sidecars without embedding binary data in the main JSON
+
+For dual-viewport audits, the Accessibility score is the rounded blend of 70% mobile and 30% desktop in both JSON and PDF. WCAG occurrences, distinct grouped WCAG findings, and findings from all categories are exposed separately so counts remain comparable across formats.
+
+Batch JSON additionally exposes `site_analysis`: module averages, consistency signals, page types, topic overlap, duplicate content, structured-data distribution, performance rollups, interactive coverage, and aggregated accessibility assessments. Per-page entries remain compact instead of duplicating full single-page reports.
 
 The repository validates these contracts in automated tests.
 
@@ -284,8 +293,8 @@ AAA is not fully implemented yet.
 Modules are classified as **measured** (based on real browser data) or **heuristic** (structural-signal estimates, marked with `~` in reports).
 
 Measured:
-- Performance: Core Web Vitals (FCP, LCP, TBT, CLS) and technical complexity (DOM size, render blocking, resource loading)
-- SEO: meta tags, headings, structured data, content profile, tracking/external services signals
+- Performance: Core Web Vitals (FCP, LCP, TBT, CLS), throttled profiles, DOM/load targets, render-blocking and third-party resources, critical request chains, unused code, minification potential, JavaScript heap, and modeled transfer emissions
+- SEO: meta tags, headings, structured data, page-to-schema fit, content profile, tracking/external services signals
 - Security: HTTPS, header checks, and CDN/WAF protection detection
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
 
@@ -297,6 +306,22 @@ Heuristic (indicator scores — tendency, not measurements):
 - Dark Mode: detects dark mode support via `prefers-color-scheme` media queries and CSS custom properties
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals and runs stack-specific security probes (admin panel exposure, user enumeration, version disclosure)
 - Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. Derive-only — no extra browser interaction. Product-detail pages also get two commerce-aware interactive journeys — see Accessibility Journey Layer below.
+
+### Structured-data analysis
+
+The SEO module parses JSON-LD objects, arrays, and `@graph` documents; normalizes short, multiple, and full-IRI `@type` values; and reports invalid JSON, missing or invalid context, and untyped nodes. Microdata and RDFa are detected and explicitly marked as detected but not content-validated.
+
+Type-specific rules assess Product/Product Snippet, merchant Product + Offer, Article/BlogPosting/NewsArticle, BreadcrumbList, Organization, LocalBusiness, FAQPage, Event, Recipe, VideoObject, JobPosting, SoftwareApplication/WebApplication/MobileApplication, ProfilePage, CollectionPage/ItemList, WebPage/WebSite, and Person. Each profile records its source and review date. Eligibility blockers, recommendations, and manual checks remain separate; unknown types stay visible in the inventory without being judged incomplete.
+
+Page-to-schema fit is evaluated conservatively from visible page intent, visible facts, and URL evidence. The tool distinguishes product, service/software, job, event, FAQ, person, location, editorial-review, corporate, hub, and lead-generation pages. Missing primary schema is only reported as an opportunity at high classification confidence, and single-item Product, JobPosting, or Event markup is rejected on corresponding overview routes.
+
+For supported types, visible titles, prices, availability, authors, dates, FAQ content, breadcrumbs, job titles, and event dates are compared with JSON-LD. A hard mismatch is emitted only when the visible value is unambiguous; otherwise the result explicitly remains not evaluated or requires manual review. Batch reports additionally show recurring schema blockers, page-type/schema combinations, content-parity mismatches, and conflicting Organization/WebSite identities.
+
+### Runtime and evidence reliability
+
+Page capture uses a bounded stability budget and records whether the DOM became quiet, an application-provided ready signal was observed, or the budget expired. Consent handling reports detected, dismissed, failed, and unknown states with non-sensitive evidence. Ctrl-C and SIGTERM follow the same controlled shutdown path as normal runs, and report files are written atomically so partial files are not presented as successful output.
+
+Sitemap indexes are deduplicated and guarded against cycles, with hard limits of 1,000 sitemap documents and 100,000 discovered URLs. Batch aggregation stays bounded and publishes its atomic report only after collection succeeds.
 
 ### Accessibility Journey Layer
 
@@ -310,7 +335,7 @@ Interactive checks run a real browser session after the static AXTree phase. The
 
 On a detected shop's product-detail page, `full` mode also runs two commerce-aware journeys: an **add-to-cart feedback check** (does adding an item announce the result via a live region or focus-managed dialog, or only update a visual cart badge — SC 4.1.3) and a **quantity-stepper operability check** (can the quantity field be operated by keyboard, and does its value stay exposed to assistive technology — SC 2.1.1/4.1.2). Both are click-only, single-interaction checks — never a real checkout submission, never a filled-in purchase form.
 
-Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. They do not affect the accessibility score or `legal_flags`; critical interactive findings can raise the risk level.
+Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. The execution block records detected, attempted, completed, failed, skipped, and budget-limited journeys separately from findings. Compact focus evidence retains visibility, viewport, focus-indicator, bounding-box, obscuring, `aria-hidden`, and `inert` signals without embedding a full AXTree. Interactive findings do not affect the accessibility score or `legal_flags`; critical interactive findings can raise the risk level.
 
 **`auditmysite.toml` configuration:**
 
@@ -371,10 +396,12 @@ Single-page reports and sitemap/batch reports are intentionally different.
 - Module chapters: each module is its own chapter with a magazine-style opener and a one-line key takeaway. AI Visibility, Content Visibility, and Source Quality are merged into a single "KI & Vertrauen" (AI & Trust) chapter.
 - Action plan: recommendations as action cards grouped by where the problem lives (systemic vs. local), without time or effort estimates, plus a root-cause distribution chart.
 - Evidence-grade findings: each finding card can include a cropped, highlighted screenshot of the affected element, its DOM path, and (where applicable, e.g. contrast) the measured vs. required value — so a finding stands on its own without re-running the tool.
+- Audit coverage: requested and completed checks, partial measurements, manual-review items, and Journey execution coverage are surfaced explicitly instead of treating missing data as a pass.
+- Performance decisions: raw resource and loading metrics are paired with target ranges, the largest directly actionable lever, and prioritized actions.
 
 The design follows a consistent four-color status system; reports use no emoji and report effort by priority rather than by time windows.
 
-**Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics. It also verifies which recurring findings share the same underlying template component across pages — reporting "one fix resolves N pages" instead of N near-identical findings, with a confirmed/likely confidence distinction so the claim is never overstated.
+**Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics. It also verifies which recurring findings share the same underlying template component across pages — reporting "one fix resolves N pages" instead of N near-identical findings, with a confirmed/likely confidence distinction so the claim is never overstated. Template clusters require at least three affected pages and 60% site coverage, can identify selector-less document findings, and retain header/nav/main/footer context. Cross-page WCAG assessments for consistent navigation, identification, help, and multiple ways are kept separate from single-page automation and explicitly mark evidence gaps as manual review.
 
 Batch reports are not a stack of single-page reports.
 

@@ -1227,6 +1227,7 @@ mod tests {
                     total: 0,
                 },
                 nodes_analyzed: 100,
+                execution: Default::default(),
             },
             duration_ms: 1000,
             performance: None,

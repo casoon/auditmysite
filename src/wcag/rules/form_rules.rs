@@ -113,12 +113,20 @@ pub async fn check_form_no_submit_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("form-no-submit DOM JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "form-no-submit",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let Some(value) = result.value() else {
-        return vec![];
+        return vec![crate::wcag::technical_rule_failure_for(
+            "form-no-submit",
+            crate::cli::WcagLevel::A,
+            "missing_evaluation_value",
+        )];
     };
     let Some(issues) = value.as_array() else {
         return vec![];

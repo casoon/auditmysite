@@ -186,27 +186,33 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
                 } else {
                     "Heading-Qualität"
                 },
-                s.heading_quality_score.to_string(),
+                format!("{} / 100", s.heading_quality_score),
             )
-            .with_accent(crate::output::pdf::design::tokens::SUCCESS),
+            .with_accent(crate::output::pdf::design::score_color(
+                s.heading_quality_score as u8,
+            )),
             MetricStripItem::new(
                 if en {
                     "Landmark quality"
                 } else {
                     "Landmark-Qualität"
                 },
-                s.landmark_quality_score.to_string(),
+                format!("{} / 100", s.landmark_quality_score),
             )
-            .with_accent(crate::output::pdf::design::tokens::INFO),
+            .with_accent(crate::output::pdf::design::score_color(
+                s.landmark_quality_score as u8,
+            )),
             MetricStripItem::new(
                 if en {
                     "Name quality"
                 } else {
                     "Namens-Qualität"
                 },
-                s.name_quality_score.to_string(),
+                format!("{} / 100", s.name_quality_score),
             )
-            .with_accent(crate::output::pdf::design::tokens::INFO),
+            .with_accent(crate::output::pdf::design::score_color(
+                s.name_quality_score as u8,
+            )),
             MetricStripItem::new(
                 if en {
                     "Announced nodes"
@@ -221,6 +227,15 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
             ),
         ])
         .compact(),
+    );
+    builder = builder.add_component(
+        Label::new(if en {
+            "The three quality scores use a 0–100 scale (higher is better) and summarize the detected heading hierarchy, landmark structure, and accessible names. Announced nodes and tab stops are simple counts, not quality scores."
+        } else {
+            "Die drei Qualitätswerte nutzen eine Skala von 0–100 (höher ist besser) und verdichten erkannte Überschriftenhierarchie, Landmark-Struktur und zugängliche Namen. Angekündigte Knoten und Tab-Stopps sind reine Anzahlen, keine Qualitätswerte."
+        })
+        .with_size("9pt")
+        .with_color(crate::output::pdf::design::tokens::NEUTRAL),
     );
 
     let bfsg_note = match sr.bfsg_compliance.verdict {

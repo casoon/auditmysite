@@ -183,11 +183,27 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
     });
   }
 
+  // Only explicit autoplay/update signals are considered. Library class names
+  // that merely indicate a carousel exists are deliberately insufficient.
+  var autoWidgets = [];
+  var widgetSelectors = '[data-autoplay="true"], [data-ride="carousel"], [data-bs-ride="carousel"], .swiper-autoplay-running, [data-update-interval]';
+  for (const widget of document.querySelectorAll(widgetSelectors)) {
+    const interval = parseFloat(widget.getAttribute('data-interval') || widget.getAttribute('data-bs-interval') || widget.getAttribute('data-update-interval') || '0');
+    const explicitRunning = widget.matches('.swiper-autoplay-running, [data-autoplay="true"], [data-ride="carousel"], [data-bs-ride="carousel"]');
+    if (!explicitRunning && interval <= 5000) continue;
+    autoWidgets.push({
+      selector: widget.tagName.toLowerCase() + (widget.id ? '#' + widget.id : ''),
+      interval_ms: interval || null
+    });
+    if (autoWidgets.length >= 5) break;
+  }
+
   return {
     marquee_count: marqueeCount,
     has_pause_control: hasPauseControl,
     respects_reduced_motion: respectsReducedMotion,
-    animated: animated
+    animated: animated,
+    auto_widgets: autoWidgets
   };
 })()
 "#;
@@ -195,12 +211,22 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
 pub async fn check_pause_stop_hide_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(PAUSE_STOP_HIDE_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &PAUSE_STOP_HIDE_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &PAUSE_STOP_HIDE_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let marquee_count = val
@@ -245,6 +271,31 @@ pub async fn check_pause_stop_hide_with_page(page: &Page) -> Vec<Violation> {
     );
 
     let mut violations = Vec::new();
+
+    if !has_pause_control {
+        if let Some(widgets) = val.get("auto_widgets").and_then(|value| value.as_array()) {
+            for widget in widgets {
+                let Some(selector) = widget.get("selector").and_then(|value| value.as_str()) else {
+                    continue;
+                };
+                violations.push(
+                    Violation::new(
+                        PAUSE_STOP_HIDE_RULE.id,
+                        PAUSE_STOP_HIDE_RULE.name,
+                        PAUSE_STOP_HIDE_RULE.level,
+                        PAUSE_STOP_HIDE_RULE.severity,
+                        "An explicitly auto-running carousel or updating widget was detected without a recognizable pause, stop, or hide control.",
+                        selector,
+                    )
+                    .with_selector(selector)
+                    .with_rule_id(PAUSE_STOP_HIDE_RULE.axe_id)
+                    .with_kind(crate::wcag::types::FindingKind::Warning)
+                    .with_fix("Provide a visible pause, stop, or hide control next to the auto-running content")
+                    .with_help_url(PAUSE_STOP_HIDE_RULE.help_url),
+                );
+            }
+        }
+    }
 
     if marquee_fires {
         violations.push(

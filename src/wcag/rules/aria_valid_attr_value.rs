@@ -139,17 +139,32 @@ fn make_selector(tag: &str, id: Option<&str>, cls: Option<&str>) -> String {
 pub async fn check_aria_valid_attr_value_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(ARIA_VALID_ATTR_VALUE_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &RULE_META,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &RULE_META,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let items = match val.get("violations").and_then(|v| v.as_array()) {
         Some(arr) => arr.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &RULE_META,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
 
     items

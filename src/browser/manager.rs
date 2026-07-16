@@ -426,6 +426,12 @@ impl BrowserManager {
         self.chrome_info.version.as_deref()
     }
 
+    /// Whether this browser session runs headless. Exposed for report
+    /// provenance without leaking executable paths or launch arguments.
+    pub fn is_headless(&self) -> bool {
+        self.options.headless
+    }
+
     /// Close the browser gracefully
     pub async fn close(mut self) -> Result<()> {
         info!("Closing browser...");

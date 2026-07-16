@@ -112,6 +112,25 @@ mod tests {
     }
 
     #[test]
+    fn schema_status_uses_numeric_plural_selection() {
+        let de = I18n::new("de").expect("German bundle parses");
+        let text = de.t_args(
+            "pdf-seo-schema-status-issues",
+            &[("nodes", 2_i64), ("issues", 1_i64)],
+        );
+        assert!(text.contains("2 auswertbare Schema-Knoten"));
+        assert!(text.contains("Ein Syntax-/Strukturproblem liegt vor"));
+
+        let en = I18n::new("en").expect("English bundle parses");
+        let text = en.t_args(
+            "pdf-seo-schema-status-issues",
+            &[("nodes", 1_i64), ("issues", 2_i64)],
+        );
+        assert!(text.contains("One evaluable schema node"));
+        assert!(text.contains("2 syntax or structure issues are present"));
+    }
+
+    #[test]
     fn batch_scope_keys_render_with_args_in_both_locales() {
         for locale in ["de", "en"] {
             let i18n = I18n::new(locale).expect("bundle parses");

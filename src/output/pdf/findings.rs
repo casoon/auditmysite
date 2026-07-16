@@ -1,6 +1,8 @@
 //! Finding renderers for PDF reports.
 
-use renderreport::components::advanced::{Divider, KeyValueList, List, WrongRightBlock};
+use renderreport::components::advanced::{
+    Divider, KeyValueList, List, MetricStrip, MetricStripItem, WrongRightBlock,
+};
 use renderreport::components::text::Label;
 use renderreport::prelude::*;
 
@@ -183,6 +185,17 @@ fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
     }
 }
 
+/// Small tracked-caps section caption inside a finding card — the same
+/// visual language as the report's chapter eyebrows, scaled down. Used to
+/// separate the finding card's secondary blocks (QA metadata, action
+/// assessment) from each other without wrapping each one in its own frame.
+fn section_caption(text: &str) -> Label {
+    Label::new(text.to_uppercase())
+        .bold()
+        .with_size("8.5pt")
+        .with_color(super::design::tokens::NEUTRAL)
+}
+
 /// Find a specific `computed`/`ax_tree` evidence value by field name.
 fn evidence_value<'a>(
     evidence: &'a [ViolationEvidence],
@@ -279,27 +292,49 @@ pub(super) fn render_finding_technical(
         builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
     }
 
+    // Primary tier: the four things a developer scans first (who/how urgent/
+    // how much work), as a compact single-row strip instead of stacked
+    // label:value lines — matches the severity-counter strip elsewhere.
+    builder = builder.add_component(
+        MetricStrip::new(vec![
+            MetricStripItem::new(
+                i18n.t("label-priority"),
+                priority_label_i18n(group.priority, i18n),
+            )
+            .with_accent(color),
+            MetricStripItem::new(
+                i18n.t("label-owner"),
+                role_label_i18n(group.responsible_role, i18n),
+            )
+            .with_accent(super::design::tokens::INK),
+            MetricStripItem::new(
+                i18n.t("label-effort"),
+                effort_label_i18n(group.effort, i18n),
+            )
+            .with_accent(super::design::tokens::INK),
+            MetricStripItem::new(
+                if i18n.locale() == "en" {
+                    "Implementation priority"
+                } else {
+                    "Umsetzungspriorität"
+                },
+                report_code_label(&group.remediation_priority, i18n),
+            )
+            .with_accent(super::design::tokens::INK),
+        ])
+        .compact(),
+    );
+
+    // Secondary tier: audit-methodology metadata a developer doesn't need to
+    // read on every finding — kept compact and visually subordinate (a small
+    // caption, not a titled card) rather than continuing the primary strip's
+    // weight.
+    builder = builder.add_component(section_caption(if i18n.locale() == "en" {
+        "QA metadata"
+    } else {
+        "Prüfmetadaten"
+    }));
     let mut meta_kv = KeyValueList::new()
-        .add(
-            i18n.t("label-priority"),
-            priority_label_i18n(group.priority, i18n),
-        )
-        .add(
-            i18n.t("label-owner"),
-            role_label_i18n(group.responsible_role, i18n),
-        )
-        .add(
-            i18n.t("label-effort"),
-            effort_label_i18n(group.effort, i18n),
-        )
-        .add(
-            if i18n.locale() == "en" {
-                "Implementation priority"
-            } else {
-                "Umsetzungspriorität"
-            },
-            report_code_label(&group.remediation_priority, i18n),
-        )
         .add(
             if i18n.locale() == "en" {
                 "Detection confidence"
@@ -347,11 +382,12 @@ pub(super) fn render_finding_technical(
         crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en);
     let complexity_reason = crate::audit::normalized::complexity_text(group.complexity_kind, en);
     if !expected_impact.is_empty() || !complexity_reason.is_empty() {
-        let mut assessment = KeyValueList::new().with_title(if i18n.locale() == "en" {
+        builder = builder.add_component(section_caption(if i18n.locale() == "en" {
             "Action assessment"
         } else {
             "Maßnahmenbewertung"
-        });
+        }));
+        let mut assessment = KeyValueList::new();
         if !expected_impact.is_empty() {
             assessment = assessment.add(
                 if i18n.locale() == "en" {

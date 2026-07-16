@@ -55,17 +55,32 @@ const DUPLICATE_ID_JS: &str = r#"
 pub async fn check_parsing_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(DUPLICATE_ID_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &PARSING_PAGE_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &PARSING_PAGE_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let duplicates = match val.get("duplicates").and_then(|v| v.as_array()) {
         Some(arr) => arr.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &PARSING_PAGE_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
 
     duplicates

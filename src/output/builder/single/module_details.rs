@@ -38,6 +38,45 @@ fn module_interpretation(normalized: &NormalizedReport, module: &str, locale: &s
         .unwrap_or_default()
 }
 
+/// Three-tier rating for a metric with a fixed good/poor boundary, matching
+/// the "good"/"needs-improvement"/"poor" vocabulary the Core Web Vitals
+/// already use downstream (see `vital_status`/`vital_color` in
+/// `output::pdf::detail_modules`) so both render through the same styling.
+fn rate_threshold(value: f64, good_max: f64, poor_min: f64) -> &'static str {
+    if value <= good_max {
+        "good"
+    } else if value < poor_min {
+        "needs-improvement"
+    } else {
+        "poor"
+    }
+}
+
+fn localized_decimal(value: f64, decimals: usize, en: bool) -> String {
+    let formatted = format!("{value:.decimals$}");
+    if en {
+        formatted
+    } else {
+        formatted.replace('.', ",")
+    }
+}
+
+fn localized_integer(value: i64, en: bool) -> String {
+    let separator = if en { ',' } else { '.' };
+    let digits = value.abs().to_string();
+    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.push(separator);
+        }
+        grouped.push(digit);
+    }
+    if value < 0 {
+        grouped.insert(0, '-');
+    }
+    grouped
+}
+
 fn build_performance_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
@@ -62,26 +101,71 @@ fn build_performance_details(
             vitals: vitals.clone(),
         });
 
+        let en = i18n.locale() == "en";
         let mut additional = Vec::new();
-        if let Some(nodes) = p.vitals.dom_nodes {
-            additional.push(("DOM-Knoten".to_string(), nodes.to_string()));
-        }
         if let Some(heap) = p.vitals.js_heap_size {
             additional.push((
                 "JS Heap".to_string(),
                 format!("{:.1} MB", heap as f64 / 1_048_576.0),
             ));
         }
-        if let Some(load) = p.vitals.load_time {
-            additional.push(("Ladezeit".to_string(), format!("{:.0}ms", load)));
-        }
-        if let Some(dcl) = p.vitals.dom_content_loaded {
-            additional.push(("DOM Content Loaded".to_string(), format!("{:.0}ms", dcl)));
-        }
         if let Some(ref cw) = p.content_weight {
             additional.push((
-                "CO2e pro View".to_string(),
+                if en { "CO2e per view" } else { "CO2e pro View" }.to_string(),
                 format!("{} g ({})", cw.carbon.format_grams(), cw.carbon.rating),
+            ));
+        }
+
+        // Resource/DOM metrics with an established best-practice threshold —
+        // rated the same way the Core Web Vitals are ("good"/"needs-
+        // improvement"/"poor"), instead of sitting as plain, unrated text
+        // indistinguishable from benign values. Thresholds: DOM node count
+        // matches Lighthouse's own DOM-size audit guidance (flags past
+        // ~1,500 nodes); load time and DOM-content-loaded follow commonly
+        // cited page-load guidance (sub-3s / sub-1.8s "good").
+        let mut resource_ratings = Vec::new();
+        if let Some(nodes) = p.vitals.dom_nodes {
+            resource_ratings.push((
+                if en { "DOM nodes" } else { "DOM-Knoten" }.to_string(),
+                localized_integer(nodes, en),
+                rate_threshold(nodes as f64, 800.0, 1500.0).to_string(),
+                if en {
+                    "Target: max. 800"
+                } else {
+                    "Ziel: max. 800"
+                }
+                .to_string(),
+            ));
+        }
+        if let Some(load) = p.vitals.load_time {
+            resource_ratings.push((
+                if en { "Load time" } else { "Ladezeit" }.to_string(),
+                format!("{} s", localized_decimal(load / 1000.0, 1, en)),
+                rate_threshold(load, 3000.0, 6000.0).to_string(),
+                if en {
+                    "Target: max. 3.0 s"
+                } else {
+                    "Ziel: max. 3,0 s"
+                }
+                .to_string(),
+            ));
+        }
+        if let Some(dcl) = p.vitals.dom_content_loaded {
+            resource_ratings.push((
+                if en {
+                    "DOM Content Loaded"
+                } else {
+                    "DOM-Inhalt geladen"
+                }
+                .to_string(),
+                format!("{} s", localized_decimal(dcl / 1000.0, 1, en)),
+                rate_threshold(dcl, 1800.0, 3600.0).to_string(),
+                if en {
+                    "Target: max. 1.8 s"
+                } else {
+                    "Ziel: max. 1,8 s"
+                }
+                .to_string(),
             ));
         }
 
@@ -344,7 +428,10 @@ fn build_performance_details(
                         (
                             truncate_url(&a.url, 60),
                             a.kind.clone(),
-                            format!("{:.1} KB", a.savings_bytes as f64 / 1024.0),
+                            format!(
+                                "{} KB",
+                                localized_decimal(a.savings_bytes as f64 / 1024.0, 1, en)
+                            ),
                         )
                     })
                     .collect();
@@ -356,7 +443,10 @@ fn build_performance_details(
                         (
                             truncate_url(&a.url, 60),
                             a.signature.clone(),
-                            format!("{:.1} KB", a.wasted_bytes as f64 / 1024.0),
+                            format!(
+                                "{} KB",
+                                localized_decimal(a.wasted_bytes as f64 / 1024.0, 1, en)
+                            ),
                         )
                     })
                     .collect();
@@ -410,6 +500,7 @@ fn build_performance_details(
             desktop: desktop_viewport,
             mobile: mobile_viewport,
             additional_metrics: additional,
+            resource_ratings,
             recommendations,
             render_blocking_metrics,
             render_blocking_suggestions,
@@ -453,6 +544,185 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
         let localized_profile = crate::seo::build_content_profile(s, locale);
         let profile = Some(&localized_profile).map(|cp| {
             use crate::seo::profile::SchemaExtracted;
+
+            let structural_issues: Vec<_> = s
+                .structured_data
+                .schema_issues
+                .iter()
+                .filter(|issue| issue.issue_type.starts_with("jsonld_"))
+                .collect();
+            let valid_schema_nodes = s
+                .structured_data
+                .json_ld
+                .iter()
+                .filter(|schema| schema.is_valid && !schema.schema_types.is_empty())
+                .count();
+            let schema_status_has_json_ld = !s.structured_data.json_ld.is_empty();
+            let schema_status_summary = if !structural_issues.is_empty() {
+                i18n.t_args(
+                    "pdf-seo-schema-status-issues",
+                    &[
+                        ("nodes", valid_schema_nodes as i64),
+                        ("issues", structural_issues.len() as i64),
+                    ],
+                )
+            } else if schema_status_has_json_ld {
+                i18n.t_args(
+                    "pdf-seo-schema-status-ok",
+                    &[("nodes", valid_schema_nodes as i64)],
+                )
+            } else if s.structured_data.has_structured_data {
+                i18n.t("pdf-seo-schema-status-non-jsonld")
+            } else {
+                i18n.t("pdf-seo-schema-status-none")
+            };
+
+            let mut grouped_structural_issues: std::collections::BTreeMap<
+                &str,
+                (&crate::seo::schema::SchemaIssue, usize),
+            > = std::collections::BTreeMap::new();
+            for issue in &structural_issues {
+                grouped_structural_issues
+                    .entry(issue.issue_type.as_str())
+                    .and_modify(|(_, count)| *count += 1)
+                    .or_insert((issue, 1));
+            }
+            let schema_status_rows = grouped_structural_issues
+                .into_values()
+                .map(|(issue, count)| {
+                    let label = crate::seo::schema::schema_issue_label(issue, en);
+                    (
+                        if count > 1 {
+                            format!("{label} ({count}×)")
+                        } else {
+                            label.to_string()
+                        },
+                        crate::seo::schema::schema_issue_text(issue, en),
+                    )
+                })
+                .collect();
+
+            let (
+                schema_fit_summary,
+                schema_fit_is_success,
+                schema_fit_is_warning,
+                schema_fit_facts,
+            ) = if let Some(fit) = &s.structured_data.fit_assessment {
+                use crate::seo::schema_fit::{SchemaCoverageStatus, SchemaFitStatus};
+
+                let expected = if fit.expected_primary_types.is_empty() {
+                    i18n.t("pdf-seo-schema-fit-none")
+                } else {
+                    fit.expected_primary_types.join(", ")
+                };
+                let detected = if fit.detected_primary_types.is_empty() {
+                    i18n.t("pdf-seo-schema-fit-none")
+                } else {
+                    fit.detected_primary_types.join(", ")
+                };
+                (
+                    Some(fit.fit_text(en).to_string()),
+                    fit.fit_status == SchemaFitStatus::Matched,
+                    fit.fit_status == SchemaFitStatus::Mismatch
+                        || fit.coverage_status == SchemaCoverageStatus::Opportunity,
+                    vec![
+                        (
+                            i18n.t("pdf-seo-schema-fit-page-type"),
+                            fit.page_kind.label(en).to_string(),
+                        ),
+                        (
+                            i18n.t("pdf-seo-schema-fit-confidence"),
+                            format!("{}%", fit.confidence),
+                        ),
+                        (i18n.t("pdf-seo-schema-fit-expected"), expected),
+                        (i18n.t("pdf-seo-schema-fit-detected"), detected),
+                    ],
+                )
+            } else {
+                (None, false, false, Vec::new())
+            };
+
+            let schema_rule_rows = s
+                .structured_data
+                .rule_assessments
+                .iter()
+                .map(|assessment| {
+                    use crate::seo::schema_rules::SchemaFeatureAvailability;
+
+                    let status = match assessment.availability {
+                        SchemaFeatureAvailability::Limited => format!(
+                            "{} - {}",
+                            assessment.status_text(en),
+                            i18n.t("pdf-seo-schema-rule-limited")
+                        ),
+                        SchemaFeatureAvailability::ContextDependent => format!(
+                            "{} - {}",
+                            assessment.status_text(en),
+                            i18n.t("pdf-seo-schema-rule-context-dependent")
+                        ),
+                        SchemaFeatureAvailability::General => {
+                            assessment.status_text(en).to_string()
+                        }
+                    };
+                    let detail = if !assessment.missing_required.is_empty() {
+                        i18n.t_args(
+                            "pdf-seo-schema-rule-missing-required",
+                            &[("fields", assessment.missing_required.join(", "))],
+                        )
+                    } else if !assessment.missing_recommended.is_empty() {
+                        i18n.t_args(
+                            "pdf-seo-schema-rule-missing-recommended",
+                            &[("fields", assessment.missing_recommended.join(", "))],
+                        )
+                    } else if assessment.requirement_status
+                        == crate::seo::schema_rules::SchemaRequirementStatus::NotEvaluated
+                    {
+                        i18n.t("pdf-seo-schema-rule-not-evaluated")
+                    } else {
+                        i18n.t("pdf-seo-schema-rule-complete")
+                    };
+                    (
+                        format!(
+                            "{} - {}",
+                            assessment.schema_type,
+                            assessment.feature.label(en)
+                        ),
+                        status,
+                        detail,
+                    )
+                })
+                .collect();
+
+            let schema_manual_review_rows = s
+                .structured_data
+                .rule_assessments
+                .iter()
+                .flat_map(|assessment| {
+                    assessment.manual_review.iter().map(|review| {
+                        (
+                            format!(
+                                "{} - {}",
+                                assessment.schema_type,
+                                assessment.feature.label(en)
+                            ),
+                            crate::seo::schema_rules::manual_review_text(review, en),
+                        )
+                    })
+                })
+                .collect();
+
+            let schema_parity_rows = s
+                .structured_data
+                .content_parity
+                .iter()
+                .map(|assessment| {
+                    (
+                        format!("{} - {}", assessment.schema_type, assessment.property),
+                        assessment.status_text(en).to_string(),
+                        assessment.evidence_text(en),
+                    )
+                })
+                .collect();
 
             let schema_rows: Vec<(String, String, String)> = cp
                 .schema_inventory
@@ -668,6 +938,17 @@ fn build_seo_details(normalized: &AuditContext<'_>, i18n: &I18n) -> Option<SeoPr
                 ],
                 schema_rows,
                 schema_count: cp.schema_inventory.total_count,
+                schema_status_summary,
+                schema_status_has_errors: !structural_issues.is_empty(),
+                schema_status_has_json_ld,
+                schema_status_rows,
+                schema_fit_summary,
+                schema_fit_is_success,
+                schema_fit_is_warning,
+                schema_fit_facts,
+                schema_rule_rows,
+                schema_manual_review_rows,
+                schema_parity_rows,
                 signal_rows,
                 signal_overall_pct: cp.signal_strength.overall_pct,
                 signal_details,

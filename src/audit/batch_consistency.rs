@@ -21,6 +21,49 @@ pub struct BatchConsistencyAnalysis {
     pub canonical: CanonicalConsistency,
     pub orphan_pages: OrphanPageAnalysis,
     pub schema_graph: SchemaGraphAnalysis,
+    pub structured_data: StructuredDataConsistency,
+    /// Criteria that require comparison across multiple pages. These are not
+    /// emitted as single-page conformance claims.
+    pub wcag_cross_page: Vec<CrossPageCriterionAssessment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossPageCriterionAssessment {
+    pub criterion: String,
+    pub status: String,
+    pub basis: String,
+    pub affected_pages: usize,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct StructuredDataConsistency {
+    pub type_distribution: Vec<SchemaTypeCount>,
+    pub recurring_blockers: Vec<RecurringSchemaFinding>,
+    pub parity_mismatches: Vec<RecurringSchemaFinding>,
+    pub page_type_matrix: Vec<SchemaPageMatrixRow>,
+    pub identity_findings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaTypeCount {
+    pub schema_type: String,
+    pub pages: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecurringSchemaFinding {
+    pub key: String,
+    pub affected_pages: usize,
+    pub urls: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaPageMatrixRow {
+    pub url: String,
+    pub page_kind: String,
+    pub coverage_status: String,
+    pub expected_types: Vec<String>,
+    pub detected_types: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -92,7 +135,197 @@ pub fn analyze(batch: &BatchReport) -> Option<BatchConsistencyAnalysis> {
         canonical: analyze_canonical(&batch.reports),
         orphan_pages: analyze_orphan_pages(&batch.reports),
         schema_graph: analyze_schema_graph(&batch.reports),
+        structured_data: analyze_structured_data(&batch.reports),
+        wcag_cross_page: analyze_cross_page_criteria(&batch.reports),
     })
+}
+
+fn analyze_cross_page_criteria(reports: &[AuditReport]) -> Vec<CrossPageCriterionAssessment> {
+    let navigation = analyze_navigation(reports);
+    let orphan_pages = analyze_orphan_pages(reports);
+    let inconsistent_navigation = navigation.total_pages - navigation.pages_with_main_nav;
+    vec![
+        CrossPageCriterionAssessment {
+            criterion: "3.2.3 Consistent Navigation".to_string(),
+            status: if navigation.findings.is_empty() {
+                "no_inconsistency_detected"
+            } else {
+                "warning"
+            }
+            .to_string(),
+            basis: "Main-navigation and skip-link presence compared across the audited page set"
+                .to_string(),
+            affected_pages: inconsistent_navigation,
+        },
+        CrossPageCriterionAssessment {
+            criterion: "3.2.4 Consistent Identification".to_string(),
+            status: "manual_review".to_string(),
+            basis: "Component identity requires accessible-name comparison across equivalent controls; current evidence is insufficient for a conformance claim"
+                .to_string(),
+            affected_pages: 0,
+        },
+        CrossPageCriterionAssessment {
+            criterion: "3.2.6 Consistent Help".to_string(),
+            status: "manual_review".to_string(),
+            basis: "Help mechanisms and their relative order require cross-page control-level evidence"
+                .to_string(),
+            affected_pages: 0,
+        },
+        CrossPageCriterionAssessment {
+            criterion: "2.4.5 Multiple Ways".to_string(),
+            status: if orphan_pages.orphan_urls.is_empty() {
+                "manual_review"
+            } else {
+                "warning"
+            }
+            .to_string(),
+            basis: "Inbound links within the audited set are checked; search, sitemap and process-step exceptions still require manual confirmation"
+                .to_string(),
+            affected_pages: orphan_pages.orphan_urls.len(),
+        },
+    ]
+}
+
+fn analyze_structured_data(reports: &[AuditReport]) -> StructuredDataConsistency {
+    let mut distribution: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut blockers: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut parity: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut page_type_matrix = Vec::new();
+    let mut organization_ids = HashSet::new();
+    let mut organization_pages = 0usize;
+    let mut organization_pages_without_id = 0usize;
+
+    for report in reports {
+        let Some(seo) = report.discoverability.seo.as_ref() else {
+            continue;
+        };
+        for schema_type in &seo.structured_data.types {
+            distribution
+                .entry(schema_type.as_str().to_string())
+                .or_default()
+                .insert(report.url.clone());
+        }
+        for assessment in &seo.structured_data.rule_assessments {
+            for property in &assessment.missing_required {
+                blockers
+                    .entry(format!(
+                        "{} / {} / {}",
+                        assessment.schema_type,
+                        assessment.feature.key(),
+                        property
+                    ))
+                    .or_default()
+                    .insert(report.url.clone());
+            }
+        }
+        for assessment in &seo.structured_data.content_parity {
+            if assessment.status == crate::seo::schema_parity::ContentParityStatus::Mismatch {
+                parity
+                    .entry(format!(
+                        "{} / {}",
+                        assessment.schema_type, assessment.property
+                    ))
+                    .or_default()
+                    .insert(report.url.clone());
+            }
+        }
+        if let Some(fit) = &seo.structured_data.fit_assessment {
+            page_type_matrix.push(SchemaPageMatrixRow {
+                url: report.url.clone(),
+                page_kind: enum_key(&fit.page_kind),
+                coverage_status: enum_key(&fit.coverage_status),
+                expected_types: fit.expected_primary_types.clone(),
+                detected_types: fit.detected_primary_types.clone(),
+            });
+        }
+        for schema in &seo.structured_data.json_ld {
+            if schema
+                .schema_types
+                .iter()
+                .any(|schema_type| schema_type == "Organization" || schema_type == "LocalBusiness")
+            {
+                organization_pages += 1;
+                if let Some(id) = schema
+                    .content
+                    .get("@id")
+                    .and_then(serde_json::Value::as_str)
+                {
+                    organization_ids.insert(id.trim_end_matches('/').to_string());
+                } else {
+                    organization_pages_without_id += 1;
+                }
+            }
+        }
+    }
+
+    let mut type_distribution = distribution
+        .into_iter()
+        .map(|(schema_type, urls)| SchemaTypeCount {
+            schema_type,
+            pages: urls.len(),
+        })
+        .collect::<Vec<_>>();
+    type_distribution.sort_by(|left, right| {
+        right
+            .pages
+            .cmp(&left.pages)
+            .then_with(|| left.schema_type.cmp(&right.schema_type))
+    });
+
+    let mut recurring_blockers = recurring_findings(blockers);
+    let mut parity_mismatches = recurring_findings(parity);
+    recurring_blockers.retain(|finding| finding.affected_pages >= 2);
+    parity_mismatches.retain(|finding| finding.affected_pages >= 2);
+
+    let mut identity_findings = Vec::new();
+    if organization_ids.len() > 1 {
+        identity_findings.push(format!(
+            "Organization identity uses {} different @id values across the audited pages.",
+            organization_ids.len()
+        ));
+    }
+    if organization_pages > 1 && organization_pages_without_id > 0 {
+        identity_findings.push(format!(
+            "{organization_pages_without_id} of {organization_pages} organization nodes have no stable @id for cross-page identity validation."
+        ));
+    }
+
+    StructuredDataConsistency {
+        type_distribution,
+        recurring_blockers,
+        parity_mismatches,
+        page_type_matrix,
+        identity_findings,
+    }
+}
+
+fn recurring_findings(findings: HashMap<String, HashSet<String>>) -> Vec<RecurringSchemaFinding> {
+    let mut result = findings
+        .into_iter()
+        .map(|(key, urls)| {
+            let mut urls = urls.into_iter().collect::<Vec<_>>();
+            urls.sort();
+            RecurringSchemaFinding {
+                key,
+                affected_pages: urls.len(),
+                urls,
+            }
+        })
+        .collect::<Vec<_>>();
+    result.sort_by(|left, right| {
+        right
+            .affected_pages
+            .cmp(&left.affected_pages)
+            .then_with(|| left.key.cmp(&right.key))
+    });
+    result
+}
+
+fn enum_key<T: Serialize>(value: &T) -> String {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn analyze_navigation(reports: &[AuditReport]) -> NavigationConsistency {

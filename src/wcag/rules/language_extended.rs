@@ -68,13 +68,23 @@ pub async fn check_language_extended_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("language-extended JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "language-extended",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure_for(
+                "language-extended",
+                crate::cli::WcagLevel::A,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let lang = val.get("lang").and_then(|v| v.as_str()).unwrap_or("");

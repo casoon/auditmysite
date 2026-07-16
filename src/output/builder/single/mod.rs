@@ -897,6 +897,8 @@ mod tests {
                 values: crate::audit::normalized::InteractiveFindingValues::default(),
             });
         report.accessibility_journey = Some(crate::audit::normalized::AccessibilityJourney {
+            execution: Default::default(),
+            focus_evidence: Vec::new(),
             traces: vec![crate::audit::normalized::JourneyTrace {
                 journey: "skip_link".to_string(),
                 steps: vec![crate::audit::normalized::JourneyStep {

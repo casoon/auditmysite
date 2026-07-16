@@ -3,13 +3,18 @@
   "$id": "https://github.com/casoon/auditmysite/docs/json-report.schema.json",
   "title": "auditmysite unified report (single)",
   "type": "object",
-  "required": ["schema_version", "report_type", "metadata", "summary", "pages"],
+  "required": ["schema_version", "report_type", "metadata", "metric_context", "summary", "pages"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "const": "2.0" },
     "report_type": { "type": "string", "const": "single" },
     "tool_version": { "type": "string" },
     "metadata": { "$ref": "#/$defs/metadata" },
+    "audit_scope": { "$ref": "#/$defs/auditScope" },
+    "execution_environment": { "type": "object" },
+    "audit_quality": { "$ref": "#/$defs/auditQuality" },
+    "metric_context": { "$ref": "#/$defs/metricContext" },
+    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
     "summary": { "$ref": "#/$defs/summary" },
     "pages": {
       "type": "array",
@@ -17,10 +22,94 @@
       "maxItems": 1,
       "items": { "$ref": "#/$defs/pageEntry" }
     },
+    "collection_errors": {
+      "description": "Errors raised while serializing the report. Audit and measurement failures are represented separately in module_runs, rule_outcomes, and audit_quality.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/reportError" }
+    },
     "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
     "verdict_reasons": { "type": "array", "items": { "type": "string" } }
   },
   "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["kind", "media_type", "delivery", "path_template", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string" },
+        "media_type": { "type": "string" },
+        "delivery": { "type": "string", "enum": ["sidecar"] },
+        "path_template": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "partial", "failed", "skipped", "not_applicable", "not_requested"] }
+      }
+    },
+    "reportError": {
+      "type": "object",
+      "required": ["module", "error_type", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "module": { "type": "string" },
+        "error_type": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "auditScope": {
+      "type": "object",
+      "required": ["requested_modules", "full_audit", "interactive_mode", "journey_budget_ms", "throttling_profiles", "viewports", "dismiss_consent", "capture_screenshots", "capture_element_evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "requested_modules": { "type": "array", "items": { "type": "string" } },
+        "full_audit": { "type": "boolean" },
+        "interactive_mode": { "type": "string" },
+        "journey_budget_ms": { "type": "integer", "minimum": 0 },
+        "throttling_profiles": { "type": "array", "items": { "type": "string" } },
+        "viewports": { "type": "array", "items": { "type": "object" } },
+        "dismiss_consent": { "type": "boolean" },
+        "capture_screenshots": { "type": "boolean" },
+        "capture_element_evidence": { "type": "boolean" }
+      }
+    },
+    "auditQuality": {
+      "type": "object",
+      "required": ["status", "qualified_results", "failed_rule_checks", "partial_or_failed_modules"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["complete", "partial", "insufficient"] },
+        "qualified_results": { "type": "boolean" },
+        "failed_rule_checks": { "type": "integer", "minimum": 0 },
+        "partial_or_failed_modules": { "type": "integer", "minimum": 0 },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "metricContext": {
+      "type": "object",
+      "required": ["score_scale", "score_definitions", "count_definitions"],
+      "additionalProperties": false,
+      "properties": {
+        "score_scale": {
+          "type": "object",
+          "required": ["minimum", "maximum", "higher_is_better"],
+          "additionalProperties": false,
+          "properties": {
+            "minimum": { "type": "integer", "const": 0 },
+            "maximum": { "type": "integer", "const": 100 },
+            "higher_is_better": { "type": "boolean", "const": true }
+          }
+        },
+        "score_definitions": { "type": "array", "items": { "$ref": "#/$defs/metricDefinition" } },
+        "count_definitions": { "type": "array", "items": { "$ref": "#/$defs/metricDefinition" } }
+      }
+    },
+    "metricDefinition": {
+      "type": "object",
+      "required": ["field", "unit", "meaning"],
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string" },
+        "unit": { "type": "string" },
+        "meaning": { "type": "string" }
+      }
+    },
     "metadata": {
       "type": "object",
       "required": ["tool", "timestamp", "wcag_level", "execution_time_ms"],
@@ -42,8 +131,11 @@
         "certificate",
         "risk_level",
         "violation_count",
+        "finding_count",
+        "finding_occurrence_count",
         "severity_counts",
         "severity_counts_scope",
+        "occurrence_counts_scope",
         "passed_url_count",
         "failed_url_count"
       ],
@@ -57,9 +149,12 @@
         "certificate": { "type": "string" },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "violation_count": { "type": "integer", "minimum": 0 },
+        "finding_count": { "type": "integer", "minimum": 0 },
+        "finding_occurrence_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
         "severity_counts_scope": { "type": "string", "const": "wcag_only" },
         "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
+        "occurrence_counts_scope": { "type": "string", "const": "wcag_only" },
         "passed_url_count": { "type": "integer", "minimum": 0 },
         "failed_url_count": { "type": "integer", "minimum": 0 },
         "violated_rule_count": { "type": "integer", "minimum": 0 },
@@ -145,8 +240,11 @@
         "grade",
         "certificate",
         "violation_count",
+        "finding_count",
+        "finding_occurrence_count",
         "severity_counts",
         "severity_counts_scope",
+        "occurrence_counts_scope",
         "nodes_analyzed",
         "duration_ms",
         "module_scores",
@@ -162,8 +260,12 @@
         "grade": { "type": "string" },
         "certificate": { "type": "string" },
         "violation_count": { "type": "integer", "minimum": 0 },
+        "finding_count": { "type": "integer", "minimum": 0 },
+        "finding_occurrence_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
         "severity_counts_scope": { "type": "string", "const": "wcag_only" },
+        "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
+        "occurrence_counts_scope": { "type": "string", "const": "wcag_only" },
         "nodes_analyzed": { "type": "integer", "minimum": 0 },
         "duration_ms": { "type": "integer", "minimum": 0 },
         "module_scores": {
@@ -177,6 +279,12 @@
           "items": { "$ref": "#/$defs/finding" }
         },
         "audit_flags": { "type": "array" },
+        "audit_quality": { "$ref": "#/$defs/auditQuality" },
+        "module_runs": { "type": "array" },
+        "rule_outcomes": { "type": "array" },
+        "accessibility_assessments": { "type": "array" },
+        "navigation": { "type": "object" },
+        "consent": { "type": "object" },
         "detail": { "$ref": "#/$defs/pageDetail" }
       }
     },
@@ -199,9 +307,15 @@
           "items": { "$ref": "#/$defs/capabilitySignal" }
         },
         "viewport_scores": { "type": ["object", "null"] },
+        "viewport_comparison": { "type": ["object", "null"] },
         "budget_violations": { "type": "array" },
         "throttled_performance": { "type": "array" },
         "screenshot_status": { "type": ["object", "null"] },
+        "collection_errors": {
+          "description": "Errors raised while serializing this page detail; not audit execution failures.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/reportError" }
+        },
         "history": { "type": ["object", "null"] }
       }
     },

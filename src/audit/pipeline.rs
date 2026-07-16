@@ -35,7 +35,7 @@ use crate::browser::{
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::DarkModeAnalysis;
 use crate::error::Result;
-use crate::interaction::stability::settle;
+use crate::interaction::stability::{settle, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
@@ -179,6 +179,7 @@ pub struct SnapshotData {
     dark_mode: Option<DarkModeAnalysis>,
     tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     best_practices: Option<BestPracticesAnalysis>,
+    module_runs: Vec<crate::audit::ModuleRun>,
 }
 
 impl SnapshotData {
@@ -187,7 +188,37 @@ impl SnapshotData {
     /// Called once per collected module after `catalog.collect_all()`. Keeping
     /// the routing here means adding a new module only requires updating
     /// `SnapshotData` and this method — not the pipeline loop body.
-    fn apply_module_data(&mut self, data: ModuleData) {
+    fn apply_module_data(&mut self, module_id: &str, viewport: Viewport, data: ModuleData) {
+        let viewport = match viewport {
+            Viewport::Desktop => "desktop",
+            Viewport::Mobile => "mobile",
+        };
+        let derive_only = matches!(
+            module_id,
+            "source_quality" | "ai_visibility" | "content_visibility" | "commerce"
+        );
+        let status = match &data {
+            ModuleData::Error(_) => crate::audit::ExecutionStatus::Failed,
+            ModuleData::None if derive_only => crate::audit::ExecutionStatus::Skipped,
+            ModuleData::None => crate::audit::ExecutionStatus::Failed,
+            _ => crate::audit::ExecutionStatus::Completed,
+        };
+        self.module_runs.push(crate::audit::ModuleRun {
+            module: module_id.to_string(),
+            status,
+            viewports: vec![viewport.to_string()],
+            subchecks: Vec::new(),
+            reason_code: match &data {
+                ModuleData::Error(_) => Some("module_collection_failed".to_string()),
+                ModuleData::None if derive_only => Some("derive_phase".to_string()),
+                ModuleData::None => Some("no_data_returned".to_string()),
+                _ => None,
+            },
+            message: match &data {
+                ModuleData::Error(_) => Some("The module could not be collected.".to_string()),
+                _ => None,
+            },
+        });
         match data {
             ModuleData::None => {}
             ModuleData::Performance(p) => self.performance = Some(*p),
@@ -216,8 +247,12 @@ pub struct PipelineConfig {
     pub wcag_level: WcagLevel,
     /// Page load timeout in seconds
     pub timeout_secs: u64,
+    /// Bounded late-render stabilization budget after navigation.
+    pub stability_budget_ms: u64,
     /// Whether to be verbose
     pub verbose: bool,
+    /// Whether the user selected the full-audit preset.
+    pub full_audit: bool,
     /// Run performance analysis
     pub check_performance: bool,
     /// Run SEO analysis
@@ -277,8 +312,10 @@ impl PipelineConfig {
         // Bumped to 2 for the ExperienceSection move, 3 for AccessibilitySection,
         // 4 for DiscoverabilitySection, 5 for the new commerce module field,
         // 6 for the commerce trust-pages restructure, 7 for commerce page_kind,
-        // 8 for commerce conversion signals.
-        const CACHE_FMT: u8 = 8;
+        // 8 for commerce conversion signals, 9 for structured-data rule and
+        // page-fit assessments, 10 for the report quality model, 11 for
+        // page-stability provenance.
+        const CACHE_FMT: u8 = 11;
         format!(
             "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};stack={};consent={};interactive={:?};journey_budget_ms={};lang={}",
             env!("CARGO_PKG_VERSION"),
@@ -339,7 +376,9 @@ impl PipelineConfig {
         Self {
             wcag_level: args.level,
             timeout_secs: args.effective_timeout(),
+            stability_budget_ms: args.stability_budget_ms,
             verbose: args.verbose,
+            full_audit,
             check_performance: (full_audit || args.performance) && !args.skip_performance,
             check_seo: full_audit || args.seo,
             check_security: full_audit || args.security,
@@ -383,6 +422,7 @@ pub async fn run_single_audit(
         let (throttled, canonical) =
             collect_throttled_performance(&page, url, browser, config, content_weight.as_ref())
                 .await;
+        attach_throttled_profile_subchecks(&mut report, &throttled);
         report.throttled_performance = throttled;
         if let Some((vitals, score)) = canonical {
             apply_canonical_perf(&mut report, vitals, score);
@@ -402,6 +442,47 @@ pub async fn run_single_audit(
     );
 
     Ok(report)
+}
+
+fn attach_throttled_profile_subchecks(
+    report: &mut AuditReport,
+    results: &[crate::audit::report::ThrottledPerfResult],
+) {
+    let subchecks: Vec<crate::audit::SubcheckRun> = ThrottleProfile::AUTO_PROFILES
+        .iter()
+        .map(|profile| {
+            let completed = results.iter().any(|result| result.profile == *profile);
+            crate::audit::SubcheckRun {
+                subcheck: format!("throttled_profile:{}", profile.label()),
+                status: if completed {
+                    crate::audit::ExecutionStatus::Completed
+                } else {
+                    crate::audit::ExecutionStatus::Failed
+                },
+                reason_code: (!completed).then(|| "profile_measurement_failed".to_string()),
+            }
+        })
+        .collect();
+
+    if let Some(performance) = report
+        .accessibility
+        .execution
+        .module_runs
+        .iter_mut()
+        .find(|run| run.module == "performance")
+    {
+        if subchecks
+            .iter()
+            .any(|check| check.status == crate::audit::ExecutionStatus::Failed)
+            && performance.status == crate::audit::ExecutionStatus::Completed
+        {
+            performance.status = crate::audit::ExecutionStatus::Partial;
+            performance.reason_code = Some("throttled_profile_incomplete".to_string());
+        }
+        performance.subchecks.extend(subchecks);
+    }
+
+    update_audit_quality(report);
 }
 
 /// Audit a single page — dual-pass (desktop then mobile).
@@ -424,6 +505,7 @@ pub async fn audit_page(
     // (desktop pass runs first, so it wins when a violation is confirmed in
     // both viewports — see `merge_wcag_violations` below).
     let mut evidence_budget = crate::accessibility::ElementEvidenceBudget::new();
+    let mut security_listener_failed = false;
 
     // Enable bypassing CSP on the page
     let _ = page.execute(SetBypassCspParams::new(true)).await;
@@ -438,6 +520,7 @@ pub async fn audit_page(
             }
             Err(e) => {
                 warn!("Security CDP listener setup failed: {}", e);
+                security_listener_failed = true;
                 None
             }
         }
@@ -489,6 +572,8 @@ pub async fn audit_page(
 
     // ── Post-navigation: detect and optionally dismiss consent banner ─────────
     let mut consent_result = handle_post_navigation(page, config.dismiss_consent).await;
+    let desktop_stability =
+        wait_for_page_stability(page, "desktop", config.stability_budget_ms).await;
     let consent_privacy = Some(build_consent_privacy_snapshot(
         consent_cookies_before,
         collect_consent_cookie_signals(page).await,
@@ -533,11 +618,9 @@ pub async fn audit_page(
 
     // ── Post-navigation: consent banner may reappear after mobile reload ──────
     let mobile_consent = handle_post_navigation(page, config.dismiss_consent).await;
-    consent_result.banner_detected |= mobile_consent.banner_detected;
-    if consent_result.cmp_name.is_none() {
-        consent_result.cmp_name = mobile_consent.cmp_name;
-    }
-    consent_result.dismissed |= mobile_consent.dismissed;
+    let mobile_stability =
+        wait_for_page_stability(page, "mobile", config.stability_budget_ms).await;
+    consent_result.merge(mobile_consent);
 
     // Capture mobile screenshot
     let mobile_screenshot = match capture_screenshot_with_metadata(page).await {
@@ -563,11 +646,14 @@ pub async fn audit_page(
     // 1.4.10 Reflow — temporarily sets viewport to 320×256, then restores mobile
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
         info!("Running reflow check at 320 CSS px...");
-        let reflow_violations = wcag::check_reflow_with_page(page).await;
-        if !reflow_violations.is_empty() {
+        let raw_reflow_findings = wcag::check_reflow_with_page(page).await;
+        let (reflow_outcome, reflow_findings) =
+            page_rule_outcome("reflow", Some("1.4.10"), "mobile", raw_reflow_findings);
+        if !reflow_findings.is_empty() {
             info!("Found reflow violation at 320px");
         }
-        mobile_wcag.extend_findings(reflow_violations);
+        mobile_wcag.rule_outcomes.push(reflow_outcome);
+        mobile_wcag.extend_findings(reflow_findings);
         // check_reflow_with_page leaves the viewport at 320px — restore mobile
         if let Err(e) = set_viewport(page, Viewport::Mobile).await {
             warn!(
@@ -611,6 +697,7 @@ pub async fn audit_page(
         },
         weighted_overall,
     };
+    let weighted_accessibility = viewport_scores.weighted_accessibility();
 
     let dual_viewport = DualViewportResults {
         desktop: ViewportAuditData {
@@ -622,6 +709,7 @@ pub async fn audit_page(
             ux: None,
             journey: None,
             screenshot: desktop_screenshot.clone(),
+            module_runs: consolidate_module_runs(&desktop_snap.module_runs),
         },
         mobile: ViewportAuditData {
             wcag_results: mobile_wcag,
@@ -632,6 +720,7 @@ pub async fn audit_page(
             ux: mobile_snap.ux.clone(),
             journey: mobile_snap.journey.clone(),
             screenshot: mobile_screenshot.clone(),
+            module_runs: consolidate_module_runs(&mobile_snap.module_runs),
         },
     };
 
@@ -648,7 +737,39 @@ pub async fn audit_page(
         dark_mode: desktop_snap.dark_mode.clone(), // taken from desktop pass
         tech_stack: mobile_snap.tech_stack.clone(),
         best_practices: mobile_snap.best_practices.clone(),
+        module_runs: desktop_snap
+            .module_runs
+            .iter()
+            .chain(&mobile_snap.module_runs)
+            .cloned()
+            .collect(),
     };
+    let mut primary_snap = primary_snap;
+    if config.check_security {
+        primary_snap.module_runs.push(crate::audit::ModuleRun {
+            module: "security".to_string(),
+            status: match (primary_snap.security.is_some(), security_listener_failed) {
+                (true, true) => crate::audit::ExecutionStatus::Partial,
+                (true, false) => crate::audit::ExecutionStatus::Completed,
+                (false, _) => crate::audit::ExecutionStatus::Failed,
+            },
+            subchecks: vec![crate::audit::SubcheckRun {
+                subcheck: "certificate_listener".to_string(),
+                status: if security_listener_failed {
+                    crate::audit::ExecutionStatus::Failed
+                } else {
+                    crate::audit::ExecutionStatus::Completed
+                },
+                reason_code: security_listener_failed
+                    .then(|| "security_listener_setup_failed".to_string()),
+            }],
+            reason_code: primary_snap
+                .security
+                .is_none()
+                .then(|| "security_analysis_failed".to_string()),
+            ..Default::default()
+        });
+    }
 
     // ── Pattern analysis — dedicated enrichment pass ──────────────────────────
     // Pattern violations come from the AXTree and reference real DOM nodes, so
@@ -675,8 +796,39 @@ pub async fn audit_page(
     report.consent_banner_cmp = consent_result.cmp_name;
     report.consent_banner_dismissed = consent_result.dismissed;
     report.consent_privacy = consent_privacy;
+    report.accessibility.execution.environment = crate::audit::ExecutionEnvironment {
+        browser_version: browser.chrome_version().map(str::to_string),
+        headless: browser.is_headless(),
+        source: "live".to_string(),
+    };
+    report.accessibility.execution.navigation = collect_navigation_snapshot(page, url).await;
+    report.accessibility.execution.navigation.stability = vec![desktop_stability, mobile_stability];
+    report.accessibility.execution.consent = crate::audit::ConsentAuditState {
+        detected: report.consent_banner_detected,
+        cmp: report.consent_banner_cmp.clone(),
+        dismissal_requested: config.dismiss_consent,
+        dismissed: report.consent_banner_dismissed,
+        audited_content_state: if report.consent_banner_dismissed {
+            crate::audit::AuditedContentState::AfterConsent
+        } else if report.consent_banner_detected {
+            crate::audit::AuditedContentState::BeforeConsent
+        } else {
+            crate::audit::AuditedContentState::Unknown
+        },
+        status: Some(consent_result.status),
+        evidence: consent_result.evidence,
+    };
     report.dual_viewport = Some(dual_viewport);
     report.viewport_scores = Some(viewport_scores);
+    // The report-wide accessibility score is the reproducible 70/30 blend of
+    // the two viewport scores shown in JSON/PDF. The merged finding union is
+    // still used for evidence, counts and remediation, but must not silently
+    // create a third, lower score beside the two viewport values.
+    report.accessibility.score = weighted_accessibility as f32;
+    report.accessibility.grade =
+        AccessibilityScorer::calculate_grade(report.accessibility.score).to_string();
+    report.accessibility.certificate =
+        AccessibilityScorer::calculate_certificate(report.accessibility.score).to_string();
 
     if config.capture_screenshots {
         if let (Some(desktop), Some(mobile)) = (&desktop_screenshot, &mobile_screenshot) {
@@ -708,18 +860,89 @@ pub async fn audit_page(
     };
     match crate::a11y_journey::run(journey_ctx).await {
         Ok(Some(out)) => {
+            let journey_partial =
+                out.journey.execution.failed > 0 || out.journey.execution.budget_exhausted;
             report.accessibility_journey = Some(out.journey);
             report.interactive_findings = out.findings;
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .push(crate::audit::ModuleRun {
+                    module: "accessibility_journey".to_string(),
+                    status: if journey_partial {
+                        crate::audit::ExecutionStatus::Partial
+                    } else {
+                        crate::audit::ExecutionStatus::Completed
+                    },
+                    reason_code: journey_partial.then(|| "journey_coverage_partial".to_string()),
+                    ..Default::default()
+                });
         }
         Ok(None) => {}
-        Err(e) => warn!("Accessibility-Journey-Layer failed: {}", e),
+        Err(e) => {
+            warn!("Accessibility-Journey-Layer failed: {}", e);
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .push(crate::audit::ModuleRun {
+                    module: "accessibility_journey".to_string(),
+                    status: crate::audit::ExecutionStatus::Failed,
+                    reason_code: Some("journey_layer_failed".to_string()),
+                    message: Some("The interactive audit could not be completed.".to_string()),
+                    ..Default::default()
+                });
+        }
     }
+    ensure_requested_module_runs(&mut report);
+    report.accessibility.execution.module_runs =
+        consolidate_module_runs(&report.accessibility.execution.module_runs);
+    update_audit_quality(&mut report);
 
     // Persistence is deferred to the caller: the single-page path applies the
     // canonical (LhMobile) performance pass *after* audit_page returns, so
     // persisting here would cache a pre-canonical report that differs from a
     // fresh render (#404). The caller persists once the report is final.
     Ok((report, primary_snap))
+}
+
+async fn collect_navigation_snapshot(
+    page: &Page,
+    requested_url: &str,
+) -> crate::audit::NavigationSnapshot {
+    let value = page
+        .evaluate(
+            "(() => { const n = performance.getEntriesByType('navigation')[0]; return { finalUrl: location.href, status: n && Number.isFinite(n.responseStatus) ? n.responseStatus : null, redirects: n ? n.redirectCount : 0, readyState: document.readyState }; })()",
+        )
+        .await
+        .ok()
+        .and_then(|result| result.value().cloned());
+    crate::audit::NavigationSnapshot {
+        requested_url: requested_url.to_string(),
+        final_url: value
+            .as_ref()
+            .and_then(|v| v.get("finalUrl"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        main_document_status: value
+            .as_ref()
+            .and_then(|v| v.get("status"))
+            .and_then(|v| v.as_u64())
+            .and_then(|v| u16::try_from(v).ok()),
+        redirect_count: value
+            .as_ref()
+            .and_then(|v| v.get("redirects"))
+            .and_then(|v| v.as_u64())
+            .and_then(|v| u32::try_from(v).ok())
+            .unwrap_or(0),
+        ready_state: value
+            .as_ref()
+            .and_then(|v| v.get("readyState"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        stability: Vec::new(),
+    }
 }
 
 // ── Score helpers ─────────────────────────────────────────────────────────────
@@ -772,6 +995,30 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
         (v.rule.as_str(), id)
     }
 
+    fn merge_aux(desktop: &[Violation], mobile: &[Violation]) -> Vec<Violation> {
+        let mut merged = Vec::new();
+        for finding in mobile {
+            let mut finding = finding.clone();
+            finding.tags.push("mobile-only".to_string());
+            merged.push(finding);
+        }
+        for finding in desktop {
+            if let Some(existing) = merged.iter_mut().find(|candidate| {
+                candidate.rule == finding.rule && candidate.message == finding.message
+            }) {
+                existing
+                    .tags
+                    .retain(|tag| tag != "mobile-only" && tag != "desktop-only");
+                existing.tags.push("both-viewports".to_string());
+            } else {
+                let mut finding = finding.clone();
+                finding.tags.push("desktop-only".to_string());
+                merged.push(finding);
+            }
+        }
+        merged
+    }
+
     let mut merged: Vec<Violation> = Vec::new();
     let mut desktop_matched = vec![false; desktop.violations.len()];
 
@@ -810,17 +1057,9 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
 
     // Merge warnings, positives, and not_testables without deduplication
     // (heuristic/structural signals — viewport tagging not meaningful).
-    let mut warnings = mobile.warnings.clone();
-    warnings.extend(desktop.warnings.iter().cloned());
-    warnings.dedup_by(|a, b| a.message == b.message);
-
-    let mut positives = mobile.positives.clone();
-    positives.extend(desktop.positives.iter().cloned());
-    positives.dedup_by(|a, b| a.message == b.message);
-
-    let mut not_testables = mobile.not_testables.clone();
-    not_testables.extend(desktop.not_testables.iter().cloned());
-    not_testables.dedup_by(|a, b| a.message == b.message);
+    let warnings = merge_aux(&desktop.warnings, &mobile.warnings);
+    let positives = merge_aux(&desktop.positives, &mobile.positives);
+    let not_testables = merge_aux(&desktop.not_testables, &mobile.not_testables);
 
     WcagResults {
         violations: merged,
@@ -830,6 +1069,12 @@ fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults) -> WcagRes
         passes: mobile.passes.max(desktop.passes),
         incomplete: mobile.incomplete.max(desktop.incomplete),
         nodes_checked: mobile.nodes_checked.max(desktop.nodes_checked),
+        rule_outcomes: desktop
+            .rule_outcomes
+            .iter()
+            .chain(&mobile.rule_outcomes)
+            .cloned()
+            .collect(),
     }
 }
 
@@ -943,10 +1188,11 @@ async fn extract_snapshot(
         dark_mode: None,
         tech_stack: None,
         best_practices: None,
+        module_runs: Vec::new(),
     };
 
-    for (_id, data) in collected {
-        snapshot.apply_module_data(data);
+    for (id, data) in collected {
+        snapshot.apply_module_data(id, viewport, data);
     }
 
     Ok(snapshot)
@@ -962,7 +1208,12 @@ async fn run_rules(
 ) -> WcagResults {
     debug!("Running WCAG checks at level {}...", config.wcag_level);
     let mut wcag_results = wcag::check_all(&snapshot.ax_tree, config.wcag_level);
-    apply_lang_attribute_check(page, &mut wcag_results).await;
+    for outcome in &mut wcag_results.rule_outcomes {
+        outcome.viewport = Some(viewport_label.to_string());
+    }
+    let mut lang_outcome = apply_lang_attribute_check(page, &mut wcag_results).await;
+    lang_outcome.viewport = Some(viewport_label.to_string());
+    wcag_results.rule_outcomes.push(lang_outcome);
 
     // Contrast carries extra args (ax tree, level, screenshot) and stays inline.
     if matches!(config.wcag_level, WcagLevel::AA | WcagLevel::AAA) {
@@ -974,8 +1225,15 @@ async fn run_rules(
             screenshot,
         )
         .await;
-        info!("Found {} contrast violations", contrast_violations.len());
-        wcag_results.extend_findings(contrast_violations);
+        let (outcome, findings) = page_rule_outcome(
+            "color-contrast",
+            Some("1.4.3"),
+            viewport_label,
+            contrast_violations,
+        );
+        info!("Found {} contrast findings", findings.len());
+        wcag_results.rule_outcomes.push(outcome);
+        wcag_results.extend_findings(findings);
     }
 
     // Table-driven page rules (#334). min_level gates each entry.
@@ -983,10 +1241,18 @@ async fn run_rules(
         if config.wcag_level < rule.min_level {
             continue;
         }
-        let findings = (rule.check_fn)(page).await;
+        let raw_findings = (rule.check_fn)(page).await;
+        let criterion = rule
+            .rule_id
+            .split('/')
+            .next()
+            .filter(|id| id.chars().all(|c| c.is_ascii_digit() || c == '.'));
+        let (outcome, findings) =
+            page_rule_outcome(rule.rule_id, criterion, viewport_label, raw_findings);
         if !findings.is_empty() {
             info!("Found {} {} violations", findings.len(), rule.name);
         }
+        wcag_results.rule_outcomes.push(outcome);
         wcag_results.extend_findings(findings);
     }
 
@@ -1004,25 +1270,85 @@ async fn run_rules(
     }
 
     move_demoted_violations_to_warnings(&mut wcag_results);
+    wcag_results.incomplete = wcag_results
+        .rule_outcomes
+        .iter()
+        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .count();
     wcag_results
+}
+
+fn page_rule_outcome(
+    rule_id: &str,
+    criterion: Option<&str>,
+    viewport: &str,
+    findings: Vec<Violation>,
+) -> (crate::wcag::RuleOutcome, Vec<Violation>) {
+    let technical_failure = findings
+        .iter()
+        .find_map(crate::wcag::technical_failure_reason)
+        .map(str::to_string);
+    let visible_findings: Vec<Violation> = findings
+        .into_iter()
+        .filter(|finding| crate::wcag::technical_failure_reason(finding).is_none())
+        .collect();
+
+    let violation_count = visible_findings
+        .iter()
+        .filter(|finding| finding.kind == crate::wcag::FindingKind::Violation)
+        .count();
+    let status = if technical_failure.is_some() {
+        crate::wcag::RuleOutcomeStatus::Failed
+    } else if violation_count > 0 {
+        crate::wcag::RuleOutcomeStatus::ViolationsFound
+    } else if visible_findings
+        .iter()
+        .any(|finding| finding.kind == crate::wcag::FindingKind::Warning)
+    {
+        crate::wcag::RuleOutcomeStatus::Warning
+    } else if visible_findings
+        .iter()
+        .any(|finding| finding.kind == crate::wcag::FindingKind::NotTestable)
+    {
+        crate::wcag::RuleOutcomeStatus::ManualReviewRequired
+    } else {
+        crate::wcag::RuleOutcomeStatus::NoViolationDetected
+    };
+
+    (
+        crate::wcag::RuleOutcome {
+            rule_id: rule_id.to_string(),
+            status,
+            wcag_criterion: criterion.map(str::to_string),
+            viewport: Some(viewport.to_string()),
+            reason_code: technical_failure,
+            finding_count: violation_count,
+        },
+        visible_findings,
+    )
 }
 
 /// 3.1.1 verifying-subtraction: the AX tree does not expose `html[lang]`,
 /// so if check_all emitted a 3.1.1 violation, query the DOM and remove it
 /// when a valid lang attribute is present.
-async fn apply_lang_attribute_check(page: &Page, results: &mut WcagResults) {
+async fn apply_lang_attribute_check(
+    page: &Page,
+    results: &mut WcagResults,
+) -> crate::wcag::RuleOutcome {
     // The AX-tree-based check_language (language.rs) reads the AX `language`
     // property, which Chrome can synthesize from locale/context even when the
     // author never set a `lang` attribute — making the tree-based check blind
     // to the most common 3.1.1 violation (#QA-001). The DOM `lang`/`xml:lang`
     // attribute is authoritative, so it can both clear a false-positive AND
     // add a violation the tree-based check missed.
-    let has_lang = page
+    let evaluated = page
         .evaluate(
             "document.documentElement.getAttribute('lang') || \
              document.documentElement.getAttribute('xml:lang') || ''",
         )
-        .await
+        .await;
+    let has_lang = evaluated
+        .as_ref()
         .ok()
         .and_then(|r| r.value().and_then(|v| v.as_str().map(|s| s.to_owned())))
         .map(|lang| {
@@ -1032,6 +1358,17 @@ async fn apply_lang_attribute_check(page: &Page, results: &mut WcagResults) {
         .unwrap_or(false);
 
     let has_violation = results.violations.iter().any(|v| v.rule == "3.1.1");
+
+    if evaluated.is_err() {
+        return crate::wcag::RuleOutcome {
+            rule_id: crate::wcag::rules::LANGUAGE_RULE.axe_id.to_string(),
+            status: crate::wcag::RuleOutcomeStatus::Failed,
+            wcag_criterion: Some("3.1.1".to_string()),
+            viewport: None,
+            reason_code: Some("page_evaluation_failed".to_string()),
+            finding_count: usize::from(has_violation),
+        };
+    }
 
     if has_lang {
         if has_violation {
@@ -1057,6 +1394,19 @@ async fn apply_lang_attribute_check(page: &Page, results: &mut WcagResults) {
             .with_selector("html")
             .with_help_url(crate::wcag::rules::LANGUAGE_RULE.help_url),
         );
+    }
+
+    crate::wcag::RuleOutcome {
+        rule_id: crate::wcag::rules::LANGUAGE_RULE.axe_id.to_string(),
+        status: if results.violations.iter().any(|v| v.rule == "3.1.1") {
+            crate::wcag::RuleOutcomeStatus::ViolationsFound
+        } else {
+            crate::wcag::RuleOutcomeStatus::NoViolationDetected
+        },
+        wcag_criterion: Some("3.1.1".to_string()),
+        viewport: None,
+        reason_code: None,
+        finding_count: usize::from(results.violations.iter().any(|v| v.rule == "3.1.1")),
     }
 }
 
@@ -1088,6 +1438,10 @@ fn aggregate_report(
         wcag_results,
         duration_ms,
     );
+    report.accessibility.execution.scope = audit_scope_from_config(config);
+    report.accessibility.execution.navigation.requested_url = url.to_string();
+    report.accessibility.execution.environment.source = "live".to_string();
+    report.accessibility.execution.module_runs = consolidate_module_runs(&snapshot.module_runs);
     let sr_audit = crate::screen_reader::build_sr_audit_report(
         url,
         report.timestamp,
@@ -1100,6 +1454,7 @@ fn aggregate_report(
 
     if let Some(performance) = snapshot.performance.clone() {
         report = report.with_performance(performance);
+        attach_performance_subchecks(&mut report);
     }
     if let Some(seo) = snapshot.seo.clone() {
         report = report.with_seo(seo);
@@ -1134,8 +1489,272 @@ fn aggregate_report(
     if let Err(e) = AuditCatalog::standard().derive_all(&mut report, config) {
         warn!("Post-processing derive_all failed: {}", e);
     }
+    report.accessibility.execution.module_runs =
+        consolidate_module_runs(&report.accessibility.execution.module_runs);
 
     report
+}
+
+fn attach_performance_subchecks(report: &mut AuditReport) {
+    let Some(performance) = report.performance.as_ref() else {
+        return;
+    };
+    let checks = [
+        ("content_weight", performance.content_weight.is_some()),
+        ("render_blocking", performance.render_blocking.is_some()),
+        ("third_party", performance.third_party.is_some()),
+        ("critical_chain", performance.critical_chain.is_some()),
+        ("minification", performance.minification.is_some()),
+        ("animations", performance.animations.is_some()),
+        ("coverage", performance.coverage.is_some()),
+    ];
+    if let Some(run) = report
+        .accessibility
+        .execution
+        .module_runs
+        .iter_mut()
+        .find(|run| run.module == "performance")
+    {
+        run.subchecks = checks
+            .iter()
+            .map(|(name, available)| crate::audit::SubcheckRun {
+                subcheck: (*name).to_string(),
+                status: if *available {
+                    crate::audit::ExecutionStatus::Completed
+                } else {
+                    crate::audit::ExecutionStatus::Failed
+                },
+                reason_code: (!available).then(|| "subanalysis_unavailable".to_string()),
+            })
+            .collect();
+        if checks.iter().any(|(_, available)| !available) {
+            run.status = crate::audit::ExecutionStatus::Partial;
+            run.reason_code = Some("one_or_more_subanalyses_unavailable".to_string());
+        }
+    }
+}
+
+fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
+    let catalog = AuditCatalog::standard();
+    let mut requested_modules = vec!["accessibility".to_string()];
+    if !matches!(config.interactive, crate::cli::InteractiveMode::Off) {
+        requested_modules.push("accessibility_journey".to_string());
+    }
+    requested_modules.extend(
+        catalog
+            .enabled(config)
+            .map(|module| module.id().to_string()),
+    );
+    requested_modules.sort();
+    requested_modules.dedup();
+
+    crate::audit::AuditScope {
+        requested_modules,
+        full_audit: config.full_audit,
+        interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
+        journey_budget_ms: config.journey_budget_ms,
+        throttling_profiles: if config.check_performance {
+            ThrottleProfile::AUTO_PROFILES
+                .iter()
+                .map(|profile| profile.label().to_string())
+                .collect()
+        } else {
+            Vec::new()
+        },
+        viewports: vec![
+            crate::audit::ViewportDefinition {
+                name: "desktop".to_string(),
+                width: 1280,
+                height: 800,
+                device_scale_factor: 1.0,
+            },
+            crate::audit::ViewportDefinition {
+                name: "mobile".to_string(),
+                width: 390,
+                height: 844,
+                device_scale_factor: 2.0,
+            },
+        ],
+        dismiss_consent: config.dismiss_consent,
+        capture_screenshots: config.capture_screenshots,
+        capture_element_evidence: config.capture_element_evidence,
+    }
+}
+
+fn ensure_requested_module_runs(report: &mut AuditReport) {
+    let outcomes = &report.accessibility.wcag_results.rule_outcomes;
+    let failed = outcomes
+        .iter()
+        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .count();
+    let accessibility_status = if outcomes.is_empty() || failed == outcomes.len() {
+        crate::audit::ExecutionStatus::Failed
+    } else if failed > 0 {
+        crate::audit::ExecutionStatus::Partial
+    } else {
+        crate::audit::ExecutionStatus::Completed
+    };
+    if !report
+        .accessibility
+        .execution
+        .module_runs
+        .iter()
+        .any(|run| run.module == "accessibility")
+    {
+        report
+            .accessibility
+            .execution
+            .module_runs
+            .push(crate::audit::ModuleRun {
+                module: "accessibility".to_string(),
+                status: accessibility_status,
+                reason_code: (accessibility_status != crate::audit::ExecutionStatus::Completed)
+                    .then(|| "one_or_more_rule_checks_failed".to_string()),
+                ..Default::default()
+            });
+    }
+
+    let requested = report
+        .accessibility
+        .execution
+        .scope
+        .requested_modules
+        .clone();
+    for module in requested {
+        if !report
+            .accessibility
+            .execution
+            .module_runs
+            .iter()
+            .any(|run| run.module == module)
+        {
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .push(crate::audit::ModuleRun {
+                    module,
+                    status: crate::audit::ExecutionStatus::Failed,
+                    reason_code: Some("requested_module_has_no_run_record".to_string()),
+                    ..Default::default()
+                });
+        }
+    }
+}
+
+fn consolidate_module_runs(runs: &[crate::audit::ModuleRun]) -> Vec<crate::audit::ModuleRun> {
+    use std::collections::BTreeMap;
+
+    let mut grouped: BTreeMap<String, Vec<&crate::audit::ModuleRun>> = BTreeMap::new();
+    for run in runs {
+        grouped.entry(run.module.clone()).or_default().push(run);
+    }
+
+    grouped
+        .into_iter()
+        .map(|(module, items)| {
+            let has_completed = items
+                .iter()
+                .any(|run| run.status == crate::audit::ExecutionStatus::Completed);
+            let has_failed = items
+                .iter()
+                .any(|run| run.status == crate::audit::ExecutionStatus::Failed);
+            let has_partial = items
+                .iter()
+                .any(|run| run.status == crate::audit::ExecutionStatus::Partial);
+            let status = if has_partial || (has_completed && has_failed) {
+                crate::audit::ExecutionStatus::Partial
+            } else if has_failed {
+                crate::audit::ExecutionStatus::Failed
+            } else if has_completed {
+                crate::audit::ExecutionStatus::Completed
+            } else if items
+                .iter()
+                .any(|run| run.status == crate::audit::ExecutionStatus::NotApplicable)
+            {
+                crate::audit::ExecutionStatus::NotApplicable
+            } else {
+                crate::audit::ExecutionStatus::Skipped
+            };
+            let mut viewports: Vec<String> = items
+                .iter()
+                .flat_map(|run| run.viewports.iter().cloned())
+                .collect();
+            viewports.sort();
+            viewports.dedup();
+            crate::audit::ModuleRun {
+                module,
+                status,
+                viewports,
+                subchecks: items
+                    .iter()
+                    .flat_map(|run| run.subchecks.iter().cloned())
+                    .collect(),
+                reason_code: items.iter().find_map(|run| run.reason_code.clone()),
+                message: items.iter().find_map(|run| run.message.clone()),
+            }
+        })
+        .collect()
+}
+
+fn update_audit_quality(report: &mut AuditReport) {
+    let stability_budget_exhausted = report
+        .accessibility
+        .execution
+        .navigation
+        .stability
+        .iter()
+        .filter(|entry| {
+            entry.status == crate::interaction::stability::StabilityStatus::BudgetExhausted
+        })
+        .count();
+    let failed_rule_checks = report
+        .accessibility
+        .wcag_results
+        .rule_outcomes
+        .iter()
+        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .count();
+    let partial_or_failed_modules = report
+        .accessibility
+        .execution
+        .module_runs
+        .iter()
+        .filter(|run| {
+            matches!(
+                run.status,
+                crate::audit::ExecutionStatus::Partial | crate::audit::ExecutionStatus::Failed
+            )
+        })
+        .count();
+    let status = if failed_rule_checks > 0 {
+        crate::audit::AuditQualityStatus::Insufficient
+    } else if partial_or_failed_modules > 0 || stability_budget_exhausted > 0 {
+        crate::audit::AuditQualityStatus::Partial
+    } else {
+        crate::audit::AuditQualityStatus::Complete
+    };
+    let mut reasons = Vec::new();
+    if failed_rule_checks > 0 {
+        reasons.push(format!("failed_rule_checks:{failed_rule_checks}"));
+    }
+    if partial_or_failed_modules > 0 {
+        reasons.push(format!(
+            "partial_or_failed_modules:{partial_or_failed_modules}"
+        ));
+    }
+    if stability_budget_exhausted > 0 {
+        reasons.push(format!(
+            "page_stability_budget_exhausted:{stability_budget_exhausted}"
+        ));
+    }
+    report.accessibility.execution.quality = crate::audit::AuditQuality {
+        status,
+        qualified_results: status != crate::audit::AuditQualityStatus::Complete,
+        failed_rule_checks,
+        partial_or_failed_modules,
+        reasons,
+    };
 }
 
 /// Run one performance-only page load per throttle profile and return the results.
@@ -1357,8 +1976,18 @@ pub(crate) fn persist_artifacts(
     let artifacts = AuditArtifacts {
         fetch: FetchArtifact {
             requested_url: url.to_string(),
-            final_url: report.url.clone(),
-            status_code: None,
+            final_url: report
+                .accessibility
+                .execution
+                .navigation
+                .final_url
+                .clone()
+                .unwrap_or_else(|| report.url.clone()),
+            status_code: report
+                .accessibility
+                .execution
+                .navigation
+                .main_document_status,
             fetched_at: report.timestamp,
             duration_ms: report.duration_ms,
         },
@@ -1398,6 +2027,7 @@ mod tests {
             crawl_depth: 2,
             concurrency: None,
             timeout: None,
+            stability_budget_ms: 1500,
             no_sandbox: false,
             disable_images: false,
             verbose: true,
@@ -1486,7 +2116,9 @@ mod tests {
         PipelineConfig {
             wcag_level: WcagLevel::AA,
             timeout_secs: 30,
+            stability_budget_ms: 1500,
             verbose: false,
+            full_audit: false,
             check_performance: true,
             check_seo: true,
             check_security: false,
@@ -1637,6 +2269,7 @@ journey_budget_ms = 1234
             passes: 5,
             incomplete: 0,
             nodes_checked: 100,
+            rule_outcomes: vec![],
         };
         let mobile = WcagResults {
             violations: vec![
@@ -1649,6 +2282,7 @@ journey_budget_ms = 1234
             passes: 4,
             incomplete: 0,
             nodes_checked: 90,
+            rule_outcomes: vec![],
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -1697,6 +2331,7 @@ journey_budget_ms = 1234
             passes: 0,
             incomplete: 0,
             nodes_checked: 0,
+            rule_outcomes: vec![],
         };
         let mobile = WcagResults {
             violations: vec![make_v("1.1.1", "#img1"), make_v("1.4.3", "#text1")],
@@ -1706,6 +2341,7 @@ journey_budget_ms = 1234
             passes: 3,
             incomplete: 0,
             nodes_checked: 50,
+            rule_outcomes: vec![],
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -1736,6 +2372,7 @@ journey_budget_ms = 1234
             passes: 7,
             incomplete: 0,
             nodes_checked: 80,
+            rule_outcomes: vec![],
         };
         let mobile = WcagResults {
             violations: vec![],
@@ -1745,6 +2382,7 @@ journey_budget_ms = 1234
             passes: 4,
             incomplete: 0,
             nodes_checked: 60,
+            rule_outcomes: vec![],
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -1789,6 +2427,7 @@ journey_budget_ms = 1234
             passes: 0,
             incomplete: 0,
             nodes_checked: 0,
+            rule_outcomes: vec![],
         };
         let mobile = WcagResults {
             violations: vec![mobile_v],
@@ -1798,6 +2437,7 @@ journey_budget_ms = 1234
             passes: 0,
             incomplete: 0,
             nodes_checked: 0,
+            rule_outcomes: vec![],
         };
 
         let merged = merge_wcag_violations(&desktop, &mobile);
@@ -1818,5 +2458,106 @@ journey_budget_ms = 1234
         // acc=80 (40%) + perf=60 (20%) → (80*40 + 60*20) / 60 = 4400/60 ≈ 73
         let result = compute_viewport_overall(80.0, Some(60), None, None);
         assert_eq!(result, 73);
+    }
+
+    #[test]
+    fn failed_page_rule_is_not_reported_as_clean() {
+        let marker = crate::wcag::technical_rule_failure_for(
+            "reflow",
+            WcagLevel::AA,
+            "dom_evaluation_failed",
+        );
+        let (outcome, visible) =
+            page_rule_outcome("reflow", Some("1.4.10"), "mobile", vec![marker]);
+
+        assert!(visible.is_empty());
+        assert_eq!(outcome.status, crate::wcag::RuleOutcomeStatus::Failed);
+        assert_eq!(outcome.viewport.as_deref(), Some("mobile"));
+        assert_eq!(
+            outcome.reason_code.as_deref(),
+            Some("dom_evaluation_failed")
+        );
+    }
+
+    #[test]
+    fn missing_requested_module_qualifies_audit() {
+        let mut results = WcagResults::new();
+        results.rule_outcomes.push(crate::wcag::RuleOutcome {
+            rule_id: "image_alt".to_string(),
+            status: crate::wcag::RuleOutcomeStatus::NoViolationDetected,
+            wcag_criterion: Some("1.1.1".to_string()),
+            viewport: Some("desktop".to_string()),
+            reason_code: None,
+            finding_count: 0,
+        });
+        let mut report =
+            AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
+        report.accessibility.execution.scope.requested_modules =
+            vec!["accessibility".to_string(), "seo".to_string()];
+
+        ensure_requested_module_runs(&mut report);
+        update_audit_quality(&mut report);
+
+        assert_eq!(
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .iter()
+                .find(|run| run.module == "accessibility")
+                .unwrap()
+                .status,
+            crate::audit::ExecutionStatus::Completed
+        );
+        assert_eq!(
+            report
+                .accessibility
+                .execution
+                .module_runs
+                .iter()
+                .find(|run| run.module == "seo")
+                .unwrap()
+                .status,
+            crate::audit::ExecutionStatus::Failed
+        );
+        assert!(report.accessibility.execution.quality.qualified_results);
+    }
+
+    #[test]
+    fn missing_throttled_profile_marks_performance_partial() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1,
+        );
+        report
+            .accessibility
+            .execution
+            .module_runs
+            .push(crate::audit::ModuleRun {
+                module: "performance".to_string(),
+                status: crate::audit::ExecutionStatus::Completed,
+                ..Default::default()
+            });
+
+        attach_throttled_profile_subchecks(&mut report, &[]);
+
+        let performance = report
+            .accessibility
+            .execution
+            .module_runs
+            .iter()
+            .find(|run| run.module == "performance")
+            .unwrap();
+        assert_eq!(performance.status, crate::audit::ExecutionStatus::Partial);
+        assert_eq!(
+            performance.subchecks.len(),
+            ThrottleProfile::AUTO_PROFILES.len()
+        );
+        assert!(performance
+            .subchecks
+            .iter()
+            .all(|check| check.status == crate::audit::ExecutionStatus::Failed));
     }
 }

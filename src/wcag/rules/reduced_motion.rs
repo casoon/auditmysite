@@ -68,12 +68,22 @@ const REDUCED_MOTION_JS: &str = r#"
 pub async fn check_reduced_motion_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(REDUCED_MOTION_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &REDUCED_MOTION_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &REDUCED_MOTION_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let has_animations = val

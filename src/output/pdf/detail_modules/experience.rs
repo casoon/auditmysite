@@ -43,7 +43,7 @@ pub(in crate::output::pdf) fn render_ux(
             .iter()
             .any(|issue| issue.kind.dimension() == dim.kind);
         let summary = crate::ux::ux_dimension_summary(dim.kind, dim.score, en, has_flagged_issue);
-        kv = kv.add(name, format!("{} — {}", dim.score, summary));
+        kv = kv.add(name, format!("{} / 100 — {}", dim.score, summary));
     }
     builder = builder.add_component(kv);
 
@@ -116,7 +116,7 @@ pub(in crate::output::pdf) fn render_journey(
         let summary = crate::journey::journey_dimension_summary(dim.kind, dim.score, en);
         kv = kv.add(
             format!("{} ({}%)", name, dim.weight_pct),
-            format!("{} — {}", dim.score, summary),
+            format!("{} / 100 — {}", dim.score, summary),
         );
     }
     builder = builder.add_component(kv);

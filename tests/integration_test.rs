@@ -71,11 +71,43 @@ async fn ci_browser() -> BrowserManager {
         .expect("Browser launch failed")
 }
 
+#[tokio::test]
+#[ignore]
+async fn chrome_axtree_exposes_svg_graphics_roles_and_the_rule_checks_names() {
+    let (url, shutdown) = serve_fixture("svg_graphics_roles.html");
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+    let tree = auditmysite::accessibility::extract_ax_tree(&page)
+        .await
+        .expect("AXTree extraction failed");
+    let roles = tree
+        .iter()
+        .filter_map(|node| node.role.as_deref())
+        .collect::<Vec<_>>();
+    assert!(
+        roles
+            .iter()
+            .any(|role| { matches!(*role, "graphics-document" | "graphics-symbol") }),
+        "Chrome AXTree did not expose a graphics-* role: {roles:?}"
+    );
+    let results = auditmysite::wcag::rules::check_text_alternatives(&tree);
+    assert!(results.violations.iter().any(|finding| {
+        finding.role.as_deref() == Some("graphics-symbol") || finding.message.contains("graphic")
+    }));
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
 fn default_config() -> PipelineConfig {
     PipelineConfig {
         wcag_level: WcagLevel::AA,
         timeout_secs: 30,
+        stability_budget_ms: 1500,
         verbose: false,
+        full_audit: false,
         check_performance: false,
         check_seo: false,
         check_security: false,

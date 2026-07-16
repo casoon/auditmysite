@@ -3,13 +3,17 @@
   "$id": "https://github.com/casoon/auditmysite/docs/json-batch-report.schema.json",
   "title": "auditmysite unified report (batch)",
   "type": "object",
-  "required": ["schema_version", "report_type", "metadata", "summary", "pages"],
+  "required": ["schema_version", "report_type", "metadata", "metric_context", "summary", "pages"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "const": "2.0" },
     "report_type": { "type": "string", "const": "batch" },
     "tool_version": { "type": "string" },
     "metadata": { "$ref": "#/$defs/metadata" },
+    "audit_scope": { "type": "object" },
+    "execution_environment": { "type": "object" },
+    "audit_quality": { "$ref": "#/$defs/auditQuality" },
+    "metric_context": { "$ref": "#/$defs/metricContext" },
     "summary": { "$ref": "#/$defs/summary" },
     "sample": { "$ref": "#/$defs/sample" },
     "pages": {
@@ -19,11 +23,82 @@
     "url_matrix": { "type": "array" },
     "internal_comparison": { "$ref": "#/$defs/internalComparison" },
     "crawl_diagnostics": { "type": ["object", "null"] },
+    "sitemap_diagnostics": { "type": ["object", "null"] },
+    "site_analysis": { "type": "object" },
+    "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
     "errors": { "type": "array" },
+    "collection_errors": {
+      "description": "Errors raised while serializing the report. Audit and measurement failures are represented separately in module_runs, rule_outcomes, and audit_quality.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/reportError" }
+    },
     "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
     "verdict_reasons": { "type": "array", "items": { "type": "string" } }
   },
   "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["kind", "media_type", "delivery", "path_template", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string" },
+        "media_type": { "type": "string" },
+        "delivery": { "type": "string", "enum": ["sidecar"] },
+        "path_template": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "partial", "failed", "skipped", "not_applicable", "not_requested"] }
+      }
+    },
+    "reportError": {
+      "type": "object",
+      "required": ["module", "error_type", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "module": { "type": "string" },
+        "error_type": { "type": "string" },
+        "reason": { "type": "string" }
+      }
+    },
+    "auditQuality": {
+      "type": "object",
+      "required": ["status", "qualified_results", "failed_rule_checks", "partial_or_failed_modules"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["complete", "partial", "insufficient"] },
+        "qualified_results": { "type": "boolean" },
+        "failed_rule_checks": { "type": "integer", "minimum": 0 },
+        "partial_or_failed_modules": { "type": "integer", "minimum": 0 },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "metricContext": {
+      "type": "object",
+      "required": ["score_scale", "score_definitions", "count_definitions"],
+      "additionalProperties": false,
+      "properties": {
+        "score_scale": {
+          "type": "object",
+          "required": ["minimum", "maximum", "higher_is_better"],
+          "additionalProperties": false,
+          "properties": {
+            "minimum": { "type": "integer", "const": 0 },
+            "maximum": { "type": "integer", "const": 100 },
+            "higher_is_better": { "type": "boolean", "const": true }
+          }
+        },
+        "score_definitions": { "type": "array", "items": { "$ref": "#/$defs/metricDefinition" } },
+        "count_definitions": { "type": "array", "items": { "$ref": "#/$defs/metricDefinition" } }
+      }
+    },
+    "metricDefinition": {
+      "type": "object",
+      "required": ["field", "unit", "meaning"],
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string" },
+        "unit": { "type": "string" },
+        "meaning": { "type": "string" }
+      }
+    },
     "sample": {
       "type": "object",
       "required": ["source", "total_discovered", "audited", "selection", "is_sample"],
@@ -58,8 +133,11 @@
         "certificate",
         "risk_level",
         "violation_count",
+        "finding_count",
+        "finding_occurrence_count",
         "severity_counts",
         "severity_counts_scope",
+        "occurrence_counts_scope",
         "passed_url_count",
         "failed_url_count",
         "wcag_coverage",
@@ -77,9 +155,12 @@
         "certificate": { "type": "string" },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "violation_count": { "type": "integer", "minimum": 0 },
+        "finding_count": { "type": "integer", "minimum": 0 },
+        "finding_occurrence_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
         "severity_counts_scope": { "type": "string", "const": "wcag_only" },
         "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
+        "occurrence_counts_scope": { "type": "string", "const": "wcag_only" },
         "passed_url_count": { "type": "integer", "minimum": 0 },
         "failed_url_count": { "type": "integer", "minimum": 0 },
         "violated_rule_count": { "type": "integer", "minimum": 0 },
@@ -120,7 +201,7 @@
         "title": { "type": "string" },
         "status": {
           "type": "string",
-          "enum": ["violations_found", "no_violations_automated", "manual_review_required"]
+          "enum": ["violations_found", "no_violations_automated", "manual_review_required", "partial_automated_evaluation", "not_evaluated"]
         },
         "affected_pages": { "type": "integer", "minimum": 0 }
       }
@@ -134,8 +215,11 @@
         "grade",
         "certificate",
         "violation_count",
+        "finding_count",
+        "finding_occurrence_count",
         "severity_counts",
         "severity_counts_scope",
+        "occurrence_counts_scope",
         "nodes_analyzed",
         "duration_ms",
         "module_scores",
@@ -151,8 +235,12 @@
         "grade": { "type": "string" },
         "certificate": { "type": "string" },
         "violation_count": { "type": "integer", "minimum": 0 },
+        "finding_count": { "type": "integer", "minimum": 0 },
+        "finding_occurrence_count": { "type": "integer", "minimum": 0 },
         "severity_counts": { "$ref": "#/$defs/severityCounts" },
         "severity_counts_scope": { "type": "string", "const": "wcag_only" },
+        "occurrence_counts": { "$ref": "#/$defs/severityCounts" },
+        "occurrence_counts_scope": { "type": "string", "const": "wcag_only" },
         "nodes_analyzed": { "type": "integer", "minimum": 0 },
         "duration_ms": { "type": "integer", "minimum": 0 },
         "module_scores": {
@@ -162,7 +250,14 @@
         "risk": { "$ref": "#/$defs/riskAssessment" },
         "principle_coverage": { "$ref": "#/$defs/principleCoverage" },
         "findings": { "type": "array" },
-        "audit_flags": { "type": "array" }
+        "audit_flags": { "type": "array" },
+        "audit_quality": { "$ref": "#/$defs/auditQuality" },
+        "module_runs": { "type": "array" },
+        "rule_outcomes": { "type": "array" },
+        "accessibility_assessments": { "type": "array" },
+        "navigation": { "type": "object" },
+        "consent": { "type": "object" },
+        "content_profile": { "type": "object" }
       }
     },
     "principleCoverage": {

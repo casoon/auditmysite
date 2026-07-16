@@ -42,6 +42,7 @@ mod landmark_granular;
 mod landmarks;
 mod language;
 mod language_extended;
+mod language_of_parts;
 mod link_purpose;
 mod link_purpose_link_only;
 mod list_structure;
@@ -137,6 +138,7 @@ pub use landmark_granular::{
 pub use landmarks::check_landmarks;
 pub use language::{check_language, LANGUAGE_RULE};
 pub use language_extended::check_language_extended_with_page;
+pub use language_of_parts::check_language_of_parts_with_page;
 pub use link_purpose::check_link_purpose;
 pub use link_purpose_link_only::check_link_purpose_link_only;
 pub use list_structure::check_list_structure;

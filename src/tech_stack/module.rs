@@ -47,7 +47,9 @@ mod tests {
         PipelineConfig {
             wcag_level: WcagLevel::AA,
             timeout_secs: 30,
+            stability_budget_ms: 1500,
             verbose: false,
+            full_audit: false,
             check_performance: false,
             check_seo: false,
             check_security: false,

@@ -137,13 +137,23 @@ pub async fn check_invalid_role_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("invalid-role JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "invalid-role",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure_for(
+                "invalid-role",
+                crate::cli::WcagLevel::A,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let issues = match val.get("issues").and_then(|v| v.as_array()) {
@@ -238,13 +248,23 @@ pub async fn check_invalid_aria_attribute_name_with_page(page: &Page) -> Vec<Vio
         Ok(r) => r,
         Err(e) => {
             warn!("invalid-aria-attribute-name JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "invalid-aria-attribute-name",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure_for(
+                "invalid-aria-attribute-name",
+                crate::cli::WcagLevel::A,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let issues = match val.get("issues").and_then(|v| v.as_array()) {

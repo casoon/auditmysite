@@ -34,9 +34,10 @@ use super::{
     check_identify_purpose_with_page, check_image_input_rules_with_page,
     check_invalid_aria_attribute_name_with_page, check_invalid_role_with_page,
     check_label_in_name_with_page, check_landmarks_with_page, check_language_extended_with_page,
-    check_location_with_page, check_meaningful_sequence_with_page,
-    check_meta_viewport_large_with_page, check_modern_attributes_with_page,
-    check_motion_actuation_with_page, check_no_interruptions_with_page, check_no_timing_with_page,
+    check_language_of_parts_with_page, check_location_with_page,
+    check_meaningful_sequence_with_page, check_meta_viewport_large_with_page,
+    check_modern_attributes_with_page, check_motion_actuation_with_page,
+    check_no_interruptions_with_page, check_no_timing_with_page,
     check_non_text_contrast_css_with_page, check_on_focus_with_page, check_on_input_with_page,
     check_orientation_with_page, check_page_titled_with_page, check_parsing_with_page,
     check_pause_stop_hide_with_page, check_pointer_cancellation_with_page,
@@ -201,6 +202,12 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "valid-lang / xml-lang-mismatch",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_language_extended_with_page(p)),
+    },
+    PageRuleEntry {
+        rule_id: "3.1.2/language-of-parts",
+        name: "language-of-parts",
+        min_level: WcagLevel::AA,
+        check_fn: |p| Box::pin(check_language_of_parts_with_page(p)),
     },
     PageRuleEntry {
         rule_id: "4.1.2/invalid-role",
@@ -461,7 +468,8 @@ mod tests {
         //   check_non_text_contrast — see non_text_contrast_css.rs) = 42.
         // + focus-not-obscured-minimum (2.4.11, WCAG 2.2 AA) = 43.
         // + pause-stop-hide (2.2.2, WCAG 2.1 A, counted here too since AA >= A) = 44.
-        assert_eq!(count, 44);
+        // + conservative language-of-parts heuristic (3.1.2) = 45.
+        assert_eq!(count, 45);
     }
 
     #[test]

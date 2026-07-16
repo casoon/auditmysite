@@ -48,7 +48,11 @@ async fn main() {
     }
 
     let report_mode = args.report_mode;
-    let exit_code = match run(args, &config, request_mode_from_cli).await {
+    let run_result = tokio::select! {
+        result = run(args, &config, request_mode_from_cli) => result,
+        signal = shutdown_signal() => Err(AuditError::Interrupted { signal }),
+    };
+    let exit_code = match run_result {
         // --report-mode: report generation succeeded, so exit 0 regardless of
         // the accessibility/verdict policy result (#503). Technical failures
         // below still exit non-zero.
@@ -62,6 +66,23 @@ async fn main() {
     };
 
     std::process::exit(exit_code);
+}
+
+async fn shutdown_signal() -> String {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut terminate = signal(SignalKind::terminate()).expect("SIGTERM handler");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => "Ctrl-C".to_string(),
+            _ = terminate.recv() => "SIGTERM".to_string(),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+        "Ctrl-C".to_string()
+    }
 }
 
 /// Setup tracing/logging based on CLI flags

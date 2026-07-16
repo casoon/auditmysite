@@ -35,7 +35,7 @@ pub struct NormalizedReport {
     pub score: u32,
     /// Grade aus overall_score (gewichteter Gesamtscore über alle aktiven Module)
     pub grade: String,
-    /// Certificate aus korrigiertem Accessibility-Score
+    /// Certificate aus `overall_score`, gegebenenfalls durch das Risiko-Veto begrenzt
     pub certificate: String,
 
     /// Normalisierte, gruppierte Findings mit Taxonomie-Feldern
@@ -45,6 +45,17 @@ pub struct NormalizedReport {
     /// Severity-Zähler — zählt **Element-Occurrences** (alle betroffenen Elemente).
     #[serde(default)]
     pub occurrence_counts: SeverityCounts,
+
+    /// Non-violation accessibility signals that remain actionable: heuristic
+    /// warnings, manual review items and detected positive patterns.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accessibility_assessments: Vec<AccessibilityAssessment>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rule_outcomes: Vec<crate::wcag::RuleOutcome>,
+
+    /// Requested scope, execution provenance and completeness qualification.
+    #[serde(default)]
+    pub execution: crate::audit::AuditExecution,
 
     /// Modul-Scores
     pub module_scores: Vec<ModuleScoreEntry>,
@@ -137,6 +148,59 @@ pub struct SeverityCounts {
     pub medium: usize,
     pub low: usize,
     pub total: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccessibilityAssessment {
+    pub kind: String,
+    pub rule_id: String,
+    pub wcag_criterion: String,
+    pub severity: Severity,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fix_suggestion: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selector: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewport: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence: Vec<crate::wcag::ViolationEvidence>,
+}
+
+fn normalize_assessments(results: &WcagResults) -> Vec<AccessibilityAssessment> {
+    let sources = [
+        ("warning", results.warnings.as_slice()),
+        ("manual_review", results.not_testables.as_slice()),
+        ("positive", results.positives.as_slice()),
+    ];
+    sources
+        .into_iter()
+        .flat_map(|(kind, findings)| {
+            findings.iter().map(move |finding| AccessibilityAssessment {
+                kind: kind.to_string(),
+                rule_id: finding
+                    .rule_id
+                    .clone()
+                    .unwrap_or_else(|| finding.rule.clone()),
+                wcag_criterion: finding.rule.clone(),
+                severity: finding.severity,
+                message: finding.message.clone(),
+                fix_suggestion: finding.fix_suggestion.clone(),
+                selector: finding.selector.clone(),
+                viewport: finding
+                    .tags
+                    .iter()
+                    .find(|tag| {
+                        matches!(
+                            tag.as_str(),
+                            "desktop-only" | "mobile-only" | "both-viewports"
+                        )
+                    })
+                    .cloned(),
+                evidence: finding.evidence.clone(),
+            })
+        })
+        .collect()
 }
 
 fn default_finding_category() -> String {
@@ -470,8 +534,10 @@ fn gate_certificate_by_risk(
 }
 
 fn viewport_score_calculation_note() -> String {
-    "viewport_scores.weighted_overall is the desktop/mobile blend before security; \
-     overall_score is the canonical final score after the optional security blend."
+    "accessibility_score is the 70% mobile / 30% desktop blend of the displayed \
+     viewport accessibility scores. viewport_scores.weighted_overall blends the \
+     viewport module scores before security; overall_score is the canonical final \
+     score after the optional security blend."
         .to_string()
 }
 
@@ -485,6 +551,11 @@ pub struct ScoreBreakdown {
     /// Blending weights for the two viewport passes
     pub desktop_weight_pct: u32,
     pub mobile_weight_pct: u32,
+    /// Raw accessibility scores displayed for the two viewport passes.
+    pub desktop_accessibility: u32,
+    pub mobile_accessibility: u32,
+    /// Canonical accessibility score (mobile 70% + desktop 30%).
+    pub viewport_blended_accessibility: u32,
     /// Raw overall scores from each viewport pass
     pub desktop_overall: u32,
     pub mobile_overall: u32,
@@ -510,9 +581,46 @@ pub struct ScoreBreakdown {
 /// `accessibility_journey` field stays `None`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AccessibilityJourney {
+    /// Execution coverage for the interactive layer. This is separate from
+    /// findings so "nothing found" remains distinguishable from "not run".
+    #[serde(default)]
+    pub execution: JourneyExecution,
     /// Reproducible step sequences (one per journey: tab walk, modal open, …).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub traces: Vec<JourneyTrace>,
+    /// Compact per-step focus evidence from the tab walk. This deliberately
+    /// excludes AXTree snapshots while retaining the visual/focus facts needed
+    /// to reproduce and review the automated conclusion.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub focus_evidence: Vec<crate::accessibility::FocusSnapshot>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct JourneyExecution {
+    pub mode: String,
+    pub budget_ms: u64,
+    #[serde(default)]
+    pub candidates_detected: usize,
+    #[serde(default)]
+    pub attempted: usize,
+    #[serde(default)]
+    pub completed: usize,
+    #[serde(default)]
+    pub failed: usize,
+    #[serde(default)]
+    pub skipped: usize,
+    #[serde(default)]
+    pub budget_exhausted: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub runs: Vec<JourneyRun>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JourneyRun {
+    pub journey: String,
+    pub status: crate::audit::ExecutionStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
 }
 
 /// One reproducible journey — an ordered list of interaction steps and the
@@ -2014,12 +2122,12 @@ fn filter_aria_hidden_interactive(
 
 fn build_module_scores(
     report: &AuditReport,
+    accessibility_score: u32,
     occurrence_counts: &SeverityCounts,
     vuln_security_penalty: u32,
 ) -> Vec<ModuleScoreEntry> {
-    let score = report.accessibility.score.round().max(1.0) as u32;
-    let accessibility_grade =
-        AccessibilityScorer::calculate_grade(report.accessibility.score).to_string();
+    let score = accessibility_score;
+    let accessibility_grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
 
     let mut module_scores = Vec::new();
 
@@ -2501,7 +2609,11 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let mut interactive_findings = report.interactive_findings.clone();
     filter_aria_hidden_interactive(&mut interactive_findings, &findings, violations);
 
-    let score = report.accessibility.score.round().max(1.0) as u32;
+    let score = report
+        .viewport_scores
+        .as_ref()
+        .map(ViewportScores::weighted_accessibility)
+        .unwrap_or_else(|| report.accessibility.score.round().max(1.0) as u32);
 
     // Severity counts — only WCAG findings count (not SEO findings).
     // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
@@ -2570,7 +2682,8 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         })
         .unwrap_or(0);
 
-    let module_scores = build_module_scores(report, &occurrence_counts, vuln_security_penalty);
+    let module_scores =
+        build_module_scores(report, score, &occurrence_counts, vuln_security_penalty);
 
     // Weighted overall score — 70/30 viewport weighting when dual-pass data present
     let (overall_score, score_calculation_method, score_breakdown) =
@@ -2594,6 +2707,9 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
                 calculation_note: viewport_score_calculation_note(),
                 desktop_weight_pct: 30,
                 mobile_weight_pct: 70,
+                desktop_accessibility: vs.desktop.accessibility,
+                mobile_accessibility: vs.mobile.accessibility,
+                viewport_blended_accessibility: vs.weighted_accessibility(),
                 desktop_overall: vs.desktop.overall,
                 mobile_overall: vs.mobile.overall,
                 viewport_blended_overall: vs.weighted_overall,
@@ -2631,6 +2747,19 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let certificate = AccessibilityScorer::calculate_certificate(overall_score as f32).to_string();
 
     let mut audit_flags = Vec::new();
+    if report.accessibility.execution.quality.qualified_results {
+        audit_flags.push(AuditFlag {
+            kind: "incomplete_audit".to_string(),
+            related_rule: None,
+            source: "audit.execution".to_string(),
+            message: format!(
+                "Audit coverage is {:?}: {} rule checks failed and {} modules were partial or failed. Scores only describe the successfully measured scope.",
+                report.accessibility.execution.quality.status,
+                report.accessibility.execution.quality.failed_rule_checks,
+                report.accessibility.execution.quality.partial_or_failed_modules,
+            ),
+        });
+    }
     if seo_reports_lang && had_311 {
         audit_flags.push(AuditFlag {
             kind: "conflicting_signal".to_string(),
@@ -2758,6 +2887,9 @@ pub fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         findings,
         severity_counts,
         occurrence_counts,
+        accessibility_assessments: normalize_assessments(&report.accessibility.wcag_results),
+        rule_outcomes: report.accessibility.wcag_results.rule_outcomes.clone(),
+        execution: report.accessibility.execution.clone(),
         module_scores,
         overall_score,
         risk,
@@ -4064,27 +4196,34 @@ mod tests {
         );
         report.viewport_scores = Some(ViewportScores {
             desktop: ViewportScoreSet {
-                accessibility: 100,
+                accessibility: 80,
                 performance: None,
-                overall: 100,
+                overall: 80,
             },
             mobile: ViewportScoreSet {
-                accessibility: 100,
+                accessibility: 20,
                 performance: None,
-                overall: 100,
+                overall: 20,
             },
-            weighted_overall: 100,
+            weighted_overall: 38,
         });
         let norm = normalize(&report);
+        assert_eq!(norm.normalized.score, 38);
+        assert_eq!(
+            norm.normalized
+                .module_scores
+                .iter()
+                .find(|module| module.name == "Accessibility")
+                .map(|module| module.score),
+            Some(38)
+        );
         assert_eq!(
             norm.normalized.score_calculation_method,
             "viewport_weighted"
         );
-        assert!(norm
-            .normalized
-            .score_breakdown
-            .as_ref()
-            .is_some_and(|b| b.calculation_note.contains("canonical final score")));
+        assert!(norm.normalized.score_breakdown.as_ref().is_some_and(|b| {
+            b.calculation_note.contains("70% mobile") && b.viewport_blended_accessibility == 38
+        }));
         let names_contributing: Vec<&str> = norm
             .normalized
             .module_scores

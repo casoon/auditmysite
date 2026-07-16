@@ -26,6 +26,8 @@ fn test_single_envelope_shape() {
     let output = unified.to_json(true).unwrap();
     assert!(output.contains("\"schema_version\": \"2.0\""));
     assert!(output.contains("\"report_type\": \"single\""));
+    assert!(output.contains("\"metric_context\""));
+    assert!(output.contains("\"higher_is_better\": true"));
     assert!(output.contains("example.com"));
     assert!(output.contains("\"accessibility_score\": 100"));
 }
@@ -50,8 +52,99 @@ fn test_single_summary_fields_present() {
         normalized.normalized.overall_score
     );
     assert_eq!(unified.summary.violation_count, 0);
+    assert_eq!(unified.summary.finding_count, 0);
+    assert_eq!(unified.summary.finding_occurrence_count, 0);
+    assert_eq!(unified.summary.occurrence_counts_scope, "wcag_only");
     assert_eq!(unified.summary.passed_url_count, 1);
     assert_eq!(unified.summary.failed_url_count, 0);
+}
+
+#[test]
+fn test_assessments_failures_en_status_and_artifact_manifest_are_serialized() {
+    use crate::taxonomy::Severity;
+    use crate::wcag::Violation;
+
+    let mut results = WcagResults::new();
+    results.add_warning(Violation::new(
+        "1.3.1",
+        "Structure warning",
+        WcagLevel::A,
+        Severity::Medium,
+        "Verify the visual grouping.",
+        "n1",
+    ));
+    results.add_not_testable(Violation::new(
+        "1.1.1",
+        "Manual alternative review",
+        WcagLevel::A,
+        Severity::Medium,
+        "Verify the text alternative in context.",
+        "n2",
+    ));
+    results.add_positive(Violation::new(
+        "2.4.1",
+        "Skip link present",
+        WcagLevel::A,
+        Severity::Low,
+        "A skip link was detected.",
+        "n3",
+    ));
+    results.rule_outcomes.push(crate::wcag::RuleOutcome {
+        rule_id: "image_alt".to_string(),
+        status: crate::wcag::RuleOutcomeStatus::Failed,
+        wcag_criterion: Some("1.1.1".to_string()),
+        viewport: Some("mobile".to_string()),
+        reason_code: Some("dom_evaluation_failed".to_string()),
+        finding_count: 0,
+    });
+
+    let mut report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        500,
+    );
+    report.accessibility.execution.quality = crate::audit::AuditQuality {
+        status: crate::audit::AuditQualityStatus::Insufficient,
+        qualified_results: true,
+        failed_rule_checks: 1,
+        partial_or_failed_modules: 0,
+        reasons: vec!["rule_checks_failed".to_string()],
+    };
+    report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
+        &report.url,
+        report.timestamp,
+        &crate::AXTree::new(),
+        "en",
+        None,
+    ));
+
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let page = first_page(&unified);
+
+    assert_eq!(page.accessibility_assessments.len(), 3);
+    assert!(page
+        .accessibility_assessments
+        .iter()
+        .any(|assessment| assessment.kind == "manual_review"));
+    assert_eq!(unified.artifacts.len(), 1);
+    assert_eq!(unified.artifacts[0].kind, "screen_reader_audit");
+
+    let clause = page
+        .detail
+        .as_ref()
+        .unwrap()
+        .en301549_annex
+        .clauses
+        .iter()
+        .find(|clause| clause.wcag == "1.1.1")
+        .unwrap();
+    assert_eq!(clause.status, En301549ClauseStatusKind::NotEvaluated);
+
+    let output = unified.to_json(false).unwrap();
+    assert!(!output.contains("/Users/"));
+    assert!(!output.contains("stacktrace"));
 }
 
 #[test]
@@ -155,6 +248,7 @@ fn test_single_violations_match_severity_counts() {
         page.violation_count,
         page.findings
             .iter()
+            .filter(|finding| finding.category == "wcag")
             .map(|f| f.occurrence_count)
             .sum::<usize>()
     );
@@ -186,6 +280,39 @@ fn test_batch_envelope_shape() {
 
     assert_eq!(unified.report_type, "batch");
     assert_eq!(unified.pages.len(), 2);
+    assert!(unified.audit_scope.is_some());
+    assert!(unified.execution_environment.is_some());
+    let site_analysis = unified
+        .site_analysis
+        .as_ref()
+        .expect("batch site analysis present");
+    for key in [
+        "module_averages",
+        "consistency",
+        "page_types",
+        "content_quality",
+        "content_topics",
+        "duplicates",
+        "performance",
+        "structured_data",
+        "interactive_summary",
+        "accessibility_assessments",
+    ] {
+        assert!(
+            site_analysis.get(key).is_some(),
+            "missing site_analysis.{key}"
+        );
+    }
+    let consistency = &site_analysis["consistency"];
+    for key in [
+        "navigation",
+        "headings",
+        "canonical",
+        "orphan_pages",
+        "schema_graph",
+    ] {
+        assert!(consistency.get(key).is_some(), "missing consistency.{key}");
+    }
     // Batch pages carry a compact detail with fix_guidance only (#256).
     // No new data is collected — it is derived from the findings already
     // normalized for each page; with no violations fix_guidance is empty.
@@ -512,6 +639,7 @@ fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
             ux: None,
             journey: None,
             screenshot: None,
+            module_runs: vec![],
         },
         mobile: crate::audit::ViewportAuditData {
             wcag_results: WcagResults::new(),
@@ -522,6 +650,7 @@ fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
             ux: None,
             journey: None,
             screenshot: None,
+            module_runs: vec![],
         },
     });
 
@@ -576,6 +705,10 @@ fn test_score_breakdown_present_for_viewport_weighted() {
         json_value["pages"][0].get("score_breakdown").is_some()
             && !json_value["pages"][0]["score_breakdown"].is_null(),
         "score_breakdown must be present and non-null for viewport_weighted pages"
+    );
+    assert_eq!(
+        json_value["pages"][0]["score_breakdown"]["viewport_blended_accessibility"],
+        json_value["pages"][0]["accessibility_score"]
     );
 }
 
@@ -741,6 +874,11 @@ fn test_collection_errors_serialized_when_present() {
             wcag_level: "AA".to_string(),
             execution_time_ms: 0,
         },
+        audit_scope: None,
+        execution_environment: None,
+        audit_quality: Default::default(),
+        metric_context: metric_context("batch"),
+        artifacts: Vec::new(),
         summary: UnifiedSummary {
             url_count: 0,
             accessibility_score: 0,
@@ -750,6 +888,8 @@ fn test_collection_errors_serialized_when_present() {
             certificate: "None".to_string(),
             risk_level: crate::audit::normalized::RiskLevel::Low,
             violation_count: 0,
+            finding_count: 0,
+            finding_occurrence_count: 0,
             severity_counts: crate::audit::normalized::SeverityCounts {
                 critical: 0,
                 high: 0,
@@ -759,6 +899,7 @@ fn test_collection_errors_serialized_when_present() {
             },
             severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts: crate::audit::normalized::SeverityCounts::default(),
+            occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: 0,
             failed_url_count: 0,
             violated_rule_count: 0,
@@ -791,6 +932,7 @@ fn test_collection_errors_serialized_when_present() {
         internal_comparison: None,
         crawl_diagnostics: None,
         sitemap_diagnostics: None,
+        site_analysis: None,
         errors: vec![],
         collection_errors: vec![ReportError {
             module: "crawl_diagnostics",

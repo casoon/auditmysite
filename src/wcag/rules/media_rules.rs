@@ -207,12 +207,20 @@ pub async fn check_frame_title_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("frame-title DOM JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "frame-title",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let Some(value) = result.value() else {
-        return vec![];
+        return vec![crate::wcag::technical_rule_failure_for(
+            "frame-title",
+            crate::cli::WcagLevel::A,
+            "missing_evaluation_value",
+        )];
     };
     let Some(issues) = value.as_array() else {
         return vec![];
@@ -311,12 +319,20 @@ pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("frame-tested DOM JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "frame-tested",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let Some(value) = result.value() else {
-        return vec![];
+        return vec![crate::wcag::technical_rule_failure_for(
+            "frame-tested",
+            crate::cli::WcagLevel::A,
+            "missing_evaluation_value",
+        )];
     };
     let Some(frames) = value.as_array() else {
         return vec![];

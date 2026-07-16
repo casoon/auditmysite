@@ -6,14 +6,14 @@
 //! - URL file processing
 //! - Progress reporting
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use reqwest::{redirect::Policy, Client};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use url::Url;
 
 use super::pipeline::{audit_page, PipelineConfig};
@@ -489,56 +489,96 @@ async fn audit_url_with_pool(
 /// * `Ok(Vec<String>)` - List of URLs from the sitemap
 /// * `Err(AuditError)` - If sitemap parsing fails
 pub async fn parse_sitemap(sitemap_url: &str) -> Result<Vec<String>> {
-    info!("Fetching sitemap from: {}", sitemap_url);
-
     let client = build_browser_client(15).unwrap_or_default();
+    const MAX_SUB_SITEMAPS: usize = 1_000;
+    const MAX_SITEMAP_URLS: usize = 100_000;
+    let mut queue = VecDeque::from([sitemap_url.to_string()]);
+    let mut visited = HashSet::new();
+    let mut all_urls = Vec::new();
+    let mut seen_urls = HashSet::new();
 
-    let response =
-        client
-            .get(sitemap_url)
+    while let Some(current) = queue.pop_front() {
+        if !visited.insert(current.clone()) {
+            warn!(
+                "Skipping cyclic or duplicate sitemap reference: {}",
+                current
+            );
+            continue;
+        }
+        if visited.len() > MAX_SUB_SITEMAPS {
+            return Err(AuditError::SitemapParseFailed {
+                url: sitemap_url.to_string(),
+                reason: format!(
+                    "safety limit exceeded: more than {MAX_SUB_SITEMAPS} sitemap documents"
+                ),
+            });
+        }
+        info!("Fetching sitemap from: {}", current);
+        let content = client
+            .get(&current)
             .send()
             .await
-            .map_err(|e| AuditError::SitemapParseFailed {
-                url: sitemap_url.to_string(),
-                reason: e.to_string(),
+            .map_err(|error| AuditError::SitemapParseFailed {
+                url: current.clone(),
+                reason: error.to_string(),
+            })?
+            .text()
+            .await
+            .map_err(|error| AuditError::SitemapParseFailed {
+                url: current.clone(),
+                reason: error.to_string(),
             })?;
 
-    let content = response
-        .text()
-        .await
-        .map_err(|e| AuditError::SitemapParseFailed {
-            url: sitemap_url.to_string(),
-            reason: e.to_string(),
-        })?;
+        if content.contains("<sitemapindex") {
+            for nested in
+                extract_sitemap_urls(&content).map_err(|reason| AuditError::SitemapParseFailed {
+                    url: current.clone(),
+                    reason,
+                })?
+            {
+                if visited.contains(&nested) {
+                    warn!(
+                        "Detected cyclic sitemap reference: {} -> {}",
+                        current, nested
+                    );
+                } else {
+                    queue.push_back(nested);
+                }
+            }
+            if visited.len() + queue.len() > MAX_SUB_SITEMAPS {
+                return Err(AuditError::SitemapParseFailed {
+                    url: sitemap_url.to_string(),
+                    reason: format!(
+                        "safety limit exceeded: more than {MAX_SUB_SITEMAPS} sitemap documents queued"
+                    ),
+                });
+            }
+            continue;
+        }
 
-    // Try to detect if this is a sitemap index
-    if content.contains("<sitemapindex") {
-        info!("Detected sitemap index, extracting sitemap URLs...");
-        let sitemap_urls =
-            extract_sitemap_urls(&content).map_err(|reason| AuditError::SitemapParseFailed {
-                url: sitemap_url.to_string(),
-                reason,
-            })?;
-
-        let mut all_urls = Vec::new();
-        for sm_url in sitemap_urls {
-            debug!("Processing nested sitemap: {}", sm_url);
-            match Box::pin(parse_sitemap(&sm_url)).await {
-                Ok(urls) => all_urls.extend(urls),
-                Err(e) => warn!("Failed to parse nested sitemap {}: {}", sm_url, e),
+        for url in extract_loc_urls(&content).map_err(|reason| AuditError::SitemapParseFailed {
+            url: current.clone(),
+            reason,
+        })? {
+            if seen_urls.insert(url.clone()) {
+                all_urls.push(url);
+                if all_urls.len() > MAX_SITEMAP_URLS {
+                    return Err(AuditError::SitemapParseFailed {
+                        url: sitemap_url.to_string(),
+                        reason: format!(
+                            "safety limit exceeded: more than {MAX_SITEMAP_URLS} unique URLs"
+                        ),
+                    });
+                }
             }
         }
-        return Ok(all_urls);
     }
-
-    // Regular sitemap - extract URLs
-    let urls = extract_loc_urls(&content).map_err(|reason| AuditError::SitemapParseFailed {
-        url: sitemap_url.to_string(),
-        reason,
-    })?;
-    info!("Found {} URLs in sitemap", urls.len());
-
-    Ok(urls)
+    info!(
+        "Found {} unique URLs across {} sitemap documents",
+        all_urls.len(),
+        visited.len()
+    );
+    Ok(all_urls)
 }
 
 /// Fetch a sitemap URL and return the entry count WITHOUT recursing into sub-sitemaps.

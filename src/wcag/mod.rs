@@ -20,4 +20,8 @@ pub use engine::{
     check_timeouts_with_page, check_timing_with_page, check_use_of_color_with_page,
     check_visual_presentation_with_page, RuleFilterConfig,
 };
-pub use types::{FindingKind, RuleMetadata, Severity, Violation, ViolationEvidence, WcagResults};
+pub use types::{
+    technical_failure_reason, technical_rule_failure, technical_rule_failure_for, FindingKind,
+    RuleMetadata, RuleOutcome, RuleOutcomeStatus, Severity, Violation, ViolationEvidence,
+    WcagResults,
+};

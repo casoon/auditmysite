@@ -614,7 +614,6 @@ pub fn build_batch_presentation_with_normalized(
         (sum as f64 / normalized_reports.len() as f64).round() as u32
     };
 
-    let average_score = batch.summary.average_score.round() as u32;
     let verdict_text = build_batch_verdict(i18n, batch);
 
     // Aggregate module averages
@@ -700,9 +699,10 @@ pub fn build_batch_presentation_with_normalized(
         })
         .unwrap_or_default();
 
-    // Certificate and grade are based on the primary WCAG/accessibility score.
-    // Thresholds mirror `AccessibilityScorer::calculate_certificate` (#449).
-    let certificate = match average_score {
+    // The cover classification follows the same overall-score contract as the
+    // single report and unified JSON. Accessibility remains visible as its own
+    // module average in the status and portfolio sections.
+    let certificate = match average_overall_score {
         90.. => "SEHR GUT",
         75.. => "GUT",
         60.. => "STABIL",
@@ -711,7 +711,7 @@ pub fn build_batch_presentation_with_normalized(
     }
     .to_string();
 
-    let grade = match average_score {
+    let grade = match average_overall_score {
         95.. => "A+",
         90.. => "A",
         85.. => "B+",
@@ -803,7 +803,7 @@ pub fn build_batch_presentation_with_normalized(
 /// The strong "resolves N pages" claim is only used for `"confirmed"`
 /// clusters; `"likely"` clusters always render with explicit uncertainty
 /// wording so a report never implies more certainty than the evidence
-/// supports (see `plans/template-root-cause-dedup.md`).
+/// supports.
 fn build_template_cluster_view(
     cluster: &crate::audit::TemplateCluster,
     total_pages: usize,

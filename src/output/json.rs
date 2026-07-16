@@ -72,6 +72,14 @@ pub struct UnifiedReport {
     /// Top-level tool version — duplicated from `metadata.tool` for ease of consumption.
     pub tool_version: &'static str,
     pub metadata: ReportMetadata,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audit_scope: Option<crate::audit::AuditScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_environment: Option<crate::audit::ExecutionEnvironment>,
+    pub audit_quality: crate::audit::AuditQuality,
+    /// Definitions for report-specific scores and ambiguous finding counters.
+    /// General values such as URL counts and durations remain self-describing.
+    pub metric_context: MetricContext,
     pub summary: UnifiedSummary,
     /// Batch only — how the audited URLs were discovered and sampled. Lets a
     /// consumer tell a representative sample apart from full coverage (#261).
@@ -90,6 +98,14 @@ pub struct UnifiedReport {
     /// Batch only — sitemap HTTP/indexability and link-graph diagnostics.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sitemap_diagnostics: Option<serde_json::Value>,
+    /// Batch-only canonical domain/portfolio analyses that are already
+    /// computed for the PDF presentation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub site_analysis: Option<serde_json::Value>,
+    /// Separately written artifacts that belong to this audit but intentionally
+    /// remain outside the main JSON envelope.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub artifacts: Vec<ArtifactDescriptor>,
     /// Batch only — per-URL audit errors.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub errors: Vec<serde_json::Value>,
@@ -103,6 +119,132 @@ pub struct UnifiedReport {
     pub verdict_reasons: Vec<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct MetricContext {
+    pub score_scale: ScoreScale,
+    pub score_definitions: Vec<MetricDefinition>,
+    pub count_definitions: Vec<MetricDefinition>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ScoreScale {
+    pub minimum: u32,
+    pub maximum: u32,
+    pub higher_is_better: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MetricDefinition {
+    pub field: &'static str,
+    pub unit: &'static str,
+    pub meaning: &'static str,
+}
+
+fn metric_context(report_type: &'static str) -> MetricContext {
+    let accessibility_meaning = if report_type == "batch" {
+        "Average of the canonical page accessibility scores. Each dual-viewport page score is 70% mobile and 30% desktop; single-viewport pages use their measured accessibility score."
+    } else {
+        "Canonical accessibility score. With dual-viewport data it is 70% mobile and 30% desktop; otherwise it is the measured single-viewport score. It covers automatically evaluated WCAG findings only."
+    };
+    let overall_meaning = if report_type == "batch" {
+        "Average of the page-level overall scores across the audited URLs."
+    } else {
+        "Weighted score across contributing measured modules. In a dual-viewport audit, viewport module results are blended first and Security contributes 10% when available."
+    };
+
+    MetricContext {
+        score_scale: ScoreScale {
+            minimum: 0,
+            maximum: 100,
+            higher_is_better: true,
+        },
+        score_definitions: vec![
+            MetricDefinition {
+                field: "summary.accessibility_score",
+                unit: "points",
+                meaning: accessibility_meaning,
+            },
+            MetricDefinition {
+                field: "summary.overall_score",
+                unit: "points",
+                meaning: overall_meaning,
+            },
+            MetricDefinition {
+                field: "summary.score",
+                unit: "points",
+                meaning: "Compatibility alias for summary.overall_score.",
+            },
+            MetricDefinition {
+                field: "summary.grade / summary.certificate",
+                unit: "classification",
+                meaning: "Classification derived from summary.overall_score; risk gates can restrict the certificate without changing the numeric score.",
+            },
+            MetricDefinition {
+                field: "pages[].module_scores[].score",
+                unit: "points",
+                meaning: "Module-specific 0-100 score. Scores from different modules use different measured or heuristic inputs and are not interchangeable raw measurements.",
+            },
+            MetricDefinition {
+                field: "pages[].detail.modules.*.score and nested dimension scores",
+                unit: "points",
+                meaning: "Module- or dimension-specific 0-100 score; higher is better. The surrounding module and measurement_type identify whether the value is measured or heuristic.",
+            },
+            MetricDefinition {
+                field: "pages[].detail.viewport_scores",
+                unit: "points",
+                meaning: "Desktop and mobile accessibility/overall scores on the 0-100 scale. weighted_overall is the 70% mobile and 30% desktop module blend before the optional Security contribution; the canonical accessibility blend is recorded in score_breakdown.",
+            },
+            MetricDefinition {
+                field: "summary.*_score / pages[].*_score",
+                unit: "points",
+                meaning: "Named module score on the 0-100 scale; higher is better. Throttled and Lighthouse performance scores are lab results, not field/RUM data.",
+            },
+            MetricDefinition {
+                field: "summary.accessibility_score_breakdown[]",
+                unit: "points and percent",
+                meaning: "Accessibility area score (0-100, higher is better), its contribution weight in percent, and estimated_lost_points relative to 100.",
+            },
+            MetricDefinition {
+                field: "pages[].risk.score",
+                unit: "risk points",
+                meaning: "Independent 0-100 risk index; unlike quality scores, higher means more risk. The adjacent level, threshold, and driven_by fields explain its classification.",
+            },
+            MetricDefinition {
+                field: "pages[].principle_coverage.*.ratio",
+                unit: "ratio",
+                meaning: "Share from 0 to 1 of automatically evaluated checks without a finding for that WCAG principle; it is coverage context and does not affect the score.",
+            },
+            MetricDefinition {
+                field: "pages[].findings[].priority_score",
+                unit: "relative priority",
+                meaning: "Unbounded ranking value calculated as severity weight multiplied by occurrence reach and divided by estimated effort; higher values should be addressed earlier and are not percentages.",
+            },
+            MetricDefinition {
+                field: "pages[].findings[].score_impact",
+                unit: "penalty points",
+                meaning: "Rule-specific base and maximum deductions used by accessibility scoring; scaling states how repeated occurrences are condensed.",
+            },
+        ],
+        count_definitions: vec![
+            MetricDefinition {
+                field: "violation_count / occurrence_counts",
+                unit: "WCAG occurrences",
+                meaning: "Affected WCAG element or page occurrences; repeated instances of the same rule count separately.",
+            },
+            MetricDefinition {
+                field: "violated_rule_count / severity_counts",
+                unit: "distinct WCAG finding groups",
+                meaning: "Distinct violated WCAG rule groups, not affected elements.",
+            },
+            MetricDefinition {
+                field: "finding_count / finding_occurrence_count",
+                unit: "all-category findings",
+                meaning: "Finding rows and occurrences across WCAG, SEO, and every other reported category.",
+            },
+        ],
+    }
+}
+
 /// Uniform summary — identical field names for single and batch.
 #[derive(Debug, Serialize)]
 pub struct UnifiedSummary {
@@ -114,12 +256,18 @@ pub struct UnifiedSummary {
     pub grade: String,
     pub certificate: String,
     pub risk_level: crate::audit::normalized::RiskLevel,
+    /// WCAG violation occurrences only.
     pub violation_count: usize,
+    /// Distinct finding rows across every category (WCAG, SEO, ...).
+    pub finding_count: usize,
+    /// Finding occurrences across every category (WCAG, SEO, ...).
+    pub finding_occurrence_count: usize,
     /// Anzahl unterschiedlicher Findings (eine Zeile pro Regel/Severity).
     pub severity_counts: crate::audit::normalized::SeverityCounts,
     pub severity_counts_scope: String,
-    /// Element-Occurrences je Severity (Summe über alle Findings).
+    /// WCAG element/page occurrences per severity.
     pub occurrence_counts: crate::audit::normalized::SeverityCounts,
+    pub occurrence_counts_scope: String,
     pub passed_url_count: usize,
     pub failed_url_count: usize,
     /// Anzahl unterschiedlicher WCAG-Regeln, die irgendwo geprüfte URLs verletzt haben
@@ -194,6 +342,29 @@ pub struct UnifiedSummary {
     pub commerce: Option<crate::commerce::CommerceSiteSummary>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ArtifactDescriptor {
+    pub kind: &'static str,
+    pub media_type: &'static str,
+    pub delivery: &'static str,
+    pub path_template: &'static str,
+    pub status: crate::audit::ExecutionStatus,
+}
+
+fn artifacts_for(normalized: &NormalizedReport) -> Vec<ArtifactDescriptor> {
+    if normalized.screen_reader.is_some() {
+        vec![ArtifactDescriptor {
+            kind: "screen_reader_audit",
+            media_type: "application/json",
+            delivery: "sidecar",
+            path_template: "<primary-output-stem>.screen-reader.json",
+            status: crate::audit::ExecutionStatus::Completed,
+        }]
+    } else {
+        Vec::new()
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct WcagCoverageSummary {
     pub level: String,
@@ -243,6 +414,8 @@ pub enum En301549ClauseStatusKind {
     ViolationsFound,
     NoViolationsAutomated,
     ManualReviewRequired,
+    PartialAutomatedEvaluation,
+    NotEvaluated,
 }
 
 #[derive(Debug, Serialize)]
@@ -338,13 +511,19 @@ pub struct PageEntry {
     pub overall_score: u32,
     pub grade: String,
     pub certificate: String,
+    /// WCAG violation occurrences only.
     pub violation_count: usize,
+    /// Distinct finding rows across every category (WCAG, SEO, ...).
+    pub finding_count: usize,
+    /// Finding occurrences across every category (WCAG, SEO, ...).
+    pub finding_occurrence_count: usize,
     /// Number of distinct WCAG rules that fired — `findings[].length` for wcag-category entries.
     pub violated_rule_count: usize,
     pub severity_counts: crate::audit::normalized::SeverityCounts,
     pub severity_counts_scope: String,
     /// Element-Occurrences je Severity (Summe `occurrence_count` über alle WCAG-Findings).
     pub occurrence_counts: crate::audit::normalized::SeverityCounts,
+    pub occurrence_counts_scope: String,
     /// AX-tree node count (accessibility tree, not DOM). Can exceed `dom_nodes`
     /// because the browser's accessibility tree includes virtual/internal nodes
     /// and roles not present in the HTML DOM. This is expected behavior.
@@ -372,6 +551,17 @@ pub struct PageEntry {
     pub principle_coverage: crate::audit::PrincipleCoverage,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
+    pub audit_quality: crate::audit::AuditQuality,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub module_runs: Vec<crate::audit::ModuleRun>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rule_outcomes: Vec<crate::wcag::RuleOutcome>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accessibility_assessments: Vec<crate::audit::normalized::AccessibilityAssessment>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub navigation: Option<crate::audit::NavigationSnapshot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consent: Option<crate::audit::ConsentAuditState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consent_privacy: Option<crate::audit::ConsentPrivacySnapshot>,
     /// Findings produced by the Accessibility-Journey-Layer (phase 2+).
@@ -385,7 +575,24 @@ pub struct PageEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screen_reader: Option<crate::screen_reader::ScreenReaderSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_profile: Option<BatchContentProfile>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<PageDetail>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BatchContentProfile {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page_type: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub attributes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub semantic_score: Option<u32>,
+    pub biggest_lever: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub topic_terms: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub top_issues: Vec<String>,
 }
 
 /// Per-page module detail blob — single reports only.
@@ -405,6 +612,8 @@ pub struct PageDetail {
     pub capabilities: Vec<OutputCapabilitySignal>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<crate::audit::ViewportScores>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub viewport_comparison: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub budget_violations: Vec<serde_json::Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -525,6 +734,166 @@ pub struct ReportMetadata {
     pub execution_time_ms: u64,
 }
 
+fn aggregate_audit_quality(reports: &[NormalizedReport]) -> crate::audit::AuditQuality {
+    let failed_rule_checks = reports
+        .iter()
+        .map(|report| report.execution.quality.failed_rule_checks)
+        .sum();
+    let partial_or_failed_modules = reports
+        .iter()
+        .map(|report| report.execution.quality.partial_or_failed_modules)
+        .sum();
+    let status = if reports.iter().any(|report| {
+        report.execution.quality.status == crate::audit::AuditQualityStatus::Insufficient
+    }) {
+        crate::audit::AuditQualityStatus::Insufficient
+    } else if reports
+        .iter()
+        .any(|report| report.execution.quality.status == crate::audit::AuditQualityStatus::Partial)
+    {
+        crate::audit::AuditQualityStatus::Partial
+    } else {
+        crate::audit::AuditQualityStatus::Complete
+    };
+    crate::audit::AuditQuality {
+        status,
+        qualified_results: status != crate::audit::AuditQualityStatus::Complete,
+        failed_rule_checks,
+        partial_or_failed_modules,
+        reasons: reports
+            .iter()
+            .filter(|report| report.execution.quality.qualified_results)
+            .map(|report| format!("qualified_page:{}", report.url))
+            .collect(),
+    }
+}
+
+fn build_site_analysis(
+    batch: &BatchReport,
+    presentation: &crate::output::report_model::BatchPresentation,
+    normalized_reports: &[NormalizedReport],
+) -> serde_json::Value {
+    let portfolio = &presentation.portfolio_summary;
+    let consistency = batch.consistency.as_ref().map(|value| {
+        serde_json::json!({
+            "navigation": {
+                "pages_with_main_navigation": value.navigation.pages_with_main_nav,
+                "pages_with_skip_link": value.navigation.pages_with_skip_link,
+                "total_pages": value.navigation.total_pages,
+            },
+            "headings": {
+                "pages_with_single_h1": value.headings.pages_with_single_h1,
+                "pages_with_no_h1": value.headings.pages_with_no_h1,
+                "pages_with_multiple_h1": value.headings.pages_with_multiple_h1,
+                "total_pages": value.headings.total_pages,
+            },
+            "canonical": {
+                "www_count": value.canonical.www_count,
+                "non_www_count": value.canonical.non_www_count,
+                "missing_count": value.canonical.missing_count,
+                "total_pages": value.canonical.total_pages,
+            },
+            "orphan_pages": {
+                "urls": value.orphan_pages.orphan_urls,
+                "total_pages": value.orphan_pages.total_pages,
+                "scope": "audited_urls_only",
+            },
+            "schema_graph": {
+                "conflicts": value.schema_graph.conflicts,
+            },
+        })
+    });
+    let interactive = presentation.interactive_summary.as_ref().map(|value| {
+        serde_json::json!({
+            "pages_tested": value.total_pages_tested,
+            "pages_with_issues": value.pages_with_issues,
+            "has_critical": value.has_critical,
+            "categories": value.categories.iter().map(|category| serde_json::json!({
+                "category": category.category,
+                "affected_urls": category.affected_urls,
+                "max_severity": category.max_severity,
+            })).collect::<Vec<_>>(),
+        })
+    });
+    let mut assessment_groups: std::collections::BTreeMap<
+        (String, String, String),
+        (usize, std::collections::BTreeSet<String>),
+    > = std::collections::BTreeMap::new();
+    for report in normalized_reports {
+        for assessment in &report.accessibility_assessments {
+            let entry = assessment_groups
+                .entry((
+                    assessment.kind.clone(),
+                    assessment.rule_id.clone(),
+                    assessment.wcag_criterion.clone(),
+                ))
+                .or_default();
+            entry.0 += 1;
+            entry.1.insert(report.url.clone());
+        }
+    }
+
+    serde_json::json!({
+        "module_averages": portfolio.module_averages.iter().map(|(module, score)| serde_json::json!({
+            "module": module,
+            "score": score,
+        })).collect::<Vec<_>>(),
+        "active_modules": portfolio.active_modules,
+        "consistency": consistency,
+        "page_types": portfolio.page_type_distribution.iter().map(|(page_type, count, percentage)| serde_json::json!({
+            "page_type": page_type,
+            "count": count,
+            "percentage": percentage,
+        })).collect::<Vec<_>>(),
+        "content_quality": {
+            "strongest_pages": portfolio.strongest_content_pages.iter().map(|(url, page_type, score)| serde_json::json!({
+                "url": url, "page_type": page_type, "score": score,
+            })).collect::<Vec<_>>(),
+            "weakest_pages": portfolio.weakest_content_pages.iter().map(|(url, page_type, score)| serde_json::json!({
+                "url": url, "page_type": page_type, "score": score,
+            })).collect::<Vec<_>>(),
+        },
+        "content_topics": {
+            "top_terms": portfolio.top_topics.iter().map(|(term, pages)| serde_json::json!({
+                "term": term, "page_count": pages,
+            })).collect::<Vec<_>>(),
+            "overlap_pairs": portfolio.overlap_pairs.iter().map(|(url_a, url_b, shared_terms)| serde_json::json!({
+                "url_a": url_a, "url_b": url_b, "shared_terms": shared_terms,
+            })).collect::<Vec<_>>(),
+        },
+        "duplicates": {
+            "exact": portfolio.duplicate_content,
+            "near": portfolio.near_duplicates.iter().map(|(url_a, url_b, similarity)| serde_json::json!({
+                "url_a": url_a, "url_b": url_b, "similarity_percent": similarity,
+            })).collect::<Vec<_>>(),
+        },
+        "performance": {
+            "budget_summary": portfolio.budget_summary.iter().map(|(metric, budget, affected_urls, severity)| serde_json::json!({
+                "metric": metric, "budget": budget, "affected_urls": affected_urls, "severity": severity,
+            })).collect::<Vec<_>>(),
+            "render_blocking_summary": portfolio.render_blocking_summary.iter().map(|(metric, value)| serde_json::json!({
+                "metric": metric, "value": value,
+            })).collect::<Vec<_>>(),
+        },
+        "structured_data": {
+            "type_distribution": portfolio.schema_distribution.iter().map(|(schema_type, pages)| serde_json::json!({
+                "schema_type": schema_type, "page_count": pages,
+            })).collect::<Vec<_>>(),
+            "pages_without_schema": portfolio.pages_without_schema,
+            "entity_conflicts": batch.consistency.as_ref().map(|c| c.schema_graph.conflicts.clone()).unwrap_or_default(),
+        },
+        "interactive_summary": interactive,
+        "accessibility_assessments": assessment_groups.into_iter().map(|((kind, rule_id, wcag_criterion), (occurrences, urls))| serde_json::json!({
+            "kind": kind,
+            "rule_id": rule_id,
+            "wcag_criterion": wcag_criterion,
+            "occurrences": occurrences,
+            "affected_url_count": urls.len(),
+            "affected_urls": urls,
+        })).collect::<Vec<_>>(),
+    })
+}
+
 // ─── Construction ─────────────────────────────────────────────────────────────
 
 impl UnifiedReport {
@@ -584,7 +953,7 @@ impl UnifiedReport {
             .iter()
             .map(|r| crate::audit::normalize(r).normalized)
             .collect();
-        let i18n = crate::i18n::I18n::new("de").expect("default locale must always load");
+        let i18n = crate::i18n::I18n::new("en").expect("canonical JSON locale must load");
         let presentation =
             build_batch_presentation_with_normalized(batch_report, &i18n, &normalized_reports);
 
@@ -593,6 +962,18 @@ impl UnifiedReport {
             .map(|n| {
                 let mut page = build_page(n, None, None);
                 page.detail = Some(build_batch_detail(n));
+                page.content_profile = presentation
+                    .url_details
+                    .iter()
+                    .find(|detail| detail.url == n.url)
+                    .map(|detail| BatchContentProfile {
+                        page_type: detail.page_type.clone(),
+                        attributes: detail.page_attributes.clone(),
+                        semantic_score: detail.page_semantic_score,
+                        biggest_lever: detail.biggest_lever.clone(),
+                        topic_terms: detail.topic_terms.clone(),
+                        top_issues: detail.top_issues.clone(),
+                    });
                 page
             })
             .collect();
@@ -614,9 +995,12 @@ impl UnifiedReport {
                 .to_string(),
             risk_level: batch_report.summary.risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
+            finding_count: pages.iter().map(|p| p.finding_count).sum(),
+            finding_occurrence_count: pages.iter().map(|p| p.finding_occurrence_count).sum(),
             severity_counts,
             severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts,
+            occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
             violated_rule_count: batch_report.summary.violated_rule_count,
@@ -693,6 +1077,7 @@ impl UnifiedReport {
                     .ok()
             })
             .collect();
+        let site_analysis = build_site_analysis(batch_report, &presentation, &normalized_reports);
 
         UnifiedReport {
             schema_version: SCHEMA_VERSION,
@@ -707,6 +1092,14 @@ impl UnifiedReport {
                     .unwrap_or_else(|| "mixed".to_string()),
                 execution_time_ms: batch_report.total_duration_ms,
             },
+            audit_scope: normalized_reports
+                .first()
+                .map(|report| report.execution.scope.clone()),
+            execution_environment: normalized_reports
+                .first()
+                .map(|report| report.execution.environment.clone()),
+            audit_quality: aggregate_audit_quality(&normalized_reports),
+            metric_context: metric_context("batch"),
             summary,
             sample: batch_report.sample.clone(),
             pages,
@@ -714,6 +1107,8 @@ impl UnifiedReport {
             internal_comparison: Some(build_internal_comparison(&normalized_reports)),
             crawl_diagnostics,
             sitemap_diagnostics,
+            site_analysis: Some(site_analysis),
+            artifacts: Vec::new(),
             errors,
             collection_errors,
             verdict: Verdict::Pass,
@@ -765,9 +1160,12 @@ impl UnifiedReport {
             certificate: page.certificate.clone(),
             risk_level: page.risk.level,
             violation_count: page.violation_count,
+            finding_count: page.finding_count,
+            finding_occurrence_count: page.finding_occurrence_count,
             severity_counts: page.severity_counts.clone(),
             severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts: page.occurrence_counts.clone(),
+            occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             violated_rule_count,
@@ -822,6 +1220,10 @@ impl UnifiedReport {
                 wcag_level: ctx.normalized.wcag_level.to_string(),
                 execution_time_ms: ctx.normalized.duration_ms,
             },
+            audit_scope: Some(ctx.normalized.execution.scope.clone()),
+            execution_environment: Some(ctx.normalized.execution.environment.clone()),
+            audit_quality: ctx.normalized.execution.quality.clone(),
+            metric_context: metric_context("single"),
             summary,
             sample: None,
             pages: vec![page],
@@ -829,6 +1231,8 @@ impl UnifiedReport {
             internal_comparison: None,
             crawl_diagnostics: None,
             sitemap_diagnostics: None,
+            site_analysis: None,
+            artifacts: artifacts_for(&ctx.normalized),
             errors: Vec::new(),
             collection_errors: Vec::new(),
             verdict: Verdict::Pass,
@@ -861,9 +1265,12 @@ impl UnifiedReport {
             certificate: page.certificate.clone(),
             risk_level: page.risk.level,
             violation_count: page.violation_count,
+            finding_count: page.finding_count,
+            finding_occurrence_count: page.finding_occurrence_count,
             severity_counts: page.severity_counts.clone(),
             severity_counts_scope: "wcag_only".to_string(),
             occurrence_counts: page.occurrence_counts.clone(),
+            occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
             violated_rule_count,
@@ -903,6 +1310,10 @@ impl UnifiedReport {
                 wcag_level: normalized.wcag_level.to_string(),
                 execution_time_ms: normalized.duration_ms,
             },
+            audit_scope: Some(normalized.execution.scope.clone()),
+            execution_environment: Some(normalized.execution.environment.clone()),
+            audit_quality: normalized.execution.quality.clone(),
+            metric_context: metric_context("single"),
             summary,
             sample: None,
             pages: vec![page],
@@ -910,6 +1321,8 @@ impl UnifiedReport {
             internal_comparison: None,
             crawl_diagnostics: None,
             sitemap_diagnostics: None,
+            site_analysis: None,
+            artifacts: artifacts_for(normalized),
             errors: Vec::new(),
             collection_errors: Vec::new(),
             verdict: Verdict::Pass,

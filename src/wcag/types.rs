@@ -257,6 +257,60 @@ impl Violation {
     }
 }
 
+/// Internal marker returned by page rules when their browser-side measurement
+/// could not be executed. `run_rules` consumes the marker into a failed
+/// [`RuleOutcome`] instead of treating the empty result as a clean check.
+pub fn technical_rule_failure(rule: &RuleMetadata, reason_code: &str) -> Violation {
+    Violation::new(
+        rule.id,
+        rule.name,
+        rule.level,
+        Severity::Low,
+        "The automated rule could not be evaluated.",
+        "document",
+    )
+    .with_rule_id(rule.axe_id)
+    .with_tags(vec![
+        "audit-execution-failed".to_string(),
+        format!("reason:{reason_code}"),
+    ])
+    .with_kind(FindingKind::NotTestable)
+}
+
+/// Variant for composite DOM checks whose table entry, rather than one
+/// `RuleMetadata`, owns the public rule identifier.
+pub fn technical_rule_failure_for(rule_id: &str, level: WcagLevel, reason_code: &str) -> Violation {
+    Violation::new(
+        rule_id,
+        "Automated page check",
+        level,
+        Severity::Low,
+        "The automated rule could not be evaluated.",
+        "document",
+    )
+    .with_rule_id(rule_id)
+    .with_tags(vec![
+        "audit-execution-failed".to_string(),
+        format!("reason:{reason_code}"),
+    ])
+    .with_kind(FindingKind::NotTestable)
+}
+
+pub fn technical_failure_reason(finding: &Violation) -> Option<&str> {
+    if !finding
+        .tags
+        .iter()
+        .any(|tag| tag == "audit-execution-failed")
+    {
+        return None;
+    }
+    finding
+        .tags
+        .iter()
+        .find_map(|tag| tag.strip_prefix("reason:"))
+        .or(Some("rule_execution_failed"))
+}
+
 // Severity enum is now defined in crate::taxonomy::severity
 // and re-exported above. Old variants mapping:
 // Minor → Low, Moderate → Medium, Serious → High, Critical → Critical
@@ -302,6 +356,36 @@ pub struct WcagResults {
     pub incomplete: usize,
     /// Total nodes checked
     pub nodes_checked: usize,
+    /// One execution record per automated page-level rule and viewport.
+    /// This distinguishes a clean check from a check that could not run.
+    #[serde(default)]
+    pub rule_outcomes: Vec<RuleOutcome>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuleOutcomeStatus {
+    ViolationsFound,
+    NoViolationDetected,
+    Warning,
+    ManualReviewRequired,
+    Failed,
+    Skipped,
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleOutcome {
+    pub rule_id: String,
+    pub status: RuleOutcomeStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wcag_criterion: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewport: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<String>,
+    #[serde(default)]
+    pub finding_count: usize,
 }
 
 impl WcagResults {
@@ -315,6 +399,7 @@ impl WcagResults {
             passes: 0,
             incomplete: 0,
             nodes_checked: 0,
+            rule_outcomes: Vec::new(),
         }
     }
 
@@ -394,6 +479,7 @@ impl WcagResults {
         self.passes += other.passes;
         self.incomplete += other.incomplete;
         self.nodes_checked += other.nodes_checked;
+        self.rule_outcomes.extend(other.rule_outcomes);
     }
 }
 

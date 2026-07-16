@@ -301,12 +301,16 @@ pub fn content_visibility_signal_text(
             "Kein <link rel=\"canonical\"> — Duplicate-Content-Risiko bei URL-Varianten.".into(),
         ),
         (RichSnippetPotential, true) => (
-            "Rich snippet potential detected".into(),
-            format!("Structured data enables rich snippets: {text}."),
+            "Rich-result type detected".into(),
+            format!(
+                "Structured data contains types associated with enhanced search appearances: {text}. Type detection alone does not confirm eligibility."
+            ),
         ),
         (RichSnippetPotential, false) => (
-            "Rich-Snippet-Potenzial erkannt".into(),
-            format!("Strukturierte Daten ermöglichen Rich Snippets: {text}."),
+            "Rich-Result-Typ erkannt".into(),
+            format!(
+                "Die strukturierten Daten enthalten Typen für mögliche erweiterte Suchdarstellungen: {text}. Die Typ-Erkennung allein bestätigt keine Eignung."
+            ),
         ),
         // ── Local business ───────────────────────────────────────────────
         (LocalBusinessNotFound, true) => (
@@ -1455,7 +1459,12 @@ fn build_topical_authority(
     let mut signals = Vec::new();
 
     // Schema coverage (thematic richness)
-    let schema_count = seo.structured_data.json_ld.len();
+    let schema_count = seo
+        .structured_data
+        .json_ld
+        .iter()
+        .filter(|schema| schema.is_valid && !schema.schema_types.is_empty())
+        .count();
     if schema_count >= 3 {
         signals.push(
             signal(
@@ -1970,6 +1979,7 @@ mod tests {
                     total: 0,
                 },
                 nodes_analyzed: 100,
+                execution: Default::default(),
             },
             duration_ms: 1000,
             performance: None,

@@ -30,7 +30,7 @@ fn build_batch_report(
     let pres = build_batch_presentation_with_locale(batch, &i18n);
 
     let domain = &pres.portfolio_summary.domain;
-    let score = pres.portfolio_summary.average_score.round() as u32;
+    let score = pres.portfolio_summary.average_overall_score;
 
     let mut builder = engine
         .report("wcag-batch-audit")
@@ -54,9 +54,22 @@ fn build_batch_report(
     let en301549_rollup = crate::wcag::en301549::derive_batch_rollup(
         normalized_reports.iter().map(|r| r.findings.as_slice()),
     );
+    let failed_en_criteria: std::collections::BTreeSet<String> = normalized_reports
+        .iter()
+        .flat_map(|report| report.rule_outcomes.iter())
+        .filter(|outcome| outcome.status == crate::wcag::RuleOutcomeStatus::Failed)
+        .filter_map(|outcome| outcome.wcag_criterion.clone())
+        .collect();
 
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
-    builder = render_batch_status_section(builder, &pres, &en301549_rollup, config, &i18n);
+    builder = render_batch_status_section(
+        builder,
+        &pres,
+        &en301549_rollup,
+        &failed_en_criteria,
+        config,
+        &i18n,
+    );
     builder = render_batch_module_portfolio(builder, &pres, &i18n);
     builder = render_batch_audit_flags(builder, batch, &i18n);
     builder = render_batch_url_ranking(builder, &pres, &i18n);
@@ -78,7 +91,7 @@ fn build_batch_report(
     builder = render_batch_seo_section(builder, &pres, &i18n);
 
     if let Some(ref consistency) = batch.consistency {
-        builder = render_batch_consistency(builder, consistency, &i18n);
+        builder = render_batch_consistency(builder, consistency, &pres, &i18n);
     }
 
     builder = render_next_steps_batch(builder, &pres, &i18n);

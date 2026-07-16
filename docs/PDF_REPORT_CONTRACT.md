@@ -104,6 +104,14 @@ In the rendered PDF:
 - No visual distinction between measured and heuristic modules in the module overview strip —
   the indicator suffix is the only differentiator.
 
+## Numeric Context and Cross-Format Consistency
+
+- Specialized scores must state their scale or denominator where they appear, for example `20 / 100`; nearby copy must explain whether higher or lower values are better.
+- Technical metrics must include a unit and, where interpretation is not self-evident, a target range or short definition. Ordinary counts and familiar quantities such as dates, durations, file sizes, and page totals do not need repeated explanations.
+- Dual-viewport accessibility uses one canonical formula everywhere: 70% mobile plus 30% desktop, rounded to an integer. The merged finding inventory remains evidence and does not produce another score.
+- Labels must distinguish distinct WCAG finding groups, WCAG occurrences, and findings from all categories. A number must not be labelled “critical” when it combines critical and high severities.
+- Single and batch PDF scores, grades, certificates, and scoped counts must match the corresponding JSON fields.
+
 ## Language
 
 - CLI output (terminal table, progress messages) is always English.

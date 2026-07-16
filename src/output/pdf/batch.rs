@@ -16,7 +16,11 @@ pub(super) fn build_batch_overview_grid(
 ) -> Grid {
     let mut metrics = vec![
         (
-            if en { "Average" } else { "Durchschnitt" },
+            if en {
+                "Accessibility average"
+            } else {
+                "Barrierefreiheit Ø"
+            },
             format!("{average_score} / 100"),
             Some(score_quality_color(average_score)),
         ),
@@ -31,9 +35,9 @@ pub(super) fn build_batch_overview_grid(
         ),
         (
             if en {
-                "Violations total"
+                "WCAG occurrences"
             } else {
-                "Verstöße gesamt"
+                "WCAG-Vorkommen"
             },
             total_violations.to_string(),
             Some("#b45309"),

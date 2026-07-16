@@ -61,17 +61,32 @@ const TARGET_SIZE_JS: &str = r#"
 pub async fn check_target_size_minimum_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(TARGET_SIZE_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &TARGET_SIZE_MINIMUM_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &TARGET_SIZE_MINIMUM_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let violations = match val.get("violations").and_then(|v| v.as_array()) {
         Some(arr) => arr.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &TARGET_SIZE_MINIMUM_RULE,
+                "invalid_evaluation_shape",
+            )]
+        }
     };
 
     violations

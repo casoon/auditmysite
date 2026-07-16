@@ -73,12 +73,22 @@ const CONTENT_ON_HOVER_JS: &str = r#"
 pub async fn check_content_on_hover_with_page(page: &Page) -> Vec<Violation> {
     let result = match page.evaluate(CONTENT_ON_HOVER_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &CONTENT_ON_HOVER_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let val = match result.value() {
         Some(v) => v.clone(),
-        None => return vec![],
+        None => {
+            return vec![crate::wcag::technical_rule_failure(
+                &CONTENT_ON_HOVER_RULE,
+                "missing_evaluation_value",
+            )]
+        }
     };
 
     let title_only: Vec<String> = val

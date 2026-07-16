@@ -11,11 +11,10 @@
 //! a synthetic string from the style extractor (`"{selector}#{node_id}"`),
 //! not a real AXTree node id, so `AXTree::get_node` never resolves a backend
 //! node for them — they fall through the same `None` path as any other
-//! unresolvable element, no special-casing needed. See
-//! `plans/evidence-grade-findings.md`'s "Open questions" for why this is a
-//! deliberate scope cut rather than a gap: their selectors aren't guaranteed
-//! valid CSS, and guessing via `document.querySelector` risks capturing the
-//! wrong element — a missing crop is preferable to a misleading one.
+//! unresolvable element, no special-casing needed. Their selectors aren't
+//! guaranteed valid CSS, and guessing via `document.querySelector` risks
+//! capturing the wrong element — a missing crop is preferable to a misleading
+//! one. A guarded best-effort selector path remains tracked in `plans/open-items.md`.
 //!
 //! Every step degrades to `None` + `tracing::warn!`; this module never
 //! returns `Err` into the pipeline.
@@ -26,7 +25,9 @@ use chromiumoxide::cdp::browser_protocol::dom::{BackendNodeId, ResolveNodeParams
 use chromiumoxide::cdp::browser_protocol::page::{
     CaptureScreenshotFormat, Viewport as ClipViewport,
 };
-use chromiumoxide::cdp::js_protocol::runtime::{CallFunctionOnParams, RemoteObjectId};
+use chromiumoxide::cdp::js_protocol::runtime::{
+    CallFunctionOnParams, EvaluateParams, RemoteObjectId,
+};
 use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
 use tracing::{info, warn};
@@ -41,6 +42,7 @@ const CROP_PADDING_PX: f64 = 12.0;
 const MAX_CROP_WIDTH_PX: f64 = 1280.0;
 const MAX_CROP_HEIGHT_PX: f64 = 800.0;
 const MIN_ELEMENT_PX: f64 = 4.0;
+const MAX_CROP_BYTES: usize = 1_500_000;
 
 /// Per-report budget threaded across the desktop and mobile capture passes so
 /// a rule is captured at most once, and the whole report never exceeds
@@ -98,16 +100,33 @@ pub async fn capture_element_evidence(
         // Contrast (and any other synthetic node_id) has no AXTree entry —
         // this lookup returning `None` is the exclusion mechanism described
         // in the module doc comment, not a bug.
-        let Some(backend_id) = ax_tree
+        let backend_id = ax_tree
             .get_node(&violation.node_id)
-            .and_then(|n| n.backend_dom_node_id)
-        else {
-            continue;
+            .and_then(|n| n.backend_dom_node_id);
+        let selector_fallback = backend_id.is_none()
+            && violation.rule == "1.4.3"
+            && violation.selector.as_deref().is_some_and(is_safe_selector);
+        let captured = if let Some(backend_id) = backend_id {
+            capture_one(page, backend_id)
+                .await
+                .map(|bytes| (bytes, false))
+        } else if selector_fallback {
+            capture_one_selector(page, violation.selector.as_deref().unwrap())
+                .await
+                .map(|bytes| (bytes, true))
+        } else {
+            None
         };
 
-        if let Some(bytes) = capture_one(page, backend_id).await {
+        if let Some((bytes, used_selector_fallback)) = captured {
             violation.evidence_screenshot = Some(bytes);
             violation.evidence_viewport = Some(viewport_label);
+            if used_selector_fallback {
+                violation.evidence.push(crate::wcag::ViolationEvidence::computed(
+                    "screenshot_completeness",
+                    "best_effort_selector_capture; lazy, animated, or overlay content may make this evidence incomplete",
+                ));
+            }
             budget.captured_rules.insert(violation.rule.clone());
             budget.remaining -= 1;
             captured_this_pass += 1;
@@ -134,7 +153,33 @@ async fn capture_one(page: &Page, backend_node_id: i64) -> Option<Vec<u8>> {
         .map_err(|e| warn!("DOM.resolveNode failed during evidence capture: {}", e))
         .ok()?;
     let object_id = resolved.object.object_id.clone()?;
+    capture_object(page, object_id).await
+}
 
+async fn capture_one_selector(page: &Page, selector: &str) -> Option<Vec<u8>> {
+    let expression = format!(
+        "document.querySelector({})",
+        serde_json::to_string(selector).ok()?
+    );
+    let params = EvaluateParams::builder()
+        .expression(expression)
+        .return_by_value(false)
+        .build()
+        .ok()?;
+    let evaluated = page.execute(params).await.ok()?;
+    let object_id = evaluated.result.result.object_id.clone()?;
+    capture_object(page, object_id).await
+}
+
+fn is_safe_selector(selector: &str) -> bool {
+    let selector = selector.trim();
+    !selector.is_empty()
+        && selector.len() <= 300
+        && !selector.contains('\0')
+        && !selector.contains("::")
+}
+
+async fn capture_object(page: &Page, object_id: RemoteObjectId) -> Option<Vec<u8>> {
     // Scroll the element into view, read its rect + the viewport size, save
     // the previous inline outline (to restore later), and apply the
     // highlight — all in one round trip.
@@ -216,7 +261,15 @@ async fn capture_one(page: &Page, backend_node_id: i64) -> Option<Vec<u8>> {
     restore_outline(page, &object_id, &prev_outline, &prev_outline_offset).await;
 
     match shot {
-        Ok(bytes) => Some(bytes),
+        Ok(bytes) if bytes.len() <= MAX_CROP_BYTES => Some(bytes),
+        Ok(bytes) => {
+            warn!(
+                "Element-evidence crop skipped because {} bytes exceed the {} byte cap",
+                bytes.len(),
+                MAX_CROP_BYTES
+            );
+            None
+        }
         Err(e) => {
             warn!("Element-evidence screenshot capture failed: {}", e);
             None
@@ -226,8 +279,7 @@ async fn capture_one(page: &Page, backend_node_id: i64) -> Option<Vec<u8>> {
 
 /// Restore the element's previous inline outline style. Best-effort — a
 /// failure here doesn't invalidate an already-captured crop, and the mobile
-/// pass re-navigates the page anyway (see `plans/evidence-grade-findings.md`
-/// risk notes).
+/// pass re-navigates the page before collecting its own results.
 async fn restore_outline(
     page: &Page,
     object_id: &RemoteObjectId,
@@ -271,8 +323,16 @@ struct CropRect {
 
 /// Pad the element rect by [`CROP_PADDING_PX`], cap the crop area so a
 /// violation on a huge/`<body>`-sized element doesn't produce a full-page
-/// image, then clamp to the viewport bounds (a clip rect can't extend past
-/// the captured surface).
+/// image, then fit it inside the viewport bounds (a clip rect can't extend
+/// past the captured surface).
+///
+/// Fitting shifts the origin back into bounds first and only shrinks
+/// width/height as a last resort (when the padded box is itself larger than
+/// the viewport). An element near the bottom/right edge — e.g. after an
+/// imperfect `scrollIntoView` on a short page — must not have its crop
+/// *shrunk* to fit, or the result loses most of its height/width and
+/// degenerates into an unreadable sliver instead of showing the full,
+/// repositioned element.
 fn compute_crop_rect(
     elem_x: f64,
     elem_y: f64,
@@ -281,22 +341,27 @@ fn compute_crop_rect(
     viewport_w: f64,
     viewport_h: f64,
 ) -> CropRect {
+    let w = (elem_w + 2.0 * CROP_PADDING_PX)
+        .min(MAX_CROP_WIDTH_PX)
+        .min(viewport_w);
+    let h = (elem_h + 2.0 * CROP_PADDING_PX)
+        .min(MAX_CROP_HEIGHT_PX)
+        .min(viewport_h);
+
     let mut x = elem_x - CROP_PADDING_PX;
     let mut y = elem_y - CROP_PADDING_PX;
-    let mut w = (elem_w + 2.0 * CROP_PADDING_PX).min(MAX_CROP_WIDTH_PX);
-    let mut h = (elem_h + 2.0 * CROP_PADDING_PX).min(MAX_CROP_HEIGHT_PX);
 
+    if x + w > viewport_w {
+        x = viewport_w - w;
+    }
     if x < 0.0 {
         x = 0.0;
     }
+    if y + h > viewport_h {
+        y = viewport_h - h;
+    }
     if y < 0.0 {
         y = 0.0;
-    }
-    if x + w > viewport_w {
-        w = (viewport_w - x).max(0.0);
-    }
-    if y + h > viewport_h {
-        h = (viewport_h - y).max(0.0);
     }
 
     CropRect {
@@ -332,6 +397,24 @@ mod tests {
         let crop = compute_crop_rect(1250.0, 780.0, 40.0, 40.0, 1280.0, 800.0);
         assert!(crop.x + crop.width <= 1280.0);
         assert!(crop.y + crop.height <= 800.0);
+    }
+
+    // Regression for a real report bug: an element near the page bottom
+    // (e.g. after scrollIntoView can't fully center it on a short page) must
+    // keep its full padded height, repositioned upward — not have that
+    // height shrunk down to a near-zero sliver.
+    #[test]
+    fn shifts_a_near_bottom_element_instead_of_shrinking_its_crop() {
+        let crop = compute_crop_rect(120.0, 793.0, 32.0, 28.0, 1280.0, 800.0);
+        assert_eq!(crop.height, 28.0 + 2.0 * CROP_PADDING_PX);
+        assert!(crop.y + crop.height <= 800.0);
+    }
+
+    #[test]
+    fn shifts_a_near_right_edge_element_instead_of_shrinking_its_crop() {
+        let crop = compute_crop_rect(1260.0, 100.0, 28.0, 32.0, 1280.0, 800.0);
+        assert_eq!(crop.width, 28.0 + 2.0 * CROP_PADDING_PX);
+        assert!(crop.x + crop.width <= 1280.0);
     }
 
     #[test]

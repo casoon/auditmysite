@@ -111,12 +111,20 @@ pub async fn check_presentation_semantic_children_with_page(page: &Page) -> Vec<
         Ok(r) => r,
         Err(e) => {
             warn!("presentation semantic children DOM JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "presentation-semantic-children",
+                crate::cli::WcagLevel::A,
+                "page_evaluation_failed",
+            )];
         }
     };
 
     let Some(value) = result.value() else {
-        return vec![];
+        return vec![crate::wcag::technical_rule_failure_for(
+            "presentation-semantic-children",
+            crate::cli::WcagLevel::A,
+            "missing_evaluation_value",
+        )];
     };
     let Some(issues) = value.as_array() else {
         return vec![];

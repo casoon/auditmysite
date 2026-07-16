@@ -14,7 +14,8 @@ pub use linearizer::{linearize, linearize_with_ignored};
 pub use navigator::{navigation_views, NavigationViews};
 pub use types::{
     AnnouncedReadingItem, BfsgCompliance, BfsgVerdict, BfsgViolation, IgnoredReadingNode,
-    ReadingItem, ScreenReaderSummary, SrAuditIssue, SrAuditQuality, SrAuditReport, SrAuditSummary,
+    QualityScoreContext, ReadingItem, ScreenReaderSummary, SrAuditIssue, SrAuditQuality,
+    SrAuditReport, SrAuditSummary,
 };
 
 use crate::accessibility::AXTree;
@@ -78,6 +79,7 @@ pub fn build_sr_audit_report(
             name_quality_score: name_quality_score(&reading_items, detect_locale),
             landmark_quality_score: landmark_quality_score(&navigation_views),
             heading_quality_score: heading_quality_score(&navigation_views),
+            quality_score_context: QualityScoreContext::default(),
             audit_quality: detect_audit_quality(reading_items.len(), &navigation_views),
         },
         reading_sequence,

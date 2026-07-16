@@ -48,11 +48,33 @@ pub struct SrAuditSummary {
     pub name_quality_score: u32,
     pub landmark_quality_score: u32,
     pub heading_quality_score: u32,
+    /// Shared meaning for the three `*_quality_score` fields.
+    #[serde(default)]
+    pub quality_score_context: QualityScoreContext,
     /// Whether the audited tree looks complete or is likely a consent-blocked
     /// page (very few nodes and no structural landmark). On a consent wall the
     /// quality scores and BFSG verdict reflect an audit limitation, not a real
     /// accessibility failure (#483).
     pub audit_quality: SrAuditQuality,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QualityScoreContext {
+    pub minimum: u32,
+    pub maximum: u32,
+    pub higher_is_better: bool,
+    pub meaning: String,
+}
+
+impl Default for QualityScoreContext {
+    fn default() -> Self {
+        Self {
+            minimum: 0,
+            maximum: 100,
+            higher_is_better: true,
+            meaning: "Structural quality of detected accessible names, landmarks, or headings; announced nodes and tab stops are counts, not quality scores.".to_string(),
+        }
+    }
 }
 
 /// Confidence qualifier for a screen-reader audit (#483).
@@ -158,6 +180,7 @@ mod tests {
                 name_quality_score: 100,
                 landmark_quality_score: 100,
                 heading_quality_score: 100,
+                quality_score_context: QualityScoreContext::default(),
                 audit_quality: SrAuditQuality::Ok,
             },
             issues: vec![issue("high"), issue("High"), issue("medium"), issue("low")],

@@ -30,14 +30,14 @@ pub(super) fn build_page(
         overall_score: normalized.overall_score,
         grade: normalized.grade.clone(),
         certificate: normalized.certificate.clone(),
-        // Counts cover all finding categories (WCAG + SEO), matching the
-        // contents of `findings` and `detail.fix_guidance` (issues #254, #255).
-        // `severity_counts` stays WCAG-only (legal/risk semantics, see spec).
-        violation_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
-        violated_rule_count: distinct_rule_count(&normalized.findings),
+        violation_count: normalized.occurrence_counts.total,
+        finding_count: normalized.findings.len(),
+        finding_occurrence_count: normalized.findings.iter().map(|f| f.occurrence_count).sum(),
+        violated_rule_count: distinct_wcag_rule_count(&normalized.findings),
         severity_counts: normalized.severity_counts.clone(),
         severity_counts_scope: "wcag_only".to_string(),
-        occurrence_counts: all_category_occurrence_counts(&normalized.findings),
+        occurrence_counts: normalized.occurrence_counts.clone(),
+        occurrence_counts_scope: "wcag_only".to_string(),
         nodes_analyzed: normalized.nodes_analyzed,
         duration_ms: normalized.duration_ms,
         module_scores: normalized.module_scores.clone(),
@@ -53,10 +53,18 @@ pub(super) fn build_page(
         principle_coverage: normalized.principle_coverage.clone(),
         findings: normalized.findings.clone(),
         audit_flags: normalized.audit_flags.clone(),
+        audit_quality: normalized.execution.quality.clone(),
+        module_runs: normalized.execution.module_runs.clone(),
+        rule_outcomes: normalized.rule_outcomes.clone(),
+        accessibility_assessments: normalized.accessibility_assessments.clone(),
+        navigation: (!normalized.execution.navigation.requested_url.is_empty())
+            .then(|| normalized.execution.navigation.clone()),
+        consent: Some(normalized.execution.consent.clone()),
         consent_privacy: normalized.consent_privacy.clone(),
         interactive_findings: normalized.interactive_findings.clone(),
         accessibility_journey: normalized.accessibility_journey.clone(),
         screen_reader: normalized.screen_reader.clone(),
+        content_profile: None,
         detail,
     }
 }
@@ -68,11 +76,12 @@ pub(super) fn build_page(
 pub(super) fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
-        en301549_annex: build_en301549_annex(&normalized.findings),
+        en301549_annex: build_en301549_annex(normalized),
         modules: ModuleBlob::default(),
         confidence_summary: Vec::new(),
         capabilities: Vec::new(),
         viewport_scores: None,
+        viewport_comparison: None,
         budget_violations: Vec::new(),
         throttled_performance: Vec::new(),
         screenshot_status: None,
@@ -87,11 +96,12 @@ pub(super) fn build_detail_cached(
 ) -> PageDetail {
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
-        en301549_annex: build_en301549_annex(&normalized.findings),
+        en301549_annex: build_en301549_annex(normalized),
         modules: ModuleBlob::default(),
         confidence_summary: Vec::new(),
         capabilities: Vec::new(),
         viewport_scores: normalized.viewport_scores.clone(),
+        viewport_comparison: None,
         budget_violations: detail_ctx.budget_violations,
         throttled_performance: Vec::new(),
         screenshot_status: detail_ctx.screenshot_status,
@@ -158,6 +168,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             "mobile": viewport_detail_summary(&dual.mobile),
         })
     });
+    let viewport_comparison = dual_viewport.clone();
 
     let patterns = ctx.raw_patterns.map(|m| {
         let total = m.recognized.len() + m.violations.len();
@@ -292,7 +303,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
 
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
-        en301549_annex: build_en301549_annex(&normalized.findings),
+        en301549_annex: build_en301549_annex(normalized),
         modules,
         confidence_summary: vm
             .methodology
@@ -316,6 +327,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             })
             .collect(),
         viewport_scores: normalized.viewport_scores.clone(),
+        viewport_comparison,
         budget_violations: detail_ctx.budget_violations,
         throttled_performance,
         screenshot_status: detail_ctx.screenshot_status,
@@ -332,6 +344,10 @@ pub(super) fn viewport_detail_summary(data: &crate::audit::ViewportAuditData) ->
             "positives": data.wcag_results.positives.len(),
             "not_testables": data.wcag_results.not_testables.len(),
             "nodes_checked": data.wcag_results.nodes_checked,
+            "rule_outcomes": data.wcag_results.rule_outcomes,
+            "warnings_detail": data.wcag_results.warnings,
+            "manual_review_detail": data.wcag_results.not_testables,
+            "positive_signals": data.wcag_results.positives,
         },
         "modules": {
             "performance": data.performance.as_ref().map(|p| p.score.overall),
@@ -340,6 +356,7 @@ pub(super) fn viewport_detail_summary(data: &crate::audit::ViewportAuditData) ->
             "ux": data.ux.as_ref().map(|u| u.score),
             "journey": data.journey.as_ref().map(|j| j.score),
         },
+        "module_runs": data.module_runs,
         "has_screenshot": data.screenshot.is_some(),
     })
 }

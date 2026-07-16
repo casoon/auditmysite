@@ -79,6 +79,8 @@ pub(super) fn audit_flag_batch_title(kind: &str, en: bool) -> &'static str {
         ("conflicting_signal", false) => "Widersprüchliches Signal",
         ("viewport_gap", true) => "Desktop/mobile difference",
         ("viewport_gap", false) => "Desktop-/Mobile-Unterschied",
+        ("incomplete_audit", true) => "Incomplete measurement scope",
+        ("incomplete_audit", false) => "Unvollständiger Messumfang",
         ("consent_wall_artifact", true) => "Consent wall artifact",
         ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
         (_, true) => "Audit note",
@@ -714,6 +716,7 @@ pub(super) fn render_batch_action_plan_enhanced(
 pub(super) fn render_batch_consistency(
     mut builder: renderreport::engine::ReportBuilder,
     consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
+    pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
@@ -752,13 +755,46 @@ pub(super) fn render_batch_consistency(
         )
         .with_status("good")]
     } else {
-        nav.findings
-            .iter()
-            .map(|f| {
-                ChecklistRow::new(if en { "Issue" } else { "Befund" }, f.as_str())
-                    .with_status("warn")
-            })
-            .collect()
+        let mut rows = Vec::new();
+        if nav.pages_with_main_nav < nav.total_pages {
+            let missing = nav.total_pages - nav.pages_with_main_nav;
+            rows.push(
+                ChecklistRow::new(
+                    if en {
+                        "Main navigation"
+                    } else {
+                        "Hauptnavigation"
+                    },
+                    if en {
+                        format!("Missing on {missing} of {} audited pages.", nav.total_pages)
+                    } else {
+                        format!(
+                            "Fehlt auf {missing} von {} geprüften Seiten.",
+                            nav.total_pages
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        }
+        if nav.pages_with_skip_link < nav.total_pages {
+            let missing = nav.total_pages - nav.pages_with_skip_link;
+            rows.push(
+                ChecklistRow::new(
+                    if en { "Skip link" } else { "Skip-Link" },
+                    if en {
+                        format!("Missing on {missing} of {} audited pages.", nav.total_pages)
+                    } else {
+                        format!(
+                            "Fehlt auf {missing} von {} geprüften Seiten.",
+                            nav.total_pages
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        }
+        rows
     };
     builder = builder.add_component(ChecklistPanel::new(nav_rows).with_title(&nav_title));
 
@@ -785,13 +821,44 @@ pub(super) fn render_batch_consistency(
         )
         .with_status("good")]
     } else {
-        h.findings
-            .iter()
-            .map(|f| {
-                ChecklistRow::new(if en { "Issue" } else { "Befund" }, f.as_str())
-                    .with_status("warn")
-            })
-            .collect()
+        let mut rows = Vec::new();
+        if h.pages_with_no_h1 > 0 {
+            rows.push(
+                ChecklistRow::new(
+                    if en { "Missing H1" } else { "Fehlende H1" },
+                    if en {
+                        format!("{} audited pages have no H1.", h.pages_with_no_h1)
+                    } else {
+                        format!("{} geprüfte Seiten haben keine H1.", h.pages_with_no_h1)
+                    },
+                )
+                .with_status("warn"),
+            );
+        }
+        if h.pages_with_multiple_h1 > 0 {
+            rows.push(
+                ChecklistRow::new(
+                    if en {
+                        "Multiple H1 headings"
+                    } else {
+                        "Mehrere H1-Überschriften"
+                    },
+                    if en {
+                        format!(
+                            "{} audited pages have multiple H1 headings.",
+                            h.pages_with_multiple_h1
+                        )
+                    } else {
+                        format!(
+                            "{} geprüfte Seiten haben mehrere H1-Überschriften.",
+                            h.pages_with_multiple_h1
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        }
+        rows
     };
     builder = builder.add_component(ChecklistPanel::new(head_rows).with_title(&head_title));
 
@@ -818,15 +885,341 @@ pub(super) fn render_batch_consistency(
         )
         .with_status("good")]
     } else {
-        c.findings
+        let mut rows = Vec::new();
+        if c.www_count > 0 && c.non_www_count > 0 {
+            rows.push(
+                ChecklistRow::new(
+                    if en {
+                        "Mixed host strategy"
+                    } else {
+                        "Gemischte Host-Strategie"
+                    },
+                    if en {
+                        format!(
+                            "{} pages use www and {} use non-www canonicals.",
+                            c.www_count, c.non_www_count
+                        )
+                    } else {
+                        format!(
+                            "{} Seiten verwenden www- und {} Seiten nicht-www-Canonicals.",
+                            c.www_count, c.non_www_count
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        }
+        if c.missing_count > 0 {
+            rows.push(
+                ChecklistRow::new(
+                    if en {
+                        "Missing canonical"
+                    } else {
+                        "Fehlendes Canonical"
+                    },
+                    if en {
+                        format!(
+                            "Missing on {} of {} audited pages.",
+                            c.missing_count, c.total_pages
+                        )
+                    } else {
+                        format!(
+                            "Fehlt auf {} von {} geprüften Seiten.",
+                            c.missing_count, c.total_pages
+                        )
+                    },
+                )
+                .with_status("warn"),
+            );
+        }
+        rows
+    };
+    builder = builder.add_component(ChecklistPanel::new(canon_rows).with_title(&canon_title));
+
+    if !consistency.wcag_cross_page.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if en { "Criterion" } else { "Kriterium" }).with_width("28%"),
+            TableColumn::new("Status").with_width("20%"),
+            TableColumn::new(if en {
+                "Assessment basis"
+            } else {
+                "Prüfgrundlage"
+            })
+            .with_width("52%"),
+        ])
+        .with_title(if en {
+            "Cross-page WCAG assessment"
+        } else {
+            "Seitenübergreifende WCAG-Prüfung"
+        });
+        for assessment in &consistency.wcag_cross_page {
+            let status = match (assessment.status.as_str(), en) {
+                ("no_inconsistency_detected", true) => "No inconsistency detected",
+                ("no_inconsistency_detected", false) => "Keine Inkonsistenz erkannt",
+                ("warning", true) => "Warning",
+                ("warning", false) => "Warnung",
+                (_, true) => "Manual review",
+                (_, false) => "Manuell prüfen",
+            };
+            let basis = if en {
+                assessment.basis.clone()
+            } else {
+                match assessment.criterion.as_str() {
+                    value if value.starts_with("3.2.3") => "Hauptnavigation und Skip-Link-Vorkommen wurden über alle geprüften Seiten verglichen.",
+                    value if value.starts_with("3.2.4") => "Gleichartige Bedienelemente benötigen einen seitenübergreifenden Vergleich ihrer zugänglichen Namen; die aktuelle Evidenz reicht nicht für eine Konformitätsaussage.",
+                    value if value.starts_with("3.2.6") => "Hilfemechanismen und ihre relative Reihenfolge benötigen Bedienelement-Evidenz über mehrere Seiten.",
+                    _ => "Eingehende Links im geprüften Seitenset wurden ausgewertet; Suche, Sitemap und Ausnahmen für Prozessschritte müssen manuell bestätigt werden.",
+                }.to_string()
+            };
+            table = table.add_row(vec![
+                assessment.criterion.clone(),
+                status.to_string(),
+                basis,
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !consistency.orphan_pages.orphan_urls.is_empty() {
+        let rows = consistency
+            .orphan_pages
+            .orphan_urls
             .iter()
-            .map(|f| {
-                ChecklistRow::new(if en { "Issue" } else { "Befund" }, f.as_str())
+            .map(|url| {
+                ChecklistRow::new(
+                    if en {
+                        "Orphan candidate"
+                    } else {
+                        "Mögliche verwaiste Seite"
+                    },
+                    url,
+                )
+                .with_status("warn")
+            })
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Pages without inbound links within the audited URL set"
+        } else {
+            "Seiten ohne eingehende Links innerhalb der geprüften URLs"
+        }));
+    }
+
+    if !consistency.schema_graph.conflicts.is_empty() {
+        let rows = consistency
+            .schema_graph
+            .conflicts
+            .iter()
+            .map(|conflict| {
+                ChecklistRow::new(&conflict.entity_id, conflict.conflicts.join("; "))
                     .with_status("warn")
             })
-            .collect()
-    };
-    builder.add_component(ChecklistPanel::new(canon_rows).with_title(&canon_title))
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Schema entity identity conflicts"
+        } else {
+            "Identitätskonflikte bei Schema-Entitäten"
+        }));
+    }
+
+    let structured = &consistency.structured_data;
+    if !structured.type_distribution.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(if en { "Schema type" } else { "Schema-Typ" }).with_width("68%"),
+            TableColumn::new(if en {
+                "Audited pages"
+            } else {
+                "Geprüfte Seiten"
+            })
+            .with_width("32%"),
+        ])
+        .with_title(if en {
+            "Structured-data distribution"
+        } else {
+            "Verteilung strukturierter Daten"
+        });
+        for item in &structured.type_distribution {
+            table = table.add_row(vec![item.schema_type.clone(), item.pages.to_string()]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !structured.recurring_blockers.is_empty() {
+        let rows = structured
+            .recurring_blockers
+            .iter()
+            .map(|finding| {
+                ChecklistRow::new(
+                    &finding.key,
+                    if en {
+                        format!(
+                            "Required condition missing on {} audited pages",
+                            finding.affected_pages
+                        )
+                    } else {
+                        format!(
+                            "Pflichtbedingung fehlt auf {} geprüften Seiten",
+                            finding.affected_pages
+                        )
+                    },
+                )
+                .with_status("warn")
+            })
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Recurring structured-data blockers"
+        } else {
+            "Wiederkehrende Blocker bei strukturierten Daten"
+        }));
+    }
+
+    if !structured.parity_mismatches.is_empty() {
+        let rows = structured
+            .parity_mismatches
+            .iter()
+            .map(|finding| {
+                ChecklistRow::new(
+                    &finding.key,
+                    if en {
+                        format!(
+                            "Visible content differs on {} audited pages",
+                            finding.affected_pages
+                        )
+                    } else {
+                        format!(
+                            "Sichtbarer Inhalt weicht auf {} geprüften Seiten ab",
+                            finding.affected_pages
+                        )
+                    },
+                )
+                .with_status("warn")
+            })
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Recurring schema/content mismatches"
+        } else {
+            "Wiederkehrende Abweichungen zwischen Schema und Inhalt"
+        }));
+    }
+
+    if !structured.page_type_matrix.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("URL").with_width("31%"),
+            TableColumn::new(if en { "Page type" } else { "Seitentyp" }).with_width("19%"),
+            TableColumn::new("Status").with_width("16%"),
+            TableColumn::new(if en {
+                "Expected / detected"
+            } else {
+                "Erwartet / erkannt"
+            })
+            .with_width("34%"),
+        ])
+        .with_title(if en {
+            "Page-type and schema-coverage matrix"
+        } else {
+            "Matrix aus Seitentyp und Schema-Abdeckung"
+        });
+        for row in &structured.page_type_matrix {
+            table = table.add_row(vec![
+                truncate_url(&row.url, 48),
+                row.page_kind.clone(),
+                row.coverage_status.clone(),
+                format!(
+                    "{} / {}",
+                    if row.expected_types.is_empty() {
+                        "-".to_string()
+                    } else {
+                        row.expected_types.join(", ")
+                    },
+                    if row.detected_types.is_empty() {
+                        "-".to_string()
+                    } else {
+                        row.detected_types.join(", ")
+                    }
+                ),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
+    if !structured.identity_findings.is_empty() {
+        let rows = structured
+            .identity_findings
+            .iter()
+            .map(|finding| {
+                let localized = if en {
+                    finding.clone()
+                } else if finding.contains("different @id values") {
+                    "Die Organisationsidentität verwendet auf den geprüften Seiten unterschiedliche @id-Werte."
+                        .to_string()
+                } else {
+                    "Mindestens ein Organisationsknoten besitzt keine stabile @id zur seitenübergreifenden Identitätsprüfung."
+                        .to_string()
+                };
+                ChecklistRow::new(
+                    if en { "Organization identity" } else { "Organisationsidentität" },
+                    localized,
+                )
+                .with_status("warn")
+            })
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Site-wide entity identity"
+        } else {
+            "Websiteweite Entitätsidentität"
+        }));
+    }
+
+    if !pres.portfolio_summary.top_topics.is_empty() {
+        let rows = pres
+            .portfolio_summary
+            .top_topics
+            .iter()
+            .take(10)
+            .map(|(topic, pages)| {
+                ChecklistRow::new(
+                    topic,
+                    if en {
+                        format!("Present on {pages} audited pages")
+                    } else {
+                        format!("Auf {pages} geprüften Seiten vertreten")
+                    },
+                )
+                .with_status("good")
+            })
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Dominant content topics"
+        } else {
+            "Dominante Inhaltsthemen"
+        }));
+    }
+
+    if !pres.portfolio_summary.overlap_pairs.is_empty() {
+        let rows = pres
+            .portfolio_summary
+            .overlap_pairs
+            .iter()
+            .take(10)
+            .map(|(url_a, url_b, shared)| {
+                ChecklistRow::new(
+                    format!("{url_a} ↔ {url_b}"),
+                    if en {
+                        format!("{shared} shared topic terms")
+                    } else {
+                        format!("{shared} gemeinsame Themenbegriffe")
+                    },
+                )
+                .with_status("warn")
+            })
+            .collect();
+        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
+            "Strong topic overlap between pages"
+        } else {
+            "Starke Themenüberschneidungen zwischen Seiten"
+        }));
+    }
+
+    builder
 }
 
 /// Closing section for batch report
@@ -1179,6 +1572,7 @@ pub(super) fn render_batch_status_section(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     en301549_rollup: &[crate::wcag::en301549::BatchClauseRollup],
+    failed_en_criteria: &std::collections::BTreeSet<String>,
     config: &ReportConfig,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
@@ -1239,7 +1633,7 @@ pub(super) fn render_batch_status_section(
 
     // EN 301 549 clause roll-up — opt-in only (see `--annex en301549`).
     if config.annex == Some(crate::cli::AnnexKind::En301549) {
-        builder = render_batch_en301549_rollup(builder, en301549_rollup, i18n);
+        builder = render_batch_en301549_rollup(builder, en301549_rollup, failed_en_criteria, i18n);
     }
 
     builder = render_batch_internal_comparison(builder, pres, i18n);
@@ -1253,6 +1647,7 @@ pub(super) fn render_batch_status_section(
 pub(super) fn render_batch_en301549_rollup(
     mut builder: renderreport::engine::ReportBuilder,
     rollup: &[crate::wcag::en301549::BatchClauseRollup],
+    failed_en_criteria: &std::collections::BTreeSet<String>,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     use crate::wcag::en301549::ClauseStatus;
@@ -1319,7 +1714,17 @@ pub(super) fn render_batch_en301549_rollup(
         table = table.add_row(vec![
             r.clause.en_clause.to_string(),
             clause_title.to_string(),
-            status_label(r.status).to_string(),
+            if !matches!(r.status, ClauseStatus::ViolationsFound)
+                && failed_en_criteria.contains(r.clause.wcag)
+            {
+                if en {
+                    "Automated evaluation incomplete".to_string()
+                } else {
+                    "Automatisierte Prüfung unvollständig".to_string()
+                }
+            } else {
+                status_label(r.status).to_string()
+            },
             r.affected_pages.to_string(),
         ]);
     }

@@ -208,6 +208,7 @@ dependencies = [
  "fluent-bundle",
  "futures",
  "html5ever",
+ "image",
  "indicatif",
  "insta",
  "jsonschema",
@@ -3074,9 +3075,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "renderreport"
-version = "0.2.30"
+version = "0.2.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a86cfd48f098322800ad831e6d41d1d1f921a74bc49030e52186d242127dc03e"
+checksum = "6df01d69c02614e6fec700796bd33d777f80d873962e36135908e2a5abecbf9a"
 dependencies = [
  "anyhow",
  "barcoders",

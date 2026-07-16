@@ -672,6 +672,12 @@ pub struct PerformancePresentation {
     pub desktop: Option<PerformanceViewport>,
     pub mobile: Option<PerformanceViewport>,
     pub additional_metrics: Vec<(String, String)>,
+    /// Resource/DOM metrics with an established best-practice threshold
+    /// (load time, DOM content loaded, DOM node count) — (name, value,
+    /// rating, target). Metrics without a defensible universal
+    /// threshold (JS heap size, CO2e — which already carries its own letter
+    /// rating) stay in `additional_metrics` instead.
+    pub resource_ratings: Vec<(String, String, String, String)>,
     pub recommendations: Vec<String>,
     /// Render-blocking: (label, value) pairs for display
     pub render_blocking_metrics: Vec<(String, String)>,
@@ -728,7 +734,7 @@ pub struct SerpPresentation {
     pub fail_count: u32,
     /// (category, label, status_label, detail)
     pub signals: Vec<(String, String, String, String)>,
-    /// Rich result types eligible (e.g. "FAQ", "Breadcrumb")
+    /// Rich-result-related schema types detected (e.g. "FAQ", "Breadcrumb").
     pub rich_result_types: Vec<String>,
 }
 
@@ -788,6 +794,23 @@ pub struct SeoProfilePresentation {
     // Schema Inventory: (type, completeness%, details)
     pub schema_rows: Vec<(String, String, String)>,
     pub schema_count: usize,
+    // JSON-LD parser/normalization status, placed directly before the inventory.
+    pub schema_status_summary: String,
+    pub schema_status_has_errors: bool,
+    pub schema_status_has_json_ld: bool,
+    // (localized issue label, localized detail)
+    pub schema_status_rows: Vec<(String, String)>,
+    // Page-type fit derived from visible intent and URL evidence.
+    pub schema_fit_summary: Option<String>,
+    pub schema_fit_is_success: bool,
+    pub schema_fit_is_warning: bool,
+    pub schema_fit_facts: Vec<(String, String)>,
+    // (feature, requirement status, missing/quality detail)
+    pub schema_rule_rows: Vec<(String, String, String)>,
+    // Manual checks are deliberately separated from missing field findings.
+    pub schema_manual_review_rows: Vec<(String, String)>,
+    // (schema/property, parity status, short visible-vs-schema evidence)
+    pub schema_parity_rows: Vec<(String, String, String)>,
     // Signal Strength: (category, score%, rating_label)
     pub signal_rows: Vec<(String, String, String)>,
     pub signal_overall_pct: u32,
@@ -976,7 +999,7 @@ pub struct BatchPresentation {
 /// decision-action row); `headline` and `decision_label` carry the fully
 /// localized sentences for the runtime locale — the strong "resolves N pages"
 /// claim is only ever used for `"confirmed"` clusters, `"likely"` clusters
-/// always read as unconfirmed/probable (see #template-root-cause-dedup).
+/// always read as unconfirmed/probable.
 pub struct TemplateClusterView {
     pub rule_id: String,
     pub selector: String,
@@ -1050,9 +1073,9 @@ pub struct PortfolioSummary {
     pub active_modules: Vec<String>,
     /// Domain name (extracted from first URL)
     pub domain: String,
-    /// Certificate label based on the primary WCAG/accessibility score
+    /// Certificate label based on the averaged overall score
     pub certificate: String,
-    /// Grade based on the primary WCAG/accessibility score
+    /// Grade based on the averaged overall score
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
     pub distribution_insights: Vec<String>,

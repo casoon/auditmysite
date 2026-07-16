@@ -71,7 +71,10 @@ pub async fn check_reflow_with_page(page: &Page) -> Vec<Violation> {
         .unwrap();
 
     if page.execute(narrow).await.is_err() {
-        return vec![];
+        return vec![crate::wcag::technical_rule_failure(
+            &REFLOW_RULE,
+            "viewport_override_failed",
+        )];
     }
 
     // Allow layout to reflow
@@ -79,7 +82,12 @@ pub async fn check_reflow_with_page(page: &Page) -> Vec<Violation> {
 
     let result = match page.evaluate(FIND_OVERFLOW_JS).await {
         Ok(r) => r,
-        Err(_) => return vec![],
+        Err(_) => {
+            return vec![crate::wcag::technical_rule_failure(
+                &REFLOW_RULE,
+                "page_evaluation_failed",
+            )]
+        }
     };
 
     let overflow_element = match result.value() {

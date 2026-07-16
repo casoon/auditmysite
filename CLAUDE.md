@@ -43,7 +43,11 @@ src/
 │   ├── minification.rs  # Unminified JS/CSS asset detection
 │   └── third_party.rs   # Third-party resource attribution per origin
 ├── seo/                 # Meta, headings, schema, social, technical SEO
-│   └── image_efficiency.rs # Image format and resolution analysis
+│   ├── image_efficiency.rs # Image format and resolution analysis
+│   ├── schema.rs        # JSON-LD extraction and normalization
+│   ├── schema_rules.rs  # Central feature-specific structured-data rules
+│   ├── schema_fit.rs    # Visible page-type to primary-schema fit
+│   └── schema_parity.rs # Visible-content to JSON-LD consistency checks
 ├── security/            # Security header analysis
 ├── mobile/              # Mobile friendliness analysis
 ├── dark_mode/           # Dark mode support detection and contrast

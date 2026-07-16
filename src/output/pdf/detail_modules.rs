@@ -1,8 +1,9 @@
 //! Module detail renderers (performance, SEO, security, mobile, dark mode, AI visibility).
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    ChecklistPanel, ChecklistRow, Grid, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
 };
+use renderreport::components::charts::{Gauge, GaugeThreshold};
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
 use renderreport::prelude::*;
@@ -41,18 +42,6 @@ fn clean_section_note(i18n: &I18n) -> Label {
     Label::new(i18n.t("pdf-section-clean"))
         .with_size("10.5pt")
         .with_color(crate::output::pdf::design::tokens::NEUTRAL)
-}
-
-fn score_status(score: u32) -> &'static str {
-    // Aligned with the grade bands / `design::score_color`: ≥75 good, 40–74
-    // watch, <40 problem. Kept as keyword form for `MetricStripItem::with_status`.
-    if score >= 75 {
-        "good"
-    } else if score >= 40 {
-        "warn"
-    } else {
-        "bad"
-    }
 }
 
 fn module_customer_context(
@@ -120,8 +109,25 @@ fn module_customer_context(
         .with_color(crate::output::pdf::design::tokens::NEUTRAL)
 }
 
-fn score_color(score: u32) -> &'static str {
-    crate::output::pdf::design::score_color(score.min(255) as u8)
+/// Gauge color bands matching `design::score_color`'s 40/75 thresholds
+/// (higher is better). `Gauge`'s own defaults assume the opposite — a
+/// value climbing towards `max` reads as *more* severe — so every score
+/// gauge needs these explicit thresholds, not the component default.
+fn score_gauge_thresholds() -> Vec<GaugeThreshold> {
+    vec![
+        GaugeThreshold {
+            value: 0.0,
+            color: crate::output::pdf::design::tokens::DANGER.to_string(),
+        },
+        GaugeThreshold {
+            value: 40.0,
+            color: crate::output::pdf::design::tokens::WARN_DEEP.to_string(),
+        },
+        GaugeThreshold {
+            value: 75.0,
+            color: crate::output::pdf::design::tokens::SUCCESS.to_string(),
+        },
+    ]
 }
 
 /// Opens a module as a level-2 chapter: a page break (unless it is the first
@@ -157,9 +163,9 @@ pub(super) fn first_sentence(text: &str) -> String {
 /// "overall score" caption (avoids printing the title twice).
 pub(super) fn module_score_caption(i18n: &I18n) -> &'static str {
     if is_english(i18n) {
-        "Overall score"
+        "Overall score · 0–100"
     } else {
-        "Gesamtwertung"
+        "Gesamtwertung · 0–100"
     }
 }
 
@@ -188,6 +194,21 @@ fn vital_status(rating: &str) -> &'static str {
         "needs-improvement" => "warn",
         "poor" => "bad",
         _ => "info",
+    }
+}
+
+/// Localizes the canonical English rating token ("good"/"needs-improvement"/
+/// "poor") — printing it raw leaked untranslated English into German report
+/// tables (#406).
+fn vital_rating_label(rating: &str, en: bool) -> &'static str {
+    match (rating, en) {
+        ("good", true) => "Good",
+        ("needs-improvement", true) => "Needs improvement",
+        ("poor", true) => "Poor",
+        ("good", false) => "Gut",
+        ("needs-improvement", false) => "Verbesserungswürdig",
+        ("poor", false) => "Schlecht",
+        _ => "—",
     }
 }
 

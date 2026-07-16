@@ -1,12 +1,12 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 273
+assertion_line: 275
 expression: value
 ---
 {
   "average_score": 49.0,
-  "certificate": "AUSBAUFÄHIG",
-  "grade": "F",
+  "certificate": "STABIL",
+  "grade": "D",
   "module_averages": [
     {
       "name": "Accessibility",

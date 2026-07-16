@@ -49,9 +49,12 @@ pub(in crate::output::pdf) fn render_source_quality(
         builder = builder.add_component(Section::new(dim_name).with_level(3));
 
         builder = builder.add_component(
-            ScoreCard::new(score_quality_label(dim.score), dim.score)
-                .with_description(&dim_label)
-                .with_thresholds(70, 50),
+            ScoreCard::new(
+                format!("{} · 0–100", score_quality_label(dim.score)),
+                dim.score,
+            )
+            .with_description(&dim_label)
+            .with_thresholds(70, 50),
         );
 
         if !dim.signals.is_empty() {
@@ -216,7 +219,7 @@ pub(in crate::output::pdf) fn render_ai_visibility(
         let dim_label = ai_dimension_label(dim.score, en);
         let mut dim_kv = KeyValueList::new().add(
             i18n.t("label-heuristic-indicator"),
-            format!("~{} — {}", dim.score, score_quality_label(dim.score)),
+            format!("~{} / 100 — {}", dim.score, score_quality_label(dim.score)),
         );
         if !dim_label.is_empty() {
             dim_kv = dim_kv.add("Basis", &dim_label);

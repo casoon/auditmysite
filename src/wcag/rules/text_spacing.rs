@@ -102,7 +102,11 @@ pub async fn check_text_spacing_with_page(page: &Page) -> Vec<Violation> {
         Ok(r) => r,
         Err(e) => {
             warn!("text-spacing probe JS failed: {}", e);
-            return vec![];
+            return vec![crate::wcag::technical_rule_failure_for(
+                "text-spacing",
+                crate::cli::WcagLevel::AA,
+                "page_evaluation_failed",
+            )];
         }
     };
 

@@ -239,6 +239,12 @@ mod tests {
             "heading_quality_score": 100,
             "landmark_quality_score": 25,
             "name_quality_score": 0,
+            "quality_score_context": {
+              "higher_is_better": true,
+              "maximum": 100,
+              "meaning": "Structural quality of detected accessible names, landmarks, or headings; announced nodes and tab stops are counts, not quality scores.",
+              "minimum": 0
+            },
             "tab_stops": 0,
             "total_announced_nodes": 3
           },

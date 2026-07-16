@@ -17,7 +17,7 @@ readme = "README.md"
 chromiumoxide = { version = "0.8", default-features = false, features = ["tokio-runtime"] }
 
 # Async runtime
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "process", "io-util", "fs"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "process", "io-util", "fs", "signal"] }
 futures = "0.3"
 async-trait = "0.1"
 
@@ -69,7 +69,11 @@ fluent-bundle = "0.15"
 unic-langid = "0.9"
 
 # PDF report generation via Typst.
-renderreport = { version = "0.2.30", optional = true }
+renderreport = { version = "0.2.35", optional = true }
+# Pre-crops the mobile device-preview screenshot for the PDF (see
+# register_page_screenshot_assets) — already in the dependency tree
+# transitively via renderreport's own image handling.
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
@@ -90,7 +94,7 @@ path = "src/main.rs"
 
 [features]
 default = ["pdf"]
-pdf = ["dep:renderreport"]
+pdf = ["dep:renderreport", "dep:image"]
 # Enables the heavy PDF smoke tests (Typst rendering). Run separately:
 #   cargo test --features pdf_test -- --test-threads=1
 pdf_test = ["pdf"]

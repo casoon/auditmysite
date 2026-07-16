@@ -16,9 +16,9 @@
 //! - Template occurrences beyond the per-finding sample cap on noisy pages —
 //!   coverage can be undercounted; the 60% threshold is deliberately below
 //!   "appears on every page" to absorb this.
-//! - Page-level rules without a selector (missing `lang`, title rules) — these
-//!   are inherently template-wide but need a different mechanism; out of
-//!   scope for v1.
+//! - Page-level rules without a selector are grouped through a dedicated
+//!   `document` key. They remain `likely` unless matching snippets provide
+//!   stronger evidence.
 //! - SEO-category findings (consistent with `top_recurring_rules`, which is
 //!   WCAG-only).
 
@@ -66,6 +66,9 @@ pub struct TemplateCluster {
     /// One representative raw HTML snippet, when available.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub html_snippet: Option<String>,
+    /// Coarse landmark context inferred from the selector when available.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
 }
 
 /// Detect template-level root-cause clusters across a batch of normalized
@@ -87,6 +90,7 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
         snippet_shapes: HashSet<String>,
         has_missing_snippet: bool,
         sample_html_snippet: Option<String>,
+        region: Option<String>,
     }
 
     let mut clusters: HashMap<(String, String), Acc> = HashMap::new();
@@ -94,16 +98,18 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
     for report in reports {
         for finding in report.findings.iter().filter(|f| f.category == "wcag") {
             for occ in &finding.occurrences {
-                let Some(selector) = occ
+                let selector = occ
                     .selector
                     .as_deref()
                     .map(str::trim)
                     .filter(|value| !value.is_empty())
-                else {
-                    continue;
-                };
+                    .unwrap_or("document");
 
-                let normalized_selector = normalize_selector_cluster(selector);
+                let normalized_selector = if selector == "document" {
+                    "__pagewide__".to_string()
+                } else {
+                    normalize_selector_cluster(selector)
+                };
                 let key = (finding.rule_id.clone(), normalized_selector);
                 let entry = clusters.entry(key).or_insert_with(|| Acc {
                     title: finding.title.clone(),
@@ -115,6 +121,7 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
                     snippet_shapes: HashSet::new(),
                     has_missing_snippet: false,
                     sample_html_snippet: None,
+                    region: selector_region(selector),
                 });
 
                 if selector.len() < entry.selector.len() {
@@ -154,7 +161,10 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
             // trust on their own — the same rule can coincidentally fire on
             // unrelated elements across pages. Only cluster them when the raw
             // HTML snippet shape also agrees across every member page.
-            if !is_specific_selector(&acc.selector) && !snippet_confirmed {
+            if acc.selector != "document"
+                && !is_specific_selector(&acc.selector)
+                && !snippet_confirmed
+            {
                 return None;
             }
 
@@ -173,6 +183,7 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
                 page_coverage_pct: page_coverage.round() as u32,
                 sample_urls: acc.sample_urls,
                 html_snippet: acc.sample_html_snippet,
+                region: acc.region,
             })
         })
         .collect();
@@ -183,6 +194,14 @@ pub fn detect_template_clusters(reports: &[NormalizedReport]) -> Vec<TemplateClu
             .then_with(|| a.rule_id.cmp(&b.rule_id))
     });
     result
+}
+
+fn selector_region(selector: &str) -> Option<String> {
+    let selector = selector.to_ascii_lowercase();
+    ["header", "nav", "main", "footer"]
+        .into_iter()
+        .find(|region| selector.contains(region))
+        .map(str::to_string)
 }
 
 /// A selector is "specific" enough to trust on its own (without a snippet
@@ -351,6 +370,9 @@ mod tests {
                 low: 0,
                 total: 0,
             },
+            accessibility_assessments: vec![],
+            rule_outcomes: vec![],
+            execution: Default::default(),
             module_scores: vec![],
             audit_flags: vec![],
             consent_privacy: None,
@@ -463,5 +485,68 @@ mod tests {
             clusters.is_empty(),
             "a 2-page batch must never produce a template cluster: {clusters:?}"
         );
+    }
+
+    #[test]
+    fn exactly_sixty_percent_coverage_clusters() {
+        let reports: Vec<NormalizedReport> = (0..5)
+            .map(|i| {
+                let findings = if i < 3 {
+                    vec![make_finding(
+                        "a11y.skip_link",
+                        vec![make_occurrence("node-1", "header .skip-link", None)],
+                    )]
+                } else {
+                    vec![]
+                };
+                make_report(&format!("https://example.com/page-{i}"), findings)
+            })
+            .collect();
+
+        let clusters = detect_template_clusters(&reports);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].page_coverage_pct, 60);
+        assert_eq!(clusters[0].region.as_deref(), Some("header"));
+        assert_eq!(clusters[0].confidence, "likely");
+    }
+
+    #[test]
+    fn heterogeneous_site_below_sixty_percent_does_not_cluster() {
+        let reports: Vec<NormalizedReport> = (0..10)
+            .map(|i| {
+                let findings = if i < 5 {
+                    vec![make_finding(
+                        "a11y.navigation_name",
+                        vec![make_occurrence("node-1", "nav.primary", None)],
+                    )]
+                } else {
+                    vec![]
+                };
+                make_report(&format!("https://example.com/page-{i}"), findings)
+            })
+            .collect();
+
+        assert!(detect_template_clusters(&reports).is_empty());
+    }
+
+    #[test]
+    fn selectorless_pagewide_findings_use_document_cluster() {
+        let reports: Vec<NormalizedReport> = (0..3)
+            .map(|i| {
+                let occurrence = OccurrenceDetail {
+                    selector: None,
+                    ..make_occurrence("document", "", None)
+                };
+                make_report(
+                    &format!("https://example.com/page-{i}"),
+                    vec![make_finding("a11y.document_language", vec![occurrence])],
+                )
+            })
+            .collect();
+
+        let clusters = detect_template_clusters(&reports);
+        assert_eq!(clusters.len(), 1);
+        assert_eq!(clusters[0].selector, "document");
+        assert_eq!(clusters[0].confidence, "likely");
     }
 }

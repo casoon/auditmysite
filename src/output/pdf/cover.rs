@@ -56,6 +56,7 @@ pub(super) fn build_batch_cover_score_row(
     grid = grid.add_item(serde_json::json!({
         "type": "score-card",
         "data": ScoreCard::new(i18n.t("cover-card-average"), avg_score)
+            .with_description(i18n.t("batch-cover-overall-score-note"))
             .with_thresholds(70, 50)
             .with_height("100%")
             .to_data()

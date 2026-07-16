@@ -283,6 +283,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
             certificate: artifacts.audit.certificate.clone(),
             statistics: stats,
             nodes_analyzed: artifacts.audit.nodes_analyzed,
+            execution: artifacts.audit.execution.clone(),
         },
         duration_ms: artifacts.audit.duration_ms,
         performance: artifacts.snapshot.performance.clone(),
@@ -335,6 +336,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
 /// structural pass over the cached AXTree, so it is recomputed exactly as a
 /// fresh run (and `to_audit_report`) does. No-op when the field is already set.
 pub fn hydrate_cached_report(report: &mut AuditReport, snapshot: &SnapshotArtifact, locale: &str) {
+    report.accessibility.execution.environment.source = "cache".to_string();
     if report.screen_reader_audit.is_none() {
         report.screen_reader_audit = Some(crate::screen_reader::build_sr_audit_report(
             &report.url,
