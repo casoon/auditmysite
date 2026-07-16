@@ -88,8 +88,25 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-pdf-smoke-${{ hashFiles('**/Cargo.lock') }}
 
+      # poppler-utils (pdftoppm/pdftotext) powers the visual smoke checks
+      # (#510: blank-page, page-budget, dual-viewport-gauge regression tests)
+      # and the pdftotext-based content-traceability tests. Without it these
+      # tests silently no-op (`find_executable("pdftoppm")` returns `None`)
+      # rather than fail — installing it here is what makes them actually
+      # run in CI instead of always being skipped.
+      - name: Install poppler-utils (pdftoppm, pdftotext)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
       - name: Run PDF smoke tests
         run: cargo test --features pdf_test -- --nocapture --test-threads=1
+
+      - name: Upload visual regression debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-visual-debug
+          path: target/pdf-visual-debug/
+          if-no-files-found: ignore
 
   format:
     name: Formatting

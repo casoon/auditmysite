@@ -225,22 +225,54 @@ Bewusste, über alle Phasen hinweg getroffene Entscheidung statt einer nachträg
   (`tests/regression_corpus_contract.rs`) laufen ohne eigenen CI-Job — sie sind netzwerk-/Chrome-/
   pdf-feature-frei und werden dadurch bereits vom unscoped `cargo test` in den bestehenden Jobs
   `check` (`--no-default-features`) und `check-all-features` (`--features pdf`) mitgeprüft. Die
-  Blank-Page-Visualprüfung (`test_*_pdf_*_are_not_blank_when_pdftoppm_is_available`) läuft im
-  bestehenden `pdf-smoke`-Job, `pdftoppm`-gated.
+  Blank-Page-Visualprüfung, der Page-Budget-Check und der Dual-Viewport-Gauge-Regressionstest
+  (Phase 5/#510, `src/output/pdf/tests.rs`) laufen im bestehenden `pdf-smoke`-Job, `pdftoppm`-gated
+  — der Job installiert `poppler-utils` jetzt explizit (vorher fehlte das, wodurch alle
+  `pdftoppm`/`pdftotext`-gated Tests in CI **immer** still übersprungen wurden, nie tatsächlich
+  liefen), und lädt bei einem Fehlschlag `target/pdf-visual-debug/` als Build-Artefakt hoch.
 - **Nicht blockierend, manuell/Release-only:** `reports/coverage_matrix.json` (Phase 4/#508) und
   der `report-critic`-Skill (Phase 6/#509) sind absichtlich keine Gates — ein Substring-Coverage-Scan
   kann false-negativ/-positiv sein, ein KI-Kritiker braucht eine Modell-Invokation, die kein
   netzwerk-/API-freier CI-Job leisten kann, ohne genau die Infrastruktur (API-Keys, Kosten,
   Nicht-Determinismus) wieder einzuführen, die mit der Entfernung von `semantic_eval` bewusst
   abgebaut wurde. Beide bleiben von Menschen/Agenten auf Anfrage ausgeführte Review-Werkzeuge.
-  Die vollständige Pixel-Diff-Visualpipeline (Phase 5/#510: Baseline-Speicherung/-Regenerierung,
-  Toleranzen für stabile Layout-Regionen) ist **nicht** fertig — offene Design-Entscheidung, siehe
-  Phase-5-Eintrag unten. `v1.2` wird mit dieser Lücke als dokumentierter, akzeptierter Waiver
-  getaggt statt sie zu blockieren: die Blank-Page-Prüfung deckt den schwerwiegendsten Fall (fehlende
-  Fonts/Assets → leere Seite) bereits ab, echte Layout-Feinheiten bleiben vorerst Sache des
-  `report-critic`-Skills.
+  Eine vollständige Pixel-Diff-Baseline-Pipeline (gespeicherte Referenzbilder pro stabiler
+  Layout-Region) ist weiterhin bewusst **nicht** gebaut — das ursprünglich offene Design-Problem
+  (Baseline-Speicherung/-Regenerierung über Font-Hinting/Anti-Aliasing-Unterschiede zwischen
+  Maschinen hinweg) wurde stattdessen strukturell umgangen: #510s konkrete Fälle (Blank-Page,
+  Seiten-Explosion, die "umgebrochene Dual-Viewport-Zelle") werden über **Struktur-/Same-Run-
+  Differenzprüfungen** statt gespeicherter Pixel-Baselines erkannt, siehe Phase-5-Eintrag unten.
 
 ## Current State (v1.1.0)
+- **Report Quality Layer v1.2 — Phase 5: visuelle Prüfpipeline, 2026-07-16 (#510, tracking #512):**
+  schließt die zuvor als offen dokumentierte Lücke (siehe vorheriger Eintrag unten, "partial").
+  Statt einer gespeicherten Pixel-Diff-Baseline (Font-Rendering/Anti-Aliasing würde das über
+  verschiedene Maschinen/CI-Runner hinweg flaky machen) zwei neue, deterministische
+  Same-Run-Prüfungen in `src/output/pdf/tests.rs`: (1)
+  `test_dual_viewport_performance_renders_two_gauges_not_a_flat_strip` — Struktur-Regressionswächter
+  für den in #510 konkret genannten historischen Fall (die "umgebrochene Dual-Viewport-Zelle"): prüft
+  im Typst-Quelltext (nicht Pixeln), dass der Desktop/Mobile-Performance-Vergleich weiterhin als zwei
+  eigenständige `Gauge`-Komponenten in einem 2-Spalten-`Grid` rendert (`type: "gauge"` ≥ 2×, eigene
+  `label: "Desktop"`/`label: "Mobile"`) statt in die vormalige flache "Desktop 85 · Mobile 67"-Textzeile
+  zurückzufallen — mit einem neuen `dual_viewport_performance(desktop_score, mobile_score)`-
+  Test-Helper, der `report.performance` (mobil) + `report.dual_viewport.desktop.performance` (Desktop)
+  konstruiert, dem einzigen Weg, `PerformancePresentation.desktop`/`.mobile` beide zu befüllen. (2)
+  `test_representative_fixture_pages_are_not_blank_and_stay_within_page_budget` — rastert eine
+  angereicherte Fixture (WCAG-Funde, Dual-Viewport-Gauges, Tech-Stack-Tabellen, gedrosselte
+  Netzwerk-Tabelle; deckt damit Cover/Scorekarten/Tabellen/Findings/Methodik/technische Kennzahlen
+  aus #510s Abnahmekriterium ab) auf Technical-Level und prüft Nicht-Leere UND ein Seiten-Budget
+  (60 Seiten, erkennt einen Reflow-Ausreißer, ohne subjektive Layout-Qualität pixelbasiert zu
+  beurteilen — das bleibt bewusst Aufgabe des `report-critic`-Skills, #509). Bei einem Fehlschlag
+  werden alle rasterisierten Seiten nach `target/pdf-visual-debug/<grund>/` kopiert (Tempdir-Inhalte
+  wären sonst vor jeder manuellen Inspektion gelöscht). **Realer, zuvor unbemerkter Gap gefunden und
+  gefixt:** der `pdf-smoke`-CI-Job installierte `poppler-utils` nie — jeder `pdftoppm`/`pdftotext`-
+  gated Test (alle Blank-Page-/Visual-Tests aus Phase 5 sowie die älteren `pdftotext`-basierten
+  Content-Traceability-Tests) übersprang sich in CI seit ihrer Einführung selbst still
+  (`find_executable("pdftoppm")` → `None`) statt zu laufen — nie als rotes CI sichtbar, weil ein
+  übersprungener Test nicht fehlschlägt. `.github/workflows/ci.yml`'s `pdf-smoke`-Job installiert
+  `poppler-utils` jetzt per `apt-get` und lädt `target/pdf-visual-debug/` bei einem Fehlschlag als
+  Build-Artefakt hoch (`actions/upload-artifact@v4`, `if: failure()`) — schließt #510s
+  Abnahmekriterium "erzeugte Artefakte sind in CI nachvollziehbar".
 - **Report Quality Layer v1.2 — Phase 3: Feedback-Korpus, 2026-07-16 (#511, tracking #512):**
   neues `tests/regression_corpus/*.json` (16 Einträge, ein File pro bestätigtem Fall) — Format
   `{id, category: Invariant|Semantic|Completeness|Explanation|Visualization, problem, evidence,

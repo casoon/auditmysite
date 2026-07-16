@@ -595,6 +595,212 @@ mod tests {
         }
     }
 
+    /// Builds the mobile `PerformanceResults` (for `report.performance`) and
+    /// the desktop counterpart wrapped in `DualViewportResults` (for
+    /// `report.dual_viewport`), so `build_performance_details` populates both
+    /// `PerformancePresentation.desktop` and `.mobile` and `render_performance`
+    /// takes the two-gauge branch (`score_gauge_grid`) instead of the
+    /// single-viewport fallback.
+    fn dual_viewport_performance(
+        desktop_score: u32,
+        mobile_score: u32,
+    ) -> (
+        crate::audit::PerformanceResults,
+        crate::audit::DualViewportResults,
+    ) {
+        use crate::audit::{DualViewportResults, PerformanceResults, ViewportAuditData};
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+
+        fn perf(score: u32) -> PerformanceResults {
+            PerformanceResults {
+                vitals: WebVitals::default(),
+                score: PerformanceScore {
+                    overall: score,
+                    grade: if score >= 75 {
+                        PerformanceGrade::Gold
+                    } else {
+                        PerformanceGrade::NeedsImprovement
+                    },
+                    lcp_score: None,
+                    fcp_score: None,
+                    cls_score: None,
+                    interactivity_score: None,
+                    si_score: None,
+                    metrics_available: 0,
+                    size_penalty: None,
+                    js_penalty: None,
+                    request_penalty: None,
+                    dom_penalty: None,
+                    is_capped: None,
+                },
+                render_blocking: None,
+                content_weight: None,
+                third_party: None,
+                critical_chain: None,
+                minification: None,
+                animations: None,
+                coverage: None,
+                measurement_warnings: vec![],
+            }
+        }
+
+        let empty_viewport = |performance: Option<PerformanceResults>| ViewportAuditData {
+            wcag_results: WcagResults::new(),
+            accessibility_score: 0.0,
+            performance,
+            seo: None,
+            mobile: None,
+            ux: None,
+            journey: None,
+            screenshot: None,
+            module_runs: vec![],
+        };
+
+        (
+            perf(mobile_score),
+            DualViewportResults {
+                desktop: empty_viewport(Some(perf(desktop_score))),
+                mobile: empty_viewport(None),
+            },
+        )
+    }
+
+    /// Regression guard for the historical "flat metric strip" bug named in
+    /// issue #510 (the wrapped dual-viewport cell): the Desktop/Mobile
+    /// performance comparison must render as two distinct gauge components
+    /// inside a 2-column `Grid`, not collapse back into a single combined
+    /// text line. This is a structural check on the Typst source (reliable,
+    /// no rasterization needed) rather than a pixel judgment — it can't
+    /// detect *every* possible bad-wrap regression, but it directly locks in
+    /// the fix for the one concrete case #510 names. `to_typst_dict`
+    /// (renderreport) turns each component's JSON into a Typst dict literal
+    /// (`type: "gauge"`, `label: "Desktop"`), not raw JSON text.
+    #[test]
+    fn test_dual_viewport_performance_renders_two_gauges_not_a_flat_strip() {
+        let (mobile_perf, dual_viewport) = dual_viewport_performance(85, 40);
+        let mut report = pdf_fixture_report_rich().with_performance(mobile_perf);
+        report.dual_viewport = Some(dual_viewport);
+
+        let typ =
+            unescape_typ(&generate_typ(&report, &ReportConfig::default()).expect("Typst source"));
+
+        let gauge_occurrences = typ.matches("type: \"gauge\"").count();
+        assert!(
+            gauge_occurrences >= 2,
+            "expected at least 2 gauge components (Desktop + Mobile) in the Typst source, found {gauge_occurrences}"
+        );
+        assert!(
+            typ.contains("label: \"Desktop\"") && typ.contains("label: \"Mobile\""),
+            "expected distinct \"Desktop\" and \"Mobile\" gauge labels in the Typst source"
+        );
+    }
+
+    /// Renders a fixture that exercises every fixture category issue #510's
+    /// acceptance criteria names (cover, scorecards, tables, findings,
+    /// methodology, technical metrics) in one report — WCAG findings table,
+    /// dual-viewport performance gauges, detected-technology/findings tables,
+    /// throttled-network table, lab-data methodology callout — rasterizes
+    /// every page, and checks each is non-blank (as the existing blank-page
+    /// tests do) plus that the page count stays within a generous, explicit
+    /// budget. The budget catches genuine Typst-reflow blowups (a component
+    /// stuck re-wrapping runaway content across dozens of pages); it does not
+    /// attempt to judge subjective layout quality, which is out of reach for
+    /// a pixel/page-count heuristic and stays the `report-critic` skill's job
+    /// (#509).
+    ///
+    /// On failure, rasterized pages are copied to a stable, gitignored
+    /// `target/pdf-visual-debug/` directory (tempdir contents are otherwise
+    /// deleted before a human could inspect them) — CI uploads that
+    /// directory as a build artifact on failure (see `.github/workflows/ci.yml`'s
+    /// `pdf-smoke` job) so a red run is diagnosable without a local re-run.
+    #[test]
+    fn test_representative_fixture_pages_are_not_blank_and_stay_within_page_budget() {
+        let Some(pdftoppm) = find_executable("pdftoppm") else {
+            return;
+        };
+
+        let (mobile_perf, dual_viewport) = dual_viewport_performance(85, 40);
+        let mut report = pdf_fixture_report_rich().with_performance(mobile_perf);
+        report.dual_viewport = Some(dual_viewport);
+        report.throttled_performance = vec![crate::audit::ThrottledPerfResult {
+            profile: crate::browser::ThrottleProfile::Slow3G,
+            lcp_ms: Some(3200.0),
+            tbt_ms: Some(180.0),
+            cls: Some(0.03),
+            score: 72,
+        }];
+        report = report.with_tech_stack(crate::tech_stack::TechStackAnalysis {
+            detected: vec![crate::tech_stack::DetectedTech {
+                name: "jQuery".to_string(),
+                category: crate::tech_stack::TechCategory::JsLibrary,
+                version: Some("1.12.4".to_string()),
+                confidence: crate::tech_stack::Confidence::High,
+                signals: vec!["window.jQuery".to_string()],
+            }],
+            findings: vec![crate::tech_stack::StackFinding {
+                tech: "jQuery".to_string(),
+                title: "Outdated jQuery version".to_string(),
+                detail: "jQuery 1.x has known vulnerabilities.".to_string(),
+                severity: Severity::Critical,
+                fix: None,
+                url_checked: None,
+            }],
+            score: 60,
+            grade: "C".to_string(),
+        });
+
+        let config = ReportConfig {
+            level: ReportLevel::Technical,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let pages = rasterize_pages(&pdftoppm, &pdf, temp_dir.path());
+
+        const MAX_EXPECTED_PAGES: usize = 60;
+        if pages.len() > MAX_EXPECTED_PAGES {
+            let debug_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("target/pdf-visual-debug/page-budget-exceeded");
+            let _ = std::fs::create_dir_all(&debug_dir);
+            for page in &pages {
+                if let Some(name) = page.file_name() {
+                    let _ = std::fs::copy(page, debug_dir.join(name));
+                }
+            }
+            panic!(
+                "representative fixture rendered {} pages (budget: {MAX_EXPECTED_PAGES}) — \
+                 likely a reflow regression; rasterized pages copied to {}",
+                pages.len(),
+                debug_dir.display()
+            );
+        }
+
+        let mut blank_pages = Vec::new();
+        for page in &pages {
+            if png_luma_std_dev(page) <= 5.0 {
+                blank_pages.push(page.clone());
+            }
+        }
+        if !blank_pages.is_empty() {
+            let debug_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("target/pdf-visual-debug/blank-pages");
+            let _ = std::fs::create_dir_all(&debug_dir);
+            for page in &pages {
+                if let Some(name) = page.file_name() {
+                    let _ = std::fs::copy(page, debug_dir.join(name));
+                }
+            }
+            panic!(
+                "{} of {} pages look blank/degenerate: {:?} — all rasterized pages copied to {}",
+                blank_pages.len(),
+                pages.len(),
+                blank_pages,
+                debug_dir.display()
+            );
+        }
+    }
+
     #[test]
     fn test_pdf_technical_contains_violation_criteria() {
         // Every WCAG criterion from the input must appear as text in the rendered PDF.
