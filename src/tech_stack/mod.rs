@@ -586,8 +586,26 @@ pub async fn analyze_tech_stack(page: &Page, base_url: &str) -> Result<TechStack
 
 #[cfg(test)]
 mod tests {
-    use super::{calculate_score, StackFinding};
+    use super::{calculate_score, StackFinding, TechCategory};
     use crate::taxonomy::{module_score_grade, Severity};
+
+    /// Regression test for a debug-format leak found via a report-critic eval
+    /// (#511 corpus): the PDF technology table used to render `{:?}` on
+    /// `TechCategory` directly, so a real report showed raw Rust identifier
+    /// text like "StaticSiteGenerator" instead of a readable label. Checks
+    /// the multi-word variants, where the Debug spelling is clearly not a
+    /// presentable label (single-word variants like `Framework` coincide
+    /// with their Debug form and aren't a useful signal either way).
+    #[test]
+    fn tech_category_label_is_a_readable_string_not_the_debug_identifier() {
+        assert_eq!(TechCategory::Cms.label(), "CMS");
+        assert_eq!(
+            TechCategory::StaticSiteGenerator.label(),
+            "Static Site Generator"
+        );
+        assert_eq!(TechCategory::Ecommerce.label(), "E-Commerce");
+        assert_eq!(TechCategory::JsLibrary.label(), "JS Library");
+    }
 
     fn finding(severity: Severity) -> StackFinding {
         StackFinding {

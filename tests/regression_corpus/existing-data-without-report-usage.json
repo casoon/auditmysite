@@ -1,0 +1,12 @@
+{
+  "id": "existing-data-without-report-usage",
+  "category": "Completeness",
+  "problem": "The audit pipeline computes and stores a data block, but no report surface (PDF or otherwise) ever renders it, so the work is invisible to the reader who paid for the audit.",
+  "evidence": "Startkorpus item from issue #511 (\"vorhandene Daten ohne sinnvolle Reportnutzung\"); tests/coverage_matrix.rs's export_coverage_matrix test walks the AuditCatalog and cross-references JSON schema fields against static grep hits under src/output/pdf/ — it already found the commerce module has 0 PDF references (see comment at tests/coverage_matrix.rs:126) despite carrying full derive-only analysis data.",
+  "expected": "reports/coverage_matrix.json (regenerated via cargo test --test coverage_matrix --features pdf_test -- --ignored --nocapture) is reviewed periodically; a module surfaced as 0 PDF references either gets a PDF section or the gap is explicitly accepted and tracked, not silently left open.",
+  "regression": "tests/coverage_matrix.rs::every_catalog_module_has_a_unique_nonempty_id (hard assertion); the commerce-module 0-PDF-references finding itself remains open (tracked, not yet closed with a PDF section).",
+  "counter_examples": [
+    "A module whose data is only used to compute a score that IS rendered (even without a dedicated detail table) is not automatically a gap — the matrix looks for JSON field names with zero PDF references, not for the absence of a full section."
+  ],
+  "status": "known_gap"
+}

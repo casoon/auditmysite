@@ -1,0 +1,12 @@
+{
+  "id": "score-without-scale-or-meaning",
+  "category": "Completeness",
+  "problem": "A score is shown as a bare number with no indication of its scale (e.g. \"out of 100\") or what it measures, leaving the reader to guess whether higher is better and what the number represents.",
+  "evidence": "Startkorpus item from issue #511 (\"Score ohne Skala oder Bedeutung\"); addressed structurally by src/registry/metrics.rs::MetricSpec, whose mandatory unit/direction/needs_explanation/docs_url fields exist specifically so every registered metric carries a documented scale and meaning, cross-referenced from docs/OUTPUT_CONTRACT.md's per-metric anchors.",
+  "expected": "Every score-like metric that reaches the JSON or PDF has a MetricSpec entry in the registry documenting its unit, direction, and a docs_url anchor explaining what it measures.",
+  "regression": "tests/registry_contract.rs asserts every registry entry's docs_url resolves to an existing anchor in docs/OUTPUT_CONTRACT.md and every band_set reference resolves.",
+  "counter_examples": [
+    "A count/ratio field that is intentionally not score-like (e.g. a raw occurrence count with no banding) is registered with band_set = None and must not be forced into a banded-score shape."
+  ],
+  "status": "resolved"
+}

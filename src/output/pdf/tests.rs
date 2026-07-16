@@ -181,6 +181,46 @@ mod tests {
         }
     }
 
+    /// Regression test for the tech-stack findings-severity localization fix
+    /// in `detail_modules/indicators.rs::render_tech_stack` — the severity
+    /// column used to call `finding.severity.label()` unconditionally, always
+    /// emitting the German label ("Hoch"/"Kritisch") even in the EN-locale
+    /// report.
+    #[test]
+    fn test_tech_stack_findings_english_locale_uses_english_severity_label() {
+        let report = pdf_fixture_report().with_tech_stack(crate::tech_stack::TechStackAnalysis {
+            detected: vec![],
+            findings: vec![crate::tech_stack::StackFinding {
+                tech: "jQuery".to_string(),
+                title: "Outdated jQuery version".to_string(),
+                detail: "jQuery 1.x has known vulnerabilities.".to_string(),
+                severity: Severity::Critical,
+                fix: None,
+                url_checked: None,
+            }],
+            score: 60,
+            grade: "C".to_string(),
+        });
+        let typ = generate_typ(
+            &report,
+            &ReportConfig {
+                level: ReportLevel::Technical,
+                locale: "en".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("English Typst source should render");
+
+        assert!(
+            typ.contains("CRITICAL"),
+            "expected English severity label \"CRITICAL\" in EN-locale Typst source"
+        );
+        assert!(
+            !typ.contains("Kritisch"),
+            "German severity label \"Kritisch\" leaked into EN-locale Typst source"
+        );
+    }
+
     #[test]
     fn test_single_pdf_places_json_ld_status_before_schema_inventory() {
         let structured_data = crate::seo::schema::analyze_structured_data_payloads(

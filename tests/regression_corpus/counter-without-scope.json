@@ -1,0 +1,12 @@
+{
+  "id": "counter-without-scope",
+  "category": "Completeness",
+  "problem": "A count (e.g. severity_counts, occurrence_counts) is reported without stating whether it covers WCAG-only findings or all categories, or whether it's per-page or batch-aggregated — a reader can silently misinterpret its scope.",
+  "evidence": "Startkorpus item from issue #511 (\"Zaehler ohne Scope\"); addressed by the summary.severity_counts_scope and summary.occurrence_counts_scope string fields (src/output/json.rs:193,196,449,452), always emitted as e.g. \"wcag_only\" alongside the counts themselves.",
+  "expected": "Every count field whose scope is not self-evident from its name carries an explicit sibling *_scope field, and CLAUDE.md documents the convention (severity_counts stays WCAG-only; occurrence_counts/violation_count/violated_rule_count cover all categories).",
+  "regression": "src/output/json/tests.rs asserts unified.summary.occurrence_counts_scope == \"wcag_only\" is present on generated reports (existing test, not written this session).",
+  "counter_examples": [
+    "A count field whose name is already unambiguous (e.g. sample.audited, a URL count) does not need a *_scope sibling and must not be flagged for lacking one."
+  ],
+  "status": "resolved"
+}

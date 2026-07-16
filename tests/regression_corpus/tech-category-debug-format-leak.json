@@ -1,0 +1,12 @@
+{
+  "id": "tech-category-debug-format-leak",
+  "category": "Explanation",
+  "problem": "src/output/pdf/detail_modules/indicators.rs rendered a detected technology's category via format!(\"{:?}\", tech.category) — Rust's Debug output — instead of a human-readable label, so the PDF's tech-stack table showed raw enum identifiers (e.g. \"StaticSiteGenerator\") rather than reader-facing text (\"Static Site Generator\").",
+  "evidence": "Found while auditing indicators.rs for the tech-stack severity locale leak in the same file; fixed by adding TechCategory::label() (src/tech_stack/mod.rs) with an explicit reader-facing string per variant, and calling tech.category.label().to_string() instead of the Debug format.",
+  "expected": "No PDF-visible text is ever produced via {:?} Debug formatting of an internal enum — every category/kind/variant that reaches a report surface has an explicit label() (or equivalent) method.",
+  "regression": "src/tech_stack/mod.rs::tech_category_label_is_a_readable_string_not_the_debug_identifier (asserts label() output differs from Debug output for the multi-word variants where the distinction is meaningful: Cms, StaticSiteGenerator, Ecommerce, JsLibrary).",
+  "counter_examples": [
+    "TechCategory::Framework's label() (\"Framework\") coincidentally equals its own Debug output — this is not a bug and must not be asserted against generically; the test only checks the variants where Debug and label() are meant to differ."
+  ],
+  "status": "resolved"
+}

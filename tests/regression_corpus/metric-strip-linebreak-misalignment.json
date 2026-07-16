@@ -1,0 +1,12 @@
+{
+  "id": "metric-strip-linebreak-misalignment",
+  "category": "Visualization",
+  "problem": "A row of metric values in the PDF wraps or breaks at different heights across sibling cells, producing visible vertical misalignment a human reader would notice but no text-based check can detect.",
+  "evidence": "Startkorpus item from issue #511 (\"Umbruch und vertikale Fehlausrichtung in Metrikstreifen\"); this needs actual pixel rendering to verify, which is issue #510 (visual PDF pipeline) — not built yet in this codebase (no typst-render/pdftoppm rasterization path exists as of this session).",
+  "expected": "A rasterization pipeline (pdftoppm-based per the #510 plan) renders representative fixture pages to PNG and either pixel-diffs stable regions against a checked-in baseline, or feeds the PNGs to the report-critic skill/an AI critic for layout judgment.",
+  "regression": null,
+  "counter_examples": [
+    "A metric strip where all cells wrap to the same number of lines (even if each individually wraps) is correctly-aligned and must not be flagged once the visual pipeline exists."
+  ],
+  "status": "known_gap"
+}

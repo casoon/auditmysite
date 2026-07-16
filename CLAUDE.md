@@ -219,6 +219,26 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
 ## Current State (v1.1.0)
+- **Report Quality Layer v1.2 — Phase 3: Feedback-Korpus, 2026-07-16 (#511, tracking #512):**
+  neues `tests/regression_corpus/*.json` (16 Einträge, ein File pro bestätigtem Fall) — Format
+  `{id, category: Invariant|Semantic|Completeness|Explanation|Visualization, problem, evidence,
+  expected, regression, counter_examples[], status: resolved|known_gap}`. Deckt das Startkorpus aus
+  Issue #511 ab (Score-Mismatch, kritisch-als-Label-für-kritisch+hoch, Score ohne Skala, Zähler
+  ohne Scope, vorhandene Daten ohne Reportnutzung, Metrikstreifen-Umbruch, Batch-Klassifikation aus
+  falscher Score-Basis) plus die in dieser Session bestätigten konkreten Fälle: die vier
+  Lokalisierungs-Leaks (SEO-Details, Tech-Stack-Severity, TechCategory-Debug-Format,
+  renderreport-Komponenten-Default-Labels) und den `violated_rule_count`-Scope-False-Positive aus
+  Gruppe C — alle `status: resolved` mit Verweis auf ihren jeweiligen Regressionstest. Vier weitere,
+  vom `report-critic`-Skill-Dry-Run gegen echte Batch-/Single-Reports gefundene, in dieser Session
+  aber **nicht** behobene Fälle (`score_area_for_finding`-Substring-Fehlklassifikation,
+  `is_generic()`-Linktext-Substring-False-Positive, Impact-vs.-Reach-Widerspruch in
+  Batch-`top_actions`, `{:?}`-Debug-Leak + Truncating-Division in `management_risks[].rationale`)
+  sind `status: known_gap` — bewusst dokumentiert statt stillschweigend fallengelassen. Neuer
+  `tests/regression_corpus_contract.rs` validiert nur die Korpus-Form selbst (Pflichtfelder,
+  Enum-Werte, eindeutige/dateiname-passende `id`, nicht-leere `counter_examples`, `resolved` ⇒
+  nicht-null `regression`) — führt die referenzierten Regressionstests nicht erneut aus.
+  `.gitignore`s pauschales `*.json` bekam ein `!tests/regression_corpus/*.json`-Whitelist-Eintrag
+  (gleiches Muster wie `tests/lint_fixtures/`).
 - **report-lint False-Positive-Fixes aus report-critic-Eval, 2026-07-16 (#507-Nachbesserung):**
   der Eval-Lauf fand zwei echte False Positives in `src/lint/checks.rs`, an einem realen
   Batch-Report bestätigt (`reports/casoon-batch-en301549.json` — vorher 2 Findings, jetzt 0):

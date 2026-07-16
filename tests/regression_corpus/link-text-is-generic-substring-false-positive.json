@@ -1,0 +1,12 @@
+{
+  "id": "link-text-is-generic-substring-false-positive",
+  "category": "Semantic",
+  "problem": "is_generic() in src/a11y_journey/link_inventory.rs:52 flags a link's accessible name as \"generic or non-descriptive\" using a substring check (lower.contains(stopword)) against a stopword list, so a long, specific, legitimate link text (e.g. a full news headline) that merely contains a generic word or phrase somewhere inside it gets misclassified as generic.",
+  "evidence": "Found by the report-critic skill's dry-run eval against reports/casoon-en301549-with-flag.typ: a WCAG 2.4.4 finding quoted example link texts that were long, specific news-headline strings (e.g. an AI-news teaser headline), not generic text at all — traced to the substring contains() check rather than a whole-string/exact match; reproduced identically in the sibling casoon-en301549-flag.typ report from the same audit run.",
+  "expected": "Generic-link-text detection should check whether the ENTIRE accessible name is (close to) a stopword/short generic phrase, not whether a generic substring merely occurs anywhere inside a much longer legitimate string.",
+  "regression": null,
+  "counter_examples": [
+    "A link whose accessible name genuinely IS just \"mehr\"/\"more\"/\"click here\" (the whole string, not a substring of something longer) must still be flagged once the fix lands."
+  ],
+  "status": "known_gap"
+}

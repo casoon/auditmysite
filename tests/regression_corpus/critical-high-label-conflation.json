@@ -1,0 +1,12 @@
+{
+  "id": "critical-high-label-conflation",
+  "category": "Semantic",
+  "problem": "The word \"kritisch\"/\"critical\" is used as a summary label for a count that actually mixes Critical- and High-severity findings, without telling the reader the label covers two distinct severities.",
+  "evidence": "Startkorpus item from issue #511 (\"kritisch als Label fuer kritisch + hoch\"). Spot-checked against current risk-summary text generation (src/audit/normalized.rs, RiskLevel/legal_flags logic around lines 460-530): risk.summary prose does separate \"N critical issues\" from \"N serious issues\" today, but no registry-driven or report-lint check exists yet that would catch a future regression where a single combined count gets labeled just \"kritisch\"/\"critical\".",
+  "expected": "Any UI/report label that aggregates Critical+High severities together must say so explicitly (e.g. \"critical or high\"), never just \"critical\"; a lint or registry rule should enforce this rather than relying on manual review of prose strings.",
+  "regression": null,
+  "counter_examples": [
+    "A report that shows Critical and High counts in separate, individually-labeled fields must not be flagged even though both are severity-related counts."
+  ],
+  "status": "known_gap"
+}

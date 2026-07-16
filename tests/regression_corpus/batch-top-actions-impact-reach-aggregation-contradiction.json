@@ -1,0 +1,12 @@
+{
+  "id": "batch-top-actions-impact-reach-aggregation-contradiction",
+  "category": "Invariant",
+  "problem": "In the batch report's \"Decision-oriented top actions\" table, each row's Impact cell (\"Fixes N occurrences...\") and Reach cell (occurrence_count) describe the same underlying finding but disagree by an order of magnitude, because expected_impact_kind is cloned from a single representative underlying finding's own small per-instance occurrence_count, while the row's own occurrence_count/Reach column is the correctly batch-aggregated acc.count.",
+  "evidence": "Found by the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json: every top_actions row showed a mismatch (contrast: Impact cites 12 occurrences vs Reach column showing 190; \"Missing semantic structure\": 2 vs 32; \"Content clipped...\": 1 vs 3) — traced to src/output/builder/batch.rs around line 1272 (expected_impact_kind: finding.expected_impact_kind.clone()), where the per-instance and the aggregated occurrence counts are never reconciled after aggregation.",
+  "expected": "A top_actions row's Impact-cell occurrence claim and its Reach-cell occurrence_count must describe the same aggregation scope (both per-instance or both batch-aggregated), not one of each.",
+  "regression": null,
+  "counter_examples": [
+    "A single-report top action (no cross-page aggregation happening) is not subject to this mismatch by construction and must not be flagged."
+  ],
+  "status": "known_gap"
+}

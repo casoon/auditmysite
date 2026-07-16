@@ -1,0 +1,12 @@
+{
+  "id": "batch-classification-wrong-score-base",
+  "category": "Invariant",
+  "problem": "A page's certificate/grade label is derived purely from its overall_score, ignoring that production code deliberately downgrades a score-implied positive certificate whenever risk.level is High or higher (\"a positive tier must not be shown when risk is at least Medium\") — so a naive score-only check flags the correctly-gated value as wrong.",
+  "evidence": "Startkorpus item from issue #511 (\"Batch-Klassifikation aus der falschen Score-Basis\"), reproduced live during the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json: page pages[14] (e-commerce/) had overall_score 82 (score-implied certificate GUT) but risk.level=\"high\", correctly gated to certificate=\"EINGESCHRAENKT\" by src/audit/normalized.rs::gate_certificate_by_risk — report-lint's check_grade_and_certificate originally flagged this as a mismatch before the fix.",
+  "expected": "report-lint's certificate check must model the same risk-gate the production code applies (score-based certificate plus an allowed downgrade to EINGESCHRAENKT/NICHT BESTANDEN when risk_level/legal_flags/blocking_issues justify it), not just compare against the unconditional score-derived label.",
+  "regression": "src/lint/checks.rs::risk_gate_inputs + acceptable_certificates, covered by tests certificate_downgraded_by_risk_gate_is_not_flagged and certificate_still_flagged_when_risk_does_not_justify_downgrade.",
+  "counter_examples": [
+    "A page with overall_score 82 and risk.level=\"low\" that still shows certificate=\"EINGESCHRAENKT\" (no risk justification for the downgrade) must still be flagged — the gate only tolerates the downgrade when risk actually justifies it."
+  ],
+  "status": "resolved"
+}

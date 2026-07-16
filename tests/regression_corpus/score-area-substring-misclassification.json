@@ -1,0 +1,12 @@
+{
+  "id": "score-area-substring-misclassification",
+  "category": "Semantic",
+  "problem": "score_area_for_finding (src/output/json/helpers.rs:209) buckets a finding into a report area (Forms, Images / alternative text, etc.) via naive substring matching over rule_id + subcategory + title + description, so an unrelated finding whose free-text description happens to contain a matching substring (e.g. \"conformance\" contains \"form\"; a CSS selector like \"div.alt-service-hero-card\" contains \"alt\") gets silently misrouted into the wrong area with a fabricated \"main driver\".",
+  "evidence": "Found by the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json: summary.accessibility_score_breakdown[] listed area=\"Forms\" with main_driver=\"Insufficient color contrast (27 occurrences)\" (routed via the substring \"form\" inside the contrast finding's APCA-conformance description) and area=\"Images / alternative text\" with main_driver=\"Content clipped when text spacing is increased (1 occurrences)\" (routed via \"alt\" inside a CSS selector name) — neither area has any real forms- or image-related violation anywhere in top_recurring_rules.",
+  "expected": "Area classification for a finding should key off its structured rule_id/WCAG success-criterion mapping, not substring search over free-text description/selector strings that can contain incidental matches.",
+  "regression": null,
+  "counter_examples": [
+    "A finding whose rule_id is genuinely forms-related (e.g. a label-association WCAG rule) must still classify into \"Forms\" once the fix lands — this is about false positives from incidental substrings, not about removing forms-classification entirely."
+  ],
+  "status": "known_gap"
+}

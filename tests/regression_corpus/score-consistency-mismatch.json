@@ -1,0 +1,12 @@
+{
+  "id": "score-consistency-mismatch",
+  "category": "Invariant",
+  "problem": "The same canonical score appears at two different JSON paths (e.g. a page's score vs. its mirrored appearance in a breakdown or summary block) with different values, so a reader cannot tell which one is authoritative.",
+  "evidence": "Startkorpus item from issue #511 (\"18/100 versus 20/100\"); generalized as report-lint's check_score_consistency in src/lint/checks.rs, which walks the registry's duplicate json_path groups and flags any mismatch.",
+  "expected": "A given canonical score is stored once and referenced everywhere else, or all mirrored copies are kept numerically identical by construction; report-lint fails loudly (Critical) if they ever diverge.",
+  "regression": "src/lint/checks.rs::check_score_consistency, covered by tests/lint_fixtures/broken_score_alias.json (known-bad fixture) and tests/lint_fixtures/clean_single.json (counter-example).",
+  "counter_examples": [
+    "A clean single-report JSON where the same score field is referenced from summary and page-detail with identical values must not be flagged."
+  ],
+  "status": "resolved"
+}

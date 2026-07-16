@@ -1,0 +1,12 @@
+{
+  "id": "renderreport-component-default-label-leak",
+  "category": "Explanation",
+  "problem": "The sibling renderreport crate's dominant_issue_spotlight.typ and severity_overview.typ Typst component templates hardcoded German fallback label text (e.g. \"% Anteil\", \"Nutzer-Wirkung\", \"Empfehlung\", the five severity-overview labels) with no locale parameter, so any auditmysite caller passing English data through these components would still see German chrome around it.",
+  "evidence": "Discovered while investigating why \"Empfehlung\" appeared in an EN-locale --debug-typ dump; on inspection, neither component is actually instantiated anywhere in auditmysite's own PDF-building code (grep -rn \"DominantIssueSpotlight\"/\"SeverityOverview\" src/ returned nothing) — this was dead-code hygiene, not a live user-facing bug, and was corrected as such to the user before being fixed.",
+  "expected": "renderreport component templates accept locale-appropriate label overrides rather than hardcoding one language's fallback text, even for components not currently wired up by any caller, so future use doesn't silently reintroduce a locale leak.",
+  "regression": "renderreport 0.2.36: DominantIssueSpotlight::with_labels(...) and SeverityOverview::with_labels(...) builder methods plus data.at(\"label_...\", default: ...) overrides in both .typ templates.",
+  "counter_examples": [
+    "A caller that does not pass label overrides still gets the original German defaults — this is an additive override, not a removal of the existing default behavior."
+  ],
+  "status": "resolved"
+}

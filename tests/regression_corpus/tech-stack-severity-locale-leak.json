@@ -1,0 +1,12 @@
+{
+  "id": "tech-stack-severity-locale-leak",
+  "category": "Explanation",
+  "problem": "src/output/pdf/detail_modules/indicators.rs::render_tech_stack called finding.severity.label() unconditionally in the findings table's severity column, always emitting the German label (\"Hoch\"/\"Kritisch\") even when the report's locale was English.",
+  "evidence": "Found during the same locale-leak sweep as seo-details-locale-leak; fixed by introducing a locale-aware `let en = i18n.locale() == \"en\";` binding and branching to finding.severity.label_en() (\"HIGH\"/\"CRITICAL\") for English reports.",
+  "expected": "Every severity label rendered into the PDF selects label() vs label_en() based on the active report locale, never label() unconditionally.",
+  "regression": "src/output/pdf/tests.rs::test_tech_stack_findings_english_locale_uses_english_severity_label.",
+  "counter_examples": [
+    "A German-locale report with the same StackFinding must still show \"Kritisch\", not \"CRITICAL\" — this is a locale-selection fix, not a hardcoding of English."
+  ],
+  "status": "resolved"
+}

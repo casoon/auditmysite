@@ -1,0 +1,13 @@
+{
+  "id": "report-lint-batch-violated-rule-count-scope-false-positive",
+  "category": "Invariant",
+  "problem": "report-lint's count-sum check compared summary.violated_rule_count (distinct violated rules across the whole batch) against the sum of summary.severity_counts (a per-page-per-rule finding count) as if they had to be equal, but they measure different things at the batch-aggregate level: violated_rule_count is deduplicated across pages, severity_counts.total is not.",
+  "evidence": "Reproduced during the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json: violated_rule_count=3 (matches top_recurring_rules.length) vs severity_counts.total=35 (16 pages x contrast + 16 pages x landmark + 3 pages x text-spacing) — both correct by this project's own documented convention (CLAUDE.md: severity_counts counts findings per rule/severity row, violated_rule_count covers all categories as distinct rules), but the lint check treated the mismatch as a bug.",
+  "expected": "The count-sum check must know the batch-summary violated_rule_count is an at-most relationship to the severity total (deduplicated across pages), not an exact-equality relationship, while still checking exact equality at the per-page level where no cross-page dedup applies.",
+  "regression": "src/lint/checks.rs::ScopeRelation (Exact vs AtMost) + CountsCheckSpec, covered by tests batch_summary_violated_rule_count_below_severity_total_is_not_flagged, batch_summary_violated_rule_count_above_severity_total_is_still_flagged, and batch_page_violated_rule_count_mismatch_is_still_flagged_exactly.",
+  "counter_examples": [
+    "A batch summary where violated_rule_count is GREATER than the severity total (impossible under correct dedup) must still be flagged.",
+    "A single page whose own violated_rule_count doesn't exactly match its own severity total must still be flagged exactly — the AtMost relaxation only applies at the batch-summary aggregation level."
+  ],
+  "status": "resolved"
+}

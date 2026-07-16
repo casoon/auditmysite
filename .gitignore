@@ -26,6 +26,7 @@ Cargo.lock
 *.html
 !tests/fixtures/*.html
 !tests/lint_fixtures/*.json
+!tests/regression_corpus/*.json
 !scripts/package-lock.json
 
 # Logs

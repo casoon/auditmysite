@@ -1,0 +1,12 @@
+{
+  "id": "seo-details-locale-leak",
+  "category": "Explanation",
+  "problem": "src/output/builder/single/module_details.rs::build_seo_details hardcoded German labels (meta_tags, SchemaExtracted match arms, signal_rows rating bands, identity_facts, page_profile_facts, heading_summary, social_summary, technical_summary, tracking_summary — roughly 50 strings) regardless of the report's configured locale, so an EN-locale report still showed German SEO section text.",
+  "evidence": "Found via a full localization sweep of build_seo_details after an initial 4-string spot fix (Seitentitel/Inhaltstyp/Themenhinweise/Seitentyp) turned out to be far from complete; confirmed missing en-branch coverage for meta tag labels, schema-extracted counts, rating bands, and ~15 tracking_summary entries (Google Fonts, Tracking cookies, Cookie inventory, Browser Storage, Consent cookies, Zaraz, etc).",
+  "expected": "Every user-visible string build_seo_details emits has both a de and en branch selected by the report's locale, per this project's localization architecture (JSON canonical English, PDF derives locale at render time).",
+  "regression": "src/output/pdf/tests.rs::test_seo_details_english_locale_has_no_known_german_leaks (asserts EN labels present AND specific German strings absent in EN-locale Typst source).",
+  "counter_examples": [
+    "The German-locale rendering of the same report must still show the original German labels — this is a locale-selection fix, not a removal of German text."
+  ],
+  "status": "resolved"
+}

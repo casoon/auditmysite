@@ -1,0 +1,12 @@
+{
+  "id": "management-risk-rationale-debug-leak-and-truncation",
+  "category": "Explanation",
+  "problem": "summary.management_risks[].rationale (src/output/json/helpers.rs:277-280) formats performance/mobile scores via {:?} on an Option<f64>, producing a visible Rust Debug-format leak (e.g. \"performance Some(84), mobile Some(77)\") instead of clean numbers. Separately, the \"average accessibility score\" quoted in that same rationale string is computed by average_accessibility_score() (src/output/json/helpers.rs:450) using integer-truncating division (sum / len), which can disagree with summary.accessibility_score's own rounded value for the same nominal statistic.",
+  "evidence": "Found by the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json: management_risks[1].rationale literally read '...performance Some(84), mobile Some(77).' and separately quoted \"84\" as the average accessibility score while summary.accessibility_score = 85 (85 = round(); 84 = truncating integer division of the same underlying per-page scores) — the JSON PDF text independently computes and shows 85 correctly, so only the raw JSON field is currently affected.",
+  "expected": "rationale strings must format Option<f64> values as plain numbers (e.g. via unwrap_or / map, not {:?}), and any two fields both claiming to be \"the average accessibility score\" must use the same rounding rule so they can never silently disagree.",
+  "regression": null,
+  "counter_examples": [
+    "A management_risks rationale for a dimension that has no optional score inputs at all (nothing to format) is unaffected and must not be flagged."
+  ],
+  "status": "known_gap"
+}
