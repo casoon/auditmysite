@@ -219,6 +219,61 @@ Whenever a new module is added, renamed, or removed, update the Module Structure
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
 ## Current State (v1.1.0)
+- **report-lint False-Positive-Fixes aus report-critic-Eval, 2026-07-16 (#507-Nachbesserung):**
+  der Eval-Lauf fand zwei echte False Positives in `src/lint/checks.rs`, an einem realen
+  Batch-Report bestätigt (`reports/casoon-batch-en301549.json` — vorher 2 Findings, jetzt 0):
+  (1) `check_grade_and_certificate` kannte `gate_certificate_by_risk`
+  (`src/audit/normalized.rs:515`) nicht — ein wegen Risk=High/Critical/legal_flags/
+  blocking_issues absichtlich herabgestuftes Zertifikat ("EINGESCHRÄNKT"/"NICHT BESTANDEN")
+  wurde fälschlich als Score-Mismatch gemeldet. Jetzt akzeptiert der Check jeden Wert, den
+  `gate_certificate_by_risk` für die gegebenen Risk-Eingaben legitim produzieren könnte
+  (`risk_gate_inputs`/`acceptable_certificates`, neue Helper). (2) `violated_rule_count` (global
+  eindeutige Regeln) vs. `severity_counts.total` (Summe der pro-Seite-eindeutigen Regel-Zeilen)
+  sind auf Batch-`summary`-Ebene strukturell verschiedene Aggregationen, die nur zufällig für
+  Single-Reports übereinstimmen — der Check verglich sie fälschlich auf exakte Gleichheit. Neue
+  `ScopeRelation`-Unterscheidung: `Exact` für Single-Reports und jede einzelne Seite, `AtMost`
+  (global ≤ Summe) nur für `summary` eines Batch-Reports. 5 neue Regressionstests in
+  `src/lint/checks.rs`.
+- **Lokalisierungs-Nachbesserung aus report-critic-Eval, 2026-07-16:** der report-critic-Eval-Lauf
+  (siehe Skill-Eintrag unten) fand reale Lokalisierungslecks — deutsche Wörter ohne Umlaut/ß, daher
+  vom bestehenden Guard-Test unentdeckt. Gefixt: `build_seo_details`
+  (`src/output/builder/single/module_details.rs`) komplett durchlokalisiert (meta_tags,
+  identity_facts, page_profile_facts, heading/social/technical/tracking_summary, SchemaExtracted-
+  Textbausteine, `signal_rows`-Rating — ~50 Stellen); `Severity::label()` (immer Deutsch) an zwei
+  weiteren PDF-Stellen (`detail_modules/indicators.rs`, `detail_modules/overview.rs` — dort war ein
+  drittes vermeintliches Vorkommen tatsächlich `BudgetSeverity` mit eigenen, bereits
+  sprachneutralen "Error"/"Warning"-Labels, kein Bug); `single_report.rs` ("Absprungrate" im
+  EN-Zweig selbst falsch übersetzt, "Vorkommen" hartcodiert im Format-String). Nebenbefund: `{:?}`-
+  Debug-Leck bei `tech.category` (`TechCategory` hatte keine `label()`-Methode) — jetzt behoben.
+  Neuer Regressionstest `test_seo_details_english_locale_has_no_known_german_leaks`
+  (`src/output/pdf/tests.rs`) — die erste EN-Locale-Prüfung, die `build_seo_details` überhaupt mit
+  echten SEO-Daten ausführt (`pdf_fixture_report()` allein trägt kein SEO). **Wichtige
+  Methodik-Korrektur dabei entdeckt:** `--debug-typ`-Dumps enthalten die komplette
+  renderreport-Komponentenbibliothek (`include_str!`), nicht nur den tatsächlich gerenderten
+  Content — ein String-Vorkommen im Dump beweist nicht, dass er auf einer Seite erscheint (kann
+  aus einer nie instanziierten Komponentendefinition stammen). Führte zu zwei renderreport-Fixes
+  (**v0.2.36**, siehe unten) und einer Ergänzung im `report-critic`-Skill.
+- **renderreport v0.2.36:** `dominant-issue-spotlight` und `severity-overview` (zwei von
+  auditmysite aktuell ungenutzte Komponenten) hatten deutsche Labels fest im Typst-Template
+  (`label-text("Empfehlung")` etc.) statt sie wie alle anderen Komponenten als Datenfeld vom
+  Rust-Aufrufer zu bekommen — kein Live-Bug (unbenutzt), aber Inkonsistenz mit dem etablierten
+  Muster (Rust übergibt immer schon lokalisierte Strings, Templates selbst haben keine
+  Sprachlogik). Beide Templates nehmen jetzt optionale `label_*`-Datenfelder mit deutschen
+  Defaults (`data.at(key, default: "...")`) an; `DominantIssueSpotlight`/`SeverityOverview` in
+  renderreport haben neue `with_labels(...)`-Builder analog zu `CoverPage`. Rein additiv, keine
+  Verhaltensänderung für bestehende Aufrufer. `cover_page.typ`'s deutscher Fallback-Wert für
+  `modules_label` bewusst unverändert gelassen — auditmysite setzt dieses Feld immer explizit für
+  beide Sprachen, der Fallback ist unerreichbar.
+- **Neuer Skill `report-critic` (.claude/skills/report-critic/SKILL.md, #509):** evidenzgebundene
+  KI-Kritik eines fertigen Reports (JSON + `--debug-typ`-Text) gegen Widersprüche, fehlenden
+  Scope, unbelegte Schlussfolgerungen, fehlende Maßnahmen-Verknüpfung, textsichtbare
+  Layout-Artefakte — ergänzt (ersetzt nicht) `report-lint`. Per skill-creator-Eval-Loop getestet
+  (3 Testfälle, mit/ohne Skill, echter 1.1 MB Batch-Report von casoon.de): beide Konfigurationen
+  fanden durchgehend reale Bugs (Substring-Klassifikations-Bug in zwei unabhängigen Modulen,
+  `Some(84)`-Debug-Leck, Impact-vs-Reach-Widerspruch in einer Aggregations-Tabelle, u.a.) — der
+  Skill bringt vor allem konsistente Ausgabestruktur, nicht zusätzliche Fähigkeit gegenüber einem
+  bereits sehr kompetenten Baseline-Agenten. Eval-Workspace unter
+  `.claude/skills/report-critic-workspace/` (nicht committet, lokal).
 - **Report Quality Layer v1.2 — Phase 5 (partial): visual PDF smoke checks, 2026-07-16 (#510,
   tracking #512):** correction to the original Phase 5 plan — rasterization via `pdftoppm` was
   **not** greenfield; `src/output/pdf/tests.rs` already had two `pdftoppm`-gated smoke tests
