@@ -2,11 +2,11 @@
   "id": "metric-strip-linebreak-misalignment",
   "category": "Visualization",
   "problem": "A row of metric values in the PDF wraps or breaks at different heights across sibling cells, producing visible vertical misalignment a human reader would notice but no text-based check can detect.",
-  "evidence": "Startkorpus item from issue #511 (\"Umbruch und vertikale Fehlausrichtung in Metrikstreifen\"); this needs actual pixel rendering to verify, which is issue #510 (visual PDF pipeline) — not built yet in this codebase (no typst-render/pdftoppm rasterization path exists as of this session).",
-  "expected": "A rasterization pipeline (pdftoppm-based per the #510 plan) renders representative fixture pages to PNG and either pixel-diffs stable regions against a checked-in baseline, or feeds the PNGs to the report-critic skill/an AI critic for layout judgment.",
-  "regression": null,
+  "evidence": "Startkorpus item from issue #511 (\"Umbruch und vertikale Fehlausrichtung in Metrikstreifen\"). Issue #510's own acceptance criteria names one concrete historical case of this class: the Desktop/Mobile performance comparison used to render as a flat \"Desktop 85 · Mobile 67\" text line (a single-column metric strip), since fixed by switching to two side-by-side gauge components (src/output/pdf/detail_modules/performance.rs::score_gauge_grid). #510 was closed with a structural (same-run, no stored pixel baseline) regression guard for that specific case rather than a general pixel-diff pipeline: a stored-baseline approach was deliberately rejected because font hinting/anti-aliasing differs across machines/CI runners, making an exact-baseline comparison flaky by construction.",
+  "expected": "The specific historical case (dual-viewport gauge grid) stays guarded structurally. A general-purpose pixel-diff-against-stored-baseline pipeline for *arbitrary* future metric strips remains undesigned and is not planned unless a concrete new case demonstrates the structural-guard approach doesn't generalize.",
+  "regression": "src/output/pdf/tests.rs::test_dual_viewport_performance_renders_two_gauges_not_a_flat_strip (covers only the named dual-viewport case, not metric strips in general).",
   "counter_examples": [
-    "A metric strip where all cells wrap to the same number of lines (even if each individually wraps) is correctly-aligned and must not be flagged once the visual pipeline exists."
+    "A metric strip where all cells wrap to the same number of lines (even if each individually wraps) is correctly-aligned and must not be flagged by any future generalization of this check."
   ],
   "status": "known_gap"
 }
