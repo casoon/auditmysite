@@ -125,6 +125,9 @@ pub struct SignalValues {
     /// Whether an H1 is present (HeadingStructure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub has_h1: Option<bool>,
+    /// Whether the first heading in document order is the H1 (HeadingStructure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub starts_with_h1: Option<bool>,
     /// Word count (ContentVolume)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub word_count: Option<u32>,
@@ -295,17 +298,31 @@ pub fn source_quality_signal_text(
         HeadingStructure => {
             let depth = values.depth.unwrap_or(0);
             let has_h1 = values.has_h1.unwrap_or(false);
-            if has_h1 && depth >= 3 {
-                if en {
-                    format!("Structured outline down to H{}", depth)
-                } else {
-                    format!("Strukturierte Gliederung bis H{}", depth)
-                }
-            } else if !has_h1 {
+            let h1_count = count;
+            let starts_with_h1 = values.starts_with_h1.unwrap_or(true);
+            if !has_h1 {
                 if en {
                     "No H1 heading present".into()
                 } else {
                     "Keine H1-Überschrift vorhanden".into()
+                }
+            } else if h1_count != 1 {
+                if en {
+                    format!("{h1_count} H1 headings found (should be exactly one)")
+                } else {
+                    format!("{h1_count} H1-Überschriften gefunden (sollte genau eine sein)")
+                }
+            } else if !starts_with_h1 {
+                if en {
+                    "Exactly one H1, but it is not the first heading in the document".into()
+                } else {
+                    "Genau eine H1, aber nicht die erste Überschrift im Dokument".into()
+                }
+            } else if depth >= 3 {
+                if en {
+                    format!("Structured outline down to H{}", depth)
+                } else {
+                    format!("Strukturierte Gliederung bis H{}", depth)
                 }
             } else if en {
                 format!("Flat outline (only down to H{})", depth)
@@ -692,7 +709,20 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
 
     // 1. Heading structure depth
     if let Some(seo) = &report.discoverability.seo {
-        let has_h1 = seo.headings.h1_count > 0;
+        let h1_count = seo.headings.h1_count;
+        let has_h1 = h1_count > 0;
+        // A single H1 that isn't the first heading in the document (e.g. a
+        // page opening with H2/H3 content before its H1) is just as much of
+        // a broken outline as having none or several — `h1_count > 0` alone
+        // used to call that "structured", contradicting the separately
+        // reported `multiple_h1`/reading-order findings for the same page.
+        let starts_with_h1 = seo
+            .headings
+            .headings
+            .first()
+            .map(|h| h.level == 1)
+            .unwrap_or(false);
+        let well_formed_h1 = h1_count == 1 && starts_with_h1;
         let depth = seo
             .headings
             .headings
@@ -704,11 +734,13 @@ fn evaluate_substance(report: &AuditReport) -> DimensionScore {
 
         signals.push(QualitySignal::new(
             HeadingStructure,
-            has_h1 && good_depth,
+            well_formed_h1 && good_depth,
             0.20,
             SignalValues {
                 depth: Some(depth as u32),
                 has_h1: Some(has_h1),
+                starts_with_h1: Some(starts_with_h1),
+                count: Some(h1_count as u32),
                 ..Default::default()
             },
         ));
@@ -1398,5 +1430,85 @@ mod tests {
         );
         assert_eq!(source_quality_dimension_label(95, false), "Sehr gut");
         assert!(source_quality_disclaimer(false).contains("ausschließlich"));
+    }
+
+    /// Regression test for a real report-critique finding: a page with two
+    /// H1 headings, where the document opens with H2 content before the
+    /// first H1, used to be labeled a "structured outline" here because the
+    /// old check only asked `h1_count > 0` — directly contradicting this
+    /// same report's own SEO `multiple_h1` finding and reading-order
+    /// findings for the identical page.
+    #[test]
+    fn heading_structure_signal_flags_multiple_h1_as_not_well_formed() {
+        use crate::seo::{HeadingInfo, HeadingStructure, MetaTags, SeoAnalysis};
+
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(SeoAnalysis {
+            meta: MetaTags::default(),
+            headings: HeadingStructure {
+                h1_count: 2,
+                h1_text: Some("First".into()),
+                headings: vec![
+                    HeadingInfo {
+                        level: 2,
+                        text: "Intro".into(),
+                        length: 5,
+                        is_question: false,
+                        in_faq_context: false,
+                        word_count_after: 10,
+                    },
+                    HeadingInfo {
+                        level: 1,
+                        text: "First".into(),
+                        length: 5,
+                        is_question: false,
+                        in_faq_context: false,
+                        word_count_after: 10,
+                    },
+                    HeadingInfo {
+                        level: 3,
+                        text: "Sub".into(),
+                        length: 3,
+                        is_question: false,
+                        in_faq_context: false,
+                        word_count_after: 5,
+                    },
+                    HeadingInfo {
+                        level: 1,
+                        text: "Second".into(),
+                        length: 6,
+                        is_question: false,
+                        in_faq_context: false,
+                        word_count_after: 5,
+                    },
+                ],
+                issues: vec![],
+                total_count: 4,
+            },
+            ..Default::default()
+        });
+
+        let analysis = analyze_source_quality(&report);
+        let signal = analysis
+            .substance
+            .signals
+            .iter()
+            .find(|s| s.kind == QualitySignalKind::HeadingStructure)
+            .expect("heading structure signal");
+
+        assert!(
+            !signal.present,
+            "two H1 headings with content before the first one must not count as well-formed"
+        );
+        assert!(
+            signal.detail.contains('2') && signal.detail.to_lowercase().contains("h1"),
+            "detail should name the actual H1 count, got {:?}",
+            signal.detail
+        );
+        assert!(
+            !signal.detail.contains("Structured outline"),
+            "must not claim a structured outline when H1 usage is broken: {:?}",
+            signal.detail
+        );
     }
 }
