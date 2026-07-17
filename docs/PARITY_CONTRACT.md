@@ -11,8 +11,8 @@ The public methodology/landing-page numbers are frozen in
 
 - WCAG scope: WCAG 2.1 AA
 - Total WCAG A/AA criteria: 50
-- Automated WCAG A/AA criteria: 27
-- Manual-review criteria: 16
+- Automated WCAG A/AA criteria: 36
+- Manual-review criteria: 10
 
 When the WCAG coverage manifest changes, update the contract and this document
 in the same change.
