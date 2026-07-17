@@ -1511,4 +1511,208 @@ mod tests {
             signal.detail
         );
     }
+
+    /// Finds a signal by kind in the `Substance` dimension of a freshly
+    /// analyzed report — shared helper for the threshold tests below.
+    fn substance_signal(report: &AuditReport, kind: QualitySignalKind) -> QualitySignal {
+        analyze_source_quality(report)
+            .substance
+            .signals
+            .into_iter()
+            .find(|s| s.kind == kind)
+            .unwrap_or_else(|| panic!("{kind:?} signal must be present in the substance dimension"))
+    }
+
+    #[test]
+    fn content_volume_signal_requires_at_least_300_words() {
+        use crate::seo::{SeoAnalysis, TechnicalSeo};
+
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(SeoAnalysis {
+            technical: TechnicalSeo {
+                word_count: 299,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(
+            !substance_signal(&report, QualitySignalKind::ContentVolume).present,
+            "299 words must not count as sufficient content volume"
+        );
+
+        report.discoverability.seo = Some(SeoAnalysis {
+            technical: TechnicalSeo {
+                word_count: 300,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(
+            substance_signal(&report, QualitySignalKind::ContentVolume).present,
+            "300 words must count as sufficient content volume"
+        );
+    }
+
+    #[test]
+    fn structured_data_signal_reflects_has_structured_data_flag() {
+        use crate::seo::SeoAnalysis;
+        use crate::seo::StructuredData;
+
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(SeoAnalysis {
+            structured_data: StructuredData {
+                has_structured_data: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(
+            !substance_signal(&report, QualitySignalKind::StructuredData).present,
+            "no structured data must not be flagged present"
+        );
+
+        report.discoverability.seo = Some(SeoAnalysis {
+            structured_data: StructuredData {
+                has_structured_data: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let signal = substance_signal(&report, QualitySignalKind::StructuredData);
+        assert!(
+            signal.present,
+            "has_structured_data=true must be flagged present even without JSON-LD types"
+        );
+        assert!(
+            signal.detail.contains("microdata/RDFa"),
+            "detail should explain structured data was detected via microdata/RDFa, not JSON-LD: {:?}",
+            signal.detail
+        );
+    }
+
+    #[test]
+    fn meta_description_signal_requires_at_least_50_characters() {
+        use crate::seo::{MetaTags, SeoAnalysis};
+
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(SeoAnalysis {
+            meta: MetaTags {
+                description: Some("x".repeat(49)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(
+            !substance_signal(&report, QualitySignalKind::MetaDescription).present,
+            "a 49-character meta description must not count as meaningful"
+        );
+
+        report.discoverability.seo = Some(SeoAnalysis {
+            meta: MetaTags {
+                description: Some("x".repeat(50)),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(
+            substance_signal(&report, QualitySignalKind::MetaDescription).present,
+            "a 50-character meta description must count as meaningful"
+        );
+    }
+
+    #[test]
+    fn language_declaration_signal_reflects_has_lang_flag() {
+        use crate::seo::{SeoAnalysis, TechnicalSeo};
+
+        let mut report = minimal_report();
+        report.discoverability.seo = Some(SeoAnalysis {
+            technical: TechnicalSeo {
+                has_lang: false,
+                lang: None,
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        assert!(
+            !substance_signal(&report, QualitySignalKind::LanguageDeclaration).present,
+            "missing lang attribute must not be flagged present"
+        );
+
+        report.discoverability.seo = Some(SeoAnalysis {
+            technical: TechnicalSeo {
+                has_lang: true,
+                lang: Some("de-DE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let signal = substance_signal(&report, QualitySignalKind::LanguageDeclaration);
+        assert!(
+            signal.present,
+            "declared lang attribute must be flagged present"
+        );
+        assert!(
+            signal.detail.contains("de-DE"),
+            "detail should name the declared language: {:?}",
+            signal.detail
+        );
+    }
+
+    #[test]
+    fn image_descriptions_signal_requires_zero_missing_alt_text_violations() {
+        let mut report = minimal_report();
+        report
+            .accessibility
+            .wcag_results
+            .add_violation(crate::wcag::Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Image missing alternative text",
+                "img.hero",
+            ));
+        assert!(
+            !substance_signal(&report, QualitySignalKind::ImageDescriptions).present,
+            "any 1.1.1 violation must not be flagged present"
+        );
+
+        let clean_report = minimal_report();
+        assert!(
+            substance_signal(&clean_report, QualitySignalKind::ImageDescriptions).present,
+            "zero 1.1.1 violations must be flagged present"
+        );
+    }
+
+    #[test]
+    fn semantic_structure_signal_requires_zero_landmark_violations() {
+        let mut report = minimal_report();
+        report
+            .accessibility
+            .wcag_results
+            .add_violation(crate::wcag::Violation::new(
+                "1.3.1",
+                "Landmark Uniqueness",
+                WcagLevel::A,
+                Severity::Medium,
+                "Multiple landmarks share the same accessible name",
+                "header.site-header",
+            ));
+        let signal = substance_signal(&report, QualitySignalKind::SemanticStructure);
+        assert!(
+            !signal.present,
+            "a landmark-rule violation must not be flagged present"
+        );
+        assert!(
+            signal.detail.contains('1'),
+            "detail should name the actual violation count: {:?}",
+            signal.detail
+        );
+
+        let clean_report = minimal_report();
+        assert!(
+            substance_signal(&clean_report, QualitySignalKind::SemanticStructure).present,
+            "zero landmark violations (and no missing <main>) must be flagged present"
+        );
+    }
 }
