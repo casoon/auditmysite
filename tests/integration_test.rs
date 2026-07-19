@@ -748,3 +748,51 @@ async fn test_catalog_audit_json_envelope_v2() {
         "page entry must have accessibility_score"
     );
 }
+
+/// Regression test for #513: `check_label_in_name_with_page` must not flag a
+/// mismatch caused purely by `textContent`'s lack of whitespace at element
+/// boundaries, must downgrade a compound widget's plausible-but-unverifiable
+/// mismatch to a warning rather than an auto-confirmed violation, and must
+/// still catch a genuine label/name mismatch.
+#[tokio::test]
+#[ignore]
+async fn test_label_in_name_false_positives() {
+    let (url, shutdown) = serve_fixture("label_in_name.html");
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &url)
+        .await
+        .expect("Navigation failed");
+
+    let findings = auditmysite::wcag::rules::check_label_in_name_with_page(&page).await;
+
+    shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let whitespace_boundary = findings.iter().find(|v| v.message.contains("Loads slowly"));
+    assert!(
+        whitespace_boundary.is_none(),
+        "adjacent-element whitespace gap must not be flagged as a mismatch; got {findings:?}"
+    );
+
+    let compound_widget = findings
+        .iter()
+        .find(|v| v.message.contains("Site is slow"))
+        .expect("compound widget with a concise aria-label should still surface a finding");
+    assert_eq!(
+        compound_widget.kind,
+        auditmysite::wcag::types::FindingKind::Warning,
+        "compound widget mismatch should be a warning, not an auto-confirmed violation; got {compound_widget:?}"
+    );
+
+    let genuine_mismatch = findings
+        .iter()
+        .find(|v| v.message.contains("Submit order"))
+        .expect("a genuine label/name mismatch must still be caught");
+    assert_eq!(
+        genuine_mismatch.kind,
+        auditmysite::wcag::types::FindingKind::Violation,
+        "genuine mismatch should stay a confirmed violation; got {genuine_mismatch:?}"
+    );
+}

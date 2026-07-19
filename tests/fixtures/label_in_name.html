@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Label in Name fixture</title>
+</head>
+<body>
+    <main>
+        <h1>Label in Name fixture</h1>
+
+        <!-- #513: adjacent block elements with no whitespace text node between
+             them ("A.B", not "A. B") must not fail a space-sensitive compare. -->
+        <button type="button" aria-label="Loads slowly. Google penalizes slow pages.">
+            <h3>Loads slowly.</h3>
+            <p>Google penalizes slow pages.</p>
+        </button>
+
+        <!-- #513: a compound widget (flip-card exposing both faces' text
+             through one button) with a deliberately concise aria-label must
+             not be an auto-confirmed violation -- downgraded to a warning. -->
+        <button type="button" aria-label="Site is slow. Tap for the fix.">
+            <h3>Site is slow.</h3>
+            <p>Loading takes too long and visitors leave.</p>
+            <h3>The fix</h3>
+            <p>Move to edge hosting and ship a static build for sub-second loads.</p>
+        </button>
+
+        <!-- Genuine mismatch: still a real, confirmed violation. -->
+        <button type="button" aria-label="Submit order">Cancel</button>
+    </main>
+</body>
+</html>

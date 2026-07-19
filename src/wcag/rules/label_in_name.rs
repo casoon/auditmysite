@@ -22,23 +22,45 @@ pub const LABEL_IN_NAME_PAGE_RULE: RuleMetadata = RuleMetadata {
 
 const LABEL_IN_NAME_JS: &str = r#"
 (function() {
+  // Strips everything but letters/digits before comparing. `textContent`
+  // never inserts whitespace at element boundaries (e.g. `<h3>A.</h3><p>B</p>`
+  // concatenates to "A.B", not "A. B"), so a naive space-sensitive compare
+  // flags plenty of real "aria-label matches, punctuation/whitespace
+  // doesn't" cases as violations (#513).
+  function normalize(s) {
+    return s.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  }
   var violations = [];
   var buttons = document.querySelectorAll('button[aria-label], [role="button"][aria-label]');
   for (var i = 0; i < Math.min(buttons.length, 50); i++) {
     var el = buttons[i];
-    var ariaLabel = (el.getAttribute('aria-label') || '').trim().toLowerCase();
-    var visibleText = (el.textContent || '').trim().toLowerCase();
+    var ariaLabelRaw = (el.getAttribute('aria-label') || '').trim();
+    var visibleTextRaw = (el.textContent || '').trim();
+    var ariaLabel = normalize(ariaLabelRaw);
+    var visibleText = normalize(visibleTextRaw);
     if (visibleText && ariaLabel && ariaLabel.indexOf(visibleText) === -1 && visibleText.indexOf(ariaLabel) === -1) {
       violations.push({
         selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''),
-        ariaLabel: el.getAttribute('aria-label').substring(0, 60),
-        visibleText: el.textContent.trim().substring(0, 60)
+        ariaLabel: ariaLabelRaw.substring(0, 200),
+        visibleText: visibleTextRaw.substring(0, 200),
+        ariaLabelNormLen: ariaLabel.length,
+        visibleTextNormLen: visibleText.length
       });
     }
   }
   return { violations: violations };
 })()
 "#;
+
+/// A `visibleText` collected from `textContent` this many times longer than
+/// `ariaLabel` (after normalization) is a strong signal of a compound
+/// widget whose author wrote a deliberately concise `aria-label` for far
+/// more visual content than the check's simple substring-containment logic
+/// can verify (e.g. a flip-card exposing both faces' text through one
+/// button) -- not a confirmed mismatch of a genuine short label. Downgraded
+/// to a warning rather than dropped entirely: real "the label really
+/// doesn't match" cases still deserve a look (#513).
+const COMPOUND_WIDGET_LENGTH_RATIO: u64 = 2;
 
 pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
     let val = match crate::wcag::types::evaluate_or_fail(
@@ -74,8 +96,18 @@ pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
                 .get("visibleText")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
+            let aria_label_norm_len = item
+                .get("ariaLabelNormLen")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let visible_text_norm_len = item
+                .get("visibleTextNormLen")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            let likely_compound_widget = aria_label_norm_len > 0
+                && visible_text_norm_len > aria_label_norm_len * COMPOUND_WIDGET_LENGTH_RATIO;
 
-            Violation::new(
+            let violation = Violation::new(
                 LABEL_IN_NAME_PAGE_RULE.id,
                 LABEL_IN_NAME_PAGE_RULE.name,
                 LABEL_IN_NAME_PAGE_RULE.level,
@@ -95,7 +127,13 @@ pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
                  not aria-label=\"Find items\".",
             )
             .with_rule_id(LABEL_IN_NAME_PAGE_RULE.axe_id)
-            .with_help_url(LABEL_IN_NAME_PAGE_RULE.help_url)
+            .with_help_url(LABEL_IN_NAME_PAGE_RULE.help_url);
+
+            if likely_compound_widget {
+                violation.as_warning()
+            } else {
+                violation
+            }
         })
         .collect()
 }

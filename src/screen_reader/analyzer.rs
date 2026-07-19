@@ -421,11 +421,16 @@ fn detect_heading_order_issues(views: &NavigationViews, en: bool, issues: &mut V
 
 fn detect_tab_stop_count(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAuditIssue>) {
     let tab_stop_count = items.iter().filter(|item| item.tab_stop).count();
+    // Shared keyword list with `patterns::skip_link` (#513: this check used
+    // to keep its own narrower copy that missed common, entirely idiomatic
+    // phrasings like "Zum Inhalt springen" — no "skip"/"überspring" substring,
+    // but a real, working skip link).
     let has_skip_link = items.iter().any(|item| {
         item.role.as_deref() == Some("link")
-            && item.name.as_deref().is_some_and(|name| {
-                normalize_text(name).contains("skip") || normalize_text(name).contains("überspring")
-            })
+            && item
+                .name
+                .as_deref()
+                .is_some_and(crate::patterns::skip_link::is_skip_link_text)
     });
 
     if tab_stop_count > TAB_STOP_WARNING_THRESHOLD && !has_skip_link {
@@ -669,6 +674,37 @@ mod tests {
                 issue.message
             );
         }
+    }
+
+    #[test]
+    fn recognizes_idiomatic_german_skip_link_phrasing_not_just_ueberspring() {
+        // Regression test for #513: "Zum Inhalt springen" is a common,
+        // entirely idiomatic German skip-link phrasing — it contains neither
+        // "skip" nor "überspring", the two substrings the check used to
+        // require. A real, working skip link must not trigger the tab-stop
+        // warning just because of that narrower keyword list.
+        let mut items = vec![item(0, "link", Some("Zum Inhalt springen"), true, vec![])];
+        for seq in 1..60 {
+            items.push(item(
+                seq,
+                "link",
+                Some(&format!("Link {seq}")),
+                true,
+                vec![],
+            ));
+        }
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
+
+        let tab_stop_issues: Vec<_> = issues
+            .iter()
+            .filter(|i| i.wcag_criterion.as_deref() == Some("2.4.1"))
+            .collect();
+        assert!(
+            tab_stop_issues.is_empty(),
+            "a real skip link phrased as 'Zum Inhalt springen' must suppress the \
+             tab-stop warning; got {tab_stop_issues:?}"
+        );
     }
 
     #[test]

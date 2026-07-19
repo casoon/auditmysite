@@ -16,7 +16,7 @@ mod form;
 mod main_navigation;
 mod modal_dialog;
 mod quantity_stepper;
-mod skip_link;
+pub(crate) mod skip_link;
 mod tab_list;
 
 use serde::{Deserialize, Serialize};

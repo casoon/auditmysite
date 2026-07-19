@@ -35,6 +35,17 @@ const SKIP_KEYWORDS: &[&str] = &[
     "navigation ueberspringen",
 ];
 
+/// Whether an interactive element's accessible name reads as a skip link.
+/// Single source of truth for the keyword list — also used by
+/// `screen_reader::analyzer`'s tab-stop-count check (see #513: it used to
+/// keep its own narrower copy that missed "Zum Inhalt springen", a common,
+/// entirely idiomatic German phrasing this list already covers via "zum
+/// inhalt").
+pub(crate) fn is_skip_link_text(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    SKIP_KEYWORDS.iter().any(|k| lower.contains(k))
+}
+
 pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // Traverse from root in document order, collecting links.
     let mut links_in_order: Vec<&crate::accessibility::AXNode> = Vec::new();
@@ -45,15 +56,7 @@ pub fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     let candidates: Vec<_> = links_in_order
         .iter()
         .copied()
-        .filter(|n| {
-            n.name
-                .as_deref()
-                .map(|name| {
-                    let lower = name.to_lowercase();
-                    SKIP_KEYWORDS.iter().any(|k| lower.contains(k))
-                })
-                .unwrap_or(false)
-        })
+        .filter(|n| n.name.as_deref().is_some_and(is_skip_link_text))
         .collect();
 
     if candidates.is_empty() {
