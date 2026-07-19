@@ -1,7 +1,7 @@
 use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::report_model::{
-    ExecutiveNarrativeBlock, FindingGroup, PositiveSignal, PositiveSignalsBlock, SeverityBlock,
+    ExecutiveNarrativeBlock, FindingGroup, PositiveSignal, SeverityBlock,
 };
 
 /// Translates pattern names into localized titles; the message stays as the
@@ -9,7 +9,7 @@ use crate::output::report_model::{
 pub(super) fn build_positive_signals(
     locale: &str,
     normalized: &AuditContext<'_>,
-) -> PositiveSignalsBlock {
+) -> Vec<PositiveSignal> {
     let en = locale == "en";
     let mut items: Vec<PositiveSignal> = normalized
         .raw_patterns
@@ -51,7 +51,7 @@ pub(super) fn build_positive_signals(
         });
     }
 
-    PositiveSignalsBlock { items }
+    items
 }
 
 pub(super) fn build_executive_narrative(

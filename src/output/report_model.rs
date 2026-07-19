@@ -144,14 +144,9 @@ pub struct ReportViewModel {
     pub module_details: ModuleDetailsBlock,
     pub actions: ActionsBlock,
     pub appendix: AppendixBlock,
-    /// Recognized structural patterns (positive signals).
-    pub positive_signals: PositiveSignalsBlock,
-}
-
-/// Positive structural patterns recognized in the page.
-/// Rendered as a green "what's working well" section in the PDF.
-pub struct PositiveSignalsBlock {
-    pub items: Vec<PositiveSignal>,
+    /// Recognized structural patterns (positive signals). Rendered as a
+    /// green "what's working well" section in the PDF.
+    pub positive_signals: Vec<PositiveSignal>,
 }
 
 pub struct PositiveSignal {
@@ -159,12 +154,6 @@ pub struct PositiveSignal {
     pub description: String,
     /// True when all structural criteria for the pattern matched.
     pub strong: bool,
-}
-
-impl PositiveSignalsBlock {
-    pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
-    }
 }
 
 /// Report metadata for engine setup

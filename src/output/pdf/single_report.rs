@@ -1091,7 +1091,7 @@ fn render_appendix_section(
 
 fn render_positive_signals_section(
     mut builder: renderreport::engine::ReportBuilder,
-    signals: &PositiveSignalsBlock,
+    signals: &[PositiveSignal],
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
@@ -1105,7 +1105,7 @@ fn render_positive_signals_section(
 
     let en = i18n.locale() == "en";
     let mut rows = Vec::new();
-    for signal in &signals.items {
+    for signal in signals {
         let status = if signal.strong {
             if en {
                 "Strong"
