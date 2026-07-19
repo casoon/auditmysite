@@ -37,24 +37,15 @@ const BACKGROUND_AUDIO_JS: &str = r#"
 "#;
 
 pub async fn check_background_audio_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(BACKGROUND_AUDIO_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &BACKGROUND_AUDIO_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &BACKGROUND_AUDIO_RULE,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &BACKGROUND_AUDIO_RULE,
+        BACKGROUND_AUDIO_JS,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let elements = match val.get("elements").and_then(|v| v.as_array()) {

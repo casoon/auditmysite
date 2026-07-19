@@ -19,7 +19,6 @@
 //! debug print against real Chrome.
 
 use chromiumoxide::Page;
-use tracing::warn;
 
 use crate::accessibility::AXTree;
 use crate::cli::WcagLevel;
@@ -137,27 +136,16 @@ pub async fn check_checked_state_with_page(page: &Page) -> Vec<Violation> {
     ]
     .concat();
 
-    let result = match page.evaluate(js.as_str()).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("checked-state JS failed: {}", e);
-            return vec![crate::wcag::technical_rule_failure_for(
-                "checked-state",
-                crate::cli::WcagLevel::A,
-                "page_evaluation_failed",
-            )];
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure_for(
-                "checked-state",
-                crate::cli::WcagLevel::A,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail_for(
+        page,
+        "checked-state",
+        crate::cli::WcagLevel::A,
+        js.as_str(),
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let issues = match val.get("issues").and_then(|v| v.as_array()) {

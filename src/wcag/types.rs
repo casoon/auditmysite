@@ -2,7 +2,9 @@
 //!
 //! Defines violations, severities, WCAG levels, and rule metadata.
 
+use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::cli::WcagLevel;
 
@@ -294,6 +296,59 @@ pub fn technical_rule_failure_for(rule_id: &str, level: WcagLevel, reason_code: 
         format!("reason:{reason_code}"),
     ])
     .with_kind(FindingKind::NotTestable)
+}
+
+/// Common prefix of every `check_*_with_page` DOM rule: evaluate `js` on
+/// `page` and return its parsed value, or the appropriate
+/// [`technical_rule_failure`] as an `Err` if evaluation failed or produced
+/// no value. Was duplicated near-verbatim across ~20 rule files (see #515).
+pub async fn evaluate_or_fail(
+    page: &Page,
+    rule: &RuleMetadata,
+    js: &str,
+) -> Result<serde_json::Value, Vec<Violation>> {
+    let result = match page.evaluate(js).await {
+        Ok(r) => r,
+        Err(_) => return Err(vec![technical_rule_failure(rule, "page_evaluation_failed")]),
+    };
+    match result.value() {
+        Some(v) => Ok(v.clone()),
+        None => Err(vec![technical_rule_failure(
+            rule,
+            "missing_evaluation_value",
+        )]),
+    }
+}
+
+/// [`evaluate_or_fail`] variant for composite DOM checks that identify
+/// themselves by a bare rule id + level rather than a [`RuleMetadata`] (see
+/// [`technical_rule_failure_for`]). Also logs the evaluation error via
+/// `tracing::warn`, matching the call sites this replaces.
+pub async fn evaluate_or_fail_for(
+    page: &Page,
+    rule_id: &str,
+    level: WcagLevel,
+    js: &str,
+) -> Result<serde_json::Value, Vec<Violation>> {
+    let result = match page.evaluate(js).await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("{rule_id} JS failed: {e}");
+            return Err(vec![technical_rule_failure_for(
+                rule_id,
+                level,
+                "page_evaluation_failed",
+            )]);
+        }
+    };
+    match result.value() {
+        Some(v) => Ok(v.clone()),
+        None => Err(vec![technical_rule_failure_for(
+            rule_id,
+            level,
+            "missing_evaluation_value",
+        )]),
+    }
 }
 
 pub fn technical_failure_reason(finding: &Violation) -> Option<&str> {

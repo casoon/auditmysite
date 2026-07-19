@@ -15,7 +15,6 @@
 //! AX-tree-based.
 
 use chromiumoxide::Page;
-use tracing::warn;
 
 use crate::accessibility::{AXNode, AXTree};
 use crate::cli::WcagLevel;
@@ -78,27 +77,16 @@ pub async fn check_table_headers_attr_with_page(page: &Page) -> Vec<Violation> {
     ]
     .concat();
 
-    let result = match page.evaluate(js.as_str()).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("td-headers-attr JS failed: {}", e);
-            return vec![crate::wcag::technical_rule_failure_for(
-                "td-headers-attr",
-                crate::cli::WcagLevel::A,
-                "page_evaluation_failed",
-            )];
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure_for(
-                "td-headers-attr",
-                crate::cli::WcagLevel::A,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail_for(
+        page,
+        "td-headers-attr",
+        crate::cli::WcagLevel::A,
+        js.as_str(),
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let issues = match val.get("issues").and_then(|v| v.as_array()) {

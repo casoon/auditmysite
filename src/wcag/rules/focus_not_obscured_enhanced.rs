@@ -133,24 +133,15 @@ const FOCUS_OBSCURED_JS: &str = r#"
 "#;
 
 pub async fn check_focus_not_obscured_enhanced_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(FOCUS_OBSCURED_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &FOCUS_NOT_OBSCURED_ENHANCED_RULE,
+        FOCUS_OBSCURED_JS,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let overlays_json = match val.get("overlays").and_then(|v| v.as_array()) {

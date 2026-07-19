@@ -19,7 +19,6 @@
 //! production (#QA-030).
 
 use chromiumoxide::Page;
-use tracing::warn;
 
 use crate::cli::WcagLevel;
 use crate::wcag::types::{RuleMetadata, Severity, Violation};
@@ -64,27 +63,16 @@ fn is_valid_primary_subtag(subtag: &str) -> bool {
 
 /// Run extended language-related checks against the live DOM.
 pub async fn check_language_extended_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(LANG_ATTRS_JS).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("language-extended JS failed: {}", e);
-            return vec![crate::wcag::technical_rule_failure_for(
-                "language-extended",
-                crate::cli::WcagLevel::A,
-                "page_evaluation_failed",
-            )];
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure_for(
-                "language-extended",
-                crate::cli::WcagLevel::A,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail_for(
+        page,
+        "language-extended",
+        crate::cli::WcagLevel::A,
+        LANG_ATTRS_JS,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let lang = val.get("lang").and_then(|v| v.as_str()).unwrap_or("");

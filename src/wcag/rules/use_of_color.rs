@@ -92,24 +92,11 @@ const USE_OF_COLOR_JS: &str = r#"
 "#;
 
 pub async fn check_use_of_color_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(USE_OF_COLOR_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &USE_OF_COLOR_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &USE_OF_COLOR_RULE,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail(page, &USE_OF_COLOR_RULE, USE_OF_COLOR_JS)
+        .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let count = val.get("count").and_then(|v| v.as_u64()).unwrap_or(0);

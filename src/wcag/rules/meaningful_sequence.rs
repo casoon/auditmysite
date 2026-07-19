@@ -128,24 +128,15 @@ const MEANINGFUL_SEQUENCE_JS: &str = r#"
 "#;
 
 pub async fn check_meaningful_sequence_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(MEANINGFUL_SEQUENCE_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &MEANINGFUL_SEQUENCE_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &MEANINGFUL_SEQUENCE_RULE,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &MEANINGFUL_SEQUENCE_RULE,
+        MEANINGFUL_SEQUENCE_JS,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let entries = match val.get("results").and_then(|v| v.as_array()) {

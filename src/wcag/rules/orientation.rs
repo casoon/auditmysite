@@ -65,25 +65,13 @@ const ORIENTATION_LOCK_JS: &str = r#"
 "#;
 
 pub async fn check_orientation_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(ORIENTATION_LOCK_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &ORIENTATION_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &ORIENTATION_RULE,
-                "missing_evaluation_value",
-            )]
-        }
-    };
+    let val =
+        match crate::wcag::types::evaluate_or_fail(page, &ORIENTATION_RULE, ORIENTATION_LOCK_JS)
+            .await
+        {
+            Ok(v) => v,
+            Err(violations) => return violations,
+        };
 
     let locked = val.get("locked").and_then(|v| v.as_bool()).unwrap_or(false);
     if !locked {

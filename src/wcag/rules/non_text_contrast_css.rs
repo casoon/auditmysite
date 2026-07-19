@@ -78,24 +78,15 @@ const NON_TEXT_CONTRAST_JS: &str = r#"
 "#;
 
 pub async fn check_non_text_contrast_css_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(NON_TEXT_CONTRAST_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &NON_TEXT_CONTRAST_CSS_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &NON_TEXT_CONTRAST_CSS_RULE,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &NON_TEXT_CONTRAST_CSS_RULE,
+        NON_TEXT_CONTRAST_JS,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let entries = match val.get("results").and_then(|v| v.as_array()) {

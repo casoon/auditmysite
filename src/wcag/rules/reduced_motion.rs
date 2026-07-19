@@ -66,25 +66,13 @@ const REDUCED_MOTION_JS: &str = r#"
 "#;
 
 pub async fn check_reduced_motion_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(REDUCED_MOTION_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &REDUCED_MOTION_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &REDUCED_MOTION_RULE,
-                "missing_evaluation_value",
-            )]
-        }
-    };
+    let val =
+        match crate::wcag::types::evaluate_or_fail(page, &REDUCED_MOTION_RULE, REDUCED_MOTION_JS)
+            .await
+        {
+            Ok(v) => v,
+            Err(violations) => return violations,
+        };
 
     let has_animations = val
         .get("hasAnimations")

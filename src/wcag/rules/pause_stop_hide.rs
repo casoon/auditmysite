@@ -209,25 +209,13 @@ const PAUSE_STOP_HIDE_JS: &str = r#"
 "#;
 
 pub async fn check_pause_stop_hide_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(PAUSE_STOP_HIDE_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &PAUSE_STOP_HIDE_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &PAUSE_STOP_HIDE_RULE,
-                "missing_evaluation_value",
-            )]
-        }
-    };
+    let val =
+        match crate::wcag::types::evaluate_or_fail(page, &PAUSE_STOP_HIDE_RULE, PAUSE_STOP_HIDE_JS)
+            .await
+        {
+            Ok(v) => v,
+            Err(violations) => return violations,
+        };
 
     let marquee_count = val
         .get("marquee_count")

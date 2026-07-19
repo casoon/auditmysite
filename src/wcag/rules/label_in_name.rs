@@ -41,24 +41,15 @@ const LABEL_IN_NAME_JS: &str = r#"
 "#;
 
 pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
-    let result = match page.evaluate(LABEL_IN_NAME_JS).await {
-        Ok(r) => r,
-        Err(_) => {
-            return vec![crate::wcag::technical_rule_failure(
-                &LABEL_IN_NAME_PAGE_RULE,
-                "page_evaluation_failed",
-            )]
-        }
-    };
-
-    let val = match result.value() {
-        Some(v) => v.clone(),
-        None => {
-            return vec![crate::wcag::technical_rule_failure(
-                &LABEL_IN_NAME_PAGE_RULE,
-                "missing_evaluation_value",
-            )]
-        }
+    let val = match crate::wcag::types::evaluate_or_fail(
+        page,
+        &LABEL_IN_NAME_PAGE_RULE,
+        LABEL_IN_NAME_JS,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(violations) => return violations,
     };
 
     let violations = match val.get("violations").and_then(|v| v.as_array()) {
