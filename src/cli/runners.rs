@@ -398,7 +398,16 @@ pub async fn run_batch_mode(
         is_sample: total_urls < total_discovered,
     };
 
-    let audited_urls: Vec<String> = urls.iter().take(total_urls).cloned().collect();
+    // Cloned before `urls` is moved into `run_concurrent_batch` below. Must
+    // stay the *full* discovered list, not just the audited sample: sitemap
+    // diagnostics compares it against crawled internal links, and a sampled
+    // subset floods `linked_not_in_sitemap` with pages that are genuinely in
+    // the sitemap, just outside the sample (#514).
+    let full_sitemap_urls: Vec<String> = if url_source == "sitemap" {
+        urls.clone()
+    } else {
+        Vec::new()
+    };
 
     if !args.quiet {
         if sample.is_sample {
@@ -455,7 +464,8 @@ pub async fn run_batch_mode(
     batch_report = batch_report.with_sample(sample);
 
     if url_source == "sitemap" {
-        let diagnostics = analyze_sitemap_diagnostics(&audited_urls, &batch_report.reports).await;
+        let diagnostics =
+            analyze_sitemap_diagnostics(&full_sitemap_urls, &batch_report.reports).await;
         if !args.quiet {
             println!(
                 "{} {} URLs checked, {} sitemap issues",

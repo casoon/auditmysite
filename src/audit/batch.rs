@@ -238,6 +238,13 @@ pub async fn run_concurrent_batch(
 /// canonical, indexable 200 URLs. Link graph comparisons use the audited pages'
 /// collected internal targets, so no extra crawl is required for the orphan
 /// signal.
+///
+/// `sitemap_urls` must be every URL the sitemap lists, not just the ones
+/// actually audited this run (see #514) — when `--max-pages` samples a
+/// subset, comparing crawled internal links against that sample instead of
+/// the full sitemap floods `linked_not_in_sitemap` with pages that are
+/// genuinely in the sitemap, just outside the sample. `reports` stays
+/// audited-only: that's the only source of link-graph evidence.
 pub async fn analyze_sitemap_diagnostics(
     sitemap_urls: &[String],
     reports: &[AuditReport],
@@ -843,5 +850,65 @@ mod tests {
             linked_not_in_sitemap,
             vec!["https://example.com/linked-only"]
         );
+    }
+
+    /// Regression test for #514: a sampled batch (`--max-pages` smaller than
+    /// the discovered sitemap) must compare against the *full* sitemap, not
+    /// just the sampled/audited subset — otherwise every sitemap page that
+    /// falls outside the sample but is still linked from the audited pages'
+    /// nav/footer gets wrongly flagged as `linked_not_in_sitemap`, even
+    /// though it's genuinely in the sitemap. `/nav-target` here stands in
+    /// for a real page like casoon.de's `/webentwicklung/` that a 20-of-113
+    /// sample simply didn't happen to include.
+    #[test]
+    fn sitemap_diagnostics_use_full_sitemap_not_just_the_audited_sample() {
+        let mut report = AuditReport::new(
+            "https://example.com/audited-page".to_string(),
+            crate::cli::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            10,
+        );
+        let mut seo = crate::seo::SeoAnalysis::default();
+        // Every page on the site links to this nav target, trailing slash
+        // and all -- the real symptom the #514 report showed.
+        seo.technical.internal_link_targets = vec!["/nav-target/".to_string()];
+        report.discoverability.seo = Some(seo);
+
+        let targets = collect_internal_link_targets(&[report.clone()]);
+
+        // The *sample* (what was actually audited) does not include
+        // `/nav-target` at all -- it was outside the first-N cutoff.
+        let sample_urls = ["https://example.com/audited-page"];
+        // The *full* discovered sitemap does.
+        let full_sitemap_urls = [
+            "https://example.com/audited-page",
+            "https://example.com/nav-target",
+        ];
+
+        for (label, sitemap_urls) in [
+            ("sample", &sample_urls[..]),
+            ("full", &full_sitemap_urls[..]),
+        ] {
+            let sitemap_set: HashSet<String> = sitemap_urls
+                .iter()
+                .filter_map(|u| normalize_url(u))
+                .collect();
+            let linked_not_in_sitemap: HashSet<String> =
+                targets.difference(&sitemap_set).cloned().collect();
+
+            if label == "sample" {
+                assert!(
+                    linked_not_in_sitemap.contains("https://example.com/nav-target"),
+                    "sanity check: comparing against the sample alone should reproduce \
+                     the #514 false positive"
+                );
+            } else {
+                assert!(
+                    !linked_not_in_sitemap.contains("https://example.com/nav-target"),
+                    "comparing against the full sitemap must not flag a page that's \
+                     genuinely listed there, just outside the audited sample"
+                );
+            }
+        }
     }
 }
