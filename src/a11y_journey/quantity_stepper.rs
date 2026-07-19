@@ -223,11 +223,3 @@ pub async fn test(
 
     Ok((trace, findings))
 }
-
-#[cfg(test)]
-mod tests {
-    // Evaluation logic runs inside the browser; only wiring can be tested
-    // here, same convention as `form_error.rs`/`add_to_cart.rs`.
-    #[test]
-    fn module_exists() {}
-}

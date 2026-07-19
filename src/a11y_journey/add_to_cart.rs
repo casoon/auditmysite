@@ -190,13 +190,3 @@ pub async fn test(
 
     Ok((trace, findings))
 }
-
-#[cfg(test)]
-mod tests {
-    // Evaluation logic runs inside the browser; only wiring can be tested
-    // here. Fixture-based integration coverage belongs in the Phase 5
-    // fixture suite (see `tests/integration_test.rs`), same convention as
-    // `form_error.rs`.
-    #[test]
-    fn module_exists() {}
-}

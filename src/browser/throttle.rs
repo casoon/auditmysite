@@ -162,15 +162,3 @@ pub async fn disable_throttling(page: &Page) -> Result<()> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    // Verify the cache control functions are reachable (compile-time check).
-    // Full behaviour requires a live browser; referencing the symbols suffices.
-    #[test]
-    fn cache_fns_exist() {
-        // If these names don't exist the file won't compile.
-        let _disable = super::disable_cache;
-        let _enable = super::enable_cache;
-    }
-}

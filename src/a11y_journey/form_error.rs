@@ -262,11 +262,3 @@ pub async fn test(
 
     Ok((trace, findings))
 }
-
-#[cfg(test)]
-mod tests {
-    // Evaluation logic is inside the browser; only wiring can be tested here.
-    // Full integration tests belong in Phase 5 fixture suite.
-    #[test]
-    fn module_exists() {}
-}
