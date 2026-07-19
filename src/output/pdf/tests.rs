@@ -1354,6 +1354,62 @@ mod tests {
     }
 
     #[test]
+    fn test_batch_template_cluster_with_long_selector_uses_list_not_key_value_grid() {
+        // Regression test for #518: a KeyValueList row with the raw CSS
+        // selector as its `key` blew up the row layout (Typst's `auto`
+        // column sizing has no cap), squeezing the headline into a
+        // one-word-per-line sliver spanning dozens of rows and corrupting
+        // the following page break. Fixed by rendering template clusters as
+        // a plain bullet List instead, where the selector only ever appears
+        // once (embedded in the headline's `{ $selector }` interpolation).
+        let long_selector = "section.zone-header:nth-of-type(1) > div.ngl-block.ngl-column:nth-of-type(2) > div.ngl-block.ngl-twig_block > div.container.container-wide > div.breadcrumb-wrapper";
+        let snippet = r#"<div class="breadcrumb-wrapper"><a href="/">Start</a></div>"#;
+        let make_report = |url: &str| {
+            let mut results = WcagResults::new();
+            results.nodes_checked = 42;
+            results.passes = 8;
+            results.add_violation(
+                Violation::new(
+                    "1.3.1",
+                    "Info and Relationships",
+                    WcagLevel::A,
+                    Severity::Medium,
+                    "Heading structure is not semantic",
+                    "node-breadcrumb",
+                )
+                .with_selector(long_selector)
+                .with_html_snippet(snippet),
+            );
+            AuditReport::new(url.to_string(), WcagLevel::AA, results, 1_200)
+        };
+
+        let batch = BatchReport::from_reports(
+            vec![
+                make_report("https://example.com/a"),
+                make_report("https://example.com/b"),
+                make_report("https://example.com/c"),
+            ],
+            vec![],
+            2_400,
+        );
+        let typ = unescape_typ(
+            &generate_batch_typ(&batch, &ReportConfig::default()).expect("batch Typst source"),
+        );
+
+        assert!(
+            typ.contains(long_selector),
+            "expected the template cluster's selector to appear in the Typst source at all"
+        );
+        let occurrences = typ.matches(long_selector).count();
+        assert_eq!(
+            occurrences, 1,
+            "expected the selector to appear exactly once (embedded in the List item's \
+             headline sentence), found {occurrences} — a KeyValueList-style separate key \
+             column would render it a second time and risks the #518 layout blowup"
+        );
+    }
+
+    #[test]
     fn test_pdf_has_annotations() {
         // Renderreport emits annotations for some interactive constructs
         // (links, etc.). This is a smoke check that lopdf can parse the PDF

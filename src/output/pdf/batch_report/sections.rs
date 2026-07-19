@@ -2124,12 +2124,18 @@ pub(super) fn render_batch_top_issues(
     // before the raw occurrence counts.
     if !pres.template_clusters.is_empty() {
         builder = builder.add_component(TextBlock::new(i18n.t("batch-template-section-intro")));
-        let mut template_kv =
-            KeyValueList::new().with_title(i18n.t("batch-template-section-title"));
+        // A plain bullet list, not a KeyValueList: `cluster.selector` is an
+        // arbitrary-length CSS path with no natural wrap points short
+        // enough for a KeyValueList's `auto`-sized key column, which could
+        // consume nearly the full row width and squeeze `headline` into a
+        // one-word-per-line sliver spanning dozens of page-breaking rows
+        // (see #518). `headline` already embeds the selector via
+        // `{ $selector }` interpolation, so nothing is lost.
+        let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
         for cluster in &pres.template_clusters {
-            template_kv = template_kv.add(&cluster.selector, &cluster.headline);
+            template_list = template_list.add_item(&cluster.headline);
         }
-        builder = builder.add_component(template_kv);
+        builder = builder.add_component(template_list);
     }
 
     // Frequency table
