@@ -298,26 +298,45 @@ pub fn technical_rule_failure_for(rule_id: &str, level: WcagLevel, reason_code: 
     .with_kind(FindingKind::NotTestable)
 }
 
+/// Outcome of evaluating a rule's JS on the page, before it's turned into
+/// the caller-specific `Violation` shape (`&RuleMetadata` vs. bare
+/// `rule_id`/`level`) by [`evaluate_or_fail`]/[`evaluate_or_fail_for`].
+enum EvalFailure {
+    PageError(chromiumoxide::error::CdpError),
+    MissingValue,
+}
+
+/// Shared prefix of [`evaluate_or_fail`]/[`evaluate_or_fail_for`]: evaluate
+/// `js` on `page` and return its parsed value, or which of the two ways it
+/// can fail. Was duplicated near-verbatim across ~20 rule files before
+/// being extracted once here (see #515), then duplicated a second time
+/// *between* the two wrapper functions below — factored out again so the
+/// two public entry points differ only in how they report a failure, not in
+/// how they detect one (judge `duplicate-code`, flagged against its own fix).
+async fn evaluate_and_extract(page: &Page, js: &str) -> Result<serde_json::Value, EvalFailure> {
+    let result = page.evaluate(js).await.map_err(EvalFailure::PageError)?;
+    result.value().cloned().ok_or(EvalFailure::MissingValue)
+}
+
+fn eval_failure_reason(err: &EvalFailure) -> &'static str {
+    match err {
+        EvalFailure::PageError(_) => "page_evaluation_failed",
+        EvalFailure::MissingValue => "missing_evaluation_value",
+    }
+}
+
 /// Common prefix of every `check_*_with_page` DOM rule: evaluate `js` on
 /// `page` and return its parsed value, or the appropriate
 /// [`technical_rule_failure`] as an `Err` if evaluation failed or produced
-/// no value. Was duplicated near-verbatim across ~20 rule files (see #515).
+/// no value.
 pub async fn evaluate_or_fail(
     page: &Page,
     rule: &RuleMetadata,
     js: &str,
 ) -> Result<serde_json::Value, Vec<Violation>> {
-    let result = match page.evaluate(js).await {
-        Ok(r) => r,
-        Err(_) => return Err(vec![technical_rule_failure(rule, "page_evaluation_failed")]),
-    };
-    match result.value() {
-        Some(v) => Ok(v.clone()),
-        None => Err(vec![technical_rule_failure(
-            rule,
-            "missing_evaluation_value",
-        )]),
-    }
+    evaluate_and_extract(page, js)
+        .await
+        .map_err(|err| vec![technical_rule_failure(rule, eval_failure_reason(&err))])
 }
 
 /// [`evaluate_or_fail`] variant for composite DOM checks that identify
@@ -330,25 +349,16 @@ pub async fn evaluate_or_fail_for(
     level: WcagLevel,
     js: &str,
 ) -> Result<serde_json::Value, Vec<Violation>> {
-    let result = match page.evaluate(js).await {
-        Ok(r) => r,
-        Err(e) => {
+    evaluate_and_extract(page, js).await.map_err(|err| {
+        if let EvalFailure::PageError(ref e) = err {
             warn!("{rule_id} JS failed: {e}");
-            return Err(vec![technical_rule_failure_for(
-                rule_id,
-                level,
-                "page_evaluation_failed",
-            )]);
         }
-    };
-    match result.value() {
-        Some(v) => Ok(v.clone()),
-        None => Err(vec![technical_rule_failure_for(
+        vec![technical_rule_failure_for(
             rule_id,
             level,
-            "missing_evaluation_value",
-        )]),
-    }
+            eval_failure_reason(&err),
+        )]
+    })
 }
 
 pub fn technical_failure_reason(finding: &Violation) -> Option<&str> {

@@ -96,14 +96,9 @@ pub async fn check_label_in_name_with_page(page: &Page) -> Vec<Violation> {
                 .get("visibleText")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let aria_label_norm_len = item
-                .get("ariaLabelNormLen")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-            let visible_text_norm_len = item
-                .get("visibleTextNormLen")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
+            let norm_len = |key: &str| item.get(key).and_then(|v| v.as_u64()).unwrap_or(0);
+            let aria_label_norm_len = norm_len("ariaLabelNormLen");
+            let visible_text_norm_len = norm_len("visibleTextNormLen");
             let likely_compound_widget = aria_label_norm_len > 0
                 && visible_text_norm_len > aria_label_norm_len * COMPOUND_WIDGET_LENGTH_RATIO;
 
