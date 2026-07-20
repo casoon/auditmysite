@@ -94,8 +94,8 @@ impl std::fmt::Display for BatchAuditError {
 pub struct BatchResult {
     /// The URL that was audited
     pub url: String,
-    /// The audit result (success or error)
-    pub result: std::result::Result<AuditReport, BatchAuditError>,
+    /// The audit outcome (success or error)
+    pub outcome: std::result::Result<AuditReport, BatchAuditError>,
 }
 
 /// Progress callback type: (current, total, url, error_message)
@@ -149,7 +149,7 @@ pub async fn run_concurrent_batch(
         async move {
             let result = audit_url_with_pool(&pool, &url, &config).await;
             let current = completed.fetch_add(1, Ordering::SeqCst) + 1;
-            match &result.result {
+            match &result.outcome {
                 Ok(report) => {
                     info!(
                         "[{}/{}] Completed: {} (score: {})",
@@ -188,7 +188,7 @@ pub async fn run_concurrent_batch(
     let mut errors = Vec::new();
 
     while let Some(batch_result) = in_flight.next().await {
-        match batch_result.result {
+        match batch_result.outcome {
             Ok(report) => reports.push(report),
             Err(e) => errors.push((batch_result.url, e)),
         }
@@ -459,7 +459,7 @@ async fn audit_url_with_pool(
             Ok(report) => {
                 return BatchResult {
                     url: url.to_string(),
-                    result: Ok(report),
+                    outcome: Ok(report),
                 };
             }
             Err(e @ (AuditError::AuditTimeout { .. } | AuditError::PageLoadTimeout { .. })) => {
@@ -467,7 +467,7 @@ async fn audit_url_with_pool(
                 // budget is unlikely to succeed. Bail immediately.
                 return BatchResult {
                     url: url.to_string(),
-                    result: Err(BatchAuditError::Audit(e)),
+                    outcome: Err(BatchAuditError::Audit(e)),
                 };
             }
             Err(e) => {
@@ -478,7 +478,7 @@ async fn audit_url_with_pool(
 
     BatchResult {
         url: url.to_string(),
-        result: Err(match last_error {
+        outcome: Err(match last_error {
             Some(e) => BatchAuditError::Audit(e),
             None => BatchAuditError::Other("Unknown error".to_string()),
         }),

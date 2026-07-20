@@ -76,7 +76,6 @@ renderreport = { version = "0.2.38", optional = true }
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 
 [dev-dependencies]
-tokio-test = "0.4"
 tempfile = "3"
 jsonschema = "0.18"
 lopdf = "0.34"

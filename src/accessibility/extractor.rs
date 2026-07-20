@@ -40,7 +40,6 @@ pub async fn extract_ax_tree(page: &Page) -> Result<AXTree> {
             reason: format!("JSON serialization failed: {}", e),
         })?;
 
-    // Extract nodes from JSON
     let nodes = extract_nodes_from_json(&nodes_json)?;
 
     let tree = AXTree::from_nodes(nodes);
@@ -237,6 +236,23 @@ mod tests {
 
     #[test]
     fn test_name_source_conversion() {
-        assert_eq!(NameSource::Attribute, NameSource::Attribute);
+        // Was a tautology (`assert_eq!(NameSource::Attribute,
+        // NameSource::Attribute)`, always true regardless of the actual
+        // conversion) — exercises `convert_json_node`'s `name.sources[].type`
+        // → `NameSource` mapping for real (see judge `tautological-test`).
+        let json = serde_json::json!({
+            "nodeId": "1",
+            "ignored": false,
+            "name": {
+                "value": "Submit",
+                "sources": [
+                    {"type": "placeholder", "value": null},
+                    {"type": "attribute", "value": "Submit"},
+                ],
+            },
+        });
+
+        let node = convert_json_node(&json).unwrap();
+        assert_eq!(node.name_source, Some(NameSource::Attribute));
     }
 }
