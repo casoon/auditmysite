@@ -223,3 +223,18 @@ jobs:
           CI: "true"
         run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
 
+      # WCAG/schema/vulnerable-libs/easy-language detection-corpus tests
+      # (#553-#558): real Chrome, diffed against ground-truth fixtures.
+      # These are separate `#[ignore]`-gated test binaries and were never
+      # actually exercised in CI before (only `integration_test` was) — a
+      # real accuracy regression here could pass CI silently.
+      - name: Run detection-corpus accuracy tests
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: |
+          cargo test --test detection_corpus_test -- --ignored --nocapture --test-threads=1
+          cargo test --test schema_rules_detection_corpus_test -- --ignored --nocapture --test-threads=1
+          cargo test --test vulnerable_libs_detection_corpus_test -- --ignored --nocapture --test-threads=1
+          cargo test --test easy_language_detection_test -- --ignored --nocapture --test-threads=1
+

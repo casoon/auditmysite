@@ -10,8 +10,8 @@
 //! separately, since they're not equally severe.
 //!
 //! `#[ignore]`-gated like the existing Chrome-dependent tests in
-//! `tests/integration_test.rs` — run with `cargo test -- --ignored`. The
-//! corpus starts empty (#556 populates it incrementally); with zero cases
+//! `tests/integration_test.rs` — run with `cargo test -- --ignored`. If the
+//! corpus directory is ever empty (e.g. a fresh checkout missing fixtures),
 //! this test is a no-op rather than a failure.
 
 mod common;
@@ -87,7 +87,7 @@ struct CaseDiff {
 }
 
 #[tokio::test]
-#[ignore = "corpus is empty until #556 populates it; run manually once seeded"]
+#[ignore = "needs real Chrome; run manually with `cargo test -- --ignored`"]
 async fn detection_corpus_matches_real_audit_run() {
     let corpus_dir = detection_corpus_dir();
     let cases = load_corpus_dir(&corpus_dir);

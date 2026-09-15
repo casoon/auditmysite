@@ -19,6 +19,18 @@ cargo test --test release_contract_tests
 echo "release-check: ignored integration tests"
 cargo test --test integration_test -- --ignored
 
+# WCAG/schema/vulnerable-libs/easy-language detection-corpus tests
+# (#553-#558): real Chrome, diffed against ground-truth fixtures. Same
+# `#[ignore]`-gated test binaries `.github/workflows/ci.yml`'s
+# `browser-smoke` job runs — kept in sync so a local release-check can't
+# report green without them (plan/8-release-check-missing-detection-
+# corpus-tests.md).
+echo "release-check: detection-corpus accuracy tests"
+cargo test --test detection_corpus_test -- --ignored
+cargo test --test schema_rules_detection_corpus_test -- --ignored
+cargo test --test vulnerable_libs_detection_corpus_test -- --ignored
+cargo test --test easy_language_detection_test -- --ignored
+
 echo "release-check: build without pdf"
 cargo check --no-default-features
 
