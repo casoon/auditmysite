@@ -457,7 +457,7 @@ example-com-YYYY-MM-DD-single-report.pdf
 example-com-YYYY-MM-DD-single-report-screen-reader-audit.json  ← automatic sidecar
 ```
 
-The sidecar shows exactly what a screen reader would announce, node by node, including which announcements are ambiguous or missing — suitable as a developer reference and as evidence for BFSG compliance audits. No extra flag is required; the file is created whenever screen reader data is available in the audit result.
+The sidecar models what a screen reader would typically announce, node by node, based on rule-based conventions (name, role, and state) — not a verified 1:1 reproduction of what NVDA, JAWS, or VoiceOver actually announce, which can vary by assistive technology, browser, and locale. It also flags which announcements are ambiguous or missing, suitable as a developer reference and as supporting evidence for BFSG compliance audits. No extra flag is required; the file is created whenever screen reader data is available in the audit result.
 
 ## Typical Workflows
 
