@@ -1,6 +1,6 @@
 {
   "case": "empty_link_text",
   "expectations": [
-    { "rule_id": "link-name", "verdict": "violation" }
+    { "rule_id": "link-name-only", "verdict": "violation" }
   ]
 }
