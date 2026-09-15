@@ -103,7 +103,7 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)
 
-## Current State (v1.2.2)
+## Current State (v1.3.0)
 See `CHANGELOG.md` for the detailed, chronological development history (findings, fixes,
 verification) — extracted here (plan/11-claude-md-version-drift.md) to keep this file focused on
 working rules. Update the version number above whenever `Cargo.toml`'s version bumps, and add new
