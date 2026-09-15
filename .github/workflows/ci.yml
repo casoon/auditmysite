@@ -228,13 +228,33 @@ jobs:
       # These are separate `#[ignore]`-gated test binaries and were never
       # actually exercised in CI before (only `integration_test` was) — a
       # real accuracy regression here could pass CI silently.
-      - name: Run detection-corpus accuracy tests
+      # One step per binary, each running even after an earlier failure, so
+      # one regression can't hide another (#582).
+      - name: Detection corpus (WCAG)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
-        run: |
-          cargo test --test detection_corpus_test -- --ignored --nocapture --test-threads=1
-          cargo test --test schema_rules_detection_corpus_test -- --ignored --nocapture --test-threads=1
-          cargo test --test vulnerable_libs_detection_corpus_test -- --ignored --nocapture --test-threads=1
-          cargo test --test easy_language_detection_test -- --ignored --nocapture --test-threads=1
+        run: cargo test --test detection_corpus_test -- --ignored --nocapture --test-threads=1
+
+      - name: Detection corpus (schema rules)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test schema_rules_detection_corpus_test -- --ignored --nocapture --test-threads=1
+
+      - name: Detection corpus (vulnerable libs)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test vulnerable_libs_detection_corpus_test -- --ignored --nocapture --test-threads=1
+
+      - name: Detection corpus (easy language)
+        if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
+        env:
+          AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          CI: "true"
+        run: cargo test --test easy_language_detection_test -- --ignored --nocapture --test-threads=1
 
