@@ -718,6 +718,8 @@ mod tests {
             rule_outcomes: vec![],
             execution: Default::default(),
             module_scores: vec![],
+            accessibility_subcategory_scores: vec![],
+            security_category_scores: vec![],
             audit_flags: vec![],
             consent_privacy: None,
             has_screenshots: false,

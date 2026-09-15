@@ -1,3 +1,4 @@
+use crate::audit::prioritization::Effort;
 use crate::i18n::I18n;
 use crate::output::report_model::{
     ActionItem, ActionPlan, ActionsBlock, PhasePreview, Priority, RoadmapColumnData,
@@ -5,6 +6,38 @@ use crate::output::report_model::{
 };
 
 use super::super::actions::{derive_conversion_effect_from_action, derive_user_effect_from_action};
+
+/// plan/6-remediation-leverage-metric.md: a plain-language "is this fix
+/// worth doing first" verdict combining reach (`occurrence_count`), cost
+/// (`effort`), and risk (`priority`) — fixed rule logic, no new score.
+/// `occurrence_count >= 10` mirrors the existing "looks like a shared
+/// component" threshold (`FindingGroup::is_component_issue`,
+/// `finding_group_from_normalized`) so this tier and that language stay
+/// consistent about what counts as a big-reach fix.
+fn remediation_leverage(
+    occurrence_count: usize,
+    effort: Effort,
+    priority: Priority,
+    en: bool,
+) -> &'static str {
+    let tier = if occurrence_count >= 10 {
+        2
+    } else if occurrence_count >= 5
+        || (matches!(priority, Priority::Critical | Priority::High) && effort == Effort::Quick)
+    {
+        1
+    } else {
+        0
+    };
+    match (tier, en) {
+        (2, true) => "Very high",
+        (2, false) => "Sehr hoch",
+        (1, true) => "High",
+        (1, false) => "Hoch",
+        (_, true) => "Low",
+        (_, false) => "Niedrig",
+    }
+}
 
 pub(super) fn build_actions_block(
     i18n: &I18n,
@@ -101,6 +134,8 @@ pub(super) fn build_actions_block(
                     conversion_effect,
                     occurrence_count: i.occurrence_count,
                     rule_id: i.rule_id.clone(),
+                    leverage: remediation_leverage(i.occurrence_count, i.effort, i.priority, en)
+                        .to_string(),
                 }
             })
             .collect()

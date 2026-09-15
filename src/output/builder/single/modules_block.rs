@@ -175,6 +175,12 @@ pub(super) fn build_modules_block_from_normalized(
         dashboard,
         overall_score,
         overall_interpretation,
+        module_scores: normalized.normalized.module_scores.clone(),
+        accessibility_subcategory_scores: normalized
+            .normalized
+            .accessibility_subcategory_scores
+            .clone(),
+        security_category_scores: normalized.normalized.security_category_scores.clone(),
     }
 }
 

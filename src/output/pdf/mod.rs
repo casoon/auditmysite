@@ -341,8 +341,14 @@ fn audit_flag_title(kind: &str, en: bool) -> &'static str {
         ("conflicting_signal", false) => "Widersprüchliches Signal",
         ("viewport_gap", true) => "Desktop/mobile difference",
         ("viewport_gap", false) => "Desktop-/Mobile-Unterschied",
-        ("incomplete_audit", true) => "Incomplete measurement scope",
-        ("incomplete_audit", false) => "Unvollständiger Messumfang",
+        // Aligned with the "Prüfabdeckung"/"Coverage" framing on the
+        // management summary page (`SummaryBlock::audit_quality_note`) —
+        // this used to say "Unvollständiger Messumfang" ("incomplete
+        // measurement scope"), which reintroduced the alarming "audit is
+        // broken" tone the summary page deliberately moved away from for a
+        // normal stability-budget limitation (feedback 2026-09-07).
+        ("incomplete_audit", true) => "Limited test coverage",
+        ("incomplete_audit", false) => "Eingeschränkte Prüfabdeckung",
         ("consent_wall_artifact", true) => "Consent wall artifact",
         ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
         (_, true) => "Audit note",
@@ -360,8 +366,11 @@ fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool
         ("conflicting_signal", false) => "Zwei Prüfungen melden unterschiedliche Signale. Dieses Ergebnis sollte als Prüfhilfe statt als endgültige Aussage gelesen werden.".to_string(),
         ("viewport_gap", true) => "Desktop and mobile results differ strongly. The page experience should be checked separately for both viewports.".to_string(),
         ("viewport_gap", false) => "Desktop- und Mobile-Ergebnis unterscheiden sich deutlich. Die Nutzung sollte für beide Ansichten getrennt geprüft werden.".to_string(),
-        ("incomplete_audit", true) => "One or more requested checks could not be completed. Scores describe only the successfully measured scope.".to_string(),
-        ("incomplete_audit", false) => "Eine oder mehrere angeforderte Prüfungen konnten nicht abgeschlossen werden. Die Scores beschreiben nur den erfolgreich gemessenen Umfang.".to_string(),
+        // Same sentence as the management summary's Partial-run callout
+        // (`build_view_model`'s `audit_quality_note`) — one wording for the
+        // same underlying limitation, not two that could drift apart.
+        ("incomplete_audit", true) => "Individual measurements hit a stability/retry budget and are excluded from the reported scores, which describe only the successfully measured scope.".to_string(),
+        ("incomplete_audit", false) => "Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben den erfolgreich gemessenen Umfang.".to_string(),
         _ => flag.message.clone(),
     }
 }

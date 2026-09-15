@@ -982,6 +982,107 @@ pub(crate) fn calculate_security_score(
     score
 }
 
+/// Coarse security sub-category (plan/5-module-accessibility-security-
+/// driver-detail.md): Security has no per-check taxonomy registry like
+/// WCAG's `taxonomy::Subcategory`, so this groups `SecurityIssue.header`
+/// values into the handful of categories a non-technical reader would
+/// recognize, mirroring the review's own example wording ("fehlende
+/// Security-Header, unsichere externe Ressourcen, Cookie-/Transport-
+/// Konfiguration").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SecurityCategory {
+    /// CSP, X-Content-Type-Options, X-Frame-Options — baseline response
+    /// headers that harden the page itself.
+    #[default]
+    ResponseHeaders,
+    /// HTTPS/TLS transport security (HSTS).
+    TransportSecurity,
+    /// Cross-origin/embedding access policies (Referrer-Policy,
+    /// Permissions-Policy, Cross-Origin-Opener/Resource-Policy, CORS).
+    AccessPolicies,
+    /// Publicly reachable source maps and other third-party/asset exposure.
+    ThirdPartyExposure,
+}
+
+impl SecurityCategory {
+    pub fn label(&self, en: bool) -> &'static str {
+        if en {
+            match self {
+                Self::ResponseHeaders => "Response headers",
+                Self::TransportSecurity => "Transport security",
+                Self::AccessPolicies => "Access policies",
+                Self::ThirdPartyExposure => "Third-party exposure",
+            }
+        } else {
+            match self {
+                Self::ResponseHeaders => "Response-Header",
+                Self::TransportSecurity => "Transportsicherheit",
+                Self::AccessPolicies => "Zugriffs-Richtlinien",
+                Self::ThirdPartyExposure => "Drittanbieter-Exposition",
+            }
+        }
+    }
+
+    /// All categories, in a fixed display order.
+    pub fn all() -> [SecurityCategory; 4] {
+        [
+            Self::ResponseHeaders,
+            Self::TransportSecurity,
+            Self::AccessPolicies,
+            Self::ThirdPartyExposure,
+        ]
+    }
+
+    fn for_header(header: &str) -> SecurityCategory {
+        match header {
+            "HTTPS" | "Strict-Transport-Security" => Self::TransportSecurity,
+            "Content-Security-Policy" | "X-Content-Type-Options" | "X-Frame-Options" => {
+                Self::ResponseHeaders
+            }
+            "Referrer-Policy"
+            | "Permissions-Policy"
+            | "Cross-Origin-Opener-Policy"
+            | "Cross-Origin-Resource-Policy"
+            | "Access-Control-Allow-Origin" => Self::AccessPolicies,
+            "Source Map" => Self::ThirdPartyExposure,
+            // Unrecognized/future header names default to the general
+            // response-headers bucket rather than being silently dropped.
+            _ => Self::ResponseHeaders,
+        }
+    }
+}
+
+/// Per-category security score (0-100), reusing the exact severity→penalty
+/// mapping `calculate_security_score` uses for the overall score, just
+/// scoped to the issues in each category — so a category with e.g. one
+/// missing baseline header scores the same way that single issue would
+/// deduct from the overall score, not a newly invented scale. A category
+/// with no issues scores 100 (plan/5-module-accessibility-security-driver-
+/// detail.md).
+pub fn calculate_security_category_scores(
+    issues: &[SecurityIssue],
+) -> Vec<(SecurityCategory, u32)> {
+    let deduction = |sev: &Severity| match sev {
+        Severity::Critical => 25,
+        Severity::High => 15,
+        Severity::Medium => 10,
+        Severity::Low => 5,
+    };
+    SecurityCategory::all()
+        .into_iter()
+        .map(|category| {
+            let mut score = 100u32;
+            for issue in issues {
+                if SecurityCategory::for_header(&issue.header) == category {
+                    score = score.saturating_sub(deduction(&issue.severity));
+                }
+            }
+            (category, score)
+        })
+        .collect()
+}
+
 fn calculate_grade(score: u32) -> String {
     crate::registry::SECURITY_GRADE
         .label(score as f32, false)

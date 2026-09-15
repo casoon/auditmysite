@@ -337,6 +337,43 @@ mod fallback_tests {
         );
     }
 
+    /// A `landmark_granular.rs` `check_landmark_unique` finding (WCAG 1.3.1,
+    /// taxonomy id "a11y.landmark_unique.invalid", axe_id "landmark-unique").
+    /// This taxonomy id's `external_ref` is "WCAG 1.3.1", so
+    /// `get_explanation(rule_id)`'s internal WCAG-id fallback would otherwise
+    /// silently resolve to the generic 1.3.1 explanation written for
+    /// tables/lists/forms — same bug class as #571 (region.rs), confirmed
+    /// live against a real report (plan/1-root-cause-title-occurrence-mismatch.md).
+    fn landmark_unique_finding() -> NormalizedFinding {
+        NormalizedFinding {
+            rule_id: "a11y.landmark_unique.invalid".into(),
+            wcag_criterion: "1.3.1".into(),
+            axe_id: Some("landmark-unique".into()),
+            title: "Landmarks are not uniquely named".into(),
+            description: "Multiple landmarks of the same role have the same accessible name."
+                .into(),
+            occurrence_count: 31,
+            ..uncovered_rule_finding()
+        }
+    }
+
+    /// Regression for plan/1: a `landmark-unique` finding must get its own
+    /// title ("Landmarks nicht eindeutig benannt"), not the generic WCAG 1.3.1
+    /// fallback title ("Fehlende semantische Struktur") that belongs to a
+    /// different, unrelated check (tables/lists/forms structure).
+    #[test]
+    fn landmark_unique_finding_gets_own_title_not_generic_1_3_1_fallback() {
+        let i18n = I18n::new("de").expect("test locale should load");
+        let finding = landmark_unique_finding();
+        let group = finding_group_from_normalized(&i18n, &finding);
+
+        assert_eq!(group.title, "Landmarks nicht eindeutig benannt");
+        assert_ne!(group.title, "Fehlende semantische Struktur");
+        // Title and occurrence_count must come from the same finding, not an
+        // accidental pairing across two different findings.
+        assert_eq!(group.occurrence_count, 31);
+    }
+
     /// Same fallback branch in English: no German umlauts/ß should leak in
     /// (mirrors the #406 guard-test pattern used elsewhere in the codebase).
     #[test]

@@ -210,6 +210,14 @@ pub struct SummaryBlock {
     /// the methodology appendix, so a downgraded/partial run can't be missed
     /// by a reader who never reaches the appendix.
     pub audit_quality_note: Option<String>,
+    /// True only for `AuditQualityStatus::Insufficient` (failed rule checks —
+    /// a genuine data-quality problem). False for `Partial` (a stability/
+    /// retry budget was hit on individual measurements — a normal scope
+    /// limitation of automated auditing, not a defect) — lets the PDF layer
+    /// render the two at different severities instead of one alarming
+    /// "audit incomplete" warning for both (feedback: "Partial" read as if
+    /// the tool itself had failed).
+    pub audit_quality_severe: bool,
     pub verdict: String,
     pub score_note: Option<String>,
     pub metrics: Vec<MetricItem>,
@@ -262,6 +270,22 @@ pub struct ModulesBlock {
     pub dashboard: Vec<ModuleScore>,
     pub overall_score: Option<u32>,
     pub overall_interpretation: Option<String>,
+    /// The canonical per-module score/weight breakdown that actually feeds
+    /// the weighted `overall_score` (`audit::normalized::build_module_scores`
+    /// verbatim) — distinct from `dashboard` above, whose cards are reshaped
+    /// for narrative presentation (e.g. the "Search Experience" card blends
+    /// SEO with heuristic AI-visibility/content-visibility signals into one
+    /// composite score that is *not* the raw SEO number carrying SEO's real
+    /// weight). Used by the score-driver table (plan/2-score-driver-
+    /// breakdown.md), which must show each module's actual weight_pct.
+    pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
+    /// Per-subcategory Accessibility score breakdown (plan/5-module-
+    /// accessibility-security-driver-detail.md), verbatim from
+    /// `NormalizedReport.accessibility_subcategory_scores`.
+    pub accessibility_subcategory_scores: Vec<crate::audit::normalized::SubcategoryScoreEntry>,
+    /// Per-category Security score breakdown, same purpose as above for
+    /// Security. Empty when the Security module didn't run.
+    pub security_category_scores: Vec<crate::audit::normalized::SecurityCategoryScoreEntry>,
 }
 
 /// A single module's score data
@@ -618,6 +642,13 @@ pub struct RoadmapItemData {
     pub occurrence_count: usize,
     /// Rule ID of the underlying `FindingGroup` (see `ActionItem`).
     pub rule_id: String,
+    /// "Remediation leverage" tier ("Sehr hoch"/"Hoch"/"Niedrig", already
+    /// localized) — a plain-language verdict combining reach
+    /// (`occurrence_count`), cost (`effort`), and risk (`priority`) into one
+    /// answer to "is this fix worth doing first" (plan/6-remediation-
+    /// leverage-metric.md). Computed in `build_actions_block` where the raw
+    /// `Effort`/`Priority` enums are still available.
+    pub leverage: String,
 }
 
 /// A single phase in the visual phase overview (shown before the detailed roadmap)

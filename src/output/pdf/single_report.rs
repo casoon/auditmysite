@@ -4,8 +4,8 @@
 //! components, and returns the builder for further chaining.
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, List, MetricStrip,
-    MetricStripItem, PageBreak, RecommendationCard, SectionHeaderSplit,
+    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, Divider, List,
+    MetricStrip, MetricStripItem, PageBreak, RecommendationCard, SectionHeaderSplit,
 };
 use renderreport::components::charts::{Chart, ChartType};
 use renderreport::components::text::Label;
@@ -22,6 +22,7 @@ use super::detail_modules::{
     render_dark_mode, render_design_quality, render_html_conform, render_journey, render_mobile,
     render_network_dns, render_performance, render_screen_reader_section, render_search_experience,
     render_security, render_seo, render_source_quality, render_tech_stack, render_ux,
+    score_band_label,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
@@ -40,6 +41,8 @@ use crate::output::report_model::*;
 ///
 /// Each divider produces a page break, a strong level=1 section header tagged
 /// with "TEIL N / 3" (or "PART N OF 3"), an audience callout, and a contents list.
+/// Part 3 is visually reinforced as a dedicated separator page before the technical
+/// appendix and detailed evidence modules (plan/22-report-anhang-visual-cut.md).
 pub(super) fn render_part_divider(
     mut builder: renderreport::engine::ReportBuilder,
     part_num: u8,
@@ -51,7 +54,13 @@ pub(super) fn render_part_divider(
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
     let eyebrow = if en {
-        format!("PART {} OF 3", part_num)
+        if part_num == 3 {
+            "PART 3 OF 3 · TECHNICAL APPENDIX".to_string()
+        } else {
+            format!("PART {} OF 3", part_num)
+        }
+    } else if part_num == 3 {
+        "TEIL 3 VON 3 · TECHNISCHER ANHANG".to_string()
     } else {
         format!("TEIL {} VON 3", part_num)
     };
@@ -76,6 +85,11 @@ pub(super) fn render_part_divider(
                 .with_size("10.5pt")
                 .with_color(design::tokens::NEUTRAL),
         );
+    if part_num == 3 {
+        builder = builder
+            .add_component(Divider::thick().with_color(design::tokens::MUTED))
+            .add_component(PageBreak::new());
+    }
     builder
 }
 
@@ -151,16 +165,26 @@ fn render_module_split_dashboards(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = i18n.locale() == "en";
-    let strong: Vec<DashboardCard> = vm
+    // plan/7-management-summary-consolidation.md ("lighter" option): the
+    // weighted, "measured" modules (Accessibility/Performance/Security/
+    // Mobile/SEO) are now covered by the score-driver table above with more
+    // detail (weight_pct + reasoning) — showing them a second time here as
+    // strength/weakness cards was redundant. This dashboard now only covers
+    // the composite/heuristic indicator modules (UX, Journey, Search
+    // Experience, …) that the score-driver table deliberately excludes
+    // (they don't feed the weighted overall score).
+    let indicator_modules: Vec<&ModuleScore> = vm
         .modules
         .dashboard
+        .iter()
+        .filter(|m| m.measurement_type != "measured")
+        .collect();
+    let strong: Vec<DashboardCard> = indicator_modules
         .iter()
         .filter(|m| m.score >= 75)
         .map(|m| module_dashboard_card(m, i18n))
         .collect();
-    let weak: Vec<DashboardCard> = vm
-        .modules
-        .dashboard
+    let weak: Vec<DashboardCard> = indicator_modules
         .iter()
         .filter(|m| m.score < 75)
         .map(|m| module_dashboard_card(m, i18n))
@@ -179,7 +203,7 @@ fn render_module_split_dashboards(
         } else {
             "Wo sich Optimierung lohnt"
         }));
-    } else if !vm.modules.dashboard.is_empty() {
+    } else if !indicator_modules.is_empty() {
         // Module *scores* (0-100 per module) are a different axis from the
         // risk-gated certificate (which can be downgraded to EINGESCHRÄNKT/
         // NICHT BESTANDEN by blocking operability issues or legal flags even
@@ -190,20 +214,22 @@ fn render_module_split_dashboards(
         // to "no module needs prioritized optimization"). Qualify the
         // message instead of suppressing it entirely, so the "module scores
         // are fine" observation stays but doesn't read as "nothing to fix".
+        // Scoped to the indicator modules shown here — the weighted/measured
+        // modules' status is the score-driver table's job, not this one's.
         let risk_gated = matches!(
             vm.summary.certificate.as_str(),
             "EINGESCHRÄNKT" | "NICHT BESTANDEN"
         );
         let message = if risk_gated {
             if en {
-                "All module scores are in good shape, but operability/legal risk elsewhere in this report still requires action — see Management Summary."
+                "The additional indicator modules (UX, Journey, …) are in good shape, but operability/legal risk elsewhere in this report still requires action — see Management Summary."
             } else {
-                "Alle Modul-Scores sind in gutem Zustand, dennoch besteht an anderer Stelle in diesem Report Bedienbarkeits- oder rechtliches Risiko, das Handeln erfordert — siehe Management-Zusammenfassung."
+                "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand, dennoch besteht an anderer Stelle in diesem Report Bedienbarkeits- oder rechtliches Risiko, das Handeln erfordert — siehe Management-Zusammenfassung."
             }
         } else if en {
-            "All audited modules are in good shape — no module needs prioritized optimization."
+            "The additional indicator modules (UX, Journey, …) are in good shape — no module needs prioritized optimization."
         } else {
-            "Alle geprüften Module sind in gutem Zustand — kein Modul erfordert vorrangige Optimierung."
+            "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand — kein Modul erfordert vorrangige Optimierung."
         };
         builder = builder.add_component(Label::new(message).with_size("10.5pt").with_color(
             if risk_gated {
@@ -618,16 +644,31 @@ pub(super) fn render_management_page(
     } else {
         "Gesamturteil"
     }));
+
+    // Problem profile badge (plan/20-problemprofil-badge.md)
+    builder = render_problem_profile(builder, vm, i18n);
+
     // Surface a partial/insufficient audit run right here, not only in the
     // methodology appendix (#575-adjacent review finding, 2026-09-01): a
     // reader who never reaches the appendix must still see that the scores
     // above describe a downgraded run.
     if let Some(note) = &vm.summary.audit_quality_note {
-        builder = builder.add_component(Callout::warning(note).with_title(if en {
-            "Audit Quality"
+        // Insufficient (failed rule checks) is a genuine data-quality problem
+        // and stays a warning; Partial (a stability/retry budget hit) is a
+        // normal automated-audit coverage limitation and is framed calmer,
+        // as "Coverage" rather than "Audit Quality" (feedback: a plain
+        // "audit incomplete" warning next to a clean run read as if the
+        // tool itself had failed, see `audit_quality_severe`).
+        let callout = if vm.summary.audit_quality_severe {
+            Callout::warning(note).with_title(if en {
+                "Audit Quality"
+            } else {
+                "Audit-Qualität"
+            })
         } else {
-            "Audit-Qualität"
-        }));
+            Callout::info(note).with_title(if en { "Coverage" } else { "Prüfabdeckung" })
+        };
+        builder = builder.add_component(callout);
     }
     // For a clean automated run (no findings), state the automated-scope
     // caveat directly alongside the headline verdict — not only in the
@@ -680,6 +721,53 @@ pub(super) fn render_management_page(
         );
     }
 
+    // 2c. Score-driver table — the radar shows *balance*, this answers
+    // "why is the overall score X": which modules pull it down vs.
+    // stabilize it, and how much each one actually weighs
+    // (plan/2-score-driver-breakdown.md).
+    builder = render_score_driver_table(builder, vm, i18n);
+
+    // 2d. Problem-concentration diagnosis — the bridge between the score
+    // level above and the technical root-cause list on a later page: "how
+    // concentrated are the occurrences on a few recurring causes"
+    // (plan/3-problem-concentration-diagnosis-narrative.md).
+    if let Some(note) = build_problem_concentration_note(vm, i18n) {
+        builder = builder.add_component(Label::new(note).with_size("10.5pt"));
+    }
+
+    // 2d-bis. Additional score drivers beyond Accessibility — the note above
+    // only explains the WCAG occurrences; on sites where Performance or
+    // Security are equally significant drags on the overall score, they were
+    // left unexplained next to their number in the table above (feedback:
+    // management summary read as accessibility-only, e.g. "Performance 16"
+    // and "Security 22" had no plain-language reason next to them).
+    builder = render_additional_score_drivers(builder, vm, i18n);
+
+    // 2e. Accessibility/Security sub-category breakdown — a low module
+    // score explained at a finer grain than one number (plan/5-module-
+    // accessibility-security-driver-detail.md).
+    let en_label = if en {
+        "Accessibility"
+    } else {
+        "Barrierefreiheit"
+    };
+    let accessibility_entries: Vec<(String, u32)> = vm
+        .modules
+        .accessibility_subcategory_scores
+        .iter()
+        .map(|s| (s.subcategory_kind.label(en).to_string(), s.score))
+        .collect();
+    builder = render_subcategory_breakdown(builder, en_label, &accessibility_entries, i18n);
+
+    let security_label = if en { "Security" } else { "Sicherheit" };
+    let security_entries: Vec<(String, u32)> = vm
+        .modules
+        .security_category_scores
+        .iter()
+        .map(|s| (s.category_kind.label(en).to_string(), s.score))
+        .collect();
+    builder = render_subcategory_breakdown(builder, security_label, &security_entries, i18n);
+
     // 3. Strengths vs. priorities as card groups
     builder = render_module_split_dashboards(builder, vm, i18n);
 
@@ -689,6 +777,600 @@ pub(super) fn render_management_page(
     // 5. Measures
     builder = builder.add_component(build_top_measures_list(vm, i18n));
 
+    builder
+}
+
+/// Number of top causes considered for the "problem concentration"
+/// percentage (plan/3-problem-concentration-diagnosis-narrative.md's
+/// suggested "kleinere, z. B. Top-4-Teilmenge" — deliberately smaller than
+/// `ROOT_CAUSE_SHOWN` (6), which sizes the *list* further down, not this
+/// one-sentence diagnosis).
+const PROBLEM_CONCENTRATION_TOP_N: usize = 4;
+
+/// Below this many total occurrences, "X% trace back to N recurring causes"
+/// is statistically meaningless (e.g. "1 occurrence — 100% trace back to 1
+/// recurring cause") — feedback: the concentration sentence read as
+/// nonsensical/machine-generated on a near-clean audit. Below the threshold,
+/// `build_problem_concentration_note` falls back to a plain occurrence count
+/// instead, and `build_overall_leverage_note` is suppressed entirely.
+const PROBLEM_CONCENTRATION_MIN_OCCURRENCES: usize = 3;
+
+/// The raw numbers behind the "problem concentration" diagnosis
+/// (plan/3-problem-concentration-diagnosis-narrative.md): how many
+/// occurrences exist in total, how many of the top `PROBLEM_CONCENTRATION_TOP_N`
+/// causes they concentrate into, and which cause is affected most. A single
+/// calculation shared by two different sentences on two different pages
+/// (`build_problem_concentration_note` for the Management Summary,
+/// `build_overall_leverage_note` for the Action Plan, plan/7-management-
+/// summary-consolidation.md) — same source number, not two independently
+/// computed ones that could silently drift apart.
+struct ProblemConcentration {
+    total_occurrences: usize,
+    top_n: usize,
+    concentration_pct: i64,
+    top1_title: String,
+}
+
+fn compute_problem_concentration(vm: &ReportViewModel) -> Option<ProblemConcentration> {
+    // WCAG-only (`all_findings` also carries SEO findings, #406/report_model
+    // doc comment) — matches `vm.severity.total` ("N WCAG occurrences" on the
+    // cover/executive dashboard), so this sentence's total can't silently
+    // diverge from the headline count a reader already saw (feedback:
+    // "121 WCAG-Vorkommen" vs. "122 Vorkommen wurden erkannt" a page later).
+    let mut findings: Vec<&FindingGroup> = vm
+        .findings
+        .all_findings
+        .iter()
+        .filter(|f| f.occurrence_count > 0 && !f.wcag_criterion.is_empty())
+        .collect();
+    if findings.is_empty() {
+        return None;
+    }
+    findings.sort_by_key(|f| std::cmp::Reverse(f.occurrence_count));
+
+    let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
+    let top_n = findings.len().min(PROBLEM_CONCENTRATION_TOP_N);
+    let top_occurrences: usize = findings[..top_n].iter().map(|f| f.occurrence_count).sum();
+    let concentration_pct = if total_occurrences > 0 {
+        (top_occurrences as f64 * 100.0 / total_occurrences as f64).round() as i64
+    } else {
+        0
+    };
+
+    Some(ProblemConcentration {
+        total_occurrences,
+        top_n,
+        concentration_pct,
+        top1_title: findings[0].title.clone(),
+    })
+}
+
+/// Three-tier semantic condensation of the entire audit for the executive
+/// summary, directly beneath the overall verdict (plan/20-problemprofil-badge.md).
+/// Combines breadth (count of weighted modules scoring below 75) and systemics
+/// (recurring WCAG problem concentration).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ProblemProfileKind {
+    Punktuell,
+    KonzentriertSystemisch,
+    BreitSystemisch,
+}
+
+impl ProblemProfileKind {
+    pub(super) fn label(&self, en: bool) -> &'static str {
+        match self {
+            Self::Punktuell => {
+                if en {
+                    "isolated"
+                } else {
+                    "punktuell"
+                }
+            }
+            Self::KonzentriertSystemisch => {
+                if en {
+                    "concentrated & systemic"
+                } else {
+                    "konzentriert & systemisch"
+                }
+            }
+            Self::BreitSystemisch => {
+                if en {
+                    "broad & systemic"
+                } else {
+                    "breit & systemisch"
+                }
+            }
+        }
+    }
+}
+
+/// Modules that contribute to the weighted overall score and fall below the "Good" band (< 75).
+/// Sorted by drag impact descending ((100 - score) * weight). Supplementary context only (e.g.
+/// deciding success-vs-info styling for an otherwise "isolated" profile) — NOT the breadth count
+/// for the Problem-Profile tier itself, see `critical_contributing_modules`.
+fn weak_contributing_modules(
+    vm: &ReportViewModel,
+) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+    let mut weak: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
+        .modules
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall && m.score < 75)
+        .collect();
+    weak.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
+    weak
+}
+
+/// Modules that contribute to the weighted overall score and are "Kritisch" (< 40 — same
+/// FIVE_BAND cutoff used elsewhere in the report, e.g. `score_band_label`). This, not the
+/// broader < 75 "Good" band, decides how many modules "determine the need for action" for the
+/// Problem-Profile breadth tiering (feedback 2026-09-07: the < 75 threshold pulled in merely
+/// "Verbesserungswürdig" modules — e.g. Performance 64 / SEO 65 on inros-lackner.de — alongside
+/// the two genuinely critical ones (Accessibility 20 / Security 30), producing "breit &
+/// systemisch" where the real driver was two critical modules, not four weak ones).
+/// Sorted by drag impact descending, same as `weak_contributing_modules`.
+fn critical_contributing_modules(
+    vm: &ReportViewModel,
+) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+    let mut critical: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
+        .modules
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall && m.score < 40)
+        .collect();
+    critical.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
+    critical
+}
+
+/// Pure classification function combining breadth (< 40 "Kritisch" module count) and systemics
+/// (plan/20-problemprofil-badge.md).
+pub(super) fn classify_problem_profile(vm: &ReportViewModel) -> ProblemProfileKind {
+    let critical = critical_contributing_modules(vm);
+    let critical_count = critical.len();
+    let concentration = compute_problem_concentration(vm);
+    let has_systemic_wcag = match &concentration {
+        Some(c) => {
+            c.total_occurrences > PROBLEM_CONCENTRATION_MIN_OCCURRENCES && c.concentration_pct >= 50
+        }
+        None => false,
+    };
+
+    if critical_count >= 3 {
+        ProblemProfileKind::BreitSystemisch
+    } else if critical_count == 2 || (critical_count == 1 && has_systemic_wcag) {
+        ProblemProfileKind::KonzentriertSystemisch
+    } else {
+        ProblemProfileKind::Punktuell
+    }
+}
+
+fn format_module_names(
+    modules: &[&crate::audit::normalized::ModuleScoreEntry],
+    i18n: &I18n,
+) -> String {
+    let en = i18n.locale() == "en";
+    let names: Vec<String> = modules
+        .iter()
+        .map(|m| {
+            let key = format!("module-{}", m.name.to_lowercase().replace(' ', "-"));
+            let translated = i18n.t(&key);
+            if translated == key {
+                m.name.clone()
+            } else {
+                translated
+            }
+        })
+        .collect();
+
+    match names.len() {
+        0 => String::new(),
+        1 => names[0].clone(),
+        2 => {
+            if en {
+                format!("{} and {}", names[0], names[1])
+            } else {
+                format!("{} und {}", names[0], names[1])
+            }
+        }
+        _ => {
+            let last = &names[names.len() - 1];
+            let initial = names[..names.len() - 1].join(", ");
+            if en {
+                format!("{}, and {}", initial, last)
+            } else {
+                format!("{} und {}", initial, last)
+            }
+        }
+    }
+}
+
+fn build_problem_profile_description(
+    vm: &ReportViewModel,
+    kind: ProblemProfileKind,
+    i18n: &I18n,
+) -> String {
+    let en = i18n.locale() == "en";
+    // Only "Kritisch" (< 40) modules are named as "determining the need for
+    // action" — same set `classify_problem_profile` tiers on, so the badge
+    // text and the tier it's attached to can't silently diverge (feedback
+    // 2026-09-07: naming from the broader < 75 band pulled in merely
+    // "Verbesserungswürdig" modules that didn't actually drive the tier).
+    let critical_modules = critical_contributing_modules(vm);
+    let concentration = compute_problem_concentration(vm);
+    let has_systemic_wcag = match &concentration {
+        Some(c) => {
+            c.total_occurrences > PROBLEM_CONCENTRATION_MIN_OCCURRENCES && c.concentration_pct >= 50
+        }
+        None => false,
+    };
+
+    match kind {
+        ProblemProfileKind::Punktuell => {
+            if critical_modules.is_empty() {
+                if en {
+                    "Very good technical condition. Isolated local optimizations without structural problems.".to_string()
+                } else {
+                    "Sehr guter technischer Zustand. Einzelne lokale Optimierungen ohne strukturelles Problem.".to_string()
+                }
+            } else {
+                let name = format_module_names(&critical_modules, i18n);
+                if en {
+                    format!("{name} determines the primary need for action. Isolated local optimizations without structural problems.")
+                } else {
+                    format!("{name} bestimmt den Handlungsbedarf. Einzelne lokale Optimierungen ohne strukturelles Problem.")
+                }
+            }
+        }
+        ProblemProfileKind::KonzentriertSystemisch => {
+            let names = format_module_names(&critical_modules, i18n);
+            let verb_plural = critical_modules.len() > 1;
+            if has_systemic_wcag {
+                if en {
+                    let verb = if verb_plural {
+                        "determine"
+                    } else {
+                        "determines"
+                    };
+                    format!("{names} {verb} the need for action. A large portion of the accessibility findings is concentrated in a few recurring patterns.")
+                } else {
+                    let verb = if verb_plural { "bestimmen" } else { "bestimmt" };
+                    format!("{names} {verb} den Handlungsbedarf. Ein großer Teil der Accessibility-Befunde konzentriert sich auf wenige wiederkehrende Muster.")
+                }
+            } else if en {
+                let verb = if verb_plural {
+                    "determine"
+                } else {
+                    "determines"
+                };
+                format!(
+                    "{names} {verb} the need for action while other technical areas remain stable."
+                )
+            } else {
+                let verb = if verb_plural { "bestimmen" } else { "bestimmt" };
+                format!("{names} {verb} den Handlungsbedarf bei ansonsten stabilen technischen Bereichen.")
+            }
+        }
+        ProblemProfileKind::BreitSystemisch => {
+            let names = format_module_names(&critical_modules, i18n);
+            if names.is_empty() {
+                if en {
+                    "Multiple technical areas are affected simultaneously and require structural corrections.".to_string()
+                } else {
+                    "Mehrere technische Bereiche sind gleichzeitig betroffen und benötigen strukturelle Korrekturen.".to_string()
+                }
+            } else if en {
+                format!("Multiple technical areas are affected simultaneously. In particular, {names} require structural corrections.")
+            } else {
+                format!("Mehrere technische Bereiche sind gleichzeitig betroffen. Besonders {names} benötigen strukturelle Korrekturen.")
+            }
+        }
+    }
+}
+
+fn render_problem_profile(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let kind = classify_problem_profile(vm);
+    let title_prefix = if en {
+        "Problem profile"
+    } else {
+        "Problemprofil"
+    };
+    let title = format!("{}: {}", title_prefix, kind.label(en));
+    let desc = build_problem_profile_description(vm, kind, i18n);
+
+    let callout = match kind {
+        ProblemProfileKind::Punktuell => {
+            // Context-only use of the broader < 75 band (not the < 40
+            // "critical" band the tiering itself uses, see
+            // `classify_problem_profile`): a lone merely-"Verbesserungswürdig"
+            // module still earns an `info` callout instead of `success`, even
+            // though it doesn't change the tier.
+            if weak_contributing_modules(vm).is_empty() {
+                Callout::success(desc).with_title(title)
+            } else {
+                Callout::info(desc).with_title(title)
+            }
+        }
+        ProblemProfileKind::KonzentriertSystemisch => Callout::info(desc).with_title(title),
+        ProblemProfileKind::BreitSystemisch => Callout::warning(desc).with_title(title),
+    };
+    builder.add_component(callout)
+}
+
+/// "N occurrences were found; ~X% trace back to M recurring causes,
+/// especially <top cause>." — a single generated (not free LLM) sentence
+/// bridging the score level above and the technical root-cause list further
+/// down. Scope is Accessibility + SEO/Optimization combined (deliberate
+/// choice, see the plan file's "Offene Frage" — broader than
+/// `mandatory_root_causes`, which stays WCAG-only to match the "N
+/// Accessibility-Befunde" header count it feeds).
+fn build_problem_concentration_note(vm: &ReportViewModel, i18n: &I18n) -> Option<String> {
+    let en = i18n.locale() == "en";
+    let c = compute_problem_concentration(vm)?;
+    if c.total_occurrences <= PROBLEM_CONCENTRATION_MIN_OCCURRENCES {
+        return Some(if en {
+            format!(
+                "{} occurrence(s) were detected — too few to identify a recurring pattern.",
+                c.total_occurrences
+            )
+        } else {
+            format!(
+                "Es wurden {} Vorkommen erkannt — zu wenige, um ein wiederkehrendes Muster abzuleiten.",
+                c.total_occurrences
+            )
+        });
+    }
+    Some(if en {
+        format!(
+            "{} occurrences were detected. About {}% of them trace back to just {} recurring causes. Most affected: {}.",
+            c.total_occurrences, c.concentration_pct, c.top_n, c.top1_title
+        )
+    } else {
+        format!(
+            "{} Vorkommen wurden erkannt. Rund {} % davon lassen sich auf {} wiederkehrende Ursachen zurückführen. Besonders betroffen: {}.",
+            c.total_occurrences, c.concentration_pct, c.top_n, c.top1_title
+        )
+    })
+}
+
+/// Action-Plan-page framing of the same numbers, worded around leverage
+/// rather than diagnosis: "fixing the top causes covers most of what's
+/// listed below" (plan/7-management-summary-consolidation.md's suggested
+/// "Die vier wichtigsten Ursachen erklären ca. 88 % der erkannten
+/// WCAG-Vorkommen").
+fn build_overall_leverage_note(vm: &ReportViewModel, i18n: &I18n) -> Option<String> {
+    let en = i18n.locale() == "en";
+    let c = compute_problem_concentration(vm)?;
+    if c.total_occurrences <= PROBLEM_CONCENTRATION_MIN_OCCURRENCES {
+        // Too few occurrences for a "top causes" leverage framing to be
+        // meaningful (see `build_problem_concentration_note`) — the Action
+        // Plan page already lists the few findings directly, so this bridge
+        // sentence is simply omitted rather than restated at low counts.
+        return None;
+    }
+    Some(if en {
+        format!(
+            "The {} most significant causes account for about {}% of the {} occurrences detected — addressing those first has the biggest leverage on the list below.",
+            c.top_n, c.concentration_pct, c.total_occurrences
+        )
+    } else {
+        format!(
+            "Die {} wichtigsten Ursachen erklären rund {} % der {} erkannten Vorkommen — ihre Behebung hat die größte Hebelwirkung auf die folgende Liste.",
+            c.top_n, c.concentration_pct, c.total_occurrences
+        )
+    })
+}
+
+/// "Why is the overall score X" — one compact row per module that actually
+/// feeds the weighted `overall_score`, showing its score, its weight, and a
+/// plain-language classification of whether it drags the overall score down
+/// or stabilizes it (plan/2-score-driver-breakdown.md). Deliberately reads
+/// `vm.modules.module_scores` (the canonical `ModuleScoreEntry` list, same
+/// numbers `overall_score` is computed from) rather than
+/// `vm.modules.dashboard` — the dashboard's cards are reshaped for
+/// narrative presentation (e.g. "Search Experience" blends SEO with
+/// heuristic AI-visibility signals into a composite score that is *not*
+/// the raw SEO number actually carrying SEO's weight).
+fn render_score_driver_table(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    let contributing: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
+        .modules
+        .module_scores
+        .iter()
+        .filter(|m| m.contributes_to_overall)
+        .collect();
+    if contributing.len() < 2 {
+        return builder;
+    }
+
+    // The "biggest weak point" is the module that pulls the overall score
+    // down the hardest — that's a function of *both* how far below "Good"
+    // it scores and how much weight it carries, not score alone. A 40%-
+    // weighted module at 40/100 drags the overall score down far more than
+    // a 10%-weighted module at 30/100, even though the latter's raw score
+    // looks worse in isolation (the exact case this table exists to make
+    // legible, see plan/2-score-driver-breakdown.md's "Accessibility 20 /
+    // Security 30" example). Every other module scoring below the "Good"
+    // band (>=75, reusing the shared FIVE_BAND cutoffs — no new threshold
+    // logic) is a lesser but still real drag; everything at/above 75
+    // stabilizes the overall score.
+    let weakest_name = contributing
+        .iter()
+        .filter(|m| m.score < 75)
+        .max_by_key(|m| (100 - m.score) * m.weight_pct)
+        .map(|m| m.name.clone());
+
+    let classify = |m: &crate::audit::normalized::ModuleScoreEntry| -> &'static str {
+        if Some(&m.name) == weakest_name.as_ref() {
+            if en {
+                "Biggest weak point"
+            } else {
+                "Größter Schwachpunkt"
+            }
+        } else if m.score < 75 {
+            if en {
+                "Significant risk driver"
+            } else {
+                "Erheblicher Risikotreiber"
+            }
+        } else if en {
+            "Stabilizes the overall score"
+        } else {
+            "Stabilisiert Gesamtwert"
+        }
+    };
+
+    let mut table = AuditTable::new(vec![
+        TableColumn::new(if en { "Module" } else { "Modul" }).with_width("28%"),
+        TableColumn::new("Score").with_width("14%"),
+        TableColumn::new(if en { "Weight" } else { "Gewichtung" }).with_width("16%"),
+        TableColumn::new(if en { "Assessment" } else { "Einordnung" }).with_width("42%"),
+    ])
+    .with_title(if en {
+        "Why is the overall score what it is"
+    } else {
+        "Warum ist der Gesamtwert, was er ist"
+    });
+
+    for m in &contributing {
+        // Same lookup as `output::builder::helpers::localized_module_name`
+        // (private to that module, so replicated here rather than exposed
+        // just for this one call site): `module-<name>` Fluent key with the
+        // canonical English name as a fallback.
+        let key = format!("module-{}", m.name.to_lowercase().replace(' ', "-"));
+        let translated = i18n.t(&key);
+        let display_name = if translated == key {
+            m.name.clone()
+        } else {
+            translated
+        };
+        table = table.add_row(vec![
+            display_name,
+            format!("{} ({})", m.score, score_band_label(m.score, i18n)),
+            format!("{}%", m.weight_pct),
+            classify(m).to_string(),
+        ]);
+    }
+
+    builder = builder.add_component(table);
+    builder
+}
+
+/// One plain-language reason per non-Accessibility score driver (SEO,
+/// Security, Tech complexity/Performance) — reuses the bullets already
+/// computed by `interpretation::build_technical_overview_localized`
+/// (`vm.summary.technical_overview`), which is always exactly
+/// `[accessibility, seo, security, tech]` followed by any cross-impact notes.
+/// Bullet 0 (Accessibility) is skipped here — it's already covered by the
+/// WCAG root-cause note directly above this table (#2d).
+fn render_additional_score_drivers(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    if vm.summary.technical_overview.len() < 4 {
+        return builder;
+    }
+    let mut list = List::new().with_title(if en {
+        "Additional score drivers"
+    } else {
+        "Weitere Score-Treiber"
+    });
+    for item in &vm.summary.technical_overview[1..4] {
+        list = list.add_item(item);
+    }
+    builder = builder.add_component(list);
+    builder
+}
+
+/// Splits a list of `(label, score)` pairs into "critical weaknesses"
+/// (below the shared FIVE_BAND "Verbesserungswürdig"/"Needs improvement"
+/// cutoff at 60 — no new threshold invented) and "comparatively stable",
+/// then renders a compact callout per module, matching the review's own
+/// example format (plan/5-module-accessibility-security-driver-detail.md
+/// and plan/21-accessibility-subcategory-breakdown-uniform-gap.md).
+/// Handles both contrast (two-line) and uniform (single-line) distributions;
+/// renders nothing only for an empty input (module didn't run).
+fn render_subcategory_breakdown(
+    mut builder: renderreport::engine::ReportBuilder,
+    title: &str,
+    entries: &[(String, u32)],
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = i18n.locale() == "en";
+    if entries.is_empty() {
+        return builder;
+    }
+    const STABLE_CUTOFF: f32 = 60.0; // registry::FIVE_BAND's "Needs improvement" cutoff
+
+    let mut weak: Vec<&(String, u32)> = entries
+        .iter()
+        .filter(|(_, score)| (*score as f32) < STABLE_CUTOFF)
+        .collect();
+    let mut stable: Vec<&(String, u32)> = entries
+        .iter()
+        .filter(|(_, score)| (*score as f32) >= STABLE_CUTOFF)
+        .collect();
+    if weak.is_empty() && stable.is_empty() {
+        return builder;
+    }
+    weak.sort_by_key(|(_, score)| *score);
+    stable.sort_by_key(|(_, score)| std::cmp::Reverse(*score));
+
+    let render_side = |items: &[&(String, u32)]| -> String {
+        items
+            .iter()
+            .map(|(name, score)| format!("{name} {score}"))
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
+
+    // "Stronger sub-areas within {title}" rather than "comparatively stable"
+    // (feedback 2026-09-07): at an overall score of e.g. 20, a subcategory at
+    // 67 read as "stable" on its own, contradicting the module's headline
+    // "Kritisch" grade a few lines above. Framing it as relative-within-the-
+    // module keeps the same information without the contradiction.
+    let body = if !weak.is_empty() && !stable.is_empty() {
+        if en {
+            format!(
+                "Critical weaknesses: {}\nStronger sub-areas within {title}: {}",
+                render_side(&weak),
+                render_side(&stable)
+            )
+        } else {
+            format!(
+                "Kritische Schwächen: {}\nStärkere Teilbereiche innerhalb der {title}: {}",
+                render_side(&weak),
+                render_side(&stable)
+            )
+        }
+    } else if !weak.is_empty() {
+        if en {
+            format!("Critical weaknesses: {}", render_side(&weak))
+        } else {
+            format!("Kritische Schwächen: {}", render_side(&weak))
+        }
+    } else if en {
+        format!(
+            "Stronger sub-areas within {title}: {}",
+            render_side(&stable)
+        )
+    } else {
+        format!(
+            "Stärkere Teilbereiche innerhalb der {title}: {}",
+            render_side(&stable)
+        )
+    };
+    builder = builder.add_component(Callout::info(body).with_title(title));
     builder
 }
 
@@ -2117,6 +2799,15 @@ pub(super) fn render_timeframe_roadmap(
             .with_level(2),
     );
 
+    // Overall-leverage sentence (plan/7-management-summary-consolidation.md):
+    // reuses the same problem-concentration numbers shown earlier
+    // (plan/3-problem-concentration-diagnosis-narrative.md) but framed
+    // around leverage rather than diagnosis — not literally the same
+    // sentence twice.
+    if let Some(note) = build_overall_leverage_note(vm, i18n) {
+        builder = builder.add_component(Label::new(note).with_size("10.5pt"));
+    }
+
     let columns = &vm.actions.roadmap_columns;
     if columns.is_empty() {
         let empty_msg = if en {
@@ -2134,8 +2825,9 @@ pub(super) fn render_timeframe_roadmap(
     let root_causes = mandatory_root_causes(vm);
     let root_cause_by_rule = root_cause_lookup(&root_causes);
 
-    // One level group per column (systemic vs. local), each action as a clean
-    // recommendation card — no time/effort badges, just what to do and why.
+    // One level group per column (systemic vs. local), each action as a
+    // clean recommendation card — what to do, why, and (plan/6) a
+    // remediation-leverage line instead of a separate visual effort badge.
     for col in columns {
         builder = builder.add_component(
             SectionHeaderSplit::new(col.title.clone(), col.description.clone()).with_level(3),
@@ -2146,6 +2838,24 @@ pub(super) fn render_timeframe_roadmap(
             } else {
                 item.risk_effect.clone()
             };
+            // plan/6-remediation-leverage-metric.md: "is this worth doing
+            // first" verdict — reach (occurrences), cost (effort) and risk
+            // condensed into one line. "betroffen", not "behoben"/"beseitigt"
+            // (plan/4-root-cause-confidence-wording.md): occurrence_count is
+            // how many elements this rule affects, not a guarantee that one
+            // fix resolves every one of them.
+            let leverage_tag = if en {
+                format!(
+                    "Remediation leverage: {} — {} occurrence(s) affected · effort: {}",
+                    item.leverage, item.occurrence_count, item.effort
+                )
+            } else {
+                format!(
+                    "Reparaturhebel: {} — {} Vorkommen betroffen · Aufwand: {}",
+                    item.leverage, item.occurrence_count, item.effort
+                )
+            };
+            why = format!("{why}\n\n{leverage_tag}");
             if let Some((letter, occurrence_count, share_pct)) =
                 root_cause_by_rule.get(&item.rule_id)
             {
@@ -2260,5 +2970,344 @@ mod risk_and_strength_tests {
         // in the fixed dimension order, so it stays first among bads.
         assert_eq!(risks[0].label, "Legal Conformance");
         assert_eq!(risks[1].label, "SEO & AI Visibility");
+    }
+
+    fn test_report_view_model() -> ReportViewModel {
+        let mut results = crate::wcag::WcagResults::new();
+        results.nodes_checked = 50;
+        results.passes = 10;
+        results.add_violation(
+            crate::wcag::Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                crate::cli::WcagLevel::A,
+                crate::wcag::Severity::High,
+                "Image missing alt",
+                "node-img",
+            )
+            .with_selector("img.hero")
+            .with_html_snippet("<img class=\"hero\">")
+            .with_fix("Add alt"),
+        );
+        let report = AuditReport::new(
+            "https://example.com".into(),
+            crate::cli::WcagLevel::AA,
+            results,
+            100,
+        );
+        let normalized = crate::audit::normalized::normalize(&report);
+        let config = ReportConfig::default();
+        crate::output::builder::build_view_model(&normalized, &config)
+    }
+
+    #[test]
+    fn problem_profile_casoon_scenario_is_punktuell() {
+        let mut vm = test_report_view_model();
+        let i18n_de = I18n::new("de").unwrap();
+        let i18n_en = I18n::new("en").unwrap();
+
+        // Real module scores from a live casoon.de audit, 2026-09-07
+        // (verified via `--debug-typ`'s "Warum ist der Gesamtwert"-table) — 0
+        // critical (< 40) modules, and in fact 0 modules below 75 at all.
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Accessibility".into(),
+                score: 99,
+                grade: "Sehr gut".into(),
+                weight_pct: 40,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Performance".into(),
+                score: 75,
+                grade: "Gut".into(),
+                weight_pct: 20,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "SEO".into(),
+                score: 100,
+                grade: "Sehr gut".into(),
+                weight_pct: 20,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Security".into(),
+                score: 95,
+                grade: "Sehr gut".into(),
+                weight_pct: 10,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Mobile".into(),
+                score: 90,
+                grade: "Sehr gut".into(),
+                weight_pct: 10,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+        ];
+        // 1 occurrence — matches the real audit's single a11y.text_spacing.clipped finding.
+        let mut finding = vm.findings.all_findings[0].clone();
+        finding.rule_id = "1.4.12".into();
+        finding.title = "Inhalt wird abgeschnitten".into();
+        finding.occurrence_count = 1;
+        finding.wcag_criterion = "1.4.12".into();
+        vm.findings.all_findings = vec![finding];
+
+        let kind = classify_problem_profile(&vm);
+        assert_eq!(kind, ProblemProfileKind::Punktuell);
+        assert_eq!(kind.label(false), "punktuell");
+        assert_eq!(kind.label(true), "isolated");
+
+        let desc_de = build_problem_profile_description(&vm, kind, &i18n_de);
+        assert!(desc_de.contains("Sehr guter technischer Zustand"));
+        let desc_en = build_problem_profile_description(&vm, kind, &i18n_en);
+        assert!(desc_en.contains("Very good technical condition"));
+    }
+
+    #[test]
+    fn problem_profile_inros_lackner_scenario_is_konzentriert_systemisch() {
+        let mut vm = test_report_view_model();
+        let i18n_de = I18n::new("de").unwrap();
+        let i18n_en = I18n::new("en").unwrap();
+
+        // Real module scores from a live inros-lackner.de audit, 2026-09-07
+        // (verified via `--debug-typ`'s "Warum ist der Gesamtwert"-table) — 4
+        // of 5 weighted modules are below 75 ("Good"), but only Accessibility
+        // (20) and Security (30) are actually "Kritisch" (< 40); Performance
+        // (64) and SEO (65) are merely "Verbesserungswürdig". Regression
+        // coverage for the 2026-09-07 fix: with the broader < 75 breadth
+        // count this used to misclassify as "breit & systemisch" (4 modules)
+        // instead of "konzentriert & systemisch" (2 critical modules).
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Accessibility".into(),
+                score: 20,
+                grade: "Kritisch".into(),
+                weight_pct: 40,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Performance".into(),
+                score: 64,
+                grade: "Verbesserungswürdig".into(),
+                weight_pct: 20,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "SEO".into(),
+                score: 65,
+                grade: "Verbesserungswürdig".into(),
+                weight_pct: 20,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Security".into(),
+                score: 30,
+                grade: "Kritisch".into(),
+                weight_pct: 10,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Mobile".into(),
+                score: 80,
+                grade: "Gut".into(),
+                weight_pct: 10,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+        ];
+        let mut f1 = vm.findings.all_findings[0].clone();
+        f1.rule_id = "1.4.3".into();
+        f1.title = "Kontrast unzureichend".into();
+        f1.occurrence_count = 60;
+        f1.wcag_criterion = "1.4.3".into();
+
+        let mut f2 = vm.findings.all_findings[0].clone();
+        f2.rule_id = "4.1.2".into();
+        f2.title = "Name/Rolle fehlt".into();
+        f2.occurrence_count = 30;
+        f2.wcag_criterion = "4.1.2".into();
+        vm.findings.all_findings = vec![f1, f2];
+
+        let kind = classify_problem_profile(&vm);
+        assert_eq!(kind, ProblemProfileKind::KonzentriertSystemisch);
+        assert_eq!(kind.label(false), "konzentriert & systemisch");
+        assert_eq!(kind.label(true), "concentrated & systemic");
+
+        let desc_de = build_problem_profile_description(&vm, kind, &i18n_de);
+        assert!(desc_de.contains("Barrierefreiheit und Sicherheit bestimmen den Handlungsbedarf"));
+        assert!(desc_de.contains("konzentriert sich auf wenige wiederkehrende Muster"));
+
+        let desc_en = build_problem_profile_description(&vm, kind, &i18n_en);
+        assert!(desc_en.contains("Accessibility and Security determine the need for action"));
+        assert!(desc_en.contains("concentrated in a few recurring patterns"));
+    }
+
+    #[test]
+    fn problem_profile_auto_birne_scenario_is_breit_systemisch() {
+        let mut vm = test_report_view_model();
+        let i18n_de = I18n::new("de").unwrap();
+        let i18n_en = I18n::new("en").unwrap();
+
+        // Real module scores from a live auto-birne.de audit, 2026-09-07
+        // (verified via `--debug-typ`'s "Warum ist der Gesamtwert"-table) — 3
+        // critical (< 40) modules (Accessibility, Performance, Security); SEO
+        // (82) is stable and Mobile (70) is merely "Verbesserungswürdig", so
+        // neither should be named as "determining the need for action".
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Accessibility".into(),
+                score: 12,
+                grade: "Kritisch".into(),
+                weight_pct: 40,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Performance".into(),
+                score: 34,
+                grade: "Kritisch".into(),
+                weight_pct: 20,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Security".into(),
+                score: 22,
+                grade: "Kritisch".into(),
+                weight_pct: 10,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "SEO".into(),
+                score: 82,
+                grade: "Gut".into(),
+                weight_pct: 20,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+            crate::audit::normalized::ModuleScoreEntry {
+                name: "Mobile".into(),
+                score: 70,
+                grade: "Verbesserungswürdig".into(),
+                weight_pct: 10,
+                contributes_to_overall: true,
+                measurement_type: "measured".into(),
+            },
+        ];
+
+        let kind = classify_problem_profile(&vm);
+        assert_eq!(kind, ProblemProfileKind::BreitSystemisch);
+        assert_eq!(kind.label(false), "breit & systemisch");
+        assert_eq!(kind.label(true), "broad & systemic");
+
+        let desc_de = build_problem_profile_description(&vm, kind, &i18n_de);
+        assert!(desc_de.contains("Mehrere technische Bereiche sind gleichzeitig betroffen"));
+        assert!(desc_de.contains("Barrierefreiheit, Performance und Sicherheit"));
+
+        let desc_en = build_problem_profile_description(&vm, kind, &i18n_en);
+        assert!(desc_en.contains("Multiple technical areas are affected simultaneously"));
+        assert!(desc_en.contains("Accessibility, Performance, and Security"));
+    }
+
+    #[test]
+    fn subcategory_breakdown_handles_all_weak_entries() {
+        let i18n = I18n::new("de").unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("single");
+        let entries = vec![
+            ("ARIA".to_string(), 10),
+            ("Landmarks".to_string(), 20),
+            ("Semantik".to_string(), 50),
+        ];
+        let builder = render_subcategory_breakdown(builder, "Accessibility", &entries, &i18n);
+        let report = builder.build();
+        assert_eq!(report.components.len(), 1);
+        let json = serde_json::to_string(&report.components[0]).unwrap();
+        assert!(json.contains("Kritische Schwächen:"));
+        assert!(!json.contains("Stärkere Teilbereiche"));
+        assert!(json.contains("ARIA 10"));
+    }
+
+    #[test]
+    fn subcategory_breakdown_handles_all_stable_entries() {
+        let i18n = I18n::new("de").unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("single");
+        let entries = vec![
+            ("Formulare".to_string(), 100),
+            ("Alternativtexte".to_string(), 90),
+        ];
+        let builder = render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &i18n);
+        let report = builder.build();
+        assert_eq!(report.components.len(), 1);
+        let json = serde_json::to_string(&report.components[0]).unwrap();
+        assert!(!json.contains("Kritische Schwächen"));
+        assert!(json.contains("Stärkere Teilbereiche innerhalb der Barrierefreiheit:"));
+        assert!(json.contains("Formulare 100"));
+    }
+
+    #[test]
+    fn subcategory_breakdown_handles_contrast_entries() {
+        let i18n = I18n::new("de").unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("single");
+        let entries = vec![("ARIA".to_string(), 10), ("Formulare".to_string(), 100)];
+        let builder = render_subcategory_breakdown(builder, "Barrierefreiheit", &entries, &i18n);
+        let report = builder.build();
+        assert_eq!(report.components.len(), 1);
+        let json = serde_json::to_string(&report.components[0]).unwrap();
+        assert!(json.contains("Kritische Schwächen:"));
+        assert!(json.contains("Stärkere Teilbereiche innerhalb der Barrierefreiheit:"));
+    }
+
+    #[test]
+    fn subcategory_breakdown_handles_empty_entries() {
+        let i18n = I18n::new("de").unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("single");
+        let entries: Vec<(String, u32)> = vec![];
+        let builder = render_subcategory_breakdown(builder, "Accessibility", &entries, &i18n);
+        let report = builder.build();
+        assert_eq!(report.components.len(), 0);
+    }
+
+    #[test]
+    fn part_divider_part_1_and_2_do_not_have_trailing_break() {
+        let i18n = I18n::new("de").unwrap();
+        let b1 = renderreport::engine::ReportBuilder::new("single");
+        let r1 = render_part_divider(b1, 1, "T1", "I1", "Z1", "B1", &i18n).build();
+        assert_eq!(r1.components.len(), 3);
+
+        let b2 = renderreport::engine::ReportBuilder::new("single");
+        let r2 = render_part_divider(b2, 2, "T2", "I2", "Z2", "B2", &i18n).build();
+        assert_eq!(r2.components.len(), 4);
+    }
+
+    #[test]
+    fn part_divider_part_3_acts_as_standalone_trennseite() {
+        let i18n = I18n::new("de").unwrap();
+        let b3 = renderreport::engine::ReportBuilder::new("single");
+        let r3 = render_part_divider(b3, 3, "T3", "I3", "Z3", "B3", &i18n).build();
+        assert_eq!(r3.components.len(), 6);
+        let json = serde_json::to_string(&r3.components).unwrap();
+        assert!(json.contains("TECHNISCHER ANHANG"));
+        assert!(json.contains("divider"));
+    }
+
+    #[test]
+    fn part_divider_part_3_english_eyebrow() {
+        let i18n = I18n::new("en").unwrap();
+        let b3 = renderreport::engine::ReportBuilder::new("single");
+        let r3 = render_part_divider(b3, 3, "T3", "I3", "Z3", "B3", &i18n).build();
+        let json = serde_json::to_string(&r3.components).unwrap();
+        assert!(json.contains("TECHNICAL APPENDIX"));
     }
 }

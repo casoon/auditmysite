@@ -478,6 +478,16 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
             de: format!("Tech-Komplexität: Hoch — {d} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
             en: format!("Tech complexity: High — {d} DOM nodes, performance {p} pts — refactoring recommended"),
         },
+        // p is 60-74 here ("Verbesserungswürdig"/"Needs improvement" band,
+        // same < 75 "Good" cutoff `render_score_driver_table` uses to call a
+        // module a "Risikotreiber") — calling that "stabil"/"stable" a few
+        // lines below a table that labels the same score a risk driver was
+        // self-contradictory (feedback 2026-09-07). Only p >= 75 earns
+        // "stabil" below.
+        (d, Some(p)) if d > 2000 && p < 75 => LocalizedText {
+            de: format!("Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
+            en: format!("Tech complexity: Medium-high — {d} DOM nodes add strain to only middling performance ({p} pts) — optimization potential"),
+        },
         (d, Some(p)) if d > 2000 => LocalizedText {
             de: format!("Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten (Performance {p} Pkt stabil)"),
             en: format!("Tech complexity: Medium-high — {d} DOM nodes (performance {p} pts stable)"),

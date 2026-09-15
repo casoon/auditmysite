@@ -283,16 +283,23 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 let en = i18n.locale() == "en";
                 match normalized.normalized.execution.quality.status {
                     AuditQualityStatus::Complete => None,
+                    // Framed as a normal automated-audit coverage limitation, not
+                    // a tool defect: the audit itself completed successfully,
+                    // only individual measurements hit a stability/retry budget
+                    // and are therefore excluded from the reported scope
+                    // (feedback: "Dieser Prüflauf ist unvollständig" next to a
+                    // clean run read as if the tool had failed).
                     AuditQualityStatus::Partial => Some(if en {
-                        "This audit run is partial: some measurements hit a stability/retry \
-                         budget and the reported scores describe only the successfully measured \
-                         scope. See the methodology appendix for details."
+                        "The automated audit completed successfully. Individual measurements hit \
+                         a stability/retry budget and are excluded from the reported scores, \
+                         which describe only the successfully measured scope. See the \
+                         methodology appendix for details."
                             .to_string()
                     } else {
-                        "Dieser Prüflauf ist unvollständig: Einzelne Messungen haben ein \
-                         Stabilitäts-/Wiederholungsbudget erreicht; die ausgewiesenen Scores \
-                         beschreiben nur den erfolgreich gemessenen Umfang. Details im \
-                         Methodik-Anhang."
+                        "Der automatisierte Audit wurde erfolgreich durchgeführt. Einzelne \
+                         Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind \
+                         daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben \
+                         den erfolgreich gemessenen Umfang. Details im Methodik-Anhang."
                             .to_string()
                     }),
                     AuditQualityStatus::Insufficient => Some(if en {
@@ -308,6 +315,8 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                     }),
                 }
             },
+            audit_quality_severe: normalized.normalized.execution.quality.status
+                == crate::audit::AuditQualityStatus::Insufficient,
             verdict: build_verdict_text(
                 &i18n,
                 &normalized.normalized.url,
