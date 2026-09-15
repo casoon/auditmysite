@@ -82,6 +82,20 @@ impl BatchLifecyclePresenter {
         };
         self.finish(mapped, message);
     }
+
+    /// Closes the lifecycle, *then* renders the final report (#580). The
+    /// order is fixed here rather than at each call site: rendering first
+    /// lets an interactive bar redraw across report lines and makes a
+    /// redirected stream print its verdict after the report.
+    pub fn finish_then_render<T>(
+        &self,
+        verdict: auditmysite::Verdict,
+        message: &str,
+        render: impl FnOnce() -> T,
+    ) -> T {
+        self.finish_verdict(verdict, message);
+        render()
+    }
 }
 
 #[cfg(test)]
@@ -149,6 +163,26 @@ mod tests {
             2,
             "advance() must stay silent: {output:?}"
         );
+    }
+
+    #[test]
+    fn lifecycle_is_finished_before_report_renders() {
+        let (presenter, buf) = plain_presenter();
+        presenter.start(2, "Auditing URLs");
+
+        let seen_at_render =
+            presenter.finish_then_render(auditmysite::Verdict::Warn, "1/2 passed", || {
+                buf_to_string(&buf)
+            });
+
+        assert!(
+            seen_at_render
+                .lines()
+                .last()
+                .is_some_and(|l| l.contains("1/2 passed")),
+            "verdict must be written before the report renders: {seen_at_render:?}"
+        );
+        assert_eq!(buf_to_string(&buf), seen_at_render);
     }
 
     #[test]

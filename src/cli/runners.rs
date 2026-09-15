@@ -520,13 +520,15 @@ pub async fn run_batch_mode(
     let verdict_message = verdict_message_text(&verdict_result);
 
     if args.per_page_reports {
-        output_batch_as_single_reports(&batch_report, args)?;
-        presenter.finish_verdict(verdict_result.verdict, &verdict_message);
+        presenter.finish_then_render(verdict_result.verdict, &verdict_message, || {
+            output_batch_as_single_reports(&batch_report, args)
+        })?;
         return Ok(verdict_result.verdict);
     }
 
-    output_batch_report(&batch_report, args, Some(&verdict_result))?;
-    presenter.finish_verdict(verdict_result.verdict, &verdict_message);
+    presenter.finish_then_render(verdict_result.verdict, &verdict_message, || {
+        output_batch_report(&batch_report, args, Some(&verdict_result))
+    })?;
     Ok(verdict_result.verdict)
 }
 
