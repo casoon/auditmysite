@@ -5,6 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.3.1-Fixes, 2026-09-16 (#581, #582, #583):** (1) Die Accessibility-Subkategorie- und
+  Security-Kategorie-Scores aus `d6daf7b` erschienen nur im PDF, nicht im JSON-Report — der
+  JSON-Builder (`build_page`/`PageDetail`) las sie nie. Jetzt als
+  `pages[].detail.accessibility_subcategory_scores`/`security_category_scores` (`{ name, score }`,
+  kanonisch Englisch) im Single-Report, mit Schema-, Registry- und `OUTPUT_CONTRACT.md`-Eintrag;
+  Batch-Details bleiben kompakt und lassen beide weg. (2) Der CI-Schritt für die vier
+  Detection-Corpus-Binaries brach beim ersten Fehlschlag ab, die übrigen liefen nie (so im ersten
+  1.3.0-CI-Lauf passiert) — jetzt ein Schritt pro Binary mit `if: !cancelled()`, `release-check.sh`
+  sammelt Fehlschläge und bricht erst am Ende ab. (3) `Cargo.lock` hielt das gelöschte
+  `spin 0.9.8` (über `lazy_static`) — auf 0.9.9 gehoben.
 - **Leerseite nach leerem Report-Teil behoben, renderreport 0.5.1, 2026-09-15:** der
   `pdf-smoke`-Test `test_single_pdf_technical_pages_are_not_blank_when_pdftoppm_is_available`
   schlug fehl: im Technical-Fixture folgte auf die Teil-3-Trennseite (seit plan/22 mit eigenem
