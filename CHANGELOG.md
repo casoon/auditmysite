@@ -5,6 +5,16 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Leerseite nach leerem Report-Teil behoben, renderreport 0.5.1, 2026-09-15:** der
+  `pdf-smoke`-Test `test_single_pdf_technical_pages_are_not_blank_when_pdftoppm_is_available`
+  schlug fehl: im Technical-Fixture folgte auf die Teil-3-Trennseite (seit plan/22 mit eigenem
+  abschließendem `PageBreak`) kein Modulinhalt, sondern direkt der Anhang mit eigenem `PageBreak` —
+  dazwischen eine leere Seite. Ursache lag in renderreport: die Engine schrieb für
+  `LayoutHint::AlwaysNewPage` (nur `page-break` nutzt ihn) einen harten `#pagebreak()` vor jede
+  eigentlich weiche Umbruch-Komponente, zwei benachbarte Umbrüche ergaben so eine Leerseite.
+  renderreport 0.5.1 schreibt dort einen weichen Umbruch (mit Regressionstest, der ohne Fix rot
+  war). Echte Reports waren in drei Live-Läufen (Standard, Technical, ohne `--full`) nicht
+  betroffen, weil Teil 3 dort immer Inhalt hat.
 - **Batch-Fortschritt vor dem Report abschließen, 2026-09-15 (#580):** `run_batch_mode`
   (`src/cli/runners.rs`) rief `finish_verdict` erst nach `output_batch_report` bzw.
   `output_batch_as_single_reports` auf — im TTY zeichnete der aktive Balken über den Report, in
