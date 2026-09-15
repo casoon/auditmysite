@@ -652,9 +652,20 @@ pub(super) fn render_finding_technical(
     }
 
     if let Some(ref cause) = group.structural_cause {
+        // plan/4-root-cause-confidence-wording.md: a single-URL audit sees
+        // only one page, so a shared-component pattern is at best a strong
+        // probability, never a confirmed fact — the label (previously the
+        // hardcoded English "Root Cause", unlocalized even in German
+        // reports) and the callout text (`finding-structural-cause-*` in
+        // report.ftl) must both read as a likelihood, not a certainty.
+        let en = i18n.locale() == "en";
         let label = if group.is_component_issue {
-            "Root Cause"
-        } else if i18n.locale() == "en" {
+            if en {
+                "Likely root cause"
+            } else {
+                "Wahrscheinliche Ursache"
+            }
+        } else if en {
             "Structural cause"
         } else {
             "Strukturelle Ursache"

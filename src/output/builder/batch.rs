@@ -1576,19 +1576,29 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
         effort,
         execution_priority,
         examples,
+        // plan/4-root-cause-confidence-wording.md: this threshold is a raw
+        // occurrence count across pages, not `TemplateCluster.confidence`
+        // ("confirmed" vs "likely" HTML-snippet-shape evidence, see
+        // `render_template_cluster_card` above) — a high count alone does
+        // not confirm the occurrences share one component/template any
+        // more than it does in the single-report case, so this must stay
+        // equally hedged rather than asserting a "Root Cause".
         structural_cause: if acc.count >= 10 {
             if locale == "en" {
                 Some(format!(
-                    "Root cause: 1 component issue producing {} occurrences. \
-                     This is likely a shared template or component — fixing it once \
-                     eliminates all occurrences simultaneously.",
+                    "{} occurrences follow the same pattern — this strongly suggests a \
+                     shared component or template, though that is only confirmed with \
+                     evidence from further pages. A fix at that one shared point would \
+                     likely address these occurrences together.",
                     acc.count
                 ))
             } else {
                 Some(format!(
-                    "Root Cause: 1 Komponentenproblem erzeugt {} Vorkommen. \
-                     Wahrscheinlich ein gemeinsam genutztes Template oder eine Komponente — \
-                     ein einmaliger Fix behebt alle Vorkommen gleichzeitig.",
+                    "{} Vorkommen folgen demselben Muster — das deutet stark auf eine \
+                     gemeinsam genutzte Komponente oder ein Template hin, bestätigt ist \
+                     das erst mit Belegen von weiteren Seiten. Eine Behebung an dieser \
+                     einen Stelle würde diese Vorkommen voraussichtlich gemeinsam \
+                     adressieren.",
                     acc.count
                 ))
             }
