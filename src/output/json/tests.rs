@@ -723,6 +723,51 @@ fn test_search_experience_serialized_in_single_detail_modules() {
     );
 }
 
+/// #581: the subcategory breakdown the PDF shows must also be in the canonical
+/// single-report JSON (canonical English names, 0-100 scores), while batch
+/// page details stay compact and omit it.
+#[test]
+fn test_subcategory_scores_serialized_in_single_detail_only() {
+    let report = all_active_modules_report();
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let json_value: serde_json::Value =
+        serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
+    let detail = &json_value["pages"][0]["detail"];
+
+    let accessibility = detail["accessibility_subcategory_scores"]
+        .as_array()
+        .expect("accessibility_subcategory_scores must be serialized in single detail");
+    assert_eq!(
+        accessibility.len(),
+        7,
+        "all 7 subcategories are always present"
+    );
+    let security = detail["security_category_scores"]
+        .as_array()
+        .expect("security_category_scores must be serialized when Security ran");
+    assert!(!security.is_empty());
+    for entry in accessibility.iter().chain(security) {
+        let name = entry["name"].as_str().expect("entry name");
+        assert!(
+            name.is_ascii(),
+            "canonical English name expected, got {name:?}"
+        );
+        assert!(entry["score"].as_u64().is_some_and(|s| s <= 100));
+        assert!(entry.get("subcategory_kind").is_none());
+        assert!(entry.get("category_kind").is_none());
+    }
+
+    let batch = crate::audit::BatchReport::from_reports(vec![report], vec![], 0);
+    let batch_json: serde_json::Value =
+        serde_json::from_str(&UnifiedReport::batch(&batch).to_json(true).unwrap()).unwrap();
+    let batch_detail = &batch_json["pages"][0]["detail"];
+    assert!(batch_detail
+        .get("accessibility_subcategory_scores")
+        .is_none());
+    assert!(batch_detail.get("security_category_scores").is_none());
+}
+
 #[test]
 fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
     let mut report = all_active_modules_report();

@@ -307,6 +307,30 @@
           "type": "array",
           "items": { "$ref": "#/$defs/capabilitySignal" }
         },
+        "accessibility_subcategory_scores": {
+          "description": "Accessibility score per subcategory (0-100, higher is better). Single reports only.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "score"],
+            "properties": {
+              "name": { "type": "string" },
+              "score": { "type": "integer", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "security_category_scores": {
+          "description": "Security score per category (0-100, higher is better); omitted when the Security module did not run. Single reports only.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "score"],
+            "properties": {
+              "name": { "type": "string" },
+              "score": { "type": "integer", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
         "viewport_scores": { "type": ["object", "null"] },
         "viewport_comparison": { "type": ["object", "null"] },
         "budget_violations": { "type": "array" },

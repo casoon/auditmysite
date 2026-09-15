@@ -601,6 +601,15 @@ pub struct PageDetail {
     /// "BIK für Alle" editorial accessibility guide chapter mapping — always
     /// present. See `BikGuideAnnex` doc comment.
     pub bik_guide: BikGuideAnnex,
+    /// Accessibility score per subcategory — the module's own scorer re-run on
+    /// each subcategory's violations, explaining what drives the Accessibility
+    /// module score (#581). Single reports only.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub accessibility_subcategory_scores: Vec<crate::audit::normalized::SubcategoryScoreEntry>,
+    /// Security score per category; empty when the Security module didn't run
+    /// (#581). Single reports only.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub security_category_scores: Vec<crate::audit::normalized::SecurityCategoryScoreEntry>,
     pub modules: ModuleBlob,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub confidence_summary: Vec<OutputConfidenceSignal>,

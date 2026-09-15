@@ -138,6 +138,16 @@ Desktop and mobile accessibility/overall scores on the 0-100 scale.
 optional Security contribution; the canonical accessibility blend is recorded
 in `score_breakdown`.
 
+<a id="subcategory-scores"></a>
+### subcategory_scores — `pages[].detail.accessibility_subcategory_scores` / `pages[].detail.security_category_scores`
+
+Accessibility score per subcategory and Security score per category, each on
+the 0-100 scale; higher is better. Each entry is `{ name, score }` with a
+canonical English `name`. Accessibility entries re-run the module's own scorer
+on that subcategory's violations, so a subcategory without violations scores
+100. Security entries are omitted when the Security module did not run. Single
+reports only; batch page details omit both fields.
+
 <a id="named-module-score"></a>
 ### named_module_score — `summary.*_score` / `pages[].*_score`
 
