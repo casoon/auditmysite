@@ -637,56 +637,27 @@ fn extract_rule_metadata_entries(file: &str, content: &str) -> Vec<RuleMetaEntry
 /// SC groups where multiple rule files legitimately share a raw success
 /// criterion with differing severity/level, already reviewed and accepted —
 /// each reason states why the mix is fine, not just that it exists.
-const ALLOWED_MIXED_SEVERITY_GROUPS: &[(&str, &str)] = &[
-    (
-        "2.1.1",
-        "keyboard.rs (Critical, default metadata severity) + click_handlers.rs \
-         (High) — reviewed as a harmless grouping in the Phase 2 taxonomy \
-         review: both are genuine 2.1.1 keyboard-operability problems, and \
-         individual violations already set their own explicit per-call \
-         severity rather than relying on the struct default for most cases.",
-    ),
-    (
-        "1.4.4",
-        "meta_viewport_large.rs (Medium, 500% best-practice) + resize_text.rs \
-         (High, 200% WCAG-required) — intentional by design (#QA-030 same \
-         session): check_meta_viewport_large_with_page guards against \
-         double-firing with the stricter check, so the two severities never \
-         apply to the same violation on the same page.",
-    ),
-    (
-        "1.1.1",
-        "server_side_image_map.rs (Medium) is a distinct, lesser pattern \
-         (discourage server-side maps) vs. the rest of the 1.1.1 family \
-         (High — genuinely missing alternative text). Escalating to High \
-         when both co-occur on a page is the correct worst-case reading, \
-         not a bug.",
-    ),
-    (
-        "4.1.2",
-        "widget_rules.rs's RULE_META default (Medium) doesn't reflect that \
-         its individual checks emit their own varying per-call severities \
-         (Low for tab-selected-state, Medium/High for others) — a metadata \
-         cleanliness gap, not a functional bug. Tracked for cleanup, not \
-         fixed here.",
-    ),
-    (
-        "1.3.1",
-        "13-member SC group (region/landmark-granular/table/list/form/info- \
-         relationships checks). Mostly Medium; info_relationships.rs's \
-         definition-list check is High. This is the same large 1.3.1 \
-         collision QA-009 identified and explicitly deferred as a \
-         content-authoring task (dedicated per-check taxonomy entries with \
-         properly written DE/EN copy) rather than a quick mechanical fix — \
-         see QA-009's backlog entry for the full remaining-scope list.",
-    ),
-    (
-        "3.3.2",
-        "instructions.rs (High) vs. form_rules.rs's RULE_META_LABELS (Low) — \
-         same deferred-collision class as 1.3.1 above, tracked under QA-009's \
-         remaining scope rather than fixed here.",
-    ),
-];
+// 2026-09-06 (plan/1-root-cause-title-occurrence-mismatch.md, "Mechanism 2"):
+// the "2.1.1", "1.4.4", "1.1.1", "4.1.2", and "1.3.1" groups formerly listed
+// here were exactly QA-009's deferred content-authoring task — every axe_id
+// in those groups that previously lacked its own `LEGACY_WCAG_MAP` entry
+// (and therefore fell back to the shared raw-criterion group key, mixing
+// unrelated checks' severities/occurrence counts into one finding) now has
+// a dedicated taxonomy `Rule` + `LEGACY_WCAG_MAP` entry, so the "mixed
+// severity in one group" premise these exceptions documented no longer
+// applies — removed as directed by this test's own staleness check.
+// "3.3.2" remains: instructions.rs/form_rules.rs *intentionally* share one
+// axe_id ("label") for several related sub-checks with varying per-call
+// severity — that is a real, still-current mix, not a grouping bug.
+const ALLOWED_MIXED_SEVERITY_GROUPS: &[(&str, &str)] = &[(
+    "3.3.2",
+    "instructions.rs (High) vs. form_rules.rs's RULE_META_LABELS (Low) — \
+     both intentionally share axe_id \"label\" for several related WCAG \
+     3.3.2 sub-checks (missing label, placeholder-only, no required-field \
+     indication, missing fieldset/legend) that legitimately carry \
+     different severities; tracked under QA-009's remaining scope, not a \
+     grouping-mechanism bug.",
+)];
 
 #[test]
 fn no_undocumented_severity_collisions_in_group_key_mechanism() {

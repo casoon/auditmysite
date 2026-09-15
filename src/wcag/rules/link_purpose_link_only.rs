@@ -15,7 +15,14 @@ pub const LINK_PURPOSE_LINK_ONLY_RULE: RuleMetadata = RuleMetadata {
     severity: Severity::Medium,
     description: "The purpose of each link can be determined from the link text alone",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-link-only.html",
-    axe_id: "link-name",
+    // Deliberately not "link-name": that axe_id is already used by
+    // `link_purpose.rs`'s WCAG 2.4.4 (Level A) check. Both used to share
+    // the literal string "link-name" — harmless while grouping fell back
+    // to the raw WCAG criterion ("2.4.9" vs "2.4.4"), but would have
+    // silently merged this file's AAA-level findings into 2.4.4 the moment
+    // either got its own `LEGACY_WCAG_MAP` entry keyed by axe_id (plan/1
+    // root-cause-title-occurrence-mismatch.md, "Mechanism 2").
+    axe_id: "link-name-only",
     tags: &["wcag2aaa", "wcag249", "cat.links"],
 };
 

@@ -16,7 +16,16 @@ pub const RULE_META: RuleMetadata = RuleMetadata {
     description:
         "For all user interface components, the name and role can be programmatically determined",
     help_url: "https://www.w3.org/WAI/WCAG21/Understanding/name-role-value.html",
-    axe_id: "label",
+    // Deliberately not "label": that axe_id is already used by
+    // `instructions.rs`/`form_rules.rs`'s WCAG 3.3.2 label/instructions
+    // family. Both used to share the literal string "label", which is
+    // harmless today (their grouping key falls back to the raw WCAG
+    // criterion, "4.1.2" vs "3.3.2", so they never actually merged) but
+    // would have silently merged this file's 4.1.2 findings into the 3.3.2
+    // bucket (or vice versa) the moment either got its own
+    // `LEGACY_WCAG_MAP` entry keyed by axe_id (plan/1
+    // root-cause-title-occurrence-mismatch.md, "Mechanism 2").
+    axe_id: "control-missing-label",
     tags: &["wcag2a", "wcag412", "cat.forms"],
 };
 
