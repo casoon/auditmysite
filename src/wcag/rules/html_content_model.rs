@@ -113,7 +113,13 @@ fn is_void_element(name: &str) -> bool {
 /// mismatched/unclosed tags are handled best-effort (a close tag pops up
 /// to the matching open tag by name; an unmatched close tag is ignored).
 fn enclosing_tag_stack(html: &str, byte_offset: usize) -> Vec<String> {
-    let end = byte_offset.min(html.len());
+    // The offset comes from an external parser and can land inside a multi-byte
+    // character; walk back to the character it belongs to rather than slicing
+    // through it. One byte either way is irrelevant to the tag heuristic.
+    let mut end = byte_offset.min(html.len());
+    while end > 0 && !html.is_char_boundary(end) {
+        end -= 1;
+    }
     let mut stack: Vec<String> = Vec::new();
     let mut raw_text_tag: Option<String> = None;
     let mut i = 0usize;
@@ -127,8 +133,12 @@ fn enclosing_tag_stack(html: &str, byte_offset: usize) -> Vec<String> {
         if let Some(raw_tag) = &raw_text_tag {
             // Inside a raw-text element: only a matching closing tag ends it.
             let close = format!("</{raw_tag}");
-            if html[i..].len() >= close.len()
-                && html[i..i + close.len()].eq_ignore_ascii_case(&close)
+            // Byte comparison: `close` is ASCII, but its length can run into
+            // the middle of a multi-byte character, which `str` slicing would
+            // panic on.
+            let rest = html[i..].as_bytes();
+            if rest.len() >= close.len()
+                && rest[..close.len()].eq_ignore_ascii_case(close.as_bytes())
             {
                 raw_text_tag = None;
                 // Fall through to normal tag handling below for the close tag.
@@ -242,6 +252,21 @@ mod tests {
         let html = "<div><!-- <dl><table> --><span>HERE";
         let stack = enclosing_tag_stack(html, html.len());
         assert_eq!(stack, vec!["div", "span"]);
+    }
+
+    #[test]
+    fn offset_inside_a_multi_byte_character_does_not_panic() {
+        // \u{a0} occupies two bytes; the offset points at its second one.
+        let html = "<div><span>Preis:\u{a0}9 EUR";
+        let offset = html.len() - "\u{a0}9 EUR".len() + 1;
+        assert!(!html.is_char_boundary(offset));
+        assert_eq!(enclosing_tag_stack(html, offset), vec!["div", "span"]);
+    }
+
+    #[test]
+    fn multi_byte_character_after_raw_text_open_tag_does_not_panic() {
+        let html = "<div><script>\u{a0}</script><span>HERE";
+        assert_eq!(enclosing_tag_stack(html, html.len()), vec!["div", "span"]);
     }
 
     #[test]

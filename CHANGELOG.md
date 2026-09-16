@@ -5,6 +5,21 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **PDF-Abbruch durch fremde Glyphen und Panic im HTML-Content-Model, 2026-09-16:** (1) Ein
+  einzelnes Icon-Font-Zeichen auf der auditierten Seite brach die gesamte PDF-Erzeugung ab:
+  Linktexte, Selektoren und Custom-Property-Namen tragen Private-Use-Codepoints in den Report,
+  Typst fällt auf `LastResort` zurück und der PDF/UA-Export scheitert
+  (`PDF/UA-1 error: the text "\u{e900}" could not be displayed`). Betraf 8 von 84 Domains eines
+  RankingLab-Laufs (u. a. kit.edu, fu-berlin.de, uni-goettingen.de). Neu: `output/pdf/sanitize.rs`
+  entfernt Private-Use-Zeichen aus allen Strings des `RenderRequest` (ein Chokepoint nach
+  `builder.build()`, deshalb ohne Feld-für-Feld-Pflege) und lernt die übrigen nicht darstellbaren
+  Zeichen aus dem Compile-Fehler: Zeichen verwerfen, neu rendern, max. 8 Runden — so fiel auf
+  jyu.fi ein `↳` aus einem CSS-Variablennamen. Nur Präsentationsschicht; das kanonische JSON
+  behält den Originaltext, damit Selektoren kopierbar bleiben. (2) `enclosing_tag_stack`
+  (`wcag/rules/html_content_model.rs`) panickte auf ikea.com, weil der Byte-Offset des externen
+  Parsers mitten in einem `\u{a0}` lag — entgegen der eigenen Zusage „never panics". Offset wird
+  jetzt auf die Zeichengrenze zurückgesetzt, der Raw-Text-Close-Tag-Vergleich läuft über Bytes
+  statt `str`-Slices. Verifiziert an den Live-Domains plus je zwei Regressionstests.
 - **1.3.1-Fixes, 2026-09-16 (#581, #582, #583):** (1) Die Accessibility-Subkategorie- und
   Security-Kategorie-Scores aus `d6daf7b` erschienen nur im PDF, nicht im JSON-Report — der
   JSON-Builder (`build_page`/`PageDetail`) las sie nie. Jetzt als

@@ -136,6 +136,7 @@ src/
 │   │   ├── mod.rs, single_report.rs, batch_report.rs, batch_report/
 │   │   ├── cover.rs, findings.rs, wcag_coverage.rs, en301549.rs
 │   │   ├── diagnosis.rs, appendix.rs, design.rs (4-color law)
+│   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
 │   │   └── detail_modules/ # Per-module chapter renderers
 │   ├── report_model.rs  # ViewModel structs for PDF
 │   ├── explanations.rs  # interpret_score() and shared explanation text

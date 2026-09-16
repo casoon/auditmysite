@@ -9,13 +9,14 @@ mod sections;
 use sections::*;
 
 pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
-    let (engine, built_report) = build_batch_report(batch, config)?;
-    Ok(engine.render_pdf(&built_report)?)
+    let (engine, mut built_report) = build_batch_report(batch, config)?;
+    super::sanitize::render_pdf_sanitized(&engine, &mut built_report)
 }
 
 /// Render the intermediate Typst source for a batch report (hidden `--debug-typ`).
 pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<String> {
-    let (engine, built_report) = build_batch_report(batch, config)?;
+    let (engine, mut built_report) = build_batch_report(batch, config)?;
+    super::sanitize::sanitize_request(&mut built_report, &Default::default());
     Ok(engine.render_typ(&built_report)?)
 }
 

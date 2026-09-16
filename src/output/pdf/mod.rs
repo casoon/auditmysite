@@ -14,6 +14,7 @@ mod diagnosis;
 mod en301549;
 mod findings;
 mod helpers;
+mod sanitize;
 mod single_report;
 mod wcag_coverage;
 
@@ -57,8 +58,8 @@ const PAGE_MOBILE_SCREENSHOT_ASSET: &str = "/auditmysite-mobile-preview.png";
 
 pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
     let pdf_bytes: anyhow::Result<Vec<u8>> = (|| {
-        let (engine, built_report) = build_single_report(report, config)?;
-        Ok(engine.render_pdf(&built_report)?)
+        let (engine, mut built_report) = build_single_report(report, config)?;
+        self::sanitize::render_pdf_sanitized(&engine, &mut built_report)
     })();
     cleanup_screenshot_temps(report);
     pdf_bytes
@@ -71,7 +72,8 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 /// going through the heavy PDF + pdftotext pipeline.
 pub fn generate_typ(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<String> {
     let typ: anyhow::Result<String> = (|| {
-        let (engine, built_report) = build_single_report(report, config)?;
+        let (engine, mut built_report) = build_single_report(report, config)?;
+        self::sanitize::sanitize_request(&mut built_report, &Default::default());
         Ok(engine.render_typ(&built_report)?)
     })();
     cleanup_screenshot_temps(report);
