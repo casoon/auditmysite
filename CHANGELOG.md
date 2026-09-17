@@ -5,6 +5,26 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **HTML-Konformität: Score zählte Fundstellen statt Ursachen, 2026-09-16:** Das Modul stand auf
+  `weight_pct: 0` mit dem Report-Hinweis, sein HTML5-Schema kenne keine RDFa-/Open-Graph-Attribute
+  und `og:`-Meta-Tags erzeugten deshalb False Positives. Beides war überholt: Die RDFa-Lücke ist
+  seit `html-conform` 0.2.1 geschlossen (`schema/html5/meta.rnc`, Block „RDFa Lite Property
+  Metadata"); an einer Seite mit `og:`-Tags direkt gegengeprüft — kein einziger solcher Befund.
+  Der eigentliche Defekt war die Strafformel `error_count * 10`: Sie rechnete pro *Fundstelle*,
+  nicht pro *Ursache*. Ein fehlerhaftes Template-Element erzeugt eine Fundstelle pro Rendering,
+  also floorte jede reale Seite bei 0 — bei sachsen-anhalt.de gingen 201 der 208 gemeldeten Fehler
+  auf ein einziges `<link as=…>` ohne `rel` zurück, insgesamt 6 distinkte Ursachen. Neu:
+  `html_conform::defect_key` normalisiert Regel-ID plus Meldung (Backtick-Werte und
+  `at Zeile:Spalte` entfernt) zu einer Ursache; `score_findings` bestraft pro Ursache, mit
+  gedecktem Häufungszuschlag (max. das Doppelte der Basis) und Rangdämpfung (erste Ursache voll,
+  zweite/dritte halb, Rest ein Viertel), damit der Score über die ganze Spanne aussagekräftig
+  bleibt statt bei 0 zu sättigen. Sachsen-anhalt.de damit 0 → 64. Das Modul zählt wieder in die
+  Gesamtwertung (5 %, aus SEO umgeschichtet: SEO 20 → 15) und meldet `measurement_type: "measured"`
+  statt `"heuristic"`. Report-seitig: neues Feld `distinct_defect_count` im JSON, Kennzahl
+  „Ursachen" im PDF, Findings-Tabelle eine Zeile pro Ursache mit Spalte „Vorkommen" (statt 20
+  redundanter Fundstellen-Zeilen), `ScoreCard` wieder mit normalem Notenband, der veraltete
+  RDFa-Hinweis durch eine Erklärung der Ursachen-Zählung ersetzt. Verifiziert an sachsen-anhalt.de
+  (JSON + `--debug-typ`) und mit 8 neuen Unit-Tests.
 - **PDF-Abbruch durch fremde Glyphen und Panic im HTML-Content-Model, 2026-09-16:** (1) Ein
   einzelnes Icon-Font-Zeichen auf der auditierten Seite brach die gesamte PDF-Erzeugung ab:
   Linktexte, Selektoren und Custom-Property-Namen tragen Private-Use-Codepoints in den Report,

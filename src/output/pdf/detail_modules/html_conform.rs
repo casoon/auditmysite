@@ -7,12 +7,8 @@ pub(in crate::output::pdf) fn render_html_conform(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let title = i18n.t("section-html-conform");
-    // Deliberately not `first_sentence(&hc.interpretation)`: that generic,
-    // score-band-derived text says "Kritisch/Critical" for a 0 score, which
-    // is exactly the misleading framing this module needs to avoid (see the
-    // ScoreCard comment below). Mirrors Dark Mode's bespoke takeaway (#577).
     let takeaway = if hc.checked {
-        i18n.t("pdf-html-conform-takeaway")
+        first_sentence(&hc.interpretation)
     } else {
         i18n.t("pdf-html-conform-not-checked")
     };
@@ -22,22 +18,14 @@ pub(in crate::output::pdf) fn render_html_conform(
         return builder.add_component(Label::new(i18n.t("pdf-html-conform-not-checked")));
     }
 
-    // Score-neutral with a known false-positive gap (RDFa/Open-Graph
-    // attribute unawareness in the vendored HTML5 schema, see
-    // src/audit/normalized.rs) -- unlike every other module's ScoreCard,
-    // this deliberately does NOT use `score_band_label`'s Excellent/Good/
-    // …/Critical compliance language (a page with standard `og:` meta tags
-    // would otherwise show a flat, unqualified "Critical" 0/100 for a false
-    // positive). Mirrors the Dark Mode ScoreCard's precedent (#577) for a
-    // score-neutral, non-compliance-language presentation.
     builder = builder
         .add_component(
             ScoreCard::new(super::module_score_caption(i18n), hc.score)
-                .with_description(i18n.t("label-limited-reliability"))
+                .with_description(super::score_band_label(hc.score, i18n))
                 .with_thresholds(75, 40),
         )
         .add_component(
-            Label::new(i18n.t("pdf-html-conform-heuristic-note"))
+            Label::new(i18n.t("pdf-html-conform-dedup-note"))
                 .with_size("10.5pt")
                 .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         )
@@ -50,6 +38,10 @@ pub(in crate::output::pdf) fn render_html_conform(
 
     builder = builder.add_component(
         MetricStrip::new(vec![
+            MetricStripItem::new(
+                i18n.t("pdf-html-conform-defects"),
+                hc.distinct_defect_count.to_string(),
+            ),
             MetricStripItem::new(
                 i18n.t("pdf-html-conform-errors"),
                 hc.error_count.to_string(),
@@ -76,14 +68,17 @@ pub(in crate::output::pdf) fn render_html_conform(
             TableColumn::new(i18n.t("pdf-html-conform-severity")),
             TableColumn::new(i18n.t("pdf-html-conform-message")),
             TableColumn::new(i18n.t("pdf-html-conform-location")),
+            TableColumn::new(i18n.t("pdf-html-conform-occurrences")),
         ])
         .with_title(&title);
-        for (rule_id, severity, message, location) in &hc.findings {
+        for (rule_id, severity, message, location, occurrences) in &hc.findings {
+            let occurrences = occurrences.to_string();
             table = table.add_row(vec![
                 rule_id.as_str(),
                 severity.as_str(),
                 message.as_str(),
                 location.as_str(),
+                occurrences.as_str(),
             ]);
         }
         builder = builder.add_component(table);

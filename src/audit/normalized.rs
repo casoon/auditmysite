@@ -2345,7 +2345,9 @@ fn build_module_scores(
             name: "SEO".to_string(),
             score: seo.score,
             grade: AccessibilityScorer::calculate_grade(seo.score as f32).to_string(),
-            weight_pct: 20,
+            // 15, not 20: 5 points moved to HTML Conformance, the module closest to
+            // SEO's own concern (a document a crawler can parse reliably).
+            weight_pct: 15,
             contributes_to_overall: true,
             measurement_type: "measured".to_string(),
         });
@@ -2372,37 +2374,30 @@ fn build_module_scores(
         });
     }
     if let Some(ref hc) = report.html_conform {
-        // Score-neutral (not weight_pct: 0 by accident — deliberately, like
-        // UX/Journey/Best Practices below): html-conform's vendored HTML5
-        // schema currently has no RDFa/Open-Graph vocabulary awareness, so a
-        // page using standard `<meta property="og:...">` tags (effectively
-        // every commercial site) racks up dozens of "unexpected attribute"
-        // findings and gets clamped to score 0 — a false positive, not a
-        // real defect. Paused from the weighted score until that gap is
-        // fixed upstream in html-conform; still shown with its own score
-        // for visibility. See regression note in CLAUDE.md.
+        // Weighted since the score became trustworthy again (it is now charged
+        // per *distinct* defect, not per occurrence — see
+        // `html_conform::score_findings`). Two separate defects had made the
+        // old number meaningless and kept this module at weight 0:
         //
-        // `measurement_type` corrected from "measured" to "heuristic"
-        // (2026-09-01, report-quality review): "measured" is the same
-        // taxonomy value used for hard compliance numbers like Accessibility/
-        // Performance, so this module rendered with full visual weight (a
-        // flat red 0/100 gauge) with no on-page indication that the score is
-        // currently unreliable and score-neutral -- exactly the false-positive
-        // gap this comment already describes. Deliberately "heuristic", not
-        // "optional": HTML conformance is not a nice-to-have (unlike Dark
-        // Mode) -- the *current measurement* is what's unreliable, which is
-        // the same "treat this number with some skepticism" caveat the other
-        // heuristic indicators (AI Visibility, Source Quality, Content
-        // Visibility, UX, Journey) already carry. Either value would pick up
-        // the shared "(Indicator)"/"(Optional)" suffix qualifier (#577) on
-        // every render surface; "heuristic" is the more accurate one.
+        // 1. The vendored HTML5 schema had no RDFa/Open-Graph awareness, so
+        //    every `<meta property="og:...">` counted as an error. Closed
+        //    upstream in html-conform 0.2.1 (`schema/html5/meta.rnc`, "RDFa
+        //    Lite Property Metadata"); verified directly against a page
+        //    carrying `og:` tags, which now produces no such finding.
+        // 2. One faulty element in a template emitted one finding per render,
+        //    and the old `error_count * 10` penalty charged each one, flooring
+        //    any real-world page at 0 regardless of how few things were
+        //    actually wrong.
+        //
+        // `measurement_type` is "measured" accordingly: schema conformance is
+        // a checkable property of the document, not a heuristic reading of it.
         module_scores.push(ModuleScoreEntry {
             name: "HTML Conformance".to_string(),
             score: hc.score,
             grade: AccessibilityScorer::calculate_grade(hc.score as f32).to_string(),
-            weight_pct: 0,
-            contributes_to_overall: false,
-            measurement_type: "heuristic".to_string(),
+            weight_pct: 5,
+            contributes_to_overall: true,
+            measurement_type: "measured".to_string(),
         });
     }
     if let Some(ref ux) = report.ux {

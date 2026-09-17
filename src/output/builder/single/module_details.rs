@@ -1625,6 +1625,60 @@ fn push_optional_ssl_row(rows: &mut Vec<(String, String)>, label: &str, value: O
     }
 }
 
+/// Collapses raw conformance findings into one row per *distinct* defect,
+/// carrying an occurrence count and the first location as an example.
+///
+/// The score is charged per distinct defect (`html_conform::score_findings`),
+/// so a table listing raw occurrences would contradict it — twelve identical
+/// rows for one templated element read as twelve problems. Insertion order
+/// is preserved (the checker emits findings in document order) and the cap
+/// applies to defects, not occurrences, so twenty rows now mean twenty real
+/// things to fix.
+fn distinct_html_conform_rows(
+    findings: &[crate::html_conform::HtmlConformFinding],
+    severity_label: &impl Fn(&str) -> String,
+) -> Vec<(String, String, String, String, u32)> {
+    let mut order: Vec<String> = Vec::new();
+    let mut rows: std::collections::HashMap<String, (String, String, String, String, u32)> =
+        std::collections::HashMap::new();
+
+    for finding in findings {
+        let key = crate::html_conform::defect_key(finding);
+        match rows.get_mut(&key) {
+            Some(row) => row.4 += 1,
+            None => {
+                order.push(key.clone());
+                rows.insert(
+                    key,
+                    (
+                        finding.rule_id.clone(),
+                        severity_label(&finding.severity),
+                        // Trailing " at line:column" stripped: it duplicates the
+                        // Location column, and on a row standing for N
+                        // occurrences it would name just one of them as if it
+                        // were the whole finding.
+                        finding
+                            .message
+                            .split(" at ")
+                            .next()
+                            .unwrap_or(&finding.message)
+                            .trim()
+                            .to_string(),
+                        finding.location.clone().unwrap_or_else(|| "—".to_string()),
+                        1,
+                    ),
+                );
+            }
+        }
+    }
+
+    order
+        .into_iter()
+        .take(20)
+        .filter_map(|key| rows.remove(&key))
+        .collect()
+}
+
 fn build_html_conform_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
@@ -1645,19 +1699,8 @@ fn build_html_conform_details(
             error_count: hc.error_count,
             warning_count: hc.warning_count,
             info_count: hc.info_count,
-            findings: hc
-                .findings
-                .iter()
-                .take(20)
-                .map(|f| {
-                    (
-                        f.rule_id.clone(),
-                        severity_label(&f.severity),
-                        f.message.clone(),
-                        f.location.clone().unwrap_or_else(|| "—".to_string()),
-                    )
-                })
-                .collect(),
+            distinct_defect_count: hc.distinct_defect_count,
+            findings: distinct_html_conform_rows(&hc.findings, &severity_label),
         }
     })
 }

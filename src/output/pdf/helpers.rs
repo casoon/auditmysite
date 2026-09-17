@@ -252,18 +252,16 @@ mod tests {
     }
 
     #[test]
-    fn taxonomy_suffix_marks_html_conformance_as_indicator() {
-        // Regression (2026-09-01, report-quality review): HTML Conformance
-        // is score-neutral due to a known upstream false-positive gap
-        // (src/audit/normalized.rs), but previously reported
-        // measurement_type "measured" -- the same taxonomy value used for
-        // hard compliance numbers -- so it rendered with full visual weight
-        // (a flat, unqualified 0/100 gauge) instead of the same
-        // "(Indicator)" qualifier UX/Journey/AI Visibility/... already carry.
+    fn taxonomy_suffix_left_off_html_conformance_as_measured() {
+        // HTML Conformance carried "heuristic" (and so an "(Indikator)"
+        // qualifier) while its score was distorted by a since-closed upstream
+        // false-positive gap and a per-occurrence penalty. Both are fixed (see
+        // src/audit/normalized.rs), it is weighted and "measured" again, and a
+        // measured module takes no qualifier.
         let de = crate::i18n::I18n::new("de").expect("i18n");
         assert_eq!(
-            super::module_name_with_taxonomy_suffix("HTML Conformance", "heuristic", &de),
-            "HTML Conformance (Indikator)"
+            super::module_name_with_taxonomy_suffix("HTML Conformance", "measured", &de),
+            "HTML Conformance"
         );
     }
 
