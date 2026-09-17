@@ -83,8 +83,11 @@ pub fn generate_typ(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 fn build_single_report(
     report: &AuditReport,
     config: &ReportConfig,
-) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
-    let engine = create_engine()?;
+) -> anyhow::Result<(
+    std::sync::Arc<renderreport::Engine>,
+    renderreport::RenderRequest,
+)> {
+    let engine = create_engine();
     let normalized = normalize(report);
     let vm = build_view_model(&normalized, config);
     let i18n = I18n::new(&config.locale)?;

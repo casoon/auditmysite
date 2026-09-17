@@ -63,28 +63,93 @@ pub(super) fn extract_domain(url: &str) -> String {
     host.trim_start_matches("www.").to_string()
 }
 
-/// Create engine with proper font configuration for German text
-pub(super) fn create_engine() -> anyhow::Result<renderreport::Engine> {
+const SECTION_HEADER_SPLIT_TEMPLATE: &str = include_str!("templates/section_header_split.typ");
+const METRIC_STRIP_TEMPLATE: &str = include_str!("templates/metric_strip.typ");
+
+// Theme fonts, bundled so the PDF renders identically regardless of which
+// fonts happen to be installed on the machine running auditmysite (system
+// fonts are not a reliable dependency: they differ across dev machines and
+// CI, and scanning/parsing all of them cost several GB of RAM per PDF —
+// see `EngineConfig::use_system_fonts(false)` below). All three are
+// OFL-licensed and metric/style equivalents of the previous system fonts:
+// Arimo for Helvetica/Arial (body), PT Serif for Georgia (headings, not
+// redistributable), JetBrains Mono unchanged (already OFL, now bundled
+// instead of relying on it being locally installed). See
+// `assets/fonts/*/OFL.txt` for the license texts.
+const ARIMO_REGULAR: &[u8] = include_bytes!("../../../assets/fonts/arimo/Arimo-Regular.ttf");
+const ARIMO_BOLD: &[u8] = include_bytes!("../../../assets/fonts/arimo/Arimo-Bold.ttf");
+const ARIMO_ITALIC: &[u8] = include_bytes!("../../../assets/fonts/arimo/Arimo-Italic.ttf");
+const ARIMO_BOLD_ITALIC: &[u8] = include_bytes!("../../../assets/fonts/arimo/Arimo-BoldItalic.ttf");
+const PT_SERIF_REGULAR: &[u8] =
+    include_bytes!("../../../assets/fonts/ptserif/PT_Serif-Web-Regular.ttf");
+const PT_SERIF_BOLD: &[u8] = include_bytes!("../../../assets/fonts/ptserif/PT_Serif-Web-Bold.ttf");
+const PT_SERIF_ITALIC: &[u8] =
+    include_bytes!("../../../assets/fonts/ptserif/PT_Serif-Web-Italic.ttf");
+const PT_SERIF_BOLD_ITALIC: &[u8] =
+    include_bytes!("../../../assets/fonts/ptserif/PT_Serif-Web-BoldItalic.ttf");
+const JETBRAINS_MONO_REGULAR: &[u8] =
+    include_bytes!("../../../assets/fonts/jetbrainsmono/JetBrainsMono-Regular.ttf");
+const JETBRAINS_MONO_BOLD: &[u8] =
+    include_bytes!("../../../assets/fonts/jetbrainsmono/JetBrainsMono-Bold.ttf");
+
+const THEME_FONTS: &[&[u8]] = &[
+    ARIMO_REGULAR,
+    ARIMO_BOLD,
+    ARIMO_ITALIC,
+    ARIMO_BOLD_ITALIC,
+    PT_SERIF_REGULAR,
+    PT_SERIF_BOLD,
+    PT_SERIF_ITALIC,
+    PT_SERIF_BOLD_ITALIC,
+    JETBRAINS_MONO_REGULAR,
+    JETBRAINS_MONO_BOLD,
+];
+
+/// Built once per process and shared from then on: every caller only reads
+/// from the engine afterwards (`render_pdf`/`render_typ` take `&self`), and
+/// building one is deterministic (embedded fonts/templates/theme, no I/O or
+/// input-dependent state) — so re-running `build_engine()` per PDF, and
+/// especially per test in a suite that renders dozens of PDFs, bought
+/// nothing but repeated font-cache construction cost.
+static SHARED_ENGINE: std::sync::LazyLock<std::sync::Arc<renderreport::Engine>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Arc::new(build_engine().expect("PDF engine should build"))
+    });
+
+/// Shared engine with proper font configuration for German text.
+pub(super) fn create_engine() -> std::sync::Arc<renderreport::Engine> {
+    std::sync::Arc::clone(&SHARED_ENGINE)
+}
+
+fn build_engine() -> anyhow::Result<renderreport::Engine> {
     use renderreport::components::ComponentId;
+    use renderreport::engine::EngineConfig;
     use renderreport::theme::{Theme, TokenValue};
-    let mut engine = renderreport::Engine::new()?;
+
+    // No system fonts: a full scan+parse of every installed font (500+
+    // files on a typical macOS dev machine, more on CI images) cost several
+    // GB of RAM per engine and made the rendered PDF depend on whatever
+    // happened to be installed locally. THEME_FONTS above covers every
+    // family the theme references, so nothing is lost by disabling this.
+    let config = EngineConfig::builder().use_system_fonts(false).build();
+    let mut engine = renderreport::Engine::with_config_and_fonts(config, THEME_FONTS)?;
 
     engine.components_mut().register(
         ComponentId::new("section-header-split"),
-        include_str!("templates/section_header_split.typ").to_string(),
+        SECTION_HEADER_SPLIT_TEMPLATE.to_string(),
     );
     engine.components_mut().register(
         ComponentId::new("metric-strip"),
-        include_str!("templates/metric_strip.typ").to_string(),
+        METRIC_STRIP_TEMPLATE.to_string(),
     );
 
     let mut theme = Theme::default_theme();
     theme
         .tokens
-        .set("font.body", TokenValue::Font("Helvetica".into()));
+        .set("font.body", TokenValue::Font("Arimo".into()));
     theme
         .tokens
-        .set("font.heading", TokenValue::Font("Georgia".into()));
+        .set("font.heading", TokenValue::Font("PT Serif".into()));
     theme
         .tokens
         .set("font.mono", TokenValue::Font("JetBrains Mono".into()));
@@ -192,32 +257,26 @@ pub(super) fn module_name_with_taxonomy_suffix(
 
 #[cfg(test)]
 mod tests {
-    use super::create_engine;
-    use renderreport::components::ComponentId;
+    use super::{METRIC_STRIP_TEMPLATE, SECTION_HEADER_SPLIT_TEMPLATE};
+
+    // These two assert directly on the embedded template source (see the
+    // `include_str!` constants above `create_engine`) instead of building a
+    // full renderreport::Engine — Engine::new() loads every system font
+    // (fontdb, face by face) purely to satisfy the default theme, which costs
+    // several GB of RSS per call and made these two string-contains checks
+    // the single heaviest part of `cargo test` on this crate.
 
     #[test]
     fn section_eyebrow_uses_light_spacious_typography() {
-        let engine = create_engine().expect("PDF engine");
-        let template = engine
-            .components()
-            .get_template(&ComponentId::new("section-header-split"))
-            .expect("section header template");
-
-        assert!(template.contains("weight: \"regular\""));
-        assert!(template.contains("tracking: 0.20em"));
-        assert!(template.contains("#v(spacing-3)"));
+        assert!(SECTION_HEADER_SPLIT_TEMPLATE.contains("weight: \"regular\""));
+        assert!(SECTION_HEADER_SPLIT_TEMPLATE.contains("tracking: 0.20em"));
+        assert!(SECTION_HEADER_SPLIT_TEMPLATE.contains("#v(spacing-3)"));
     }
 
     #[test]
     fn metric_value_and_context_share_a_bottom_alignment() {
-        let engine = create_engine().expect("PDF engine");
-        let template = engine
-            .components()
-            .get_template(&ComponentId::new("metric-strip"))
-            .expect("metric strip template");
-
-        assert!(template.contains("align: bottom + left"));
-        assert!(!template.contains("pad(top: 3pt)"));
+        assert!(METRIC_STRIP_TEMPLATE.contains("align: bottom + left"));
+        assert!(!METRIC_STRIP_TEMPLATE.contains("pad(top: 3pt)"));
     }
 
     #[test]
