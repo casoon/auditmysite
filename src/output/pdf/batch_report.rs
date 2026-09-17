@@ -23,8 +23,11 @@ pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 fn build_batch_report(
     batch: &BatchReport,
     config: &ReportConfig,
-) -> anyhow::Result<(renderreport::Engine, renderreport::RenderRequest)> {
-    let engine = super::helpers::create_engine()?;
+) -> anyhow::Result<(
+    std::sync::Arc<renderreport::Engine>,
+    renderreport::RenderRequest,
+)> {
+    let engine = super::helpers::create_engine();
     let i18n = I18n::new(&config.locale)?;
     // Use the locale-aware presentation builder — `build_batch_presentation`
     // hardcodes German and would override `--lang` (#406).
