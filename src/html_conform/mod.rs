@@ -33,6 +33,12 @@ pub struct HtmlConformAnalysis {
     pub error_count: u32,
     pub warning_count: u32,
     pub info_count: u32,
+    /// How many *distinct* defects the counts above represent (see
+    /// [`defect_key`]). One bad component in a template emits one finding
+    /// per render, so `error_count` alone reads as a much larger problem
+    /// than it is; this is the number of things actually to fix, and what
+    /// the score is charged against.
+    pub distinct_defect_count: u32,
     pub findings: Vec<HtmlConformFinding>,
     /// The raw document HTML the check ran against, kept for the
     /// `html_content_model` WCAG rule (#579) to re-scan for enclosing tag
@@ -114,8 +120,8 @@ pub async fn analyze_html_conform(page: &Page) -> Result<HtmlConformAnalysis> {
         })
         .collect();
 
-    let penalty = (error_count * 10 + warning_count * 4 + info_count).min(100);
-    let score = 100 - penalty;
+    let score = score_findings(&findings);
+    let distinct_defect_count = distinct_defect_count(&findings);
 
     Ok(HtmlConformAnalysis {
         score,
@@ -123,9 +129,118 @@ pub async fn analyze_html_conform(page: &Page) -> Result<HtmlConformAnalysis> {
         error_count,
         warning_count,
         info_count,
+        distinct_defect_count,
         findings,
         raw_html: Some(html),
     })
+}
+
+/// Severity weights for one *distinct* defect (see [`score_findings`]).
+const ERROR_WEIGHT: u32 = 10;
+const WARNING_WEIGHT: u32 = 4;
+const INFO_WEIGHT: u32 = 1;
+
+/// Collapses a finding into the defect it reports, so the same defect found
+/// in N places counts as one.
+///
+/// `html-conform`'s messages embed the offending value and the source
+/// position (`invalid value `100%` for attribute `height` at 2:29748`), both
+/// of which differ per occurrence while the defect is identical. Backtick
+/// runs and the trailing ` at line:column` are therefore stripped; what
+/// remains is the rule plus the message's invariant prose.
+pub(crate) fn defect_key(finding: &HtmlConformFinding) -> String {
+    let message = finding
+        .message
+        .split(" at ")
+        .next()
+        .unwrap_or(&finding.message);
+    let mut normalized = String::with_capacity(message.len());
+    let mut in_quotes = false;
+    for ch in message.chars() {
+        match ch {
+            '`' if in_quotes => in_quotes = false,
+            '`' => {
+                in_quotes = true;
+                normalized.push('*');
+            }
+            _ if in_quotes => {}
+            _ => normalized.push(ch),
+        }
+    }
+    format!("{}|{}", finding.rule_id, normalized.trim())
+}
+
+/// Penalty for one distinct defect before rank damping: its severity weight
+/// plus a capped surcharge for how widely it occurs.
+///
+/// Repetition is a wider blast radius, not a second defect — a component
+/// rendered twelve times is still one fix. The surcharge never exceeds the
+/// base weight, so twelve occurrences cost at most twice what one does,
+/// instead of twelve times (the earlier per-occurrence penalty floored
+/// every templated site at 0).
+fn defect_cost(weight: u32, occurrences: u32) -> u32 {
+    let surcharge = match occurrences {
+        0..=1 => 0,
+        2..=4 => weight / 4,
+        5..=19 => weight / 2,
+        _ => weight,
+    };
+    weight + surcharge
+}
+
+/// How many distinct defects `findings` represents — the finding count with
+/// per-occurrence repetition collapsed away.
+fn distinct_defect_count(findings: &[HtmlConformFinding]) -> u32 {
+    let unique: std::collections::HashSet<String> = findings.iter().map(defect_key).collect();
+    unique.len() as u32
+}
+
+/// Conformance score (0-100) from deduplicated findings.
+///
+/// Two-stage, both deliberate:
+///
+/// 1. **Deduplicate** by [`defect_key`] — the raw finding count is an
+///    occurrence count, not a defect count, and charging per occurrence made
+///    the score a constant 0 for any real page (one bad component in a
+///    template emits one finding per render).
+/// 2. **Damp by rank** — distinct defects sorted most-expensive first, the
+///    first charged in full, the next two at half, the rest at a quarter.
+///    A page's first real defect should move the score meaningfully; its
+///    fifteenth should not have to, since the score has to stay informative
+///    across the whole range rather than saturating at 0 (spec conformance
+///    on real-world sites is a long tail — vnu finds a dozen distinct
+///    defects on most commercial pages).
+fn score_findings(findings: &[HtmlConformFinding]) -> u32 {
+    use std::collections::HashMap;
+
+    let mut per_defect: HashMap<String, (u32, u32)> = HashMap::new();
+    for finding in findings {
+        let weight = match finding.severity.as_str() {
+            "error" => ERROR_WEIGHT,
+            "warning" => WARNING_WEIGHT,
+            _ => INFO_WEIGHT,
+        };
+        let entry = per_defect.entry(defect_key(finding)).or_insert((weight, 0));
+        entry.1 += 1;
+    }
+
+    let mut costs: Vec<u32> = per_defect
+        .into_values()
+        .map(|(weight, occurrences)| defect_cost(weight, occurrences))
+        .collect();
+    costs.sort_unstable_by(|a, b| b.cmp(a));
+
+    let penalty: u32 = costs
+        .into_iter()
+        .enumerate()
+        .map(|(rank, cost)| match rank {
+            0 => cost,
+            1..=2 => cost / 2,
+            _ => cost / 4,
+        })
+        .sum();
+
+    100u32.saturating_sub(penalty.min(100))
 }
 
 fn not_measured() -> HtmlConformAnalysis {
@@ -135,6 +250,7 @@ fn not_measured() -> HtmlConformAnalysis {
         error_count: 0,
         warning_count: 0,
         info_count: 0,
+        distinct_defect_count: 0,
         findings: Vec::new(),
         raw_html: None,
     }
@@ -178,14 +294,103 @@ async fn extract_document_html(page: &Page) -> Result<String> {
 mod tests {
     use super::*;
 
+    fn finding(rule: &str, severity: &str, message: &str) -> HtmlConformFinding {
+        HtmlConformFinding {
+            rule_id: rule.to_string(),
+            severity: severity.to_string(),
+            message: message.to_string(),
+            location: None,
+            byte_offset: None,
+        }
+    }
+
     #[test]
-    fn penalty_caps_at_100_and_floors_score_at_0() {
-        let error_count = 20u32;
-        let warning_count = 0u32;
-        let info_count = 0u32;
-        let penalty = (error_count * 10 + warning_count * 4 + info_count).min(100);
-        assert_eq!(penalty, 100);
-        assert_eq!(100u32.saturating_sub(penalty), 0);
+    fn defect_key_collapses_value_and_position_variation() {
+        let a = finding(
+            "schema.html5",
+            "error",
+            "invalid value `100%` for attribute `height` at 2:29748",
+        );
+        let b = finding(
+            "schema.html5",
+            "error",
+            "invalid value `150px` for attribute `height` at 9:41",
+        );
+        assert_eq!(defect_key(&a), defect_key(&b));
+    }
+
+    #[test]
+    fn defect_key_keeps_genuinely_different_defects_apart() {
+        let height = finding(
+            "schema.html5",
+            "error",
+            "invalid value `100%` for attribute `height`",
+        );
+        let element = finding("schema.html5", "error", "unexpected element `div`");
+        let other_rule = finding(
+            "parser.html5",
+            "error",
+            "invalid value `100%` for attribute `height`",
+        );
+        assert_ne!(defect_key(&height), defect_key(&element));
+        assert_ne!(defect_key(&height), defect_key(&other_rule));
+    }
+
+    #[test]
+    fn repetition_of_one_defect_does_not_floor_the_score() {
+        // The regression this scoring exists for: one bad component rendered
+        // twelve times used to cost 120 penalty points and score 0.
+        let findings: Vec<_> = (0..12)
+            .map(|i| {
+                finding(
+                    "assertion.elements.linkas-missing-rel",
+                    "error",
+                    &format!("A `link` element with `as` must have `rel` at 2:{i}"),
+                )
+            })
+            .collect();
+        assert_eq!(distinct_defect_count(&findings), 1);
+        // One distinct error at full rank: 10 + surcharge 5 = 15.
+        assert_eq!(score_findings(&findings), 85);
+    }
+
+    #[test]
+    fn distinct_defects_are_damped_by_rank() {
+        let findings: Vec<_> = (0..4)
+            .map(|i| finding("schema.html5", "error", &format!("defect number {i}")))
+            .collect();
+        assert_eq!(distinct_defect_count(&findings), 4);
+        // 10 (full) + 5 + 5 (half) + 2 (quarter) = 22.
+        assert_eq!(score_findings(&findings), 78);
+    }
+
+    #[test]
+    fn a_single_error_costs_its_full_weight() {
+        let findings = vec![finding("schema.html5", "error", "one defect")];
+        assert_eq!(score_findings(&findings), 100 - ERROR_WEIGHT);
+    }
+
+    #[test]
+    fn severity_is_weighted() {
+        let error = vec![finding("r", "error", "m")];
+        let warning = vec![finding("r", "warning", "m")];
+        let info = vec![finding("r", "info", "m")];
+        assert!(score_findings(&error) < score_findings(&warning));
+        assert!(score_findings(&warning) < score_findings(&info));
+    }
+
+    #[test]
+    fn clean_page_scores_full_marks() {
+        assert_eq!(score_findings(&[]), 100);
+        assert_eq!(distinct_defect_count(&[]), 0);
+    }
+
+    #[test]
+    fn score_floors_at_zero() {
+        let findings: Vec<_> = (0..200)
+            .map(|i| finding("schema.html5", "error", &format!("defect number {i}")))
+            .collect();
+        assert_eq!(score_findings(&findings), 0);
     }
 
     #[test]
@@ -194,5 +399,6 @@ mod tests {
         assert!(!a.checked);
         assert_eq!(a.score, 100);
         assert!(a.findings.is_empty());
+        assert_eq!(a.distinct_defect_count, 0);
     }
 }

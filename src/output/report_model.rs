@@ -1088,8 +1088,12 @@ pub struct HtmlConformPresentation {
     pub error_count: u32,
     pub warning_count: u32,
     pub info_count: u32,
-    /// (rule_id, localized severity label, message, location) rows.
-    pub findings: Vec<(String, String, String, String)>,
+    /// How many distinct defects the counts above represent.
+    pub distinct_defect_count: u32,
+    /// (rule_id, localized severity label, message, location, occurrences)
+    /// rows — one per *distinct* defect, not per occurrence, matching what
+    /// the score is charged against.
+    pub findings: Vec<(String, String, String, String, u32)>,
 }
 
 pub struct MobilePresentation {

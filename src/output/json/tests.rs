@@ -586,6 +586,7 @@ fn all_active_modules_report() -> AuditReport {
         error_count: 0,
         warning_count: 1,
         info_count: 0,
+        distinct_defect_count: 1,
         findings: vec![],
         raw_html: None,
     })
