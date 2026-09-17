@@ -135,8 +135,11 @@ fn enclosing_tag_stack(html: &str, byte_offset: usize) -> Vec<String> {
             let close = format!("</{raw_tag}");
             // Byte comparison: `close` is ASCII, but its length can run into
             // the middle of a multi-byte character, which `str` slicing would
-            // panic on.
-            let rest = html[i..].as_bytes();
+            // panic on. Sliced on the byte view rather than as `html[i..]`
+            // for the same reason — `i` is always a boundary here (it comes
+            // from `find('<')`), but slicing bytes keeps that a local fact
+            // instead of a precondition the `str` index relies on.
+            let rest = &html.as_bytes()[i..];
             if rest.len() >= close.len()
                 && rest[..close.len()].eq_ignore_ascii_case(close.as_bytes())
             {
