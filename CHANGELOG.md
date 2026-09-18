@@ -5,6 +5,26 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **1.4.0, 2026-09-18 — Upgrade-Hinweise:** Kein reines Patch-Release. Was Konsumenten des
+  JSON-Reports und der Bibliothek beim Hochziehen prüfen sollten (Details jeweils in den Einträgen
+  unten):
+  - **Gesamtscores verschieben sich:** HTML-Conformance zählt seit dem Per-Ursache-Scoring-Fix mit
+    5 % in den Gesamtscore, SEO sinkt von 20 % auf 15 %. Reports derselben Seite ergeben andere
+    `overall_score`-Werte als unter 1.3.x.
+  - **Geänderte JSON-Werte** (nicht nur ergänzte Felder): `rich_snippets_potential` nennt den
+    bloßen Schema-Typ (`"FAQPage"` statt `"FAQ Rich Snippet"`); die Schlüssel in
+    `mobile.issues[].values.small_by_context` sind kanonisch englisch (`other`/`form` statt
+    `sonstige`/`formular`).
+  - **Zwei SEO-Befunde entfallen:** `pagination_missing_rel_links` und
+    `pwa_missing_service_worker` werden nicht mehr emittiert.
+  - **Additiv:** `security.issues[].values` und `mobile.issues[].values` tragen die interpolierten
+    Rohwerte; leer werden sie weggelassen. `header`, `issue_type` und `message` bleiben unverändert.
+  - **Rust-API bricht:** `security::coop_corp_verification_text` ist entfallen (in
+    `security_issue_text` aufgegangen), `SecurityIssue` und `MobileIssue` haben ein neues
+    öffentliches Feld `values`, und `a11y_journey::link_inventory::analyse` nimmt jetzt Seiten- und
+    Fallback-Sprache statt einer Locale.
+  - Bekannter Konsument: Studio hing auf 1.3.1 (siehe Auto-Memory) — vor dem Upgrade prüfen.
+
 - **Report-Aussagen: Widersprüche und Überbehauptungen behoben, 2026-09-18:** Ausgelöst durch eine
   externe Kritik am casoon.de-Report. Der Report behauptete an mehreren Stellen mehr, als die
   Messung hergibt, und widersprach sich dabei selbst.
