@@ -5,6 +5,214 @@ the fix, and how it was verified. Extracted from `CLAUDE.md`'s former "Current S
 (plan/11-claude-md-version-drift.md) so `CLAUDE.md` itself stays focused on working rules and a
 short current-state summary. Newest entries first (unchanged order from before the extraction).
 
+- **Report-Aussagen: Widersprüche und Überbehauptungen behoben, 2026-09-18:** Ausgelöst durch eine
+  externe Kritik am casoon.de-Report. Der Report behauptete an mehreren Stellen mehr, als die
+  Messung hergibt, und widersprach sich dabei selbst.
+  - **Linktext-Heuristik erzeugte falsche WCAG-2.4.4-Behauptungen:** `a11y_journey::link_inventory`s
+    `is_generic` verglich per `lower.contains(stopword)`, also als Substring. Damit galt jeder
+    beschreibende Linktext als generisch, der irgendwo ein Stoppwort enthielt — an casoon.de
+    „Claude-Code-Kontingent: Der Verlauf kostet **mehr** als jede Konfiguration" (200 Zeichen
+    Kartentext), „**Mehr** über Jörn Seidel", „**Mehr** Sichtbarkeit bei Google & KI"; die
+    englische Liste traf über `here`/`more`/`open` zusätzlich mitten in deutsche Wörter. Alle vier
+    gemeldeten Links waren False Positives. Jetzt exakter Vergleich auf dem normalisierten Namen
+    (lowercase, umschließende Nicht-Alphanumerik entfernt, sodass „Mehr erfahren »" weiterhin
+    trifft). Zusätzlich folgt die Detektionssprache jetzt der **Seiten**-Sprache (`<html lang>`,
+    per `eval_string` im Journey-Hook gelesen) statt der Lauf-Sprache, mit expliziter
+    `STOPWORD_LOCALES`-Prüfung — `I18n::new` liefert für unbekannte Locales stillschweigend das
+    deutsche Bundle, eine französische Seite wäre sonst mit deutschen Stoppwörtern gescannt worden
+    (#406-Trennung Detektions- vs. Message-Sprache). Vier Regressionstests, darunter die drei
+    echten casoon.de-Namen. Der Befundtext behauptet außerdem nicht mehr „erfüllen WCAG 2.4.4
+    nicht", sondern kennzeichnet sich als heuristische Warnung mit manuellem Prüfbedarf.
+  - **Drei Evidenzklassen statt einer:** Neue `EvidenceClasses` (bestätigte WCAG-Verstöße /
+    heuristische Warnungen / manuell zu prüfende Kriterien) auf dem `FindingsBlock`, einmal im
+    Builder berechnet. **Scores bleiben unverändert** — sie werden weiterhin allein aus den
+    bestätigten Verstößen abgeleitet. Die Klassen existieren, damit kein Zählsatz mehr „0 Befunde"
+    sagen kann, während vier Seiten später Befunde stehen: Die Ursachenanalyse sagt jetzt „Keine
+    bestätigten WCAG-Verstöße … Es bleiben N Warnung(en) und M Prüfhinweis(e)" statt „Es wurden
+    keine Barrierefreiheits-Befunde erkannt", und unter dem Zählstrip der Management-Sicht steht
+    explizit, dass dort ausschließlich bestätigte Verstöße gezählt werden. Der „Heuristische
+    Warnungen"-Metrikwert zählt jetzt auch die Journey- und Screenreader-Signale, nicht mehr nur
+    die Warnungen der WCAG-Engine.
+  - **BFSG-Aussagen auf technische Kriterien zurückgeführt:** „BFSG-Prüfung: keine Verstöße im
+    geprüften Umfang" (grün) und die Checklisten-Zeile „Rechtliche Konformität (BFSG) — Geringes
+    Compliance-Risiko" lasen sich wie eine rechtliche Freigabe. Ein Scanner kann weder feststellen,
+    ob ein Dienst überhaupt unter das BFSG fällt, noch ob sämtliche gesetzlichen Anforderungen
+    erfüllt sind. Beide heißen jetzt „BFSG-relevante technische Kriterien" und sagen explizit
+    „Dies ist keine rechtliche Konformitätsprüfung."
+  - **Breadcrumb-Widerspruch (`seo::serp`):** Das SERP-Signal prüfte nur die Typ-Präsenz von
+    `BreadcrumbList` und meldete dann „Google zeigt Pfadangabe im Listeneintrag" — während die
+    Schema-Tabelle desselben Reports „Pflichtangaben fehlen: itemListElement (minimum 2 entries)"
+    ausgab. Das Signal konsultiert jetzt die bereits vorhandenen `rule_assessments`; ein
+    unvollständiges Schema wird zur Warnung mit Nennung der fehlenden Felder. Zwei
+    Regressionstests.
+  - **Maßnahmenliste modulübergreifend:** „Die 5 wichtigsten Maßnahmen" wurde ausschließlich aus
+    WCAG-Findinggruppen gespeist und meldete bei 0 WCAG-Befunden „Keine dringenden Maßnahmen
+    erforderlich" — obwohl derselbe Report Duplicate Host, fehlerhaftes Breadcrumb-Schema, 13.756
+    DOM-Knoten und eine CSP-Fehlkonfiguration dokumentierte. Neu füllt `cross_module_measures` die
+    Liste aus Security-, Mobile-, SEO- und Performance-Empfehlungen auf, sortiert nach Schwere und
+    danach nach den Overall-Punkten, die das Modul kostet. Der Leertext des Maßnahmenplans
+    verneint keine Befunde mehr, sondern verweist auf die Modulabschnitte.
+  - **Terminologie und PDF-Artefakte:** TBT wird nicht mehr als Core Web Vital ausgewiesen
+    (`perf-lab-data-body` nennt LCP/CLS als CWV und TBT als Lab-Näherung, weil INP headless nicht
+    messbar ist); die Abschnitte „Desktop/Mobile — Core Web Vitals" heißen „Kennzahlen
+    (Labormessung)", weil ihre Strips auch FCP und TTFB enthalten, die Zusatztabelle heißt „Weitere
+    Lab-Metriken". Die Schwellwerte für DOM-Knoten, Ladezeit und DOMContentLoaded sind als
+    „Richtwert" statt „Ziel" beschriftet (Lighthouse-Heuristik, keine Norm). Interne Journey-IDs
+    (`tab_walk`, `disclosure_0`, `skip_link_0`) erscheinen nicht mehr roh im Kunden-PDF, sondern als
+    Labels, mit Rückfall auf die rohe ID bei unbekannten Journeys. Der Callout über den
+    interaktiven Befunden ist nicht mehr grün (der Erfolgszweig war ohnehin unerreichbar, weil der
+    Abschnitt nur bei vorhandenen Befunden gerendert wird) und ist grammatikalisch korrekt im
+    Singular. `rich_snippet_type` heißt nicht mehr „FAQ Rich Snippet", sondern nennt den bloßen
+    Schema-Typ — vorhandenes Markup ist keine Zusage über die Suchdarstellung. Das Gesamturteil
+    sagt „im automatisierten Accessibility-Prüfumfang" statt „im Accessibility-Audit".
+  - Verifiziert: `cargo test --all-features` (1376 Lib- plus Integrationstests grün),
+    `cargo clippy --all-features --all-targets` ohne Warnungen, `cargo fmt --check`, sowie ein
+    echter Lauf gegen www.casoon.de — der Linktext-Befund ist verschwunden (2 → 1 interaktive
+    Befunde), das Breadcrumb-Signal steht auf „Warnung" mit Begründung, die Maßnahmenliste führt
+    fünf modulübergreifende Punkte, und `report-lint` meldet weiterhin keine Findings. Score
+    unverändert (Accessibility 100, Overall 92).
+  - **Zwei fachlich fragwürdige SEO-Regeln entfernt (Nachtrag desselben Tages):**
+    `pagination_missing_rel_links` meldete fehlendes `rel="prev"`/`rel="next"`-Markup als
+    SEO-Problem — Google nutzt das Paar seit 2019 nicht mehr zur Indexierung. Die übrigen
+    Pagination-Prüfungen bleiben: sie greifen nur, wenn rel-Links tatsächlich vorhanden und falsch
+    sind (Selbstreferenz, prev == next), und das ist in jedem Fall kaputtes Markup.
+    `pwa_missing_service_worker` meldete eine fehlende Service-Worker-Registrierung, sobald ein
+    Web-App-Manifest vorhanden war — ein Manifest wird aber routinemäßig allein für Icons und
+    Theme-Color ausgeliefert (an casoon.de exakt dieser Fall: gültiges Manifest, `display:
+    standalone`, keine Registrierung) und belegt keine Absicht, eine installierbare, offline-fähige
+    PWA zu sein. Die `service_worker_*`-Felder bleiben als Information im JSON. Beide Tests durch
+    Negativtests ersetzt. Ergebnis an casoon.de: „Technische SEO-Probleme" schrumpft von drei auf
+    eine Zeile (den echten Duplicate-Host-Befund).
+  - **Maßnahmenliste fasst gleichartige Befunde zusammen:** Nach dem Entfernen der beiden
+    SEO-Regeln rückten drei separate CSP-Fehlkonfigurationen nach und belegten drei der fünf
+    Plätze. `cross_module_measures` fasst jetzt Befunde mit gleichem Modul und gleichem Titel zu
+    einer Maßnahme zusammen und hängt „(+N weitere gleicher Art)" an — drei CSP-Befunde sind eine
+    Maßnahme „CSP korrigieren". `TopMeasure` trägt dafür Titel und Detail getrennt; Performance-
+    und technische SEO-Empfehlungen haben keinen eigenen Titel und werden ohne Trenner gerendert.
+    Drei Rendering-Tests. Dabei mitkorrigiert: die Mobile-Einträge trugen den rohen
+    snake_case-Kategorieschlüssel (`touch_targets`, `fonts`) — sie nutzen jetzt dasselbe
+    `mobile_category_label`, das der Mobile-Modulabschnitt schon verwendet („Touch-Targets",
+    „Schriftgrößen").
+  - **Security- und Mobile-Meldungen lokalisiert (Nachtrag desselben Tages, #406):** Beide Module
+    backten englische Prosa in `message` und der PDF-Renderer gab sie unverändert im deutschen
+    Report aus („CSP allows unsafe-inline scripts without nonce/hash protection", „1 touch targets
+    are too small"). Beide folgen jetzt dem kind-Enum-Muster: `SecurityIssueKind` (19 Varianten)
+    bzw. `MobileIssueKind` (6) plus `*IssueValues` für die interpolierten Rohwerte, und je eine
+    reine `security_issue_text` / `mobile_issue_text` als EINZIGE Textquelle — die Analyse ruft sie
+    mit `en=true`, die PDF-Präsentationsschicht über `localized_message()` mit der Lauf-Sprache.
+    Die Konstruktoren `security_issue`/`mobile_issue` bauen `message` daraus ab, sodass an keiner
+    Aufrufstelle mehr ein Meldungstext von Hand steht. `kind()` wird aus den bereits gespeicherten
+    `header`/`issue_type`-Feldern abgeleitet statt als viertes Feld serialisiert, damit Reports und
+    gecachte Artefakte älterer Builds unverändert weiterlokalisieren; unbekannte Typen fallen auf
+    die gespeicherte kanonische Fassung zurück. JSON-Vertrag bleibt identisch (`header`,
+    `issue_type`, `message` unverändert englisch; `values` ist additiv und wird leer weggelassen),
+    abgesichert durch `security_issue_types_match_the_stored_contract`. Dabei mitkorrigiert: das
+    Mobile-Seitenskript schrieb die deutschen Kontextschlüssel `sonstige`/`formular` ins
+    eigentlich englisch-kanonische JSON — jetzt `other`/`form`, lokalisiert über
+    `mobile_context_label` (unbekannte Schlüssel gehen unverändert durch). Die
+    #578-Sonderlösung `coop_corp_verification_text` ist entfallen, sie ging in
+    `security_issue_text` auf. Guard-Tests pro Modul (jede Variante lokalisiert, EN ohne Umlaute)
+    plus Fallback- und Round-Trip-Tests.
+  - **Check-Inventar aus dem Enum statt aus dem Quelltext:** `tests/common/nonwcag_rule_inventory.rs`
+    ermittelte die kanonischen Security-Check-IDs, indem es `src/security/mod.rs` nach
+    `SecurityIssue { header: "…", issue_type: "…" }`-Stringliteralen durchsuchte — durch den
+    Umbau standen dort keine Literale mehr und der Corpus-Test schlug fehl. Die IDs kommen jetzt
+    aus `security::all_security_check_ids()`, abgeleitet aus `SecurityIssueKind::ALL`; der
+    Textscan samt hand-gepflegter `CSP_DYNAMIC_DIRECTIVE_IDS`-Liste entfällt, und die
+    CSP-Pflichtdirektiven stehen als `CSP_REQUIRED_DIRECTIVES` an einer Stelle.
+  - **Prüfumfang aufs Deckblatt (Nachtrag desselben Tages):** Die Scope-Zeile stand nur auf Seite 2,
+    das Deckblatt zeigte „Website-Qualitätsbericht · casoon.de · 92" und einen nackten
+    „Barrierefreiheit 100"-Gauge — wer dort aufhört, liest beides als Aussage über die ganze
+    Website. Die Zeile kommt jetzt aus einer gemeinsamen Quelle (`single_report::audit_scope_line`)
+    und steht im Cover-Untertitel; das Label über dem Gauge-Streifen lautet „MODULE · 0–100 IM
+    AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER".
+  - **Dabei einen Layout-Bug erzeugt und behoben:** Der erste Versuch hängte die Scope-Zeile an den
+    vollen Kicker an, der Untertitel umbrach auf zwei Zeilen und schob die Labels der unteren
+    Gauge-Reihe (Mobile, UX, Journey) aus der Seite — das Typst-Template gibt jedem Gauge-Label
+    eine feste 22pt-Box und die Coverseite wächst nicht, der Überlauf wurde still verworfen. Per
+    gerendertem PDF entdeckt, nicht im Typst-Quelltext sichtbar. `narrative-cover-kicker` ist
+    deshalb jetzt knapp („Technischer Website-Check" statt „… mit Fokus auf Accessibility, SEO und
+    Performance") — die weggefallenen Bereiche benennt der Gauge-Streifen direkt darunter ohnehin.
+    Neuer Wächter `test_cover_subtitle_stays_on_one_line` (Zeichenbudget 95, gemessen: ~83 passen,
+    132 brachen um) plus `test_cover_carries_scope_line_and_gauge_qualifier`.
+  - **Bewusst nicht geändert:** die Score-Inflation — siehe
+    `plan/29-report-claim-integrity-followups.md`.
+
+- **Produktdokumentation: Widersprüche zum tatsächlichen Verhalten korrigiert, 2026-09-17:** Drei
+  bestätigte Abweichungen behoben. (1) `README.md`s HTML5-Conformance-Beschreibung sagte noch
+  "score-neutral", obwohl das Modul seit dem Per-Ursache-Scoring-Fix vom 2026-09-16
+  (`contributes_to_overall: true`, `weight_pct: 5`) real in den Gesamtscore einfließt. (2)
+  `src/lib.rs`s Modulübersicht listete "HTML" als Report-Format, obwohl kein HTML-Export existiert.
+  (3) Die Kurzbeschreibung sagte an mehreren Stellen (`Cargo.toml`, `src/lib.rs`, `src/cli/args.rs`,
+  `src/cli/plan.rs`s Laufzeit-CLI-Banner, `CLAUDE.md`, `docs/ARCHITECTURE.md`) pauschal "WCAG 2.1",
+  während `README.md` einzelne WCAG-2.2-Regeln (2.4.11/2.4.12, 3.3.7, 2.5.8) bereits korrekt
+  einzeln kennzeichnet — überall auf "WCAG 2.1 AA (+ select 2.2 criteria)" vereinheitlicht. Dabei
+  einen weiteren, direkt benachbarten Fund mitkorrigiert: `src/lib.rs`s "Comprehensive: Checks
+  WCAG 2.1 Level A, AA, and AAA" widersprach `README.md`s eigener Aussage "AAA is not fully
+  implemented yet" — jetzt präzise: 36 von 50 automatisierten A/AA-Kriterien
+  (`docs/PARITY_CONTRACT.jsonc`), plus ausgewählte 2.2- und einzelne AAA-Kriterien.
+  `docs/browser-architecture.md`s veraltetes Homebrew-Formula-Beispiel bewusst unangetastet
+  gelassen — die Datei deklariert sich selbst bereits als alte, nicht vollständig umgesetzte
+  Vorschlagssammlung, nicht als aktuelle Verhaltensdokumentation. Drei neue, maschinell prüfbare
+  Regressionswächter in `scripts/release-check.sh` (unqualifizierte "WCAG 2.1 Accessibility
+  Checker"-Phrase, HTML5-Conformance-"score-neutral", HTML als Report-Format), je mit manuellem
+  Negativfall verifiziert (alten Text testweise wiederhergestellt → Check schlägt fehl;
+  zurückgesetzt → wieder grün).
+- **Release-Workflow: Qualitätsgates vor dem Artefakt-Build erzwungen, 2026-09-17:**
+  `.github/workflows/release.yml`s `build`-Job hing bisher nur von `verify-version` ab — Tests,
+  Formatierung, Clippy und das Dependency-Advisory-Gate waren keine Voraussetzung für einen
+  `v*`-Tag-Release. `.github/workflows/ci.yml` bekommt einen zusätzlichen `workflow_call:`-Trigger
+  (neben `push`/`pull_request`), `release.yml` ruft es jetzt als neuen Job `quality-gates` per
+  `uses: ./.github/workflows/ci.yml` auf demselben Commit-SHA auf, den `build` jetzt zusätzlich zu
+  `verify-version` als Voraussetzung hat — technisch über den SHA abgesichert (derselbe Checkout),
+  nicht nur über den Branch-Namen. `browser-smoke`/`coverage` laufen dabei bewusst nicht erneut mit
+  (ihr eigenes `if: github.event_name == 'push' || ... == 'pull_request'` schließt
+  `workflow_call` bereits aus) — die Chrome-/Corpus-Tests liefen schon beim Merge auf `main` und
+  laufen erneut lokal über den pre-push-Hook (`scripts/release-check.sh`), bevor überhaupt ein
+  Release-Tag gepusht wird; sie im Release-Gate zu wiederholen hätte jeden Release unnötig
+  verlangsamt. Beide Plattform-Build-Schritte bekommen `--locked`, damit Releases reproduzierbar
+  aus dem eingecheckten `Cargo.lock` gebaut werden. Zwei neue `release_contract_tests`
+  (`test_release_build_requires_quality_gates_to_pass_first`,
+  `test_release_build_uses_locked_lockfile`) verhindern, dass der Release-Job künftig wieder ohne
+  Gate auf Artefaktbau zuläuft — Negativfall verifiziert (`needs:` auf nur `verify-version`
+  zurückgesetzt → Test schlägt fehl).
+- **Dependency-Sicherheit: RustSec-Gate ergänzt, 2026-09-17:** `cargo audit` meldete 9
+  Schwachstellen im `Cargo.lock`. Patch-Level-Updates ohne API-Auswirkung eingespielt:
+  `rustls` 0.23.40 → 0.23.45 (RUSTSEC-2026-0285), `crossbeam-epoch` 0.9.18 → 0.9.21
+  (RUSTSEC-2026-0204), `quinn-proto` 0.11.14 → 0.11.18 (RUSTSEC-2026-0185). `lopdf`
+  (Dev-Dependency, PDF-Testhelfer) von 0.34 auf 0.45 angehoben (RUSTSEC-2026-0187) — die
+  verwendete API (`Document::load_mem`, `.objects`, `.catalog()`, `.get_pages()`,
+  `.extract_text()`) blieb über den Versionssprung unverändert, alle PDF-Tests weiterhin grün.
+  Zwei Advisories bleiben offen und sind in `.cargo/audit.toml` einzeln mit Begründung
+  dokumentiert statt pauschal ausgeblendet: `rsa` (RUSTSEC-2023-0071, nur über die optionale
+  `ai-transparency`/`c2pa`-Kette, kein Upstream-Patch verfügbar, auditmysite hält keinen privaten
+  RSA-Schlüssel) und `quick-xml` (RUSTSEC-2026-0195/-0194, zwei transitive Kopien über
+  `hayagriva`/`syntect`, jeweils bereits am von den Elternpaketen erlaubten Versions-Deckel —
+  Fix erfordert ein Upstream-Release der `typst`/`renderreport`-Kette; betroffene Eingaben sind
+  gebündelte, nicht angreifer-kontrollierte Daten wie Zitationsstile und Theme-`.plist`-Dateien,
+  nicht Inhalte geprüfter Webseiten). Neuer CI-Job `dependency-audit` (`.github/workflows/ci.yml`)
+  führt `cargo audit` auf jedem PR aus.
+- **Screenreader-Modul: Lesereihenfolge zählte Layout-Artefakte, 2026-09-17:** Ausgelöst durch die
+  Prüfung eines RankingLab-Reports (Sachsen-Anhalt): Der Abschnitt „Screenreader-Lesereihenfolge"
+  meldete 237 „angekündigte Knoten" und vier Befunde „Langer Abschnitt ohne Landmark, Überschrift
+  oder Fokusziel" — bei gleichzeitig 100/100 Heading- und Landmark-Qualität. Lokal an
+  www.sachsen-anhalt.de exakt reproduziert. Ursache: `linearize` emittierte jeden nicht-ignorierten
+  AX-Knoten als `ReadingItem`, darunter 67 `InlineTextBox` — Blinks Zeilenfragmente, in die ein
+  `StaticText` durch Zeilenumbruch zerlegt wird. Sie existieren für Caret-/Auswahl-Bounds, werden
+  nie an eine assistive Technologie gereicht, und trugen denselben Text zwei- bis viermal. Dadurch
+  war jede aus der Lesereihenfolge abgeleitete Zahl aufgebläht: Die Desert-Heuristik zählte eine
+  News-Teaser-Karte aus vier Ankündigungen (Schlagzeile, Datum, Teaser, Bildnachweis) als
+  23-Einträge-Wüste; alle vier Befunde der Seite waren False Positives, erzeugt allein vom
+  Zeilenumbruch. Neu: `linearizer::is_layout_only_role` überspringt `InlineTextBox` beim Emittieren,
+  traversiert aber weiter (Nachfahren bleiben erhalten); `analyzer::carries_announced_content`
+  zählt für die Desert-Distanz nur noch Items mit eigenem Namen oder Wert, sodass leere Wrapper
+  (`figure`, `paragraph`, `group`, `generic`, `Figcaption`, `list`) nicht mehr dieselbe Ankündigung
+  doppelt zählen — rollen-agnostisch, ein `aria-label`ter `group` zählt weiterhin.
+  `CONSENT_WALL_NODE_THRESHOLD` von 200 auf 145 nachkalibriert, weil die Knotenzahl um denselben
+  Anteil sinkt. Ergebnis an sachsen-anhalt.de: 237 → 170 Knoten, vier False Positives verschwunden,
+  der eine echte Befund (Button ohne zugänglichen Namen, 4.1.2 → § 12 Nr. 3 BFSGV) bleibt; Tab-Stopps
+  und alle drei Qualitätswerte unverändert. Verifiziert per Vorher/Nachher-Lauf und 4 neuen
+  Unit-Tests.
 - **HTML-Konformität: Score zählte Fundstellen statt Ursachen, 2026-09-16:** Das Modul stand auf
   `weight_pct: 0` mit dem Report-Hinweis, sein HTML5-Schema kenne keine RDFa-/Open-Graph-Attribute
   und `og:`-Meta-Tags erzeugten deshalb False Positives. Beides war überholt: Die RDFa-Lücke ist

@@ -77,3 +77,20 @@ fn module_customer_context_excludes_caller_interpretation() {
         "expected the plain performance customer text, got: {out}"
     );
 }
+
+#[cfg(test)]
+mod journey_label_tests {
+    use super::super::accessibility::journey_label;
+
+    #[test]
+    fn internal_journey_ids_are_not_printed_verbatim() {
+        assert_eq!(journey_label("tab_walk", false), "Tab-Durchlauf");
+        assert_eq!(journey_label("disclosure_0", false), "Aufklapp-Menü 1");
+        assert_eq!(journey_label("skip_link_2", true), "Skip link 3");
+    }
+
+    #[test]
+    fn unknown_journey_id_falls_back_to_the_raw_id() {
+        assert_eq!(journey_label("something_new_7", false), "something_new_7");
+    }
+}

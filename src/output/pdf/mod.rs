@@ -126,11 +126,14 @@ fn build_single_report(
             CoverModuleGauge::new(name, m.score)
         })
         .collect();
+    // The gauge strip's label carries the scope qualifier: a bare
+    // "Barrierefreiheit 100" on the cover reads as "fully accessible", which
+    // no automated run can establish.
     let (score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit) = if en {
         (
             "OVERALL SCORE",
             "WCAG OCCURRENCES",
-            "MODULES · 0–100, HIGHER IS BETTER",
+            "MODULES · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER",
             "critical/high",
             "0 critical/high",
         )
@@ -138,7 +141,7 @@ fn build_single_report(
         (
             "GESAMTSCORE",
             "WCAG-VORKOMMEN",
-            "MODULE · 0–100, HÖHER IST BESSER",
+            "MODULE · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER",
             "kritisch/hoch",
             "0 kritisch/hoch",
         )
@@ -154,9 +157,23 @@ fn build_single_report(
         None
     };
 
+    // What was actually audited belongs on the cover, not only on page 2 —
+    // "Website-Qualitätsbericht casoon.de · 92" otherwise reads as a verdict
+    // on the whole site when exactly one page was checked.
+    //
+    // The cover has room for exactly one subtitle line: a second line pushes
+    // the lower gauge row's labels off the page (the template gives each label
+    // a fixed 22pt box and the page does not grow). `narrative-cover-kicker`
+    // is therefore deliberately terse — the areas it used to enumerate are
+    // named by the gauge strip right below it anyway.
+    let cover_subtitle = format!(
+        "{} · {}",
+        vm.executive.cover_kicker,
+        self::single_report::audit_scope_line(en)
+    );
     let mut cover = CoverPage::new(&vm.cover.title, &domain, overall_score, &vm.cover.grade)
         .with_brand(&vm.cover.brand)
-        .with_subtitle(&vm.executive.cover_kicker)
+        .with_subtitle(&cover_subtitle)
         .with_date(&vm.cover.date)
         .with_band_phrase(band_phrase)
         .with_issues(vm.cover.total_issues, vm.cover.critical_issues)

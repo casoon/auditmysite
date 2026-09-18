@@ -473,10 +473,25 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
     // 4. Tech complexity (DOM + performance)
     let dom = normalized.normalized.nodes_analyzed;
     let perf_score = normalized.raw_performance.map(|p| p.score.overall);
+    // The branch thresholds below are calibrated against `nodes_analyzed`
+    // (the WCAG engine's own checked-node count), not the page's real DOM
+    // element count — those are different metrics at very different scales
+    // (e.g. ~4,000 checked nodes vs. ~20,000 real DOM nodes on the same
+    // page). `dom_display` prefers the real DOM count from the Performance
+    // module's own vitals when available, so this sentence doesn't state a
+    // "DOM-Knoten"/"DOM nodes" figure that contradicts the Performance
+    // section's own DOM node count a few paragraphs later in the same
+    // report (plan/30-pdf-numbers-not-traceable-to-json.md). Falls back to
+    // `nodes_analyzed` only when no Performance data is available at all.
+    let dom_display = normalized
+        .raw_performance
+        .and_then(|p| p.vitals.dom_nodes)
+        .map(|n| n as usize)
+        .unwrap_or(dom);
     let tech = match (dom, perf_score) {
         (d, Some(p)) if d > 2000 && p < 60 => LocalizedText {
-            de: format!("Tech-Komplexität: Hoch — {d} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
-            en: format!("Tech complexity: High — {d} DOM nodes, performance {p} pts — refactoring recommended"),
+            de: format!("Tech-Komplexität: Hoch — {dom_display} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
+            en: format!("Tech complexity: High — {dom_display} DOM nodes, performance {p} pts — refactoring recommended"),
         },
         // p is 60-74 here ("Verbesserungswürdig"/"Needs improvement" band,
         // same < 75 "Good" cutoff `render_score_driver_table` uses to call a
@@ -485,32 +500,32 @@ fn build_technical_overview_localized(normalized: &AuditContext<'_>) -> Vec<Loca
         // self-contradictory (feedback 2026-09-07). Only p >= 75 earns
         // "stabil" below.
         (d, Some(p)) if d > 2000 && p < 75 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
-            en: format!("Tech complexity: Medium-high — {d} DOM nodes add strain to only middling performance ({p} pts) — optimization potential"),
+            de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
+            en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes add strain to only middling performance ({p} pts) — optimization potential"),
         },
         (d, Some(p)) if d > 2000 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {d} DOM-Knoten (Performance {p} Pkt stabil)"),
-            en: format!("Tech complexity: Medium-high — {d} DOM nodes (performance {p} pts stable)"),
+            de: format!("Tech-Komplexität: Mittel-hoch — {dom_display} DOM-Knoten (Performance {p} Pkt stabil)"),
+            en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes (performance {p} pts stable)"),
         },
-        (d, Some(p)) if p < 60 => LocalizedText {
-            de: format!("Tech-Komplexität: Performance kritisch ({p} Pkt) — {d} DOM-Knoten analysiert"),
-            en: format!("Tech complexity: Performance critical ({p} pts) — {d} DOM nodes analyzed"),
+        (_d, Some(p)) if p < 60 => LocalizedText {
+            de: format!("Tech-Komplexität: Performance kritisch ({p} Pkt) — {dom_display} DOM-Knoten analysiert"),
+            en: format!("Tech complexity: Performance critical ({p} pts) — {dom_display} DOM nodes analyzed"),
         },
-        (d, Some(p)) if p < 80 => LocalizedText {
-            de: format!("Tech-Komplexität: Gering — {d} DOM-Knoten, Performance optimierbar ({p} Pkt)"),
-            en: format!("Tech complexity: Low — {d} DOM nodes, performance can be optimized ({p} pts)"),
+        (_d, Some(p)) if p < 80 => LocalizedText {
+            de: format!("Tech-Komplexität: Gering — {dom_display} DOM-Knoten, Performance optimierbar ({p} Pkt)"),
+            en: format!("Tech complexity: Low — {dom_display} DOM nodes, performance can be optimized ({p} pts)"),
         },
-        (d, Some(p)) => LocalizedText {
-            de: format!("Tech-Komplexität: Gering — {d} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"),
-            en: format!("Tech complexity: Low — {d} DOM nodes, performance {p} pts — technical baseline stable"),
+        (_d, Some(p)) => LocalizedText {
+            de: format!("Tech-Komplexität: Gering — {dom_display} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"),
+            en: format!("Tech complexity: Low — {dom_display} DOM nodes, performance {p} pts — technical baseline stable"),
         },
         (d, None) if d > 2000 => LocalizedText {
-            de: format!("Tech-Komplexität: Hoch — {d} DOM-Knoten (Performance nicht geprüft)"),
-            en: format!("Tech complexity: High — {d} DOM nodes (performance not audited)"),
+            de: format!("Tech-Komplexität: Hoch — {d} geprüfte Knoten (Performance nicht geprüft)"),
+            en: format!("Tech complexity: High — {d} nodes checked (performance not audited)"),
         },
         (d, None) => LocalizedText {
-            de: format!("Tech-Komplexität: {d} DOM-Knoten analysiert (Performance nicht geprüft, --full)"),
-            en: format!("Tech complexity: {d} DOM nodes analyzed (performance not audited, use --full)"),
+            de: format!("Tech-Komplexität: {d} geprüfte Knoten (Performance nicht geprüft, --full)"),
+            en: format!("Tech complexity: {d} nodes checked (performance not audited, use --full)"),
         },
     };
     bullets.push(tech);
@@ -895,6 +910,66 @@ mod tests {
         }
     }
 
+    #[test]
+    fn tech_complexity_bullet_uses_real_dom_count_not_wcag_nodes_analyzed() {
+        // plan/30-pdf-numbers-not-traceable-to-json.md: the WCAG engine's own
+        // checked-node count (`nodes_analyzed`, tiny by comparison) must not
+        // be printed under the "DOM-Knoten"/"DOM nodes" label when the
+        // Performance module's real DOM element count is available —
+        // otherwise the same report states two contradictory "DOM node"
+        // figures for the same page.
+        use crate::audit::PerformanceResults;
+        use crate::performance::{calculate_performance_score, WebVitals};
+        use crate::wcag::WcagResults;
+        use crate::WcagLevel;
+
+        let mut results = WcagResults::new();
+        results.nodes_checked = 3974; // small WCAG-checked-node count
+
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            results,
+            1_000,
+        );
+
+        let vitals = WebVitals {
+            dom_nodes: Some(20368), // much larger real DOM element count
+            ..Default::default()
+        };
+        let score = calculate_performance_score(&vitals, None);
+        report.performance = Some(PerformanceResults {
+            vitals,
+            score,
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+            measurement_warnings: Vec::new(),
+        });
+
+        let ctx = crate::audit::normalized::normalize(&report);
+        let bullets = build_technical_overview_localized(&ctx);
+        let tech_bullet = bullets
+            .iter()
+            .find(|b| b.de.starts_with("Tech-Komplexität"))
+            .expect("technical overview must include a tech-complexity bullet");
+
+        assert!(
+            tech_bullet.de.contains("20368"),
+            "tech-complexity bullet must state the real DOM element count, got: {}",
+            tech_bullet.de
+        );
+        assert!(
+            !tech_bullet.de.contains("3974"),
+            "tech-complexity bullet must not state the WCAG checked-node count as if it were the DOM count, got: {}",
+            tech_bullet.de
+        );
+    }
+
     fn low_severity_context_issue(
         header: &str,
         tier: crate::security::HeaderTier,
@@ -905,6 +980,7 @@ mod tests {
             message: format!("{header} is not set."),
             severity: Severity::Low,
             tier,
+            values: Default::default(),
         }
     }
 
@@ -960,6 +1036,7 @@ mod tests {
                 message: "Site is not served over HTTPS".to_string(),
                 severity: Severity::Critical,
                 tier: HeaderTier::Baseline,
+                values: Default::default(),
             },
             low_severity_context_issue("Cross-Origin-Opener-Policy", HeaderTier::ContextDependent),
         ];

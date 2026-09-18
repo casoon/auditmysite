@@ -7,6 +7,9 @@ use super::navigator::{
 };
 use super::types::{ReadingItem, SrAuditIssue};
 
+/// How many consecutive announced items (see [`carries_announced_content`]) may
+/// pass without a landmark, heading or focus target before the stretch is worth
+/// reporting. Counted in real announcements, not in AX nodes.
 const ANNOUNCEMENT_DESERT_THRESHOLD: usize = 15;
 const TAB_STOP_WARNING_THRESHOLD: usize = 50;
 
@@ -73,6 +76,30 @@ fn localized_stopwords(locale: &str) -> HashSet<String> {
         .unwrap_or_default()
 }
 
+/// Ambiguous "continuation" words — a wizard's "Weiter" (Next), an article
+/// teaser's "Weiterlesen"/"Read more", a row's "Details" expander — are
+/// often perfectly clear in the surrounding context they normally appear in,
+/// but that context isn't visible to this flat, already-linearized item
+/// list (plan/33-screen-reader-thresholds-unvalidated.md). Downgraded to
+/// "low" rather than suppressed, since the checker still can't verify
+/// context either way. Words that only describe the click mechanism itself
+/// ("hier klicken"/"click here", "hier"/"here", "klicken"/"click", "link")
+/// carry no meaning in any context and stay at the higher severity.
+const AMBIGUOUS_CONTINUATION_WORDS: &[&str] = &[
+    "weiter",
+    "mehr",
+    "more",
+    "details",
+    "mehr erfahren",
+    "learn more",
+    "weiterlesen",
+    "read more",
+    "view",
+    "see more",
+    "find out more",
+    "discover",
+];
+
 fn detect_non_descriptive_interactive_names(
     items: &[ReadingItem],
     stopwords: &HashSet<String>,
@@ -87,9 +114,14 @@ fn detect_non_descriptive_interactive_names(
         if stopwords.contains(&normalized)
             || matches!(normalized.as_str(), "x" | "icon" | "bild" | "image")
         {
+            let severity = if AMBIGUOUS_CONTINUATION_WORDS.contains(&normalized.as_str()) {
+                "low"
+            } else {
+                "medium"
+            };
             issues.push(SrAuditIssue {
                 wcag_criterion: Some("2.4.4".into()),
-                severity: "medium".into(),
+                severity: severity.into(),
                 affected_node_ids: vec![item.node_id.clone()],
                 message: if en {
                     format!("Interactive name \"{name}\" is not meaningful without context.")
@@ -221,7 +253,7 @@ fn detect_announcement_deserts(items: &[ReadingItem], en: bool, issues: &mut Vec
             segment_start = item.seq + 1;
             count = 0;
             node_ids.clear();
-        } else {
+        } else if carries_announced_content(item) {
             count += 1;
             node_ids.push(item.node_id.clone());
         }
@@ -230,6 +262,26 @@ fn detect_announcement_deserts(items: &[ReadingItem], en: bool, issues: &mut Vec
     if count > ANNOUNCEMENT_DESERT_THRESHOLD {
         push_desert_issue(segment_start, count, &node_ids, en, issues);
     }
+}
+
+/// Whether a reading item is something a screen reader actually voices, as
+/// opposed to a structural wrapper that only exists to hold children.
+///
+/// The reading order contains both. A `paragraph`, `figure`, `Figcaption`,
+/// `list`, `group` or `generic` node carries no text of its own -- its content
+/// lives in the `StaticText` children that follow it -- so counting the wrapper
+/// *and* its text counts the same announcement two or three times over.
+///
+/// This matters only for the announcement-desert distance measure, which asks
+/// "how much does a user hear before the next orientation point". Counting
+/// wrappers made that distance a function of markup nesting rather than of
+/// content: on www.sachsen-anhalt.de (2026-09-17) a news teaser card of four
+/// announced items -- headline, date, teaser text, image credit -- was reported
+/// as a 23-entry desert. Name/value presence is the role-agnostic test for
+/// "has something to say", so a wrapper with an author-supplied name (an
+/// `aria-label`led `group`, say) still counts.
+fn carries_announced_content(item: &ReadingItem) -> bool {
+    !is_empty_name(&item.name) || !is_empty_name(&item.value)
 }
 
 fn push_desert_issue(
@@ -685,6 +737,74 @@ mod tests {
     }
 
     #[test]
+    fn announcement_desert_ignores_structural_wrappers() {
+        // A news teaser card as Chrome exposes it: a handful of announced texts
+        // wrapped in figure/paragraph/group/generic containers that carry no
+        // text of their own. Counting the wrappers turned four announcements
+        // into a 23-entry "desert" on www.sachsen-anhalt.de (2026-09-17).
+        let mut items = vec![
+            item(0, "heading", Some("News"), false, vec!["level=2"]),
+            item(
+                1,
+                "StaticText",
+                Some("Finanzminister begrusst Studierende"),
+                false,
+                vec![],
+            ),
+            item(2, "time", None, false, vec![]),
+            item(3, "StaticText", Some("14.09.2026"), false, vec![]),
+            item(
+                4,
+                "StaticText",
+                Some("In Sachsen-Anhalt haben 100 Menschen"),
+                false,
+                vec![],
+            ),
+        ];
+        // 20 empty structural wrappers -- far past the threshold if counted.
+        for seq in 5..25 {
+            let role = ["figure", "generic", "paragraph", "group"][seq % 4];
+            items.push(item(seq, role, None, false, vec![]));
+        }
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", true, false);
+
+        assert!(
+            !issues
+                .iter()
+                .any(|issue| issue.message.contains("Long section")),
+            "empty wrappers must not add up to a desert: {:?}",
+            issues.iter().map(|i| &i.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn announcement_desert_still_fires_on_real_uninterrupted_content() {
+        let mut items = vec![item(0, "heading", Some("Kapitel"), false, vec!["level=1"])];
+        for seq in 1..=20 {
+            items.push(item(
+                seq,
+                "StaticText",
+                Some("Ein Absatz mit echtem Text"),
+                false,
+                vec![],
+            ));
+        }
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", true, false);
+
+        let desert = issues
+            .iter()
+            .find(|issue| issue.message.contains("Long section"))
+            .expect("20 announced items without an orientation point is a desert");
+        assert!(
+            desert.message.contains("20 entries"),
+            "the count must be announcements, not AX nodes: {}",
+            desert.message
+        );
+    }
+
+    #[test]
     fn detects_non_descriptive_and_empty_interactive_names() {
         let items = vec![
             item(0, "link", Some("Hier"), true, vec![]),
@@ -906,6 +1026,79 @@ mod tests {
         let issues = analyze_reading_sequence(&items, &views, "de", false, false);
 
         assert!(!issues.iter().any(|i| i.message.contains("Icon-Font")));
+    }
+
+    #[test]
+    fn ambiguous_continuation_word_is_downgraded_to_low_severity() {
+        // plan/33-screen-reader-thresholds-unvalidated.md: a wizard's
+        // "Weiter" (Next) button is common and often clear from its
+        // surrounding context, which this flat item list can't see — flag
+        // it, but not at the same severity as a name that is never
+        // meaningful in any context.
+        let items = vec![
+            item(0, "main", Some("Inhalt"), false, vec![]),
+            item(1, "button", Some("Weiter"), true, vec![]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
+
+        let issue = issues
+            .iter()
+            .find(|i| i.wcag_criterion.as_deref() == Some("2.4.4"))
+            .expect("expected a non-descriptive-name issue for \"Weiter\"");
+        assert_eq!(issue.severity, "low");
+    }
+
+    #[test]
+    fn click_mechanism_word_stays_at_medium_severity() {
+        // Unlike "Weiter"/"Mehr", a name that only describes the act of
+        // clicking ("hier klicken"/"click here") carries no meaning
+        // regardless of context and must stay at the higher severity.
+        let items = vec![
+            item(0, "main", Some("Inhalt"), false, vec![]),
+            item(1, "link", Some("Hier klicken"), true, vec![]),
+        ];
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", false, false);
+
+        let issue = issues
+            .iter()
+            .find(|i| i.wcag_criterion.as_deref() == Some("2.4.4"))
+            .expect("expected a non-descriptive-name issue for \"Hier klicken\"");
+        assert_eq!(issue.severity, "medium");
+    }
+
+    #[test]
+    fn long_article_with_periodic_links_does_not_trigger_a_desert() {
+        // A realistic long-form article: one heading, then paragraphs that
+        // periodically contain an inline citation link — the link's
+        // `tab_stop` resets the desert counter, same as a landmark/heading
+        // would (plan/33-screen-reader-thresholds-unvalidated.md, scenario
+        // "long clean single-topic article").
+        let mut items = vec![item(0, "heading", Some("Artikel"), false, vec!["level=1"])];
+        let mut seq = 1;
+        for para in 0..20 {
+            items.push(item(
+                seq,
+                "StaticText",
+                Some(&format!("Absatz {para} mit echtem Flie\u{df}text.")),
+                false,
+                vec![],
+            ));
+            seq += 1;
+            if para % 3 == 0 {
+                items.push(item(seq, "link", Some("Quelle"), true, vec![]));
+                seq += 1;
+            }
+        }
+        let views = navigation_views(&items);
+        let issues = analyze_reading_sequence(&items, &views, "de", true, false);
+
+        assert!(
+            !issues.iter().any(|i| i.message.contains("Long section")),
+            "periodic inline links should reset the desert counter: {:?}",
+            issues.iter().map(|i| &i.message).collect::<Vec<_>>()
+        );
     }
 
     #[test]

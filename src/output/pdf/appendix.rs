@@ -26,14 +26,23 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
     }
 
     for module in &vm.modules.dashboard {
-        table = table.add_row(vec![
-            row_module.clone(),
-            module.name.clone(),
-            format!(
-                "{} / 100 — {}. {}",
-                module.score, module.interpretation, module.card_context
-            ),
-        ]);
+        // `card_context` is meant to add a second, distinct fact next to the
+        // interpretation sentence (e.g. "8 von 8 Kern-Headern vorhanden") —
+        // but for modules without a dedicated short blurb it can fall back
+        // to the same text as `interpretation` (e.g. Search Experience when
+        // no specific warning was derived), which would otherwise print the
+        // same sentence twice in a row (plan/32-appendix-duplicated-
+        // interpretation-sentence.md).
+        let value =
+            if module.card_context.is_empty() || module.card_context == module.interpretation {
+                format!("{} / 100 — {}", module.score, module.interpretation)
+            } else {
+                format!(
+                    "{} / 100 — {}. {}",
+                    module.score, module.interpretation, module.card_context
+                )
+            };
+        table = table.add_row(vec![row_module.clone(), module.name.clone(), value]);
     }
 
     let occurrences_word = if i18n.locale() == "en" {

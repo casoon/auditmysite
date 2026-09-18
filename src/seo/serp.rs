@@ -295,11 +295,60 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str, locale: &str) -> SerpAn
 
     // --- Breadcrumb Schema ---
     {
-        use crate::seo::SchemaType;
+        use crate::seo::{SchemaRequirementStatus, SchemaType};
         let has_breadcrumb = seo
             .structured_data
             .types
             .contains(&SchemaType::BreadcrumbList);
+        // Type presence alone never promises a SERP path display: the same
+        // report validates BreadcrumbList's required properties, and an
+        // incomplete node is not eligible. Reporting "Google shows the path"
+        // next to "required properties missing" contradicted itself.
+        let incomplete: Vec<&str> = seo
+            .structured_data
+            .rule_assessments
+            .iter()
+            .filter(|a| {
+                a.schema_type == "BreadcrumbList"
+                    && a.requirement_status == SchemaRequirementStatus::MissingRequiredProperties
+            })
+            .flat_map(|a| a.missing_required.iter().map(String::as_str))
+            .collect();
+
+        let (status, detail) = match (has_breadcrumb, incomplete.is_empty()) {
+            (true, true) => (
+                SerpSignalStatus::Ok,
+                if en {
+                    "BreadcrumbList detected, required properties met — eligible for a path display.".to_string()
+                } else {
+                    "BreadcrumbList erkannt, Pflichtangaben erfüllt — für eine Pfadangabe grundsätzlich geeignet.".to_string()
+                },
+            ),
+            (true, false) => (
+                SerpSignalStatus::Warning,
+                if en {
+                    format!(
+                        "BreadcrumbList detected but incomplete ({}) — not eligible for a path display.",
+                        incomplete.join(", ")
+                    )
+                } else {
+                    format!(
+                        "BreadcrumbList erkannt, aber unvollständig ({}) — für eine Pfadangabe nicht geeignet.",
+                        incomplete.join(", ")
+                    )
+                },
+            ),
+            (false, _) => (
+                SerpSignalStatus::Warning,
+                if en {
+                    "No BreadcrumbList schema — path display in the SERP entry not possible."
+                        .to_string()
+                } else {
+                    "Kein BreadcrumbList-Schema — Pfadangabe im SERP-Eintrag nicht möglich."
+                        .to_string()
+                },
+            ),
+        };
         signals.push(sig(
             "Rich Result",
             if en {
@@ -307,22 +356,8 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str, locale: &str) -> SerpAn
             } else {
                 "Breadcrumb-Schema"
             },
-            if has_breadcrumb {
-                SerpSignalStatus::Ok
-            } else {
-                SerpSignalStatus::Warning
-            },
-            if has_breadcrumb {
-                if en {
-                    "BreadcrumbList detected — Google shows the path in the listing."
-                } else {
-                    "BreadcrumbList erkannt — Google zeigt Pfadangabe im Listeneintrag."
-                }
-            } else if en {
-                "No BreadcrumbList schema — path display in the SERP entry not possible."
-            } else {
-                "Kein BreadcrumbList-Schema — Pfadangabe im SERP-Eintrag nicht möglich."
-            },
+            status,
+            detail,
         ));
     }
 
@@ -377,6 +412,67 @@ mod tests {
 
     fn has_german_chars(s: &str) -> bool {
         s.chars().any(|c| "äöüÄÖÜß".contains(c))
+    }
+
+    fn breadcrumb_assessment(
+        status: crate::seo::SchemaRequirementStatus,
+        missing: &[&str],
+    ) -> crate::seo::SchemaRuleAssessment {
+        crate::seo::SchemaRuleAssessment {
+            node_index: 0,
+            schema_type: "BreadcrumbList".to_string(),
+            feature: crate::seo::SchemaFeature::Breadcrumb,
+            availability: crate::seo::SchemaFeatureAvailability::General,
+            requirement_status: status,
+            missing_required: missing.iter().map(|s| s.to_string()).collect(),
+            missing_recommended: Vec::new(),
+            manual_review: Vec::new(),
+            quality_score: None,
+            source_url: String::new(),
+            reviewed_at: String::new(),
+        }
+    }
+
+    fn breadcrumb_signal(seo: &SeoAnalysis) -> SerpSignal {
+        build_serp_analysis(seo, "https://example.com/", "de")
+            .signals
+            .into_iter()
+            .find(|s| s.label == "Breadcrumb-Schema")
+            .expect("breadcrumb signal is always emitted")
+    }
+
+    /// Regression: the signal only checked whether the *type* was present, so
+    /// a BreadcrumbList missing `itemListElement` was reported as "Google
+    /// shows the path" on one page while the schema table on another page of
+    /// the same report said "required properties missing".
+    #[test]
+    fn incomplete_breadcrumb_schema_is_not_reported_as_eligible() {
+        let mut seo = SeoAnalysis::default();
+        seo.structured_data.types.push(SchemaType::BreadcrumbList);
+        seo.structured_data
+            .rule_assessments
+            .push(breadcrumb_assessment(
+                crate::seo::SchemaRequirementStatus::MissingRequiredProperties,
+                &["itemListElement (minimum 2 entries)"],
+            ));
+
+        let signal = breadcrumb_signal(&seo);
+        assert_eq!(signal.status, SerpSignalStatus::Warning);
+        assert!(signal.detail.contains("itemListElement"), "{signal:?}");
+    }
+
+    #[test]
+    fn complete_breadcrumb_schema_stays_eligible() {
+        let mut seo = SeoAnalysis::default();
+        seo.structured_data.types.push(SchemaType::BreadcrumbList);
+        seo.structured_data
+            .rule_assessments
+            .push(breadcrumb_assessment(
+                crate::seo::SchemaRequirementStatus::MeetsRequiredProperties,
+                &[],
+            ));
+
+        assert_eq!(breadcrumb_signal(&seo).status, SerpSignalStatus::Ok);
     }
 
     #[test]

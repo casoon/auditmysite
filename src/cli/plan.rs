@@ -30,7 +30,7 @@ pub fn print_banner() {
         .cyan()
     );
     eprintln!(
-        "  {} v{} - WCAG 2.1 Accessibility Checker\n",
+        "  {} v{} - WCAG 2.1 AA (+ select 2.2 criteria) Accessibility Checker\n",
         "AuditMySite".bold(),
         env!("CARGO_PKG_VERSION")
     );

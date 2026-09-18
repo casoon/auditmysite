@@ -94,7 +94,11 @@ pub fn build_sr_audit_report(
 /// quality scores and BFSG verdict reflect an audit limitation, not a genuine
 /// accessibility failure, so downstream consumers can qualify the findings.
 fn detect_audit_quality(total_nodes: usize, views: &NavigationViews) -> SrAuditQuality {
-    const CONSENT_WALL_NODE_THRESHOLD: usize = 200;
+    // Recalibrated from 200 when `linearize` stopped emitting `InlineTextBox`
+    // layout nodes: those made up roughly a quarter to a third of the reading
+    // order (67 of 237 on www.sachsen-anhalt.de, 2026-09-17), so the old value
+    // has to shrink by about the same share to keep flagging the same pages.
+    const CONSENT_WALL_NODE_THRESHOLD: usize = 145;
     let has_structural_landmark = views.landmarks.iter().any(|l| {
         matches!(
             l.role.as_str(),
@@ -283,5 +287,40 @@ mod tests {
             item(3, "contentinfo"),
         ]);
         assert_eq!(landmark_quality_score(&views), 100);
+    }
+
+    #[test]
+    fn small_page_with_structural_landmarks_is_not_flagged_as_consent_wall() {
+        // plan/33-screen-reader-thresholds-unvalidated.md: a small but
+        // legitimate page (well under the 145-node threshold) must not be
+        // mistaken for a consent-wall capture as long as it has real
+        // structural landmarks — the threshold is deliberately a two-factor
+        // check (few nodes AND no landmarks), not node count alone.
+        let items = vec![
+            item(0, "banner"),
+            item(1, "navigation"),
+            item(2, "main"),
+            item(3, "contentinfo"),
+        ];
+        let views = navigation_views(&items);
+        assert_eq!(detect_audit_quality(10, &views), SrAuditQuality::Ok);
+    }
+
+    #[test]
+    fn small_page_without_landmarks_is_flagged_as_consent_wall() {
+        let views = navigation_views(&[item(0, "generic")]);
+        assert_eq!(
+            detect_audit_quality(10, &views),
+            SrAuditQuality::ConsentWallSuspected
+        );
+    }
+
+    #[test]
+    fn large_page_without_landmarks_is_not_flagged_as_consent_wall() {
+        // Node count alone must not trip the heuristic — a genuinely large,
+        // just poorly-landmarked page is a real (separate) finding, not a
+        // consent-wall false positive.
+        let views = navigation_views(&[item(0, "generic")]);
+        assert_eq!(detect_audit_quality(200, &views), SrAuditQuality::Ok);
     }
 }

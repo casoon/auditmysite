@@ -487,9 +487,42 @@ pub struct FindingCriticalityGroup {
     pub total_occurrences: usize,
 }
 
+/// How much weight the automated run can actually carry for one statement.
+///
+/// The report used to know exactly one class — an automatically confirmed WCAG
+/// violation — so every count sentence ("0 findings", "no violations in the
+/// evaluated scope") silently excluded the heuristic signals that other
+/// modules rendered a few pages later. Scores are computed from
+/// `confirmed_violations` alone and are unchanged by this split; the classes
+/// exist so the prose can name what it is actually counting.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct EvidenceClasses {
+    /// WCAG occurrences the engine confirmed against a success criterion.
+    /// This is the number every accessibility score is derived from.
+    pub confirmed_violations: u32,
+    /// Heuristic accessibility signals: WCAG rule outcomes the engine flagged
+    /// as warnings, plus the keyboard-journey and screen-reader modules'
+    /// findings. Probably a barrier, not automatically provable against a
+    /// success criterion — never scored.
+    pub warnings: u32,
+    /// Criteria the engine cannot decide by machine and explicitly hands to a
+    /// human reviewer.
+    pub manual_checks: u32,
+}
+
+impl EvidenceClasses {
+    /// True when the run produced nothing at all — the only case in which the
+    /// report may say that no accessibility findings were detected.
+    pub fn is_empty(&self) -> bool {
+        self.confirmed_violations == 0 && self.warnings == 0 && self.manual_checks == 0
+    }
+}
+
 /// Grouped findings, already sorted by impact
 pub struct FindingsBlock {
     pub summary: FindingSummary,
+    /// Confirmed / warning / manual-check tally behind every count sentence.
+    pub evidence: EvidenceClasses,
     pub clusters: Vec<FindingCluster>,
     pub top_findings: Vec<FindingGroup>,
     pub all_findings: Vec<FindingGroup>,
@@ -1094,6 +1127,11 @@ pub struct HtmlConformPresentation {
     /// rows — one per *distinct* defect, not per occurrence, matching what
     /// the score is charged against.
     pub findings: Vec<(String, String, String, String, u32)>,
+    /// Top distinct-defect messages (errors before warnings before info,
+    /// then by occurrence count), capped like the other modules'
+    /// recommendation lists (plan/31-html-conform-missing-fix-guidance.md).
+    /// Empty when there are no findings.
+    pub recommendations: Vec<String>,
 }
 
 pub struct MobilePresentation {

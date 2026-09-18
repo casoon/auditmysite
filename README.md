@@ -311,7 +311,7 @@ Measured:
 - SEO: meta tags, headings, structured data, page-to-schema fit, content profile, tracking/external services signals, and social-preview images (`og:image`/`twitter:image`) without an alt description
 - Security: HTTPS, header checks, and CDN/WAF protection detection. Headers are grouped by risk tier: CSP, HSTS, and clickjacking protection are baseline requirements, while context-dependent headers such as COOP/CORP get a verification question and safe-configuration guidance instead of an unconditional "add this header"
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
-- HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; score-neutral, because real sites routinely trip genuine but non-fatal content-model rules
+- HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
 - DNS configuration (opt-in `--dns-check`): CAA, best-effort DNSSEC, and SPF when an MX record exists; score-neutral
 
 Heuristic (indicator scores — tendency, not measurements):

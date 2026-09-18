@@ -108,9 +108,201 @@ pub struct ContentSizing {
 pub struct MobileIssue {
     pub category: String,
     pub issue_type: String,
+    /// Canonical English, produced by [`mobile_issue_text`] (#406). The PDF
+    /// re-derives the localized wording from `kind()` plus `values`.
     pub message: String,
     pub severity: Severity,
     pub impact: String,
+    /// Raw values interpolated into the message, so the presentation layer can
+    /// rebuild the sentence in another language instead of parsing `message`.
+    #[serde(default, skip_serializing_if = "MobileIssueValues::is_empty")]
+    pub values: MobileIssueValues,
+}
+
+/// The canonical identity of a mobile finding — the single key
+/// [`mobile_issue_text`] renders from. Derived from the stored `issue_type` so
+/// reports written by older builds keep localizing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MobileIssueKind {
+    MissingViewport,
+    ImproperViewport,
+    NotScalable,
+    SmallTargets,
+    SmallFonts,
+    HorizontalScroll,
+}
+
+/// Values interpolated into a mobile message. Every entry is plain data —
+/// counts, selectors, measurements — never prose.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct MobileIssueValues {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub small_target_count: Option<u32>,
+    /// Canonical English context keys (`navigation`, `footer`, `form`, …) with
+    /// their counts; localized for display by [`mobile_context_label`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub small_by_context: Vec<(String, u32)>,
+    /// Up to three `"selector (W×Hpx)"` samples — language-neutral.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub small_target_samples: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub smallest_font_px: Option<f32>,
+}
+
+impl MobileIssueValues {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
+impl MobileIssue {
+    /// `None` for an `issue_type` this build does not know — callers then fall
+    /// back to the stored canonical-English `message`.
+    pub fn kind(&self) -> Option<MobileIssueKind> {
+        use MobileIssueKind::*;
+        Some(match self.issue_type.as_str() {
+            "missing_viewport" => MissingViewport,
+            "improper_viewport" => ImproperViewport,
+            "not_scalable" => NotScalable,
+            "small_targets" => SmallTargets,
+            "small_fonts" => SmallFonts,
+            "horizontal_scroll" => HorizontalScroll,
+            _ => return None,
+        })
+    }
+
+    /// The finding's message in the requested language.
+    pub fn localized_message(&self, en: bool) -> String {
+        match self.kind() {
+            Some(kind) => mobile_issue_text(kind, &self.values, en),
+            None => self.message.clone(),
+        }
+    }
+}
+
+/// Human label for a touch-target context key. Unknown keys pass through, so a
+/// future context added in the page script degrades to its raw name rather
+/// than disappearing.
+pub fn mobile_context_label(context: &str, en: bool) -> String {
+    match (context, en) {
+        ("navigation", true) => "navigation",
+        ("navigation", false) => "Navigation",
+        ("footer", true) => "footer",
+        ("footer", false) => "Fußbereich",
+        ("header", true) => "header",
+        ("header", false) => "Kopfbereich",
+        ("sidebar", true) => "sidebar",
+        ("sidebar", false) => "Seitenleiste",
+        ("social/utility", true) => "social/utility",
+        ("social/utility", false) => "Social/Utility",
+        ("form", true) => "form",
+        ("form", false) => "Formular",
+        ("button", true) => "button",
+        ("button", false) => "Schaltfläche",
+        ("other", true) => "other",
+        ("other", false) => "Sonstige",
+        _ => return context.to_string(),
+    }
+    .to_string()
+}
+
+/// The only source of mobile-finding wording (#406). The analysis layer calls
+/// it with `en = true` to bake canonical English into the stored struct; the
+/// PDF calls it with the run language.
+pub fn mobile_issue_text(kind: MobileIssueKind, values: &MobileIssueValues, en: bool) -> String {
+    use MobileIssueKind::*;
+    match kind {
+        MissingViewport => if en {
+            "Missing viewport meta tag"
+        } else {
+            "Viewport-Meta-Tag fehlt"
+        }
+        .to_string(),
+        ImproperViewport => if en {
+            "Viewport is not properly configured"
+        } else {
+            "Viewport ist nicht korrekt konfiguriert"
+        }
+        .to_string(),
+        NotScalable => if en {
+            "Page disables zooming (user-scalable=no)"
+        } else {
+            "Seite unterbindet Zoomen (user-scalable=no)"
+        }
+        .to_string(),
+        SmallTargets => {
+            let count = values.small_target_count.unwrap_or(0);
+            let context_detail = if values.small_by_context.is_empty() {
+                String::new()
+            } else {
+                let parts: Vec<String> = values
+                    .small_by_context
+                    .iter()
+                    .map(|(ctx, n)| format!("{n} {}", mobile_context_label(ctx, en)))
+                    .collect();
+                format!(" ({})", parts.join(", "))
+            };
+            let sample_detail = if values.small_target_samples.is_empty() {
+                String::new()
+            } else {
+                let lead_in = if en { " — e.g. " } else { " — z. B. " };
+                format!("{lead_in}{}", values.small_target_samples.join(", "))
+            };
+            if en {
+                format!(
+                    "{count} touch targets are too small (<44x44px){context_detail}{sample_detail}"
+                )
+            } else {
+                format!(
+                    "{count} Bedienelemente sind zu klein (<44x44px){context_detail}{sample_detail}"
+                )
+            }
+        }
+        SmallFonts => {
+            let smallest = values.smallest_font_px.unwrap_or(0.0);
+            if en {
+                format!("Smallest font size is {smallest:.1}px (recommended: ≥12px)")
+            } else {
+                format!(
+                    "Kleinste Schriftgröße ist {}px (empfohlen: ≥12px)",
+                    format!("{smallest:.1}").replace('.', ",")
+                )
+            }
+        }
+        HorizontalScroll => if en {
+            "Page has horizontal scrolling"
+        } else {
+            "Seite scrollt horizontal"
+        }
+        .to_string(),
+    }
+}
+
+/// Build a finding with its canonical-English message derived from `kind` —
+/// the message is never written by hand at a call site (#406).
+fn mobile_issue(
+    category: &str,
+    kind: MobileIssueKind,
+    values: MobileIssueValues,
+    severity: Severity,
+    impact: impl Into<String>,
+) -> MobileIssue {
+    let issue_type = match kind {
+        MobileIssueKind::MissingViewport => "missing_viewport",
+        MobileIssueKind::ImproperViewport => "improper_viewport",
+        MobileIssueKind::NotScalable => "not_scalable",
+        MobileIssueKind::SmallTargets => "small_targets",
+        MobileIssueKind::SmallFonts => "small_fonts",
+        MobileIssueKind::HorizontalScroll => "horizontal_scroll",
+    };
+    MobileIssue {
+        category: category.to_string(),
+        issue_type: issue_type.to_string(),
+        message: mobile_issue_text(kind, &values, true),
+        severity,
+        impact: impact.into(),
+        values,
+    }
 }
 
 /// Analyze mobile friendliness of a page
@@ -173,7 +365,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 // Classify context of small target
                 const tag = el.tagName.toLowerCase();
                 const parent = el.closest('nav, footer, header, aside, .social, [class*="social"], [class*="lang"]');
-                let ctx = 'sonstige';
+                let ctx = 'other';
                 if (parent) {
                     const pTag = parent.tagName.toLowerCase();
                     if (pTag === 'nav') ctx = 'navigation';
@@ -182,7 +374,7 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                     else if (pTag === 'aside') ctx = 'sidebar';
                     else ctx = 'social/utility';
                 } else if (tag === 'input' || tag === 'select' || tag === 'textarea') {
-                    ctx = 'formular';
+                    ctx = 'form';
                 } else if (tag === 'button' || el.getAttribute('role') === 'button') {
                     ctx = 'button';
                 }
@@ -379,55 +571,34 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
     let mut issues = Vec::new();
 
     if !viewport.has_viewport {
-        issues.push(MobileIssue {
-            category: "viewport".to_string(),
-            issue_type: "missing_viewport".to_string(),
-            message: "Missing viewport meta tag".to_string(),
-            severity: Severity::Critical,
-            impact: "Page won't scale properly on mobile devices".to_string(),
-        });
+        issues.push(mobile_issue(
+            "viewport",
+            MobileIssueKind::MissingViewport,
+            MobileIssueValues::default(),
+            Severity::Critical,
+            "Page won't scale properly on mobile devices",
+        ));
     } else if !viewport.is_properly_configured {
-        issues.push(MobileIssue {
-            category: "viewport".to_string(),
-            issue_type: "improper_viewport".to_string(),
-            message: "Viewport is not properly configured".to_string(),
-            severity: Severity::Medium,
-            impact: "Page may not display correctly on all devices".to_string(),
-        });
+        issues.push(mobile_issue(
+            "viewport",
+            MobileIssueKind::ImproperViewport,
+            MobileIssueValues::default(),
+            Severity::Medium,
+            "Page may not display correctly on all devices",
+        ));
     }
 
     if !viewport.is_scalable {
-        issues.push(MobileIssue {
-            category: "viewport".to_string(),
-            issue_type: "not_scalable".to_string(),
-            message: "Page disables zooming (user-scalable=no)".to_string(),
-            severity: Severity::Critical,
-            impact: "Users with visual impairments cannot zoom".to_string(),
-        });
+        issues.push(mobile_issue(
+            "viewport",
+            MobileIssueKind::NotScalable,
+            MobileIssueValues::default(),
+            Severity::Critical,
+            "Users with visual impairments cannot zoom",
+        ));
     }
 
     if small_targets > 0 {
-        let context_detail = if !touch_targets.small_by_context.is_empty() {
-            let parts: Vec<String> = touch_targets
-                .small_by_context
-                .iter()
-                .map(|(ctx, count)| format!("{} {}", count, ctx))
-                .collect();
-            format!(" ({})", parts.join(", "))
-        } else {
-            String::new()
-        };
-        let sample_detail = if !touch_targets.small_target_samples.is_empty() {
-            let examples: Vec<String> = touch_targets
-                .small_target_samples
-                .iter()
-                .take(3)
-                .map(|s| format!("{} ({}×{}px)", s.selector, s.width, s.height))
-                .collect();
-            format!(" — e.g. {}", examples.join(", "))
-        } else {
-            String::new()
-        };
         // Severity scales with violation count so fewer violations incur a smaller penalty
         let severity = if small_targets >= 20 {
             Severity::High
@@ -436,16 +607,23 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
         } else {
             Severity::Low
         };
-        issues.push(MobileIssue {
-            category: "touch_targets".to_string(),
-            issue_type: "small_targets".to_string(),
-            message: format!(
-                "{} touch targets are too small (<44x44px){}{}",
-                small_targets, context_detail, sample_detail
-            ),
+        issues.push(mobile_issue(
+            "touch_targets",
+            MobileIssueKind::SmallTargets,
+            MobileIssueValues {
+                small_target_count: Some(small_targets),
+                small_by_context: touch_targets.small_by_context.clone(),
+                small_target_samples: touch_targets
+                    .small_target_samples
+                    .iter()
+                    .take(3)
+                    .map(|s| format!("{} ({}×{}px)", s.selector, s.width, s.height))
+                    .collect(),
+                ..Default::default()
+            },
             severity,
-            impact: "Difficult to tap on mobile devices".to_string(),
-        });
+            "Difficult to tap on mobile devices",
+        ));
     }
 
     if font_sizes.smallest_font_size < 12.0 {
@@ -463,26 +641,26 @@ pub async fn analyze_mobile_friendliness(page: &Page) -> Result<MobileFriendline
                 "Sub-12px text appears to be decorative only (not on interactive elements) — lower risk".to_string(),
             )
         };
-        issues.push(MobileIssue {
-            category: "fonts".to_string(),
-            issue_type: "small_fonts".to_string(),
-            message: format!(
-                "Smallest font size is {:.1}px (recommended: ≥12px)",
-                font_sizes.smallest_font_size
-            ),
+        issues.push(mobile_issue(
+            "fonts",
+            MobileIssueKind::SmallFonts,
+            MobileIssueValues {
+                smallest_font_px: Some(font_sizes.smallest_font_size),
+                ..Default::default()
+            },
             severity,
             impact,
-        });
+        ));
     }
 
     if content_sizing.has_horizontal_scroll {
-        issues.push(MobileIssue {
-            category: "content".to_string(),
-            issue_type: "horizontal_scroll".to_string(),
-            message: "Page has horizontal scrolling".to_string(),
-            severity: Severity::High,
-            impact: "Poor mobile user experience".to_string(),
-        });
+        issues.push(mobile_issue(
+            "content",
+            MobileIssueKind::HorizontalScroll,
+            MobileIssueValues::default(),
+            Severity::High,
+            "Poor mobile user experience",
+        ));
     }
 
     // Calculate score
@@ -540,5 +718,95 @@ mod tests {
         assert!(p70 < 40 && p70 > p90, "70->{p70} 90->{p90}");
         assert!(p90 > p140, "90->{p90} 140->{p140}");
         assert!(p140 >= 5, "worst case must not hard-zero: {p140}");
+    }
+}
+
+#[cfg(test)]
+mod localization_tests {
+    use super::*;
+
+    fn sample_values() -> MobileIssueValues {
+        MobileIssueValues {
+            small_target_count: Some(4),
+            small_by_context: vec![("navigation".to_string(), 3), ("form".to_string(), 1)],
+            small_target_samples: vec!["a.inline-flex (37×44px)".to_string()],
+            smallest_font_px: Some(11.0),
+        }
+    }
+
+    /// #406 guard: every kind renders differently per language and the English
+    /// side stays free of German characters.
+    #[test]
+    fn every_mobile_message_is_localized_and_english_stays_english() {
+        use MobileIssueKind::*;
+        let values = sample_values();
+        for kind in [
+            MissingViewport,
+            ImproperViewport,
+            NotScalable,
+            SmallTargets,
+            SmallFonts,
+            HorizontalScroll,
+        ] {
+            let en = mobile_issue_text(kind, &values, true);
+            let de = mobile_issue_text(kind, &values, false);
+            assert!(!en.is_empty(), "{kind:?}: empty English text");
+            assert_ne!(en, de, "{kind:?}: German text must differ from English");
+            assert!(
+                !en.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "{kind:?} English text leaks German: {en}"
+            );
+        }
+    }
+
+    #[test]
+    fn touch_target_contexts_are_localized_and_unknown_keys_pass_through() {
+        let de = mobile_issue_text(MobileIssueKind::SmallTargets, &sample_values(), false);
+        assert!(de.contains("3 Navigation"), "{de}");
+        assert!(de.contains("1 Formular"), "{de}");
+        assert!(de.contains("z. B."), "{de}");
+        assert_eq!(
+            mobile_context_label("brand-new-context", false),
+            "brand-new-context"
+        );
+    }
+
+    /// The analysis layer must never hand-write a message — it always comes
+    /// from `mobile_issue_text` in canonical English.
+    #[test]
+    fn stored_message_is_canonical_english() {
+        let issue = mobile_issue(
+            "fonts",
+            MobileIssueKind::SmallFonts,
+            MobileIssueValues {
+                smallest_font_px: Some(11.0),
+                ..Default::default()
+            },
+            Severity::Low,
+            "impact",
+        );
+        assert_eq!(
+            issue.message,
+            "Smallest font size is 11.0px (recommended: ≥12px)"
+        );
+        assert_eq!(issue.message, issue.localized_message(true));
+        assert_eq!(
+            issue.localized_message(false),
+            "Kleinste Schriftgröße ist 11,0px (empfohlen: ≥12px)"
+        );
+    }
+
+    #[test]
+    fn unknown_issue_type_falls_back_to_the_stored_message() {
+        let issue = MobileIssue {
+            category: "viewport".to_string(),
+            issue_type: "something_this_build_does_not_know".to_string(),
+            message: "stored message".to_string(),
+            severity: Severity::Low,
+            impact: String::new(),
+            values: MobileIssueValues::default(),
+        };
+        assert_eq!(issue.kind(), None);
+        assert_eq!(issue.localized_message(false), "stored message");
     }
 }

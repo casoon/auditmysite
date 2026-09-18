@@ -77,7 +77,7 @@ scope-box-audit-notes = Audit notes
 
 # Cover & narrative
 narrative-cover-eyebrow = Automated audit report
-narrative-cover-kicker = Technical website check focused on accessibility, SEO and performance
+narrative-cover-kicker = Technical website check
 narrative-status-title = Site status
 narrative-metrics-title = Executive snapshot
 narrative-key-points-title = Key points
@@ -101,10 +101,10 @@ narrative-findings-intro-solid = Stable foundation — the following items are t
 narrative-findings-intro-default = The following issues have the largest impact on usability and risk. Technical details follow in the next section.
 
 # Verdict (single audit)
-verdict-tier-excellent = { $url } reaches { $score }/100 in the accessibility audit. The remaining findings are last optimization levers — not a structural problem but polish.
-verdict-tier-solid = { $url } reaches { $score }/100 in the accessibility audit. The foundation is stable — clear improvement levers at manageable effort.
-verdict-tier-deficient = { $url } reaches { $score }/100 in the accessibility audit. There are significant barriers — not isolated details but structural backlog.
-verdict-tier-critical = { $url } only reaches { $score }/100 in the accessibility audit. Urgent action needed: essential content and functions are not accessible for a part of users.
+verdict-tier-excellent = { $url } reaches { $score }/100 within the automated accessibility scope — no structural problem. Any remaining findings are polish; this score does not replace a manual review.
+verdict-tier-solid = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is stable — clear improvement levers at manageable effort.
+verdict-tier-deficient = { $url } reaches { $score }/100 within the automated accessibility scope. There are significant barriers — not isolated details but structural backlog.
+verdict-tier-critical = { $url } only reaches { $score }/100 within the automated accessibility scope. Urgent action needed: essential content and functions are not accessible for a part of users.
 score-note-high-with-critical = The score weighs frequency and severity. Individual critical topics can persist despite a high overall score.
 score-note-perfect-automated-scope = No confirmed accessibility violations were found within the automatically tested scope. Context-dependent WCAG criteria still require manual review.
 
@@ -314,7 +314,7 @@ label-optional-feature = Optional feature
 perf-score-card = Performance score
 perf-technical-indicators = Supporting measurements
 perf-lab-data-note = Lab data
-perf-lab-data-body = The headline Core Web Vitals (LCP, CLS, TBT) are measured locally in headless Chrome under a real slow-4G throttle (CDP: 1.6 Mbps, 150 ms latency, 4x CPU slowdown). These values can differ from Google PageSpeed / Lighthouse: PageSpeed measures unthrottled and simulates the throttle in software (the Lantern model), whereas we throttle for real — the real measurement often reads more optimistically, LCP especially. Only field data (CrUX/real-user monitoring) reflects the actual user experience; the "performance under throttled conditions" table below shows the range across several network profiles. Metrics marked "lab estimate" (INP, TTI, Speed Index) are derived approximations, not direct measurements.
+perf-lab-data-body = LCP, CLS and TBT are measured locally in headless Chrome under a real slow-4G throttle (CDP: 1.6 Mbps, 150 ms latency, 4x CPU slowdown). These values can differ from Google PageSpeed / Lighthouse: PageSpeed measures unthrottled and simulates the throttle in software (the Lantern model), whereas we throttle for real — the real measurement often reads more optimistically, LCP especially. Only field data (CrUX/real-user monitoring) reflects the actual user experience; the "performance under throttled conditions" table below shows the range across several network profiles. Of these, LCP and CLS are Core Web Vitals; TBT is a lab-only metric used here as a proxy for interactivity problems, because the third Core Web Vital (INP) cannot be measured without user input. Metrics marked "lab estimate" (INP, TTI, Speed Index) are derived approximations, not direct measurements.
 perf-render-blocking-analysis = Render-blocking analysis
 perf-measurement-warnings-title = Measurement limitations
 perf-warning-lcp-missing = LCP not captured: the PerformanceObserver returned no LCP entry (typical under heavy network throttling) — LCP score is absent from the rating.

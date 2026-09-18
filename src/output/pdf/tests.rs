@@ -378,6 +378,46 @@ mod tests {
         );
     }
 
+    /// The cover must carry the scope too — a reader who stops at
+    /// "Website-Qualitätsbericht · 92" and a "Barrierefreiheit 100" gauge
+    /// otherwise takes both for statements about the whole site.
+    #[test]
+    fn test_cover_carries_scope_line_and_gauge_qualifier() {
+        let report = pdf_fixture_report();
+
+        let de =
+            generate_typ(&report, &ReportConfig::default()).expect("DE Typst source should render");
+        let cover_start = de.find("#cover-page(").expect("cover page component");
+        let cover = &de[cover_start..cover_start + 2000];
+        assert!(
+            cover.contains("Geprüft: 1 URL · Desktop und Mobile · kein Website-Crawl"),
+            "expected DE scope line inside the cover component: {cover}"
+        );
+        assert!(
+            cover.contains("IM AUTOMATISIERTEN PRÜFUMFANG"),
+            "expected DE gauge-strip scope qualifier on the cover: {cover}"
+        );
+
+        let en = generate_typ(
+            &report,
+            &ReportConfig {
+                locale: "en".to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("EN Typst source should render");
+        let cover_start = en.find("#cover-page(").expect("cover page component");
+        let cover = &en[cover_start..cover_start + 2000];
+        assert!(
+            cover.contains("Audited: 1 URL · Desktop and Mobile · no website crawl"),
+            "expected EN scope line inside the cover component: {cover}"
+        );
+        assert!(
+            cover.contains("WITHIN THE AUTOMATED SCOPE"),
+            "expected EN gauge-strip scope qualifier on the cover: {cover}"
+        );
+    }
+
     /// Regression test for the tech-stack findings-severity localization fix
     /// in `detail_modules/indicators.rs::render_tech_stack` — the severity
     /// column used to call `finding.severity.label()` unconditionally, always
@@ -1308,7 +1348,7 @@ mod tests {
         for expected in [
             "Größter direkt nutzbarer Hebel",
             "Code-Nutzung unauffällig",
-            "Ziel: max. 800",
+            "Richtwert: max. 800",
             "Priorisierte Maßnahmen",
         ] {
             assert!(
@@ -1331,6 +1371,7 @@ mod tests {
                 error_count: 2,
                 warning_count: 1,
                 info_count: 0,
+                distinct_defect_count: 2,
                 findings: vec![
                     crate::html_conform::HtmlConformFinding {
                         rule_id: "schema.html5".to_string(),
@@ -1365,12 +1406,16 @@ mod tests {
             .status()
             .expect("pdftotext should run");
         let text = std::fs::read_to_string(&txt_path).expect("read extracted text");
+        // Collapse the layout's line breaks: the findings table wraps a long
+        // message across several lines, so a raw `contains` would assert on
+        // column widths rather than on the rendered content.
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
 
         for expected in [
             "HTML-Konformität",
             "schema.html5",
             "parser.html5",
-            "Element <div> not allowed",
+            "Element <div> not allowed as child of <head>",
             "12:34",
         ] {
             assert!(
@@ -1548,6 +1593,48 @@ mod tests {
             0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
             0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
         ]
+    }
+
+    /// The cover has room for exactly one subtitle line. When the scope line
+    /// was first appended to the kicker the subtitle wrapped, everything below
+    /// shifted down, and the lower gauge row's labels (Mobile/UX/Journey) were
+    /// silently dropped — the template gives each label a fixed-height box and
+    /// the cover page cannot grow. Measured: ~83 characters render on one line
+    /// at this font size and page width, ~132 wrapped.
+    #[test]
+    fn test_cover_subtitle_stays_on_one_line() {
+        const BUDGET: usize = 95;
+        for locale in ["de", "en"] {
+            let typ = generate_typ(
+                &pdf_fixture_report(),
+                &ReportConfig {
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source should render");
+            let subtitle = cover_field(&typ, "subtitle");
+            assert!(
+                subtitle.chars().count() <= BUDGET,
+                "[{locale}] cover subtitle is {} characters and will wrap to a second line, \
+                 which pushes the lower gauge row's labels off the page: {subtitle}",
+                subtitle.chars().count()
+            );
+        }
+    }
+
+    /// One `name: "value"` field of the cover component in a rendered Typst
+    /// source.
+    fn cover_field(typ: &str, field: &str) -> String {
+        let cover_start = typ.find("#cover-page((").expect("cover page component");
+        let marker = format!("{field}: \"");
+        let value_start = cover_start
+            + typ[cover_start..]
+                .find(&marker)
+                .unwrap_or_else(|| panic!("cover field '{field}' not found"))
+            + marker.len();
+        let value_end = value_start + typ[value_start..].find('"').expect("unterminated value");
+        typ[value_start..value_end].to_string()
     }
 
     fn find_executable(name: &str) -> Option<PathBuf> {
@@ -1938,6 +2025,53 @@ mod tests {
         assert!(
             text.contains("Sehr gute Auffindbarkeit"),
             "the positive SEO text must still be present, but only under the strengths panel"
+        );
+    }
+
+    #[test]
+    fn test_management_summary_low_seo_score_is_not_shown_as_a_strength() {
+        // plan/29-pdf-dashboard-module-lookup-by-name.md: `render_risks_and_strengths`
+        // used to look up the SEO/Performance/Mobile score by matching a
+        // *display label* substring ("SEO") against `modules.dashboard` —
+        // whose cards are relabeled for narrative presentation and no longer
+        // necessarily contain that substring. A failed match silently fell
+        // back to score 100 ("good"), so a real SEO score of 20 was rendered
+        // as a strength ("Sehr gute Auffindbarkeit ...") instead of a risk.
+        let Some(pdftotext) = find_executable("pdftotext") else {
+            return;
+        };
+
+        let mut report = pdf_fixture_report_rich();
+        report.discoverability.seo = Some(crate::seo::SeoAnalysis {
+            score: 20,
+            ..Default::default()
+        });
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            ..ReportConfig::default()
+        };
+        let pdf = generate_pdf(&report, &config).expect("PDF should render");
+
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let pdf_path = temp_dir.path().join("seo-not-a-strength-check.pdf");
+        let txt_path = temp_dir.path().join("seo-not-a-strength-check.txt");
+        std::fs::write(&pdf_path, &pdf).expect("write pdf");
+        Command::new(pdftotext)
+            .arg(&pdf_path)
+            .arg(&txt_path)
+            .status()
+            .expect("pdftotext should run");
+        let text = std::fs::read_to_string(&txt_path).expect("read text");
+
+        assert!(
+            !text.contains("Sehr gute Auffindbarkeit"),
+            "an SEO score of 20 must not be described as excellent discoverability"
+        );
+        assert!(
+            // pdftotext drops the soft hyphen in "KI-Crawler", so match around it
+            // rather than the exact rendered string.
+            text.contains("Fehlende Metadaten oder strukturierte Daten behindern Google"),
+            "an SEO score of 20 must render the low-SEO risk description, expected under 'Wichtigste Risiken'"
         );
     }
 

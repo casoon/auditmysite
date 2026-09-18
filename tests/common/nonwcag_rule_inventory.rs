@@ -84,69 +84,16 @@ fn find_next_block<'a>(
     Some((end + 1, &source[block_start..end]))
 }
 
-/// Every `SecurityIssue { header: "...", issue_type: "...", ... }` struct
-/// literal in `source`, as `"{header}:{issue_type}"` — skipped when either
-/// field isn't a plain string literal (e.g. `csp_issue`'s own generic
-/// constructor, whose `issue_type` is a variable, not a literal — that
-/// helper's *callers* are covered separately by
-/// `extract_csp_issue_literal_ids`).
-fn extract_security_issue_literal_ids(source: &str) -> Vec<String> {
-    let mut ids = Vec::new();
-    let mut search_from = 0;
-    while let Some((next_from, block)) = find_next_block(source, "SecurityIssue {", search_from) {
-        if let (Some(header), Some(issue_type)) = (
-            extract_field_str(block, "header"),
-            extract_field_str(block, "issue_type"),
-        ) {
-            ids.push(format!("{header}:{issue_type}"));
-        }
-        search_from = next_from;
-    }
-    ids
-}
-
-/// Every `csp_issue("literal", ...)` call site, as
-/// `"Content-Security-Policy:{literal}"` (the helper always hardcodes that
-/// header). Calls passing a computed `&format!(...)` first argument (the
-/// object-src/base-uri/frame-ancestors loop) are intentionally not matched
-/// here — see `CSP_DYNAMIC_DIRECTIVE_IDS` below.
-fn extract_csp_issue_literal_ids(source: &str) -> Vec<String> {
-    let mut ids = Vec::new();
-    let marker = "csp_issue(";
-    let mut search_from = 0;
-    while let Some(rel) = source[search_from..].find(marker) {
-        let after = search_from + rel + marker.len();
-        let rest = source[after..].trim_start();
-        if let Some(stripped) = rest.strip_prefix('"') {
-            if let Some(end) = stripped.find('"') {
-                ids.push(format!("Content-Security-Policy:{}", &stripped[..end]));
-            }
-        }
-        search_from = after;
-    }
-    ids
-}
-
-/// `generate_security_issues`'s `for (directive, severity) in [("object-src", ..), ...]`
-/// loop builds its issue_type via `format!("missing_{directive}")` — not a
-/// string literal, so the text scan above can't see it. Hand-enumerated
-/// from that loop's own literal array (`src/security/mod.rs`,
-/// `generate_security_issues`); re-verify this list if that array changes.
-const CSP_DYNAMIC_DIRECTIVE_IDS: &[&str] = &[
-    "Content-Security-Policy:missing_object-src",
-    "Content-Security-Policy:missing_base-uri",
-    "Content-Security-Policy:missing_frame-ancestors",
-];
-
 /// The canonical, deduplicated list of every `"{header}:{issue_type}"` id
 /// `src/security/mod.rs` can currently produce.
+///
+/// Derived from `SecurityIssueKind::ALL` in the production code rather than
+/// scanned out of the source text: the enum is exhaustive by construction, so
+/// a renamed or added check cannot silently fall out of the inventory.
 pub fn canonical_security_check_ids() -> BTreeSet<String> {
-    let source = production_source(&security_mod_path());
-    let mut ids = BTreeSet::new();
-    ids.extend(extract_security_issue_literal_ids(&source));
-    ids.extend(extract_csp_issue_literal_ids(&source));
-    ids.extend(CSP_DYNAMIC_DIRECTIVE_IDS.iter().map(|s| s.to_string()));
-    ids
+    auditmysite::security::all_security_check_ids()
+        .into_iter()
+        .collect()
 }
 
 /// Every library name matched as a pattern (not a value) inside

@@ -66,21 +66,34 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
         }
     } else if en {
         format!(
-            "{} minor interactive issues — no critical or high barriers detected.",
-            deduped.len()
+            "{} minor interactive {} — no critical or high barriers detected.",
+            deduped.len(),
+            if deduped.len() == 1 {
+                "issue"
+            } else {
+                "issues"
+            }
         )
     } else {
         format!(
-            "{} kleinere interaktive Befunde — keine kritischen oder hohen Barrieren erkannt.",
-            deduped.len()
+            "{} {} interaktive{} Befund{} — keine kritischen oder hohen Barrieren erkannt.",
+            deduped.len(),
+            if deduped.len() == 1 {
+                "kleinerer"
+            } else {
+                "kleinere"
+            },
+            if deduped.len() == 1 { "r" } else { "" },
+            if deduped.len() == 1 { "" } else { "e" }
         )
     };
+    // Never a success callout: this section only renders when there *are*
+    // interactive findings, so green read as "all clear" directly above the
+    // findings it was summarizing.
     builder = builder.add_component(if critical_count > 0 {
         Callout::warning(&overview)
-    } else if high_count > 0 {
-        Callout::info(&overview)
     } else {
-        Callout::success(&overview)
+        Callout::info(&overview)
     });
 
     let shown = deduped.len().min(10);
@@ -129,7 +142,7 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
             for trace in &journey_data.traces {
                 let step_count = trace.steps.len();
                 let summary = format!("{} {}", step_count, if en { "steps" } else { "Schritte" });
-                kv = kv.add(&trace.journey, summary);
+                kv = kv.add(journey_label(&trace.journey, en), summary);
             }
             builder = builder.add_component(kv);
         }
@@ -238,16 +251,20 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
         .with_color(crate::output::pdf::design::tokens::NEUTRAL),
     );
 
+    // Deliberately never phrased as a conformance verdict: this check compares
+    // technical criteria, it cannot establish whether a service falls under
+    // the BFSG at all or whether every legal requirement is met. "No
+    // violations" would read as a legal clearance the audit cannot give.
     let bfsg_note = match sr.bfsg_compliance.verdict {
-        BfsgVerdict::Compliant => Callout::success(if en {
-            "BFSG check: no violations in the evaluated scope."
+        BfsgVerdict::Compliant => Callout::info(if en {
+            "BFSG-relevant technical criteria: no violations detected within the automated scope. This is not a legal conformance assessment."
         } else {
-            "BFSG-Prüfung: keine Verstöße im geprüften Umfang."
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang keine Verstöße erkannt. Dies ist keine rechtliche Konformitätsprüfung."
         }),
         BfsgVerdict::NonCompliant => Callout::warning(if en {
-            "BFSG check: violations detected in the evaluated scope (see issues below)."
+            "BFSG-relevant technical criteria: violations detected within the automated scope (see issues below). This is not a legal conformance assessment."
         } else {
-            "BFSG-Prüfung: Verstöße im geprüften Umfang festgestellt (siehe Befunde unten)."
+            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang Verstöße festgestellt (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
         }),
         BfsgVerdict::NotEvaluated => Callout::info(if en {
             "BFSG conformance was not evaluated for this page."
@@ -326,4 +343,56 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     }
 
     builder
+}
+
+/// Human label for an internal journey id such as `tab_walk` or
+/// `disclosure_0`. The ids are analysis-internal and were previously printed
+/// verbatim into the customer-facing PDF. Unknown ids fall back to the raw id
+/// rather than inventing a name for them.
+pub(super) fn journey_label(journey: &str, en: bool) -> String {
+    let (base, index) = match journey.rsplit_once('_') {
+        Some((base, tail)) if tail.chars().all(|c| c.is_ascii_digit()) && !tail.is_empty() => (
+            base,
+            tail.parse::<usize>()
+                .ok()
+                .map(|index| index.saturating_add(1)),
+        ),
+        _ => (journey, None),
+    };
+
+    let label = match base {
+        "tab_walk" => Some(if en { "Tab walk" } else { "Tab-Durchlauf" }),
+        "spa_navigation" => Some(if en {
+            "SPA navigation"
+        } else {
+            "SPA-Navigation"
+        }),
+        "skip_link" => Some(if en { "Skip link" } else { "Sprunglink" }),
+        "disclosure" => Some(if en {
+            "Disclosure menu"
+        } else {
+            "Aufklapp-Menü"
+        }),
+        "menu" => Some(if en { "Menu" } else { "Menü" }),
+        "modal" => Some(if en { "Modal dialog" } else { "Dialog" }),
+        "tabs" => Some(if en { "Tab panel" } else { "Tab-Panel" }),
+        "form_error" => Some(if en { "Form error" } else { "Formularfehler" }),
+        "add_to_cart" => Some(if en {
+            "Add to cart"
+        } else {
+            "In den Warenkorb"
+        }),
+        "quantity_stepper" => Some(if en {
+            "Quantity stepper"
+        } else {
+            "Mengenauswahl"
+        }),
+        _ => None,
+    };
+
+    match (label, index) {
+        (Some(label), Some(index)) => format!("{label} {index}"),
+        (Some(label), None) => label.to_string(),
+        (None, _) => journey.to_string(),
+    }
 }

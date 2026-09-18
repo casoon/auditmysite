@@ -344,8 +344,21 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
     // ── Link/Heading/Landmark inventory (Phase 3, Stufe B — pure AXTree) ────
     // Full mode only. No browser interaction, so it can run even if budget is exhausted.
     if matches!(ctx.mode, InteractiveMode::Full) {
-        out.findings
-            .extend(link_inventory::analyse(ctx.ax_tree, ctx.locale));
+        // Generic-link-text detection follows the *page's* language, not the
+        // report language (#406) — a German page keeps being scanned with
+        // German stopwords even when the report is rendered in English.
+        let page_locale = eval_string(
+            ctx.page,
+            "document.documentElement.getAttribute('lang') || \
+             document.documentElement.getAttribute('xml:lang') || ''",
+        )
+        .await
+        .unwrap_or_default();
+        out.findings.extend(link_inventory::analyse(
+            ctx.ax_tree,
+            &page_locale,
+            ctx.locale,
+        ));
     }
 
     Ok(Some(out))

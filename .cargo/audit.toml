@@ -1,0 +1,34 @@
+# cargo-audit configuration (plan/24-dependency-security-gate.md).
+#
+# Every entry here is a currently-unfixable transitive advisory, not a
+# blanket suppression. Re-check on each CI failure whether an upstream fix
+# has landed before assuming the exception still applies.
+
+[advisories]
+ignore = [
+    # rsa 0.9.10, pulled in only by the optional `ai-transparency` feature
+    # via c2pa -> rasn -> rsa. No patched version exists upstream yet
+    # (`cargo audit` reports an empty `patched` range). The timing
+    # side-channel requires an attacker able to measure decryption/signing
+    # timing against a private key we hold — auditmysite never holds or
+    # operates on a private RSA key; c2pa/rasn only use it for parsing
+    # public certificates in third-party C2PA manifests.
+    "RUSTSEC-2023-0071",
+
+    # quick-xml, two transitive copies (0.38.4 via citationberg -> hayagriva
+    # -> typst-library; 0.39.4 via plist -> syntect -> two-face ->
+    # typst-library), both already at the ceiling their respective parent
+    # crates' Cargo.toml allow — `cargo update -p quick-xml@<version>`
+    # resolves 0 packages. A fix requires citationberg/syntect/plist to bump
+    # their own quick-xml requirement, which reaches auditmysite only via a
+    # `renderreport` release once its pinned `typst`/`hayagriva` version
+    # picks up the fix (see .claude/rules/renderreport.md's release
+    # workflow) — tracked separately, not fixable by a Cargo.lock update
+    # alone. Both advisories are XML denial-of-service issues (unbounded
+    # allocation / quadratic attribute parsing); the reachable inputs in
+    # auditmysite are bundled, non-attacker-controlled data (citation style
+    # definitions, syntax-highlighting theme `.plist` files), not content
+    # from audited web pages, so exploitability in this codebase is minimal.
+    "RUSTSEC-2026-0195",
+    "RUSTSEC-2026-0194",
+]

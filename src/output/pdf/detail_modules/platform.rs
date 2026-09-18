@@ -208,7 +208,7 @@ pub(in crate::output::pdf) fn render_mobile(
 /// Maps a raw mobile issue category (e.g. "touch_targets") to a localized,
 /// human-readable label. Unknown categories fall back to a title-cased form of
 /// the identifier so a snake_case key never reaches the report verbatim (#358).
-fn mobile_category_label(category: &str, i18n: &I18n) -> String {
+pub(in crate::output::pdf) fn mobile_category_label(category: &str, i18n: &I18n) -> String {
     let key = format!("mobile-cat-{category}");
     let translated = i18n.t(&key);
     if translated != key {
